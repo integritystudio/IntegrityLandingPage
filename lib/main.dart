@@ -20,7 +20,8 @@ import 'services/tracking.dart';
 /// flutter build web \
 ///   --dart-define=SENTRY_DSN=your-dsn \
 ///   --dart-define=ENVIRONMENT=production \
-///   --dart-define=APP_VERSION=2.0.0
+///   --dart-define=APP_VERSION=2.0.0 \
+///   --dart-define=LANGTRACE_API_KEY=your-langtrace-api-key
 /// ```
 abstract final class SentryConfig {
   /// Sentry DSN (Data Source Name) for error reporting.
@@ -46,6 +47,21 @@ abstract final class SentryConfig {
 
   /// Percentage of transactions to profile.
   static const profilesSampleRate = 0.2;
+}
+
+/// Langtrace configuration for Claude Code subscription-based API key.
+///
+/// Langtrace provides observability for LLM applications.
+/// Configure via compile-time environment variable:
+/// ```bash
+/// flutter build web --dart-define=LANGTRACE_API_KEY=your-api-key
+/// ```
+abstract final class LantraceConfig {
+  /// Langtrace API key for LLM observability.
+  static const apiKey = String.fromEnvironment('LANGTRACE_API_KEY');
+
+  /// Whether Langtrace is configured (API key is provided).
+  static bool get isConfigured => apiKey.isNotEmpty;
 }
 
 // =============================================================================
