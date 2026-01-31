@@ -20,12 +20,9 @@ void main() {
       setDesktopSize(tester);
     }
     await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(disableAnimations: true),
-        child: MaterialApp(
-          theme: testTheme,
-          home: DocsAlertsPage(onBack: onBack),
-        ),
+      MaterialApp(
+        theme: testTheme,
+        home: DocsAlertsPage(onBack: onBack),
       ),
     );
     await tester.pump();
@@ -41,12 +38,9 @@ void main() {
       late Widget desktopPage;
 
       setUpAll(() {
-        desktopPage = MediaQuery(
-          data: const MediaQueryData(disableAnimations: true),
-          child: MaterialApp(
-            theme: testTheme,
-            home: const DocsAlertsPage(onBack: null),
-          ),
+        desktopPage = MaterialApp(
+          theme: testTheme,
+          home: const DocsAlertsPage(onBack: null),
         );
       });
 
@@ -814,11 +808,12 @@ void main() {
           (tester) async {
         await pumpDocsAlertsPage(tester);
 
-        // SCROLL REQUIRED: Footer is at the very end of the page and needs to be
-        // scrolled into view for Flutter to render it (list virtualization)
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -8500));
-        await tester.pump();
+        // Scroll to footer using multiple drags
+        final scrollView = find.byType(CustomScrollView);
+        for (var i = 0; i < 15; i++) {
+          await tester.drag(scrollView, const Offset(0, -600));
+          await tester.pump();
+        }
 
         expect(
           find.text('Built with OpenTelemetry and SigNoz'),
@@ -829,11 +824,12 @@ void main() {
       testWidgets('renders copyright text', (tester) async {
         await pumpDocsAlertsPage(tester);
 
-        // SCROLL REQUIRED: Footer is at the very end of the page and needs to be
-        // scrolled into view for Flutter to render it (list virtualization)
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -8500));
-        await tester.pump();
+        // Scroll to footer using multiple drags
+        final scrollView = find.byType(CustomScrollView);
+        for (var i = 0; i < 15; i++) {
+          await tester.drag(scrollView, const Offset(0, -600));
+          await tester.pump();
+        }
 
         expect(
           find.textContaining('2026 Integrity Studio LLC'),

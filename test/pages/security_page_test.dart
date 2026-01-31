@@ -21,12 +21,9 @@ void main() {
       setDesktopSize(tester);
     }
     await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(disableAnimations: true),
-        child: MaterialApp(
-          theme: testTheme,
-          home: SecurityPage(onBack: onBack),
-        ),
+      MaterialApp(
+        theme: testTheme,
+        home: SecurityPage(onBack: onBack),
       ),
     );
     await tester.pump();

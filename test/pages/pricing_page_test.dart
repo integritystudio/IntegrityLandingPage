@@ -16,26 +16,17 @@ void main() {
     VoidCallback? onShowCookieSettings,
     bool mobile = false,
   }) async {
-    final Size size;
     if (mobile) {
-      size = TestScreenSizes.mobile;
       setMobileSize(tester);
     } else {
-      size = TestScreenSizes.desktop;
       setDesktopSize(tester);
     }
     await tester.pumpWidget(
-      MediaQuery(
-        data: MediaQueryData(
-          size: size,
-          disableAnimations: true,
-        ),
-        child: MaterialApp(
-          theme: testTheme,
-          home: PricingPage(
-            onBack: onBack,
-            onShowCookieSettings: onShowCookieSettings,
-          ),
+      MaterialApp(
+        theme: testTheme,
+        home: PricingPage(
+          onBack: onBack,
+          onShowCookieSettings: onShowCookieSettings,
         ),
       ),
     );

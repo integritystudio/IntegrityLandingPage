@@ -19,27 +19,18 @@ void main() {
   }) async {
     clearOverflowExceptions(tester);
 
-    final Size size;
     if (mobile) {
-      size = TestScreenSizes.mobile;
       setMobileSize(tester);
     } else {
       // Use desktopLarge size to minimize overflow issues
-      size = TestScreenSizes.desktopLarge;
-      setScreenSize(tester, size);
+      setScreenSize(tester, TestScreenSizes.desktopLarge);
     }
     await tester.pumpWidget(
-      MediaQuery(
-        data: MediaQueryData(
-          size: size,
-          disableAnimations: true,
-        ),
-        child: MaterialApp(
-          theme: testTheme,
-          home: CareersPage(
-            onBack: onBack,
-            onShowCookieSettings: onShowCookieSettings,
-          ),
+      MaterialApp(
+        theme: testTheme,
+        home: CareersPage(
+          onBack: onBack,
+          onShowCookieSettings: onShowCookieSettings,
         ),
       ),
     );
@@ -271,15 +262,9 @@ void main() {
         setTabletSize(tester);
         clearOverflowExceptions(tester);
         await tester.pumpWidget(
-          MediaQuery(
-            data: MediaQueryData(
-              size: TestScreenSizes.tablet,
-              disableAnimations: true,
-            ),
-            child: MaterialApp(
-              theme: testTheme,
-              home: const CareersPage(),
-            ),
+          MaterialApp(
+            theme: testTheme,
+            home: const CareersPage(),
           ),
         );
         await tester.pump();

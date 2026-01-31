@@ -616,12 +616,9 @@ void main() {
         );
 
         await tester.pumpWidget(
-          MediaQuery(
-            data: const MediaQueryData(disableAnimations: true),
-            child: MaterialApp.router(
-              routerConfig: router,
-              theme: testTheme,
-            ),
+          MaterialApp.router(
+            routerConfig: router,
+            theme: testTheme,
           ),
         );
         // Router needs multiple frames to initialize
@@ -843,29 +840,26 @@ void main() {
     group('pricing section callbacks', () {
       Future<void> pumpWithSignupRoute(WidgetTester tester) async {
         await tester.pumpWidget(
-          MediaQuery(
-            data: const MediaQueryData(disableAnimations: true),
-            child: MaterialApp(
-              theme: testTheme,
-              initialRoute: '/',
-              onGenerateRoute: (settings) {
-                if (settings.name == '/') {
-                  return MaterialPageRoute(
-                    builder: (context) => const LandingPage(),
-                  );
-                }
-                if (settings.name?.startsWith('/signup') ?? false) {
-                  return MaterialPageRoute(
-                    builder: (context) => Scaffold(
-                      body: Text('Signup: ${settings.name}'),
-                    ),
-                  );
-                }
+          MaterialApp(
+            theme: testTheme,
+            initialRoute: '/',
+            onGenerateRoute: (settings) {
+              if (settings.name == '/') {
                 return MaterialPageRoute(
-                  builder: (context) => const Scaffold(body: Text('Unknown')),
+                  builder: (context) => const LandingPage(),
                 );
-              },
-            ),
+              }
+              if (settings.name?.startsWith('/signup') ?? false) {
+                return MaterialPageRoute(
+                  builder: (context) => Scaffold(
+                    body: Text('Signup: ${settings.name}'),
+                  ),
+                );
+              }
+              return MaterialPageRoute(
+                builder: (context) => const Scaffold(body: Text('Unknown')),
+              );
+            },
           ),
         );
         // Router needs multiple frames to initialize

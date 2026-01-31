@@ -8,33 +8,9 @@ Remaining items from code review (2026-01-31). See commits c1ae24a and 10ab6e4 f
 - [x] Replace `pumpAndSettle()` with fixed frame pumping (20-40s savings)
 - [x] Share widget state via `setUpAll()` (10-20s savings)
 - [x] Add `pumpFrames()` helper to test_helpers.dart
+- [x] Remove redundant MediaQuery wrapping (2-5s savings)
 
 ## Remaining Optimizations
-
-### Low Effort / Quick Wins
-
-#### Remove redundant MediaQuery wrapping (2-5s savings)
-32 instances of unnecessary MediaQuery wrapper in page tests.
-
-**Current:**
-```dart
-await tester.pumpWidget(
-  MediaQuery(
-    data: MediaQueryData(size: size, disableAnimations: true),
-    child: MaterialApp(theme: testTheme, home: page),
-  ),
-);
-```
-
-**Recommended:**
-```dart
-setDesktopSize(tester); // Already sets tester.view.physicalSize
-await tester.pumpWidget(
-  MaterialApp(theme: testTheme, home: page),
-);
-```
-
-**Files:** pricing_page_test.dart, comparison_page_test.dart, others
 
 ### Medium Effort
 
@@ -136,7 +112,7 @@ Navigation tests appear in both page tests AND integration tests.
 | Scroll ops → keys | 60-80s | Medium | Done |
 | pumpAndSettle → pump | 20-40s | Low | Done |
 | setUpAll sharing | 10-20s | Low | Done |
-| MediaQuery removal | 2-5s | Low | Backlog |
+| MediaQuery removal | 2-5s | Low | Done |
 | Semantic labels | 15-30s | Medium | Backlog |
 | Nav test migration | 8-10s | Medium | Backlog |
 | Performance budget | - | Low | Backlog |

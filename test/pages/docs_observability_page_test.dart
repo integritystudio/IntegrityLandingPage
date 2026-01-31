@@ -21,12 +21,9 @@ void main() {
       setDesktopSize(tester);
     }
     await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(disableAnimations: true),
-        child: MaterialApp(
-          theme: testTheme,
-          home: DocsObservabilityPage(onBack: onBack),
-        ),
+      MaterialApp(
+        theme: testTheme,
+        home: DocsObservabilityPage(onBack: onBack),
       ),
     );
     await tester.pump();
@@ -483,12 +480,9 @@ void main() {
         // Use tablet size instead to avoid badge overflow
         setTabletSize(tester);
         await tester.pumpWidget(
-          MediaQuery(
-            data: const MediaQueryData(disableAnimations: true),
-            child: MaterialApp(
-              theme: testTheme,
-              home: const DocsObservabilityPage(),
-            ),
+          MaterialApp(
+            theme: testTheme,
+            home: const DocsObservabilityPage(),
           ),
         );
         await tester.pump();
@@ -508,12 +502,9 @@ void main() {
       testWidgets('renders hero section on tablet', (tester) async {
         setTabletSize(tester);
         await tester.pumpWidget(
-          MediaQuery(
-            data: const MediaQueryData(disableAnimations: true),
-            child: MaterialApp(
-              theme: testTheme,
-              home: const DocsObservabilityPage(),
-            ),
+          MaterialApp(
+            theme: testTheme,
+            home: const DocsObservabilityPage(),
           ),
         );
         await tester.pump();
@@ -527,12 +518,9 @@ void main() {
       testWidgets('renders stats on tablet', (tester) async {
         setTabletSize(tester);
         await tester.pumpWidget(
-          MediaQuery(
-            data: const MediaQueryData(disableAnimations: true),
-            child: MaterialApp(
-              theme: testTheme,
-              home: const DocsObservabilityPage(),
-            ),
+          MaterialApp(
+            theme: testTheme,
+            home: const DocsObservabilityPage(),
           ),
         );
         await tester.pump();
