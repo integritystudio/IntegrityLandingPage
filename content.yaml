@@ -164,7 +164,7 @@ disclaimers:
   eu_ai_act_short: "Tools to support EU AI Act compliance efforts."
   security: >-
     Security certifications in progress. Current measures include encryption at rest
-    and in transit, regular penetration testing, and adherence to OWASP guidelines.
+    and in transit, regular penetration testing, and adherence to OWASP, SOC 2, and GDPR guidelines.
   human_oversight: >-
     Human oversight tools provide technical infrastructure for approval workflows.
     Organizations are responsible for defining oversight policies, training reviewers,
