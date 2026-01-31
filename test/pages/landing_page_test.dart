@@ -14,20 +14,13 @@ import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import '../helpers/test_helpers.dart';
 
 void main() {
+  setUp(setUpOverflowErrorSuppression);
+  tearDown(tearDownOverflowErrorSuppression);
 
   group('LandingPage', () {
     // Use pump with duration instead of pumpAndSettle to avoid animation timeouts
-    // Also handle overflow errors that occur due to test viewport constraints
     Future<void> pumpLandingPage(WidgetTester tester,
         {VoidCallback? onShowCookieSettings}) async {
-      // Set up overflow error suppression for this test
-      final oldHandler = FlutterError.onError;
-      FlutterError.onError = (FlutterErrorDetails details) {
-        if (!details.toString().contains('overflowed')) {
-          oldHandler?.call(details);
-        }
-      };
-
       await tester.pumpWidget(
         MaterialApp(
           theme: testTheme,
@@ -37,9 +30,6 @@ void main() {
       // Two pump frames for widget tree to build
       await tester.pump();
       await tester.pump();
-
-      // Restore error handler
-      FlutterError.onError = oldHandler;
     }
 
     group('widget structure', () {
@@ -404,13 +394,6 @@ void main() {
 
     group('desktop navigation link interactions', () {
       Future<void> pumpWithRoutes(WidgetTester tester) async {
-        final oldHandler = FlutterError.onError;
-        FlutterError.onError = (FlutterErrorDetails details) {
-          if (!details.toString().contains('overflowed')) {
-            oldHandler?.call(details);
-          }
-        };
-
         final router = createAppRouter(
           onConsentGiven: () {},
           onShowCookieSettings: () {},
@@ -428,8 +411,6 @@ void main() {
         await tester.pump();
         await tester.pump();
         await tester.pump();
-
-        FlutterError.onError = oldHandler;
       }
 
       testWidgets('Features nav link scrolls to features section',
@@ -466,7 +447,7 @@ void main() {
         expect(find.byType(LandingPage), findsOneWidget);
       });
 
-      testWidgets('About nav link navigates to about page', (tester) async {
+      testWidgets('About nav link scrolls to about section', (tester) async {
         setDesktopSize(tester);
         await pumpWithRoutes(tester);
 
@@ -477,13 +458,12 @@ void main() {
         await tester.tap(aboutLink);
         await tester.pump();
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 500));
 
-        // Should navigate to about page
-        expect(find.byType(AboutPage), findsOneWidget);
+        // Should still be on landing page (scrolled to about section)
+        expect(find.byType(LandingPage), findsOneWidget);
       });
 
-      testWidgets('Blog nav link navigates to blog page', (tester) async {
+      testWidgets('Blog nav link scrolls to resources section', (tester) async {
         setDesktopSize(tester);
         await pumpWithRoutes(tester);
 
@@ -494,10 +474,9 @@ void main() {
         await tester.tap(blogLink);
         await tester.pump();
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 500));
 
-        // Should navigate to blog page
-        expect(find.byType(BlogPage), findsOneWidget);
+        // Should still be on landing page (scrolled to resources section)
+        expect(find.byType(LandingPage), findsOneWidget);
       });
 
       testWidgets('Contact nav link scrolls to contact section',
@@ -536,15 +515,8 @@ void main() {
 
     group('mobile navigation menu interactions', () {
       Future<void> pumpMobileWithRoutes(WidgetTester tester) async {
-        final oldHandler = FlutterError.onError;
-        FlutterError.onError = (FlutterErrorDetails details) {
-          if (!details.toString().contains('overflowed')) {
-            oldHandler?.call(details);
-          }
-        };
-
         final router = createAppRouter(
-                    onConsentGiven: () {},
+          onConsentGiven: () {},
           onShowCookieSettings: () {},
         );
 
@@ -560,8 +532,6 @@ void main() {
         // Router needs multiple frames to initialize
         await tester.pump();
         await tester.pump();
-
-        FlutterError.onError = oldHandler;
       }
 
       testWidgets('mobile menu opens and shows items', (tester) async {
@@ -622,17 +592,8 @@ void main() {
         expect(find.byType(LandingPage), findsOneWidget);
       });
 
-      testWidgets(
-        'mobile menu About item navigates to about page',
-        (tester) async {
-        // Suppress overflow errors throughout the test (AboutPage has layout issues at mobile)
-        final oldHandler = FlutterError.onError;
-        FlutterError.onError = (FlutterErrorDetails details) {
-          if (!details.toString().contains('overflowed')) {
-            oldHandler?.call(details);
-          }
-        };
-
+      testWidgets('mobile menu About item scrolls to about section',
+          (tester) async {
         setMobileSize(tester);
         await pumpMobileWithRoutes(tester);
 
@@ -645,16 +606,12 @@ void main() {
         await tester.tap(find.text('About').last);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 500));
-        await tester.pump(const Duration(milliseconds: 500));
-        await tester.pump(const Duration(milliseconds: 500));
 
-        // Should navigate to about page
-        expect(find.byType(AboutPage), findsOneWidget);
-
-        FlutterError.onError = oldHandler;
+        // Should still be on landing page (scrolled to about section)
+        expect(find.byType(LandingPage), findsOneWidget);
       });
 
-      testWidgets('mobile menu Blog item navigates to blog page',
+      testWidgets('mobile menu Blog item scrolls to resources section',
           (tester) async {
         setMobileSize(tester);
         await pumpMobileWithRoutes(tester);
@@ -669,8 +626,8 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 500));
 
-        // Should navigate to blog page
-        expect(find.byType(BlogPage), findsOneWidget);
+        // Should still be on landing page (scrolled to resources section)
+        expect(find.byType(LandingPage), findsOneWidget);
       });
 
       testWidgets('mobile menu Contact item scrolls to section',

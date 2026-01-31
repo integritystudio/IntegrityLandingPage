@@ -257,16 +257,16 @@ void main() {
       testWidgets('can tap language tabs to switch code', (tester) async {
         await pumpDocsQuickstartPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -1000));
-        await tester.pump();
-
-        // Find and tap TypeScript tab
+        // Find and scroll to the first TypeScript tab
         final typescriptTab = find.text('TypeScript').first;
+        await tester.ensureVisible(typescriptTab);
+        await tester.pumpAndSettle();
+
+        // Tap the TypeScript tab
         await tester.tap(typescriptTab);
         await tester.pump();
 
-        // Verify TypeScript code is visible
+        // Verify TypeScript code is visible (npm/yarn install commands)
         expect(find.textContaining('npm install'), findsOneWidget);
       });
     });
