@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/pages/landing_page.dart';
-import 'package:integrity_studio_ai/pages/about_page.dart';
-import 'package:integrity_studio_ai/pages/blog_page.dart';
 import 'package:integrity_studio_ai/routing/app_router.dart';
 import 'package:integrity_studio_ai/widgets/sections/hero_section.dart';
 import 'package:integrity_studio_ai/widgets/sections/tabbed_features_section.dart';
