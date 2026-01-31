@@ -163,7 +163,8 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('Blog'), findsOneWidget);
         expect(find.text('Back to Home'), findsOneWidget);
@@ -179,7 +180,8 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // First post is now "WhyLabs Alternative: Migrate to Integrity Studio"
         expect(find.text('WhyLabs Alternative: Migrate to Integrity Studio'),
@@ -199,7 +201,8 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('6 Part Series'), findsOneWidget);
       });
@@ -214,7 +217,8 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.textContaining('\$2.9B+'), findsOneWidget);
         expect(find.textContaining('25.47%'), findsOneWidget);
@@ -231,7 +235,8 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('View Articles'), findsOneWidget);
       });
@@ -246,7 +251,8 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // Initially, View Articles button should be visible
         expect(find.text('View Articles'), findsOneWidget);
@@ -254,11 +260,12 @@ void main() {
 
         // Scroll to ensure button is visible before tapping
         await tester.ensureVisible(find.text('View Articles'));
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Tap View Articles button
         await tester.tap(find.text('View Articles'));
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
 
         // Button text should change after expansion
         expect(find.text('Hide Articles'), findsOneWidget);
@@ -275,20 +282,23 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // Scroll to ensure button is visible
         await tester.ensureVisible(find.text('View Articles'));
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         // Expand
         await tester.tap(find.text('View Articles'));
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
         expect(find.text('Hide Articles'), findsOneWidget);
 
         // Collapse
         await tester.tap(find.text('Hide Articles'));
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
         expect(find.text('View Articles'), findsOneWidget);
       });
 
@@ -303,11 +313,12 @@ void main() {
             home: BlogPage(onBack: () => backCalled = true),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // Tap back button in app bar (LucideIcons.arrowLeft)
         await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         expect(backCalled, isTrue);
       });
@@ -322,10 +333,11 @@ void main() {
             home: BlogPage(onBack: () => backCalled = true),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         await tester.tap(find.text('Back to Home'));
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         expect(backCalled, isTrue);
       });
@@ -341,7 +353,8 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // Blog header should be present
         expect(find.text('Blog'), findsOneWidget);
@@ -358,7 +371,8 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // Blog header should be present
         expect(find.text('Blog'), findsOneWidget);
@@ -375,7 +389,8 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('Blog'), findsOneWidget);
         // First post is WhyLabs Alternative
@@ -394,7 +409,8 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // Verify text elements are present and readable
         expect(find.text('Insights & Research'), findsOneWidget);
@@ -414,7 +430,8 @@ void main() {
             home: const BlogPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // Find and verify View Articles button is tappable
         final viewArticlesButton = find.text('View Articles');

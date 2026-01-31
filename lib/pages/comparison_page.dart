@@ -82,6 +82,7 @@ class ComparisonPage extends StatelessWidget {
 
           // Hero Section
           SliverToBoxAdapter(
+            key: const Key('comparison-hero-section'),
             child: _HeroSection(
               content: content,
               isMobile: isMobile,
@@ -91,11 +92,13 @@ class ComparisonPage extends StatelessWidget {
           // Special Offer Banner (if applicable)
           if (content.specialOfferBadge != null)
             SliverToBoxAdapter(
+              key: const Key('special-offer-section'),
               child: _SpecialOfferBanner(content: content),
             ),
 
           // Key Differentiators
           SliverToBoxAdapter(
+            key: const Key('key-differentiators-section'),
             child: _KeyDifferentiatorsSection(
               content: content,
               isMobile: isMobile,
@@ -104,6 +107,7 @@ class ComparisonPage extends StatelessWidget {
 
           // Feature Comparison Table
           SliverToBoxAdapter(
+            key: const Key('feature-comparison-section'),
             child: _FeatureComparisonSection(
               content: content,
               isMobile: isMobile,
@@ -112,6 +116,7 @@ class ComparisonPage extends StatelessWidget {
 
           // Who Should Choose sections
           SliverToBoxAdapter(
+            key: const Key('who-should-choose-section'),
             child: _WhoShouldChooseSection(
               content: content,
               isMobile: isMobile,
@@ -121,6 +126,7 @@ class ComparisonPage extends StatelessWidget {
           // Migration Steps (if applicable)
           if (content.migrationSteps.isNotEmpty)
             SliverToBoxAdapter(
+              key: const Key('migration-steps-section'),
               child: _MigrationStepsSection(
                 content: content,
                 isMobile: isMobile,
@@ -129,6 +135,7 @@ class ComparisonPage extends StatelessWidget {
 
           // Final CTA Section
           SliverToBoxAdapter(
+            key: const Key('final-cta-section'),
             child: _FinalCTASection(
               content: content,
               isMobile: isMobile,

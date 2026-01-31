@@ -32,38 +32,171 @@ void main() {
       await tester.pump();
     }
 
-    group('widget structure', () {
-      testWidgets('renders as Scaffold', (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
+    // =========================================================================
+    // Static structure tests - share widget state via setUpAll()
+    // =========================================================================
+    group('desktop structure tests', () {
+      // Shared widget for static structure verification tests
+      late Widget desktopPage;
 
-        expect(find.byType(Scaffold), findsWidgets);
-        expect(find.byType(LandingPage), findsOneWidget);
+      setUpAll(() {
+        desktopPage = MaterialApp(
+          theme: testTheme,
+          home: const LandingPage(onShowCookieSettings: null),
+        );
       });
 
-      testWidgets('renders CustomScrollView for smooth scrolling',
-          (tester) async {
+      Future<void> pumpSharedDesktop(WidgetTester tester) async {
         setDesktopSize(tester);
-        await pumpLandingPage(tester);
+        await tester.pumpWidget(desktopPage);
+        await tester.pump();
+        await tester.pump();
+      }
 
-        expect(find.byType(CustomScrollView), findsOneWidget);
+      group('widget structure', () {
+        testWidgets('renders as Scaffold', (tester) async {
+          await pumpSharedDesktop(tester);
+
+          expect(find.byType(Scaffold), findsWidgets);
+          expect(find.byType(LandingPage), findsOneWidget);
+        });
+
+        testWidgets('renders CustomScrollView for smooth scrolling',
+            (tester) async {
+          await pumpSharedDesktop(tester);
+
+          expect(find.byType(CustomScrollView), findsOneWidget);
+        });
+
+        testWidgets('renders SelectionArea for text selection', (tester) async {
+          await pumpSharedDesktop(tester);
+
+          expect(find.byType(SelectionArea), findsOneWidget);
+        });
+
+        testWidgets('renders HeroSection as first visible section',
+            (tester) async {
+          await pumpSharedDesktop(tester);
+
+          expect(find.byType(HeroSection), findsOneWidget);
+        });
+
+        testWidgets('contains SliverToBoxAdapter widgets for sections',
+            (tester) async {
+          await pumpSharedDesktop(tester);
+
+          // At least some slivers should be present
+          expect(find.byType(SliverToBoxAdapter), findsWidgets);
+        });
       });
 
-      testWidgets('renders SelectionArea for text selection', (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
+      group('accessibility', () {
+        testWidgets('hero section has semantic label', (tester) async {
+          await pumpSharedDesktop(tester);
 
-        expect(find.byType(SelectionArea), findsOneWidget);
+          expect(find.bySemanticsLabel('Hero section'), findsOneWidget);
+        });
+
+        testWidgets('sections use Semantics widgets', (tester) async {
+          await pumpSharedDesktop(tester);
+
+          // Semantics widgets are used for accessibility
+          expect(find.byType(Semantics), findsWidgets);
+        });
       });
 
-      testWidgets('renders HeroSection as first visible section',
-          (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
+      group('hero section content', () {
+        testWidgets('hero section is rendered', (tester) async {
+          await pumpSharedDesktop(tester);
 
-        expect(find.byType(HeroSection), findsOneWidget);
+          // HeroSection should be present
+          expect(find.byType(HeroSection), findsOneWidget);
+        });
+
+        testWidgets('hero section has text content', (tester) async {
+          await pumpSharedDesktop(tester);
+
+          // Hero section should have text widgets
+          expect(find.byType(Text), findsWidgets);
+        });
       });
 
+      group('navigation header', () {
+        testWidgets('renders SliverAppBar', (tester) async {
+          await pumpSharedDesktop(tester);
+
+          expect(find.byType(SliverAppBar), findsOneWidget);
+        });
+
+        testWidgets('renders logo/brand with icon', (tester) async {
+          await pumpSharedDesktop(tester);
+
+          // Should have shield icon
+          expect(find.byIcon(LucideIcons.shield), findsWidgets);
+        });
+
+        testWidgets('renders desktop navigation links', (tester) async {
+          await pumpSharedDesktop(tester);
+
+          // Desktop should show nav links
+          expect(find.byType(TextButton), findsWidgets);
+        });
+
+        testWidgets('desktop header has larger toolbar height', (tester) async {
+          await pumpSharedDesktop(tester);
+
+          final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
+          expect(appBar.toolbarHeight, equals(64));
+        });
+
+        testWidgets('desktop logo icon has larger size', (tester) async {
+          await pumpSharedDesktop(tester);
+
+          final icons = find.byIcon(LucideIcons.shield);
+          expect(icons, findsWidgets);
+
+          // The first shield icon should be in the header with size 28
+          final iconWidget = tester.widget<Icon>(icons.first);
+          expect(iconWidget.size, equals(28));
+        });
+      });
+
+      group('section building', () {
+        testWidgets('sections without key do not wrap in KeyedSubtree',
+            (tester) async {
+          await pumpSharedDesktop(tester);
+
+          // The _buildSection method conditionally wraps with KeyedSubtree
+          // only when a key is provided. For sections without key (like footer),
+          // the content is used directly without KeyedSubtree.
+          // This tests that the method works correctly in both cases.
+
+          // Verify the page renders correctly with all sections
+          expect(find.byType(LandingPage), findsOneWidget);
+
+          // Verify KeyedSubtree is used for some sections (those with keys)
+          expect(find.byType(KeyedSubtree), findsWidgets);
+
+          // Verify Semantics widgets wrap all sections
+          expect(find.byType(Semantics), findsWidgets);
+        });
+      });
+
+      group('section navigation', () {
+        testWidgets('sections have keyed subtrees for scroll navigation',
+            (tester) async {
+          await pumpSharedDesktop(tester);
+
+          // KeyedSubtree is used for section navigation
+          expect(find.byType(KeyedSubtree), findsWidgets);
+        });
+      });
+    });
+
+    // =========================================================================
+    // Tests requiring scroll interaction - use per-test setup
+    // =========================================================================
+    group('scroll-dependent structure tests', () {
       testWidgets('renders TabbedFeaturesSection', (tester) async {
         setDesktopSize(tester);
         await pumpLandingPage(tester);
@@ -74,24 +207,6 @@ void main() {
         await tester.pump();
 
         expect(find.byType(TabbedFeaturesSection), findsOneWidget);
-      });
-
-      testWidgets('contains SliverToBoxAdapter widgets for sections',
-          (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
-
-        // At least some slivers should be present
-        expect(find.byType(SliverToBoxAdapter), findsWidgets);
-      });
-    });
-
-    group('accessibility', () {
-      testWidgets('hero section has semantic label', (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
-
-        expect(find.bySemanticsLabel('Hero section'), findsOneWidget);
       });
 
       testWidgets('feature explorer section has semantic label',
@@ -106,14 +221,6 @@ void main() {
 
         expect(
             find.bySemanticsLabel('Feature explorer section'), findsOneWidget);
-      });
-
-      testWidgets('sections use Semantics widgets', (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
-
-        // Semantics widgets are used for accessibility
-        expect(find.byType(Semantics), findsWidgets);
       });
     });
 
@@ -187,24 +294,6 @@ void main() {
       });
     });
 
-    group('hero section content', () {
-      testWidgets('hero section is rendered', (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
-
-        // HeroSection should be present
-        expect(find.byType(HeroSection), findsOneWidget);
-      });
-
-      testWidgets('hero section has text content', (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
-
-        // Hero section should have text widgets
-        expect(find.byType(Text), findsWidgets);
-      });
-    });
-
     group('state management', () {
       testWidgets('widget can be disposed without errors', (tester) async {
         setDesktopSize(tester);
@@ -253,17 +342,6 @@ void main() {
       });
     });
 
-    group('section navigation', () {
-      testWidgets('sections have keyed subtrees for scroll navigation',
-          (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
-
-        // KeyedSubtree is used for section navigation
-        expect(find.byType(KeyedSubtree), findsWidgets);
-      });
-    });
-
     group('constructor', () {
       testWidgets('creates with default parameters', (tester) async {
         setDesktopSize(tester);
@@ -279,47 +357,62 @@ void main() {
       });
     });
 
-    group('navigation header', () {
-      testWidgets('renders SliverAppBar', (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
+    // =========================================================================
+    // Mobile-specific structure tests - require mobile viewport
+    // =========================================================================
+    group('mobile structure tests', () {
+      late Widget mobilePage;
 
-        expect(find.byType(SliverAppBar), findsOneWidget);
+      setUpAll(() {
+        mobilePage = MaterialApp(
+          theme: testTheme,
+          home: const LandingPage(onShowCookieSettings: null),
+        );
       });
 
-      testWidgets('renders logo/brand with icon', (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
-
-        // Should have shield icon
-        expect(find.byIcon(LucideIcons.shield), findsWidgets);
-      });
-
-      testWidgets('renders desktop navigation links', (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
-
-        // Desktop should show nav links
-        expect(find.byType(TextButton), findsWidgets);
-      });
+      Future<void> pumpSharedMobile(WidgetTester tester) async {
+        setMobileSize(tester);
+        await tester.pumpWidget(mobilePage);
+        await tester.pump();
+        await tester.pump();
+      }
 
       testWidgets('renders mobile hamburger menu', (tester) async {
-        setMobileSize(tester);
-        await pumpLandingPage(tester);
+        await pumpSharedMobile(tester);
 
         // Mobile should show PopupMenuButton
         expect(find.byType(PopupMenuButton<String>), findsOneWidget);
       });
 
       testWidgets('mobile menu icon is visible', (tester) async {
-        setMobileSize(tester);
-        await pumpLandingPage(tester);
+        await pumpSharedMobile(tester);
 
         // Should have menu icon
         expect(find.byIcon(LucideIcons.menu), findsOneWidget);
       });
+
+      testWidgets('mobile header has smaller toolbar height', (tester) async {
+        await pumpSharedMobile(tester);
+
+        final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
+        expect(appBar.toolbarHeight, equals(56));
+      });
+
+      testWidgets('mobile logo icon has smaller size', (tester) async {
+        await pumpSharedMobile(tester);
+
+        final icons = find.byIcon(LucideIcons.shield);
+        expect(icons, findsWidgets);
+
+        // The first shield icon should be in the header with size 24
+        final iconWidget = tester.widget<Icon>(icons.first);
+        expect(iconWidget.size, equals(24));
+      });
     });
 
+    // =========================================================================
+    // Interaction tests - require fresh state per test
+    // =========================================================================
     group('scroll interactions', () {
       testWidgets('triggers scroll depth tracking on scroll', (tester) async {
         setDesktopSize(tester);
@@ -917,68 +1010,5 @@ void main() {
       });
     });
 
-    group('header responsive sizing', () {
-      testWidgets('mobile header has smaller toolbar height', (tester) async {
-        setMobileSize(tester);
-        await pumpLandingPage(tester);
-
-        final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
-        expect(appBar.toolbarHeight, equals(56));
-      });
-
-      testWidgets('desktop header has larger toolbar height', (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
-
-        final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
-        expect(appBar.toolbarHeight, equals(64));
-      });
-
-      testWidgets('mobile logo icon has smaller size', (tester) async {
-        setMobileSize(tester);
-        await pumpLandingPage(tester);
-
-        final icons = find.byIcon(LucideIcons.shield);
-        expect(icons, findsWidgets);
-
-        // The first shield icon should be in the header with size 24
-        final iconWidget = tester.widget<Icon>(icons.first);
-        expect(iconWidget.size, equals(24));
-      });
-
-      testWidgets('desktop logo icon has larger size', (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
-
-        final icons = find.byIcon(LucideIcons.shield);
-        expect(icons, findsWidgets);
-
-        // The first shield icon should be in the header with size 28
-        final iconWidget = tester.widget<Icon>(icons.first);
-        expect(iconWidget.size, equals(28));
-      });
-    });
-
-    group('section building', () {
-      testWidgets('sections without key do not wrap in KeyedSubtree',
-          (tester) async {
-        setDesktopSize(tester);
-        await pumpLandingPage(tester);
-
-        // The _buildSection method conditionally wraps with KeyedSubtree
-        // only when a key is provided. For sections without key (like footer),
-        // the content is used directly without KeyedSubtree.
-        // This tests that the method works correctly in both cases.
-
-        // Verify the page renders correctly with all sections
-        expect(find.byType(LandingPage), findsOneWidget);
-
-        // Verify KeyedSubtree is used for some sections (those with keys)
-        expect(find.byType(KeyedSubtree), findsWidgets);
-
-        // Verify Semantics widgets wrap all sections
-        expect(find.byType(Semantics), findsWidgets);
-      });
-    });
   });
 }

@@ -146,6 +146,18 @@ extension WidgetTesterX on WidgetTester {
       timeout,
     );
   }
+
+  /// Pump a fixed number of frames without waiting for animations to settle.
+  ///
+  /// Use this instead of pumpAndSettle() for pages with continuous animations
+  /// that would cause pumpAndSettle to timeout. This approach is ~5x faster.
+  /// Automatically clears overflow exceptions after pumping.
+  Future<void> pumpFrames({int frames = 10}) async {
+    for (var i = 0; i < frames; i++) {
+      await pump(const Duration(milliseconds: 100));
+    }
+    clearOverflowExceptions(this);
+  }
 }
 
 // =============================================================================

@@ -155,172 +155,209 @@ void main() {
       });
     });
 
-    group('WhyLabs page widget rendering', () {
-      testWidgets('renders hero section with headline', (tester) async {
-        setDesktopSize(tester);
+    // =========================================================================
+    // WhyLabs page static structure tests - share widget state via setUpAll()
+    // =========================================================================
+    group('WhyLabs page structure tests', () {
+      // Shared widget for static structure verification tests
+      late Widget whylabsPage;
 
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('WhyLabs Alternative'), findsOneWidget);
-        expect(find.textContaining('WhyLabs Is Shutting Down'), findsOneWidget);
-      });
-
-      testWidgets('renders shutdown status badge', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(
-          find.textContaining('shutdown March 9, 2025'),
-          findsOneWidget,
-        );
-        expect(find.byIcon(LucideIcons.alertTriangle), findsWidgets);
-      });
-
-      testWidgets('renders special offer banner', (tester) async {
-        // Use taller screen to see more content
-        setScreenSize(tester, const Size(1440, 1200));
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        // Special offer banner should be visible below hero
-        expect(find.text('WhyLabs Migration Special'), findsOneWidget);
-        expect(find.textContaining('WHYLABS2025'), findsOneWidget);
-        expect(find.byIcon(LucideIcons.gift), findsOneWidget);
-      });
-
-      testWidgets('renders key differentiators section', (tester) async {
-        setScreenSize(tester, const Size(1440, 2000));
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(
-          find.text('Why Switch to Integrity Studio?'),
-          findsOneWidget,
-        );
-        // Check for differentiator items with checkmarks
-        expect(find.byIcon(LucideIcons.check), findsWidgets);
-      });
-
-      testWidgets('renders feature comparison table', (tester) async {
-        setScreenSize(tester, const Size(1440, 2000));
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('Feature Comparison'), findsOneWidget);
-        expect(find.text('Integrity Studio'), findsOneWidget);
-        expect(find.text('WhyLabs'), findsWidgets); // In header and content
-        expect(find.byType(DataTable), findsOneWidget);
-      });
-
-      testWidgets('renders who should choose sections', (tester) async {
-        setScreenSize(tester, const Size(1440, 2500));
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(
-          find.textContaining('Choose Integrity Studio if'),
-          findsOneWidget,
-        );
-        expect(
-          find.textContaining('Consider WhyLabs if'),
-          findsOneWidget,
+      setUpAll(() {
+        whylabsPage = MaterialApp(
+          theme: testTheme,
+          home: ComparisonPage.whylabs(),
         );
       });
 
-      testWidgets('renders migration guide section', (tester) async {
-        setScreenSize(tester, const Size(1440, 3000));
+      group('hero section', () {
+        testWidgets('renders hero section with headline', (tester) async {
+          setDesktopSize(tester);
+          await tester.pumpWidget(whylabsPage);
+          await tester.pump();
+          await tester.pump();
 
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
-        );
-        await tester.pumpAndSettle();
+          expect(find.text('WhyLabs Alternative'), findsOneWidget);
+          expect(find.textContaining('WhyLabs Is Shutting Down'), findsOneWidget);
+        });
 
-        await tester.ensureVisible(find.text('Migration Guide'));
-        await tester.pumpAndSettle();
+        testWidgets('renders shutdown status badge', (tester) async {
+          setDesktopSize(tester);
+          await tester.pumpWidget(whylabsPage);
+          await tester.pump();
+          await tester.pump();
 
-        expect(find.text('Migration Guide'), findsOneWidget);
-        expect(find.text('Export Your WhyLabs Data'), findsOneWidget);
-        expect(find.textContaining('under 1 hour'), findsOneWidget);
+          expect(
+            find.textContaining('shutdown March 9, 2025'),
+            findsOneWidget,
+          );
+          expect(find.byIcon(LucideIcons.alertTriangle), findsWidgets);
+        });
       });
 
-      testWidgets('renders code snippets in migration steps', (tester) async {
-        setScreenSize(tester, const Size(1440, 4000));
+      group('sections with key lookup', () {
+        testWidgets('renders special offer banner', (tester) async {
+          // Use taller screen to ensure sliver is built (list virtualization)
+          setScreenSize(tester, const Size(1440, 1200));
+          await tester.pumpWidget(whylabsPage);
+          await tester.pump();
+          await tester.pump();
 
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
-        );
-        await tester.pumpAndSettle();
+          // Use key-based lookup for special offer section
+          final section = find.byKey(const Key('special-offer-section'));
+          expect(section, findsOneWidget);
+          expect(
+            find.descendant(of: section, matching: find.text('WhyLabs Migration Special')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: section, matching: find.textContaining('WHYLABS2025')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: section, matching: find.byIcon(LucideIcons.gift)),
+            findsOneWidget,
+          );
+        });
 
-        // Find code snippets
-        expect(find.textContaining('from whylogs import why'), findsOneWidget);
-        expect(find.textContaining('from integritystudio import'), findsOneWidget);
+        testWidgets('renders key differentiators section', (tester) async {
+          // Use taller screen to ensure sliver is built (list virtualization)
+          setScreenSize(tester, const Size(1440, 2000));
+          await tester.pumpWidget(whylabsPage);
+          await tester.pump();
+          await tester.pump();
+
+          // Use key-based lookup for differentiators section
+          final section = find.byKey(const Key('key-differentiators-section'));
+          expect(section, findsOneWidget);
+          expect(
+            find.descendant(of: section, matching: find.text('Why Switch to Integrity Studio?')),
+            findsOneWidget,
+          );
+          // Check for differentiator items with checkmarks
+          expect(
+            find.descendant(of: section, matching: find.byIcon(LucideIcons.check)),
+            findsWidgets,
+          );
+        });
+
+        testWidgets('renders feature comparison table', (tester) async {
+          // Use taller screen to ensure sliver is built (list virtualization)
+          setScreenSize(tester, const Size(1440, 2500));
+          await tester.pumpWidget(whylabsPage);
+          await tester.pump();
+          await tester.pump();
+
+          // Use key-based lookup for feature comparison section
+          final section = find.byKey(const Key('feature-comparison-section'));
+          expect(section, findsOneWidget);
+          expect(
+            find.descendant(of: section, matching: find.text('Feature Comparison')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: section, matching: find.text('Integrity Studio')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: section, matching: find.text('WhyLabs')),
+            findsWidgets,
+          ); // In header and content
+          expect(
+            find.descendant(of: section, matching: find.byType(DataTable)),
+            findsOneWidget,
+          );
+        });
+
+        testWidgets('renders who should choose sections', (tester) async {
+          // Use taller screen to ensure sliver is built (list virtualization)
+          setScreenSize(tester, const Size(1440, 3000));
+          await tester.pumpWidget(whylabsPage);
+          await tester.pump();
+          await tester.pump();
+
+          // Use key-based lookup for who should choose section
+          final section = find.byKey(const Key('who-should-choose-section'));
+          expect(section, findsOneWidget);
+          expect(
+            find.descendant(of: section, matching: find.textContaining('Choose Integrity Studio if')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: section, matching: find.textContaining('Consider WhyLabs if')),
+            findsOneWidget,
+          );
+        });
+
+        testWidgets('renders migration guide section', (tester) async {
+          // Use taller screen to ensure sliver is built (list virtualization)
+          setScreenSize(tester, const Size(1440, 4000));
+          await tester.pumpWidget(whylabsPage);
+          await tester.pump();
+          await tester.pump();
+
+          // Use key-based lookup for migration steps section
+          final section = find.byKey(const Key('migration-steps-section'));
+          expect(section, findsOneWidget);
+          expect(
+            find.descendant(of: section, matching: find.text('Migration Guide')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: section, matching: find.text('Export Your WhyLabs Data')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: section, matching: find.textContaining('under 1 hour')),
+            findsOneWidget,
+          );
+        });
+
+        testWidgets('renders code snippets in migration steps', (tester) async {
+          // Use taller screen to ensure sliver is built (list virtualization)
+          setScreenSize(tester, const Size(1440, 4000));
+          await tester.pumpWidget(whylabsPage);
+          await tester.pump();
+          await tester.pump();
+
+          // Use key-based lookup for migration steps section
+          final section = find.byKey(const Key('migration-steps-section'));
+          // Find code snippets
+          expect(
+            find.descendant(of: section, matching: find.textContaining('from whylogs import why')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: section, matching: find.textContaining('from integritystudio import')),
+            findsOneWidget,
+          );
+        });
+
+        testWidgets('renders final CTA section', (tester) async {
+          // Use taller screen to ensure sliver is built (list virtualization)
+          setScreenSize(tester, const Size(1440, 5000));
+          await tester.pumpWidget(whylabsPage);
+          await tester.pump();
+          await tester.pump();
+
+          // Use key-based lookup for final CTA section
+          final section = find.byKey(const Key('final-cta-section'));
+          expect(section, findsOneWidget);
+          expect(
+            find.descendant(of: section, matching: find.text('Ready to Make the Switch?')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: section, matching: find.text('Schedule Demo')),
+            findsOneWidget,
+          );
+        });
       });
+    });
 
-      testWidgets('renders final CTA section', (tester) async {
-        setScreenSize(tester, const Size(1440, 5000));
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        await tester.dragUntilVisible(
-          find.text('Ready to Make the Switch?'),
-          find.byType(CustomScrollView),
-          const Offset(0, -500),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('Ready to Make the Switch?'), findsOneWidget);
-        expect(find.text('Schedule Demo'), findsOneWidget);
-      });
-
+    // =========================================================================
+    // WhyLabs page interaction tests - require fresh state per test
+    // =========================================================================
+    group('WhyLabs page interaction tests', () {
       testWidgets('calls onBack callback when back button pressed',
           (tester) async {
         setDesktopSize(tester);
@@ -332,10 +369,11 @@ void main() {
             home: ComparisonPage.whylabs(onBack: () => backCalled = true),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         expect(backCalled, isTrue);
       });
@@ -350,26 +388,35 @@ void main() {
             home: ComparisonPage.whylabs(onBack: () => backCalled = true),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         await tester.tap(find.text('Back to Home'));
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         expect(backCalled, isTrue);
       });
     });
 
-    group('Arize page widget rendering', () {
+    // =========================================================================
+    // Arize page structure tests - share widget state via setUpAll()
+    // =========================================================================
+    group('Arize page structure tests', () {
+      // Shared widget for Arize page structure tests
+      late Widget arizePage;
+
+      setUpAll(() {
+        arizePage = MaterialApp(
+          theme: testTheme,
+          home: ComparisonPage.arize(),
+        );
+      });
+
       testWidgets('renders hero section without shutdown badge', (tester) async {
         setDesktopSize(tester);
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.arize(),
-          ),
-        );
-        await tester.pumpAndSettle();
+        await tester.pumpWidget(arizePage);
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('Arize AI Alternative'), findsOneWidget);
         // Should not have shutdown warning for active competitor
@@ -381,17 +428,13 @@ void main() {
 
       testWidgets('does not render migration steps for active competitor',
           (tester) async {
-        setScreenSize(tester, const Size(1440, 3000));
+        setDesktopSize(tester);
+        await tester.pumpWidget(arizePage);
+        await tester.pump();
+        await tester.pump();
 
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.arize(),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        // Migration Guide should not appear for active competitors
+        // Migration Guide section should not exist for active competitors (no key present)
+        expect(find.byKey(const Key('migration-steps-section')), findsNothing);
         expect(find.text('Migration Guide'), findsNothing);
       });
     });
@@ -406,7 +449,8 @@ void main() {
             home: ComparisonPage.whylabs(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.byType(ComparisonPage), findsOneWidget);
       });
@@ -420,29 +464,43 @@ void main() {
             home: ComparisonPage.whylabs(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.byType(ComparisonPage), findsOneWidget);
-        // DataTable is present but may not be visible without scrolling
         expect(find.text('WhyLabs Alternative'), findsOneWidget);
       });
     });
 
     group('code snippet functionality', () {
-      testWidgets('code snippet has copy button', (tester) async {
-        setScreenSize(tester, const Size(1440, 4000));
+      // Reuse WhyLabs page widget for code snippet tests
+      late Widget whylabsPage;
 
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
+      setUpAll(() {
+        whylabsPage = MaterialApp(
+          theme: testTheme,
+          home: ComparisonPage.whylabs(),
         );
-        await tester.pumpAndSettle();
+      });
 
-        // Find copy buttons
-        expect(find.text('Copy'), findsWidgets);
-        expect(find.byIcon(LucideIcons.copy), findsWidgets);
+      testWidgets('code snippet has copy button', (tester) async {
+        // Use taller screen to ensure sliver is built (list virtualization)
+        setScreenSize(tester, const Size(1440, 4000));
+        await tester.pumpWidget(whylabsPage);
+        await tester.pump();
+        await tester.pump();
+
+        // Use key-based lookup for migration steps section
+        final section = find.byKey(const Key('migration-steps-section'));
+        // Find copy buttons within migration section
+        expect(
+          find.descendant(of: section, matching: find.text('Copy')),
+          findsWidgets,
+        );
+        expect(
+          find.descendant(of: section, matching: find.byIcon(LucideIcons.copy)),
+          findsWidgets,
+        );
       });
     });
 

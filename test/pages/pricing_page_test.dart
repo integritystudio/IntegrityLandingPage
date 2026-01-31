@@ -120,90 +120,119 @@ void main() {
       testWidgets('renders billing toggle', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -200));
-        await tester.pump();
-
-        expect(find.text('Monthly'), findsOneWidget);
-        expect(find.text('Annual'), findsOneWidget);
+        // Use key-based lookup instead of scrolling
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        expect(section, findsOneWidget);
+        expect(
+          find.descendant(of: section, matching: find.text('Monthly')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('Annual')),
+          findsOneWidget,
+        );
       });
 
       testWidgets('renders Save 20% badge on annual toggle', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -200));
-        await tester.pump();
-
-        expect(find.text('Save 20%'), findsOneWidget);
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        expect(
+          find.descendant(of: section, matching: find.text('Save 20%')),
+          findsOneWidget,
+        );
       });
 
       testWidgets('renders pricing tier names', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -200));
-        await tester.pump();
-
-        expect(find.text('Starter'), findsOneWidget);
-        expect(find.text('Team'), findsOneWidget);
-        expect(find.text('Enterprise'), findsOneWidget);
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        expect(
+          find.descendant(of: section, matching: find.text('Starter')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('Team')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('Enterprise')),
+          findsOneWidget,
+        );
       });
 
       testWidgets('renders pricing tier prices', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -200));
-        await tester.pump();
-
-        expect(find.text('Free'), findsWidgets);
-        expect(find.text('Custom'), findsWidgets);
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        expect(
+          find.descendant(of: section, matching: find.text('Free')),
+          findsWidgets,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('Custom')),
+          findsWidgets,
+        );
       });
 
       testWidgets('renders Most Popular badge on Team tier', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -200));
-        await tester.pump();
-
-        expect(find.text('Most Popular'), findsOneWidget);
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        expect(
+          find.descendant(of: section, matching: find.text('Most Popular')),
+          findsOneWidget,
+        );
       });
 
       testWidgets('renders tier descriptions', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -200));
-        await tester.pump();
-
-        expect(find.text('For individual developers'), findsOneWidget);
-        expect(find.text('For growing teams'), findsOneWidget);
-        expect(find.text('For large organizations'), findsOneWidget);
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        expect(
+          find.descendant(of: section, matching: find.text('For individual developers')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('For growing teams')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('For large organizations')),
+          findsOneWidget,
+        );
       });
 
       testWidgets('renders CTA buttons for each tier', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -300));
-        await tester.pump();
-
-        expect(find.text('Get Started'), findsWidgets);
-        expect(find.text('Start Free Trial'), findsOneWidget);
-        expect(find.text('Contact Sales'), findsWidgets);
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        expect(
+          find.descendant(of: section, matching: find.text('Get Started')),
+          findsWidgets,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('Start Free Trial')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('Contact Sales')),
+          findsWidgets,
+        );
       });
 
       testWidgets('renders enterprise note with contact link', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -800));
-        await tester.pump();
-
-        expect(find.text('Need custom solutions? '), findsOneWidget);
-        expect(find.text('Contact our sales team'), findsOneWidget);
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        expect(
+          find.descendant(of: section, matching: find.text('Need custom solutions? ')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('Contact our sales team')),
+          findsOneWidget,
+        );
       });
     });
 
@@ -211,47 +240,62 @@ void main() {
       testWidgets('renders Starter tier features', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -300));
-        await tester.pump();
-
-        expect(find.textContaining('traces/month'), findsWidgets);
-        expect(find.text('7-day retention'), findsOneWidget);
-        expect(find.text('Basic dashboards'), findsOneWidget);
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        expect(
+          find.descendant(of: section, matching: find.textContaining('traces/month')),
+          findsWidgets,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('7-day retention')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('Basic dashboards')),
+          findsOneWidget,
+        );
       });
 
       testWidgets('renders Team tier features', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -300));
-        await tester.pump();
-
-        expect(find.text('30-day retention'), findsOneWidget);
-        expect(find.text('Advanced analytics'), findsOneWidget);
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        expect(
+          find.descendant(of: section, matching: find.text('30-day retention')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('Advanced analytics')),
+          findsOneWidget,
+        );
       });
 
       testWidgets('renders Enterprise tier features', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -400));
-        await tester.pump();
-
-        expect(find.text('Unlimited traces'), findsOneWidget);
-        expect(find.text('1-year retention'), findsOneWidget);
-        expect(find.text('SSO/SAML'), findsOneWidget);
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        expect(
+          find.descendant(of: section, matching: find.text('Unlimited traces')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('1-year retention')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: section, matching: find.text('SSO/SAML')),
+          findsOneWidget,
+        );
       });
 
       testWidgets('renders check icons for features', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -300));
-        await tester.pump();
-
+        final section = find.byKey(const Key('pricing-tiers-section'));
         // PricingCard uses check_circle icons for features
-        expect(find.byIcon(Icons.check_circle), findsWidgets);
+        expect(
+          find.descendant(of: section, matching: find.byIcon(Icons.check_circle)),
+          findsWidgets,
+        );
       });
     });
 
@@ -259,7 +303,7 @@ void main() {
       testWidgets('renders FAQ section title', (tester) async {
         await pumpPricingPage(tester);
 
-        // Need to scroll further to reach FAQ section
+        // SCROLL REQUIRED: FAQ section is below pricing tiers and needs scrolling to render
         await tester.drag(
             find.byType(CustomScrollView), const Offset(0, -1500));
         await tester.pump();
@@ -273,7 +317,7 @@ void main() {
       testWidgets('renders FAQ questions', (tester) async {
         await pumpPricingPage(tester);
 
-        // Scroll to FAQ section
+        // SCROLL REQUIRED: FAQ section is below pricing tiers and needs scrolling to render
         await tester.drag(
             find.byType(CustomScrollView), const Offset(0, -1500));
         await tester.pump();
@@ -287,7 +331,7 @@ void main() {
       testWidgets('renders multiple FAQ questions', (tester) async {
         await pumpPricingPage(tester);
 
-        // Scroll to FAQ section
+        // SCROLL REQUIRED: FAQ section is below pricing tiers and needs scrolling to render
         await tester.drag(
             find.byType(CustomScrollView), const Offset(0, -1500));
         await tester.pump();
@@ -301,7 +345,7 @@ void main() {
       testWidgets('FAQ items start collapsed with plus icons', (tester) async {
         await pumpPricingPage(tester);
 
-        // Scroll to FAQ section
+        // SCROLL REQUIRED: FAQ section is below pricing tiers and needs scrolling to render
         await tester.drag(
             find.byType(CustomScrollView), const Offset(0, -1500));
         await tester.pump();
@@ -316,7 +360,7 @@ void main() {
       testWidgets('tapping FAQ item expands it', (tester) async {
         await pumpPricingPage(tester);
 
-        // Scroll down to find FAQ section (need to scroll more carefully)
+        // SCROLL REQUIRED: FAQ section is below pricing tiers and needs scrolling to render
         for (int i = 0; i < 4; i++) {
           await tester.drag(
               find.byType(CustomScrollView), const Offset(0, -500));
@@ -347,7 +391,7 @@ void main() {
       testWidgets('renders custom solution title', (tester) async {
         await pumpPricingPage(tester);
 
-        // Scroll past FAQ to CTA section
+        // SCROLL REQUIRED: CTA section is at the bottom and needs scrolling to render
         await tester.drag(
             find.byType(CustomScrollView), const Offset(0, -1500));
         await tester.pump();
@@ -361,7 +405,7 @@ void main() {
       testWidgets('renders custom solution description', (tester) async {
         await pumpPricingPage(tester);
 
-        // Scroll past FAQ to CTA section
+        // SCROLL REQUIRED: CTA section is at the bottom and needs scrolling to render
         await tester.drag(
             find.byType(CustomScrollView), const Offset(0, -1500));
         await tester.pump();
@@ -378,7 +422,7 @@ void main() {
       testWidgets('renders Contact Sales CTA button', (tester) async {
         await pumpPricingPage(tester);
 
-        // Scroll past FAQ to CTA section
+        // SCROLL REQUIRED: CTA section is at the bottom and needs scrolling to render
         await tester.drag(
             find.byType(CustomScrollView), const Offset(0, -1500));
         await tester.pump();
@@ -395,7 +439,7 @@ void main() {
       testWidgets('renders footer section', (tester) async {
         await pumpPricingPage(tester);
 
-        // Scroll to bottom
+        // SCROLL REQUIRED: Footer is at the very bottom and needs scrolling to render
         await tester.drag(
             find.byType(CustomScrollView), const Offset(0, -1500));
         await tester.pump();
@@ -433,35 +477,49 @@ void main() {
       testWidgets('tapping Monthly updates pricing display', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -200));
-        await tester.pump();
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        final monthlyFinder = find.descendant(
+          of: section,
+          matching: find.text('Monthly'),
+        );
 
         // Tap on Monthly
-        await tester.tap(find.text('Monthly'));
+        await tester.tap(monthlyFinder);
         await tester.pump(const Duration(milliseconds: 200));
 
         // Team tier should show $99 for monthly
-        expect(find.text(r'$99'), findsOneWidget);
+        expect(
+          find.descendant(of: section, matching: find.text(r'$99')),
+          findsOneWidget,
+        );
       });
 
       testWidgets('tapping Annual updates pricing display', (tester) async {
         await pumpPricingPage(tester);
 
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -200));
-        await tester.pump();
+        final section = find.byKey(const Key('pricing-tiers-section'));
+        final monthlyFinder = find.descendant(
+          of: section,
+          matching: find.text('Monthly'),
+        );
+        final annualFinder = find.descendant(
+          of: section,
+          matching: find.text('Annual'),
+        );
 
         // First switch to monthly
-        await tester.tap(find.text('Monthly'));
+        await tester.tap(monthlyFinder);
         await tester.pump(const Duration(milliseconds: 200));
 
         // Then switch back to annual
-        await tester.tap(find.text('Annual'));
+        await tester.tap(annualFinder);
         await tester.pump(const Duration(milliseconds: 200));
 
         // Team tier should show $79 for annual
-        expect(find.text(r'$79'), findsOneWidget);
+        expect(
+          find.descendant(of: section, matching: find.text(r'$79')),
+          findsOneWidget,
+        );
       });
     });
 

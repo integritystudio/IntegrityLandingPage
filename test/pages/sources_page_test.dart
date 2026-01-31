@@ -138,7 +138,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('Sources & Citations'), findsWidgets);
       });
@@ -152,7 +153,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('Transparency & Accountability'), findsOneWidget);
         expect(find.byIcon(LucideIcons.fileCheck), findsWidgets);
@@ -167,7 +169,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('Industry Statistics'), findsOneWidget);
         // Text appears in section subtitle and methodology card
@@ -183,7 +186,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('Customer Results'), findsOneWidget);
         expect(find.textContaining('Aggregated and anonymized'), findsOneWidget);
@@ -198,7 +202,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // Platform Metrics appears as section header and in methodology
         expect(find.text('Platform Metrics'), findsWidgets);
@@ -213,7 +218,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('Service Level Commitments'), findsOneWidget);
       });
@@ -227,14 +233,15 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         await tester.dragUntilVisible(
           find.text('Methodology'),
           find.byType(CustomScrollView),
           const Offset(0, -500),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         expect(find.text('Methodology'), findsOneWidget);
       });
@@ -248,14 +255,15 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         await tester.dragUntilVisible(
           find.text('Customer Data Collection'),
           find.byType(CustomScrollView),
           const Offset(0, -500),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         expect(find.text('Customer Data Collection'), findsOneWidget);
         expect(find.text('Industry Statistics'), findsWidgets);
@@ -272,7 +280,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // Check for market size statistic (values come from content.yaml)
         expect(find.text(Content.statisticsMarketSizeValue), findsOneWidget);
@@ -289,7 +298,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('73%'), findsOneWidget);
         expect(find.text('30-50%'), findsOneWidget);
@@ -304,7 +314,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.text('INDUSTRY REPORT'), findsWidgets);
       });
@@ -318,14 +329,15 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         await tester.dragUntilVisible(
           find.text('Questions about our data?'),
           find.byType(CustomScrollView),
           const Offset(0, -500),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         expect(find.text('Questions about our data?'), findsOneWidget);
         expect(find.textContaining(CompanyInfo.email), findsOneWidget);
@@ -343,10 +355,11 @@ void main() {
             home: SourcesPage(onBack: () => backCalled = true),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         expect(backCalled, isTrue);
       });
@@ -361,10 +374,11 @@ void main() {
             home: SourcesPage(onBack: () => backCalled = true),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         await tester.tap(find.text('Back to Home'));
-        await tester.pumpAndSettle();
+        await tester.pump();
 
         expect(backCalled, isTrue);
       });
@@ -378,7 +392,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.byType(SliverAppBar), findsOneWidget);
         expect(find.text('Sources & Citations'), findsWidgets);
@@ -395,7 +410,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.byType(SourcesPage), findsOneWidget);
       });
@@ -409,7 +425,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.byType(SourcesPage), findsOneWidget);
       });
@@ -423,7 +440,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         expect(find.byType(SourcesPage), findsOneWidget);
       });
@@ -439,7 +457,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // Section icons should be present (may need scrolling)
         expect(find.byIcon(LucideIcons.barChart2), findsWidgets);
@@ -455,7 +474,8 @@ void main() {
             home: const SourcesPage(),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump();
 
         // SelectableText widgets should be present for URLs
         expect(find.byType(SelectableText), findsWidgets);

@@ -53,15 +53,26 @@ class _PricingPageState extends State<PricingPage> {
           controller: _scrollController,
           slivers: [
             _buildAppBar(context),
-            const SliverToBoxAdapter(child: _PricingHeroSection()),
             SliverToBoxAdapter(
+              key: const Key('pricing-hero-section'),
+              child: const _PricingHeroSection(),
+            ),
+            SliverToBoxAdapter(
+              key: const Key('pricing-tiers-section'),
               child: PricingSection(
                 onSelectTier: (tier) => _handleSelectTier(context, tier),
               ),
             ),
-            const SliverToBoxAdapter(child: _FAQSection()),
-            const SliverToBoxAdapter(child: _PricingCTASection()),
             SliverToBoxAdapter(
+              key: const Key('faq-section'),
+              child: const _FAQSection(),
+            ),
+            SliverToBoxAdapter(
+              key: const Key('pricing-cta-section'),
+              child: const _PricingCTASection(),
+            ),
+            SliverToBoxAdapter(
+              key: const Key('footer-section'),
               child: FooterSection(
                 onCookieSettings: widget.onShowCookieSettings,
               ),

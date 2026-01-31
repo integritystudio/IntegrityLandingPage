@@ -55,7 +55,7 @@ class DocsAlertsPage extends StatelessWidget {
 
           // Hero Section
           SliverToBoxAdapter(
-            child: _HeroSection(isMobile: isMobile),
+            child: _HeroSection(key: const Key('hero-section'), isMobile: isMobile),
           ),
 
           // Content
@@ -105,7 +105,7 @@ class DocsAlertsPage extends StatelessWidget {
 class _HeroSection extends StatelessWidget {
   final bool isMobile;
 
-  const _HeroSection({required this.isMobile});
+  const _HeroSection({super.key, required this.isMobile});
 
   @override
   Widget build(BuildContext context) {
@@ -249,6 +249,7 @@ class _DocsContent extends StatelessWidget {
       children: [
         // Overview Section
         _DocSection(
+          key: const Key('overview-section'),
           icon: LucideIcons.info,
           title: 'Overview',
           child: Column(
@@ -266,6 +267,7 @@ class _DocsContent extends StatelessWidget {
 
         // Alert Types Section
         _DocSection(
+          key: const Key('alert-types-section'),
           icon: LucideIcons.layers,
           title: 'Alert Types',
           child: Column(
@@ -324,6 +326,7 @@ class _DocsContent extends StatelessWidget {
 
         // Creating Alerts Section
         _DocSection(
+          key: const Key('creating-alerts-section'),
           icon: LucideIcons.plus,
           title: 'Creating Alerts',
           child: Column(
@@ -378,6 +381,7 @@ class _DocsContent extends StatelessWidget {
 
         // Conditions Section
         _DocSection(
+          key: const Key('alert-conditions-section'),
           icon: LucideIcons.filter,
           title: 'Alert Conditions',
           child: Column(
@@ -437,6 +441,7 @@ class _DocsContent extends StatelessWidget {
 
         // Notification Channels Section
         _DocSection(
+          key: const Key('notification-channels-section'),
           icon: LucideIcons.send,
           title: 'Notification Channels',
           child: Column(
@@ -493,6 +498,7 @@ class _DocsContent extends StatelessWidget {
 
         // Alert Severity Section
         _DocSection(
+          key: const Key('alert-severity-section'),
           icon: LucideIcons.thermometer,
           title: 'Alert Severity',
           child: Column(
@@ -532,6 +538,7 @@ class _DocsContent extends StatelessWidget {
 
         // Schedules Section
         _DocSection(
+          key: const Key('alert-schedules-section'),
           icon: LucideIcons.clock,
           title: 'Alert Schedules',
           child: Column(
@@ -578,6 +585,7 @@ class _DocsContent extends StatelessWidget {
 
         // Best Practices Section
         _DocSection(
+          key: const Key('best-practices-section'),
           icon: LucideIcons.lightbulb,
           title: 'Best Practices',
           child: Column(
@@ -618,6 +626,7 @@ class _DocsContent extends StatelessWidget {
 
         // Example Alerts Section
         _DocSection(
+          key: const Key('example-alerts-section'),
           icon: LucideIcons.fileCode,
           title: 'Example Alert Configurations',
           child: Column(
@@ -698,6 +707,7 @@ class _DocsContent extends StatelessWidget {
 
         // Related Docs Section
         _DocSection(
+          key: const Key('related-docs-section'),
           icon: LucideIcons.bookOpen,
           title: 'Related Documentation',
           child: Column(
@@ -725,6 +735,7 @@ class _DocSection extends StatelessWidget {
   final Widget child;
 
   const _DocSection({
+    super.key,
     required this.icon,
     required this.title,
     required this.child,

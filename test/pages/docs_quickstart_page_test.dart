@@ -260,7 +260,8 @@ void main() {
         // Find and scroll to the first TypeScript tab
         final typescriptTab = find.text('TypeScript').first;
         await tester.ensureVisible(typescriptTab);
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
         // Tap the TypeScript tab
         await tester.tap(typescriptTab);
