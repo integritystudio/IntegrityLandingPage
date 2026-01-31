@@ -8,6 +8,7 @@ import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/common/x_icon.dart';
 import '../widgets/decorative/animated_orb.dart';
 import '../widgets/sections/footer_section.dart';
 
@@ -1126,11 +1127,11 @@ class _TeamMemberCardState extends State<_TeamMemberCard> {
                       tooltip: 'Website',
                       hoverColor: AppColors.indigo500,
                     ),
-                  if (widget.member.twitterUrl != null)
+                  if (widget.member.xUrl != null)
                     _SocialIconButton(
-                      icon: LucideIcons.twitter,
-                      url: widget.member.twitterUrl!,
-                      tooltip: 'Twitter',
+                      iconBuilder: (color) => XIcon(size: 20, color: color),
+                      url: widget.member.xUrl!,
+                      tooltip: 'X',
                       hoverColor: AppColors.purple500,
                     ),
                   if (widget.member.githubUrl != null)
@@ -1151,17 +1152,20 @@ class _TeamMemberCardState extends State<_TeamMemberCard> {
 }
 
 class _SocialIconButton extends StatefulWidget {
-  final IconData icon;
+  final IconData? icon;
+  final Widget Function(Color color)? iconBuilder;
   final String url;
   final String tooltip;
   final Color hoverColor;
 
   const _SocialIconButton({
-    required this.icon,
+    this.icon,
+    this.iconBuilder,
     required this.url,
     required this.tooltip,
     required this.hoverColor,
-  });
+  }) : assert(icon != null || iconBuilder != null,
+            'Either icon or iconBuilder must be provided');
 
   @override
   State<_SocialIconButton> createState() => _SocialIconButtonState();
@@ -1172,6 +1176,8 @@ class _SocialIconButtonState extends State<_SocialIconButton> {
 
   @override
   Widget build(BuildContext context) {
+    final color = _isHovered ? widget.hoverColor : AppColors.gray400;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -1183,11 +1189,9 @@ class _SocialIconButtonState extends State<_SocialIconButton> {
               ? Matrix4.diagonal3Values(1.2, 1.2, 1)
               : Matrix4.identity(),
           child: IconButton(
-            icon: Icon(
-              widget.icon,
-              size: 20,
-              color: _isHovered ? widget.hoverColor : AppColors.gray400,
-            ),
+            icon: widget.iconBuilder != null
+                ? widget.iconBuilder!(color)
+                : Icon(widget.icon, size: 20, color: color),
             hoverColor: widget.hoverColor.withValues(alpha: 0.1),
             onPressed: () => launchUrl(Uri.parse(widget.url)),
           ),
