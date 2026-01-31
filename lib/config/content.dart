@@ -59,7 +59,9 @@ IconData _iconFromString(String? iconName) {
     'calendar' => LucideIcons.calendar,
     'map-pin' => LucideIcons.mapPin,
     'linkedin' => LucideIcons.linkedin,
-    'twitter' => LucideIcons.twitter,
+    // Note: 'x' maps to twitter icon as placeholder; XIcon widget is used via
+    // label-based special casing in contact_section.dart and footer_section.dart
+    'x' => LucideIcons.twitter,
     'github' => LucideIcons.github,
     'book-open' => LucideIcons.bookOpen,
     'puzzle' => LucideIcons.puzzle,
@@ -258,7 +260,7 @@ abstract final class AppContent {
             role: t['role'] as String? ?? '',
             bio: t['bio'] as String? ?? '',
             linkedInUrl: t['linkedin_url'] as String?,
-            twitterUrl: t['twitter_url'] as String?,
+            xUrl: t['x_url'] as String?,
           );
         }).toList(),
         locationCity: Content.companyCity,

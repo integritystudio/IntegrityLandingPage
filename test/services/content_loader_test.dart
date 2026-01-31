@@ -21,10 +21,10 @@ urls:
     calendly_demo: "https://calendly.com/test"
     status_page: "https://status.test.com"
     linkedin: "https://linkedin.com/test"
-    twitter: "https://twitter.com/test"
+    x: "https://x.com/test"
     github: "https://github.com/test"
     founder_linkedin: "https://linkedin.com/in/founder"
-    founder_twitter: "https://twitter.com/founder"
+    founder_x: "https://x.com/founder"
 
 cta_text:
   primary:
@@ -335,10 +335,10 @@ void main() {
         () => loader.calendlyUrl, () => Content.calendlyUrl,
         () => loader.statusPageUrl, () => Content.statusPageUrl,
         () => loader.linkedInUrl, () => Content.linkedInUrl,
-        () => loader.twitterUrl, () => Content.twitterUrl,
+        () => loader.xUrl, () => Content.xUrl,
         () => loader.githubUrl, () => Content.githubUrl,
         () => loader.founderLinkedInUrl, () => Content.founderLinkedInUrl,
-        () => loader.founderTwitterUrl, () => Content.founderTwitterUrl,
+        () => loader.founderXUrl, () => Content.founderXUrl,
       ],
       'CTA': [
         () => loader.ctaStartFreeTrial, () => Content.ctaStartFreeTrial,
@@ -469,10 +469,10 @@ void main() {
         'calendlyUrl': (() => ContentLoader.instance.calendlyUrl, 'https://calendly.com/test'),
         'statusPageUrl': (() => ContentLoader.instance.statusPageUrl, 'https://status.test.com'),
         'linkedInUrl': (() => ContentLoader.instance.linkedInUrl, 'https://linkedin.com/test'),
-        'twitterUrl': (() => ContentLoader.instance.twitterUrl, 'https://twitter.com/test'),
+        'xUrl': (() => ContentLoader.instance.xUrl, 'https://x.com/test'),
         'githubUrl': (() => ContentLoader.instance.githubUrl, 'https://github.com/test'),
         'founderLinkedInUrl': (() => ContentLoader.instance.founderLinkedInUrl, 'https://linkedin.com/in/founder'),
-        'founderTwitterUrl': (() => ContentLoader.instance.founderTwitterUrl, 'https://twitter.com/founder'),
+        'founderXUrl': (() => ContentLoader.instance.founderXUrl, 'https://x.com/founder'),
         'ctaStartFreeTrial': (() => ContentLoader.instance.ctaStartFreeTrial, 'Start Free Trial'),
         'ctaGetStarted': (() => ContentLoader.instance.ctaGetStarted, 'Get Started'),
         'ctaScheduleDemo': (() => ContentLoader.instance.ctaScheduleDemo, 'Schedule Demo'),

@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/content.dart';
 import '../../theme/theme.dart';
 import '../common/containers.dart';
+import '../common/x_icon.dart';
 
 /// Launch URL with web-compatible mode
 Future<void> _launchUrl(String url) async {
@@ -121,21 +122,21 @@ class FooterSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        const Row(
+        Row(
           children: [
             _SocialLink(
-              icon: LucideIcons.twitter,
-              url: ExternalUrls.twitter,
-              label: 'Twitter',
+              iconWidget: const XIcon(size: 20, color: AppColors.gray400),
+              url: ExternalUrls.x,
+              label: 'X',
             ),
-            SizedBox(width: AppSpacing.md),
-            _SocialLink(
+            const SizedBox(width: AppSpacing.md),
+            const _SocialLink(
               icon: LucideIcons.linkedin,
               url: ExternalUrls.linkedIn,
               label: 'LinkedIn',
             ),
-            SizedBox(width: AppSpacing.md),
-            _SocialLink(
+            const SizedBox(width: AppSpacing.md),
+            const _SocialLink(
               icon: LucideIcons.github,
               url: ExternalUrls.github,
               label: 'GitHub',
@@ -296,22 +297,25 @@ class FooterSection extends StatelessWidget {
 }
 
 class _SocialLink extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final Widget? iconWidget;
   final String url;
   final String label;
 
   const _SocialLink({
-    required this.icon,
+    this.icon,
+    this.iconWidget,
     required this.url,
     required this.label,
-  });
+  }) : assert(icon != null || iconWidget != null,
+            'Either icon or iconWidget must be provided');
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       label: label,
       child: IconButton(
-        icon: Icon(icon, size: 20),
+        icon: iconWidget ?? Icon(icon, size: 20),
         color: AppColors.gray400,
         hoverColor: AppColors.gray700,
         onPressed: () => _launchUrl(url),

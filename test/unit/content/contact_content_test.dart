@@ -118,7 +118,7 @@ void main() {
         final labels = content.contactMethods.map((m) => m.label).toList();
 
         expect(labels, contains('LinkedIn'));
-        expect(labels, contains('Twitter'));
+        expect(labels, contains('X'));
         expect(labels, contains('GitHub'));
       });
 

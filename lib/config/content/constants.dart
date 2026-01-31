@@ -61,12 +61,12 @@ abstract final class ExternalUrls {
 
   // Social media
   static const String linkedIn = 'https://linkedin.com/company/integrity-studio-ai';
-  static const String twitter = 'https://twitter.com/integritystudio';
+  static const String x = 'https://x.com/integritystudio';
   static const String github = 'https://github.com/integritystudio';
 
   // Personal (founder)
   static const String founderLinkedIn = 'https://www.linkedin.com/in/aledlie';
-  static const String founderTwitter = 'https://twitter.com/alyshialedlie';
+  static const String founderX = 'https://x.com/alyshialedlie';
 
   // Location
   static const String googleMaps =

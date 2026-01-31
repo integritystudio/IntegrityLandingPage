@@ -9,6 +9,7 @@ import '../common/cards.dart';
 import '../common/containers.dart';
 import '../common/buttons.dart';
 import '../common/form_fields.dart';
+import '../common/x_icon.dart';
 
 /// Contact section with form and contact methods.
 ///
@@ -559,13 +560,20 @@ class _ContactMethodItem extends StatelessWidget {
                 }
               : null,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-          child: GradientIconContainer.solid(
-            icon: method.icon,
-            color: AppColors.gray700.withValues(alpha: 0.5),
-            size: 44,
-            iconSize: 20,
-            iconColor: AppColors.gray300,
-          ),
+          child: method.label == 'X'
+              ? _buildXIconContainer(
+                  color: AppColors.gray700.withValues(alpha: 0.5),
+                  size: 44,
+                  iconSize: 20,
+                  iconColor: AppColors.gray300,
+                )
+              : GradientIconContainer.solid(
+                  icon: method.icon,
+                  color: AppColors.gray700.withValues(alpha: 0.5),
+                  size: 44,
+                  iconSize: 20,
+                  iconColor: AppColors.gray300,
+                ),
         ),
       );
     }
@@ -619,6 +627,26 @@ class _ContactMethodItem extends StatelessWidget {
               color: AppColors.gray500,
             ),
         ],
+      ),
+    );
+  }
+
+  /// Builds a container for the X icon that matches GradientIconContainer.solid style.
+  Widget _buildXIconContainer({
+    required Color color,
+    required double size,
+    required double iconSize,
+    required Color iconColor,
+  }) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+      ),
+      child: Center(
+        child: XIcon(size: iconSize, color: iconColor),
       ),
     );
   }

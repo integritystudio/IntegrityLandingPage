@@ -140,7 +140,7 @@ void main() {
 
         final labels =
             AppContent.contact.contactMethods.map((m) => m.label).toList();
-        expect(labels, containsAll(['Email', 'LinkedIn', 'Twitter', 'GitHub', 'Location', 'Schedule a Demo']));
+        expect(labels, containsAll(['Email', 'LinkedIn', 'X', 'GitHub', 'Location', 'Schedule a Demo']));
 
         final primaryMethods =
             AppContent.contact.contactMethods.where((m) => m.isPrimary);

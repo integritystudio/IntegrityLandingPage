@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
+import 'package:integrity_studio_ai/widgets/common/x_icon.dart';
 import '../../helpers/test_helpers.dart';
 
 void main() {
@@ -15,7 +16,7 @@ void main() {
       const productLinks = ['Features', 'Pricing', 'Documentation', 'API Reference'];
       const companyLinks = ['About', 'Blog', 'Sources', 'Careers', 'Contact'];
       const resourceLinks = ['Help Center', 'Status', 'Security'];
-      const socialPlatforms = ['Twitter', 'LinkedIn', 'GitHub'];
+      const socialPlatforms = ['X', 'LinkedIn', 'GitHub'];
 
       expect(productLinks, hasLength(4));
       expect(companyLinks, hasLength(5));
@@ -106,7 +107,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(LucideIcons.twitter), findsOneWidget);
+      expect(find.byType(XIcon), findsOneWidget);
       expect(find.byIcon(LucideIcons.linkedin), findsOneWidget);
       expect(find.byIcon(LucideIcons.github), findsOneWidget);
       expect(find.byType(IconButton), findsWidgets);

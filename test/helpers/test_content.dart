@@ -26,10 +26,10 @@ urls:
     calendly_demo: "https://calendly.com/test"
     status_page: "https://status.test.com"
     linkedin: "https://linkedin.com/test"
-    twitter: "https://twitter.com/test"
+    x: "https://x.com/test"
     github: "https://github.com/test"
     founder_linkedin: "https://linkedin.com/in/founder"
-    founder_twitter: "https://twitter.com/founder"
+    founder_x: "https://x.com/founder"
 
 cta_text:
   primary:
@@ -255,10 +255,10 @@ contact:
       value: "@integritystudio"
       url: "https://linkedin.com/company/test"
       is_primary: false
-    - icon: "twitter"
-      label: "Twitter"
+    - icon: "x"
+      label: "X"
       value: "@integritystudio"
-      url: "https://twitter.com/test"
+      url: "https://x.com/test"
       is_primary: false
     - icon: "github"
       label: "GitHub"
