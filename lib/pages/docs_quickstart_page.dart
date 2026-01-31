@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../config/content.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
 
@@ -326,6 +327,10 @@ export INTEGRITY_API_KEY="your-api-key-here"
 
 # Or use a .env file
 INTEGRITY_API_KEY=your-api-key-here''',
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _WarningAlert(
+                message: SecurityContent.secretsWarning,
               ),
             ],
           ),
@@ -1484,6 +1489,39 @@ class _HealthMetricCard extends StatelessWidget {
             style: AppTypography.bodyMD.copyWith(
               color: color,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WarningAlert extends StatelessWidget {
+  final String message;
+
+  const _WarningAlert({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+        border: Border.all(color: AppColors.warning),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.alertTriangle, color: AppColors.warning, size: 20),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTypography.bodyMD.copyWith(
+                color: AppColors.warning,
+              ),
             ),
           ),
         ],

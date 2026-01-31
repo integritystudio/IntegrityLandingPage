@@ -80,39 +80,6 @@ void main() {
         expect(categories, contains('best practices'));
       });
 
-      test('has 3 lead magnets', () {
-        final content = AppContent.resources;
-
-        expect(content.leadMagnets.length, equals(3));
-      });
-
-      test('each lead magnet has required fields', () {
-        final content = AppContent.resources;
-
-        for (final magnet in content.leadMagnets) {
-          expect(magnet.icon, isNotNull);
-          expect(magnet.title, isNotEmpty);
-          expect(magnet.description, isNotEmpty);
-          expect(magnet.format, isNotEmpty);
-          expect(magnet.ctaText, isNotEmpty);
-          expect(magnet.url, isNotEmpty);
-        }
-      });
-
-      test('lead magnets include EU AI Act checklist', () {
-        final content = AppContent.resources;
-        final titles = content.leadMagnets.map((m) => m.title).toList();
-
-        expect(titles.any((t) => t.contains('EU AI Act')), isTrue);
-      });
-
-      test('at least one lead magnet does not require email', () {
-        final content = AppContent.resources;
-        final noEmailRequired =
-            content.leadMagnets.where((m) => !m.requiresEmail).toList();
-
-        expect(noEmailRequired, isNotEmpty);
-      });
     });
 
     group('DocCategoryContent', () {

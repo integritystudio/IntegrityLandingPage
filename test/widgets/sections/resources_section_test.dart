@@ -42,16 +42,6 @@ void main() {
         }
       });
 
-      testWidgets('renders lead magnet titles', (tester) async {
-        setScreenSize(tester, TestScreenSizes.desktopLarge);
-        await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
-
-        for (final magnet in AppContent.resources.leadMagnets) {
-          expect(find.text(magnet.title), findsOneWidget);
-        }
-      });
-
       testWidgets('renders blog CTA', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const ResourcesSection()));
@@ -87,28 +77,6 @@ void main() {
 
         for (final post in AppContent.resources.featuredPosts) {
           expect(find.text(post.readTime), findsWidgets);
-        }
-      });
-    });
-
-    group('lead magnets', () {
-      testWidgets('renders lead magnet formats', (tester) async {
-        setScreenSize(tester, TestScreenSizes.desktopLarge);
-        await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
-
-        for (final magnet in AppContent.resources.leadMagnets) {
-          expect(find.text(magnet.format), findsWidgets);
-        }
-      });
-
-      testWidgets('renders lead magnet CTAs', (tester) async {
-        setScreenSize(tester, TestScreenSizes.desktopLarge);
-        await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
-
-        for (final magnet in AppContent.resources.leadMagnets) {
-          expect(find.text(magnet.ctaText), findsWidgets);
         }
       });
     });

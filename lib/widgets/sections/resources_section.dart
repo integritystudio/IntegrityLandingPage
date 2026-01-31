@@ -62,18 +62,13 @@ class ResourcesSection extends StatelessWidget {
 
           SizedBox(height: AppSpacing.sectionPadding(context) * 0.5),
 
-          // Documentation categories
-          _buildDocumentationSection(context),
-
-          SizedBox(height: AppSpacing.sectionPadding(context) * 0.5),
-
-          // Lead magnets
-          _buildLeadMagnetsSection(context),
-
-          SizedBox(height: AppSpacing.sectionPadding(context) * 0.5),
-
           // Featured blog posts
           _buildBlogSection(context),
+
+          SizedBox(height: AppSpacing.sectionPadding(context) * 0.5),
+
+          // Documentation categories
+          _buildDocumentationSection(context),
 
           const SizedBox(height: AppSpacing.xxl),
 
@@ -106,37 +101,6 @@ class ResourcesSection extends StatelessWidget {
                           'docs_${doc.title}',
                         );
                         context.go(doc.url);
-                      },
-                    ))
-                .toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLeadMagnetsSection(BuildContext context) {
-    if (_content.leadMagnets.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Free Resources',
-          style: AppTypography.headingSM,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Builder(
-          builder: (context) => ResponsiveGrid(
-            mobileColumns: 1,
-            tabletColumns: 2,
-            desktopColumns: 3,
-            children: _content.leadMagnets
-                .map((magnet) => _LeadMagnetCard(
-                      magnet: magnet,
-                      onDownload: () {
-                        AnalyticsService.trackLeadMagnetDownload(magnet.title);
-                        context.go(magnet.url);
                       },
                     ))
                 .toList(),
@@ -269,93 +233,6 @@ class _DocCategoryCard extends StatelessWidget {
                 ),
               );
             }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Lead magnet download card.
-class _LeadMagnetCard extends StatelessWidget {
-  final LeadMagnetContent magnet;
-  final VoidCallback? onDownload;
-
-  const _LeadMagnetCard({
-    required this.magnet,
-    this.onDownload,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      tier: GlassCardTier.secondary,
-      enableHover: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              GradientIconContainer(
-                icon: magnet.icon,
-                borderRadius: AppSpacing.radiusMD,
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      magnet.title,
-                      style: AppTypography.headingSM,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: 2,
-                      ),
-                      decoration: AppDecorations.translucentIconBox(
-                        AppColors.blue500,
-                        radius: AppSpacing.radiusSM,
-                      ),
-                      child: Text(
-                        magnet.format,
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.blue400,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            magnet.description,
-            style: AppTypography.bodySM,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: onDownload,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(magnet.ctaText),
-                  const SizedBox(width: AppSpacing.sm),
-                  Icon(
-                    magnet.requiresEmail
-                        ? Icons.email_outlined
-                        : Icons.download_outlined,
-                    size: 18,
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
       ),

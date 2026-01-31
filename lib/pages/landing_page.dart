@@ -145,6 +145,13 @@ class _LandingPageState extends State<LandingPage> {
               label: 'Resources section',
               child: const ResourcesSection(),
             ),
+            _buildSection(
+              key: _sectionKeys['pricing']!,
+              label: 'Pricing section',
+              child: PricingSection(
+                onSelectTier: _handleSelectTier,
+              ),
+            ),
             // Contact section (form, contact methods)
             _buildSection(
               key: _sectionKeys['contact']!,
@@ -155,13 +162,6 @@ class _LandingPageState extends State<LandingPage> {
               key: _sectionKeys['status']!,
               label: 'Status section',
               child: const StatusSection(),
-            ),
-            _buildSection(
-              key: _sectionKeys['pricing']!,
-              label: 'Pricing section',
-              child: PricingSection(
-                onSelectTier: _handleSelectTier,
-              ),
             ),
             _buildSection(
               key: _sectionKeys['cta']!,
@@ -245,9 +245,9 @@ class _LandingPageState extends State<LandingPage> {
                 onSelected: _handleNavItemSelected,
                 itemBuilder: (context) => [
                   _buildPopupMenuItem('Features', 'features'),
+                  _buildPopupMenuItem('About', 'about'),
+                  _buildPopupMenuItem('Blog', 'resources'),
                   _buildPopupMenuItem('Pricing', 'pricing'),
-                  _buildPopupMenuItem('About', 'about-page'),
-                  _buildPopupMenuItem('Blog', 'blog'),
                   _buildPopupMenuItem('Contact', 'contact'),
                 ],
               ),
@@ -259,16 +259,16 @@ class _LandingPageState extends State<LandingPage> {
                 onTap: () => _scrollToSection('features'),
               ),
               _NavLink(
-                text: 'Pricing',
-                onTap: () => _scrollToSection('pricing'),
-              ),
-              _NavLink(
                 text: 'About',
-                onTap: () => context.go('/about'),
+                onTap: () => _scrollToSection('about'),
               ),
               _NavLink(
                 text: 'Blog',
-                onTap: () => context.go('/blog'),
+                onTap: () => _scrollToSection('resources'),
+              ),
+              _NavLink(
+                text: 'Pricing',
+                onTap: () => _scrollToSection('pricing'),
               ),
               _NavLink(
                 text: 'Contact',
@@ -314,16 +314,7 @@ class _LandingPageState extends State<LandingPage> {
   }
 
   void _handleNavItemSelected(String value) {
-    switch (value) {
-      case 'about-page':
-        context.go('/about');
-        break;
-      case 'blog':
-        context.go('/blog');
-        break;
-      default:
-        _scrollToSection(value);
-    }
+    _scrollToSection(value);
   }
 
   void _handleWatchDemo() {

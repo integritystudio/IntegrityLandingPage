@@ -89,8 +89,9 @@ abstract final class SecurityContent {
 
   static const secretsWarning =
       'Never commit sensitive data to version control. '
-      'All credentials, API keys, and secrets are stored securely via a best in class, '
-      'multi-layer and triple-factor authentication system.';
+      'At Integrity Studio, we store all credentials, API keys, and secrets securely via a best in class, '
+      'multi-layer and triple-factor authentication system. '
+      'For users, we highly recommend using a secrets manager like Wrangler or Doppler instead of local configuration files.';
 
   // Observability Security Section
   static const observabilitySecurityTitle = 'Observability Pipeline Security';

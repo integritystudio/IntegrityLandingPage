@@ -92,7 +92,7 @@ abstract final class Routes {
   static const String features = '#features';
   static const String pricingSection = '#pricing';
   static const String services = '#services';
-  static const String demo = '#demo';
+  static const String demo = '/demo';
 
   // Documentation
   static const String docsObservability = '/docs/llm-observability';

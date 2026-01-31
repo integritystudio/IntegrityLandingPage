@@ -442,7 +442,7 @@ services:
         Interactive dashboards for token usage, costs, latency distributions,
         and model comparison analytics. Export data for stakeholder reporting.
       cta_text: "See Dashboard Demo"
-      cta_url: "#demo"
+      cta_url: "/demo"
       capabilities:
         - "Customizable KPI dashboards"
         - "Historical trend analysis"

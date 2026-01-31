@@ -289,16 +289,6 @@ void main() {
         }
       });
 
-      test('has lead magnets', () {
-        final resources = AppContent.resources;
-
-        expect(resources.leadMagnets, isNotEmpty);
-        for (final magnet in resources.leadMagnets) {
-          expect(magnet.title, isNotEmpty);
-          expect(magnet.ctaText, isNotEmpty);
-        }
-      });
-
       test('has CTA links', () {
         final resources = AppContent.resources;
 
