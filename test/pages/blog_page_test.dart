@@ -183,16 +183,16 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        // First post is now "WhyLabs Alternative: Migrate to Integrity Studio"
-        expect(find.text('WhyLabs Alternative: Migrate to Integrity Studio'),
+        // First post is "LLM Cost Calculator & Optimization Guide (2026)"
+        expect(find.text('LLM Cost Calculator & Optimization Guide (2026)'),
             findsOneWidget);
-        expect(find.text('Migration'), findsOneWidget);
-        expect(find.text('September 15, 2025'), findsOneWidget);
-        expect(find.text('8 min read'), findsOneWidget);
+        expect(find.text('Cost Optimization'), findsOneWidget);
+        expect(find.text('January 30, 2026'), findsOneWidget);
+        expect(find.text('10 min read'), findsOneWidget);
       });
 
       testWidgets('renders series badge for series posts', (tester) async {
-        // Use tall screen to see the series post (7th post)
+        // Use tall screen to see the series post (5th post)
         setScreenSize(tester, const Size(1280, 4000));
 
         await tester.pumpWidget(
@@ -208,7 +208,7 @@ void main() {
       });
 
       testWidgets('renders stats badges', (tester) async {
-        // Use tall screen to see the series post with market stats (7th post)
+        // Use tall screen to see the series post with market stats (5th post)
         setScreenSize(tester, const Size(1280, 4000));
 
         await tester.pumpWidget(
@@ -226,7 +226,7 @@ void main() {
       });
 
       testWidgets('renders View Articles button for series', (tester) async {
-        // Use tall screen to see the series post (7th post)
+        // Use tall screen to see the series post (5th post)
         setScreenSize(tester, const Size(1280, 4000));
 
         await tester.pumpWidget(
@@ -377,7 +377,7 @@ void main() {
         // Blog header should be present
         expect(find.text('Blog'), findsOneWidget);
         // First post title should be visible on tablet
-        expect(find.textContaining('WhyLabs Alternative'), findsWidgets);
+        expect(find.textContaining('LLM Cost Calculator'), findsWidgets);
       });
 
       testWidgets('renders correctly on desktop', (tester) async {
@@ -393,8 +393,8 @@ void main() {
         await tester.pump();
 
         expect(find.text('Blog'), findsOneWidget);
-        // First post is WhyLabs Alternative
-        expect(find.text('WhyLabs Alternative: Migrate to Integrity Studio'),
+        // First post is LLM Cost Calculator
+        expect(find.text('LLM Cost Calculator & Optimization Guide (2026)'),
             findsOneWidget);
       });
     });
@@ -421,7 +421,7 @@ void main() {
       });
 
       testWidgets('buttons are tappable', (tester) async {
-        // Use tall screen to see the series post (7th post) with View Articles
+        // Use tall screen to see the series post (5th post) with View Articles
         setScreenSize(tester, const Size(1280, 4000));
 
         await tester.pumpWidget(

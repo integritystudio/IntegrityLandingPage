@@ -1410,9 +1410,9 @@ blog:
     and strategic insights for building trustworthy AI systems.
 
   posts:
-    # ------------------------------------------
-    # Cost Optimization (newest)
-    # ------------------------------------------
+    # Posts ordered by publish date (newest first)
+
+    # January 30, 2026
     - title: "LLM Cost Calculator & Optimization Guide (2026)"
       subtitle: "Compare Pricing for GPT-4, Claude, Gemini, and DeepSeek"
       description: >-
@@ -1429,75 +1429,7 @@ blog:
         - "Interactive calculator"
         - "2026 pricing data"
 
-    # ------------------------------------------
-    # Comparison/Migration Articles (internal)
-    # ------------------------------------------
-    - title: "WhyLabs Alternative: Migrate to Integrity Studio"
-      subtitle: "WhyLabs Is Shutting Down—Here's Your Migration Path"
-      description: >-
-        WhyLabs announced shutdown on March 9, 2025. This guide covers migrating
-        your AI observability to Integrity Studio with privacy-first monitoring,
-        EU AI Act compliance, and seamless data migration—most teams complete it
-        in under an hour.
-      date: "September 15, 2025"
-      read_time: "8 min read"
-      category: "Migration"
-      url: "/whylabs-alternative"
-      is_internal: true
-      stats:
-        - "Under 1 hour migration"
-        - "EU AI Act ready"
-        - "Privacy-first"
-
-    - title: "Arize AI vs Integrity Studio: Comparison Guide"
-      subtitle: "A Simpler Path to AI Observability"
-      description: >-
-        Comparing Integrity Studio and Arize AI for AI observability. Learn about
-        transparent pricing, EU AI Act compliance, and developer-friendly integration.
-        Find the right platform for your LLM monitoring needs.
-      date: "October 20, 2025"
-      read_time: "6 min read"
-      category: "Comparison"
-      url: "/compare/arize-ai-alternative"
-      is_internal: true
-      stats:
-        - "5-minute setup"
-        - "Transparent pricing"
-        - "Compliance built-in"
-
-    # ------------------------------------------
-    # External Blog Articles
-    # ------------------------------------------
-    - title: "Setting Up Compliance Logging for EU AI Act"
-      subtitle: "Technical Guide to Article 12-Compliant Logging"
-      description: >-
-        A practical guide to implementing Article 12-compliant logging for LLM
-        systems, with code examples and production-ready patterns. Covers ISO 24970
-        standards, data schemas, and implementation for high-risk AI compliance.
-      date: "December 15, 2025"
-      read_time: "15 min read"
-      category: "Compliance"
-      url: "/blog/eu-ai-act-compliance-logging-setup.html"
-      stats:
-        - "August 2026 deadline"
-        - "ISO 24970 aligned"
-        - "Production code"
-
-    - title: "Best LLM Monitoring Tools (2025 Guide)"
-      subtitle: "We Tested 11 Platforms So You Don't Have To"
-      description: >-
-        The definitive guide to LLM monitoring and observability tools. Includes
-        pricing, features, and honest recommendations for startups to enterprises.
-        Covers Langfuse, LangSmith, Helicone, Arize, Datadog, and more.
-      date: "November 28, 2025"
-      read_time: "18 min read"
-      category: "Comparison"
-      url: "/blog/best-llm-monitoring-tools-2025.html"
-      stats:
-        - "11 tools compared"
-        - "$1.97B market 2025"
-        - "Startup to Enterprise"
-
+    # January 20, 2026
     - title: "End-to-End Agentic Observability: From Chaos to Control"
       subtitle: "A Practical Guide to the 4-Stage Observability Lifecycle"
       description: >-
@@ -1514,6 +1446,39 @@ blog:
         - "4-stage lifecycle"
         - "EU AI Act ready"
 
+    # December 15, 2025
+    - title: "Setting Up Compliance Logging for EU AI Act"
+      subtitle: "Technical Guide to Article 12-Compliant Logging"
+      description: >-
+        A practical guide to implementing Article 12-compliant logging for LLM
+        systems, with code examples and production-ready patterns. Covers ISO 24970
+        standards, data schemas, and implementation for high-risk AI compliance.
+      date: "December 15, 2025"
+      read_time: "15 min read"
+      category: "Compliance"
+      url: "/blog/eu-ai-act-compliance-logging-setup.html"
+      stats:
+        - "August 2026 deadline"
+        - "ISO 24970 aligned"
+        - "Production code"
+
+    # November 28, 2025
+    - title: "Best LLM Monitoring Tools (2025 Guide)"
+      subtitle: "We Tested 11 Platforms So You Don't Have To"
+      description: >-
+        The definitive guide to LLM monitoring and observability tools. Includes
+        pricing, features, and honest recommendations for startups to enterprises.
+        Covers Langfuse, LangSmith, Helicone, Arize, Datadog, and more.
+      date: "November 28, 2025"
+      read_time: "18 min read"
+      category: "Comparison"
+      url: "/blog/best-llm-monitoring-tools-2025.html"
+      stats:
+        - "11 tools compared"
+        - "$1.97B market 2025"
+        - "Startup to Enterprise"
+
+    # November 8, 2025
     - title: "AI Observability Platform Strategy"
       subtitle: "Enhanced Research Report: Market Analysis, Regulatory Compliance & Competitive Intelligence"
       description: >-
@@ -1548,3 +1513,38 @@ blog:
         - "$2.9B+ market size by 2030"
         - "25.47% CAGR growth rate"
         - "98% enterprises increasing budgets"
+
+    # October 20, 2025
+    - title: "Arize AI vs Integrity Studio: Comparison Guide"
+      subtitle: "A Simpler Path to AI Observability"
+      description: >-
+        Comparing Integrity Studio and Arize AI for AI observability. Learn about
+        transparent pricing, EU AI Act compliance, and developer-friendly integration.
+        Find the right platform for your LLM monitoring needs.
+      date: "October 20, 2025"
+      read_time: "6 min read"
+      category: "Comparison"
+      url: "/compare/arize-ai-alternative"
+      is_internal: true
+      stats:
+        - "5-minute setup"
+        - "Transparent pricing"
+        - "Compliance built-in"
+
+    # September 15, 2025
+    - title: "WhyLabs Alternative: Migrate to Integrity Studio"
+      subtitle: "WhyLabs Is Shutting Down—Here's Your Migration Path"
+      description: >-
+        WhyLabs announced shutdown on March 9, 2025. This guide covers migrating
+        your AI observability to Integrity Studio with privacy-first monitoring,
+        EU AI Act compliance, and seamless data migration—most teams complete it
+        in under an hour.
+      date: "September 15, 2025"
+      read_time: "8 min read"
+      category: "Migration"
+      url: "/whylabs-alternative"
+      is_internal: true
+      stats:
+        - "Under 1 hour migration"
+        - "EU AI Act ready"
+        - "Privacy-first"
