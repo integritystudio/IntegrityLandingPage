@@ -4,6 +4,59 @@ Chronological record of development sessions for IntegrityStudio.ai Flutter proj
 
 ---
 
+## 2026-02-01: Contact Form CSP/Worker URL Fix
+
+### Summary
+Fixed contact form submission failures caused by CSP violation and non-existent worker URL.
+
+### Problems Solved
+
+1. **CSP Violation**: Form requests blocked by Content Security Policy
+   - Error: `Connecting to 'https://integrity-studio-contact.alyshia-b38.workers.dev/' violates CSP directive`
+   - Initial diagnosis: URL mismatch between code and CSP
+
+2. **Non-existent Worker URL**: After initial fix, DNS resolution failed
+   - Error: `GET https://contact-form.integritystudio.workers.dev/ net::ERR_NAME_NOT_RESOLVED`
+   - Root cause: CSP referenced `contact-form.integritystudio.workers.dev` which doesn't exist
+   - Actual worker deployed at: `integrity-studio-contact.alyshia-b38.workers.dev`
+
+3. **Cloudflare Pages Deployment Gap**: Push to main didn't trigger automatic deployment
+   - Latest deployment was 13 hours old despite recent commits
+   - Required manual deployment via `wrangler pages deploy`
+
+### Key Technical Decisions
+
+1. **Use existing worker URL**: Rather than creating new worker or custom domain, updated both code and CSP to use the working dev URL
+2. **Manual Cloudflare deployment**: Used `wrangler pages deploy build/web` to push changes immediately
+3. **Verified build before deploy**: Checked `main.dart.js` for correct URL after `flutter build web`
+
+### Files Modified
+
+- `lib/services/contact_service.dart` - Updated `_contactApiUrl` to use working worker URL
+- `web/index.html` - Updated CSP `connect-src` directive to allow the same URL
+
+### Commits Made
+- `e24c704` fix(contact): use existing worker URL and update CSP to match
+
+### Verification
+
+```bash
+# Test worker API directly
+curl -s https://integrity-studio-contact.alyshia-b38.workers.dev/
+# Returns: {"csrfToken":"..."}
+
+# Verify build has correct URL
+grep "integrity-studio-contact" build/web/main.dart.js
+```
+
+### Status: ✅ Complete
+
+### Notes
+- `content.js` errors in console are from browser extensions, not application code
+- `Intl.v8BreakIterator` deprecation warning is Flutter SDK internal, safe to ignore
+
+---
+
 ## 2026-01-31: ContentLoader Test Consolidation
 
 ### Summary
