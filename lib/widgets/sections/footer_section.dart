@@ -6,7 +6,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../config/content.dart';
 import '../../theme/theme.dart';
 import '../common/containers.dart';
-import '../common/x_icon.dart';
 
 /// Launch URL with web-compatible mode
 Future<void> _launchUrl(String url) async {
@@ -124,12 +123,6 @@ class FooterSection extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
         Row(
           children: [
-            _SocialLink(
-              iconWidget: const XIcon(size: 20, color: AppColors.gray400),
-              url: ExternalUrls.x,
-              label: 'X',
-            ),
-            const SizedBox(width: AppSpacing.md),
             const _SocialLink(
               icon: LucideIcons.linkedin,
               url: ExternalUrls.linkedIn,

@@ -126,14 +126,6 @@ abstract final class ContactContentVariants {
       url: ExternalUrls.linkedIn,
     ),
     ContactMethodContent(
-      // Note: LucideIcons.twitter is a placeholder; XIcon widget is used via
-      // label-based special casing in contact_section.dart
-      icon: LucideIcons.twitter,
-      label: 'X',
-      value: '@integritystudio',
-      url: ExternalUrls.x,
-    ),
-    ContactMethodContent(
       icon: LucideIcons.github,
       label: 'GitHub',
       value: 'integritystudio',

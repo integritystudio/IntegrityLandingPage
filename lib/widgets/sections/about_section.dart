@@ -395,12 +395,6 @@ class _TeamMemberCard extends StatelessWidget {
                   url: member.linkedInUrl!,
                   tooltip: 'LinkedIn',
                 ),
-              if (member.xUrl != null)
-                _SocialIconButton(
-                  icon: Icons.alternate_email,
-                  url: member.xUrl!,
-                  tooltip: 'X',
-                ),
               if (member.githubUrl != null)
                 _SocialIconButton(
                   icon: Icons.code,

@@ -369,7 +369,6 @@ class TeamMemberContent {
   final String? avatarAsset;
   final String? imageAlt;
   final String? linkedInUrl;
-  final String? xUrl;
   final String? githubUrl;
   final String? websiteUrl;
 
@@ -380,7 +379,6 @@ class TeamMemberContent {
     this.avatarAsset,
     this.imageAlt,
     this.linkedInUrl,
-    this.xUrl,
     this.githubUrl,
     this.websiteUrl,
   });
