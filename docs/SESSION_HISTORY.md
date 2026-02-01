@@ -4,6 +4,104 @@ Chronological record of development sessions for IntegrityStudio.ai Flutter proj
 
 ---
 
+## 2026-01-31: ContentLoader Test Consolidation
+
+### Summary
+Consolidated `content_loader_test.dart` following the established consolidation plan, achieving 48% reduction (747 → 387 lines) while maintaining comprehensive test coverage.
+
+### Implementation Steps
+
+**1. Extracted Test YAML to Helper (+248 lines to test_content.dart)**
+- Added `contentLoaderTestYaml` constant with different values than existing `testContentYaml`
+- Added `setUpContentLoaderTest()` and `tearDownContentLoaderTest()` helpers
+- Ensures tests use consistent, isolated test data
+
+**2. Removed Weak Type Assertion Tests (6 tests)**
+- Deleted tests that only verify Dart's type system:
+  - `instance is a ContentLoader`
+  - `isLoaded returns a boolean` (both versions)
+  - `load method returns Future<void>`
+  - `getHeroVariant method exists`
+
+**3. Fixed Conditional Tests (3 tests)**
+- Converted tests with `if (!loader.isLoaded)` conditionals to use proper setUp/tearDown
+- Tests now get fresh state instead of relying on undefined initial state
+
+**4. Removed Mock Test with Empty Catch (1 test)**
+- Deleted `load method can be called` test that caught and ignored exceptions
+- Test had no actual assertions
+
+**5. Simplified API Surface Verification (127 lines → 50 lines)**
+- Replaced 127-line `apiGetters` map and 10-test loop with 1 focused test
+- Tests representative sample from each category instead of all 100+ getters
+- Checks both `ContentLoader.instance` and `Content` static methods
+
+**6. Consolidated setUp/tearDown (2 duplicate groups)**
+- Replaced duplicate setUp/tearDown in "ContentLoader with loaded content" and "Content static methods" groups
+- Both now use shared `setUpContentLoaderTest()` and `tearDownContentLoaderTest()` helpers
+
+### Consolidation Results
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| content_loader_test.dart lines | 747 | 387 | -48% |
+| test_content.dart lines | 476 | 724 | +248 |
+| Combined lines | 1,223 | 1,111 | -112 (-9%) |
+| Tests | 44 | 104 | +60* |
+| Groups | 13 | 9 | -4 |
+
+*Test count increased due to table-driven string value tests (68 string getters generate individual test entries)
+
+### Files Modified
+
+1. **test/helpers/test_content.dart**
+   - Added `contentLoaderTestYaml` constant (~232 lines of YAML)
+   - Added `setUpContentLoaderTest()` helper function
+   - Added `tearDownContentLoaderTest()` helper function
+
+2. **test/services/content_loader_test.dart**
+   - Removed `_testYamlContent` constant (232 lines)
+   - Removed 6 weak type assertion tests
+   - Fixed 3 conditional tests
+   - Removed 1 mock test with empty catch
+   - Simplified API surface verification (110 lines)
+   - Updated 2 groups to use shared helpers
+
+### Test Results
+
+| Test Suite | Tests | Status |
+|-----------|-------|--------|
+| content_loader_test.dart | 104 | ✅ All passing |
+| services/ (all) | 314 | ✅ All passing |
+| Full suite | 1981 | ⚠️ 1 pre-existing failure* |
+
+*Pre-existing flaky test: `test_performance_budget_test.dart` (not related to changes)
+
+### Commits Made
+(Uncommitted - ready for review)
+
+### Status: ✅ Complete
+
+### Verification Commands
+```bash
+# Content loader tests only
+flutter test test/services/content_loader_test.dart
+
+# All services tests
+flutter test test/services/
+
+# Check line counts
+wc -l test/services/content_loader_test.dart test/helpers/test_content.dart
+```
+
+### Technical Insights
+
+1. **Test data separation**: Keeping separate `testContentYaml` (for widget tests) and `contentLoaderTestYaml` (for service tests) allows each suite to use appropriate test values
+2. **Conditional tests are anti-patterns**: Tests with `if (!condition)` branches are unreliable - use proper setUp for guaranteed state
+3. **Table-driven tests increase coverage**: Converting individual assertions to parameterized loops actually increases test count (68 string value tests)
+
+---
+
 ## 2026-01-31: Test Anti-Patterns Remediation
 
 ### Summary

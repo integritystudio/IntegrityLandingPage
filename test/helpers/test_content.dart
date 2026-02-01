@@ -473,3 +473,252 @@ void loadRealContent() {
 void initializeMinimalTestContent() {
   Content.loadFromString(testContentYaml);
 }
+
+// ---------------------------------------------------------------------------
+// ContentLoader test-specific content and helpers
+// ---------------------------------------------------------------------------
+
+/// Test content YAML for content_loader_test.dart.
+///
+/// Uses different values than testContentYaml to ensure test assertions
+/// are checking the correct content source.
+const contentLoaderTestYaml = '''
+company:
+  name: "Test Company"
+  tagline: "Test Tagline"
+  copyright: "© 2024 Test"
+  founded_year: "2024"
+  location:
+    city: "Austin"
+    region: "Texas"
+  contact:
+    email: "test@example.com"
+    phone: "555-1234"
+
+urls:
+  external:
+    calendly_demo: "https://calendly.com/test"
+    status_page: "https://status.test.com"
+    linkedin: "https://linkedin.com/test"
+    x: "https://x.com/test"
+    github: "https://github.com/test"
+    founder_linkedin: "https://linkedin.com/in/founder"
+    founder_x: "https://x.com/founder"
+
+cta_text:
+  primary:
+    start_free_trial: "Start Free Trial"
+    get_started: "Get Started"
+    schedule_demo: "Schedule Demo"
+    request_demo: "Request Demo"
+    contact_sales: "Contact Sales"
+    learn_more: "Learn More"
+  form:
+    send_message: "Send Message"
+
+trust_indicators:
+  current:
+    - "Feature A"
+    - "Feature B"
+    - "Feature C"
+  legacy:
+    - "Old Feature 1"
+    - "Old Feature 2"
+
+platform_metrics:
+  uptime: "99.9%"
+  traces_processed: "10M+"
+  ai_teams: "500+"
+  setup_time: "5 min"
+
+pricing_constants:
+  annual_discount: "Save 20%"
+
+pricing:
+  title: "Test Pricing"
+  subtitle: "Test pricing subtitle"
+  tiers:
+    - name: "Free"
+      monthly_price: "\$0"
+      annual_price: "\$0"
+      description: "For testing"
+      features:
+        - "Feature 1"
+        - "Feature 2"
+    - name: "Pro"
+      monthly_price: "\$99"
+      annual_price: "\$79"
+      is_popular: true
+      features:
+        - "Everything in Free"
+        - "Pro Feature"
+
+hero:
+  current:
+    badge: "Test Badge"
+    headline: "Test Headline"
+    subheadline: "Test Subheadline"
+    primary_cta: "Primary CTA"
+    secondary_cta: "Secondary CTA"
+  variants:
+    alternate:
+      badge: "Alt Badge"
+      headline: "Alt Headline"
+      subheadline: "Alt Subheadline"
+      primary_cta: "Alt Primary"
+      secondary_cta: "Alt Secondary"
+
+features:
+  title: "Features Title"
+  subtitle: "Features Subtitle"
+  items:
+    - icon: "activity"
+      title: "Feature 1"
+      description: "Description 1"
+      bullets:
+        - "Bullet 1"
+        - "Bullet 2"
+    - icon: "shield"
+      title: "Feature 2"
+      description: "Description 2"
+
+services:
+  title: "Services Title"
+  subtitle: "Services Subtitle"
+  description: "Services Description"
+  items:
+    - icon: "code"
+      title: "Service 1"
+      description: "Service description"
+      capabilities:
+        - "Capability 1"
+        - "Capability 2"
+
+cta:
+  headline: "CTA Headline"
+  subheadline: "CTA Subheadline"
+
+about:
+  title: "About Title"
+  subtitle: "About Subtitle"
+  mission_statement: "Our mission"
+  vision_statement: "Our vision"
+  story: "Our story"
+  values:
+    - icon: "eye"
+      title: "Transparency"
+      description: "Be transparent"
+  team:
+    - name: "John Doe"
+      role: "CEO"
+      bio: "Leader"
+      linkedin_url: "https://linkedin.com/in/johndoe"
+
+contact:
+  title: "Contact Title"
+  subtitle: "Contact Subtitle"
+  description: "Contact Description"
+  form:
+    fields:
+      - name: "email"
+        label: "Email"
+        placeholder: "your@email.com"
+        type: "email"
+        required: true
+    success_message: "Success!"
+    error_message: "Error!"
+  contact_methods:
+    - icon: "mail"
+      label: "Email"
+      value: "test@example.com"
+      url: "mailto:test@example.com"
+      is_primary: true
+
+footer:
+  privacy_link: "/privacy"
+  terms_link: "/terms"
+  cookies_link: "/cookies"
+  link_groups:
+    - title: "Product"
+      links:
+        - label: "Features"
+          url: "#features"
+        - label: "Pricing"
+          url: "#pricing"
+          is_external: false
+
+status:
+  title: "Status Title"
+  subtitle: "Status Subtitle"
+  status_badge: "All Operational"
+  metrics:
+    - label: "Uptime"
+      value: "99.9%"
+      sublabel: "SLA"
+  services:
+    - name: "API"
+      status: "Operational"
+
+resources:
+  title: "Resources Title"
+  subtitle: "Resources Subtitle"
+  documentation:
+    - icon: "book-open"
+      title: "Getting Started"
+      description: "Quick start"
+      url: "/docs/quickstart"
+      popular_topics:
+        - "Setup"
+        - "Configuration"
+  featured_posts:
+    - title: "Test Post"
+      excerpt: "Test excerpt"
+      category: "Guide"
+      publish_date: "2024-01-01"
+      read_time: "5 min"
+      slug: "test-post"
+      author: "Test Author"
+  lead_magnets:
+    - icon: "file-text"
+      title: "Test Guide"
+      description: "A test guide"
+      format: "PDF"
+      cta_text: "Download"
+      url: "/resources/test"
+      requires_email: true
+
+social_proof:
+  title: "Social Proof Title"
+  stats:
+    uptime: "99.9%"
+    traces: "10M+"
+  testimonials:
+    - quote: "Great product!"
+      author: "Jane Doe"
+      role: "CTO"
+      company: "Test Corp"
+
+disclaimers:
+  eu_ai_act: "EU AI Act disclaimer"
+  eu_ai_act_short: "Short disclaimer"
+  security: "Security disclaimer"
+  general: "General disclaimer"
+
+promo_codes:
+  whylabs_migration:
+    code: "TEST2025"
+    description: "Test promo"
+''';
+
+/// Set up content loader for tests.
+///
+/// Resets the loader and loads contentLoaderTestYaml.
+void setUpContentLoaderTest() {
+  Content.reset();
+  Content.loadFromString(contentLoaderTestYaml);
+}
+
+/// Tear down content loader after tests.
+void tearDownContentLoaderTest() {
+  Content.reset();
+}
