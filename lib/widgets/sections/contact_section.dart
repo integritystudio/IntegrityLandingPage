@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/content.dart';
 import '../../theme/theme.dart';
@@ -394,13 +395,17 @@ class _ContactSectionState extends State<ContactSection> {
                   width: double.infinity,
                   child: GradientButton(
                     text: _content.calendlyCtaText,
-                    onPressed: () async {
+                    onPressed: () {
                       AnalyticsService.trackCTAClick(
                         buttonName: _content.calendlyCtaText,
                         location: 'contact_section',
                       );
-                      final uri = Uri.parse(_content.calendlyUrl);
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      final url = _content.calendlyUrl;
+                      if (url.startsWith('/')) {
+                        context.go(url);
+                      } else {
+                        launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                      }
                     },
                   ),
                 ),
