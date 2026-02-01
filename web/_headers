@@ -7,8 +7,22 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
 
-# Cache static assets
-/assets/*
+# Content.yaml changes frequently - short cache with revalidation
+# Must be before /assets/* to avoid header merging
+/assets/content.yaml
+  Cache-Control: public, max-age=3600, must-revalidate
+
+# Cache other static assets (fonts, images, etc.) for 1 year
+/assets/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/packages/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/shaders/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/assets/*
   Cache-Control: public, max-age=31536000, immutable
 
 /icons/*
