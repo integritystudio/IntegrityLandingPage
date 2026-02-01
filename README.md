@@ -75,6 +75,7 @@ lib/
 | `/careers` | Careers page |
 | `/security` | Security page |
 | `/signup` | Signup page |
+| `/demo` | Demo page |
 | `/privacy` | Privacy policy |
 | `/terms` | Terms of service |
 | `/cookies` | Cookies policy |
