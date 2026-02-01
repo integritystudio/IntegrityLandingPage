@@ -26,10 +26,8 @@ urls:
     calendly_demo: "https://calendly.com/test"
     status_page: "https://status.test.com"
     linkedin: "https://linkedin.com/test"
-    x: "https://x.com/test"
     github: "https://github.com/test"
     founder_linkedin: "https://linkedin.com/in/founder"
-    founder_x: "https://x.com/founder"
 
 cta_text:
   primary:
@@ -254,11 +252,6 @@ contact:
       label: "LinkedIn"
       value: "@integritystudio"
       url: "https://linkedin.com/company/test"
-      is_primary: false
-    - icon: "x"
-      label: "X"
-      value: "@integritystudio"
-      url: "https://x.com/test"
       is_primary: false
     - icon: "github"
       label: "GitHub"
@@ -500,10 +493,8 @@ urls:
     calendly_demo: "https://calendly.com/test"
     status_page: "https://status.test.com"
     linkedin: "https://linkedin.com/test"
-    x: "https://x.com/test"
     github: "https://github.com/test"
     founder_linkedin: "https://linkedin.com/in/founder"
-    founder_x: "https://x.com/founder"
 
 cta_text:
   primary:

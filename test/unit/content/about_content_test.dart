@@ -105,7 +105,6 @@ void main() {
           bio: 'Experienced tech leader',
           avatarAsset: 'assets/john.png',
           linkedInUrl: 'https://linkedin.com/in/johndoe',
-          xUrl: 'https://x.com/johndoe',
           githubUrl: 'https://github.com/johndoe',
         );
 
@@ -114,7 +113,6 @@ void main() {
         expect(member.bio, equals('Experienced tech leader'));
         expect(member.avatarAsset, equals('assets/john.png'));
         expect(member.linkedInUrl, isNotNull);
-        expect(member.xUrl, isNotNull);
         expect(member.githubUrl, isNotNull);
       });
 
@@ -127,7 +125,6 @@ void main() {
 
         expect(member.avatarAsset, isNull);
         expect(member.linkedInUrl, isNull);
-        expect(member.xUrl, isNull);
         expect(member.githubUrl, isNull);
       });
     });
