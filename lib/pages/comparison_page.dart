@@ -99,27 +99,39 @@ class ComparisonPage extends StatelessWidget {
           // Key Differentiators
           SliverToBoxAdapter(
             key: const Key('key-differentiators-section'),
-            child: _KeyDifferentiatorsSection(
-              content: content,
-              isMobile: isMobile,
+            child: Semantics(
+              label: 'Key Differentiators Section',
+              container: true,
+              child: _KeyDifferentiatorsSection(
+                content: content,
+                isMobile: isMobile,
+              ),
             ),
           ),
 
           // Feature Comparison Table
           SliverToBoxAdapter(
             key: const Key('feature-comparison-section'),
-            child: _FeatureComparisonSection(
-              content: content,
-              isMobile: isMobile,
+            child: Semantics(
+              label: 'Feature Comparison Section',
+              container: true,
+              child: _FeatureComparisonSection(
+                content: content,
+                isMobile: isMobile,
+              ),
             ),
           ),
 
           // Who Should Choose sections
           SliverToBoxAdapter(
             key: const Key('who-should-choose-section'),
-            child: _WhoShouldChooseSection(
-              content: content,
-              isMobile: isMobile,
+            child: Semantics(
+              label: 'Who Should Choose Section',
+              container: true,
+              child: _WhoShouldChooseSection(
+                content: content,
+                isMobile: isMobile,
+              ),
             ),
           ),
 
@@ -127,18 +139,26 @@ class ComparisonPage extends StatelessWidget {
           if (content.migrationSteps.isNotEmpty)
             SliverToBoxAdapter(
               key: const Key('migration-steps-section'),
-              child: _MigrationStepsSection(
-                content: content,
-                isMobile: isMobile,
+              child: Semantics(
+                label: 'Migration Steps Section',
+                container: true,
+                child: _MigrationStepsSection(
+                  content: content,
+                  isMobile: isMobile,
+                ),
               ),
             ),
 
           // Final CTA Section
           SliverToBoxAdapter(
             key: const Key('final-cta-section'),
-            child: _FinalCTASection(
-              content: content,
-              isMobile: isMobile,
+            child: Semantics(
+              label: 'Final CTA Section',
+              container: true,
+              child: _FinalCTASection(
+                content: content,
+                isMobile: isMobile,
+              ),
             ),
           ),
 

@@ -733,17 +733,22 @@ class _DocSection extends StatelessWidget {
   final IconData icon;
   final String title;
   final Widget child;
+  final String? semanticsLabel;
 
   const _DocSection({
     super.key,
     required this.icon,
     required this.title,
     required this.child,
+    this.semanticsLabel,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Semantics(
+      label: semanticsLabel ?? title,
+      container: true,
+      child: Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.lg),
       padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
@@ -779,6 +784,7 @@ class _DocSection extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           child,
         ],
+      ),
       ),
     );
   }

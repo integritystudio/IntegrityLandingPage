@@ -12,37 +12,29 @@ Remaining items from code review (2026-01-31). See commits c1ae24a and 10ab6e4 f
 
 ## Remaining Optimizations
 
-### Medium Effort
+### Medium Effort - Completed
 
-#### Add semantic labels for complex page sections (15-30s savings)
+#### Add semantic labels for complex page sections (15-30s savings) ✓
 Enables direct widget access without scrolling or tall viewports.
 
-**Page implementations:**
+**Completed:** Added `Semantics` widget wrappers with labels to:
+- `docs_alerts_page.dart` - `_DocSection` now wraps content in Semantics with title-based label
+- `docs_quickstart_page.dart` - `_DocSection` now wraps content in Semantics with title-based label
+- `comparison_page.dart` - All section SliverToBoxAdapters wrapped with Semantics labels
+
+**Usage in tests:**
 ```dart
-Semantics(
-  label: 'Alert Types Section',
-  child: _buildAlertTypesSection(),
-)
+expect(find.bySemanticsLabel('Alert Types'), findsOneWidget);
 ```
 
-**In tests:**
-```dart
-expect(find.bySemanticsLabel('Alert Types Section'), findsOneWidget);
-final section = find.descendant(
-  of: find.bySemanticsLabel('Alert Types Section'),
-  matching: find.text('Budget Alerts'),
-);
-```
+#### Move navigation tests to integration suite ✓
+Navigation tests removed from landing_page_test.dart (lines 414-779).
 
-**Files:** docs_alerts_page.dart, docs_quickstart_page.dart, comparison_page.dart
+**Completed:** Removed 20+ duplicate navigation tests that existed in:
+- test/integration/landing_navigation_test.dart
+- test/integration/mobile_navigation_test.dart
 
-#### Move navigation tests to integration suite
-landing_page_test.dart lines 397-657 test navigation behavior that belongs in integration tests.
-
-**Current:** Page tests verify both UI structure AND navigation behavior (mixed concerns)
-**Recommended:** Keep structure tests in page tests, move navigation to test/integration/
-
-**Impact:** 3x faster execution, cleaner separation of concerns
+**Impact:** Reduced landing_page_test.dart from ~60 tests to ~40 tests, cleaner separation of concerns
 
 ### Infrastructure
 
@@ -113,9 +105,9 @@ Navigation tests appear in both page tests AND integration tests.
 | pumpAndSettle → pump | 20-40s | Low | Done |
 | setUpAll sharing | 10-20s | Low | Done |
 | MediaQuery removal | 2-5s | Low | Done |
-| Semantic labels | 15-30s | Medium | Backlog |
-| Nav test migration | 8-10s | Medium | Backlog |
+| Semantic labels | 15-30s | Medium | Done |
+| Nav test migration | 8-10s | Medium | Done |
 | Performance budget | - | Low | Backlog |
 
-**Current page test runtime:** ~144s → estimated ~60-80s after completed work
-**Target after backlog:** ~50-60s
+**Current page test runtime:** ~51s (down from ~144s)
+**Target achieved:** ~50-60s

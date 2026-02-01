@@ -4,6 +4,79 @@ Chronological record of development sessions for IntegrityStudio.ai Flutter proj
 
 ---
 
+## 2026-01-31: Test Performance Optimization - Medium Effort Items
+
+### Summary
+Implemented two medium effort backlog items in parallel: semantic labels for page sections and migration of navigation tests to integration suite. Achieved ~93s reduction in page test runtime (144s → 51s).
+
+### Problems Solved
+
+1. **Semantic labels for page sections**
+   - Added `Semantics` widget wrappers to enable direct widget access without scrolling
+   - Enables tests to use `find.bySemanticsLabel('Section Name')` instead of scrolling
+
+2. **Duplicate navigation tests**
+   - Removed 20+ navigation tests from `landing_page_test.dart` that duplicated integration tests
+   - Tests already existed in `landing_navigation_test.dart` and `mobile_navigation_test.dart`
+
+### Files Modified
+
+**Semantic Labels:**
+- `lib/pages/docs_alerts_page.dart` - Added `semanticsLabel` param to `_DocSection`, wrapped in `Semantics`
+- `lib/pages/docs_quickstart_page.dart` - Same pattern as above
+- `lib/pages/comparison_page.dart` - Added `Semantics` wrappers to all section SliverToBoxAdapters
+
+**Navigation Test Migration:**
+- `test/pages/landing_page_test.dart` - Removed lines 414-779 (4 test groups, ~20 tests):
+  - `scroll interactions`
+  - `desktop navigation link interactions`
+  - `mobile navigation menu interactions`
+  - `nav link hover states`
+- Also cleaned up unused imports (`flutter/gestures.dart`, `app_router.dart`)
+
+**Documentation:**
+- `docs/BACKLOG.md` - Marked both medium effort items as Done, updated timing metrics
+
+### Test Results
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Page test runtime | ~144s | ~51s |
+| landing_page_test.dart tests | ~60 | ~40 (1 skipped) |
+| Full test suite | 2073+ | 2053+ (all pass) |
+
+### Technical Decisions
+
+1. **Semantic label defaults to title**: `_DocSection` uses `semanticsLabel ?? title` so custom labels are optional
+2. **Semantics at page level for comparison**: Used `Semantics` wrapper in `ComparisonPage.build()` rather than inside each section widget
+3. **Kept 2 tests with skip markers**: Mobile menu tests for About and Blog have skip markers for overflow issues
+
+### Status: ✅ Complete
+
+### Uncommitted Changes
+```
+M docs/BACKLOG.md                      - Marked items complete, updated timing
+M docs/SESSION_HISTORY.md              - This session entry
+M lib/pages/comparison_page.dart       - Semantics wrappers on sections
+M lib/pages/docs_alerts_page.dart      - _DocSection with Semantics
+M lib/pages/docs_quickstart_page.dart  - _DocSection with Semantics
+M test/pages/landing_page_test.dart    - Removed nav tests, cleaned imports
+```
+
+### To Commit
+```bash
+git add -A && git commit -m "perf(tests): add semantic labels and migrate nav tests
+
+- Add Semantics wrappers to docs pages for direct widget access
+- Remove duplicate navigation tests from landing_page_test.dart
+- Tests exist in landing_navigation_test.dart and mobile_navigation_test.dart
+- Page test runtime: 144s → 51s
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+```
+
+---
+
 ## 2026-01-30: CI Fix & Section Test Consolidation
 
 ### Summary
