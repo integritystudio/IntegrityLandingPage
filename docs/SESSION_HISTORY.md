@@ -4,6 +4,88 @@ Chronological record of development sessions for IntegrityStudio.ai Flutter proj
 
 ---
 
+## 2026-01-31: Test Anti-Patterns Remediation
+
+### Summary
+Removed test anti-patterns from the test suite by eliminating widget type assertions that test implementation details rather than user-facing behavior.
+
+### Problems Solved
+
+1. **Widget type assertions testing implementation details**
+   - Tests were using `find.byType(Table)`, `find.byType(DataTable)`, `find.byType(DocFeatureCard)` etc.
+   - These test internal structure, not user-facing behavior
+   - Replaced with content-based assertions where appropriate, or removed redundant tests
+
+2. **Redundant doc component type tests**
+   - Multiple doc pages had tests that only verified `find.byType(DocXxx), findsWidgets`
+   - Same functionality already tested via content assertions in adjacent tests
+   - Removed 15+ redundant tests across docs pages
+
+### Files Modified
+
+- `test/pages/docs_alerts_page_test.dart` - Removed `find.byType(Table)` assertion (line 653)
+- `test/pages/comparison_page_test.dart` - Removed `find.byType(DataTable)` assertion (line 266)
+- `test/pages/docs_interoperability_page_test.dart` - Removed 7 redundant widget type tests:
+  - `renders DocFeatureCard widgets`
+  - `renders DocTable widgets`
+  - `renders DocCodeBlock widgets`
+  - `renders DocCallout widgets`
+  - `renders DocBulletList widgets`
+  - `renders DocNumberedList widget`
+  - `renders DocSection containers`
+- `test/pages/docs_observability_page_test.dart` - Removed entire `doc components` group (6 tests)
+- `test/pages/signup_page_test.dart` - Removed 2 tests:
+  - `back button is present` (redundant with callback test)
+  - `renders Wrap widget for features` (implementation detail)
+
+### Technical Decisions
+
+1. **Keep page type verification** - `find.byType(SignupPage)` is valid as it verifies the correct page rendered
+2. **Keep structural tests** - `find.byType(Scaffold)`, `find.byType(CustomScrollView)`, `find.byType(SliverAppBar)` in `testPageStructure()` helper
+3. **Keep custom widget assertions** - `find.byType(GradientButton)` tests the actual behavior component
+4. **Keep interaction finders** - `find.byType(Checkbox)` needed to tap/verify checkbox state
+5. **Navigation tests are properly scoped** - Page tests use callback verification (`onBack`), integration tests handle full routing
+
+### Test Results
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Page tests | 705 | 690 |
+| Page test runtime | ~51s | ~51s |
+| Full test suite | 1963 | 1948 |
+| All tests passing | ✅ | ✅ |
+
+### Commits Made
+- `809bab1` refactor(tests): remove widget type assertions testing implementation details
+
+### Status: ✅ Complete
+
+### Verification Commands
+```bash
+flutter test test/pages/  # 690 passing in ~51s
+flutter test test/unit test/services test/controllers test/widgets test/pages test/routing test/integration  # 1948 passing
+```
+
+### Anti-Pattern Guidelines Established
+
+**Replace with content assertions:**
+```dart
+// Anti-pattern
+expect(find.byType(Table), findsWidgets);
+
+// Better - verify content
+expect(find.text('Metric'), findsOneWidget);
+expect(find.text('Description'), findsWidgets);
+```
+
+**Keep widget type assertions for:**
+- Page type verification (`find.byType(MyPage)`)
+- Structural tests in `testPageStructure()` helper
+- Custom behavioral widgets (`GradientButton`, `FormTextField`)
+- Interaction targets (`Checkbox`, `TextFormField`)
+
+---
+
 ## 2026-01-31: Test Performance Optimization - Medium Effort Items
 
 ### Summary
