@@ -190,13 +190,17 @@ class _ServiceCard extends StatelessWidget {
           if (service.ctaText != null && service.ctaUrl != null) ...[
             const SizedBox(height: AppSpacing.md),
             TextButton(
-              onPressed: () async {
+              onPressed: () {
                 AnalyticsService.trackCTAClick(
                   buttonName: service.ctaText!,
                   location: 'service_card_${service.title}',
                 );
-                final uri = Uri.parse(service.ctaUrl!);
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                final url = service.ctaUrl!;
+                if (url.startsWith('/')) {
+                  context.go(url);
+                } else {
+                  launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                }
               },
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
