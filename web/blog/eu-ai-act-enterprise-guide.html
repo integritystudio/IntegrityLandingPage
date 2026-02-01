@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A practical guide to EU AI Act compliance for enterprise teams deploying AI systems. Understand the risk-based framework, observability requirements, and how to prepare.">
+    <meta name="keywords" content="EU AI Act compliance, AI governance, enterprise AI, AI observability, high-risk AI systems, AI regulation, compliance logging">
+    <meta name="author" content="Isabel Budenz">
+    <title>The EU AI Act Is Here: What Enterprise AI Teams Need to Know</title>
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="The EU AI Act Is Here: What Enterprise AI Teams Need to Know">
+    <meta property="og:description" content="A practical guide to EU AI Act compliance for enterprise teams deploying AI systems in 2026 and beyond.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://integritystudio.ai/blog/eu-ai-act-enterprise-guide">
+    <meta property="og:image" content="https://integritystudio.ai/images/og-image.png">
+    <meta property="article:published_time" content="2026-01-30T00:00:00Z">
+    <meta property="article:author" content="Isabel Budenz">
+    <meta property="article:section" content="AI Compliance">
+    <meta property="article:tag" content="EU AI Act">
+    <meta property="article:tag" content="AI Governance">
+    <meta property="article:tag" content="Enterprise">
+
+    <!-- X Card (formerly Twitter) -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="The EU AI Act Is Here: What Enterprise AI Teams Need to Know">
+    <meta name="twitter:description" content="A practical guide to EU AI Act compliance for enterprise teams deploying AI systems.">
+    <meta name="twitter:image" content="https://integritystudio.ai/images/og-image.png">
+
+    <link rel="canonical" href="https://integritystudio.ai/blog/eu-ai-act-enterprise-guide">
+
+    <style>
+        :root {
+            --primary: #0f172a;
+            --secondary: #334155;
+            --accent: #3b82f6;
+            --accent-light: #60a5fa;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --surface: #f8fafc;
+            --surface-alt: #f1f5f9;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --white: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.7;
+            color: var(--text);
+            background: var(--white);
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, #1e3a5f 100%);
+            color: var(--white);
+            padding: 80px 0 100px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .header-subtitle {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin-bottom: 24px;
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 24px;
+            font-size: 14px;
+            opacity: 0.8;
+            flex-wrap: wrap;
+        }
+
+        .header-meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Navigation */
+        .nav {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent);
+        }
+
+        /* Main Content */
+        .content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 24px;
+        }
+
+        .content h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 48px 0 24px;
+            color: var(--primary);
+            letter-spacing: -0.01em;
+        }
+
+        .content h3 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            margin: 36px 0 16px;
+            color: var(--primary);
+        }
+
+        .content h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 24px 0 12px;
+            color: var(--secondary);
+        }
+
+        .content p {
+            margin-bottom: 20px;
+            color: var(--text);
+        }
+
+        .content ul, .content ol {
+            margin-bottom: 20px;
+            padding-left: 24px;
+        }
+
+        .content li {
+            margin-bottom: 8px;
+        }
+
+        .content a {
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        .content a:hover {
+            border-bottom-color: var(--accent);
+        }
+
+        /* Lead paragraph */
+        .lead {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            color: var(--secondary);
+            margin-bottom: 32px;
+        }
+
+        /* Risk tiers */
+        .risk-tier {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 16px 0;
+            border-left: 4px solid var(--border);
+        }
+
+        .risk-tier-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .risk-tier-badge {
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .risk-tier-badge.unacceptable { background: var(--error); color: white; }
+        .risk-tier-badge.high { background: var(--warning); color: var(--primary); }
+        .risk-tier-badge.limited { background: var(--accent-light); color: var(--primary); }
+        .risk-tier-badge.minimal { background: var(--success); color: white; }
+
+        .risk-tier h4 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .risk-tier p {
+            margin: 0;
+        }
+
+        /* Article requirement cards */
+        .article-card {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            border-left: 4px solid var(--accent);
+        }
+
+        .article-card h4 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .article-card ul {
+            margin-bottom: 0;
+        }
+
+        /* Practical steps */
+        .steps-list {
+            counter-reset: step-counter;
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .steps-list li {
+            counter-increment: step-counter;
+            padding-left: 48px;
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .steps-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .steps-list strong {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--primary);
+        }
+
+        /* CTA Section */
+        .cta-section {
+            background: linear-gradient(135deg, var(--primary) 0%, #1e3a5f 100%);
+            color: var(--white);
+            border-radius: 16px;
+            padding: 48px;
+            margin: 48px 0;
+            text-align: center;
+        }
+
+        .cta-section h3 {
+            color: var(--white);
+            margin-top: 0;
+        }
+
+        .cta-section p {
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 500px;
+            margin: 0 auto 24px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s, transform 0.2s;
+        }
+
+        .cta-button:hover {
+            background: var(--accent-light);
+            transform: translateY(-2px);
+            border-bottom-color: transparent;
+        }
+
+        /* Author section */
+        .author-section {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 32px;
+            margin-top: 48px;
+            border-top: 4px solid var(--accent);
+        }
+
+        .author-section p {
+            margin-bottom: 12px;
+            font-style: italic;
+        }
+
+        .author-section p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--primary);
+            color: rgba(255, 255, 255, 0.7);
+            padding: 48px 24px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: var(--accent-light);
+        }
+
+        /* Table of contents */
+        .toc {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px 32px;
+            margin: 32px 0;
+        }
+
+        .toc-title {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 16px;
+        }
+
+        .toc-list {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .toc-list li {
+            margin-bottom: 8px;
+        }
+
+        .toc-list a {
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+
+        .toc-list a:hover {
+            color: var(--accent);
+        }
+    </style>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": "The EU AI Act Is Here: What Enterprise AI Teams Need to Know",
+      "description": "A practical guide to EU AI Act compliance for enterprise teams deploying AI systems in 2026 and beyond.",
+      "author": {
+        "@type": "Person",
+        "name": "Isabel Budenz",
+        "jobTitle": "AI Compliance Counsel",
+        "worksFor": {"@type": "Organization", "name": "Integrity Studio"}
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Integrity Studio",
+        "url": "https://integritystudio.ai"
+      },
+      "datePublished": "2026-01-30T00:00:00Z",
+      "mainEntityOfPage": "https://integritystudio.ai/blog/eu-ai-act-enterprise-guide"
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://integritystudio.ai"},
+        {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://integritystudio.ai/blog"},
+        {"@type": "ListItem", "position": 3, "name": "EU AI Act Enterprise Guide", "item": "https://integritystudio.ai/blog/eu-ai-act-enterprise-guide"}
+      ]
+    }
+    </script>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-content">
+            <a href="/" class="nav-logo">Integrity Studio</a>
+            <div class="nav-links">
+                <a href="/blog">Blog</a>
+                <a href="/#features">Features</a>
+                <a href="/#pricing">Pricing</a>
+                <a href="/contact">Contact</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="header-content">
+            <span class="header-badge">Enterprise AI Compliance</span>
+            <h1>The EU AI Act Is Here: What Enterprise AI Teams Need to Know</h1>
+            <p class="header-subtitle">A practical guide to EU AI Act compliance for enterprise teams deploying AI systems in 2026 and beyond.</p>
+            <div class="header-meta">
+                <span>By <span itemprop="author">Isabel Budenz</span>, AI Compliance Counsel</span>
+                <span><time datetime="2026-01-30T00:00:00Z" itemprop="datePublished">January 30, 2026</time></span>
+                <span>8 min read</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="content">
+        <article itemscope itemtype="https://schema.org/Article">
+
+        <p class="lead">Your AI system just made a decision that affected a customer. Can you explain why? Can you prove it was fair? If regulators ask tomorrow, do you have the logs to show them?</p>
+
+        <p>These aren't hypothetical questions anymore. The <a href="https://artificialintelligenceact.eu" target="_blank" rel="noopener">European Union's AI Act</a>&#8212;the world's first comprehensive AI law&#8212;is now in full enforcement mode. For enterprises deploying AI systems, particularly those using large language models (LLMs) in production, this regulation represents both a compliance challenge and an opportunity to build more trustworthy AI infrastructure.</p>
+
+        <p>If your organization serves European customers, processes data from EU residents, or operates within EU member states, the AI Act applies to you. Here's what you need to understand.</p>
+
+        <div class="toc">
+            <div class="toc-title">In This Guide</div>
+            <ol class="toc-list">
+                <li><a href="#risk-framework">Understanding the Risk-Based Framework</a></li>
+                <li><a href="#observability">Why Observability Is Central to Compliance</a></li>
+                <li><a href="#practical-steps">Practical Steps for Enterprise AI Teams</a></li>
+                <li><a href="#opportunity">The Strategic Opportunity</a></li>
+            </ol>
+        </div>
+
+        <h2 id="risk-framework">Understanding the EU AI Act's Risk-Based Framework</h2>
+
+        <p>The AI Act categorizes AI systems into four risk tiers, each with corresponding obligations:</p>
+
+        <div class="risk-tier">
+            <div class="risk-tier-header">
+                <span class="risk-tier-badge unacceptable">Banned</span>
+                <h4>Unacceptable Risk</h4>
+            </div>
+            <p>Certain AI applications are banned outright, including social scoring systems, real-time biometric identification in public spaces (with limited exceptions), and AI that exploits vulnerabilities of specific groups. These prohibitions took effect in February 2025.</p>
+        </div>
+
+        <div class="risk-tier">
+            <div class="risk-tier-header">
+                <span class="risk-tier-badge high">High Risk</span>
+                <h4>High-Risk Systems</h4>
+            </div>
+            <p>AI systems in critical sectors&#8212;healthcare diagnostics, credit scoring, employment decisions, law enforcement, and critical infrastructure&#8212;face the most stringent requirements. These systems must pass conformity assessments (third-party audits), maintain detailed technical documentation, implement human oversight mechanisms, and ensure transparency to affected individuals.</p>
+        </div>
+
+        <div class="risk-tier">
+            <div class="risk-tier-header">
+                <span class="risk-tier-badge limited">Limited Risk</span>
+                <h4>Limited Risk</h4>
+            </div>
+            <p>Systems like chatbots and AI-generated content carry transparency obligations. Users must be informed when they're interacting with AI or viewing AI-generated material.</p>
+        </div>
+
+        <div class="risk-tier">
+            <div class="risk-tier-header">
+                <span class="risk-tier-badge minimal">Minimal Risk</span>
+                <h4>Minimal Risk</h4>
+            </div>
+            <p>Most AI applications fall here with no specific compliance requirements, though voluntary codes of conduct are encouraged.</p>
+        </div>
+
+        <p>With the phased rollout now well underway (prohibitions since February 2025, high-risk obligations activating through 2027), the compliance infrastructure required for high-risk systems&#8212;particularly around documentation, monitoring, and auditability&#8212;takes time to build correctly. The time to prepare was yesterday; the next best time is now.</p>
+
+        <h2 id="observability">Why Observability Is Central to AI Act Compliance</h2>
+
+        <p>Several core requirements of the AI Act directly intersect with AI observability capabilities:</p>
+
+        <div class="article-card">
+            <h4>Logging and Record-Keeping (<a href="https://artificialintelligenceact.eu/article/12/" target="_blank" rel="noopener">Article 12</a>)</h4>
+            <p>High-risk AI systems must maintain logs that enable traceability throughout the system's lifecycle. This means capturing inputs, outputs, and the operational context of AI decisions in a way that supports after-the-fact analysis. For LLM-based systems, this translates to:</p>
+            <ul>
+                <li>Comprehensive prompt and response logging</li>
+                <li>Token-level tracking</li>
+                <li>The ability to reconstruct the context that led to any given output</li>
+            </ul>
+        </div>
+
+        <div class="article-card">
+            <h4>Risk Management Systems (<a href="https://artificialintelligenceact.eu/article/9/" target="_blank" rel="noopener">Article 9</a>)</h4>
+            <p>Operators of high-risk AI must establish continuous risk management processes. This requires ongoing monitoring for performance degradation, bias emergence, and unexpected behaviors&#8212;capabilities that depend on robust observability infrastructure. You cannot manage risks you cannot see.</p>
+        </div>
+
+        <div class="article-card">
+            <h4>Accuracy, Robustness, and Cybersecurity (<a href="https://artificialintelligenceact.eu/article/15/" target="_blank" rel="noopener">Article 15</a>)</h4>
+            <p>AI systems must achieve appropriate levels of accuracy and resilience throughout their lifecycle. Demonstrating compliance requires metrics, benchmarks, and the ability to detect when systems deviate from expected performance. Real-time monitoring and anomaly detection become compliance necessities, not optional enhancements.</p>
+        </div>
+
+        <div class="article-card">
+            <h4>Human Oversight (<a href="https://artificialintelligenceact.eu/article/14/" target="_blank" rel="noopener">Article 14</a>)</h4>
+            <p>High-risk systems must be designed for effective human oversight, including the ability for humans to interpret outputs and intervene when necessary. This demands transparency into model behavior, clear audit trails, and interfaces that surface actionable information to human operators.</p>
+        </div>
+
+        <div class="article-card">
+            <h4>Transparency and Information to Users (<a href="https://artificialintelligenceact.eu/article/13/" target="_blank" rel="noopener">Article 13</a>)</h4>
+            <p>Deployers must provide clear information about AI system capabilities and limitations. This requires understanding your systems well enough to document their behavior accurately&#8212;something only achievable through systematic observation and measurement.</p>
+        </div>
+
+        <h2 id="practical-steps">Practical Steps for Enterprise AI Teams</h2>
+
+        <ol class="steps-list">
+            <li>
+                <strong>Inventory your AI systems</strong>
+                Map all AI applications against the risk categories. Pay particular attention to systems that influence consequential decisions about individuals or operate in regulated sectors.
+            </li>
+            <li>
+                <strong>Implement comprehensive logging</strong>
+                Ensure every AI interaction can be reconstructed. For LLMs, this means capturing prompts, completions, model versions, system configurations, and relevant metadata. Logs must be tamper-resistant and retained for appropriate periods.
+            </li>
+            <li>
+                <strong>Establish baseline metrics</strong>
+                Document your systems' accuracy, fairness, and performance characteristics now. You'll need these baselines to demonstrate ongoing compliance and detect degradation over time.
+            </li>
+            <li>
+                <strong>Build audit capabilities</strong>
+                Regulators will expect you to produce detailed records on request. Invest in tooling that makes compliance reporting straightforward rather than a forensic exercise.
+            </li>
+            <li>
+                <strong>Integrate PII detection and data governance</strong>
+                The AI Act intersects with <a href="https://gdpr.eu" target="_blank" rel="noopener">GDPR</a>. Ensure your AI observability stack identifies personal data in prompts and outputs, enabling appropriate handling and demonstrating data protection compliance.
+            </li>
+            <li>
+                <strong>Plan for human-in-the-loop workflows</strong>
+                Determine where human oversight is required and build the interfaces and processes to support it. Observability data should inform human reviewers, not overwhelm them.
+            </li>
+        </ol>
+
+        <h2 id="opportunity">The Strategic Opportunity</h2>
+
+        <p>Organizations that treat AI Act compliance as merely a legal burden will miss a significant opportunity. The capabilities required for compliance&#8212;comprehensive monitoring, transparent operations, systematic risk management&#8212;are the same capabilities that distinguish mature, trustworthy AI operations from experimental deployments.</p>
+
+        <p>Enterprises that invest in AI observability now will find themselves better positioned not only for EU compliance but also for the regulatory frameworks emerging in the <a href="https://www.gov.uk/government/publications/ai-regulation-a-pro-innovation-approach" target="_blank" rel="noopener">UK</a>, <a href="https://ised-isde.canada.ca/site/innovation-better-canada/en/artificial-intelligence-and-data-act" target="_blank" rel="noopener">Canada</a>, and elsewhere. More fundamentally, they'll operate AI systems they actually understand and can confidently defend to customers, boards, and regulators.</p>
+
+        <p>The AI Act codifies principles that responsible AI practitioners have long advocated: know what your systems do, document how they work, monitor their behavior, and maintain meaningful human oversight. These aren't bureaucratic requirements invented by regulators&#8212;they're engineering best practices elevated to legal obligations.</p>
+
+        <h2>Moving Forward</h2>
+
+        <p>The EU AI Act's compliance timeline is aggressive, but the technical challenges are solvable with the right infrastructure. The organizations that will struggle are those attempting to retrofit observability and governance onto systems designed without these considerations.</p>
+
+        <p>The question isn't whether to prepare for AI regulation. It's whether you'll be ready when the deadlines arrive.</p>
+
+        <div class="cta-section">
+            <h3>Ready to Build Compliant AI Infrastructure?</h3>
+            <p>Integrity Studio provides the observability, auditability, and governance capabilities that AI Act compliance demands. See how we help enterprises prepare.</p>
+            <a href="/" class="cta-button">Start Free Trial</a>
+        </div>
+
+        <div class="author-section">
+            <p>Isabel Budenz serves as AI Compliance Counsel at Integrity Studio, where she advises enterprise clients on AI governance and regulatory compliance. She specializes in translating complex regulatory requirements into practical technical and operational guidance.</p>
+            <p>For more information on how Integrity Studio helps enterprises achieve AI Act compliance, visit <a href="https://integritystudio.ai">integritystudio.ai</a>.</p>
+        </div>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 Integrity Studio. All rights reserved.</p>
+        <p><a href="/privacy">Privacy Policy</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/blog">Blog</a></p>
+    </footer>
+</body>
+</html>
