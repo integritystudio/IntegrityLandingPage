@@ -1411,6 +1411,25 @@ blog:
 
   posts:
     # ------------------------------------------
+    # Cost Optimization (newest)
+    # ------------------------------------------
+    - title: "LLM Cost Calculator & Optimization Guide (2026)"
+      subtitle: "Compare Pricing for GPT-4, Claude, Gemini, and DeepSeek"
+      description: >-
+        Calculate your LLM API costs with our free interactive calculator.
+        Compare pricing for GPT-4o, Claude, Gemini, and DeepSeek. Learn
+        optimization techniques like prompt caching and batch APIs to reduce
+        AI spending by 40-80%.
+      date: "January 30, 2026"
+      read_time: "10 min read"
+      category: "Cost Optimization"
+      url: "/blog/llm-cost-optimization-guide.html"
+      stats:
+        - "40-80% cost savings"
+        - "Interactive calculator"
+        - "2026 pricing data"
+
+    # ------------------------------------------
     # Comparison/Migration Articles (internal)
     # ------------------------------------------
     - title: "WhyLabs Alternative: Migrate to Integrity Studio"

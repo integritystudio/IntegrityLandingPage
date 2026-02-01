@@ -192,8 +192,8 @@ void main() {
       });
 
       testWidgets('renders series badge for series posts', (tester) async {
-        // Use tall screen to see the series post (4th post)
-        setScreenSize(tester, const Size(1280, 3000));
+        // Use tall screen to see the series post (7th post)
+        setScreenSize(tester, const Size(1280, 4000));
 
         await tester.pumpWidget(
           MaterialApp(
@@ -208,8 +208,8 @@ void main() {
       });
 
       testWidgets('renders stats badges', (tester) async {
-        // Use tall screen to see the series post with market stats (4th post)
-        setScreenSize(tester, const Size(1280, 3000));
+        // Use tall screen to see the series post with market stats (7th post)
+        setScreenSize(tester, const Size(1280, 4000));
 
         await tester.pumpWidget(
           MaterialApp(
@@ -226,8 +226,8 @@ void main() {
       });
 
       testWidgets('renders View Articles button for series', (tester) async {
-        // Use tall screen to see the series post (4th post)
-        setScreenSize(tester, const Size(1280, 3000));
+        // Use tall screen to see the series post (7th post)
+        setScreenSize(tester, const Size(1280, 4000));
 
         await tester.pumpWidget(
           MaterialApp(
@@ -242,8 +242,8 @@ void main() {
       });
 
       testWidgets('expands series articles on tap', (tester) async {
-        // Use a large screen to ensure series post (4th) is visible
-        setScreenSize(tester, const Size(1920, 3000));
+        // Use a large screen to ensure series post (7th) is visible
+        setScreenSize(tester, const Size(1920, 4000));
 
         await tester.pumpWidget(
           MaterialApp(
@@ -421,8 +421,8 @@ void main() {
       });
 
       testWidgets('buttons are tappable', (tester) async {
-        // Use tall screen to see the series post (4th post) with View Articles
-        setScreenSize(tester, const Size(1280, 3000));
+        // Use tall screen to see the series post (7th post) with View Articles
+        setScreenSize(tester, const Size(1280, 4000));
 
         await tester.pumpWidget(
           MaterialApp(
