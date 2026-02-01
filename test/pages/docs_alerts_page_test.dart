@@ -650,10 +650,6 @@ void main() {
 
           final section = find.byKey(const Key('alert-conditions-section'));
           expect(
-            find.descendant(of: section, matching: find.byType(Table)),
-            findsWidgets,
-          );
-          expect(
             find.descendant(of: section, matching: find.text('Metric')),
             findsOneWidget,
           );

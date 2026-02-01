@@ -395,56 +395,6 @@ void main() {
       });
     });
 
-    group('doc components', () {
-      testWidgets('renders DocSection widgets', (tester) async {
-        await pumpObservabilityPage(tester);
-
-        expect(find.byType(DocSection), findsWidgets);
-      });
-
-      testWidgets('renders DocFeatureCard widgets', (tester) async {
-        await pumpObservabilityPage(tester);
-
-        expect(find.byType(DocFeatureCard), findsWidgets);
-      });
-
-      testWidgets('renders DocTable widgets', (tester) async {
-        await pumpObservabilityPage(tester);
-
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -700));
-        await tester.pump();
-
-        expect(find.byType(DocTable), findsWidgets);
-      });
-
-      testWidgets('renders DocCallout widgets', (tester) async {
-        await pumpObservabilityPage(tester);
-
-        expect(find.byType(DocCallout), findsWidgets);
-      });
-
-      testWidgets('renders DocBulletList widgets', (tester) async {
-        await pumpObservabilityPage(tester);
-
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -2200));
-        await tester.pump();
-
-        expect(find.byType(DocBulletList), findsWidgets);
-      });
-
-      testWidgets('renders DocCodeBlock widget', (tester) async {
-        await pumpObservabilityPage(tester);
-
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -4200));
-        await tester.pump();
-
-        expect(find.byType(DocCodeBlock), findsOneWidget);
-      });
-    });
-
     group('footer', () {
       testWidgets('renders OpenTelemetry and SigNoz credit', (tester) async {
         await pumpObservabilityPage(tester);

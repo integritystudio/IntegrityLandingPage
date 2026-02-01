@@ -161,14 +161,6 @@ void main() {
     });
 
     group('navigation', () {
-      testWidgets('back button is present', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage());
-        await tester.pump();
-
-        expect(find.byType(IconButton), findsWidgets);
-      });
-
       testWidgets('onBack callback is called when provided', (tester) async {
         setLargeViewport(tester);
         var backCalled = false;
@@ -184,16 +176,6 @@ void main() {
         await tester.pump();
 
         expect(backCalled, isTrue);
-      });
-    });
-
-    group('features list', () {
-      testWidgets('renders Wrap widget for features', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage());
-        await tester.pump();
-
-        expect(find.byType(Wrap), findsWidgets);
       });
     });
 

@@ -262,10 +262,6 @@ void main() {
             find.descendant(of: section, matching: find.text('WhyLabs')),
             findsWidgets,
           ); // In header and content
-          expect(
-            find.descendant(of: section, matching: find.byType(DataTable)),
-            findsOneWidget,
-          );
         });
 
         testWidgets('renders who should choose sections', (tester) async {

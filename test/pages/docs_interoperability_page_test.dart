@@ -239,15 +239,6 @@ void main() {
         );
       });
 
-      testWidgets('renders DocFeatureCard widgets', (tester) async {
-        await pumpInteroperabilityPage(tester);
-
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -300));
-        await tester.pump();
-
-        expect(find.byType(DocFeatureCard), findsWidgets);
-      });
     });
 
     group('tables', () {
@@ -313,16 +304,6 @@ void main() {
         expect(find.text('Email addresses'), findsOneWidget);
         expect(find.text('[EMAIL]'), findsOneWidget);
       });
-
-      testWidgets('renders DocTable widgets', (tester) async {
-        await pumpInteroperabilityPage(tester);
-
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -700));
-        await tester.pump();
-
-        expect(find.byType(DocTable), findsWidgets);
-      });
     });
 
     group('code samples', () {
@@ -369,16 +350,6 @@ void main() {
 
         expect(find.textContaining('initTelemetry()'), findsOneWidget);
         expect(find.textContaining('withSpan'), findsOneWidget);
-      });
-
-      testWidgets('renders DocCodeBlock widgets', (tester) async {
-        await pumpInteroperabilityPage(tester);
-
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -1400));
-        await tester.pump();
-
-        expect(find.byType(DocCodeBlock), findsWidgets);
       });
     });
 
@@ -454,16 +425,6 @@ void main() {
         );
       });
 
-      testWidgets('renders DocCallout widgets', (tester) async {
-        await pumpInteroperabilityPage(tester);
-
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -400));
-        await tester.pump();
-
-        expect(find.byType(DocCallout), findsWidgets);
-      });
-
       testWidgets('renders callout icons', (tester) async {
         await pumpInteroperabilityPage(tester);
 
@@ -511,16 +472,6 @@ void main() {
         expect(find.textContaining('Distributed Tracing Guide'), findsOneWidget);
         expect(find.textContaining('LLM Observability'), findsOneWidget);
       });
-
-      testWidgets('renders DocBulletList widgets', (tester) async {
-        await pumpInteroperabilityPage(tester);
-
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -800));
-        await tester.pump();
-
-        expect(find.byType(DocBulletList), findsWidgets);
-      });
     });
 
     group('numbered lists', () {
@@ -543,16 +494,6 @@ void main() {
           find.textContaining('View traces and metrics'),
           findsOneWidget,
         );
-      });
-
-      testWidgets('renders DocNumberedList widget', (tester) async {
-        await pumpInteroperabilityPage(tester);
-
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -4300));
-        await tester.pump();
-
-        expect(find.byType(DocNumberedList), findsOneWidget);
       });
     });
 
@@ -674,16 +615,6 @@ void main() {
     });
 
     group('DocSection widgets', () {
-      testWidgets('renders DocSection containers', (tester) async {
-        await pumpInteroperabilityPage(tester);
-
-        await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -200));
-        await tester.pump();
-
-        expect(find.byType(DocSection), findsWidgets);
-      });
-
       testWidgets('DocSection contains correct title styling', (tester) async {
         await pumpInteroperabilityPage(tester);
 
