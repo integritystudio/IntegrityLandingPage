@@ -4,50 +4,41 @@ Chronological record of development sessions for IntegrityStudio.ai Flutter proj
 
 ---
 
-## 2026-02-01: Contact Form CSP/Worker URL Fix
+## 2026-02-01: Contact Form Fix & Demo Routing
 
 ### Summary
-Fixed contact form submission failures caused by CSP violation and non-existent worker URL.
+Fixed contact form submission failures and updated all demo buttons to route to internal `/demo` page.
 
-### Problems Solved
+### Part 1: Contact Form CSP/Worker URL Fix
+
+**Problems Solved:**
 
 1. **CSP Violation**: Form requests blocked by Content Security Policy
    - Error: `Connecting to 'https://integrity-studio-contact.alyshia-b38.workers.dev/' violates CSP directive`
-   - Initial diagnosis: URL mismatch between code and CSP
 
-2. **Non-existent Worker URL**: After initial fix, DNS resolution failed
-   - Error: `GET https://contact-form.integritystudio.workers.dev/ net::ERR_NAME_NOT_RESOLVED`
-   - Root cause: CSP referenced `contact-form.integritystudio.workers.dev` which doesn't exist
-   - Actual worker deployed at: `integrity-studio-contact.alyshia-b38.workers.dev`
+2. **Non-existent Worker URL**: DNS resolution failed for `contact-form.integritystudio.workers.dev`
+   - Root cause: CSP referenced URL that doesn't exist
+   - Actual worker at: `integrity-studio-contact.alyshia-b38.workers.dev`
 
-3. **Cloudflare Pages Deployment Gap**: Push to main didn't trigger automatic deployment
-   - Latest deployment was 13 hours old despite recent commits
-   - Required manual deployment via `wrangler pages deploy`
+3. **Cloudflare Pages Deployment Gap**: Required manual deployment via `wrangler pages deploy`
 
-### Key Technical Decisions
+**Files Modified:**
+- `lib/services/contact_service.dart` - Updated `_contactApiUrl`
+- `web/index.html` - Updated CSP `connect-src` directive
 
-1. **Use existing worker URL**: Rather than creating new worker or custom domain, updated both code and CSP to use the working dev URL
-2. **Manual Cloudflare deployment**: Used `wrangler pages deploy build/web` to push changes immediately
-3. **Verified build before deploy**: Checked `main.dart.js` for correct URL after `flutter build web`
+**Commit:** `e24c704` fix(contact): use existing worker URL and update CSP to match
 
-### Files Modified
+### Part 2: Demo Button Routing
 
-- `lib/services/contact_service.dart` - Updated `_contactApiUrl` to use working worker URL
-- `web/index.html` - Updated CSP `connect-src` directive to allow the same URL
+**Change:** Replaced external Calendly links with internal `/demo` route navigation.
 
-### Commits Made
-- `e24c704` fix(contact): use existing worker URL and update CSP to match
+**Files Modified:**
+- `lib/pages/contact_page.dart` - "Schedule a Demo" card
+- `lib/pages/about_page.dart` - "Get Started" + "Schedule Demo" buttons
+- `lib/pages/landing_page.dart` - `_launchCalendly()` method
+- `lib/pages/signup_page.dart` - post-signup redirect
 
-### Verification
-
-```bash
-# Test worker API directly
-curl -s https://integrity-studio-contact.alyshia-b38.workers.dev/
-# Returns: {"csrfToken":"..."}
-
-# Verify build has correct URL
-grep "integrity-studio-contact" build/web/main.dart.js
-```
+**Commit:** `dadc9d5` feat(nav): route all demo buttons to /demo page
 
 ### Status: ✅ Complete
 
