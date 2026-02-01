@@ -32,10 +32,8 @@ urls:
     calendly_demo: "https://calendly.com/alyshialedlie/30min"
     status_page: "https://integritystudio.ai/status"
     linkedin: "https://linkedin.com/company/integrity-studio-ai"
-    x: "https://x.com/integritystudio"
     github: "https://github.com/aledlie"
     founder_linkedin: "https://linkedin.com/in/aledlie"
-    founder_x: "https://x.com/alyshialedlie"
 
   internal:
     home: "/"
@@ -647,7 +645,6 @@ about:
         Deep experience building observability-first infrastructure at scale. Passionate about making
         AI systems transparent and trustworthy for enterprises navigating regulatory change.
       linkedin_url: "https://www.linkedin.com/in/aledlie"
-      x_url: "https://x.com/alyshialedlie"
 
     - name: "Chandra Srivastava"
       role: "Co-founder & Chief Marketing Officer"
@@ -772,11 +769,6 @@ contact:
       label: "LinkedIn"
       value: "Follow us"
       url: "https://linkedin.com/company/integrity-studio-ai"
-
-    - icon: "x"
-      label: "X"
-      value: "@integritystudio"
-      url: "https://x.com/integritystudio"
 
     - icon: "github"
       label: "GitHub"

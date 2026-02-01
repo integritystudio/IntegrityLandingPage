@@ -74,10 +74,8 @@ class ContentLoader {
   String get calendlyUrl => _getString('urls.external.calendly_demo');
   String get statusPageUrl => _getString('urls.external.status_page');
   String get linkedInUrl => _getString('urls.external.linkedin');
-  String get xUrl => _getString('urls.external.x');
   String get githubUrl => _getString('urls.external.github');
   String get founderLinkedInUrl => _getString('urls.external.founder_linkedin');
-  String get founderXUrl => _getString('urls.external.founder_x');
 
   // ===========================================================================
   // CTA TEXT
@@ -440,10 +438,8 @@ class Content {
   static String get calendlyUrl => _loader.calendlyUrl;
   static String get statusPageUrl => _loader.statusPageUrl;
   static String get linkedInUrl => _loader.linkedInUrl;
-  static String get xUrl => _loader.xUrl;
   static String get githubUrl => _loader.githubUrl;
   static String get founderLinkedInUrl => _loader.founderLinkedInUrl;
-  static String get founderXUrl => _loader.founderXUrl;
 
   // CTA Text
   static String get ctaStartFreeTrial => _loader.ctaStartFreeTrial;

@@ -174,7 +174,6 @@
         },
         "telephone": "(512) 829-1644",
         "sameAs": [
-          "https://x.com/integritystudio",
           "https://www.linkedin.com/company/integrity-studio-ai",
           "https://github.com/aledlie"
         ],
@@ -253,28 +252,19 @@
       },
       "hasPart": [
         {
-          "@type": "TechArticle",
           "@id": "https://integritystudio.ai/blog/ai-observability-platform-strategy/market-analysis#techarticle"
         },
         {
-          "@type": "TechArticle",
-          "@id": "https://integritystudio.ai/blog/ai-observability-platform-strategy/regulatory-drivers.html"
+          "@id": "https://integritystudio.ai/blog/ai-observability-platform-strategy#techarticle"
         },
         {
-          "@type": "TechArticle",
-          "@id": "https://integritystudio.ai/blog/ai-observability-platform-strategy/competitive-landscape.html"
+          "@id": "https://integritystudio.ai/blog/best-llm-monitoring-tools-2025#techarticle"
         },
         {
-          "@type": "TechArticle",
-          "@id": "https://integritystudio.ai/blog/ai-observability-platform-strategy/growth-strategy.html"
+          "@id": "https://integritystudio.ai/blog/end-to-end-agentic-observability-lifecycle#techarticle"
         },
         {
-          "@type": "TechArticle",
-          "@id": "https://integritystudio.ai/blog/ai-observability-platform-strategy/recommendations.html"
-        },
-        {
-          "@type": "TechArticle",
-          "@id": "https://integritystudio.ai/blog/ai-observability-platform-strategy/sources.html"
+          "@id": "https://integritystudio.ai/blog/eu-ai-act-compliance-logging-setup#techarticle"
         }
       ],
       "about": [
@@ -294,7 +284,10 @@
           "description": "Compliance with AI regulations including EU AI Act"
         }
       ],
-      "keywords": "AI observability market analysis, AI platform strategy, AI regulatory compliance, EU AI Act, MLOps, AI governance, product-led growth"
+      "keywords": "AI observability market analysis, AI platform strategy, AI regulatory compliance, EU AI Act, MLOps, AI governance, product-led growth",
+      "isPartOf": {
+        "@id": "https://integritystudio.ai#website"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -469,7 +462,6 @@
         },
         "telephone": "(512) 829-1644",
         "sameAs": [
-          "https://x.com/integritystudio",
           "https://www.linkedin.com/company/integrity-studio-ai",
           "https://github.com/aledlie"
         ],
@@ -535,6 +527,14 @@
           "@type": "CreativeWork",
           "name": "Gartner Magic Quadrant for AIOps 2024",
           "url": "https://www.gartner.com/"
+        }
+      ],
+      "mentions": [
+        {
+          "@id": "https://integritystudio.ai/services/llm-monitoring#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/agent-observability#service"
         }
       ]
     },
@@ -706,7 +706,6 @@
         },
         "telephone": "(512) 829-1644",
         "sameAs": [
-          "https://x.com/integritystudio",
           "https://www.linkedin.com/company/integrity-studio-ai",
           "https://github.com/aledlie"
         ],
@@ -794,7 +793,21 @@
           "name": "NIST AI Risk Management Framework",
           "url": "https://www.nist.gov/itl/ai-risk-management-framework"
         }
-      ]
+      ],
+      "mentions": [
+        {
+          "@id": "https://integritystudio.ai/services/llm-monitoring#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/agent-observability#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/analytics-dashboards#service"
+        }
+      ],
+      "isPartOf": {
+        "@id": "https://integritystudio.ai#website"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -968,7 +981,6 @@
         },
         "telephone": "(512) 829-1644",
         "sameAs": [
-          "https://x.com/integritystudio",
           "https://www.linkedin.com/company/integrity-studio-ai",
           "https://github.com/aledlie"
         ],
@@ -1031,7 +1043,29 @@
           "name": "LangSmith Documentation",
           "url": "https://docs.smith.langchain.com/"
         }
-      ]
+      ],
+      "hasPart": [
+        {
+          "@id": "https://integritystudio.ai/blog/best-llm-monitoring-tools-2025#faqpage"
+        },
+        {
+          "@id": "https://integritystudio.ai/blog/best-llm-monitoring-tools-2025#itemlist"
+        },
+        {
+          "@id": "https://integritystudio.ai/blog/best-llm-monitoring-tools-2025#breadcrumblist"
+        }
+      ],
+      "mentions": [
+        {
+          "@id": "https://integritystudio.ai/services/llm-monitoring#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/analytics-dashboards#service"
+        }
+      ],
+      "isPartOf": {
+        "@id": "https://integritystudio.ai#website"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -1297,6 +1331,11 @@
             "text": "For enterprises, Arize AI offers the most comprehensive platform ($50k+/year) with agent-level tracing, SOC 2/HIPAA/GDPR compliance, and enterprise deployment options. Datadog LLM Observability is best if you're already using Datadog for infrastructure. Fiddler AI is optimal if compliance and guardrails are your top priority with sub-100ms response times."
           }
         }
+      ],
+      "relatedLink": [
+        {
+          "@id": "https://integritystudio.ai/docs/quickstart#howto"
+        }
       ]
     },
     {
@@ -1503,7 +1542,6 @@
         },
         "telephone": "(512) 829-1644",
         "sameAs": [
-          "https://x.com/integritystudio",
           "https://www.linkedin.com/company/integrity-studio-ai",
           "https://github.com/aledlie"
         ],
@@ -1608,7 +1646,26 @@
           "name": "Anthropic Claude Documentation",
           "url": "https://docs.anthropic.com/"
         }
-      ]
+      ],
+      "hasPart": [
+        {
+          "@id": "https://integritystudio.ai/blog/end-to-end-agentic-observability-lifecycle#breadcrumblist"
+        }
+      ],
+      "mentions": [
+        {
+          "@id": "https://integritystudio.ai/services/agent-observability#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/alerting-incident-management#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/developer-experience#service"
+        }
+      ],
+      "isPartOf": {
+        "@id": "https://integritystudio.ai#website"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -1806,7 +1863,6 @@
         },
         "telephone": "(512) 829-1644",
         "sameAs": [
-          "https://x.com/integritystudio",
           "https://www.linkedin.com/company/integrity-studio-ai",
           "https://github.com/aledlie"
         ],
@@ -1899,7 +1955,26 @@
           "name": "European Commission AI Act Guidelines",
           "url": "https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai"
         }
-      ]
+      ],
+      "hasPart": [
+        {
+          "@id": "https://integritystudio.ai/blog/eu-ai-act-compliance-logging-setup#howto"
+        },
+        {
+          "@id": "https://integritystudio.ai/blog/eu-ai-act-compliance-logging-setup#breadcrumblist"
+        }
+      ],
+      "mentions": [
+        {
+          "@id": "https://integritystudio.ai/services/compliance-governance#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/llm-monitoring#service"
+        }
+      ],
+      "isPartOf": {
+        "@id": "https://integritystudio.ai#website"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -2123,7 +2198,11 @@
             }
           ]
         }
-      ]
+      ],
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "url": "https://integritystudio.ai/blog/eu-ai-act-compliance-logging-setup"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -2195,6 +2274,14 @@
             "text": "Prompt caching stores frequently-used prompt prefixes so you don't pay full price for repeated context. Anthropic's prompt caching charges 90% less for cached tokens. For applications with system prompts or repeated context, this can reduce input costs by 50-90%."
           }
         }
+      ],
+      "relatedLink": [
+        {
+          "@id": "https://integritystudio.ai/docs/quickstart#howto"
+        },
+        {
+          "@id": "https://integritystudio.ai/docs/compliance#howto"
+        }
       ]
     },
     {
@@ -2254,7 +2341,27 @@
           "urlTemplate": "https://integritystudio.ai/search?q={search_term_string}"
         },
         "query-input": "required name=search_term_string"
-      }
+      },
+      "mainEntity": {
+        "@id": "https://integritystudio.ai#softwareapplication"
+      },
+      "hasPart": [
+        {
+          "@id": "https://integritystudio.ai/reports/state-of-ai-observability-2025#report"
+        },
+        {
+          "@id": "https://integritystudio.ai/resources/eu-ai-act-checklist#creativework"
+        },
+        {
+          "@id": "https://integritystudio.ai/blog/ai-observability-platform-strategy#collectionpage"
+        },
+        {
+          "@id": "https://integritystudio.ai/blog/llm-cost-optimization-guide#techarticle"
+        },
+        {
+          "@id": "https://integritystudio.ai/resources/whylabs-migration-guide#article"
+        }
+      ]
     },
     {
       "@context": "https://schema.org",
@@ -2449,23 +2556,40 @@
           "height": 674
         }
       ],
-      "softwareHelp": {
-        "@type": "CreativeWork",
-        "name": "Integrity Studio Documentation",
-        "url": "https://integritystudio.ai/docs",
-        "description": "Comprehensive documentation for Integrity Studio including getting started guides, API reference, and integration tutorials"
-      },
+      "softwareHelp": [
+        {
+          "@id": "https://integritystudio.ai/docs/quickstart#howto"
+        },
+        {
+          "@id": "https://integritystudio.ai/docs/compliance#howto"
+        },
+        {
+          "@id": "https://integritystudio.ai/docs/integrations/slack#howto"
+        }
+      ],
       "softwareRequirements": "Modern web browser (Chrome, Firefox, Safari, Edge)",
       "installUrl": "https://integritystudio.ai/signup",
       "license": "https://integritystudio.ai/terms",
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "USD",
-        "lowPrice": "0",
-        "highPrice": "99",
-        "offerCount": "3",
-        "availability": "https://schema.org/InStock"
-      },
+      "offers": [
+        {
+          "@id": "https://integritystudio.ai/services/llm-monitoring#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/agent-observability#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/compliance-governance#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/analytics-dashboards#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/alerting-incident-management#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/developer-experience#service"
+        }
+      ],
       "publisher": {
         "@type": "Organization",
         "name": "Integrity Studio",
@@ -2477,7 +2601,6 @@
           "height": 512
         },
         "sameAs": [
-          "https://x.com/integritystudio",
           "https://www.linkedin.com/company/integrity-studio-ai",
           "https://github.com/aledlie"
         ]
@@ -2492,11 +2615,7 @@
         "AI Trust and Compliance"
       ],
       "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.8",
-        "ratingCount": "127",
-        "bestRating": "5",
-        "worstRating": "1"
+        "@id": "https://integritystudio.ai/#aggregate-rating"
       },
       "downloadUrl": "https://integritystudio.ai/signup",
       "countriesSupported": [
@@ -2515,6 +2634,40 @@
         "Desktop",
         "Mobile",
         "Tablet"
+      ],
+      "supportingData": {
+        "@id": "https://integritystudio.ai/#industry-data"
+      },
+      "provides": [
+        {
+          "@id": "https://integritystudio.ai/integrations/slack#webapi"
+        },
+        {
+          "@id": "https://integritystudio.ai/integrations/pagerduty#webapi"
+        },
+        {
+          "@id": "https://integritystudio.ai/integrations/datadog#webapi"
+        },
+        {
+          "@id": "https://integritystudio.ai/integrations/grafana#webapi"
+        }
+      ],
+      "review": {
+        "@id": "https://integritystudio.ai/#review-dotfun"
+      },
+      "hasPart": [
+        {
+          "@id": "https://integritystudio.ai/integrations/slack#webapi"
+        },
+        {
+          "@id": "https://integritystudio.ai/integrations/pagerduty#webapi"
+        },
+        {
+          "@id": "https://integritystudio.ai/integrations/datadog#webapi"
+        },
+        {
+          "@id": "https://integritystudio.ai/integrations/grafana#webapi"
+        }
       ]
     },
     {
@@ -2592,6 +2745,9 @@
             "bestRating": "5"
           },
           "reviewBody": "The distributed tracing capabilities are exactly what we needed for our multi-model pipeline. OpenTelemetry integration was seamless."
+        },
+        {
+          "@id": "https://integritystudio.ai/#review-dotfun"
         }
       ],
       "hasOfferCatalog": {
@@ -2625,9 +2781,11 @@
         ]
       },
       "sameAs": [
-        "https://x.com/integritystudio",
         "https://www.linkedin.com/company/integrity-studio-ai",
-        "https://github.com/aledlie"
+        "https://github.com/aledlie",
+        {
+          "@id": "https://integritystudio.ai/#localbusiness"
+        }
       ],
       "founder": [
         {
@@ -2687,6 +2845,50 @@
           "@type": "Organization",
           "name": "AICPA"
         }
+      },
+      "makesOffer": [
+        {
+          "@id": "https://integritystudio.ai/pricing#starter"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#team"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#enterprise"
+        }
+      ],
+      "areaServed": [
+        {
+          "@type": "Country",
+          "name": "United States",
+          "sameAs": "https://en.wikipedia.org/wiki/United_States"
+        },
+        {
+          "@type": "Country",
+          "name": "Canada",
+          "sameAs": "https://en.wikipedia.org/wiki/Canada"
+        },
+        {
+          "@type": "AdministrativeArea",
+          "name": "European Union",
+          "sameAs": "https://en.wikipedia.org/wiki/European_Union"
+        },
+        {
+          "@type": "Country",
+          "name": "United Kingdom",
+          "sameAs": "https://en.wikipedia.org/wiki/United_Kingdom"
+        },
+        {
+          "@type": "Country",
+          "name": "Australia",
+          "sameAs": "https://en.wikipedia.org/wiki/Australia"
+        }
+      ],
+      "brand": {
+        "@id": "https://integritystudio.ai#softwareapplication"
+      },
+      "event": {
+        "@id": "https://integritystudio.ai/#demo-event"
       }
     },
     {
@@ -2854,7 +3056,6 @@
         },
         "telephone": "(512) 829-1644",
         "sameAs": [
-          "https://x.com/integritystudio",
           "https://www.linkedin.com/company/integrity-studio-ai",
           "https://github.com/aledlie"
         ],
@@ -2903,7 +3104,26 @@
         "OpenTelemetry",
         "agent monitoring",
         "agentic AI observability"
-      ]
+      ],
+      "hasPart": [
+        {
+          "@id": "https://integritystudio.ai/resources/whylabs-migration-guide#faqpage"
+        },
+        {
+          "@id": "https://integritystudio.ai/resources/whylabs-migration-guide#howto"
+        }
+      ],
+      "mentions": [
+        {
+          "@id": "https://integritystudio.ai/services/llm-monitoring#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/analytics-dashboards#service"
+        }
+      ],
+      "isPartOf": {
+        "@id": "https://integritystudio.ai#website"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -2981,7 +3201,11 @@
           "text": "Remove WhyLabs SDK, update documentation, verify all monitors are active, archive exported data.",
           "position": 6
         }
-      ]
+      ],
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "url": "https://integritystudio.ai/resources/whylabs-migration-guide"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -3028,6 +3252,14 @@
             "text": "Let us know! Our roadmap is responsive to customer needs. If there's a WhyLabs feature critical to your workflow that we don't currently offer, email product@integritystudio.ai."
           }
         }
+      ],
+      "relatedLink": [
+        {
+          "@id": "https://integritystudio.ai/resources/whylabs-migration-guide#howto"
+        },
+        {
+          "@id": "https://integritystudio.ai/docs/quickstart#howto"
+        }
       ]
     },
     {
@@ -3041,9 +3273,7 @@
       "description": "Marketing leader with experience driving growth at early stage B2B technology companies. Expert in positioning AI products for enterprise adoption and building category-defining brands.",
       "jobTitle": "Co-founder & Chief Marketing Officer",
       "worksFor": {
-        "@type": "Organization",
-        "@id": "https://integritystudio.ai/#organization",
-        "name": "Integrity Studio"
+        "@id": "https://integritystudio.ai/#organization"
       },
       "knowsAbout": [
         "B2B Marketing",
@@ -3075,9 +3305,7 @@
       "description": "Machine learning researcher focused on AI evaluation and observability. Developed novel approaches to precise hallucination detection and model performance analysis.",
       "jobTitle": "Chief Data Scientist",
       "worksFor": {
-        "@type": "Organization",
-        "@id": "https://integritystudio.ai/#organization",
-        "name": "Integrity Studio"
+        "@id": "https://integritystudio.ai/#organization"
       },
       "knowsAbout": [
         "Machine Learning",
@@ -3109,9 +3337,7 @@
       "description": "Regulatory and compliance expert specializing in AI governance frameworks. Advises enterprises on EU AI Act preparation and responsible AI deployment.",
       "jobTitle": "Head of Policy",
       "worksFor": {
-        "@type": "Organization",
-        "@id": "https://integritystudio.ai/#organization",
-        "name": "Integrity Studio"
+        "@id": "https://integritystudio.ai/#organization"
       },
       "knowsAbout": [
         "AI Governance",
@@ -3142,9 +3368,7 @@
       "description": "International legal expert specializing in AI governance and EU AI Act compliance. Background in International Commercial Arbitration with multilingual research capabilities spanning German, Spanish, English, and French legal systems.",
       "jobTitle": "AI Compliance Counsel",
       "worksFor": {
-        "@type": "Organization",
-        "@id": "https://integritystudio.ai/#organization",
-        "name": "Integrity Studio"
+        "@id": "https://integritystudio.ai/#organization"
       },
       "alumniOf": [
         {
@@ -3301,9 +3525,7 @@
       "description": "Seasoned technology executive with deep expertise in scaling enterprise software companies. Focused on developing high-performance monetization systems and cost optimization that deliver exceptional customer success.",
       "jobTitle": "Co-Founder and President",
       "worksFor": {
-        "@type": "Organization",
-        "@id": "https://integritystudio.ai/#organization",
-        "name": "Integrity Studio"
+        "@id": "https://integritystudio.ai/#organization"
       },
       "knowsAbout": [
         "Enterprise Software",
@@ -3382,7 +3604,6 @@
       "hasMap": "https://maps.google.com/?q=248+Addie+Roy+Road,+Austin,+TX+78746",
       "sameAs": [
         "https://linkedin.com/company/integrity-studio-ai",
-        "https://x.com/integritystudio",
         "https://github.com/integritystudio"
       ],
       "contactPoint": [
@@ -3457,50 +3678,17 @@
           "value": "OpenTelemetry-native instrumentation"
         }
       ],
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "USD",
-        "lowPrice": "0",
-        "highPrice": "99",
-        "offerCount": 3,
-        "offers": [
-          {
-            "@type": "Offer",
-            "name": "Starter",
-            "price": "0",
-            "priceCurrency": "USD",
-            "description": "50K traces/month, 7-day retention",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Team",
-            "price": "99",
-            "priceCurrency": "USD",
-            "billingIncrement": "P1M",
-            "description": "500K traces/month, 30-day retention, EU AI Act reports",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Enterprise",
-            "description": "Unlimited traces, 1-year retention, SSO/SAML, SLA guarantee",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/contact",
-            "priceSpecification": {
-              "@type": "PriceSpecification",
-              "priceCurrency": "USD",
-              "valueAddedTaxIncluded": false,
-              "eligibleQuantity": {
-                "@type": "QuantitativeValue",
-                "value": "Unlimited"
-              }
-            }
-          }
-        ]
-      },
+      "offers": [
+        {
+          "@id": "https://integritystudio.ai/pricing#starter"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#team"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#enterprise"
+        }
+      ],
       "audience": {
         "@type": "Audience",
         "audienceType": "ML Engineers, AI Platform Teams, DevOps"
@@ -3514,8 +3702,12 @@
         "@id": "https://integritystudio.ai/#organization"
       },
       "isRelatedTo": [
-        {"@id": "https://integritystudio.ai/services/agent-observability#service"},
-        {"@id": "https://integritystudio.ai/services/analytics-dashboards#service"}
+        {
+          "@id": "https://integritystudio.ai/services/agent-observability#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/analytics-dashboards#service"
+        }
       ]
     },
     {
@@ -3560,50 +3752,17 @@
           "value": "LangChain, LlamaIndex, and custom agent support"
         }
       ],
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "USD",
-        "lowPrice": "0",
-        "highPrice": "99",
-        "offerCount": 3,
-        "offers": [
-          {
-            "@type": "Offer",
-            "name": "Starter",
-            "price": "0",
-            "priceCurrency": "USD",
-            "description": "50K traces/month, 7-day retention",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Team",
-            "price": "99",
-            "priceCurrency": "USD",
-            "billingIncrement": "P1M",
-            "description": "500K traces/month, 30-day retention, EU AI Act reports",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Enterprise",
-            "description": "Unlimited traces, 1-year retention, SSO/SAML, SLA guarantee",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/contact",
-            "priceSpecification": {
-              "@type": "PriceSpecification",
-              "priceCurrency": "USD",
-              "valueAddedTaxIncluded": false,
-              "eligibleQuantity": {
-                "@type": "QuantitativeValue",
-                "value": "Unlimited"
-              }
-            }
-          }
-        ]
-      },
+      "offers": [
+        {
+          "@id": "https://integritystudio.ai/pricing#starter"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#team"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#enterprise"
+        }
+      ],
       "audience": {
         "@type": "Audience",
         "audienceType": "AI Engineers, Agent Developers, Research Teams"
@@ -3617,8 +3776,12 @@
         "@id": "https://integritystudio.ai/#organization"
       },
       "isRelatedTo": [
-        {"@id": "https://integritystudio.ai/services/llm-monitoring#service"},
-        {"@id": "https://integritystudio.ai/services/alerting-incident-management#service"}
+        {
+          "@id": "https://integritystudio.ai/services/llm-monitoring#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/alerting-incident-management#service"
+        }
       ]
     },
     {
@@ -3663,50 +3826,17 @@
           "value": "GDPR-compliant data handling and retention"
         }
       ],
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "USD",
-        "lowPrice": "0",
-        "highPrice": "99",
-        "offerCount": 3,
-        "offers": [
-          {
-            "@type": "Offer",
-            "name": "Starter",
-            "price": "0",
-            "priceCurrency": "USD",
-            "description": "50K traces/month, 7-day retention",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Team",
-            "price": "99",
-            "priceCurrency": "USD",
-            "billingIncrement": "P1M",
-            "description": "500K traces/month, 30-day retention, EU AI Act reports",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Enterprise",
-            "description": "Unlimited traces, 1-year retention, SSO/SAML, SLA guarantee",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/contact",
-            "priceSpecification": {
-              "@type": "PriceSpecification",
-              "priceCurrency": "USD",
-              "valueAddedTaxIncluded": false,
-              "eligibleQuantity": {
-                "@type": "QuantitativeValue",
-                "value": "Unlimited"
-              }
-            }
-          }
-        ]
-      },
+      "offers": [
+        {
+          "@id": "https://integritystudio.ai/pricing#starter"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#team"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#enterprise"
+        }
+      ],
       "audience": {
         "@type": "Audience",
         "audienceType": "Compliance Officers, Legal Teams, Risk Managers"
@@ -3720,8 +3850,12 @@
         "@id": "https://integritystudio.ai/#organization"
       },
       "isRelatedTo": [
-        {"@id": "https://integritystudio.ai/services/llm-monitoring#service"},
-        {"@id": "https://integritystudio.ai/services/analytics-dashboards#service"}
+        {
+          "@id": "https://integritystudio.ai/services/llm-monitoring#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/analytics-dashboards#service"
+        }
       ]
     },
     {
@@ -3766,50 +3900,17 @@
           "value": "Export to CSV, JSON, and PDF"
         }
       ],
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "USD",
-        "lowPrice": "0",
-        "highPrice": "99",
-        "offerCount": 3,
-        "offers": [
-          {
-            "@type": "Offer",
-            "name": "Starter",
-            "price": "0",
-            "priceCurrency": "USD",
-            "description": "50K traces/month, 7-day retention",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Team",
-            "price": "99",
-            "priceCurrency": "USD",
-            "billingIncrement": "P1M",
-            "description": "500K traces/month, 30-day retention, EU AI Act reports",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Enterprise",
-            "description": "Unlimited traces, 1-year retention, SSO/SAML, SLA guarantee",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/contact",
-            "priceSpecification": {
-              "@type": "PriceSpecification",
-              "priceCurrency": "USD",
-              "valueAddedTaxIncluded": false,
-              "eligibleQuantity": {
-                "@type": "QuantitativeValue",
-                "value": "Unlimited"
-              }
-            }
-          }
-        ]
-      },
+      "offers": [
+        {
+          "@id": "https://integritystudio.ai/pricing#starter"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#team"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#enterprise"
+        }
+      ],
       "audience": {
         "@type": "Audience",
         "audienceType": "Engineering Managers, Product Leaders, Data Teams"
@@ -3823,8 +3924,12 @@
         "@id": "https://integritystudio.ai/#organization"
       },
       "isRelatedTo": [
-        {"@id": "https://integritystudio.ai/services/llm-monitoring#service"},
-        {"@id": "https://integritystudio.ai/services/compliance-governance#service"}
+        {
+          "@id": "https://integritystudio.ai/services/llm-monitoring#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/compliance-governance#service"
+        }
       ]
     },
     {
@@ -3869,50 +3974,17 @@
           "value": "Custom alert thresholds and schedules"
         }
       ],
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "USD",
-        "lowPrice": "0",
-        "highPrice": "99",
-        "offerCount": 3,
-        "offers": [
-          {
-            "@type": "Offer",
-            "name": "Starter",
-            "price": "0",
-            "priceCurrency": "USD",
-            "description": "50K traces/month, 7-day retention",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Team",
-            "price": "99",
-            "priceCurrency": "USD",
-            "billingIncrement": "P1M",
-            "description": "500K traces/month, 30-day retention, EU AI Act reports",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Enterprise",
-            "description": "Unlimited traces, 1-year retention, SSO/SAML, SLA guarantee",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/contact",
-            "priceSpecification": {
-              "@type": "PriceSpecification",
-              "priceCurrency": "USD",
-              "valueAddedTaxIncluded": false,
-              "eligibleQuantity": {
-                "@type": "QuantitativeValue",
-                "value": "Unlimited"
-              }
-            }
-          }
-        ]
-      },
+      "offers": [
+        {
+          "@id": "https://integritystudio.ai/pricing#starter"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#team"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#enterprise"
+        }
+      ],
       "audience": {
         "@type": "Audience",
         "audienceType": "SREs, On-call Engineers, Platform Teams"
@@ -3964,8 +4036,12 @@
         "@id": "https://integritystudio.ai/#organization"
       },
       "isRelatedTo": [
-        {"@id": "https://integritystudio.ai/services/agent-observability#service"},
-        {"@id": "https://integritystudio.ai/services/llm-monitoring#service"}
+        {
+          "@id": "https://integritystudio.ai/services/agent-observability#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/llm-monitoring#service"
+        }
       ]
     },
     {
@@ -4010,50 +4086,17 @@
           "value": "Self-hosted and cloud deployment options"
         }
       ],
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "USD",
-        "lowPrice": "0",
-        "highPrice": "99",
-        "offerCount": 3,
-        "offers": [
-          {
-            "@type": "Offer",
-            "name": "Starter",
-            "price": "0",
-            "priceCurrency": "USD",
-            "description": "50K traces/month, 7-day retention",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Team",
-            "price": "99",
-            "priceCurrency": "USD",
-            "billingIncrement": "P1M",
-            "description": "500K traces/month, 30-day retention, EU AI Act reports",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/pricing"
-          },
-          {
-            "@type": "Offer",
-            "name": "Enterprise",
-            "description": "Unlimited traces, 1-year retention, SSO/SAML, SLA guarantee",
-            "availability": "https://schema.org/InStock",
-            "url": "https://integritystudio.ai/contact",
-            "priceSpecification": {
-              "@type": "PriceSpecification",
-              "priceCurrency": "USD",
-              "valueAddedTaxIncluded": false,
-              "eligibleQuantity": {
-                "@type": "QuantitativeValue",
-                "value": "Unlimited"
-              }
-            }
-          }
-        ]
-      },
+      "offers": [
+        {
+          "@id": "https://integritystudio.ai/pricing#starter"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#team"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#enterprise"
+        }
+      ],
       "audience": {
         "@type": "Audience",
         "audienceType": "Software Developers, Full-stack Engineers, API Integrators"
@@ -4067,8 +4110,12 @@
         "@id": "https://integritystudio.ai/#organization"
       },
       "isRelatedTo": [
-        {"@id": "https://integritystudio.ai/services/llm-monitoring#service"},
-        {"@id": "https://integritystudio.ai/services/agent-observability#service"}
+        {
+          "@id": "https://integritystudio.ai/services/llm-monitoring#service"
+        },
+        {
+          "@id": "https://integritystudio.ai/services/agent-observability#service"
+        }
       ]
     },
     {
@@ -4088,9 +4135,7 @@
       "description": "Founder and CEO of Integrity Studio. Deep experience building observability-first infrastructure at scale. Passionate about making AI systems transparent and trustworthy for enterprises navigating regulatory change.",
       "jobTitle": "Founder and CEO",
       "worksFor": {
-        "@type": "Organization",
-        "@id": "https://integritystudio.ai/#organization",
-        "name": "Integrity Studio"
+        "@id": "https://integritystudio.ai/#organization"
       },
       "knowsAbout": [
         "AI Observability",
@@ -4231,6 +4276,9 @@
         "priceCurrency": "USD",
         "availability": "https://schema.org/InStock",
         "description": "Free download with email registration"
+      },
+      "isPartOf": {
+        "@id": "https://integritystudio.ai#website"
       }
     },
     {
@@ -4329,7 +4377,13 @@
         "availability": "https://schema.org/InStock",
         "description": "Free download with email registration"
       },
-      "abstract": "Comprehensive research report analyzing the current state of AI observability across 500+ AI teams. Covers monitoring practices, compliance challenges, cost management strategies, and emerging trends for 2025."
+      "abstract": "Comprehensive research report analyzing the current state of AI observability across 500+ AI teams. Covers monitoring practices, compliance challenges, cost management strategies, and emerging trends for 2025.",
+      "isPartOf": {
+        "@id": "https://integritystudio.ai#website"
+      },
+      "isBasedOn": {
+        "@id": "https://integritystudio.ai/#industry-data"
+      }
     },
     {
       "@type": "Offer",
@@ -4342,13 +4396,7 @@
       "availability": "https://schema.org/InStock",
       "priceValidUntil": "2025-12-31",
       "itemOffered": {
-        "@type": "Service",
-        "name": "Integrity Studio Starter",
-        "description": "AI observability for individual developers",
-        "provider": {
-          "@type": "Organization",
-          "@id": "https://integritystudio.ai/#organization"
-        }
+        "@id": "https://integritystudio.ai#softwareapplication"
       },
       "eligibleCustomerType": "Individual Developer",
       "includesObject": [
@@ -4401,13 +4449,7 @@
       "availability": "https://schema.org/InStock",
       "priceValidUntil": "2025-12-31",
       "itemOffered": {
-        "@type": "Service",
-        "name": "Integrity Studio Team",
-        "description": "AI observability for growing teams",
-        "provider": {
-          "@type": "Organization",
-          "@id": "https://integritystudio.ai/#organization"
-        }
+        "@id": "https://integritystudio.ai#softwareapplication"
       },
       "eligibleCustomerType": "Small Business",
       "includesObject": [
@@ -4472,13 +4514,7 @@
         "description": "Custom pricing based on requirements"
       },
       "itemOffered": {
-        "@type": "Service",
-        "name": "Integrity Studio Enterprise",
-        "description": "Enterprise AI observability with unlimited scale",
-        "provider": {
-          "@type": "Organization",
-          "@id": "https://integritystudio.ai/#organization"
-        }
+        "@id": "https://integritystudio.ai#softwareapplication"
       },
       "eligibleCustomerType": "Enterprise",
       "includesObject": [
@@ -4617,7 +4653,11 @@
           "name": "Integrity Studio API key",
           "description": "Free API key from your dashboard"
         }
-      ]
+      ],
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "url": "https://integritystudio.ai/docs/quickstart"
+      }
     },
     {
       "@type": "HowTo",
@@ -4690,7 +4730,11 @@
           "name": "Risk classification documentation",
           "description": "EU AI Act risk level determination for your systems"
         }
-      ]
+      ],
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "url": "https://integritystudio.ai/docs/compliance"
+      }
     },
     {
       "@type": "HowTo",
@@ -4752,7 +4796,11 @@
           "name": "Integrity Studio API credentials",
           "description": "API key with webhook permissions"
         }
-      ]
+      ],
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "url": "https://integritystudio.ai/docs/integrations/slack"
+      }
     },
     {
       "@type": "WebAPI",
@@ -4908,6 +4956,50 @@
             "name": "Gartner"
           },
           "datePublished": "2024-01-01"
+        },
+        {
+          "@type": "Dataset",
+          "name": "LLM API Usage Benchmarks",
+          "description": "Performance benchmarks for major LLM providers including latency, throughput, and cost metrics",
+          "keywords": [
+            "LLM",
+            "benchmarks",
+            "API performance",
+            "latency"
+          ],
+          "temporalCoverage": "2024/2026",
+          "creator": {
+            "@id": "https://integritystudio.ai/#organization"
+          }
+        },
+        {
+          "@type": "Dataset",
+          "name": "AI Compliance Metrics Database",
+          "description": "EU AI Act and SOC2 compliance requirements mapped to observability metrics",
+          "keywords": [
+            "EU AI Act",
+            "compliance",
+            "SOC2",
+            "governance"
+          ],
+          "creator": {
+            "@id": "https://integritystudio.ai/#organization"
+          }
+        },
+        {
+          "@type": "Dataset",
+          "name": "Agent Reliability Statistics",
+          "description": "Aggregated reliability and failure mode statistics for AI agent deployments",
+          "keywords": [
+            "AI agents",
+            "reliability",
+            "failure modes",
+            "observability"
+          ],
+          "temporalCoverage": "2025/2026",
+          "creator": {
+            "@id": "https://integritystudio.ai/#organization"
+          }
         }
       ],
       "keywords": [
@@ -4929,6 +5021,97 @@
       "worstRating": "1",
       "ratingCount": "500",
       "reviewCount": "127"
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "@id": "https://integritystudio.ai/blog/llm-cost-optimization-guide#techarticle",
+      "headline": "LLM Cost Optimization Guide: Reduce AI Spending by 40-60%",
+      "alternativeHeadline": "Complete Guide to Optimizing Large Language Model Costs",
+      "description": "Comprehensive guide to optimizing LLM costs with interactive calculator, token optimization strategies, model selection frameworks, and real-world cost reduction case studies.",
+      "url": "https://integritystudio.ai/blog/llm-cost-optimization-guide/",
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/blog/llm-cost-optimization-guide-hero.png",
+        "width": 1200,
+        "height": 630
+      },
+      "datePublished": "2025-01-15T00:00:00Z",
+      "dateModified": "2025-01-28T00:00:00Z",
+      "author": {
+        "@id": "https://www.aledlie.com#person"
+      },
+      "publisher": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://integritystudio.ai/blog/llm-cost-optimization-guide/"
+      },
+      "isPartOf": {
+        "@id": "https://integritystudio.ai#website"
+      },
+      "articleSection": "AI Cost Management",
+      "keywords": "LLM cost optimization, AI cost reduction, token optimization, model selection, GPT-4 costs, Claude costs, prompt engineering, caching strategies, cost calculator",
+      "wordCount": 4500,
+      "timeRequired": "PT20M",
+      "inLanguage": "en-US",
+      "proficiencyLevel": "Intermediate",
+      "about": [
+        {
+          "@type": "Thing",
+          "name": "LLM Cost Optimization",
+          "description": "Strategies and techniques for reducing large language model operational costs"
+        },
+        {
+          "@type": "Thing",
+          "name": "Token Optimization",
+          "description": "Minimizing token usage while maintaining output quality"
+        }
+      ],
+      "teaches": [
+        "Calculate and forecast LLM API costs",
+        "Implement token optimization strategies",
+        "Select cost-effective models for specific use cases",
+        "Set up caching and batching for cost reduction",
+        "Monitor and alert on cost anomalies"
+      ],
+      "speakable": {
+        "@type": "SpeakableSpecification",
+        "cssSelector": [
+          "article h1",
+          "article h2",
+          ".summary"
+        ]
+      },
+      "hasPart": [
+        {
+          "@id": "https://integritystudio.ai/blog/llm-cost-optimization-guide#faqpage"
+        },
+        {
+          "@id": "https://integritystudio.ai/blog/llm-cost-optimization-guide#breadcrumblist"
+        },
+        {
+          "@id": "https://integritystudio.ai/blog/llm-cost-optimization-guide#calculator"
+        }
+      ],
+      "mentions": [
+        {
+          "@type": "SoftwareApplication",
+          "name": "OpenAI GPT-4",
+          "url": "https://openai.com/gpt-4"
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Anthropic Claude",
+          "url": "https://anthropic.com/claude"
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "Google Gemini",
+          "url": "https://deepmind.google/technologies/gemini/"
+        }
+      ]
     }
   ]
 }

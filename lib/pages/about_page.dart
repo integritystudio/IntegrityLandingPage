@@ -8,7 +8,6 @@ import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
 import '../widgets/common/containers.dart';
-import '../widgets/common/x_icon.dart';
 import '../widgets/decorative/animated_orb.dart';
 import '../widgets/sections/footer_section.dart';
 
@@ -1126,13 +1125,6 @@ class _TeamMemberCardState extends State<_TeamMemberCard> {
                       url: widget.member.websiteUrl!,
                       tooltip: 'Website',
                       hoverColor: AppColors.indigo500,
-                    ),
-                  if (widget.member.xUrl != null)
-                    _SocialIconButton(
-                      iconBuilder: (color) => XIcon(size: 20, color: color),
-                      url: widget.member.xUrl!,
-                      tooltip: 'X',
-                      hoverColor: AppColors.purple500,
                     ),
                   if (widget.member.githubUrl != null)
                     _SocialIconButton(
