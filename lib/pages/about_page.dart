@@ -67,7 +67,7 @@ class _AboutPageState extends State<AboutPage> {
             // Hero Section
             SliverToBoxAdapter(
               child: _AboutHeroSection(
-                onGetStarted: () => _launchUrl(ExternalUrls.calendlyDemo),
+                onGetStarted: () => context.go('/demo'),
               ),
             ),
 
@@ -99,7 +99,7 @@ class _AboutPageState extends State<AboutPage> {
             // CTA Section
             SliverToBoxAdapter(
               child: _AboutCTASection(
-                onScheduleDemo: () => _launchUrl(ExternalUrls.calendlyDemo),
+                onScheduleDemo: () => context.go('/demo'),
               ),
             ),
 
@@ -145,10 +145,6 @@ class _AboutPageState extends State<AboutPage> {
     );
   }
 
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    await launchUrl(uri);
-  }
 }
 
 // =============================================================================
