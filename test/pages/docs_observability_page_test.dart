@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/pages/docs_observability_page.dart';
-import 'package:integrity_studio_ai/widgets/docs/doc_components.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../helpers/test_helpers.dart';
 
