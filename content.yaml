@@ -1413,23 +1413,6 @@ blog:
     # Posts ordered by publish date (newest first)
 
     # January 30, 2026
-    - title: "LLM Cost Calculator & Optimization Guide (2026)"
-      subtitle: "Compare Pricing for GPT-4, Claude, Gemini, and DeepSeek"
-      description: >-
-        Calculate your LLM API costs with our free interactive calculator.
-        Compare pricing for GPT-4o, Claude, Gemini, and DeepSeek. Learn
-        optimization techniques like prompt caching and batch APIs to reduce
-        AI spending by 40-80%.
-      date: "January 30, 2026"
-      read_time: "10 min read"
-      category: "Cost Optimization"
-      url: "/blog/llm-cost-optimization-guide.html"
-      stats:
-        - "40-80% cost savings"
-        - "Interactive calculator"
-        - "2026 pricing data"
-
-    # January 20, 2026
     - title: "End-to-End Agentic Observability: From Chaos to Control"
       subtitle: "A Practical Guide to the 4-Stage Observability Lifecycle"
       description: >-
@@ -1437,7 +1420,7 @@ blog:
         database at 3 AM. With a coupon code that doesn't exist. In French.
         Learn the Build, Test, Monitor, Analyze lifecycle that keeps agents
         reliable and compliant.
-      date: "January 20, 2026"
+      date: "January 30, 2026"
       read_time: "12 min read"
       category: "Best Practices"
       url: "/blog/end-to-end-agentic-observability-lifecycle.html"
@@ -1445,6 +1428,23 @@ blog:
         - "73% faster debugging"
         - "4-stage lifecycle"
         - "EU AI Act ready"
+
+    # January 20, 2026
+    - title: "LLM Cost Calculator & Optimization Guide (2026)"
+      subtitle: "Compare Pricing for GPT-4, Claude, Gemini, and DeepSeek"
+      description: >-
+        Calculate your LLM API costs with our free interactive calculator.
+        Compare pricing for GPT-4o, Claude, Gemini, and DeepSeek. Learn
+        optimization techniques like prompt caching and batch APIs to reduce
+        AI spending by 40-80%.
+      date: "January 20, 2026"
+      read_time: "10 min read"
+      category: "Cost Optimization"
+      url: "/blog/llm-cost-optimization-guide.html"
+      stats:
+        - "40-80% cost savings"
+        - "Interactive calculator"
+        - "2026 pricing data"
 
     # December 15, 2025
     - title: "Setting Up Compliance Logging for EU AI Act"

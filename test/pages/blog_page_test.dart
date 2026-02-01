@@ -183,12 +183,12 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        // First post is "LLM Cost Calculator & Optimization Guide (2026)"
-        expect(find.text('LLM Cost Calculator & Optimization Guide (2026)'),
+        // First post is "End-to-End Agentic Observability"
+        expect(find.text('End-to-End Agentic Observability: From Chaos to Control'),
             findsOneWidget);
-        expect(find.text('Cost Optimization'), findsOneWidget);
+        expect(find.text('Best Practices'), findsOneWidget);
         expect(find.text('January 30, 2026'), findsOneWidget);
-        expect(find.text('10 min read'), findsOneWidget);
+        expect(find.text('12 min read'), findsOneWidget);
       });
 
       testWidgets('renders series badge for series posts', (tester) async {
@@ -377,7 +377,7 @@ void main() {
         // Blog header should be present
         expect(find.text('Blog'), findsOneWidget);
         // First post title should be visible on tablet
-        expect(find.textContaining('LLM Cost Calculator'), findsWidgets);
+        expect(find.textContaining('End-to-End Agentic'), findsWidgets);
       });
 
       testWidgets('renders correctly on desktop', (tester) async {
@@ -393,8 +393,8 @@ void main() {
         await tester.pump();
 
         expect(find.text('Blog'), findsOneWidget);
-        // First post is LLM Cost Calculator
-        expect(find.text('LLM Cost Calculator & Optimization Guide (2026)'),
+        // First post is End-to-End Agentic Observability
+        expect(find.text('End-to-End Agentic Observability: From Chaos to Control'),
             findsOneWidget);
       });
     });
