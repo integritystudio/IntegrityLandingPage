@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../theme/theme.dart';
 import '../config/content.dart';
 import '../config/content/constants.dart';
@@ -330,9 +329,8 @@ class _LandingPageState extends State<LandingPage> {
     context.go('/signup?tier=$tier');
   }
 
-  Future<void> _launchCalendly() async {
-    final uri = Uri.parse(ExternalUrls.calendlyDemo);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  void _launchCalendly() {
+    context.go('/demo');
   }
 }
 

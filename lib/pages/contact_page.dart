@@ -253,7 +253,7 @@ class _QuickContactSection extends StatelessWidget {
                 icon: LucideIcons.calendar,
                 title: 'Schedule a Demo',
                 subtitle: 'Book a 30-minute call',
-                onTap: () => _launchUrl(ExternalUrls.calendlyDemo),
+                onTap: () => context.go('/demo'),
               ),
               _QuickContactCard(
                 icon: LucideIcons.messageCircle,
