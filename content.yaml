@@ -690,8 +690,8 @@ contact:
     submit_text: "Send Message"
     success_message: "Thank you for reaching out! We'll get back to you within one business day."
     error_message: "Something went wrong. Please try again or email us directly at hello@integritystudio.ai"
-    calendly_url: "https://calendly.com/alyshialedlie/30min"
-    calendly_cta_text: "Schedule Demo"
+    calendly_url: "/demo"
+    calendly_cta_text: "View Demo"
 
     fields:
       - name: "firstName"
