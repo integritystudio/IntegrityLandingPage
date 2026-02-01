@@ -136,11 +136,11 @@ void main() {
       });
 
       test('contact methods are defined with expected values', () {
-        expect(AppContent.contact.contactMethods.length, equals(6));
+        expect(AppContent.contact.contactMethods.length, equals(5));
 
         final labels =
             AppContent.contact.contactMethods.map((m) => m.label).toList();
-        expect(labels, containsAll(['Email', 'LinkedIn', 'X', 'GitHub', 'Location', 'Schedule a Demo']));
+        expect(labels, containsAll(['Email', 'LinkedIn', 'GitHub', 'Location', 'Schedule a Demo']));
 
         final primaryMethods =
             AppContent.contact.contactMethods.where((m) => m.isPrimary);

@@ -98,10 +98,10 @@ void main() {
         );
       });
 
-      test('has 6 contact methods', () {
+      test('has 5 contact methods', () {
         final content = AppContent.contact;
 
-        expect(content.contactMethods.length, equals(6));
+        expect(content.contactMethods.length, equals(5));
       });
 
       test('contact methods include primary channels', () {
@@ -118,7 +118,7 @@ void main() {
         final labels = content.contactMethods.map((m) => m.label).toList();
 
         expect(labels, contains('LinkedIn'));
-        expect(labels, contains('X'));
+        expect(labels, contains('GitHub'));
         expect(labels, contains('GitHub'));
       });
 
