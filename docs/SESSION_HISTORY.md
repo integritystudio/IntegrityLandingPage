@@ -1079,6 +1079,15 @@ flutter test
 ### Summary
 Major navigation refactor from Navigator to GoRouter, new documentation pages, and help center implementation.
 
+### GoRouter Migration Results
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Lines in app.dart | ~510 | 79 |
+| Lines per new route | ~15 | ~6 |
+| Route definitions | Scattered in app.dart | Centralized in app_router.dart |
+| Cookie banner | Repeated in each route | Single ShellRoute wrapper |
+
 ### Problems Solved
 - Navigator.pop() causing full app refresh instead of in-app navigation
 - Missing /docs/agents, /api/toolkit, /compliance routes
@@ -1104,16 +1113,30 @@ Major navigation refactor from Navigator to GoRouter, new documentation pages, a
 - Multiple test files - Updated for GoRouter navigation
 
 ### Commits Made
+
+**GoRouter Core Migration:**
+- `d0c92c1` refactor(routing): migrate Navigator to GoRouter across all pages
+- `9e36093` fix(routing): use GoRouter context.go() for pricing tier signup navigation
+- `9c0491c` fix(routing): add usePathUrlStrategy for deep linking
+- `b620d16` fix(routing): enable deep linking by removing initialLocation
+- `3e2d3b8` refactor(routing): rename /help-center to /support
+
+**Navigation Fixes:**
 - `f44be63` fix(routing): update /support redirect and add /docs/agents route
 - `d3049dd` fix(nav): use GoRouter context.go() instead of Navigator.pop()
+- `dadc9d5` feat(nav): route all demo buttons to /demo page
+- `5b2a392` fix(nav): migrate all Navigator.pushNamed to GoRouter context.go
+- `54fc607` fix(nav): use GoRouter context.go() for About and Blog links
+
+**Feature Pages:**
 - `743fc8d` feat(help): add help center page and fix footer links
 - `65657f1` feat(docs): add API toolkit, compliance, and agents pages
 - `a64ccc9` feat(security): remove Enterprise-Grade Capabilities section
+
+**Infrastructure:**
 - `192dbea` fix(routing): prevent router recreation from resetting navigation
 - `2177179` fix(test): update tests for GoRouter navigation migration
 - `ec1f8fe` fix(test): remove invalid skip syntax from landing_page_test
-- `5b2a392` fix(nav): migrate all Navigator.pushNamed to GoRouter context.go
-- `54fc607` fix(nav): use GoRouter context.go() for About and Blog links
 
 ### Status: ✅ Complete
 
