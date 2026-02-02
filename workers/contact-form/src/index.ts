@@ -15,6 +15,7 @@ interface Env {
   RATE_LIMIT_MAX?: string;
   RATE_LIMIT_WINDOW_SECONDS?: string;
   CSRF_SECRET?: string;
+  ENVIRONMENT?: string; // 'production' | 'staging' | 'development'
 }
 
 // CSRF configuration
@@ -29,21 +30,49 @@ interface RateLimitData {
   resetAt: number;
 }
 
+interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
+  error?: string; // Present if rate limiting infrastructure failed
+}
+
+/**
+ * Check if running in production environment.
+ */
+function isProduction(env: Env): boolean {
+  return env.ENVIRONMENT === 'production';
+}
+
 /**
  * Check and update rate limit for an IP address.
- * Returns null if within limit, or error message if exceeded.
+ *
+ * Security: In production, this function FAILS CLOSED - if KV is unavailable,
+ * requests are denied (returns error). In development, it fails open to avoid
+ * blocking local testing.
  */
 async function checkRateLimit(
   ip: string,
   env: Env
-): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+): Promise<RateLimitResult> {
   const maxRequests = parseInt(env.RATE_LIMIT_MAX || '') || DEFAULT_RATE_LIMIT_MAX;
   const windowSeconds = parseInt(env.RATE_LIMIT_WINDOW_SECONDS || '') || DEFAULT_RATE_LIMIT_WINDOW_SECONDS;
   const now = Date.now();
   const key = `rate_limit:${ip}`;
 
-  // If KV is not configured, allow the request (fail open for development)
+  // If KV is not configured
   if (!env.RATE_LIMIT_KV) {
+    if (isProduction(env)) {
+      // FAIL CLOSED in production - deny request if rate limiting unavailable
+      console.error('Rate limit KV not configured in production environment');
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt: now + windowSeconds * 1000,
+        error: 'Rate limiting service unavailable',
+      };
+    }
+    // Fail open for development
     return { allowed: true, remaining: maxRequests, resetAt: now + windowSeconds * 1000 };
   }
 
@@ -70,7 +99,16 @@ async function checkRateLimit(
     };
   } catch (error) {
     console.error('Rate limit error:', error);
-    // Fail open on KV errors
+    if (isProduction(env)) {
+      // FAIL CLOSED in production - deny request on KV errors
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt: now + windowSeconds * 1000,
+        error: 'Rate limiting service error',
+      };
+    }
+    // Fail open for development
     return { allowed: true, remaining: maxRequests, resetAt: now + windowSeconds * 1000 };
   }
 }
@@ -259,6 +297,23 @@ export default {
     // Check rate limit
     const clientIP = getClientIP(request);
     const rateLimit = await checkRateLimit(clientIP, env);
+
+    // Handle rate limiting infrastructure failure (503 Service Unavailable)
+    if (rateLimit.error) {
+      return new Response(
+        JSON.stringify({
+          error: 'Service temporarily unavailable. Please try again later.',
+        }),
+        {
+          status: 503,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Retry-After': '60',
+          },
+        }
+      );
+    }
 
     if (!rateLimit.allowed) {
       return new Response(

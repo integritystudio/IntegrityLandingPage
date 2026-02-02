@@ -6,24 +6,23 @@
 
   <!--
     GTM Consent Mode v2 Setup
-    - dataLayer and gtag function defined here (required for consent mode)
+    - dataLayer and gtag function defined in external file (CSP compliant)
     - GTM script is NOT loaded here (injected after consent)
     - See lib/services/tracking_web.dart for implementation
   -->
-  <script>
-    // Initialize dataLayer for GTM
-    window.dataLayer = window.dataLayer || [];
-    // Define gtag function for Consent Mode
-    function gtag(){dataLayer.push(arguments);}
-  </script>
+  <script src="js/gtm-init.js"></script>
 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Content Security Policy -->
+  <!-- Content Security Policy
+       - 'wasm-unsafe-eval' allows WebAssembly compilation (Flutter CanvasKit) without full eval
+       - 'unsafe-inline' removed from script-src (scripts externalized to js/ directory)
+       - 'unsafe-inline' retained in style-src (required by Flutter for dynamic styles)
+  -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://connect.facebook.net https://www.google-analytics.com https://www.gstatic.com https://static.cloudflareinsights.com;
+    script-src 'self' 'wasm-unsafe-eval' https://www.googletagmanager.com https://connect.facebook.net https://www.google-analytics.com https://www.gstatic.com https://static.cloudflareinsights.com;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     img-src 'self' data: blob: https://www.facebook.com https://connect.facebook.net https://www.google-analytics.com https://www.googletagmanager.com https://*.google.com https://*.google.com.mx https://*.doubleclick.net;
     font-src 'self' https://fonts.gstatic.com;
@@ -494,19 +493,8 @@
     }
   </style>
 
-  <!-- Meta Pixel Code -->
-  <script>
-  !function(f,b,e,v,n,t,s)
-  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-  n.queue=[];t=b.createElement(e);t.async=!0;
-  t.src=v;s=b.getElementsByTagName(e)[0];
-  s.parentNode.insertBefore(t,s)}(window, document,'script',
-  'https://connect.facebook.net/en_US/fbevents.js');
-  fbq('init', '2038045626963282');
-  fbq('track', 'PageView');
-  </script>
+  <!-- Meta Pixel Code (external for CSP compliance) -->
+  <script src="js/meta-pixel.js"></script>
   <noscript><img height="1" width="1" style="display:none"
   src="https://www.facebook.com/tr?id=2038045626963282&ev=PageView&noscript=1"
   /></noscript>
