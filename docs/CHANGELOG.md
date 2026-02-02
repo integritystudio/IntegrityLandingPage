@@ -4,13 +4,25 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 
 ---
 
-## [2026-02-01] - Demo Routing & Twitter/X Removal
+## [2026-02-01] - Routing Consolidation & Twitter/X Removal
+
+### Routing Documentation Consolidation
+
+- Created `docs/routes.md` - comprehensive routing architecture document
+  - GoRouter + ShellRoute pattern explanation
+  - All 27 routes organized by category
+  - Cookie banner pattern documentation
+  - Deep linking configuration
+- Consolidated README.md Route Status section (65 lines → 5 lines)
+- `6912ae7` docs: consolidate routing documentation into docs/routes.md
 
 ### Demo Routing Consolidation
 
 - All demo/CTA buttons now route to internal `/demo` page instead of external Calendly links
 - Updated: contact_page, about_page, landing_page, signup_page
 - Fixed contact form worker URL and CSP configuration
+- `dadc9d5` feat(nav): route all demo buttons to /demo page
+- `e24c704` fix(contact): use existing worker URL and update CSP to match
 
 ### Twitter/X Branding Removal
 
@@ -18,6 +30,9 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Social links now use LinkedIn and GitHub only
 - Updated JSON-LD schema and test fixtures
 - Enhanced schema.org structured data
+- `54517f8` chore: remove Twitter/X branding and enhance JSON-LD schema
+- `dc64fd4` fix(test): remove X/Twitter references from test fixtures
+- `812529a` test(contact): update tests for X/Twitter removal
 
 ### Blog Updates
 
@@ -25,16 +40,6 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Added internal cross-links between blog posts
 - Standardized blog footers
 - Fixed blog post ordering (newest first)
-
-### Bug Fixes
-
-- `e24c704` fix(contact): use existing worker URL and update CSP to match
-- `6bc01f2` fix: resolve Flutter analyze warnings
-
-### Commits
-
-- `dadc9d5` feat(nav): route all demo buttons to /demo page
-- `54517f8` chore: remove Twitter/X branding and enhance JSON-LD schema
 - `8548407` feat(blog): add EU AI Act enterprise guide cross-post
 - `79c4a79` docs(blog): add internal cross-links and standardize footers
 
@@ -47,135 +52,194 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Page test runtime reduced: 144s → 51s (65% improvement)
 - Added semantic labels for direct widget access without scrolling
 - Removed duplicate navigation tests (exist in integration suite)
-- Removed widget type assertions testing implementation details
-- ContentLoader test consolidation: 747 → 387 lines (-48%)
+- `2fe6cc1` perf(tests): add semantic labels and remove duplicate nav tests
+
+### Test Anti-Patterns Remediation
+
+Removed widget type assertions testing implementation details:
+
+| File | Tests Removed |
+|------|---------------|
+| docs_alerts_page_test.dart | `find.byType(Table)` assertion |
+| comparison_page_test.dart | `find.byType(DataTable)` assertion |
+| docs_interoperability_page_test.dart | 7 redundant widget type tests |
+| docs_observability_page_test.dart | 6 tests (entire doc components group) |
+| signup_page_test.dart | 2 tests (back button, Wrap widget) |
+
+- Page tests: 705 → 690
+- `809bab1` refactor(tests): remove widget type assertions testing implementation details
+
+### ContentLoader Test Consolidation
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| content_loader_test.dart | 747 lines | 387 lines | -48% |
+| test_content.dart | 476 lines | 724 lines | +248 |
+| Combined | 1,223 lines | 1,111 lines | -9% |
+
+- Extracted test YAML to `contentLoaderTestYaml` constant
+- Added shared `setUpContentLoaderTest()` / `tearDownContentLoaderTest()` helpers
+- Removed 6 weak type assertion tests
+- Fixed 3 conditional tests with proper setUp/tearDown
+- Simplified API surface verification (127 → 50 lines)
+- `08f30f2` refactor(test): consolidate content_loader_test.dart
 
 ### Twitter to X Migration
 
 - Migrated all Twitter branding to X platform branding
 - Updated social links, icons, and references
+- `5bf13d4` refactor(social): complete Twitter to X migration
+- `c1ae24a` refactor(social): migrate Twitter branding to X
 
-### Demo CTA Routing
-
-- Updated contact page demo CTA to use internal `/demo` route
-- Updated service card CTAs to use internal routing
-
-### Blog & Content
+### Blog & Content Updates
 
 - Added LLM cost optimization guide to blog listing
 - Blog posts now ordered by publish date (newest first)
 - Rewrote EU AI Act article for non-technical audience
-- Reduced content.yaml caching to 1 hour (was longer)
-
-### Other Changes
-
-- Reorganized landing page navigation and section layout
-- Enhanced security measures in content.yaml
-
-### Commits
-
-- `2fe6cc1` perf(tests): add semantic labels and remove duplicate nav tests
-- `10ab6e4` perf(tests): optimize page test runtime with key-based lookups
-- `08f30f2` refactor(test): consolidate content_loader_test.dart
-- `809bab1` refactor(tests): remove widget type assertions testing implementation details
-- `5bf13d4` refactor(social): complete Twitter to X migration
-- `cadf68c` feat(contact): update demo CTA to use internal /demo route
+- Reduced content.yaml caching to 1 hour
 - `293b29d` feat(blog): add LLM cost optimization guide to blog listing
+- `92e5207` fix(blog): order posts by publish date (newest first)
+- `af8ff95` refactor(blog): rewrite EU AI Act article for non-technical audience
 - `24db399` fix(cache): reduce content.yaml caching to 1 hour
 
 ---
 
-## [2026-01-29] - Navigation Refactor & New Documentation Pages
+## [2026-01-30] - CI Fix & Section Test Consolidation
 
-### New Pages
+### CI Failure Fix
 
-**Help Center (`/help-center`):**
-- FAQ section with common questions
-- Support options and contact methods
-- /support now redirects here
+- Fixed 11 unused `test_helpers.dart` imports blocking deployment
+- Root cause: Previous test consolidation removed usage but left imports
+- `2d62bdf` fix(test): remove unused test_helpers imports
 
-**Documentation Pages:**
-- `/docs/agents` - AI agents observability documentation
-- `/api/toolkit` - API toolkit and SDK documentation
-- `/compliance` - Compliance and governance features
+### Section Test Consolidation
 
-### Navigation Refactor
+| File | Before | After | Reduction |
+|------|--------|-------|-----------|
+| services_section_test.dart | 107 lines | 67 lines | 37% |
+| resources_section_test.dart | 145 lines | 130 lines | 10% |
+| about_section_test.dart | 114 lines | 92 lines | 19% |
+| **Total** | **366 lines** | **289 lines** | **21%** |
 
-**GoRouter Migration:**
-- Replaced all `Navigator.pushNamed`/`pop` with `context.go()` for proper SPA navigation
-- Fixed issue where Navigator.pop() caused full app refresh
-- Added `cookieBannerNotifier` (ValueNotifier) to control banner visibility without router recreation
+- Replaced local `buildTestWidget()` with shared `testableSection()`
+- Replaced local `setLargeViewport()` with shared `setScreenSize()`
+- Added `pumpAndSettle()` calls for proper widget initialization
 
-### Bug Fixes
+### RenderFlex Overflow Fixes
 
-- Fixed /support redirect (was /contact, now /help-center)
-- Fixed footer links not navigating correctly
-- Fixed /docs/agents being redirect instead of proper route
-- Removed Enterprise-Grade Capabilities section from security page
-
-### Infrastructure
-
-**CSP Updates:**
-- Added Google Ads and DoubleClick tracking domains
-- Added gstatic.com and cloudflareinsights.com to CSP
-
-**Metadata:**
-- Updated schema.org foundingDate to 2025
-- Updated founded year from 2024 to 2025
-
-### New Pages (Earlier)
-
-- `/features` - Observability audit content and feature showcase
-- `/status` - Observability health dashboard
-
-### Commits
-
-- `f44be63` fix(routing): update /support redirect and add /docs/agents route
-- `d3049dd` fix(nav): use GoRouter context.go() instead of Navigator.pop()
-- `743fc8d` feat(help): add help center page and fix footer links
-- `65657f1` feat(docs): add API toolkit, compliance, and agents pages
-- `a64ccc9` feat(security): remove Enterprise-Grade Capabilities section
-- `192dbea` fix(routing): prevent router recreation from resetting navigation
-- `5b2a392` fix(nav): migrate all Navigator.pushNamed to GoRouter context.go
-- `6cc35db` fix(csp): add Google Ads and DoubleClick tracking domains
-- `2451e1c` fix(csp): add gstatic.com and cloudflareinsights.com to CSP
-- `52c8a6c` feat(status): add /status page with observability health dashboard
-- `1281a69` feat(features): add /features page with observability audit content
+- Fixed RenderFlex overflow errors at narrow viewports
+- Added `Flexible` wrappers and `TextOverflow.ellipsis` to app bar titles
+- Fixed pages: contact_page, pricing_page, careers_page, landing_page
+- Added test helpers: `isOverflowError()`, `clearOverflowExceptions()`, `pumpFrames()`
 
 ---
 
-## [2026-01-29] - Test Coverage Improvement Sprint
+## [2026-01-29] - Major Refactoring Sprint
 
-### Test Coverage
+### Theme Test Consolidation
+
+| File | Before | After | Reduction |
+|------|--------|-------|-----------|
+| colors_test.dart | 262 lines | 156 lines | 40% |
+| spacing_test.dart | 596 lines | 442 lines | 26% |
+| typography_test.dart | 397 lines | 301 lines | 24% |
+| theme_test.dart | 215 lines | 0 (deleted) | 100% |
+| **Total** | **1,785 lines** | **1,214 lines** | **32%** |
+
+- Applied Dart 3 records for table-driven tests: `<String, (Color, int)>{}`
+- Deleted duplicate theme_test.dart
+- `ba3b0e4` refactor(test): consolidate theme tests with table-driven patterns
+
+### Widget Test Consolidation (5 Sessions)
+
+**Final Results (11 files):**
+
+| File | Before | After | Reduction |
+|------|--------|-------|-----------|
+| contact_section_test.dart | 70 | 33 | 53% |
+| cookie_banner_test.dart | 44 | 21 | 52% |
+| form_fields_test.dart | 36 | 15 | 58% |
+| doc_components_test.dart | 36 | 9 | 75% |
+| buttons_test.dart | 28 | 7 | 75% |
+| cards_test.dart | 26 | 7 | 73% |
+| alert_test.dart | 25 | 10 | 60% |
+| containers_test.dart | 26 | 6 | 77% |
+| tabbed_features_section_test.dart | 21 | 9 | 57% |
+| footer_section_test.dart | 20 | 7 | 65% |
+| pricing_section_test.dart | 19 | 6 | 68% |
+| **Grand Total** | **351** | **130** | **63%** |
+
+Key patterns applied:
+- Reusable helpers: `buildBanner()`, `pumpBannerAndWait()`
+- Combined rendering tests: 6 separate "renders X" → 1 comprehensive test
+- Loop-based variant testing using Dart 3 records
+- GlassCard: Loop over `GlassCardTier.values`
+
+Commits:
+- `52a2333` refactor(test): consolidate contact section tests
+- `eda637a` refactor(test): consolidate cookie banner tests
+- `e4b18af` refactor(test): consolidate form fields tests
+- `0e3ef88` refactor(test): consolidate doc components tests
+- `e4c06a6` refactor(test): consolidate common widget tests
+- `b4e3f5b` refactor(test): consolidate remaining widget tests
+
+### Page Test Consolidation
+
+**Priority 1 - Overflow Error Helpers:**
+- Added to test_helpers.dart: `isOverflowError()`, `clearOverflowExceptions()`, `setUpOverflowErrorSuppression()`, `tearDownOverflowErrorSuppression()`
+- Net reduction: -151 lines across 11 page test files
+- `00fffa3` refactor(test): consolidate overflow error suppression across page tests
+
+**Priority 3 - Standard Test Patterns:**
+- Added helpers: `testPageStructure()`, `testBackButtonCallback()`, `testBackButtonCallbacks()`, `testResponsiveLayout<T>()`
+- Net reduction: -343 lines across 12 page test files
+- `6b19ab2` refactor(test): consolidate standard page test patterns
+
+**Cumulative:** -494 lines removed from page tests
+
+### Navigation Refactor (GoRouter Migration)
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Lines in app.dart | ~510 | 79 |
+| Lines per new route | ~15 | ~6 |
+| Route definitions | Scattered | Centralized in app_router.dart |
+| Cookie banner | Repeated per route | Single ShellRoute wrapper |
+
+- Replaced all `Navigator.pushNamed`/`pop` with `context.go()` for proper SPA behavior
+- Added `cookieBannerNotifier` (ValueNotifier) for banner state without router recreation
+- Fixed Navigator.pop() causing full app refresh
+
+Commits:
+- `d0c92c1` refactor(routing): migrate Navigator to GoRouter across all pages
+- `d3049dd` fix(nav): use GoRouter context.go() instead of Navigator.pop()
+- `192dbea` fix(routing): prevent router recreation from resetting navigation
+- `5b2a392` fix(nav): migrate all Navigator.pushNamed to GoRouter context.go
+
+### New Documentation Pages
+
+- `/help-center` - FAQ and support options (`743fc8d`)
+- `/docs/agents` - AI agents observability documentation (`65657f1`)
+- `/api/toolkit` - API toolkit and SDK documentation (`65657f1`)
+- `/compliance` - Compliance and governance features (`65657f1`)
+- `/support` now redirects to `/help-center` (`f44be63`)
+
+### Test Coverage Improvement Sprint
 
 **Overall: 92.1% → 94.0%** (+250 tests, 1933 total)
 
-| File | Before | After |
-|------|--------|-------|
-| `consent_manager.dart` | 35.5% | 93.0% |
-| `landing_controller.dart` | 70.0% | 100% |
-| `app_router.dart` | 74.4% | 100% |
-| `landing_page.dart` | 69.6% | 94.2% |
-| `contact_section.dart` | 67.3% | 87.8% |
-
-### Refactoring
+| File | Before | After | Change |
+|------|--------|-------|--------|
+| `consent_manager.dart` | 35.5% | 93.0% | +57.5% |
+| `landing_controller.dart` | 70.0% | 100% | +30.0% |
+| `app_router.dart` | 74.4% | 100% | +25.6% |
+| `landing_page.dart` | 69.6% | 94.2% | +24.6% |
+| `contact_section.dart` | 67.3% | 87.8% | +20.5% |
 
 **ConsentManager Dependency Injection:**
-- Added `ConsentStorage`, `PlatformCheck`, `TrackingService`, `AnalyticsAdapter` interfaces
+- Added interfaces: `ConsentStorage`, `PlatformCheck`, `TrackingService`, `AnalyticsAdapter`
 - Added `configureDependencies()` / `resetDependencies()` for test mocking
-- Enables testing of web-platform consent logic in native tests
-
-### Files Modified
-
-- `lib/services/consent_manager.dart` - DI refactor
-- `test/services/consent_manager_test.dart` - 86 tests
-- `test/controllers/landing_controller_test.dart` - 28 new tests
-- `test/routing/app_router_test.dart` - 28 new tests
-- `test/pages/landing_page_test.dart` - 28 new tests
-- `test/widgets/sections/contact_section_test.dart` - 26 new tests
-- `test/services/analytics_test.dart` - 74 new tests
-- `test/widgets/sections/social_proof_section_test.dart` - layout tests
-- `test/app_test.dart` - 45 tests
+- `63d1a26` test: update consent tests to use cookieBannerNotifier API
 
 ---
 
@@ -443,12 +507,22 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 
 ---
 
+## Known Non-Issues
+
+Items that appear in console but are not tech debt:
+
+- `content.js` errors - Browser extension artifacts, not application code
+- `Intl.v8BreakIterator` deprecation - Flutter SDK internal, safe to ignore
+
+---
+
 ## Version History
 
 | Date | Version | Changes |
 |------|---------|---------|
-| 2026-02-01 | 1.9 | Demo routing consolidation, Twitter/X removal, blog updates |
+| 2026-02-01 | 1.9 | Routing consolidation, Twitter/X removal, blog updates |
 | 2026-01-31 | 1.8 | Test optimization (144s→51s), Twitter→X migration, content caching |
+| 2026-01-30 | 1.7.1 | CI fix, section test consolidation, RenderFlex overflow fixes |
 | 2026-01-29 | 1.7 | GoRouter migration, help center, docs pages (agents, toolkit, compliance) |
 | 2026-01-29 | 1.6 | Test coverage sprint: 92.1%→94.0%, consent_manager DI refactor |
 | 2026-01-28 | 1.5 | Security page, contact improvements, TypeScript fixes |
