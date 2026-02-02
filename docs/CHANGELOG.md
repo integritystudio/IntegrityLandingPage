@@ -4,6 +4,87 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 
 ---
 
+## [2026-02-01] - Demo Routing & Twitter/X Removal
+
+### Demo Routing Consolidation
+
+- All demo/CTA buttons now route to internal `/demo` page instead of external Calendly links
+- Updated: contact_page, about_page, landing_page, signup_page
+- Fixed contact form worker URL and CSP configuration
+
+### Twitter/X Branding Removal
+
+- Removed all Twitter/X references from codebase
+- Social links now use LinkedIn and GitHub only
+- Updated JSON-LD schema and test fixtures
+- Enhanced schema.org structured data
+
+### Blog Updates
+
+- Added EU AI Act enterprise guide cross-post
+- Added internal cross-links between blog posts
+- Standardized blog footers
+- Fixed blog post ordering (newest first)
+
+### Bug Fixes
+
+- `e24c704` fix(contact): use existing worker URL and update CSP to match
+- `6bc01f2` fix: resolve Flutter analyze warnings
+
+### Commits
+
+- `dadc9d5` feat(nav): route all demo buttons to /demo page
+- `54517f8` chore: remove Twitter/X branding and enhance JSON-LD schema
+- `8548407` feat(blog): add EU AI Act enterprise guide cross-post
+- `79c4a79` docs(blog): add internal cross-links and standardize footers
+
+---
+
+## [2026-01-31] - Test Optimization & Social Migration
+
+### Test Performance Optimization
+
+- Page test runtime reduced: 144s → 51s (65% improvement)
+- Added semantic labels for direct widget access without scrolling
+- Removed duplicate navigation tests (exist in integration suite)
+- Removed widget type assertions testing implementation details
+- ContentLoader test consolidation: 747 → 387 lines (-48%)
+
+### Twitter to X Migration
+
+- Migrated all Twitter branding to X platform branding
+- Updated social links, icons, and references
+
+### Demo CTA Routing
+
+- Updated contact page demo CTA to use internal `/demo` route
+- Updated service card CTAs to use internal routing
+
+### Blog & Content
+
+- Added LLM cost optimization guide to blog listing
+- Blog posts now ordered by publish date (newest first)
+- Rewrote EU AI Act article for non-technical audience
+- Reduced content.yaml caching to 1 hour (was longer)
+
+### Other Changes
+
+- Reorganized landing page navigation and section layout
+- Enhanced security measures in content.yaml
+
+### Commits
+
+- `2fe6cc1` perf(tests): add semantic labels and remove duplicate nav tests
+- `10ab6e4` perf(tests): optimize page test runtime with key-based lookups
+- `08f30f2` refactor(test): consolidate content_loader_test.dart
+- `809bab1` refactor(tests): remove widget type assertions testing implementation details
+- `5bf13d4` refactor(social): complete Twitter to X migration
+- `cadf68c` feat(contact): update demo CTA to use internal /demo route
+- `293b29d` feat(blog): add LLM cost optimization guide to blog listing
+- `24db399` fix(cache): reduce content.yaml caching to 1 hour
+
+---
+
 ## [2026-01-29] - Navigation Refactor & New Documentation Pages
 
 ### New Pages
@@ -366,6 +447,8 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-02-01 | 1.9 | Demo routing consolidation, Twitter/X removal, blog updates |
+| 2026-01-31 | 1.8 | Test optimization (144s→51s), Twitter→X migration, content caching |
 | 2026-01-29 | 1.7 | GoRouter migration, help center, docs pages (agents, toolkit, compliance) |
 | 2026-01-29 | 1.6 | Test coverage sprint: 92.1%→94.0%, consent_manager DI refactor |
 | 2026-01-28 | 1.5 | Security page, contact improvements, TypeScript fixes |
