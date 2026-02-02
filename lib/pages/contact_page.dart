@@ -255,15 +255,6 @@ class _QuickContactSection extends StatelessWidget {
                 subtitle: 'Book a 30-minute call',
                 onTap: () => context.go('/demo'),
               ),
-              _QuickContactCard(
-                icon: LucideIcons.messageCircle,
-                title: 'Live Chat',
-                subtitle: 'Chat with our team',
-                onTap: () {
-                  // Could integrate with Intercom/Drift here
-                  _launchUrl('mailto:${CompanyInfo.email}?subject=Support%20Request');
-                },
-              ),
             ],
           ),
         ),

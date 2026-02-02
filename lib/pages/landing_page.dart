@@ -27,10 +27,12 @@ import '../widgets/sections/footer_section.dart';
 /// - Semantic regions for screen readers
 class LandingPage extends StatefulWidget {
   final VoidCallback? onShowCookieSettings;
+  final String? scrollToSection;
 
   const LandingPage({
     super.key,
     this.onShowCookieSettings,
+    this.scrollToSection,
   });
 
   @override
@@ -60,6 +62,13 @@ class _LandingPageState extends State<LandingPage> {
     super.initState();
     _scrollController.addListener(_onScroll);
     AnalyticsService.trackPageView('landing');
+
+    // Scroll to section if specified (after first frame)
+    if (widget.scrollToSection != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToSection(widget.scrollToSection!);
+      });
+    }
   }
 
   @override

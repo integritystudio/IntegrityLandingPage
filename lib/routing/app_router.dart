@@ -60,6 +60,7 @@ GoRouter createAppRouter({
             path: '/',
             builder: (context, state) => LandingPage(
               onShowCookieSettings: onShowCookieSettings,
+              scrollToSection: state.uri.queryParameters['section'],
             ),
           ),
 
