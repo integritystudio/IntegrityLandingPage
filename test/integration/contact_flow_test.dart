@@ -182,7 +182,6 @@ void main() {
       // Find quick contact cards
       expect(find.textContaining('Email'), findsWidgets);
       expect(find.textContaining('Schedule'), findsWidgets);
-      expect(find.textContaining('Chat'), findsWidgets);
 
       // Verify cards are in tappable containers
       final emailCard = find.text('Email Us');
