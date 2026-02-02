@@ -130,6 +130,12 @@ class ContactService {
     return emailRegex.hasMatch(email);
   }
 
+  // Field length limits for security (prevent memory exhaustion, DoS)
+  static const int maxNameLength = 100;
+  static const int maxEmailLength = 254; // RFC 5321
+  static const int maxOrganizationLength = 200;
+  static const int maxMessageLength = 5000;
+
   /// Validate contact form data.
   ///
   /// Returns validation errors or empty errors if valid.
@@ -139,13 +145,24 @@ class ContactService {
     // Validate name
     if (formData.name.trim().isEmpty) {
       errors.name = 'Please enter your full name';
+    } else if (formData.name.length > maxNameLength) {
+      errors.name = 'Name must be under $maxNameLength characters';
     }
 
     // Validate email
     if (formData.email.trim().isEmpty) {
       errors.email = 'Please enter your email address';
+    } else if (formData.email.length > maxEmailLength) {
+      errors.email = 'Email must be under $maxEmailLength characters';
     } else if (!isValidEmail(formData.email)) {
       errors.email = 'Please enter a valid email address';
+    }
+
+    // Validate organization (optional but length-limited)
+    if (formData.organization != null &&
+        formData.organization!.length > maxOrganizationLength) {
+      errors.organization =
+          'Organization must be under $maxOrganizationLength characters';
     }
 
     // Validate message
@@ -153,9 +170,9 @@ class ContactService {
       errors.message = 'Please tell us about your needs';
     } else if (formData.message.trim().length < 10) {
       errors.message = 'Please provide more details (at least 10 characters)';
+    } else if (formData.message.length > maxMessageLength) {
+      errors.message = 'Message must be under $maxMessageLength characters';
     }
-
-    // Organization is optional - no validation
 
     return errors;
   }
@@ -166,10 +183,12 @@ class ContactService {
   }
 
   /// Fetch a CSRF token from the server.
-  /// Returns cached token if still valid (less than 30 minutes old).
+  /// Returns cached token if still valid (less than 5 minutes old).
+  /// Reduced from 30 minutes for security - shorter cache windows reduce
+  /// the attack surface for token replay attacks.
   static Future<String?> _fetchCsrfToken() async {
-    // Use cached token if less than 30 minutes old
-    const maxAge = 30 * 60 * 1000; // 30 minutes
+    // Use cached token if less than 5 minutes old (reduced from 30 for security)
+    const maxAge = 5 * 60 * 1000; // 5 minutes
     if (_cachedCsrfToken != null &&
         _csrfTokenTimestamp != null &&
         DateTime.now().millisecondsSinceEpoch - _csrfTokenTimestamp! < maxAge) {
@@ -230,6 +249,8 @@ class ContactService {
       final data = response.data as Map<String, dynamic>;
 
       if (response.statusCode == 200 && data['success'] == true) {
+        // Invalidate CSRF token after successful submission to prevent replay
+        clearCsrfCache();
         return ContactFormSuccess(
           message: data['message'] as String? ??
               "Thank you for your message! We'll respond within 24 hours.",

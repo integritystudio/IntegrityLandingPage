@@ -6,6 +6,10 @@ compatibility_date = "2024-01-01"
 RECIPIENT_EMAIL = "hello@integritystudio.ai"
 SENDER_EMAIL = "contact@integritystudio.ai"
 
+# Environment identifier for fail-closed rate limiting
+# Set to "production" in prod, "staging" for staging, "development" for local
+ENVIRONMENT = "production"
+
 # Rate limiting configuration
 RATE_LIMIT_MAX = "5"
 RATE_LIMIT_WINDOW_SECONDS = "60"
