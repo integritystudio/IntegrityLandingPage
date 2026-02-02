@@ -4,6 +4,42 @@ Chronological record of development sessions for IntegrityStudio.ai Flutter proj
 
 ---
 
+## 2026-02-01: Twitter/X Branding Removal & Blog Updates
+
+### Summary
+Removed all Twitter/X references from the codebase and enhanced blog content.
+
+### Changes
+
+**Twitter/X Removal:**
+- Removed Twitter/X from social links (now LinkedIn + GitHub only)
+- Updated JSON-LD schema structured data
+- Updated test fixtures to remove X/Twitter references
+- Updated contact section tests
+
+**Blog Enhancements:**
+- Added EU AI Act enterprise guide cross-post
+- Added internal cross-links between blog posts
+- Standardized blog footers
+- Added citation links for EU AI Act article
+
+### Files Modified
+- `lib/widgets/sections/footer_section.dart` - Removed Twitter link
+- `web/index.html` - Updated JSON-LD schema
+- `test/` - Removed Twitter/X from test fixtures
+- `web/blog/` - Multiple blog HTML updates
+
+### Commits
+- `54517f8` chore: remove Twitter/X branding and enhance JSON-LD schema
+- `dc64fd4` fix(test): remove X/Twitter references from test fixtures
+- `812529a` test(contact): update tests for X/Twitter removal
+- `8548407` feat(blog): add EU AI Act enterprise guide cross-post
+- `79c4a79` docs(blog): add internal cross-links and standardize footers
+
+### Status: ✅ Complete
+
+---
+
 ## 2026-02-01: Contact Form Fix & Demo Routing
 
 ### Summary
@@ -45,6 +81,40 @@ Fixed contact form submission failures and updated all demo buttons to route to 
 ### Notes
 - `content.js` errors in console are from browser extensions, not application code
 - `Intl.v8BreakIterator` deprecation warning is Flutter SDK internal, safe to ignore
+
+---
+
+## 2026-01-31: Twitter→X Migration & Blog Content
+
+### Summary
+Migrated Twitter branding to X platform branding and improved blog content organization.
+
+### Changes
+
+**Social Migration:**
+- Updated all Twitter references to X
+- Updated social icons and links
+- Completed full branding transition
+
+**Blog Improvements:**
+- Added LLM cost optimization guide to blog listing
+- Blog posts now ordered by publish date (newest first)
+- Rewrote EU AI Act article for non-technical audience
+- Updated demo CTAs to use internal `/demo` route
+
+**Performance:**
+- Reduced content.yaml caching to 1 hour
+
+### Commits
+- `5bf13d4` refactor(social): complete Twitter to X migration
+- `c1ae24a` refactor(social): migrate Twitter branding to X
+- `293b29d` feat(blog): add LLM cost optimization guide to blog listing
+- `92e5207` fix(blog): order posts by publish date (newest first)
+- `af8ff95` refactor(blog): rewrite EU AI Act article for non-technical audience
+- `cadf68c` feat(contact): update demo CTA to use internal /demo route
+- `24db399` fix(cache): reduce content.yaml caching to 1 hour
+
+### Status: ✅ Complete
 
 ---
 
