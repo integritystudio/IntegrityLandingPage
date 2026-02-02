@@ -61,70 +61,19 @@ lib/
     └── sections/     # Hero, features, pricing, etc.
 ```
 
-## Route Status
+## Routing
 
-### Implemented Routes
+See [docs/routes.md](docs/routes.md) for full routing architecture and route list.
 
-| Route | Page |
-|-------|------|
-| `/` | Landing page |
-| `/blog` | Blog page |
-| `/about` | About page |
-| `/pricing` | Pricing page |
-| `/contact` | Contact page |
-| `/careers` | Careers page |
-| `/security` | Security page |
-| `/signup` | Signup page |
-| `/demo` | Demo page |
-| `/privacy` | Privacy policy |
-| `/terms` | Terms of service |
-| `/cookies` | Cookies policy |
-| `/accessibility` | Accessibility statement |
-| `/sources` | Sources page |
-| `/whylabs-alternative` | WhyLabs comparison |
-| `/compare/arize-ai-alternative` | Arize comparison |
+- 27 routes implemented using GoRouter
+- Deep linking enabled
+- Cookie banner via ShellRoute wrapper
 
-### Documentation Routes
+## Reports
 
-| Route | Status |
-|-------|--------|
-| `/docs` | Implemented (Documentation Index) |
-| `/docs/quickstart` | Implemented (Quick Start) |
-| `/docs/integrations` | Implemented (Interoperability) |
-| `/docs/alerts` | Implemented (Alerts Guide) |
-| `/docs/tracing` | Implemented (Tracing Guide) |
-| `/docs/llm-observability` | Implemented (Observability Guide) |
-| `/docs/agents` | Implemented (AI Agents Guide) |
-| `/api` | Implemented (API Reference) |
-| `/api/toolkit` | Implemented (API Toolkit) |
-| `/compliance` | Implemented (Compliance & Governance) |
-| `/eu-ai-act` | Implemented (EU AI Act Requirements) |
-| `/features` | Implemented (Features Overview) |
-| `/status` | Implemented (Status Dashboard) |
-| `/support` | Implemented (Help Center) |
-
-### Redirect Routes
-
-| From | To |
-|------|-----|
-| `/docs/security/audit-trails` | `/docs/tracing` |
-| `/reports/*` | `/docs` |
-
-### Reports
-
-| Report | URL | Source |
-|--------|-----|--------|
-| SOC 2 Type II Compliance | `/reports/soc2-2026` | [SOC2-COMPLIANCE-REPORT.md](./SOC2-COMPLIANCE-REPORT.md) |
-
-### Footer Links
-
-| Link | Target | Status |
-|------|--------|--------|
-| Features | `/features` | Implemented |
-| Documentation | `/docs` | Implemented |
-| API Reference | `/api` | Implemented |
-| Help Center | `/support` | Implemented |
-| Security | `/security` | Implemented |
+| Report | Source |
+|--------|--------|
+| SOC 2 Type II Compliance | [docs/SOC2-COMPLIANCE-REPORT.md](docs/SOC2-COMPLIANCE-REPORT.md) |
 
 ## Test Coverage
 
