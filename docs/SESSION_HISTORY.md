@@ -4,6 +4,37 @@ Chronological record of development sessions for IntegrityStudio.ai Flutter proj
 
 ---
 
+## 2026-02-01: Routing Documentation Consolidation
+
+### Summary
+Consolidated routing documentation into a dedicated architecture document and updated related fix plans.
+
+### Changes
+
+**New Documentation:**
+- Created `docs/routes.md` - comprehensive routing architecture document
+  - GoRouter + ShellRoute pattern explanation
+  - All 27 routes organized by category
+  - Cookie banner pattern documentation
+  - Deep linking configuration
+  - Instructions for adding new routes
+
+**Documentation Updates:**
+- Updated `docs/fix-plan-routing-refactor.md` - marked as COMPLETED with implementation details
+- Updated `README.md` - consolidated Route Status section (65 lines → 5 lines)
+
+### Files Modified
+- `docs/routes.md` - New file (112 lines)
+- `docs/fix-plan-routing-refactor.md` - Updated to completed status
+- `README.md` - Consolidated route tables, added link to docs/routes.md
+
+### Commits
+- `6912ae7` docs: consolidate routing documentation into docs/routes.md
+
+### Status: ✅ Complete
+
+---
+
 ## 2026-02-01: Twitter/X Branding Removal & Blog Updates
 
 ### Summary
