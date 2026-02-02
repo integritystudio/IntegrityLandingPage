@@ -1,29 +1,39 @@
 # Test Performance Optimization Backlog
 
-All items completed as of 2026-01-31. See commits c1ae24a, 10ab6e4, 2fe6cc1, and 809bab1.
+All items completed as of 2026-01-31.
 
 ## Completed
 
-- [x] Replace scroll operations with `find.byKey()` (60-80s savings)
-- [x] Replace `pumpAndSettle()` with fixed frame pumping (20-40s savings)
-- [x] Share widget state via `setUpAll()` (10-20s savings)
-- [x] Add `pumpFrames()` helper to test_helpers.dart
-- [x] Remove redundant MediaQuery wrapping (2-5s savings)
-- [x] Add semantic labels for complex page sections (15-30s savings)
-- [x] Move navigation tests to integration suite (8-10s savings)
-- [x] Implement performance budget enforcement
-- [x] Create fast page pumping helper
-- [x] Remove widget type assertions testing implementation details
+- [x] Replace scroll operations with `find.byKey()` (60-80s savings) - `10ab6e4`
+- [x] Replace `pumpAndSettle()` with fixed frame pumping (20-40s savings) - `10ab6e4`
+- [x] Share widget state via `setUpAll()` (10-20s savings) - `10ab6e4`
+- [x] Add `pumpFrames()` helper to test_helpers.dart - `10ab6e4`
+- [x] Remove redundant MediaQuery wrapping (2-5s savings) - `1658132`
+- [x] Add semantic labels for complex page sections (15-30s savings) - `2fe6cc1`
+- [x] Move navigation tests to integration suite (8-10s savings) - `2fe6cc1`
+- [x] Implement performance budget enforcement - `2fe6cc1`
+- [x] Create fast page pumping helper - `10ab6e4`
+- [x] Remove widget type assertions testing implementation details - `809bab1`
+
+## Commits
+
+| Commit | Description |
+|--------|-------------|
+| `10ab6e4` | perf(tests): optimize page test runtime with key-based lookups |
+| `1658132` | perf(tests): remove redundant MediaQuery wrappers from page tests |
+| `2fe6cc1` | perf(tests): add semantic labels and remove duplicate nav tests |
+| `809bab1` | refactor(tests): remove widget type assertions testing implementation details |
+| `08f30f2` | refactor(test): consolidate content_loader_test.dart |
 
 ## Implementation Details
 
-### Semantic Labels (commit 2fe6cc1)
+### Semantic Labels (`2fe6cc1`)
 Added `Semantics` widget wrappers with labels to:
 - `docs_alerts_page.dart` - `_DocSection` wraps content in Semantics
 - `docs_quickstart_page.dart` - `_DocSection` wraps content in Semantics
 - `comparison_page.dart` - All section SliverToBoxAdapters wrapped
 
-### Navigation Test Migration (commit 2fe6cc1)
+### Navigation Test Migration (`2fe6cc1`)
 Removed 20+ duplicate navigation tests from landing_page_test.dart. Tests exist in:
 - test/integration/landing_navigation_test.dart
 - test/integration/mobile_navigation_test.dart
@@ -40,7 +50,7 @@ Comprehensive helper library with:
 - `FastPumpExtensions` - Extension methods on WidgetTester
 - `createSharedPage()`, `pumpSharedPage()` - Setup patterns for setUpAll()
 
-### Widget Type Assertions Removed (commit 809bab1)
+### Widget Type Assertions Removed (`809bab1`)
 Removed redundant `find.byType()` assertions testing implementation details:
 - docs_alerts_page_test: Table type check
 - comparison_page_test: DataTable type check
