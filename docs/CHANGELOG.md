@@ -49,10 +49,23 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 
 ### Test Performance Optimization
 
-- Page test runtime reduced: 144s → 51s (65% improvement)
-- Added semantic labels for direct widget access without scrolling
-- Removed duplicate navigation tests (exist in integration suite)
-- `2fe6cc1` perf(tests): add semantic labels and remove duplicate nav tests
+Page test runtime reduced: 144s → 51s (65% improvement)
+
+| Optimization | Time Saved | Commit |
+|--------------|------------|--------|
+| Scroll ops → key-based lookups | 60-80s | `10ab6e4` |
+| pumpAndSettle → fixed frame pumping | 20-40s | `10ab6e4` |
+| setUpAll widget state sharing | 10-20s | `10ab6e4` |
+| Semantic labels for direct access | 15-30s | `2fe6cc1` |
+| Navigation test migration | 8-10s | `2fe6cc1` |
+| MediaQuery wrapper removal | 2-5s | `1658132` |
+
+**Implementation Details:**
+
+- **Semantic Labels** (`2fe6cc1`): Added `Semantics` widget wrappers to `docs_alerts_page.dart`, `docs_quickstart_page.dart`, `comparison_page.dart`
+- **Navigation Test Migration** (`2fe6cc1`): Removed 20+ duplicate tests from landing_page_test.dart; tests exist in `test/integration/landing_navigation_test.dart` and `test/integration/mobile_navigation_test.dart`
+- **Performance Budget** (`2fe6cc1`): Added `test/performance/test_performance_budget_test.dart` with automated checks (page tests < 80s, unit tests < 15s)
+- **Fast Page Pumping Helper** (`10ab6e4`): Added `test/helpers/page_test_helpers.dart` with `pumpPageFast()`, `pumpTestableFast()`, `findInPage()`, `findDescendantByText()`, `findBySemantics()`, `createSharedPage()`, `pumpSharedPage()`
 
 ### Test Anti-Patterns Remediation
 
