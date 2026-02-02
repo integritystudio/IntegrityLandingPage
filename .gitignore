@@ -33,6 +33,7 @@ coverage/
 
 # Test
 .test_coverage.dart
+test-results/
 
 # Logs
 *.log
