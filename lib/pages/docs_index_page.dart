@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/navigation/doc_page_scaffold.dart';
 
 /// Documentation index page.
 ///
@@ -26,33 +27,7 @@ class DocsIndexPage extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           // App bar
-          SliverAppBar(
-            backgroundColor: AppColors.gray900,
-            floating: true,
-            pinned: true,
-            leading: IconButton(
-              icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
-              onPressed: onBack ?? () => context.go('/'),
-            ),
-            title: Text(
-              'Documentation',
-              style: AppTypography.headingSM.copyWith(color: Colors.white),
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.md),
-                child: TextButton(
-                  onPressed: onBack ?? () => context.go('/'),
-                  child: Text(
-                    'Back to Home',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.blue400,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          DocPageAppBar(title: 'Documentation', onBack: onBack),
 
           // Hero Section
           SliverToBoxAdapter(
@@ -90,30 +65,7 @@ class DocsIndexPage extends StatelessWidget {
           ),
 
           // Footer
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xxxl),
-              child: Center(
-                child: Column(
-                  children: [
-                    Text(
-                      'Built with OpenTelemetry and SigNoz',
-                      style: AppTypography.bodySM.copyWith(
-                        color: AppColors.gray400,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      '\u00A9 2026 Integrity Studio LLC',
-                      style: AppTypography.bodySM.copyWith(
-                        color: AppColors.gray400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          const SliverToBoxAdapter(child: DocPageFooter()),
         ],
       ),
     );
@@ -518,7 +470,7 @@ class _QuickLinksSection extends StatelessWidget {
               _QuickLink(
                 icon: LucideIcons.github,
                 label: 'GitHub',
-                url: 'https://github.com/integrity-studio',
+                url: 'https://github.com/integritystudio',
               ),
               _QuickLink(
                 icon: LucideIcons.messageCircle,

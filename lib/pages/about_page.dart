@@ -9,6 +9,7 @@ import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/decorative/animated_orb.dart';
+import '../widgets/navigation/shared_app_bar.dart';
 import '../widgets/sections/footer_section.dart';
 
 /// Dedicated About page with visually engaging design.
@@ -62,7 +63,7 @@ class _AboutPageState extends State<AboutPage> {
           controller: _scrollController,
           slivers: [
             // App bar
-            _buildAppBar(context),
+            SharedAppBar.subPage(onBack: widget.onBack),
 
             // Hero Section
             SliverToBoxAdapter(
@@ -114,37 +115,6 @@ class _AboutPageState extends State<AboutPage> {
       ),
     );
   }
-
-  SliverAppBar _buildAppBar(BuildContext context) {
-    return SliverAppBar(
-      backgroundColor: AppColors.gray900,
-      floating: true,
-      pinned: true,
-      leading: IconButton(
-        icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
-        onPressed: widget.onBack ?? () => context.go('/'),
-      ),
-      title: Text(
-        'About Us',
-        style: AppTypography.headingSM.copyWith(color: Colors.white),
-      ),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: AppSpacing.md),
-          child: TextButton(
-            onPressed: widget.onBack ?? () => context.go('/'),
-            child: Text(
-              'Back to Home',
-              style: AppTypography.bodySM.copyWith(
-                color: AppColors.blue400,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
 }
 
 // =============================================================================

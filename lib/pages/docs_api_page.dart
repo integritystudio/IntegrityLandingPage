@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/navigation/doc_page_scaffold.dart';
 
 /// API Reference documentation page.
 ///
@@ -25,33 +25,7 @@ class DocsApiPage extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           // App bar
-          SliverAppBar(
-            backgroundColor: AppColors.gray900,
-            floating: true,
-            pinned: true,
-            leading: IconButton(
-              icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
-              onPressed: onBack ?? () => context.go('/'),
-            ),
-            title: Text(
-              'API Reference',
-              style: AppTypography.headingSM.copyWith(color: Colors.white),
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.md),
-                child: TextButton(
-                  onPressed: onBack ?? () => context.go('/'),
-                  child: Text(
-                    'Back to Home',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.blue400,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          DocPageAppBar(title: 'API Reference', onBack: onBack),
 
           // Hero Section
           SliverToBoxAdapter(
@@ -72,30 +46,7 @@ class DocsApiPage extends StatelessWidget {
           ),
 
           // Footer
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xxxl),
-              child: Center(
-                child: Column(
-                  children: [
-                    Text(
-                      'Built with OpenTelemetry and SigNoz',
-                      style: AppTypography.bodySM.copyWith(
-                        color: AppColors.gray400,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      '\u00A9 2026 Integrity Studio LLC',
-                      style: AppTypography.bodySM.copyWith(
-                        color: AppColors.gray400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          const SliverToBoxAdapter(child: DocPageFooter()),
         ],
       ),
     );
@@ -618,10 +569,10 @@ const response = await client.trace('ai.inference', async (span) => {
               const _CodeBlock(
                 title: 'Installation & Usage',
                 code: '''// Install
-go get github.com/integrity-studio/sdk-go
+go get github.com/integritystudio/sdk-go
 
 // Usage
-import "github.com/integrity-studio/sdk-go"
+import "github.com/integritystudio/sdk-go"
 
 client := integritystudio.NewClient("your-api-key")
 

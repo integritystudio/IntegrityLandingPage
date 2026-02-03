@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/navigation/doc_page_scaffold.dart';
 
 /// Quick Start documentation page.
 ///
@@ -26,33 +26,7 @@ class DocsQuickstartPage extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           // App bar
-          SliverAppBar(
-            backgroundColor: AppColors.gray900,
-            floating: true,
-            pinned: true,
-            leading: IconButton(
-              icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
-              onPressed: onBack ?? () => context.go('/'),
-            ),
-            title: Text(
-              'Quick Start',
-              style: AppTypography.headingSM.copyWith(color: Colors.white),
-            ),
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.md),
-                child: TextButton(
-                  onPressed: onBack ?? () => context.go('/'),
-                  child: Text(
-                    'Back to Home',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.blue400,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          DocPageAppBar(title: 'Quick Start', onBack: onBack),
 
           // Hero Section
           SliverToBoxAdapter(
@@ -73,30 +47,7 @@ class DocsQuickstartPage extends StatelessWidget {
           ),
 
           // Footer
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xxxl),
-              child: Center(
-                child: Column(
-                  children: [
-                    Text(
-                      'Built with OpenTelemetry and SigNoz',
-                      style: AppTypography.bodySM.copyWith(
-                        color: AppColors.gray400,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      '\u00A9 2026 Integrity Studio LLC',
-                      style: AppTypography.bodySM.copyWith(
-                        color: AppColors.gray400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          const SliverToBoxAdapter(child: DocPageFooter()),
         ],
       ),
     );
@@ -368,10 +319,10 @@ yarn add @integrity-studio/sdk
 # Using pnpm
 pnpm add @integrity-studio/sdk''',
                   '''# Using go get
-go get github.com/integrity-studio/sdk-go
+go get github.com/integritystudio/sdk-go
 
 # Add to go.mod
-require github.com/integrity-studio/sdk-go v1.0.0''',
+require github.com/integritystudio/sdk-go v1.0.0''',
                 ],
               ),
             ],
@@ -421,7 +372,7 @@ client.instrumentLangChain();''',
 
 import (
     "os"
-    integrity "github.com/integrity-studio/sdk-go"
+    integrity "github.com/integritystudio/sdk-go"
 )
 
 func main() {
