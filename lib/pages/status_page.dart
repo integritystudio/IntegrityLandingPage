@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
@@ -1080,57 +1079,6 @@ class _TechSection extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           child,
-        ],
-      ),
-    );
-  }
-}
-
-// Keep _CircuitStateCard for potential future use but unused now
-class _CircuitStateCard extends StatelessWidget {
-  final String state;
-  final String description;
-  final IconData icon;
-  final Color color;
-
-  const _CircuitStateCard({
-    required this.state,
-    required this.description,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray700,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                state,
-                style: AppTypography.bodyMD.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            description,
-            style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
-          ),
         ],
       ),
     );
