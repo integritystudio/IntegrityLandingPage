@@ -58,7 +58,7 @@ class DemoPage extends StatelessWidget {
               ),
             ),
             // Embedded contact section
-            const ContactSection(),
+            const ContactSection(showLiveDemoSection: false),
           ],
         ),
       ),

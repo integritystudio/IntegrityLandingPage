@@ -153,6 +153,7 @@ class DocCodeBlock extends StatelessWidget {
 }
 
 /// Simple table for documentation data display.
+/// Horizontally scrollable on mobile to prevent overflow.
 class DocTable extends StatelessWidget {
   final List<String> headers;
   final List<List<String>> rows;
@@ -165,49 +166,54 @@ class DocTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        child: Table(
-          border: TableBorder.symmetric(
-            inside: BorderSide(color: AppColors.gray700),
-          ),
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: AppColors.gray800),
-              children: headers
-                  .map((h) => Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Text(
-                          h,
-                          style: AppTypography.bodySM.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ))
-                  .toList(),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 300),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+          border: Border.all(color: AppColors.gray700),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+          child: Table(
+            defaultColumnWidth: const IntrinsicColumnWidth(),
+            border: TableBorder.symmetric(
+              inside: BorderSide(color: AppColors.gray700),
             ),
-            ...rows.map(
-              (row) => TableRow(
-                children: row
-                    .map((cell) => Padding(
+            children: [
+              TableRow(
+                decoration: BoxDecoration(color: AppColors.gray800),
+                children: headers
+                    .map((h) => Padding(
                           padding: const EdgeInsets.all(AppSpacing.md),
                           child: Text(
-                            cell,
+                            h,
                             style: AppTypography.bodySM.copyWith(
-                              color: AppColors.gray300,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ))
                     .toList(),
               ),
-            ),
-          ],
+              ...rows.map(
+                (row) => TableRow(
+                  children: row
+                      .map((cell) => Padding(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            child: Text(
+                              cell,
+                              style: AppTypography.bodySM.copyWith(
+                                color: AppColors.gray300,
+                              ),
+                            ),
+                          ))
+                      .toList(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

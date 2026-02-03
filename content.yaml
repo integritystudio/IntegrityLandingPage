@@ -29,10 +29,10 @@ company:
 # =============================================================================
 urls:
   external:
-    calendly_demo: "https://calendly.com/alyshialedlie/30min"
+    calendly_demo: "https://calendly.com/alyshialedlie/15min"
     status_page: "https://integritystudio.ai/status"
     linkedin: "https://linkedin.com/company/integrity-studio-ai"
-    github: "https://github.com/aledlie"
+    github: "https://github.com/integritystudio"
     founder_linkedin: "https://linkedin.com/in/aledlie"
 
   internal:
@@ -757,7 +757,7 @@ contact:
     - icon: "calendar"
       label: "Schedule a Demo"
       value: "Book a 30-minute call"
-      url: "https://calendly.com/alyshialedlie/30min"
+      url: "https://calendly.com/alyshialedlie/15min"
       is_primary: true
 
     - icon: "map-pin"
@@ -773,7 +773,7 @@ contact:
     - icon: "github"
       label: "GitHub"
       value: "integritystudio"
-      url: "https://github.com/aledlie"
+      url: "https://github.com/integritystudio"
 
 # =============================================================================
 # FOOTER SECTION
@@ -889,7 +889,7 @@ resources:
         at 3 AM. Learn the Build, Test, Monitor, Analyze lifecycle that keeps agents
         reliable, compliant, and not accidentally ordering 10,000 pizzas.
       category: "Best Practices"
-      publish_date: "2026-01-20"
+      publish_date: "2026-01-10"
       read_time: "12 min read"
       slug: "end-to-end-agentic-observability-lifecycle"
       author: "Alyshia Ledlie"
@@ -1404,7 +1404,7 @@ blog:
   posts:
     # Posts ordered by publish date (newest first)
 
-    # January 30, 2026
+    # January 10, 2026
     - title: "End-to-End Agentic Observability: From Chaos to Control"
       subtitle: "A Practical Guide to the 4-Stage Observability Lifecycle"
       description: >-
@@ -1412,7 +1412,7 @@ blog:
         database at 3 AM. With a coupon code that doesn't exist. In French.
         Learn the Build, Test, Monitor, Analyze lifecycle that keeps agents
         reliable and compliant.
-      date: "January 30, 2026"
+      date: "January 10, 2026"
       read_time: "12 min read"
       category: "Best Practices"
       url: "/blog/end-to-end-agentic-observability-lifecycle.html"
@@ -1438,14 +1438,14 @@ blog:
         - "Interactive calculator"
         - "2026 pricing data"
 
-    # December 15, 2025
+    # January 29, 2026
     - title: "Setting Up Compliance Logging for EU AI Act"
       subtitle: "Technical Guide to Article 12-Compliant Logging"
       description: >-
         A practical guide to implementing Article 12-compliant logging for LLM
         systems, with code examples and production-ready patterns. Covers ISO 24970
         standards, data schemas, and implementation for high-risk AI compliance.
-      date: "December 15, 2025"
+      date: "January 29, 2026"
       read_time: "15 min read"
       category: "Compliance"
       url: "/blog/eu-ai-act-compliance-logging-setup.html"
@@ -1506,14 +1506,14 @@ blog:
         - "25.47% CAGR growth rate"
         - "98% enterprises increasing budgets"
 
-    # October 20, 2025
+    # November 30, 2025
     - title: "Arize AI vs Integrity Studio: Comparison Guide"
       subtitle: "A Simpler Path to AI Observability"
       description: >-
         Comparing Integrity Studio and Arize AI for AI observability. Learn about
         transparent pricing, EU AI Act compliance, and developer-friendly integration.
         Find the right platform for your LLM monitoring needs.
-      date: "October 20, 2025"
+      date: "November 30, 2025"
       read_time: "6 min read"
       category: "Comparison"
       url: "/compare/arize-ai-alternative"
@@ -1523,7 +1523,7 @@ blog:
         - "Transparent pricing"
         - "Compliance built-in"
 
-    # September 15, 2025
+    # October 30, 2025
     - title: "WhyLabs Alternative: Migrate to Integrity Studio"
       subtitle: "WhyLabs Is Shutting Down—Here's Your Migration Path"
       description: >-
@@ -1531,7 +1531,7 @@ blog:
         your AI observability to Integrity Studio with privacy-first monitoring,
         EU AI Act compliance, and seamless data migration—most teams complete it
         in under an hour.
-      date: "September 15, 2025"
+      date: "October 30, 2025"
       read_time: "8 min read"
       category: "Migration"
       url: "/whylabs-alternative"

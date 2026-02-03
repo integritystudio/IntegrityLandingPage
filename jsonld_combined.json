@@ -70,7 +70,7 @@
         ],
         "sameAs": [
           "mailto:alyshia@integritystudio.ai",
-          "https://github.com/aledlie",
+          "https://github.com/integritystudio",
           "https://integritystudio.ai",
           "https://amazing-froyo-8f05e0.netlify.app/"
         ],
@@ -175,7 +175,7 @@
         "telephone": "(512) 829-1644",
         "sameAs": [
           "https://www.linkedin.com/company/integrity-studio-ai",
-          "https://github.com/aledlie"
+          "https://github.com/integritystudio"
         ],
         "hasOfferCatalog": {
           "@type": "OfferCatalog",
@@ -358,7 +358,7 @@
         ],
         "sameAs": [
           "mailto:alyshia@integritystudio.ai",
-          "https://github.com/aledlie",
+          "https://github.com/integritystudio",
           "https://integritystudio.ai",
           "https://amazing-froyo-8f05e0.netlify.app/"
         ],
@@ -463,7 +463,7 @@
         "telephone": "(512) 829-1644",
         "sameAs": [
           "https://www.linkedin.com/company/integrity-studio-ai",
-          "https://github.com/aledlie"
+          "https://github.com/integritystudio"
         ],
         "hasOfferCatalog": {
           "@type": "OfferCatalog",
@@ -606,7 +606,7 @@
         ],
         "sameAs": [
           "mailto:alyshia@integritystudio.ai",
-          "https://github.com/aledlie",
+          "https://github.com/integritystudio",
           "https://integritystudio.ai",
           "https://amazing-froyo-8f05e0.netlify.app/"
         ],
@@ -707,7 +707,7 @@
         "telephone": "(512) 829-1644",
         "sameAs": [
           "https://www.linkedin.com/company/integrity-studio-ai",
-          "https://github.com/aledlie"
+          "https://github.com/integritystudio"
         ],
         "hasOfferCatalog": {
           "@type": "OfferCatalog",
@@ -877,7 +877,7 @@
         ],
         "sameAs": [
           "mailto:alyshia@integritystudio.ai",
-          "https://github.com/aledlie",
+          "https://github.com/integritystudio",
           "https://integritystudio.ai",
           "https://amazing-froyo-8f05e0.netlify.app/"
         ],
@@ -982,7 +982,7 @@
         "telephone": "(512) 829-1644",
         "sameAs": [
           "https://www.linkedin.com/company/integrity-studio-ai",
-          "https://github.com/aledlie"
+          "https://github.com/integritystudio"
         ],
         "hasOfferCatalog": {
           "@type": "OfferCatalog",
@@ -1436,7 +1436,7 @@
         ],
         "sameAs": [
           "mailto:alyshia@integritystudio.ai",
-          "https://github.com/aledlie",
+          "https://github.com/integritystudio",
           "https://integritystudio.ai",
           "https://amazing-froyo-8f05e0.netlify.app/"
         ],
@@ -1543,7 +1543,7 @@
         "telephone": "(512) 829-1644",
         "sameAs": [
           "https://www.linkedin.com/company/integrity-studio-ai",
-          "https://github.com/aledlie"
+          "https://github.com/integritystudio"
         ],
         "hasOfferCatalog": {
           "@type": "OfferCatalog",
@@ -1759,7 +1759,7 @@
         ],
         "sameAs": [
           "mailto:alyshia@integritystudio.ai",
-          "https://github.com/aledlie",
+          "https://github.com/integritystudio",
           "https://integritystudio.ai",
           "https://amazing-froyo-8f05e0.netlify.app/"
         ],
@@ -1864,7 +1864,7 @@
         "telephone": "(512) 829-1644",
         "sameAs": [
           "https://www.linkedin.com/company/integrity-studio-ai",
-          "https://github.com/aledlie"
+          "https://github.com/integritystudio"
         ],
         "hasOfferCatalog": {
           "@type": "OfferCatalog",
@@ -2436,7 +2436,7 @@
         ],
         "sameAs": [
           "mailto:alyshia@integritystudio.ai",
-          "https://github.com/aledlie",
+          "https://github.com/integritystudio",
           "https://integritystudio.ai",
           "https://amazing-froyo-8f05e0.netlify.app/"
         ],
@@ -2602,7 +2602,7 @@
         },
         "sameAs": [
           "https://www.linkedin.com/company/integrity-studio-ai",
-          "https://github.com/aledlie"
+          "https://github.com/integritystudio"
         ]
       },
       "featureList": [
@@ -2782,7 +2782,7 @@
       },
       "sameAs": [
         "https://www.linkedin.com/company/integrity-studio-ai",
-        "https://github.com/aledlie",
+        "https://github.com/integritystudio",
         {
           "@id": "https://integritystudio.ai/#localbusiness"
         }
@@ -2956,7 +2956,7 @@
         ],
         "sameAs": [
           "mailto:alyshia@integritystudio.ai",
-          "https://github.com/aledlie",
+          "https://github.com/integritystudio",
           "https://integritystudio.ai",
           "https://amazing-froyo-8f05e0.netlify.app/"
         ],
@@ -3057,7 +3057,7 @@
         "telephone": "(512) 829-1644",
         "sameAs": [
           "https://www.linkedin.com/company/integrity-studio-ai",
-          "https://github.com/aledlie"
+          "https://github.com/integritystudio"
         ],
         "hasOfferCatalog": {
           "@type": "OfferCatalog",
@@ -3612,7 +3612,7 @@
           "contactType": "sales",
           "email": "hello@integritystudio.ai",
           "telephone": "(512) 829-1644",
-          "url": "https://calendly.com/alyshialedlie/30min",
+          "url": "https://calendly.com/alyshialedlie/15min",
           "availableLanguage": "English",
           "areaServed": "Global"
         },
@@ -3628,7 +3628,7 @@
         "name": "Schedule Demo",
         "target": {
           "@type": "EntryPoint",
-          "urlTemplate": "https://calendly.com/alyshialedlie/30min",
+          "urlTemplate": "https://calendly.com/alyshialedlie/15min",
           "actionPlatform": [
             "http://schema.org/DesktopWebPlatform",
             "http://schema.org/MobileWebPlatform"
@@ -4148,7 +4148,7 @@
       "sameAs": [
         "https://linkedin.com/in/aledlie",
         "https://www.aledlie.com/",
-        "https://github.com/aledlie"
+        "https://github.com/integritystudio"
       ]
     },
     {
@@ -4202,7 +4202,7 @@
       "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
       "location": {
         "@type": "VirtualLocation",
-        "url": "https://calendly.com/alyshialedlie/30min"
+        "url": "https://calendly.com/alyshialedlie/15min"
       },
       "organizer": {
         "@type": "Organization",
@@ -4219,7 +4219,7 @@
         "price": "0",
         "priceCurrency": "USD",
         "availability": "https://schema.org/InStock",
-        "url": "https://calendly.com/alyshialedlie/30min",
+        "url": "https://calendly.com/alyshialedlie/15min",
         "validFrom": "2024-01-01"
       },
       "duration": "PT30M",
