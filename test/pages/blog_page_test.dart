@@ -187,7 +187,7 @@ void main() {
         expect(find.text('End-to-End Agentic Observability: From Chaos to Control'),
             findsOneWidget);
         expect(find.text('Best Practices'), findsOneWidget);
-        expect(find.text('January 30, 2026'), findsOneWidget);
+        expect(find.text('January 10, 2026'), findsOneWidget);
         expect(find.text('12 min read'), findsOneWidget);
       });
 

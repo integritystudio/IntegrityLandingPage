@@ -412,7 +412,7 @@ void main() {
     // and test/integration/mobile_navigation_test.dart
     // =========================================================================
     group('hero section callbacks', () {
-      testWidgets('hero Get Started button triggers scroll to pricing',
+      testWidgets('hero Get Started button has navigation callback',
           (tester) async {
         setDesktopSize(tester);
         await pumpLandingPage(tester);
@@ -420,7 +420,7 @@ void main() {
         // Find the HeroSection
         expect(find.byType(HeroSection), findsOneWidget);
 
-        // Hero section should have Get Started button that scrolls to pricing
+        // Hero section should have Get Started button with navigation callback
         final heroSection = tester.widget<HeroSection>(find.byType(HeroSection));
         expect(heroSection.onGetStarted, isNotNull);
 
@@ -431,13 +431,8 @@ void main() {
         );
         expect(gradientButton, findsOneWidget);
 
-        // Tap the GradientButton to trigger onGetStarted
-        await tester.tap(gradientButton);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 600));
-
-        // Should scroll to pricing section
-        expect(find.byType(LandingPage), findsOneWidget);
+        // Note: Actual navigation testing (context.go) requires GoRouter
+        // and is covered in test/integration/landing_navigation_test.dart
       });
 
       testWidgets('hero Watch Demo button shows demo modal', (tester) async {
