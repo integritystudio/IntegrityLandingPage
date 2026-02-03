@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'app.dart';
@@ -62,7 +63,12 @@ Future<void> main() async {
   // This must be called before runApp() for deep linking to work
   usePathUrlStrategy();
 
-  WidgetsFlutterBinding.ensureInitialized();
+  // Initialize Marionette for AI agent testing in debug mode
+  if (kDebugMode) {
+    MarionetteBinding.ensureInitialized();
+  } else {
+    WidgetsFlutterBinding.ensureInitialized();
+  }
 
   // Load content from YAML before app starts
   await Content.load();

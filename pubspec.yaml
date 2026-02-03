@@ -40,6 +40,7 @@ dependencies:
 
   # Web Interop (for GTM/Analytics)
   web: ^1.0.0
+  marionette_flutter: ^0.3.0
 
 dev_dependencies:
   flutter_test:
