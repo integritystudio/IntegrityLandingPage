@@ -11,7 +11,7 @@ import '../widgets/sections/footer_section.dart';
 
 /// Status page displaying platform operational health and internal observability.
 ///
-/// Based on internal-observability.md v1.6.0 (2026-01-29).
+/// Based on internal-observability.md v1.8.6 (2026-02-01).
 /// Covers the observability-toolkit MCP server's self-monitoring capabilities.
 class StatusPage extends StatefulWidget {
   final VoidCallback? onBack;
@@ -48,13 +48,11 @@ class _StatusPageState extends State<StatusPage> {
             SliverToBoxAdapter(child: _HeroSection(isMobile: isMobile, content: content)),
             SliverToBoxAdapter(child: _MetricsSection(isMobile: isMobile, content: content)),
             SliverToBoxAdapter(child: _ServicesSection(isMobile: isMobile, content: content)),
-            SliverToBoxAdapter(child: _ArchitectureSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _QueryTimingSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _CacheMetricsSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _CircuitBreakerSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _HealthCheckSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _DebuggingGuideSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _ConfigurationSection(isMobile: isMobile)),
+            SliverToBoxAdapter(child: _WhatWeMonitorSection(isMobile: isMobile)),
+            SliverToBoxAdapter(child: _PerformanceSection(isMobile: isMobile)),
+            SliverToBoxAdapter(child: _HealthMonitoringSection(isMobile: isMobile)),
+            SliverToBoxAdapter(child: _CapabilitiesSection(isMobile: isMobile)),
+            SliverToBoxAdapter(child: _DeveloperAppendixSection(isMobile: isMobile)),
             SliverToBoxAdapter(
               child: FooterSection(onCookieSettings: widget.onShowCookieSettings),
             ),
@@ -94,38 +92,7 @@ class _StatusPageState extends State<StatusPage> {
           ],
         ),
       ),
-      actions: [
-        if (!isMobile)
-          Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.md),
-            child: TextButton(
-              onPressed: () => _launchStatusPage(),
-              style: TextButton.styleFrom(
-                backgroundColor: AppColors.blue600,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.sm,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                ),
-              ),
-              child: Text(
-                'External Status Page',
-                style: AppTypography.bodySM.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-      ],
     );
-  }
-
-  Future<void> _launchStatusPage() async {
-    final uri = Uri.parse(ExternalUrls.statusPage);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 }
 
@@ -309,10 +276,11 @@ class _ServicesSection extends StatelessWidget {
   }
 }
 
-class _ArchitectureSection extends StatelessWidget {
+/// Simplified "What We Monitor" section for non-technical readers
+class _WhatWeMonitorSection extends StatelessWidget {
   final bool isMobile;
 
-  const _ArchitectureSection({required this.isMobile});
+  const _WhatWeMonitorSection({required this.isMobile});
 
   @override
   Widget build(BuildContext context) {
@@ -323,59 +291,40 @@ class _ArchitectureSection extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 900),
         child: DocSection(
-          icon: LucideIcons.layers,
-          title: 'Internal Observability Architecture',
+          icon: LucideIcons.eye,
+          title: 'What We Monitor',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'The observability-toolkit MCP server includes internal observability features that provide visibility into its own operations.',
+                'We monitor our own platform to ensure your data is always available and your queries are fast. '
+                'Every component is tracked 24/7 so issues are detected before they affect you.',
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              const DocCodeBlock(
-                code: '''observability-toolkit
-+-------------+  +-------------+  +-------------------------+
-|   Server    |  |  Backends   |  |        Tools            |
-|             |  |             |  |                         |
-| Rate Limit  |  | LocalJsonl  |  |  obs_health_check       |
-| Error Stack |  | SigNozApi   |  |  (cache stats output)   |
-+-------------+  +-------------+  +-------------------------+
-        |               |                      |
-        v               v                      v
-+-------------------------------------------------------------+
-|              Internal Observability Layer                   |
-+-------------+-------------+-------------+------------------+
-| Query Timer | Cache Stats | Circuit Log | Health Metrics   |
-|             |             |             |                  |
-| >500ms warn | hit/miss/   | state       | cache in output  |
-|             | evict/rate  | transitions |                  |
-+-------------+-------------+-------------+------------------+''',
-              ),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.xl),
               const Wrap(
                 spacing: AppSpacing.md,
                 runSpacing: AppSpacing.md,
                 children: [
                   DocFeatureCard(
-                    icon: LucideIcons.timer,
-                    title: 'Query Timing',
-                    description: 'All query methods instrumented with timing, warns on slow queries >500ms.',
+                    icon: LucideIcons.zap,
+                    title: 'Response Speed',
+                    description: 'Every request is measured to ensure fast, consistent performance.',
                   ),
                   DocFeatureCard(
                     icon: LucideIcons.database,
-                    title: 'Cache Metrics',
-                    description: 'Track hits, misses, evictions, and hit rate across all query caches.',
+                    title: 'Smart Caching',
+                    description: 'Data is cached intelligently to reduce wait times.',
                   ),
                   DocFeatureCard(
-                    icon: LucideIcons.shieldAlert,
-                    title: 'Circuit Breaker',
-                    description: 'State transition logging for failure protection patterns.',
+                    icon: LucideIcons.shield,
+                    title: 'Automatic Protection',
+                    description: 'If an issue occurs, the system prevents cascading problems.',
                   ),
                   DocFeatureCard(
                     icon: LucideIcons.heartPulse,
-                    title: 'Health Metrics',
-                    description: 'Cache statistics included in obs_health_check output.',
+                    title: 'Continuous Monitoring',
+                    description: 'System health is checked constantly and reported in real-time.',
                   ),
                 ],
               ),
@@ -387,10 +336,11 @@ class _ArchitectureSection extends StatelessWidget {
   }
 }
 
-class _QueryTimingSection extends StatelessWidget {
+/// Simplified Performance section for non-technical readers
+class _PerformanceSection extends StatelessWidget {
   final bool isMobile;
 
-  const _QueryTimingSection({required this.isMobile});
+  const _PerformanceSection({required this.isMobile});
 
   @override
   Widget build(BuildContext context) {
@@ -402,216 +352,82 @@ class _QueryTimingSection extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 900),
         child: DocSection(
-          icon: LucideIcons.timer,
-          title: 'Query Timing',
-          accentColor: AppColors.purple500,
+          icon: LucideIcons.gauge,
+          title: 'Performance Guarantees',
+          accentColor: AppColors.blue500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'All query methods are instrumented with timing. Queries exceeding the threshold trigger warnings.',
+                'We measure how long every data request takes. If something slows down, our team is notified immediately so we can resolve it before it affects your experience.',
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              const DocCodeBlock(
-                code: '''const timer = startTiming();
-try {
-  // query logic
-} finally {
-  const durationMs = timer.end();
-  if (durationMs > SLOW_QUERY_THRESHOLD_MS) {
-    console.warn(`[obs-toolkit] Slow query: \${method} took \${durationMs.toFixed(1)}ms`);
-  }
-}''',
-              ),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.xl),
               Text(
-                'Instrumented Methods',
+                'Response Time Commitment',
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
               const DocTable(
-                headers: ['Backend', 'Methods'],
+                headers: ['Response Time', 'Status'],
                 rows: [
-                  ['LocalJsonlBackend', 'queryTraces(), queryLogs(), queryMetrics(), queryLLMEvents()'],
-                  ['SigNozApiBackend', 'queryTraces(), queryLogs(), queryMetrics()'],
+                  ['< 500ms', 'Normal - Fast response'],
+                  ['500ms - 1s', 'Moderate - Being monitored'],
+                  ['> 1s', 'Alert triggered - Team notified'],
                 ],
               ),
-              const SizedBox(height: AppSpacing.lg),
-              const DocCallout.warning(
-                title: 'Example Warning Output',
-                message: '[obs-toolkit] Slow query: queryTraces took 1234.5ms',
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CacheMetricsSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _CacheMetricsSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionContainer(
-      padding: EdgeInsets.symmetric(
-        vertical: isMobile ? AppSpacing.xl : AppSpacing.xxl,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: DocSection(
-          icon: LucideIcons.database,
-          title: 'Cache Metrics',
-          accentColor: AppColors.success,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+              const SizedBox(height: AppSpacing.xl),
               Text(
-                'The QueryCache class tracks detailed statistics for performance monitoring.',
+                'Caching Effectiveness',
+                style: AppTypography.headingSM.copyWith(color: Colors.white),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Intelligent caching delivers faster query results without sacrificing data freshness.',
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              const DocCodeBlock(
-                code: '''interface CacheStats {
-  hits: number;      // Successful cache lookups
-  misses: number;    // Cache misses (key not found or TTL expired)
-  evictions: number; // Entries removed due to max size limit
-  size: number;      // Current number of cached entries
-  hitRate: number;   // hits / (hits + misses)
-}''',
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Caches Tracked',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const DocBulletList(
-                items: [
-                  'traceCache - Trace query results',
-                  'logCache - Log query results',
-                  'metricCache - Metric query results',
-                  'llmEventCache - LLM event query results',
-                ],
-                bulletColor: AppColors.success,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Cache Hit Rate Interpretation',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
               const SizedBox(height: AppSpacing.md),
               const DocTable(
-                headers: ['Rate', 'Status', 'Action'],
+                headers: ['Cache Performance', 'What It Means'],
                 rows: [
-                  ['>80%', 'Excellent', 'Cache is effective'],
-                  ['50-80%', 'Good', 'Normal operation'],
-                  ['20-50%', 'Fair', 'Consider increasing TTL'],
-                  ['<20%', 'Poor', 'Review query patterns'],
+                  ['> 80% hit rate', 'Excellent - Most queries are instant'],
+                  ['50-80% hit rate', 'Good - System running normally'],
+                  ['< 50% hit rate', 'Being optimized'],
                 ],
               ),
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.xl),
               Text(
-                'Cache Evictions Interpretation',
+                'Automatic Safeguards',
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const DocTable(
-                headers: ['Evictions', 'Status', 'Action'],
-                rows: [
-                  ['0', 'Normal', 'Cache not full'],
-                  ['<10%', 'Normal', 'Normal turnover'],
-                  ['>30%', 'High', 'Increase max size'],
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CircuitBreakerSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _CircuitBreakerSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionContainer(
-      backgroundColor: AppColors.gray800,
-      padding: EdgeInsets.symmetric(
-        vertical: isMobile ? AppSpacing.xl : AppSpacing.xxl,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: DocSection(
-          icon: LucideIcons.shieldAlert,
-          title: 'Circuit Breaker Logging',
-          accentColor: AppColors.warning,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
               Text(
-                'The circuit breaker protects against cascading failures when external services are unavailable. State transitions are logged for visibility.',
+                'Built-in circuit breakers prevent problems from spreading if any component has issues. The system automatically stops sending requests to troubled services until they recover.',
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'State Transitions',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const DocTable(
-                headers: ['Transition', 'Level', 'Message'],
-                rows: [
-                  ['closed -> open', 'WARN', 'Circuit breaker OPENED after N consecutive failures'],
-                  ['open -> half-open', 'INFO', 'Circuit breaker entering HALF-OPEN state'],
-                  ['half-open -> open', 'WARN', 'Circuit breaker OPENED after N consecutive failures'],
-                  ['half-open -> closed', 'INFO', 'Circuit breaker CLOSED after successful request'],
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Circuit Breaker States',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
               Wrap(
                 spacing: AppSpacing.md,
                 runSpacing: AppSpacing.md,
                 children: [
-                  _CircuitStateCard(
-                    state: 'Closed',
-                    description: 'Normal operation - requests flow through',
-                    icon: LucideIcons.checkCircle,
+                  _StatusChip(
+                    label: 'Normal',
+                    description: 'Everything working',
                     color: AppColors.success,
+                    icon: LucideIcons.checkCircle,
                   ),
-                  _CircuitStateCard(
-                    state: 'Half-Open',
-                    description: 'Testing recovery - limited requests',
-                    icon: LucideIcons.alertCircle,
+                  _StatusChip(
+                    label: 'Recovering',
+                    description: 'Testing connection',
                     color: AppColors.warning,
+                    icon: LucideIcons.alertCircle,
                   ),
-                  _CircuitStateCard(
-                    state: 'Open',
-                    description: 'Failing over - requests blocked',
-                    icon: LucideIcons.xCircle,
+                  _StatusChip(
+                    label: 'Protected',
+                    description: 'Waiting for resolution',
                     color: AppColors.error,
+                    icon: LucideIcons.shieldAlert,
                   ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              const DocCallout.info(
-                title: 'Configuration',
-                items: [
-                  'Max failures before open: 3',
-                  'Reset timeout: 30 seconds',
                 ],
               ),
             ],
@@ -622,6 +438,655 @@ class _CircuitBreakerSection extends StatelessWidget {
   }
 }
 
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final String description;
+  final Color color;
+  final IconData icon;
+
+  const _StatusChip({
+    required this.label,
+    required this.description,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.gray700,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: AppSpacing.sm),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: AppTypography.bodySM.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                description,
+                style: AppTypography.bodySM.copyWith(
+                  color: AppColors.gray400,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Simplified Health Monitoring section for non-technical readers
+class _HealthMonitoringSection extends StatelessWidget {
+  final bool isMobile;
+
+  const _HealthMonitoringSection({required this.isMobile});
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionContainer(
+      padding: EdgeInsets.symmetric(
+        vertical: isMobile ? AppSpacing.xl : AppSpacing.xxl,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: DocSection(
+          icon: LucideIcons.heartPulse,
+          title: 'Continuous Health Monitoring',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Our health monitoring runs continuously to verify all components are functioning correctly. '
+                'Here are the systems being actively monitored.',
+                style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Text(
+                'Monitored Components',
+                style: AppTypography.headingSM.copyWith(color: Colors.white),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.md,
+                children: ObservabilityHealthContent.healthComponents.map((component) {
+                  return _HealthComponentChip(name: component);
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Simplified Capabilities section for non-technical readers
+class _CapabilitiesSection extends StatelessWidget {
+  final bool isMobile;
+
+  const _CapabilitiesSection({required this.isMobile});
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionContainer(
+      backgroundColor: AppColors.gray800,
+      padding: EdgeInsets.symmetric(
+        vertical: isMobile ? AppSpacing.xl : AppSpacing.xxl,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: DocSection(
+          icon: LucideIcons.sparkles,
+          title: 'Platform Capabilities',
+          accentColor: AppColors.success,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'What you get with Integrity Studio\'s observability platform.',
+                style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              const DocBulletList(
+                items: [
+                  'Industry-standard telemetry support (OpenTelemetry)',
+                  'Comprehensive performance metrics',
+                  'Efficient memory management',
+                  'Detailed performance analysis',
+                  'Standards-compliant data handling',
+                ],
+                bulletColor: AppColors.success,
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Text(
+                'Coming Soon',
+                style: AppTypography.headingSM.copyWith(color: Colors.white),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const DocBulletList(
+                items: [
+                  'Dashboard recommendations',
+                  'Alert configuration examples',
+                  'Advanced error categorization',
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              const DocCallout.info(
+                title: 'Version',
+                message: 'observability-toolkit v1.8.6 (2026-02-01)',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Collapsible Developer Appendix with all technical details
+class _DeveloperAppendixSection extends StatefulWidget {
+  final bool isMobile;
+
+  const _DeveloperAppendixSection({required this.isMobile});
+
+  @override
+  State<_DeveloperAppendixSection> createState() => _DeveloperAppendixSectionState();
+}
+
+class _DeveloperAppendixSectionState extends State<_DeveloperAppendixSection> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionContainer(
+      padding: EdgeInsets.symmetric(
+        vertical: widget.isMobile ? AppSpacing.xl : AppSpacing.xxl,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: Column(
+          children: [
+            // Expandable header
+            InkWell(
+              onTap: () => setState(() => _isExpanded = !_isExpanded),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: BoxDecoration(
+                  color: AppColors.gray800,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                  border: Border.all(color: AppColors.gray700),
+                ),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.code2, color: AppColors.purple500, size: 24),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Developer Documentation',
+                            style: AppTypography.headingSM.copyWith(color: Colors.white),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            'Technical implementation details for development teams',
+                            style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      _isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                      color: AppColors.gray400,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Expandable content
+            if (_isExpanded) ...[
+              const SizedBox(height: AppSpacing.lg),
+              _buildArchitectureDiagram(),
+              const SizedBox(height: AppSpacing.lg),
+              _buildQueryTimingDetails(),
+              const SizedBox(height: AppSpacing.lg),
+              _buildCacheDetails(),
+              const SizedBox(height: AppSpacing.lg),
+              _buildCircuitBreakerDetails(),
+              const SizedBox(height: AppSpacing.lg),
+              _buildHealthCheckApi(),
+              const SizedBox(height: AppSpacing.lg),
+              _buildDebuggingGuide(),
+              const SizedBox(height: AppSpacing.lg),
+              _buildConfiguration(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArchitectureDiagram() {
+    return _TechSection(
+      title: 'Architecture Diagram',
+      icon: LucideIcons.layers,
+      child: const _ArchitectureDiagramWidget(),
+    );
+  }
+
+  Widget _buildQueryTimingDetails() {
+    return _TechSection(
+      title: 'Query Timing Implementation',
+      icon: LucideIcons.timer,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const DocCodeBlock(
+            code: '''import { withSpan } from './lib/instrumentation.js';
+
+const result = await withSpan(
+  'queryTraces',
+  { backend: 'local', filters: 3 },
+  async (span) => {
+    const data = await backend.query(filters);
+    span.setAttribute('result.count', data.length);
+    return data;
+  }
+);''',
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const DocTable(
+            headers: ['Backend', 'Methods'],
+            rows: [
+              ['LocalJsonlBackend', 'queryTraces(), queryLogs(), queryMetrics(), queryLLMEvents()'],
+              ['SigNozApiBackend', 'queryTraces(), queryLogs(), queryMetrics()'],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCacheDetails() {
+    return _TechSection(
+      title: 'Cache Implementation',
+      icon: LucideIcons.database,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const DocCodeBlock(
+            code: '''interface CacheStats {
+  hits: number;       // Successful cache lookups
+  misses: number;     // Cache misses (not found or TTL expired)
+  evictions: number;  // Entries removed due to max size
+  size: number;       // Current cached entries count
+  hitRate: number;    // hits / (hits + misses)
+}''',
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Tracked Caches',
+            style: AppTypography.bodySM.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const DocBulletList(
+            items: ['traceCache', 'logCache', 'metricCache', 'llmEventCache'],
+            bulletColor: AppColors.success,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCircuitBreakerDetails() {
+    return _TechSection(
+      title: 'Circuit Breaker States',
+      icon: LucideIcons.shieldAlert,
+      child: const DocTable(
+        headers: ['Transition', 'Level', 'Message'],
+        rows: [
+          ['closed → open', 'WARN', 'Circuit breaker OPENED after N failures'],
+          ['open → half-open', 'INFO', 'Entering HALF-OPEN state'],
+          ['half-open → closed', 'INFO', 'CLOSED after successful request'],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHealthCheckApi() {
+    return _TechSection(
+      title: 'Health Check API Response',
+      icon: LucideIcons.heartPulse,
+      child: const DocCodeBlock(
+        code: '''{
+  "status": "ok",
+  "backends": { "local": { "status": "ok" }, "signoz": { "status": "ok" } },
+  "cache": {
+    "traces": { "hits": 156, "misses": 23, "hitRate": 0.871 },
+    "logs": { "hits": 89, "misses": 34, "hitRate": 0.723 }
+  },
+  "today": "2026-02-01"
+}''',
+      ),
+    );
+  }
+
+  Widget _buildDebuggingGuide() {
+    return _TechSection(
+      title: 'Debugging Guide',
+      icon: LucideIcons.bug,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('High Cache Miss Rate', style: AppTypography.bodySM.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+          const DocNumberedList(
+            items: ['Check query specificity', 'Check TTL settings', 'Check cache size limits'],
+            accentColor: AppColors.purple500,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text('Slow Queries', style: AppTypography.bodySM.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+          const DocNumberedList(
+            items: ['Check telemetry file sizes', 'Narrow date range filters', 'Review regex patterns'],
+            accentColor: AppColors.purple500,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfiguration() {
+    return _TechSection(
+      title: 'Environment Configuration',
+      icon: LucideIcons.settings,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const DocTable(
+            headers: ['Variable', 'Default'],
+            rows: [
+              ['OTEL_ENABLED', 'false'],
+              ['OTEL_SERVICE_NAME', 'observability-toolkit'],
+              ['CACHE_TTL_MS', '60000'],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const DocTable(
+            headers: ['Constant', 'Value'],
+            rows: [
+              ['SLOW_QUERY_THRESHOLD_MS', '500'],
+              ['MAX_CACHE_SIZE', '100'],
+              ['CIRCUIT_MAX_FAILURES', '3'],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Visual architecture diagram widget
+class _ArchitectureDiagramWidget extends StatelessWidget {
+  const _ArchitectureDiagramWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.gray900,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+        border: Border.all(color: AppColors.gray700),
+      ),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.blue600,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+            ),
+            child: Text(
+              'observability-toolkit',
+              style: AppTypography.bodyMD.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          // Top layer - Server, Backends, Tools
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.md,
+            alignment: WrapAlignment.center,
+            children: [
+              _DiagramBox(
+                title: 'Server',
+                items: const ['Rate Limiter', 'Error Handler'],
+                color: AppColors.purple500,
+              ),
+              _DiagramBox(
+                title: 'Backends',
+                items: const ['LocalJsonl', 'SigNozApi'],
+                color: AppColors.success,
+              ),
+              _DiagramBox(
+                title: 'Tools',
+                items: const ['obs_health_check', 'obs_query_*'],
+                color: AppColors.warning,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          // Arrows down
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(LucideIcons.arrowDown, color: AppColors.gray500, size: 20),
+              const SizedBox(width: 60),
+              Icon(LucideIcons.arrowDown, color: AppColors.gray500, size: 20),
+              const SizedBox(width: 60),
+              Icon(LucideIcons.arrowDown, color: AppColors.gray500, size: 20),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          // Internal Observability Layer
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.gray800,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+              border: Border.all(color: AppColors.blue500.withValues(alpha: 0.5)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'Internal Observability Layer',
+                  style: AppTypography.bodySM.copyWith(
+                    color: AppColors.blue400,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.sm,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _LayerChip(label: 'Instrumentation'),
+                    _LayerChip(label: 'Metrics'),
+                    _LayerChip(label: 'Cache Stats'),
+                    _LayerChip(label: 'Histograms'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Icon(LucideIcons.arrowDown, color: AppColors.gray500, size: 20),
+          const SizedBox(height: AppSpacing.sm),
+          // OTLP Export
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.gray800,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+              border: Border.all(color: AppColors.success.withValues(alpha: 0.5)),
+            ),
+            child: Text(
+              'OTLP Export → SigNoz / any OTLP backend',
+              style: AppTypography.bodySM.copyWith(
+                color: AppColors.success,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiagramBox extends StatelessWidget {
+  final String title;
+  final List<String> items;
+  final Color color;
+
+  const _DiagramBox({
+    required this.title,
+    required this.items,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 140,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.gray800,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            title,
+            style: AppTypography.bodySM.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          ...items.map((item) => Text(
+                item,
+                style: AppTypography.bodySM.copyWith(
+                  color: AppColors.gray400,
+                  fontSize: 11,
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+}
+
+class _LayerChip extends StatelessWidget {
+  final String label;
+
+  const _LayerChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.gray700,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+      ),
+      child: Text(
+        label,
+        style: AppTypography.bodySM.copyWith(
+          color: AppColors.gray300,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+}
+
+class _TechSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Widget child;
+
+  const _TechSection({
+    required this.title,
+    required this.icon,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.gray800,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+        border: Border.all(color: AppColors.gray700),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppColors.purple500, size: 18),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                title,
+                style: AppTypography.bodyMD.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+// Keep _CircuitStateCard for potential future use but unused now
 class _CircuitStateCard extends StatelessWidget {
   final String state;
   final String description;
@@ -667,177 +1132,6 @@ class _CircuitStateCard extends StatelessWidget {
             style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HealthCheckSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _HealthCheckSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionContainer(
-      padding: EdgeInsets.symmetric(
-        vertical: isMobile ? AppSpacing.xl : AppSpacing.xxl,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: DocSection(
-          icon: LucideIcons.heartPulse,
-          title: 'Health Check Cache Stats',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'The obs_health_check tool includes cache statistics in its output for monitoring observability pipeline health.',
-                style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              const DocCodeBlock(
-                code: '''{
-  "status": "ok",
-  "backends": {
-    "local": { ... },
-    "signoz": { ... }
-  },
-  "cache": {
-    "traces": {
-      "hits": 156,
-      "misses": 23,
-      "evictions": 0,
-      "size": 45,
-      "hitRate": 0.871
-    },
-    "logs": {
-      "hits": 89,
-      "misses": 34,
-      "evictions": 5,
-      "size": 100,
-      "hitRate": 0.723
-    },
-    "metrics": {
-      "hits": 12,
-      "misses": 8,
-      "evictions": 0,
-      "size": 20,
-      "hitRate": 0.6
-    },
-    "llmEvents": {
-      "hits": 5,
-      "misses": 2,
-      "evictions": 0,
-      "size": 7,
-      "hitRate": 0.714
-    }
-  },
-  "today": "2026-01-29"
-}''',
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Health Check Components',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.md,
-                children: ObservabilityHealthContent.healthComponents.map((component) {
-                  return _HealthComponentChip(name: component);
-                }).toList(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DebuggingGuideSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _DebuggingGuideSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionContainer(
-      backgroundColor: AppColors.gray800,
-      padding: EdgeInsets.symmetric(
-        vertical: isMobile ? AppSpacing.xl : AppSpacing.xxl,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: DocSection(
-          icon: LucideIcons.bug,
-          title: 'Debugging Guide',
-          accentColor: AppColors.purple500,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'High Cache Miss Rate',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const DocNumberedList(
-                items: [
-                  'Check query patterns - are queries too specific?',
-                  'Check TTL - is it too short for use case?',
-                  'Check cache size - is it evicting too often?',
-                ],
-                accentColor: AppColors.purple500,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Frequent Slow Queries',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const DocNumberedList(
-                items: [
-                  'Check file sizes in telemetry directory',
-                  'Enable indexing for frequently queried files',
-                  'Review date range filters - narrow if possible',
-                  'Check for regex patterns causing backtracking',
-                ],
-                accentColor: AppColors.purple500,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Circuit Breaker Opening',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const DocNumberedList(
-                items: [
-                  'Check SigNoz connectivity',
-                  'Check API key validity',
-                  'Review SigNoz health status',
-                  'Check network conditions',
-                ],
-                accentColor: AppColors.purple500,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Slow Query Thresholds',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const DocTable(
-                headers: ['Duration', 'Status', 'Action'],
-                rows: [
-                  ['500-1000ms', 'Moderate', 'Monitor'],
-                  ['1000-5000ms', 'Slow', 'Investigate file size'],
-                  ['>5000ms', 'Very slow', 'Consider indexing'],
-                ],
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -926,104 +1220,6 @@ class _HealthComponentChip extends StatelessWidget {
             style: AppTypography.bodyMD.copyWith(color: Colors.white),
           ),
         ],
-      ),
-    );
-  }
-}
-
-
-class _ConfigurationSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _ConfigurationSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionContainer(
-      padding: EdgeInsets.symmetric(
-        vertical: isMobile ? AppSpacing.xl : AppSpacing.xxl,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: DocSection(
-          icon: LucideIcons.settings,
-          title: 'Configuration',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Environment Variables',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const DocTable(
-                headers: ['Variable', 'Description', 'Default'],
-                rows: [
-                  ['CACHE_TTL_MS', 'Cache entry time-to-live', '60000 (1 minute)'],
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Constants',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const DocTable(
-                headers: ['Constant', 'Value', 'Location'],
-                rows: [
-                  ['SLOW_QUERY_THRESHOLD_MS', '500', 'local-jsonl.ts, signoz-api.ts'],
-                  ['MAX_CACHE_SIZE', '100', 'QueryCache constructor'],
-                  ['CIRCUIT_MAX_FAILURES', '3', 'CircuitBreaker class'],
-                  ['CIRCUIT_RESET_MS', '30000', 'CircuitBreaker class'],
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Future Enhancements',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'Phase 2 (Planned)',
-                style: AppTypography.bodyMD.copyWith(
-                  color: AppColors.gray300,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              const DocBulletList(
-                items: [
-                  'Structured logging with consistent JSON format',
-                  'Parse failure statistics during streaming',
-                  'API response time histograms',
-                  'Error categorization (user vs system)',
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'Phase 3 (Future)',
-                style: AppTypography.bodyMD.copyWith(
-                  color: AppColors.gray300,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              const DocBulletList(
-                items: [
-                  'OpenTelemetry SDK integration (self-tracing)',
-                  'Metrics export to same backends (dogfooding)',
-                  'Dashboard recommendations',
-                  'Alert configuration examples',
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              const DocCallout.info(
-                title: 'Version',
-                message: 'This documentation reflects observability-toolkit v1.6.0 (2026-01-29).',
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

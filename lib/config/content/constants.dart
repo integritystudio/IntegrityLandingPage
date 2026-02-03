@@ -85,6 +85,7 @@ abstract final class Routes {
   static const String about = '/about';
   static const String contact = '/contact';
   static const String signup = '/signup';
+  static const String signupTeam = '/signup?tier=Team';
 
   // Anchor sections
   static const String features = '#features';

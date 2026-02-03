@@ -233,7 +233,7 @@ abstract final class AppContent {
           );
         }).toList(),
         ctaText: Content.ctaStartFreeTrial,
-        ctaUrl: '/signup',
+        ctaUrl: '/signup?tier=Team',
       );
 
   /// Current about section content

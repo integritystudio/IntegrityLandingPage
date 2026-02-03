@@ -993,7 +993,7 @@ class _FinalCTASection extends StatelessWidget {
                 OutlineButton(
                   text: 'Schedule Demo',
                   icon: LucideIcons.calendar,
-                  onPressed: () => _launchUrl('https://calendly.com/alyshialedlie/30min'),
+                  onPressed: () => _launchUrl('https://calendly.com/alyshialedlie/15min'),
                 ),
               ],
             ),

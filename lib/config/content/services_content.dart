@@ -18,7 +18,7 @@ abstract final class ServicesContentVariants {
         'Built for teams who need visibility, governance, and audit-ready documentation.',
     services: _services,
     ctaText: CTAText.startFreeTrial,
-    ctaUrl: Routes.signup,
+    ctaUrl: Routes.signupTeam,
   );
 
   static const _services = [

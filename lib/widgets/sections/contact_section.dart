@@ -31,6 +31,7 @@ import '../common/form_fields.dart';
 class ContactSection extends StatefulWidget {
   final ContactContent content;
   final Future<bool> Function(Map<String, String>)? onFormSubmit;
+  final bool showLiveDemoSection;
 
   const ContactSection({
     super.key,
@@ -48,6 +49,7 @@ class ContactSection extends StatefulWidget {
       calendlyCtaText: 'Schedule Demo',
     ),
     this.onFormSubmit,
+    this.showLiveDemoSection = true,
   });
 
   @override
@@ -366,7 +368,7 @@ class _ContactSectionState extends State<ContactSection> {
         const SizedBox(height: AppSpacing.lg),
 
         // Schedule demo CTA
-        if (_content.calendlyUrl.isNotEmpty)
+        if (widget.showLiveDemoSection && _content.calendlyUrl.isNotEmpty)
           GlassCard(
             tier: GlassCardTier.primary,
             child: Column(
@@ -412,7 +414,8 @@ class _ContactSectionState extends State<ContactSection> {
             ),
           ),
 
-        const SizedBox(height: AppSpacing.lg),
+        if (widget.showLiveDemoSection && _content.calendlyUrl.isNotEmpty)
+          const SizedBox(height: AppSpacing.lg),
 
         // Secondary contact methods (social links)
         if (secondaryMethods.isNotEmpty)
