@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
+import '../widgets/navigation/shared_app_bar.dart';
 import '../widgets/sections/footer_section.dart';
 
 /// Careers page - displays open positions and recruitment info.
@@ -46,7 +46,7 @@ class _CareersPageState extends State<CareersPage> {
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
-            _buildAppBar(context),
+            SharedAppBar.subPage(onBack: widget.onBack),
             const SliverToBoxAdapter(child: _CareersHeroSection()),
             const SliverToBoxAdapter(child: _NoOpeningsSection()),
             const SliverToBoxAdapter(child: _SubmitResumeSection()),
@@ -58,87 +58,6 @@ class _CareersPageState extends State<CareersPage> {
           ],
         ),
       ),
-    );
-  }
-
-  SliverAppBar _buildAppBar(BuildContext context) {
-    final isMobile = ResponsiveUtils.isMobile(context);
-
-    return SliverAppBar(
-      backgroundColor: AppColors.gray900.withValues(alpha: 0.95),
-      floating: true,
-      pinned: true,
-      elevation: 0,
-      toolbarHeight: isMobile ? 56 : 64,
-      leading: IconButton(
-        icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
-        onPressed: widget.onBack ?? () => context.go('/'),
-        tooltip: 'Back',
-      ),
-      title: GestureDetector(
-        onTap: () => context.go('/'),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              LucideIcons.shield,
-              color: AppColors.blue500,
-              size: isMobile ? 24 : 28,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Flexible(
-              child: Text(
-                CompanyInfo.name,
-                style: (isMobile
-                        ? AppTypography.headingSM
-                        : AppTypography.headingMD)
-                    .copyWith(color: Colors.white),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        if (!isMobile) ...[
-          _NavLink(
-            text: 'Features',
-            onTap: () => context.go('/'),
-          ),
-          _NavLink(
-            text: 'Pricing',
-            onTap: () => context.go('/pricing'),
-          ),
-          _NavLink(
-            text: 'About',
-            onTap: () => context.go('/about'),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.md),
-            child: TextButton(
-              onPressed: () => context.go('/signup'),
-              style: TextButton.styleFrom(
-                backgroundColor: AppColors.blue600,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.sm,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                ),
-              ),
-              child: Text(
-                'Get Started',
-                style: AppTypography.bodySM.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
     );
   }
 }
@@ -361,41 +280,6 @@ class _SubmitResumeSection extends StatelessWidget {
                 ],
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavLink extends StatefulWidget {
-  final String text;
-  final VoidCallback onTap;
-
-  const _NavLink({required this.text, required this.onTap});
-
-  @override
-  State<_NavLink> createState() => _NavLinkState();
-}
-
-class _NavLinkState extends State<_NavLink> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Text(
-            widget.text,
-            style: AppTypography.bodySM.copyWith(
-              color: _isHovered ? AppColors.blue400 : AppColors.gray300,
-              fontWeight: FontWeight.w500,
-            ),
           ),
         ),
       ),
