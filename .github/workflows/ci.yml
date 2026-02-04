@@ -171,6 +171,41 @@ jobs:
       - name: Build web release
         run: flutter build web --release
 
+      - name: Validate SRI hashes
+        run: |
+          echo "Validating Subresource Integrity hashes..."
+
+          # Function to compute SHA384 hash in SRI format
+          compute_sri() {
+            openssl dgst -sha384 -binary "$1" | openssl base64 -A
+          }
+
+          # Validate meta-pixel.js SRI
+          META_PIXEL_HASH=$(compute_sri "web/js/meta-pixel.js")
+          META_PIXEL_EXPECTED="16kvMlWquRnr8GQdZabpqhB747TZjR3w70E7Pp9dW8yt7SpDSaCGN67fPeGjDfhF"
+          if [ "$META_PIXEL_HASH" != "$META_PIXEL_EXPECTED" ]; then
+            echo "::error::SRI hash mismatch for meta-pixel.js"
+            echo "Expected: sha384-$META_PIXEL_EXPECTED"
+            echo "Actual:   sha384-$META_PIXEL_HASH"
+            echo "Update integrity attribute in web/index.html"
+            exit 1
+          fi
+          echo "✅ meta-pixel.js SRI hash valid"
+
+          # Validate gtm-init.js SRI
+          GTM_INIT_HASH=$(compute_sri "web/js/gtm-init.js")
+          GTM_INIT_EXPECTED="v692hxRppWhalTl5mhwTqx94kWKg+fNDvy3obmua5tJ7535mM2dbeBx169Z9uFvr"
+          if [ "$GTM_INIT_HASH" != "$GTM_INIT_EXPECTED" ]; then
+            echo "::error::SRI hash mismatch for gtm-init.js"
+            echo "Expected: sha384-$GTM_INIT_EXPECTED"
+            echo "Actual:   sha384-$GTM_INIT_HASH"
+            echo "Update integrity attribute in web/index.html"
+            exit 1
+          fi
+          echo "✅ gtm-init.js SRI hash valid"
+
+          echo "All SRI hashes validated successfully"
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:

@@ -21,6 +21,9 @@ interface Env {
 // CSRF configuration
 const CSRF_TOKEN_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
 
+// API timeout configuration
+const RESEND_API_TIMEOUT_MS = 10000; // 10 seconds
+
 // Rate limiting configuration
 const DEFAULT_RATE_LIMIT_MAX = 5;
 const DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 60;
@@ -35,6 +38,7 @@ interface RateLimitResult {
   remaining: number;
   resetAt: number;
   error?: string; // Present if rate limiting infrastructure failed
+  degraded?: boolean; // True if operating in degraded mode (fallback)
 }
 
 /**
@@ -60,20 +64,25 @@ async function checkRateLimit(
   const now = Date.now();
   const key = `rate_limit:${ip}`;
 
-  // If KV is not configured
+  // If KV is not configured - graceful degradation
   if (!env.RATE_LIMIT_KV) {
-    if (isProduction(env)) {
-      // FAIL CLOSED in production - deny request if rate limiting unavailable
-      console.error('Rate limit KV not configured in production environment');
-      return {
-        allowed: false,
-        remaining: 0,
-        resetAt: now + windowSeconds * 1000,
-        error: 'Rate limiting service unavailable',
-      };
-    }
-    // Fail open for development
-    return { allowed: true, remaining: maxRequests, resetAt: now + windowSeconds * 1000 };
+    // Log for monitoring/alerting - this should trigger alerts
+    console.error(JSON.stringify({
+      level: 'error',
+      event: 'rate_limit_kv_unavailable',
+      environment: env.ENVIRONMENT || 'unknown',
+      ip: ip,
+      timestamp: new Date().toISOString(),
+      message: 'Rate limit KV not configured - operating in degraded mode',
+    }));
+    // Graceful degradation: allow request but mark as degraded
+    // This prevents service outage while logging for monitoring
+    return {
+      allowed: true,
+      remaining: 1, // Indicate limited capacity
+      resetAt: now + windowSeconds * 1000,
+      degraded: true,
+    };
   }
 
   try {
@@ -98,18 +107,23 @@ async function checkRateLimit(
       resetAt: data.resetAt,
     };
   } catch (error) {
-    console.error('Rate limit error:', error);
-    if (isProduction(env)) {
-      // FAIL CLOSED in production - deny request on KV errors
-      return {
-        allowed: false,
-        remaining: 0,
-        resetAt: now + windowSeconds * 1000,
-        error: 'Rate limiting service error',
-      };
-    }
-    // Fail open for development
-    return { allowed: true, remaining: maxRequests, resetAt: now + windowSeconds * 1000 };
+    // Log structured error for monitoring/alerting
+    console.error(JSON.stringify({
+      level: 'error',
+      event: 'rate_limit_kv_error',
+      environment: env.ENVIRONMENT || 'unknown',
+      ip: ip,
+      error: String(error),
+      timestamp: new Date().toISOString(),
+      message: 'Rate limit KV error - operating in degraded mode',
+    }));
+    // Graceful degradation: allow request but mark as degraded
+    return {
+      allowed: true,
+      remaining: 1,
+      resetAt: now + windowSeconds * 1000,
+      degraded: true,
+    };
   }
 }
 
@@ -298,21 +312,15 @@ export default {
     const clientIP = getClientIP(request);
     const rateLimit = await checkRateLimit(clientIP, env);
 
-    // Handle rate limiting infrastructure failure (503 Service Unavailable)
-    if (rateLimit.error) {
-      return new Response(
-        JSON.stringify({
-          error: 'Service temporarily unavailable. Please try again later.',
-        }),
-        {
-          status: 503,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-            'Retry-After': '60',
-          },
-        }
-      );
+    // Log if operating in degraded mode (for monitoring dashboards)
+    if (rateLimit.degraded) {
+      console.warn(JSON.stringify({
+        level: 'warn',
+        event: 'rate_limit_degraded_request',
+        ip: clientIP,
+        timestamp: new Date().toISOString(),
+        message: 'Request processed in degraded rate limiting mode',
+      }));
     }
 
     if (!rateLimit.allowed) {
@@ -363,25 +371,29 @@ export default {
       // Initialize Resend client
       const resend = new Resend(env.RESEND_API_KEY);
 
-      // Send email via Resend
-      const { data: emailResult, error } = await resend.emails.send({
-        from: `Integrity Studio Contact <${env.SENDER_EMAIL}>`,
-        to: [env.RECIPIENT_EMAIL],
-        replyTo: data.email,
-        subject: `New Contact Form: ${data.name}${data.organization ? ` (${data.organization})` : ''}`,
-        html: `
-          <h2>New Contact Form Submission</h2>
-          <p><strong>Name:</strong> ${escapeHtml(data.name)}</p>
-          <p><strong>Email:</strong> <a href="mailto:${escapeHtml(data.email)}">${escapeHtml(data.email)}</a></p>
-          ${data.organization ? `<p><strong>Organization:</strong> ${escapeHtml(data.organization)}</p>` : ''}
-          <h3>Message:</h3>
-          <p>${escapeHtml(data.message).replace(/\n/g, '<br>')}</p>
-          <hr>
-          <p style="color: #666; font-size: 12px;">
-            Sent from IntegrityStudio.ai contact form at ${new Date().toISOString()}
-          </p>
-        `,
-        text: `
+      // Send email via Resend with timeout protection
+      let emailResult;
+      let error;
+      try {
+        const result = await withTimeout(
+          resend.emails.send({
+            from: `Integrity Studio Contact <${env.SENDER_EMAIL}>`,
+            to: [env.RECIPIENT_EMAIL],
+            replyTo: data.email,
+            subject: `New Contact Form: ${data.name}${data.organization ? ` (${data.organization})` : ''}`,
+            html: `
+              <h2>New Contact Form Submission</h2>
+              <p><strong>Name:</strong> ${escapeHtml(data.name)}</p>
+              <p><strong>Email:</strong> <a href="mailto:${escapeHtml(data.email)}">${escapeHtml(data.email)}</a></p>
+              ${data.organization ? `<p><strong>Organization:</strong> ${escapeHtml(data.organization)}</p>` : ''}
+              <h3>Message:</h3>
+              <p>${escapeHtml(data.message).replace(/\n/g, '<br>')}</p>
+              <hr>
+              <p style="color: #666; font-size: 12px;">
+                Sent from IntegrityStudio.ai contact form at ${new Date().toISOString()}
+              </p>
+            `,
+            text: `
 New Contact Form Submission
 
 Name: ${data.name}
@@ -392,8 +404,20 @@ ${data.message}
 
 ---
 Sent from IntegrityStudio.ai contact form at ${new Date().toISOString()}
-        `.trim(),
-      });
+            `.trim(),
+          }),
+          RESEND_API_TIMEOUT_MS,
+          'Resend API call'
+        );
+        emailResult = result.data;
+        error = result.error;
+      } catch (timeoutError) {
+        console.error('Resend timeout:', timeoutError);
+        return new Response(
+          JSON.stringify({ error: 'Email service timeout. Please try again.' }),
+          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       if (error) {
         console.error('Resend error:', error);
@@ -422,6 +446,25 @@ Sent from IntegrityStudio.ai contact form at ${new Date().toISOString()}
     }
   },
 };
+
+/**
+ * Wrap a promise with a timeout.
+ * Rejects with TimeoutError if the promise doesn't resolve within the timeout.
+ */
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${operation} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
+}
 
 // Escape HTML to prevent XSS in email
 function escapeHtml(text: string): string {

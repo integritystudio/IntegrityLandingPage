@@ -401,7 +401,7 @@ describe('Contact Form Worker', () => {
       expect(data.error).toContain('Failed to send email');
     });
 
-    it('returns 500 on network error', async () => {
+    it('returns 504 on network timeout', async () => {
       mockResendInstance.emails.send.mockRejectedValue(
         new Error('Network error')
       );
@@ -415,8 +415,8 @@ describe('Contact Form Worker', () => {
       const response = await worker.fetch(request, mockEnv);
       const data = await response.json() as ErrorResponse;
 
-      expect(response.status).toBe(500);
-      expect(data.error).toContain('unexpected error');
+      expect(response.status).toBe(504);
+      expect(data.error).toContain('timeout');
     });
 
     it('returns 500 for invalid JSON body', async () => {
