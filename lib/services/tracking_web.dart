@@ -10,7 +10,8 @@ const String gtmContainerId = 'GTM-NLLQ5ZM3';
 const String ga4MeasurementId = 'G-J7TL7PQH7S';
 
 /// Facebook Pixel ID from Doppler (integrity-studio/prd)
-const String fbPixelId = '25629020546684786';
+/// Note: Pixel is loaded externally via web/js/meta-pixel.js
+const String fbPixelId = '2038045626963282';
 
 // =============================================================================
 // JS Interop Bindings
@@ -158,28 +159,12 @@ class TrackingWeb {
   // Facebook Pixel
   // ---------------------------------------------------------------------------
 
-  /// Inject Facebook Pixel script.
+  /// Enable Facebook Pixel tracking.
+  ///
+  /// The pixel is loaded externally via web/js/meta-pixel.js (CSP compliant).
+  /// This method just marks it as ready for event tracking.
   static void injectFacebookPixel() {
     if (_fbPixelInjected) return;
-
-    final head = web.document.head;
-    if (head == null) return;
-
-    // Facebook Pixel base code
-    final script = web.document.createElement('script') as web.HTMLScriptElement
-      ..text = '''
-!function(f,b,e,v,n,t,s)
-{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-n.queue=[];t=b.createElement(e);t.async=!0;
-t.src=v;s=b.getElementsByTagName(e)[0];
-s.parentNode.insertBefore(t,s)}(window, document,'script',
-'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '$fbPixelId');
-''';
-
-    head.appendChild(script);
     _fbPixelInjected = true;
   }
 
