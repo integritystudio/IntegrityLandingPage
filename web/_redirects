@@ -7,8 +7,12 @@
 /assets/*  /assets/:splat  200
 /screenshots/*  /screenshots/:splat  200
 
-# Blog pages - serve actual HTML files
-/blog/*  /blog/:splat  200
+# Blog listing page - serve SPA (Flutter handles /blog route)
+/blog  /index.html  200
+
+# Blog article HTML files - serve directly
+/blog/*.html  /blog/:splat.html  200
+/blog/*/*.html  /blog/:splat  200
 
 # Static files at root
 /manifest.json  /manifest.json  200
