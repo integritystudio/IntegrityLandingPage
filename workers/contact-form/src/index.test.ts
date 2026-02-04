@@ -463,6 +463,160 @@ describe('Contact Form Worker', () => {
     });
   });
 
+  describe('Email Routing Verification', () => {
+    it('sends to hello@integritystudio.ai for general contact', async () => {
+      const envWithHello = {
+        ...mockEnv,
+        RECIPIENT_EMAIL: 'hello@integritystudio.ai',
+      };
+
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'john@example.com',
+        message: 'General inquiry about your platform.',
+      });
+
+      await worker.fetch(request, envWithHello);
+
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: ['hello@integritystudio.ai'],
+        })
+      );
+    });
+
+    it('sends to sales@integritystudio.ai when configured', async () => {
+      const envWithSales = {
+        ...mockEnv,
+        RECIPIENT_EMAIL: 'sales@integritystudio.ai',
+      };
+
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'Jane Smith',
+        email: 'jane@enterprise.com',
+        organization: 'Enterprise Corp',
+        message: 'Interested in enterprise pricing.',
+      });
+
+      await worker.fetch(request, envWithSales);
+
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: ['sales@integritystudio.ai'],
+        })
+      );
+    });
+
+    it('sends to security@integritystudio.ai when configured', async () => {
+      const envWithSecurity = {
+        ...mockEnv,
+        RECIPIENT_EMAIL: 'security@integritystudio.ai',
+      };
+
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'Security Researcher',
+        email: 'researcher@security.org',
+        message: 'Security vulnerability disclosure.',
+      });
+
+      await worker.fetch(request, envWithSecurity);
+
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: ['security@integritystudio.ai'],
+        })
+      );
+    });
+
+    it('sends to help@integritystudio.ai when configured', async () => {
+      const envWithHelp = {
+        ...mockEnv,
+        RECIPIENT_EMAIL: 'help@integritystudio.ai',
+      };
+
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'Customer',
+        email: 'customer@company.com',
+        message: 'Need help with my account setup.',
+      });
+
+      await worker.fetch(request, envWithHelp);
+
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: ['help@integritystudio.ai'],
+        })
+      );
+    });
+
+    it('uses correct sender email (contact@integritystudio.ai)', async () => {
+      const envWithSender = {
+        ...mockEnv,
+        SENDER_EMAIL: 'contact@integritystudio.ai',
+      };
+
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'john@example.com',
+        message: 'Testing sender email address.',
+      });
+
+      await worker.fetch(request, envWithSender);
+
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: expect.stringContaining('contact@integritystudio.ai'),
+        })
+      );
+    });
+
+    it('sets replyTo to submitter email', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'Reply Test',
+        email: 'replyto@testdomain.com',
+        message: 'Testing reply-to functionality.',
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          replyTo: 'replyto@testdomain.com',
+        })
+      );
+    });
+  });
+
   describe('XSS Prevention', () => {
     it('escapes HTML in name field', async () => {
       mockResendInstance.emails.send.mockResolvedValue({
