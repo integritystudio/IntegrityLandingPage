@@ -142,6 +142,14 @@ void main() {
       );
     });
 
+    test('frame-ancestors prevents clickjacking', () {
+      expect(
+        indexHtml.contains("frame-ancestors 'self'"),
+        isTrue,
+        reason: 'frame-ancestors should be self to prevent clickjacking attacks',
+      );
+    });
+
     test('font-src restricts font origins', () {
       expect(
         indexHtml.contains('font-src'),
