@@ -41,6 +41,40 @@ class _OAuthCallbackPageState extends State<OAuthCallbackPage> {
   void initState() {
     super.initState();
     AnalyticsService.trackPageView('oauth_callback');
+    _logOAuthCallback();
+  }
+
+  /// Log OAuth callback events to Sentry and analytics for monitoring.
+  void _logOAuthCallback() {
+    if (widget.error != null) {
+      // Log OAuth error to Sentry for monitoring
+      ErrorTrackingService.captureMessage(
+        'OAuth callback error: ${widget.error}',
+        severity: ErrorSeverity.warning,
+        extra: {
+          'error': widget.error,
+          'error_description': widget.errorDescription,
+          'has_state': widget.state != null,
+          'has_code': widget.code != null,
+        },
+      );
+
+      // Track for analytics
+      AnalyticsService.trackEvent(
+        eventName: 'oauth_callback_error',
+        parameters: {
+          'error_type': widget.error ?? 'unknown',
+        },
+      );
+    } else if (widget.code != null) {
+      // Track successful OAuth callback
+      AnalyticsService.trackEvent(
+        eventName: 'oauth_callback_success',
+        parameters: {
+          'has_state': widget.state != null,
+        },
+      );
+    }
   }
 
   @override
