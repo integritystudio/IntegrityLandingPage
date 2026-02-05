@@ -53,3 +53,4 @@ package-lock.json
 
 # Repomix output files
 repomix-output.xml
+.ralph-prompt.md
