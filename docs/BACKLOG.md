@@ -664,18 +664,37 @@ BASE_URL=http://localhost:8080 npm test
 
 ## Priority Matrix
 
-| Issue | Severity | Effort | Business Impact | Recommended Sprint |
-|-------|----------|--------|-----------------|-------------------|
-| #4 CSP Reporting | HIGH | Medium | Security visibility | Current |
-| #6 E2E Routing | HIGH | Medium-High | Regression prevention | Current |
+All HIGH priority issues have been completed.
+
+| Issue | Severity | Status | Commit |
+|-------|----------|--------|--------|
+| #4 CSP Reporting | HIGH | **COMPLETED** | 1604013, d85e181 |
+| #6 E2E Routing | HIGH | **COMPLETED** | ffb5718, d85e181 |
 
 ## Related Completed Issues
 
 - [x] #1: Add SRI to external scripts (94c6c3e)
 - [x] #2: CSP hash CI validation (94c6c3e)
 - [x] #3: Rate limiting graceful degradation (94c6c3e)
+- [x] #4: CSP violation reporting to Sentry (1604013)
 - [x] #5: Resend API timeout (94c6c3e)
+- [x] #6: E2E routing and SPA navigation tests (ffb5718, d85e181)
+
+## Pending Enhancement Recommendations
+
+From enterprise code review (2026-02-04):
+
+### CSP Improvements (LOW priority)
+- Add modern `report-to` directive alongside `report-uri` for enhanced reporting
+- Consider multi-environment CSP endpoints (staging vs production)
+- Add `frame-ancestors 'self'` directive for clickjacking protection
+
+### E2E Test Improvements (LOW priority)
+- Add CI workflow integration for E2E tests
+- Add cache header validation tests
+- Add mobile viewport tests
+- Add accessibility (a11y) tests
 
 ---
 
-*Last updated: 2026-02-04*
+*Last updated: 2026-02-04 (All HIGH priority issues completed)*
