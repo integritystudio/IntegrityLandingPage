@@ -262,5 +262,69 @@ void main() {
         expect(find.byType(SelectionArea), findsOneWidget);
       });
     });
+
+    group('security - XSS prevention', () {
+      testWidgets('sanitizes script tags in error parameter', (tester) async {
+        await pumpOAuthCallbackPage(
+          tester,
+          error: '<script>alert("xss")</script>',
+        );
+
+        // Should not find raw script tags anywhere in the widget tree
+        expect(find.textContaining('<script>'), findsNothing);
+        // Should find sanitized version
+        expect(find.textContaining('&lt;script&gt;'), findsOneWidget);
+      });
+
+      testWidgets('sanitizes XSS in error_description parameter',
+          (tester) async {
+        await pumpOAuthCallbackPage(
+          tester,
+          error: 'test_error',
+          errorDescription: '<img src=x onerror="alert(1)">',
+        );
+
+        // Should not find raw img tag
+        expect(find.textContaining('<img'), findsNothing);
+        // Should find sanitized version with escaped characters
+        expect(find.textContaining('&lt;img'), findsOneWidget);
+      });
+
+      testWidgets('truncates excessively long error descriptions',
+          (tester) async {
+        final longDescription = 'A' * 500;
+        await pumpOAuthCallbackPage(
+          tester,
+          error: 'test_error',
+          errorDescription: longDescription,
+        );
+
+        // Should not find full 500 character string
+        final textWidgets = tester.widgetList<Text>(find.byType(Text));
+        final hasLongText =
+            textWidgets.any((t) => (t.data?.length ?? 0) >= 500);
+        expect(hasLongText, isFalse);
+      });
+
+      testWidgets('allows safe error codes through', (tester) async {
+        await pumpOAuthCallbackPage(
+          tester,
+          error: 'access_denied',
+        );
+
+        expect(find.textContaining('access_denied'), findsOneWidget);
+      });
+
+      testWidgets('sanitizes error code with special characters',
+          (tester) async {
+        await pumpOAuthCallbackPage(
+          tester,
+          error: 'error<script>',
+        );
+
+        // Should not display raw script tag in error code
+        expect(find.textContaining('<script>'), findsNothing);
+      });
+    });
   });
 }

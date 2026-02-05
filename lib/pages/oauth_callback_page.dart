@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
+import '../utils/security_utils.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/navigation/shared_app_bar.dart';
 import '../widgets/sections/footer_section.dart';
@@ -186,7 +187,13 @@ class _OAuthCallbackContent extends StatelessWidget {
   }
 
   Widget _buildErrorState(BuildContext context, bool isMobile) {
-    final errorMessage = errorDescription ??
+    // Sanitize all external input to prevent XSS attacks
+    final sanitizedError = SecurityUtils.sanitizeErrorCode(error);
+    final sanitizedDescription = errorDescription != null
+        ? SecurityUtils.sanitizeUserInput(errorDescription)
+        : null;
+
+    final errorMessage = sanitizedDescription ??
         'An error occurred during authentication. Please try again.';
 
     return Column(
@@ -232,10 +239,10 @@ class _OAuthCallbackContent extends StatelessWidget {
           style: AppTypography.bodyLG.copyWith(color: AppColors.gray300),
           textAlign: TextAlign.center,
         ),
-        if (error != null) ...[
+        if (sanitizedError != null) ...[
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Error code: $error',
+            'Error code: $sanitizedError',
             style: AppTypography.bodySM.copyWith(color: AppColors.gray500),
             textAlign: TextAlign.center,
           ),
