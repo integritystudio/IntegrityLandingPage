@@ -5,6 +5,7 @@ import '../config/content.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
+import '../widgets/common/status_icon.dart';
 import '../widgets/navigation/shared_app_bar.dart';
 import '../widgets/sections/footer_section.dart';
 
@@ -81,28 +82,7 @@ class _FailureHeroSection extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Error icon
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.error.withValues(alpha: 0.2),
-                      AppColors.warning.withValues(alpha: 0.2),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(40),
-                  border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: const Icon(
-                  LucideIcons.alertCircle,
-                  color: AppColors.error,
-                  size: 40,
-                ),
-              ),
+              const StatusIcon.warning(),
               const SizedBox(height: AppSpacing.xl),
 
               // Heading
