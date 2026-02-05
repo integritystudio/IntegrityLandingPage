@@ -27,6 +27,9 @@ import '../pages/help_center_page.dart';
 import '../pages/features_page.dart';
 import '../pages/status_page.dart';
 import '../pages/demo_page.dart';
+import '../pages/request_success_page.dart';
+import '../pages/request_failure_page.dart';
+import '../pages/oauth_callback_page.dart';
 
 /// Creates the application router with all routes and redirects.
 ///
@@ -143,11 +146,42 @@ GoRouter createAppRouter({
               onShowCookieSettings: onShowCookieSettings,
             ),
           ),
+
+          // Request result pages
+          GoRoute(
+            path: '/request_success',
+            builder: (context, state) => RequestSuccessPage(
+              onBack: () => context.go('/'),
+              onShowCookieSettings: onShowCookieSettings,
+            ),
+          ),
+          GoRoute(
+            path: '/request_failure',
+            builder: (context, state) => RequestFailurePage(
+              onBack: () => context.go('/'),
+              onShowCookieSettings: onShowCookieSettings,
+            ),
+          ),
           GoRoute(
             path: '/support',
             builder: (context, state) => HelpCenterPage(
               onBack: () => context.go('/'),
             ),
+          ),
+
+          // OAuth callback
+          GoRoute(
+            path: '/oauth/callback',
+            builder: (context, state) {
+              final params = state.uri.queryParameters;
+              return OAuthCallbackPage(
+                onBack: () => context.go('/'),
+                code: params['code'],
+                state: params['state'],
+                error: params['error'],
+                errorDescription: params['error_description'],
+              );
+            },
           ),
 
           // Signup with tier query parameter
