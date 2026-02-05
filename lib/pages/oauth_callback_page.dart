@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
 import '../utils/security_utils.dart';
 import '../widgets/common/buttons.dart';
+import '../widgets/common/status_icon.dart';
 import '../widgets/navigation/shared_app_bar.dart';
 import '../widgets/sections/footer_section.dart';
 
@@ -124,28 +124,7 @@ class _OAuthCallbackContent extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Success icon
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.success.withValues(alpha: 0.2),
-                AppColors.blue500.withValues(alpha: 0.2),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(
-              color: AppColors.success.withValues(alpha: 0.3),
-            ),
-          ),
-          child: const Icon(
-            LucideIcons.checkCircle2,
-            color: AppColors.success,
-            size: 40,
-          ),
-        ),
+        const StatusIcon.success(),
         const SizedBox(height: AppSpacing.xl),
 
         // Heading
@@ -160,13 +139,13 @@ class _OAuthCallbackContent extends StatelessWidget {
 
         // Message
         Text(
-          'Your Google account has been connected successfully. You can now close this window or continue to your dashboard.',
+          'Your Google account has been connected successfully. You can now close this window or continue to the site.',
           style: AppTypography.bodyLG.copyWith(color: AppColors.gray300),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.xl),
 
-        // Buttons
+        // Buttons - Fixed Issue #13: Removed misleading "Go to Dashboard" button
         Wrap(
           alignment: WrapAlignment.center,
           spacing: AppSpacing.md,
@@ -177,7 +156,7 @@ class _OAuthCallbackContent extends StatelessWidget {
               onPressed: () => context.go('/'),
             ),
             GradientButton(
-              text: 'Go to Dashboard',
+              text: 'Continue',
               onPressed: () => context.go('/'),
             ),
           ],
@@ -199,28 +178,7 @@ class _OAuthCallbackContent extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Error icon
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.error.withValues(alpha: 0.2),
-                AppColors.error.withValues(alpha: 0.1),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(
-              color: AppColors.error.withValues(alpha: 0.3),
-            ),
-          ),
-          child: const Icon(
-            LucideIcons.xCircle,
-            color: AppColors.error,
-            size: 40,
-          ),
-        ),
+        const StatusIcon.error(),
         const SizedBox(height: AppSpacing.xl),
 
         // Heading
@@ -273,33 +231,7 @@ class _OAuthCallbackContent extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Loading indicator
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.blue500.withValues(alpha: 0.2),
-                AppColors.purple500.withValues(alpha: 0.2),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(
-              color: AppColors.blue500.withValues(alpha: 0.3),
-            ),
-          ),
-          child: const Center(
-            child: SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.blue400),
-              ),
-            ),
-          ),
-        ),
+        const StatusIcon.processing(),
         const SizedBox(height: AppSpacing.xl),
 
         // Heading

@@ -103,10 +103,10 @@ void main() {
         expect(find.text('Back to Home'), findsOneWidget);
       });
 
-      testWidgets('renders Go to Dashboard button', (tester) async {
+      testWidgets('renders Continue button', (tester) async {
         await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
 
-        expect(find.text('Go to Dashboard'), findsOneWidget);
+        expect(find.text('Continue'), findsOneWidget);
       });
     });
 
