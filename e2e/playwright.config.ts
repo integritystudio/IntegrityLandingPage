@@ -16,7 +16,7 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 1, // Local retry reduces dev frustration
   workers: 1,
   reporter: process.env.CI ? 'html' : 'list',
   timeout: 180000, // 3 minutes per test (Flutter web is slow to load)
@@ -35,8 +35,8 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        // Bypass CSP for testing - Flutter web needs inline scripts
-        bypassCSP: true,
+        // Only bypass CSP in local dev - production tests should validate real CSP
+        bypassCSP: isLocalDev,
       },
     },
     // Multi-browser testing for CI
@@ -46,12 +46,14 @@ export default defineConfig({
             name: 'firefox',
             use: {
               ...devices['Desktop Firefox'],
+              bypassCSP: false,
             },
           },
           {
             name: 'webkit',
             use: {
               ...devices['Desktop Safari'],
+              bypassCSP: false,
             },
           },
         ]

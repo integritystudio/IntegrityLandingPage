@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForFlutter, assertFlutterRendering } from './helpers';
 
 /**
  * E2E tests for routing and redirect rules.
@@ -41,22 +42,11 @@ test.describe('Routing and Redirects', () => {
         const content = await page.content();
         expect(content).toContain('flutter_bootstrap.js');
 
-        // Flutter should initialize (wait for loading to disappear or canvas to appear)
-        await Promise.race([
-          page.locator('.loading-container').waitFor({ state: 'hidden', timeout: 60000 }),
-          page.locator('canvas').waitFor({ state: 'visible', timeout: 60000 }),
-          page.locator('flt-glass-pane').waitFor({ state: 'attached', timeout: 60000 }),
-        ]);
+        // Wait for Flutter to fully initialize (deterministic, no race conditions)
+        await waitForFlutter(page);
 
         // Verify Flutter rendered something
-        const hasFlutter = await page.evaluate(() => {
-          return !!(
-            document.querySelector('flt-glass-pane') ||
-            document.querySelector('flutter-view') ||
-            document.querySelector('canvas')
-          );
-        });
-        expect(hasFlutter).toBe(true);
+        await assertFlutterRendering(page);
       });
     }
   });
@@ -129,11 +119,8 @@ test.describe('Routing and Redirects', () => {
       const content = await page.content();
       expect(content).toContain('flutter_bootstrap.js');
 
-      // Wait for Flutter to load
-      await Promise.race([
-        page.locator('.loading-container').waitFor({ state: 'hidden', timeout: 60000 }),
-        page.locator('canvas').waitFor({ state: 'visible', timeout: 60000 }),
-      ]);
+      // Wait for Flutter to load using deterministic wait
+      await waitForFlutter(page);
     });
 
     // Blog article HTML files would be served directly when they exist
@@ -157,6 +144,10 @@ test.describe('Routing and Redirects', () => {
 
       const content = await page.content();
       expect(content).toContain('flutter_bootstrap.js');
+
+      // Wait for Flutter to load and verify it renders
+      await waitForFlutter(page);
+      await assertFlutterRendering(page);
     });
 
     test('Deep unknown routes also serve SPA', async ({ page }) => {
@@ -165,6 +156,10 @@ test.describe('Routing and Redirects', () => {
 
       const content = await page.content();
       expect(content).toContain('flutter_bootstrap.js');
+
+      // Wait for Flutter to load and verify it renders
+      await waitForFlutter(page);
+      await assertFlutterRendering(page);
     });
   });
 
