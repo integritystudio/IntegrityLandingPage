@@ -164,14 +164,15 @@ test.describe('Routing and Redirects', () => {
   });
 
   test.describe('Security Headers', () => {
-    test('CSP header is present', async ({ request }) => {
+    test('CSP header is present with reporting directives', async ({ request }) => {
       const response = await request.get('/');
       expect(response.status()).toBe(200);
 
-      // CSP is set via meta tag in index.html, not HTTP header
-      // But Cloudflare might add headers too
+      // CSP is set via meta tag in index.html
       const html = await response.text();
       expect(html).toContain('Content-Security-Policy');
+      expect(html).toContain('report-uri');
+      expect(html).toContain('report-to csp-endpoint');
     });
 
     test('SRI attributes are present on external scripts', async ({ request }) => {
