@@ -258,7 +258,6 @@ class _ContactSectionState extends State<ContactSection> {
           required: field.required,
           placeholder: field.placeholder,
           rows: 4,
-          minLength: 10,
           errorText: _fieldErrors[field.name],
           onChanged: (value) {
             setState(() {
@@ -449,6 +448,10 @@ class _ContactSectionState extends State<ContactSection> {
     );
   }
 
+  /// Normalize empty/whitespace-only strings to null for optional fields.
+  String? _emptyToNull(String? value) =>
+      value != null && value.trim().isNotEmpty ? value : null;
+
   /// Build full name from firstName + lastName or single name field.
   String _buildFullName() {
     if (_formData.containsKey('firstName')) {
@@ -464,11 +467,12 @@ class _ContactSectionState extends State<ContactSection> {
   /// Validate form using ContactService.
   bool _validateForm() {
     // Build ContactFormData from form fields
+    // Normalize empty strings to null for optional fields
     final formData = ContactFormData(
       name: _buildFullName(),
       email: _formData['email'] ?? '',
-      organization: _formData['organization'] ?? _formData['company'],
-      message: _formData['message'] ?? '',
+      organization: _emptyToNull(_formData['organization'] ?? _formData['company']),
+      message: _emptyToNull(_formData['message']),
     );
 
     final errors = ContactService.validateForm(formData);
@@ -512,13 +516,14 @@ class _ContactSectionState extends State<ContactSection> {
         });
       } else {
         // Use ContactService for submission
+        // Normalize empty strings to null for optional fields
         final formData = ContactFormData(
           name: _buildFullName(),
           email: _formData['email'] ?? '',
-          organization: _formData['organization'] ?? _formData['company'],
-          message: _formData['message'] ?? '',
-          companySize: _formData['companySize'],
-          useCase: _formData['useCase'],
+          organization: _emptyToNull(_formData['organization'] ?? _formData['company']),
+          message: _emptyToNull(_formData['message']),
+          companySize: _emptyToNull(_formData['companySize']),
+          useCase: _emptyToNull(_formData['useCase']),
         );
 
         final payload = ContactFormPayload(formData: formData);

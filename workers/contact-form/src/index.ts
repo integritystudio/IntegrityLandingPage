@@ -255,8 +255,6 @@ function validateForm(data: ContactFormData): string | null {
   if (data.organization && data.organization.length > MAX_ORGANIZATION_LENGTH) return `Organization must be under ${MAX_ORGANIZATION_LENGTH} characters`;
   if (data.companySize && data.companySize.length > MAX_COMPANY_SIZE_LENGTH) return `Company size must be under ${MAX_COMPANY_SIZE_LENGTH} characters`;
   if (data.useCase && data.useCase.length > MAX_USE_CASE_LENGTH) return `Use case must be under ${MAX_USE_CASE_LENGTH} characters`;
-  // Message is optional, but if provided must meet minimum length
-  if (data.message?.trim() && data.message.trim().length < 10) return 'Message must be at least 10 characters';
   if (data.message && data.message.length > MAX_MESSAGE_LENGTH) return `Message must be under ${MAX_MESSAGE_LENGTH} characters`;
   return null;
 }

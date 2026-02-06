@@ -221,7 +221,12 @@ describe('Contact Form Worker', () => {
       expect(response.status).toBe(200);
     });
 
-    it('returns 400 for message shorter than 10 characters', async () => {
+    it('accepts short message (no minimum length)', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
       const request = createRequest('POST', {
         name: 'John Doe',
         email: 'test@example.com',
@@ -230,9 +235,7 @@ describe('Contact Form Worker', () => {
 
       const response = await worker.fetch(request, mockEnv);
 
-      expect(response.status).toBe(400);
-      const data = await response.json() as ErrorResponse;
-      expect(data.error).toContain('10');
+      expect(response.status).toBe(200);
     });
 
     it('accepts valid form data', async () => {

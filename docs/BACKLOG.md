@@ -1847,6 +1847,179 @@ These issues are **deferred** because:
 - Added full-name builder for firstName/lastName support
 - Added XSS sanitization tests for new fields
 
+**Contact Form Robustness (2026-02-06):**
+- Fixed empty string vs null inconsistency for optional fields (message, organization, companySize, useCase)
+- Added retry logic with exponential backoff (2 retries, 1s/2s delays) for transient network errors
+
 ---
 
-*Last updated: 2026-02-06 (4 of 7 issues completed, 3 deferred, all LOW priority enhancements completed)*
+## Issue #14: CSRF Token Lifecycle Issues
+
+**Severity:** MEDIUM
+**Category:** Security
+**Effort:** Medium (2-4 hours)
+**Identified:** 2026-02-06 (Contact Form Production Review)
+
+### Problems
+
+1. **Cache/expiration mismatch** - Client caches CSRF tokens for 5 minutes (`contact_service.dart:221`) but server expires them after 1 hour (`index.ts:22`). Multiple valid tokens can exist simultaneously during overlap windows.
+
+2. **Silent CSRF fetch failure** - `_fetchCsrfToken()` (`contact_service.dart:234-237`) catches errors and returns `null` silently. Form submissions proceed without CSRF protection with no Sentry logging.
+
+3. **Race condition on invalidation** - `clearCsrfCache()` after success (`contact_service.dart:283`) creates a window where concurrent submissions could reuse tokens.
+
+### Recommendations
+
+- Align token cache duration with server expiration (both 1 hour or both 5 minutes)
+- Log CSRF fetch failures to Sentry at warning level
+- Fetch fresh token per submission to eliminate cache race conditions
+
+---
+
+## Issue #15: Rate Limiting Degraded Mode Has No Fallback
+
+**Severity:** MEDIUM
+**Category:** Security / Reliability
+**Effort:** Medium (2-4 hours)
+**Identified:** 2026-02-06 (Contact Form Production Review)
+
+### Problem
+
+When KV storage is unavailable, rate limiting fails open (`index.ts:68-86, 109-127`), allowing unlimited requests. Only console logging occurs - no fallback rate limiting.
+
+### Recommendations
+
+- Add in-memory rate limiting fallback using Worker global scope
+- Add circuit breaker pattern after N consecutive KV failures
+- Send Sentry alerts on degraded mode activation
+
+---
+
+## Issue #16: CORS Origin Fallback Allows Bypass
+
+**Severity:** MEDIUM
+**Category:** Security
+**Effort:** Low (30 minutes)
+**Identified:** 2026-02-06 (Contact Form Production Review)
+
+### Problem
+
+CORS handler (`index.ts:223-225`) defaults to `ALLOWED_ORIGINS[0]` when Origin header is missing or unrecognized, allowing requests from any origin to succeed.
+
+```typescript
+const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+```
+
+### Recommendation
+
+- Return 403 if Origin header doesn't match allowed list (for POST requests)
+- Log CORS violations for monitoring
+
+---
+
+## Issue #17: No Idempotency Protection for Duplicate Submissions
+
+**Severity:** MEDIUM
+**Category:** Reliability
+**Effort:** Medium (2-4 hours)
+**Identified:** 2026-02-06 (Contact Form Production Review)
+
+### Problem
+
+If user double-clicks submit or browser retries, duplicate emails are sent. UI disables button during submission (`contact_section.dart:163`), but browser-level retries or race conditions can bypass this.
+
+### Recommendations
+
+- Generate idempotency key (UUID) per submission attempt
+- Server deduplicates within time window using KV storage
+- Return 409 Conflict for duplicate submissions
+
+---
+
+## Issue #18: Rate Limit Headers Not Parsed on Client
+
+**Severity:** LOW
+**Category:** UX
+**Effort:** Low (1 hour)
+**Identified:** 2026-02-06 (Contact Form Production Review)
+
+### Problem
+
+Server returns `Retry-After` and `X-RateLimit-*` headers on 429 responses (`index.ts:348-355`), but client never inspects them. User sees generic "too many requests" error with no countdown.
+
+### Recommendation
+
+- Parse `Retry-After` header and display retry countdown to user
+
+---
+
+## Issue #19: Email Mailto XSS via Parameter Injection
+
+**Severity:** LOW
+**Category:** Security
+**Effort:** Low (15 minutes)
+**Identified:** 2026-02-06 (Contact Form Production Review)
+
+### Problem
+
+Email template (`index.ts:401`) uses `escapeHtml()` for email in `href="mailto:"` attribute. Should use `encodeURIComponent()` for URL context to prevent mailto parameter injection.
+
+### Recommendation
+
+- Use `encodeURIComponent()` for href attribute values in mailto links
+
+---
+
+## Issue #20: Timeout Handling Mismatch Between Client and Worker
+
+**Severity:** LOW
+**Category:** Reliability
+**Effort:** Low (30 minutes)
+**Identified:** 2026-02-06 (Contact Form Production Review)
+
+### Problem
+
+Both client and worker have 10s timeout. Worker 504 response passes client's `validateStatus` check (`status < 500` is false for 504, so it throws). The error path works but the timeout budget doesn't account for both layers.
+
+### Recommendation
+
+- Reduce worker Resend timeout to 8s to allow client to handle 504 gracefully
+- Add explicit 504 handling on client
+
+---
+
+## Issue #21: Hardcoded API Endpoint URL
+
+**Severity:** LOW
+**Category:** Maintainability
+**Effort:** Low (30 minutes)
+**Identified:** 2026-02-06 (Contact Form Production Review)
+
+### Problem
+
+Worker endpoint URL is hardcoded (`contact_service.dart:6`), preventing testing against staging/development environments without code changes.
+
+### Recommendation
+
+- Make endpoint configurable via `--dart-define=CONTACT_API_URL=...`
+
+---
+
+## Contact Form Review Priority Matrix
+
+| Issue | Severity | Status | Description |
+|-------|----------|--------|-------------|
+| #5 Empty string vs null | HIGH | **COMPLETED** | Normalized empty strings to null for optional fields |
+| #6 No retry logic | HIGH | **COMPLETED** | Added exponential backoff (2 retries, 1s/2s) |
+| #14 CSRF lifecycle | MEDIUM | OPEN | Token cache mismatch, silent failures, race conditions |
+| #15 Rate limit fallback | MEDIUM | OPEN | No in-memory fallback when KV unavailable |
+| #16 CORS bypass | MEDIUM | OPEN | Origin header fallback allows unauthorized requests |
+| #17 Idempotency | MEDIUM | OPEN | No duplicate submission protection |
+| #18 Rate limit UX | LOW | OPEN | Client doesn't parse rate limit headers |
+| #19 Mailto XSS | LOW | OPEN | escapeHtml instead of encodeURIComponent in href |
+| #20 Timeout mismatch | LOW | OPEN | Client/worker timeout budget overlap |
+| #21 Hardcoded URL | LOW | OPEN | API endpoint not configurable per environment |
+
+---
+
+*Last updated: 2026-02-06 (6 of 7 original issues completed, 3 deferred; 2 of 10 contact form review findings completed, 8 documented)*
