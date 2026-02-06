@@ -85,16 +85,25 @@ class ContactFormErrors {
   String? email;
   String? organization;
   String? message;
+  String? companySize;
+  String? useCase;
 
   ContactFormErrors({
     this.name,
     this.email,
     this.organization,
     this.message,
+    this.companySize,
+    this.useCase,
   });
 
   bool get hasErrors =>
-      name != null || email != null || organization != null || message != null;
+      name != null ||
+      email != null ||
+      organization != null ||
+      message != null ||
+      companySize != null ||
+      useCase != null;
 
   Map<String, String> toMap() {
     final map = <String, String>{};
@@ -102,6 +111,8 @@ class ContactFormErrors {
     if (email != null) map['email'] = email!;
     if (organization != null) map['organization'] = organization!;
     if (message != null) map['message'] = message!;
+    if (companySize != null) map['companySize'] = companySize!;
+    if (useCase != null) map['useCase'] = useCase!;
     return map;
   }
 }
@@ -140,6 +151,8 @@ class ContactService {
   static const int maxNameLength = 100;
   static const int maxEmailLength = 254; // RFC 5321
   static const int maxOrganizationLength = 200;
+  static const int maxCompanySizeLength = 100;
+  static const int maxUseCaseLength = 200;
   static const int maxMessageLength = 5000;
 
   /// Validate contact form data.
@@ -169,6 +182,20 @@ class ContactService {
         formData.organization!.length > maxOrganizationLength) {
       errors.organization =
           'Organization must be under $maxOrganizationLength characters';
+    }
+
+    // Validate companySize (optional but length-limited)
+    if (formData.companySize != null &&
+        formData.companySize!.length > maxCompanySizeLength) {
+      errors.companySize =
+          'Company size must be under $maxCompanySizeLength characters';
+    }
+
+    // Validate useCase (optional but length-limited)
+    if (formData.useCase != null &&
+        formData.useCase!.length > maxUseCaseLength) {
+      errors.useCase =
+          'Use case must be under $maxUseCaseLength characters';
     }
 
     // Validate message (optional, but if provided must meet length requirements)

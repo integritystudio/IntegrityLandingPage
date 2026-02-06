@@ -252,6 +252,64 @@ describe('Contact Form Worker', () => {
       expect(response.status).toBe(200);
     });
 
+    it('returns 400 for name exceeding max length', async () => {
+      const request = createRequest('POST', {
+        name: 'A'.repeat(101),
+        email: 'test@example.com',
+        message: 'This is a valid message.',
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('100');
+    });
+
+    it('returns 400 for companySize exceeding max length', async () => {
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'test@example.com',
+        message: 'This is a valid message.',
+        companySize: 'A'.repeat(101),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('100');
+    });
+
+    it('returns 400 for useCase exceeding max length', async () => {
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'test@example.com',
+        message: 'This is a valid message.',
+        useCase: 'A'.repeat(201),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('200');
+    });
+
+    it('returns 400 for message exceeding max length', async () => {
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'test@example.com',
+        message: 'A'.repeat(5001),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('5000');
+    });
+
     it('accepts optional organization field', async () => {
       mockResendInstance.emails.send.mockResolvedValue({
         data: { id: 'email_123' },

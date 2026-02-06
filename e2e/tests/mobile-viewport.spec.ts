@@ -56,7 +56,6 @@ test.describe('Mobile Viewport', () => {
       const response = await request.get('/');
       const html = await response.text();
 
-      // Should have viewport meta tag for responsive design
       expect(html).toContain('name="viewport"');
       expect(html).toContain('width=device-width');
       expect(html).toContain('initial-scale=1.0');
@@ -70,9 +69,9 @@ test.describe('Mobile Viewport', () => {
       await page.goto('/');
       await waitForFlutter(page);
 
-      // Simulate mobile scroll via touch
+      // Simulate mobile scroll via touch gestures
       await page.touchscreen.tap(200, 400);
-      await page.mouse.wheel(0, 500);
+      await page.evaluate(() => window.scrollBy(0, 500));
 
       // App should still be functional after scroll
       await assertFlutterRendering(page);

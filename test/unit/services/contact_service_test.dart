@@ -61,6 +61,56 @@ void main() {
 
         expect(json['organization'], equals('Test Company'));
       });
+
+      test('includes companySize when present', () {
+        const formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          companySize: '50-200',
+          message: 'Test message',
+        );
+
+        final json = formData.toJson();
+
+        expect(json['companySize'], equals('50-200'));
+      });
+
+      test('excludes companySize when null', () {
+        const formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'Test message',
+        );
+
+        final json = formData.toJson();
+
+        expect(json.containsKey('companySize'), isFalse);
+      });
+
+      test('includes useCase when present', () {
+        const formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          useCase: 'AI Observability',
+          message: 'Test message',
+        );
+
+        final json = formData.toJson();
+
+        expect(json['useCase'], equals('AI Observability'));
+      });
+
+      test('excludes useCase when null', () {
+        const formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'Test message',
+        );
+
+        final json = formData.toJson();
+
+        expect(json.containsKey('useCase'), isFalse);
+      });
     });
   });
 
@@ -149,6 +199,18 @@ void main() {
       expect(errors.hasErrors, isTrue);
     });
 
+    test('hasErrors returns true when companySize error exists', () {
+      final errors = ContactFormErrors(companySize: 'Too long');
+
+      expect(errors.hasErrors, isTrue);
+    });
+
+    test('hasErrors returns true when useCase error exists', () {
+      final errors = ContactFormErrors(useCase: 'Too long');
+
+      expect(errors.hasErrors, isTrue);
+    });
+
     group('toMap', () {
       test('returns empty map when no errors', () {
         final errors = ContactFormErrors();
@@ -162,6 +224,8 @@ void main() {
           email: 'Email error',
           organization: 'Org error',
           message: 'Message error',
+          companySize: 'Size error',
+          useCase: 'Use case error',
         );
 
         final map = errors.toMap();
@@ -170,6 +234,8 @@ void main() {
         expect(map['email'], equals('Email error'));
         expect(map['organization'], equals('Org error'));
         expect(map['message'], equals('Message error'));
+        expect(map['companySize'], equals('Size error'));
+        expect(map['useCase'], equals('Use case error'));
       });
 
       test('returns map with only present errors', () {
@@ -319,6 +385,60 @@ void main() {
 
         expect(errors.organization, isNull);
         expect(errors.hasErrors, isFalse);
+      });
+
+      test('returns error for companySize exceeding max length', () {
+        final formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          companySize: 'A' * 101,
+          message: 'Valid message here.',
+        );
+
+        final errors = ContactService.validateForm(formData);
+
+        expect(errors.companySize, isNotNull);
+        expect(errors.companySize, contains('100'));
+      });
+
+      test('accepts companySize within max length', () {
+        const formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          companySize: '50-200 employees',
+          message: 'Valid message here.',
+        );
+
+        final errors = ContactService.validateForm(formData);
+
+        expect(errors.companySize, isNull);
+      });
+
+      test('returns error for useCase exceeding max length', () {
+        final formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          useCase: 'A' * 201,
+          message: 'Valid message here.',
+        );
+
+        final errors = ContactService.validateForm(formData);
+
+        expect(errors.useCase, isNotNull);
+        expect(errors.useCase, contains('200'));
+      });
+
+      test('accepts useCase within max length', () {
+        const formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          useCase: 'AI Observability for ML pipelines',
+          message: 'Valid message here.',
+        );
+
+        final errors = ContactService.validateForm(formData);
+
+        expect(errors.useCase, isNull);
       });
 
       test('returns multiple errors at once', () {

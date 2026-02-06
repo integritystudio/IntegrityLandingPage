@@ -69,13 +69,13 @@ test.describe('Accessibility', () => {
       await page.goto('/');
       await waitForFlutter(page);
 
-      // Tab should work without errors
+      // Tab should work without errors - use waitForLoadState instead of arbitrary timeouts
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(500);
+      await page.waitForLoadState('domcontentloaded');
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(500);
+      await page.waitForLoadState('domcontentloaded');
 
-      // Page should still be functional
+      // Page should still be functional after keyboard interaction
       const hasFlutter = await page.evaluate(() => {
         return !!(
           document.querySelector('flt-glass-pane') ||
