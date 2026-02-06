@@ -270,7 +270,7 @@ void main() {
         expect(errors.email, contains('valid'));
       });
 
-      test('returns error for empty message', () {
+      test('accepts empty message (optional field)', () {
         const formData = ContactFormData(
           name: 'John Doe',
           email: 'john@example.com',
@@ -279,7 +279,7 @@ void main() {
 
         final errors = ContactService.validateForm(formData);
 
-        expect(errors.message, isNotNull);
+        expect(errors.message, isNull);
       });
 
       test('returns error for message shorter than 10 characters', () {
@@ -387,7 +387,6 @@ void main() {
         expect(error.fieldErrors, isNotNull);
         expect(error.fieldErrors!.containsKey('name'), isTrue);
         expect(error.fieldErrors!.containsKey('email'), isTrue);
-        expect(error.fieldErrors!.containsKey('message'), isTrue);
       });
 
       test('returns success for valid form data', () async {

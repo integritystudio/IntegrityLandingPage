@@ -449,11 +449,23 @@ class _ContactSectionState extends State<ContactSection> {
     );
   }
 
+  /// Build full name from firstName + lastName or single name field.
+  String _buildFullName() {
+    if (_formData.containsKey('firstName')) {
+      final parts = [
+        _formData['firstName']?.trim() ?? '',
+        _formData['lastName']?.trim() ?? '',
+      ].where((s) => s.isNotEmpty);
+      return parts.join(' ');
+    }
+    return _formData['name'] ?? '';
+  }
+
   /// Validate form using ContactService.
   bool _validateForm() {
     // Build ContactFormData from form fields
     final formData = ContactFormData(
-      name: _formData['name'] ?? _formData['firstName'] ?? '',
+      name: _buildFullName(),
       email: _formData['email'] ?? '',
       organization: _formData['organization'] ?? _formData['company'],
       message: _formData['message'] ?? '',
@@ -501,10 +513,12 @@ class _ContactSectionState extends State<ContactSection> {
       } else {
         // Use ContactService for submission
         final formData = ContactFormData(
-          name: _formData['name'] ?? _formData['firstName'] ?? '',
+          name: _buildFullName(),
           email: _formData['email'] ?? '',
           organization: _formData['organization'] ?? _formData['company'],
           message: _formData['message'] ?? '',
+          companySize: _formData['companySize'],
+          useCase: _formData['useCase'],
         );
 
         final payload = ContactFormPayload(formData: formData);

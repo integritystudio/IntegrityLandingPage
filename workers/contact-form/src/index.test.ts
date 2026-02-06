@@ -205,7 +205,12 @@ describe('Contact Form Worker', () => {
       expect(data.error).toContain('email');
     });
 
-    it('returns 400 for missing message', async () => {
+    it('accepts missing message (optional field)', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
       const request = createRequest('POST', {
         name: 'John Doe',
         email: 'test@example.com',
@@ -213,9 +218,7 @@ describe('Contact Form Worker', () => {
 
       const response = await worker.fetch(request, mockEnv);
 
-      expect(response.status).toBe(400);
-      const data = await response.json() as ErrorResponse;
-      expect(data.error).toContain('Message');
+      expect(response.status).toBe(200);
     });
 
     it('returns 400 for message shorter than 10 characters', async () => {
@@ -649,6 +652,50 @@ describe('Contact Form Worker', () => {
         name: 'John Doe',
         email: 'test@example.com',
         message: '<img src=x onerror=alert("xss")>Test message',
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          html: expect.not.stringContaining('<img'),
+        })
+      );
+    });
+
+    it('escapes HTML in companySize field', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'test@example.com',
+        message: 'This is a valid message for testing.',
+        companySize: '<script>alert("xss")</script>',
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          html: expect.not.stringContaining('<script>'),
+        })
+      );
+    });
+
+    it('escapes HTML in useCase field', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'test@example.com',
+        message: 'This is a valid message for testing.',
+        useCase: '<img src=x onerror=alert("xss")>',
       });
 
       await worker.fetch(request, mockEnv);
