@@ -15,12 +15,16 @@ class ContactFormData {
   final String email;
   final String? organization;
   final String message;
+  final String? companySize;
+  final String? useCase;
 
   const ContactFormData({
     required this.name,
     required this.email,
     this.organization,
     required this.message,
+    this.companySize,
+    this.useCase,
   });
 
   Map<String, dynamic> toJson() => {
@@ -28,6 +32,8 @@ class ContactFormData {
         'email': email,
         if (organization != null) 'organization': organization,
         'message': message,
+        if (companySize != null) 'companySize': companySize,
+        if (useCase != null) 'useCase': useCase,
       };
 }
 
@@ -165,13 +171,13 @@ class ContactService {
           'Organization must be under $maxOrganizationLength characters';
     }
 
-    // Validate message
-    if (formData.message.trim().isEmpty) {
-      errors.message = 'Please tell us about your needs';
-    } else if (formData.message.trim().length < 10) {
-      errors.message = 'Please provide more details (at least 10 characters)';
-    } else if (formData.message.length > maxMessageLength) {
-      errors.message = 'Message must be under $maxMessageLength characters';
+    // Validate message (optional, but if provided must meet length requirements)
+    if (formData.message.trim().isNotEmpty) {
+      if (formData.message.trim().length < 10) {
+        errors.message = 'Please provide more details (at least 10 characters)';
+      } else if (formData.message.length > maxMessageLength) {
+        errors.message = 'Message must be under $maxMessageLength characters';
+      }
     }
 
     return errors;

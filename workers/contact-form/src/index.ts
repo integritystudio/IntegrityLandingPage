@@ -209,7 +209,9 @@ interface ContactFormData {
   name: string;
   email: string;
   organization?: string;
-  message: string;
+  message?: string;
+  companySize?: string;
+  useCase?: string;
 }
 
 // CORS headers for Flutter web app - restricted to production domain
@@ -240,8 +242,8 @@ function validateForm(data: ContactFormData): string | null {
   if (!data.name?.trim()) return 'Name is required';
   if (!data.email?.trim()) return 'Email is required';
   if (!isValidEmail(data.email)) return 'Invalid email format';
-  if (!data.message?.trim()) return 'Message is required';
-  if (data.message.trim().length < 10) return 'Message must be at least 10 characters';
+  // Message is optional, but if provided must meet minimum length
+  if (data.message?.trim() && data.message.trim().length < 10) return 'Message must be at least 10 characters';
   return null;
 }
 
@@ -386,8 +388,10 @@ export default {
               <p><strong>Name:</strong> ${escapeHtml(data.name)}</p>
               <p><strong>Email:</strong> <a href="mailto:${escapeHtml(data.email)}">${escapeHtml(data.email)}</a></p>
               ${data.organization ? `<p><strong>Organization:</strong> ${escapeHtml(data.organization)}</p>` : ''}
-              <h3>Message:</h3>
-              <p>${escapeHtml(data.message).replace(/\n/g, '<br>')}</p>
+              ${data.companySize ? `<p><strong>Company Size:</strong> ${escapeHtml(data.companySize)}</p>` : ''}
+              ${data.useCase ? `<p><strong>Primary Interest:</strong> ${escapeHtml(data.useCase)}</p>` : ''}
+              ${data.message ? `<h3>Message:</h3>
+              <p>${escapeHtml(data.message).replace(/\n/g, '<br>')}</p>` : ''}
               <hr>
               <p style="color: #666; font-size: 12px;">
                 Sent from IntegrityStudio.ai contact form at ${new Date().toISOString()}
@@ -398,9 +402,7 @@ New Contact Form Submission
 
 Name: ${data.name}
 Email: ${data.email}
-${data.organization ? `Organization: ${data.organization}\n` : ''}
-Message:
-${data.message}
+${data.organization ? `Organization: ${data.organization}\n` : ''}${data.companySize ? `Company Size: ${data.companySize}\n` : ''}${data.useCase ? `Primary Interest: ${data.useCase}\n` : ''}${data.message ? `\nMessage:\n${data.message}` : ''}
 
 ---
 Sent from IntegrityStudio.ai contact form at ${new Date().toISOString()}
