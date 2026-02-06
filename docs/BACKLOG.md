@@ -664,12 +664,12 @@ BASE_URL=http://localhost:8080 npm test
 
 ## Priority Matrix
 
-All HIGH priority issues have been completed.
+All HIGH priority issues have been completed. LOW priority enhancements completed 2026-02-06.
 
 | Issue | Severity | Status | Commit |
 |-------|----------|--------|--------|
-| #4 CSP Reporting | HIGH | **COMPLETED** | 1604013, d85e181 |
-| #6 E2E Routing | HIGH | **COMPLETED** | ffb5718, d85e181 |
+| #4 CSP Reporting | HIGH | **COMPLETED** | 1604013, d85e181, 1a0e6cf |
+| #6 E2E Routing | HIGH | **COMPLETED** | ffb5718, d85e181, b1285d1, e2bf55f |
 
 ## Related Completed Issues
 
@@ -684,16 +684,16 @@ All HIGH priority issues have been completed.
 
 From enterprise code review (2026-02-04):
 
-### CSP Improvements (LOW priority)
-- Add modern `report-to` directive alongside `report-uri` for enhanced reporting
-- Consider multi-environment CSP endpoints (staging vs production)
-- Add `frame-ancestors 'self'` directive for clickjacking protection
+### CSP Improvements (LOW priority) - **COMPLETED**
+- [x] Add modern `report-to` directive alongside `report-uri` for enhanced reporting (1a0e6cf)
+- [ ] Consider multi-environment CSP endpoints (staging vs production)
+- [x] Add `frame-ancestors 'self'` directive for clickjacking protection (already present)
 
-### E2E Test Improvements (LOW priority)
-- Add CI workflow integration for E2E tests
-- Add cache header validation tests
-- Add mobile viewport tests
-- Add accessibility (a11y) tests
+### E2E Test Improvements (LOW priority) - **COMPLETED**
+- [x] Add CI workflow integration for E2E tests (b1285d1)
+- [x] Add cache header validation tests (e2bf55f)
+- [x] Add mobile viewport tests (e2bf55f)
+- [x] Add accessibility (a11y) tests (e2bf55f)
 
 ---
 
@@ -1833,6 +1833,20 @@ These issues are **deferred** because:
 - #12: Added Sentry error logging and analytics tracking for OAuth errors
 - #13: Changed "Go to Dashboard" to "Continue" for accurate UX
 
+**Completed Enhancements (2026-02-06):**
+- CSP: Added `report-to` directive alongside `report-uri` with Report-To HTTP header
+- CSP: `frame-ancestors 'self'` already present
+- E2E: Added dedicated GitHub Actions workflow (.github/workflows/e2e.yml)
+- E2E: Added cache header validation tests (cache-headers.spec.ts)
+- E2E: Added mobile viewport tests for iPhone/Pixel/iPad (mobile-viewport.spec.ts)
+- E2E: Added accessibility tests - HTML a11y, ARIA, noscript fallback (accessibility.spec.ts)
+
+**Contact Form Enhancement (2026-02-06):**
+- Added companySize and useCase fields for lead qualification
+- Made message field optional to reduce form friction
+- Added full-name builder for firstName/lastName support
+- Added XSS sanitization tests for new fields
+
 ---
 
-*Last updated: 2026-02-04 (4 of 7 issues completed, 3 deferred)*
+*Last updated: 2026-02-06 (4 of 7 issues completed, 3 deferred, all LOW priority enhancements completed)*
