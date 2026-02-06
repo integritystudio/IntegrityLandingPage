@@ -111,6 +111,17 @@ void main() {
 
         expect(json.containsKey('useCase'), isFalse);
       });
+
+      test('excludes message when null', () {
+        const formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+        );
+
+        final json = formData.toJson();
+
+        expect(json.containsKey('message'), isFalse);
+      });
     });
   });
 
@@ -348,24 +359,11 @@ void main() {
         expect(errors.message, isNull);
       });
 
-      test('returns error for message shorter than 10 characters', () {
+      test('accepts short message (no minimum length)', () {
         const formData = ContactFormData(
           name: 'John Doe',
           email: 'john@example.com',
           message: 'Short',
-        );
-
-        final errors = ContactService.validateForm(formData);
-
-        expect(errors.message, isNotNull);
-        expect(errors.message, contains('10'));
-      });
-
-      test('accepts message with exactly 10 characters', () {
-        const formData = ContactFormData(
-          name: 'John Doe',
-          email: 'john@example.com',
-          message: '1234567890',
         );
 
         final errors = ContactService.validateForm(formData);
@@ -445,14 +443,12 @@ void main() {
         const formData = ContactFormData(
           name: '',
           email: 'invalid',
-          message: 'short',
         );
 
         final errors = ContactService.validateForm(formData);
 
         expect(errors.name, isNotNull);
         expect(errors.email, isNotNull);
-        expect(errors.message, isNotNull);
       });
     });
 
@@ -606,8 +602,8 @@ void main() {
         expect(error.error, equals('Invalid request'));
       });
 
-      test('returns error on network failure', () async {
-        // Mock network error
+      test('returns error on network failure after retries', () async {
+        // Mock network error - all attempts fail
         when(mockDio.post(
           any,
           data: anyNamed('data'),
@@ -630,6 +626,86 @@ void main() {
         expect(response, isA<ContactFormError>());
         final error = response as ContactFormError;
         expect(error.error, contains('timed out'));
+        // Verify retries happened (3 total attempts: 1 initial + 2 retries)
+        verify(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).called(3);
+      });
+
+      test('succeeds on retry after transient failure', () async {
+        var callCount = 0;
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async {
+          callCount++;
+          if (callCount == 1) {
+            throw DioException(
+              type: DioExceptionType.connectionTimeout,
+              requestOptions: RequestOptions(path: ''),
+            );
+          }
+          return Response(
+            requestOptions: RequestOptions(path: ''),
+            statusCode: 200,
+            data: {
+              'success': true,
+              'message': 'Sent!',
+              'submissionId': 'sub_retry_ok',
+            },
+          );
+        });
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'This is a valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormSuccess>());
+        final success = response as ContactFormSuccess;
+        expect(success.submissionId, equals('sub_retry_ok'));
+        expect(callCount, equals(2));
+      });
+
+      test('does not retry on non-retryable errors', () async {
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenThrow(DioException(
+          type: DioExceptionType.badResponse,
+          requestOptions: RequestOptions(path: ''),
+          response: Response(
+            requestOptions: RequestOptions(path: ''),
+            statusCode: 500,
+          ),
+        ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'This is a valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormError>());
+        // Should only be called once (no retries for non-retryable errors)
+        verify(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).called(1);
       });
     });
   });

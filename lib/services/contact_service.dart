@@ -14,7 +14,7 @@ class ContactFormData {
   final String name;
   final String email;
   final String? organization;
-  final String message;
+  final String? message;
   final String? companySize;
   final String? useCase;
 
@@ -22,7 +22,7 @@ class ContactFormData {
     required this.name,
     required this.email,
     this.organization,
-    required this.message,
+    this.message,
     this.companySize,
     this.useCase,
   });
@@ -31,7 +31,7 @@ class ContactFormData {
         'name': name,
         'email': email,
         if (organization != null) 'organization': organization,
-        'message': message,
+        if (message != null) 'message': message,
         if (companySize != null) 'companySize': companySize,
         if (useCase != null) 'useCase': useCase,
       };
@@ -198,13 +198,10 @@ class ContactService {
           'Use case must be under $maxUseCaseLength characters';
     }
 
-    // Validate message (optional, but if provided must meet length requirements)
-    if (formData.message.trim().isNotEmpty) {
-      if (formData.message.trim().length < 10) {
-        errors.message = 'Please provide more details (at least 10 characters)';
-      } else if (formData.message.length > maxMessageLength) {
-        errors.message = 'Message must be under $maxMessageLength characters';
-      }
+    // Validate message (optional but length-limited)
+    if (formData.message != null &&
+        formData.message!.length > maxMessageLength) {
+      errors.message = 'Message must be under $maxMessageLength characters';
     }
 
     return errors;
@@ -247,10 +244,15 @@ class ContactService {
     _csrfTokenTimestamp = null;
   }
 
+  // Retry configuration for transient network errors.
+  static const int _maxRetries = 2;
+
   /// Submit contact form to Cloudflare Worker endpoint.
   ///
   /// Sends contact form data via POST request to the contact API.
   /// The worker handles email delivery via Resend.
+  /// Retries up to [_maxRetries] times on transient network errors
+  /// with exponential backoff (1s, 2s).
   static Future<ContactFormResponse> submitForm(
     ContactFormPayload payload,
   ) async {
@@ -263,63 +265,85 @@ class ContactService {
       );
     }
 
-    try {
-      // Fetch CSRF token
-      final csrfToken = await _fetchCsrfToken();
+    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
+      try {
+        // Fetch CSRF token
+        final csrfToken = await _fetchCsrfToken();
 
-      final response = await _dio.post(
-        _contactApiUrl,
-        data: jsonEncode(payload.formData.toJson()),
-        options: Options(
-          headers: {
-            'Content-Type': 'application/json',
-            if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        final response = await _dio.post(
+          _contactApiUrl,
+          data: jsonEncode(payload.formData.toJson()),
+          options: Options(
+            headers: {
+              'Content-Type': 'application/json',
+              if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+            },
+            validateStatus: (status) => status != null && status < 500,
+          ),
+        );
+
+        final data = response.data as Map<String, dynamic>;
+
+        if (response.statusCode == 200 && data['success'] == true) {
+          // Invalidate CSRF token after successful submission to prevent replay
+          clearCsrfCache();
+          return ContactFormSuccess(
+            message: data['message'] as String? ??
+                "Thank you for your message! We'll respond within 24 hours.",
+            submissionId: data['submissionId'] as String? ??
+                'sub_${DateTime.now().millisecondsSinceEpoch}',
+          );
+        } else {
+          // Non-retryable: server returned a client error
+          return ContactFormError(
+            error: data['error'] as String? ?? 'Unable to submit form',
+          );
+        }
+      } on DioException catch (e) {
+        final isRetryable =
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+
+        if (isRetryable && attempt < _maxRetries) {
+          // Exponential backoff: 1s, 2s
+          await Future.delayed(Duration(seconds: 1 << attempt));
+          continue;
+        }
+
+        // Log to Sentry on final attempt
+        ErrorTrackingService.captureException(
+          e,
+          stackTrace: e.stackTrace,
+          context: 'ContactService.submitForm',
+          extra: {
+            'endpoint': _contactApiUrl,
+            'type': 'contact_form',
+            'attempt': attempt + 1,
           },
-          validateStatus: (status) => status != null && status < 500,
-        ),
-      );
-
-      final data = response.data as Map<String, dynamic>;
-
-      if (response.statusCode == 200 && data['success'] == true) {
-        // Invalidate CSRF token after successful submission to prevent replay
-        clearCsrfCache();
-        return ContactFormSuccess(
-          message: data['message'] as String? ??
-              "Thank you for your message! We'll respond within 24 hours.",
-          submissionId: data['submissionId'] as String? ??
-              'sub_${DateTime.now().millisecondsSinceEpoch}',
         );
-      } else {
-        return ContactFormError(
-          error: data['error'] as String? ?? 'Unable to submit form',
-        );
-      }
-    } on DioException catch (e) {
-      // Log to Sentry
-      ErrorTrackingService.captureException(
-        e,
-        stackTrace: e.stackTrace,
-        context: 'ContactService.submitForm',
-        extra: {'endpoint': _contactApiUrl, 'type': 'contact_form'},
-      );
 
-      // Return user-friendly error
-      if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.receiveTimeout) {
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          return const ContactFormError(
+            error: 'Connection timed out. Please check your internet and try again.',
+          );
+        }
         return const ContactFormError(
-          error: 'Connection timed out. Please check your internet and try again.',
+          error: 'Network error: Unable to submit form. Please try again.',
+        );
+      } catch (e, stackTrace) {
+        // Non-retryable unexpected errors
+        ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+        return const ContactFormError(
+          error: 'An unexpected error occurred. Please try again.',
         );
       }
-      return const ContactFormError(
-        error: 'Network error: Unable to submit form. Please try again.',
-      );
-    } catch (e, stackTrace) {
-      // Log unexpected errors to Sentry
-      ErrorTrackingService.captureException(e, stackTrace: stackTrace);
-      return const ContactFormError(
-        error: 'An unexpected error occurred. Please try again.',
-      );
     }
+
+    // Unreachable, but satisfies the return type
+    return const ContactFormError(
+      error: 'An unexpected error occurred. Please try again.',
+    );
   }
 }
