@@ -404,7 +404,7 @@ void main() {
         expect(find.textContaining('valid email'), findsOneWidget);
       });
 
-      testWidgets('shows validation error for short message', (tester) async {
+      testWidgets('accepts short message (optional field)', (tester) async {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
@@ -418,7 +418,7 @@ void main() {
         await tester.enterText(textFields.at(1), 'john@example.com');
         await tester.pump();
 
-        // Short message
+        // Short message - should be accepted since message is optional
         final textAreas = find.byType(TextField);
         for (var i = 0; i < textAreas.evaluate().length; i++) {
           final widget = tester.widget<TextField>(textAreas.at(i));
@@ -435,7 +435,7 @@ void main() {
         await tester.tap(find.text('Submit'));
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('more details'), findsOneWidget);
+        expect(find.textContaining('more details'), findsNothing);
       });
     });
 
