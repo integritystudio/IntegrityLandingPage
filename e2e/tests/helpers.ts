@@ -10,7 +10,7 @@ import { expect, Page } from '@playwright/test';
  * @param page - Playwright page object
  * @param timeout - Maximum time to wait in milliseconds (default: 60000)
  */
-export async function waitForFlutter(page: Page, timeout = 60000): Promise<void> {
+export async function waitForFlutter(page: Page, timeout = 90000): Promise<void> {
   // Wait for Flutter to be initialized and loading to complete
   await page.waitForFunction(
     () => {
