@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/services/contact_service.dart';
@@ -147,7 +146,7 @@ void main() {
       }
     });
 
-    test('validates empty message', () {
+    test('accepts empty message (optional field)', () {
       const data = ContactFormData(
         name: 'John Doe',
         email: 'test@example.com',
@@ -156,10 +155,10 @@ void main() {
 
       final errors = ContactService.validateForm(data);
 
-      expect(errors.message, isNotNull);
+      expect(errors.message, isNull);
     });
 
-    test('validates message minimum length', () {
+    test('accepts short message (no minimum length)', () {
       const data = ContactFormData(
         name: 'John Doe',
         email: 'test@example.com',
@@ -168,8 +167,7 @@ void main() {
 
       final errors = ContactService.validateForm(data);
 
-      expect(errors.message, isNotNull);
-      expect(errors.message, contains('10'));
+      expect(errors.message, isNull);
     });
 
     test('validates message maximum length', () {
