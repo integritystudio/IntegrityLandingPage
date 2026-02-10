@@ -47,6 +47,7 @@ test-results/
 # Node.js
 node_modules/
 package-lock.json
+!e2e/package-lock.json
 
 # Claude Code
 .claude/
