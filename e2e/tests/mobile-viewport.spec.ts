@@ -63,7 +63,7 @@ test.describe('Mobile Viewport', () => {
   });
 
   test.describe('touch interactions', () => {
-    test.use({ ...devices['iPhone 13'] });
+    test.use({ viewport: devices['iPhone 13'].viewport, userAgent: devices['iPhone 13'].userAgent });
 
     test('scrolling works on mobile', async ({ page }) => {
       await page.goto('/');
