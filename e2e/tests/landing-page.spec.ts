@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForFlutter, assertFlutterRendering } from './helpers';
 
 test.describe('IntegrityStudio Landing Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -10,11 +11,7 @@ test.describe('IntegrityStudio Landing Page', () => {
     });
 
     await page.goto('/');
-
-    // Flutter web takes time to compile and load
-    // Use a fixed wait since DOM-based detection doesn't work reliably
-    // (Flutter renders to canvas, DOM snapshot may show stale state)
-    await page.waitForTimeout(45000);
+    await waitForFlutter(page);
   });
 
   test('should load Flutter app successfully', async ({ page }) => {

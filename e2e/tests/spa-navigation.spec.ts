@@ -47,6 +47,7 @@ test.describe('SPA Navigation', () => {
   });
 
   test('browser back/forward navigation works', async ({ page }) => {
+    test.slow(); // beforeEach + 2 navigations + back/forward
     // Navigate to pricing
     await navigateAndWaitForFlutter(page, '/pricing');
 
@@ -69,6 +70,7 @@ test.describe('SPA Navigation', () => {
   });
 
   test('page refresh maintains current route', async ({ page }) => {
+    test.slow(); // beforeEach + navigation + reload
     // Navigate to pricing
     await navigateAndWaitForFlutter(page, '/pricing');
 
@@ -90,6 +92,7 @@ test.describe('SPA Navigation', () => {
   });
 
   test('app remains functional after multiple navigations', async ({ page }) => {
+    test.slow(); // 5 full page navigations, each reloads Flutter
     const routes = ['/pricing', '/contact', '/about', '/features', '/'];
 
     for (const route of routes) {
