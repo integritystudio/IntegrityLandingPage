@@ -8,39 +8,40 @@ import { defineConfig, devices } from '@playwright/test';
  * - Production/CI: `BASE_URL=https://integritystudio.ai npm test`
  *
  * For CI, set BASE_URL environment variable to test against deployed site.
+ * Multi-browser testing runs on nightly schedule (MULTI_BROWSER=true).
  */
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const isLocalDev = !process.env.BASE_URL;
+const isMultiBrowser = !!process.env.MULTI_BROWSER;
 
 export default defineConfig({
   testDir: './tests',
-  fullyParallel: false,
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 1, // Local retry reduces dev frustration
-  workers: 1,
+  retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 2 : 1,
   reporter: process.env.CI ? 'html' : 'list',
-  timeout: 180000, // 3 minutes per test (Flutter web is slow to load)
+  timeout: 60000,
   expect: {
-    timeout: 30000,
+    timeout: 15000,
   },
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    actionTimeout: 60000,
-    navigationTimeout: 60000,
+    actionTimeout: 30000,
+    navigationTimeout: 30000,
   },
   projects: [
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        // Only bypass CSP in local dev - production tests should validate real CSP
         bypassCSP: isLocalDev,
       },
     },
-    // Multi-browser testing for CI
-    ...(process.env.CI
+    // Multi-browser only on nightly schedule or explicit opt-in
+    ...(isMultiBrowser
       ? [
           {
             name: 'firefox',
