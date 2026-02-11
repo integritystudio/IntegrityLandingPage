@@ -9,13 +9,18 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('Cache Headers', () => {
   test.describe('HTML pages', () => {
-    test('index.html has no-cache header', async ({ request }) => {
+    test('index.html prevents long-term caching', async ({ request }) => {
       const response = await request.get('/');
       expect(response.status()).toBe(200);
 
       const cacheControl = response.headers()['cache-control'];
       expect(cacheControl).toBeDefined();
-      expect(cacheControl).toContain('no-cache');
+      // Cloudflare may return "no-cache" or "public, max-age=0, must-revalidate"
+      // depending on whether the path matches /*.html or / rules
+      const preventsCaching =
+        cacheControl.includes('no-cache') ||
+        cacheControl.includes('max-age=0');
+      expect(preventsCaching).toBe(true);
     });
   });
 

@@ -8,10 +8,12 @@ import { expect, Page } from '@playwright/test';
  * 2. Verify Flutter is actually rendering content
  *
  * @param page - Playwright page object
- * @param timeout - Maximum time to wait in milliseconds (default: 60000)
+ * @param timeout - Maximum time to wait in milliseconds (default: 90000)
  */
 export async function waitForFlutter(page: Page, timeout = 90000): Promise<void> {
   // Wait for Flutter to be initialized and loading to complete
+  // Note: waitForFunction(fn, arg, options) - pass undefined as arg to avoid
+  // Playwright treating the options object as a function argument
   await page.waitForFunction(
     () => {
       // Check if Flutter rendering surface exists
@@ -30,6 +32,7 @@ export async function waitForFlutter(page: Page, timeout = 90000): Promise<void>
 
       return hasFlutter && isLoaded;
     },
+    undefined,
     { timeout }
   );
 }
@@ -69,6 +72,7 @@ export async function waitForRoute(
       const canvas = document.querySelector('canvas');
       return canvas !== null;
     },
+    undefined,
     { timeout: 5000 }
   );
 }
