@@ -127,7 +127,7 @@ test.describe('Routing and Redirects', () => {
     // This test validates the route pattern works
     test('/blog path pattern is correctly configured', async ({ page }) => {
       // Verify /blog loads as SPA (not 404)
-      const response = await page.goto('/blog');
+      const response = await page.goto('/blog', { waitUntil: 'domcontentloaded' });
       expect(response?.status()).toBe(200);
 
       // Content should be Flutter SPA, not static HTML
@@ -139,7 +139,7 @@ test.describe('Routing and Redirects', () => {
   test.describe('404 Handling', () => {
     test('Unknown routes serve SPA (soft 404)', async ({ page }) => {
       // Cloudflare serves 200 with SPA, Flutter handles 404 display
-      const response = await page.goto('/nonexistent-route-xyz-12345');
+      const response = await page.goto('/nonexistent-route-xyz-12345', { waitUntil: 'domcontentloaded' });
       expect(response?.status()).toBe(200);
 
       const content = await page.content();
@@ -151,7 +151,7 @@ test.describe('Routing and Redirects', () => {
     });
 
     test('Deep unknown routes also serve SPA', async ({ page }) => {
-      const response = await page.goto('/some/deeply/nested/nonexistent/path');
+      const response = await page.goto('/some/deeply/nested/nonexistent/path', { waitUntil: 'domcontentloaded' });
       expect(response?.status()).toBe(200);
 
       const content = await page.content();

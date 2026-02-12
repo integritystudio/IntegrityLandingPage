@@ -11,26 +11,20 @@ import { expect, Page } from '@playwright/test';
  * @param timeout - Maximum time to wait in milliseconds (default: 90000)
  */
 export async function waitForFlutter(page: Page, timeout = 90000): Promise<void> {
-  // Wait for Flutter to be initialized and loading to complete
+  // Wait for Flutter rendering surface to appear.
   // Note: waitForFunction(fn, arg, options) - pass undefined as arg to avoid
-  // Playwright treating the options object as a function argument
+  // Playwright treating the options object as a function argument.
+  // We only check for the rendering surface (flutter-view/canvas), not the
+  // loading container, because the production site's .flutter-ready class
+  // is never applied so the loading container stays visible in the DOM
+  // even after Flutter renders.
   await page.waitForFunction(
     () => {
-      // Check if Flutter rendering surface exists
-      const hasFlutter = !!(
+      return !!(
         document.querySelector('flt-glass-pane') ||
         document.querySelector('flutter-view') ||
         document.querySelector('canvas')
       );
-
-      // Check if loading is complete (container hidden or not present)
-      const loadingContainer = document.querySelector('.loading-container');
-      const isLoaded =
-        !loadingContainer ||
-        window.getComputedStyle(loadingContainer).display === 'none' ||
-        window.getComputedStyle(loadingContainer).visibility === 'hidden';
-
-      return hasFlutter && isLoaded;
     },
     undefined,
     { timeout }

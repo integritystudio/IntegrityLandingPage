@@ -26,7 +26,7 @@ test.describe('SPA Navigation', () => {
       }
     });
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
   });
 
@@ -105,7 +105,7 @@ test.describe('SPA Navigation', () => {
 test.describe('Navigation URL Handling', () => {
   test('trailing slash is handled correctly', async ({ page }) => {
     // Navigate with trailing slash
-    const response = await page.goto('/pricing/');
+    const response = await page.goto('/pricing/', { waitUntil: 'domcontentloaded' });
 
     // Should still work (either redirect or serve)
     expect(response?.status()).toBe(200);
@@ -116,7 +116,7 @@ test.describe('Navigation URL Handling', () => {
   });
 
   test('query parameters are preserved', async ({ page }) => {
-    await page.goto('/demo?source=test&campaign=e2e');
+    await page.goto('/demo?source=test&campaign=e2e', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
 
     // URL should contain query parameters
@@ -126,7 +126,7 @@ test.describe('Navigation URL Handling', () => {
   });
 
   test('hash fragments are handled', async ({ page }) => {
-    await page.goto('/pricing#enterprise');
+    await page.goto('/pricing#enterprise', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
     await assertFlutterRendering(page);
   });

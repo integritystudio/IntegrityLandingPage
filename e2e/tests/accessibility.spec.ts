@@ -66,7 +66,7 @@ test.describe('Accessibility', () => {
 
   test.describe('keyboard navigation', () => {
     test('page is keyboard navigable', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
 
       // Tab should work without errors - use waitForLoadState instead of arbitrary timeouts

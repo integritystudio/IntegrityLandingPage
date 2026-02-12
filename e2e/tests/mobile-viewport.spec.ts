@@ -66,7 +66,7 @@ test.describe('Mobile Viewport', () => {
     test.use({ viewport: devices['iPhone 13'].viewport, userAgent: devices['iPhone 13'].userAgent });
 
     test('scrolling works on mobile', async ({ page }) => {
-      await page.goto('/');
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
 
       // Simulate mobile scroll via touch gestures
