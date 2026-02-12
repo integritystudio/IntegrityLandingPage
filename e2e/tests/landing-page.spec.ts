@@ -10,7 +10,7 @@ test.describe('IntegrityStudio Landing Page', () => {
       }
     });
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
   });
 
