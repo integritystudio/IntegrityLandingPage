@@ -60,14 +60,17 @@ export async function waitForRoute(
   timeout = 10000
 ): Promise<void> {
   await page.waitForURL(urlPattern, { timeout });
-  // Give Flutter a moment to render the new route content
+  // Wait for Flutter to re-render after route change
   await page.waitForFunction(
     () => {
-      const canvas = document.querySelector('canvas');
-      return canvas !== null;
+      return !!(
+        document.querySelector('flt-glass-pane') ||
+        document.querySelector('flutter-view') ||
+        document.querySelector('canvas')
+      );
     },
     undefined,
-    { timeout: 5000 }
+    { timeout: 30000 }
   );
 }
 

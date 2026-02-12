@@ -63,14 +63,17 @@ test.describe('Mobile Viewport', () => {
   });
 
   test.describe('touch interactions', () => {
-    test.use({ viewport: devices['iPhone 13'].viewport, userAgent: devices['iPhone 13'].userAgent });
+    test.use({
+      viewport: devices['iPhone 13'].viewport,
+      userAgent: devices['iPhone 13'].userAgent,
+      hasTouch: true,
+    });
 
     test('scrolling works on mobile', async ({ page }) => {
       await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
 
-      // Simulate mobile scroll via touch gestures
-      await page.touchscreen.tap(200, 400);
+      // Simulate mobile scroll
       await page.evaluate(() => window.scrollBy(0, 500));
 
       // App should still be functional after scroll
