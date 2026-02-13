@@ -47,7 +47,7 @@ const mockEnvWithCsrf = {
   CSRF_SECRET: 'test_csrf_secret_key_12345',
 };
 
-// Helper to create mock Request
+// Helper to create mock Request with default allowed Origin
 function createRequest(
   method: string,
   body?: object,
@@ -55,7 +55,11 @@ function createRequest(
 ): Request {
   return new Request('https://worker.test/', {
     method,
-    headers: { 'Content-Type': 'application/json', ...headers },
+    headers: {
+      'Content-Type': 'application/json',
+      'Origin': 'https://integritystudio.ai',
+      ...headers,
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
 }
@@ -486,7 +490,10 @@ describe('Contact Form Worker', () => {
     it('returns 500 for invalid JSON body', async () => {
       const request = new Request('https://worker.test/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+        },
         body: 'invalid json {',
       });
 
@@ -497,16 +504,23 @@ describe('Contact Form Worker', () => {
   });
 
   describe('CORS Headers', () => {
-    it('includes CORS headers on success response', async () => {
+    it('includes CORS headers on success response from allowed origin', async () => {
       mockResendInstance.emails.send.mockResolvedValue({
         data: { id: 'email_123' },
         error: null,
       });
 
-      const request = createRequest('POST', {
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'This is a valid message for testing.',
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message for testing.',
+        }),
       });
 
       const response = await worker.fetch(request, mockEnv);
@@ -514,16 +528,71 @@ describe('Contact Form Worker', () => {
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://integritystudio.ai');
     });
 
-    it('includes CORS headers on error response', async () => {
-      const request = createRequest('POST', {
-        name: '',
-        email: 'invalid',
-        message: '',
+    it('includes CORS headers on error response from allowed origin', async () => {
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+        },
+        body: JSON.stringify({
+          name: '',
+          email: 'invalid',
+          message: '',
+        }),
       });
 
       const response = await worker.fetch(request, mockEnv);
 
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://integritystudio.ai');
+    });
+
+    it('returns 403 for POST from unauthorized origin', async () => {
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://evil.example.com',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message for testing.',
+        }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(403);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('unauthorized origin');
+    });
+
+    it('returns 403 for GET from unauthorized origin', async () => {
+      const request = new Request('https://worker.test/', {
+        method: 'GET',
+        headers: {
+          'Origin': 'https://evil.example.com',
+        },
+      });
+
+      const response = await worker.fetch(request, mockEnvWithCsrf);
+
+      expect(response.status).toBe(403);
+    });
+
+    it('allows OPTIONS preflight from any origin', async () => {
+      const request = new Request('https://worker.test/', {
+        method: 'OPTIONS',
+        headers: {
+          'Origin': 'https://evil.example.com',
+        },
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBeDefined();
     });
   });
 
@@ -803,6 +872,7 @@ describe('Contact Form Worker', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
           'CF-Connecting-IP': '192.168.1.1',
         },
         body: JSON.stringify({
@@ -837,6 +907,7 @@ describe('Contact Form Worker', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
           'CF-Connecting-IP': '192.168.1.100',
         },
         body: JSON.stringify({
@@ -879,6 +950,7 @@ describe('Contact Form Worker', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
           'CF-Connecting-IP': '192.168.1.200',
         },
         body: JSON.stringify({

@@ -220,14 +220,34 @@ const ALLOWED_ORIGINS = [
   'https://www.integritystudio.ai',
 ];
 
-function getCorsHeaders(request: Request): Record<string, string> {
+/**
+ * Get CORS headers for a request.
+ * Returns null if the origin is not allowed (for non-preflight requests).
+ */
+function getCorsHeaders(request: Request): Record<string, string> | null {
   const origin = request.headers.get('Origin') || '';
-  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const isAllowed = ALLOWED_ORIGINS.includes(origin);
+
+  // For non-preflight requests from disallowed origins, return null to signal rejection
+  if (!isAllowed && request.method !== 'OPTIONS') {
+    console.warn(JSON.stringify({
+      level: 'warn',
+      event: 'cors_violation',
+      origin,
+      method: request.method,
+      timestamp: new Date().toISOString(),
+      message: 'Request from unauthorized origin',
+    }));
+    return null;
+  }
+
+  // For preflight, use first allowed origin if Origin doesn't match
+  const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0];
 
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token',
+    'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token, X-Idempotency-Key',
     'Vary': 'Origin',
   };
 }
@@ -291,11 +311,19 @@ async function generateCsrfToken(secret: string): Promise<string> {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const corsHeaders = getCorsHeaders(request);
-
-    // Handle CORS preflight
+    // Handle CORS preflight (always allowed to respond)
     if (request.method === 'OPTIONS') {
+      const corsHeaders = getCorsHeaders(request)!;
       return new Response(null, { headers: corsHeaders });
+    }
+
+    // Reject requests from unauthorized origins
+    const corsHeaders = getCorsHeaders(request);
+    if (!corsHeaders) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: unauthorized origin' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     // Handle CSRF token request
