@@ -342,6 +342,51 @@ void main() {
       expect(error.error.toLowerCase(), contains('timed out'));
     });
 
+    test('handles 429 with Retry-After header', () async {
+      mockDio.mockGetResponse({'csrfToken': 'test_token'});
+      mockDio.mockPostResponse(
+        {'error': 'Too many requests', 'retryAfter': 45},
+        statusCode: 429,
+        headers: {'retry-after': ['45']},
+      );
+
+      const validData = ContactFormData(
+        name: 'John Doe',
+        email: 'john@example.com',
+        message: 'This is a valid test message.',
+      );
+
+      final payload = ContactFormPayload(formData: validData);
+      final response = await ContactService.submitForm(payload);
+
+      expect(response, isA<ContactFormError>());
+      final error = response as ContactFormError;
+      expect(error.error, contains('45 seconds'));
+      expect(error.retryAfterSeconds, 45);
+    });
+
+    test('handles 429 without Retry-After header', () async {
+      mockDio.mockGetResponse({'csrfToken': 'test_token'});
+      mockDio.mockPostResponse(
+        {'error': 'Too many requests'},
+        statusCode: 429,
+      );
+
+      const validData = ContactFormData(
+        name: 'John Doe',
+        email: 'john@example.com',
+        message: 'This is a valid test message.',
+      );
+
+      final payload = ContactFormPayload(formData: validData);
+      final response = await ContactService.submitForm(payload);
+
+      expect(response, isA<ContactFormError>());
+      final error = response as ContactFormError;
+      expect(error.error, contains('try again later'));
+      expect(error.retryAfterSeconds, isNull);
+    });
+
     test('handles 504 gateway timeout from worker', () async {
       mockDio.mockGetResponse({'csrfToken': 'test_token'});
       mockDio.mockPostResponse(
@@ -489,6 +534,7 @@ class _MockDio implements Dio {
   Map<String, dynamic>? _mockGetResponseData;
   Map<String, dynamic>? _mockPostResponseData;
   int _mockPostStatusCode = 200;
+  Map<String, List<String>> _mockPostHeaders = {};
   DioExceptionType? _mockPostError;
   int getCallCount = 0;
 
@@ -496,9 +542,14 @@ class _MockDio implements Dio {
     _mockGetResponseData = data;
   }
 
-  void mockPostResponse(Map<String, dynamic> data, {int statusCode = 200}) {
+  void mockPostResponse(
+    Map<String, dynamic> data, {
+    int statusCode = 200,
+    Map<String, List<String>>? headers,
+  }) {
     _mockPostResponseData = data;
     _mockPostStatusCode = statusCode;
+    _mockPostHeaders = headers ?? {};
     _mockPostError = null;
   }
 
@@ -543,6 +594,7 @@ class _MockDio implements Dio {
     return Response<T>(
       data: _mockPostResponseData as T,
       statusCode: _mockPostStatusCode,
+      headers: Headers.fromMap(_mockPostHeaders),
       requestOptions: RequestOptions(path: path),
     );
   }
