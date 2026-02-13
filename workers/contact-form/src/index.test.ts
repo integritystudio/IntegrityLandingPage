@@ -1049,6 +1049,86 @@ describe('Contact Form Worker', () => {
     });
   });
 
+  describe('Idempotency', () => {
+    it('returns cached response for duplicate idempotency key', async () => {
+      const store: Record<string, string> = {};
+      const mockKV = {
+        get: vi.fn(async (key: string, format?: string) => {
+          const value = store[key] ?? null;
+          if (value && format === 'json') return JSON.parse(value);
+          return value;
+        }),
+        put: vi.fn(async (key: string, value: string) => {
+          store[key] = value;
+        }),
+      };
+
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_first' },
+        error: null,
+      });
+
+      const envWithKV = {
+        ...mockEnv,
+        RATE_LIMIT_KV: mockKV as unknown as KVNamespace,
+      };
+
+      const request1 = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+          'X-Idempotency-Key': 'test-key-123',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message.',
+        }),
+      });
+
+      const response1 = await worker.fetch(request1, envWithKV);
+      expect(response1.status).toBe(200);
+
+      // Second request with same key - should return cached response
+      const request2 = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+          'X-Idempotency-Key': 'test-key-123',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message.',
+        }),
+      });
+
+      const response2 = await worker.fetch(request2, envWithKV);
+      expect(response2.status).toBe(200);
+
+      // Email should only be sent once
+      expect(mockResendInstance.emails.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('proceeds without dedup when no idempotency key', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'john@example.com',
+        message: 'This is a valid message.',
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(200);
+    });
+  });
+
   describe('CSRF Protection', () => {
     it('returns CSRF token on GET request', async () => {
       const request = createRequest('GET');

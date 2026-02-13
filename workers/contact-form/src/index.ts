@@ -447,6 +447,23 @@ export default {
       }
     }
 
+    // Check idempotency key for duplicate submission prevention
+    const idempotencyKey = request.headers.get('X-Idempotency-Key');
+    if (idempotencyKey && env.RATE_LIMIT_KV) {
+      const idempKey = `idempotency:${idempotencyKey}`;
+      try {
+        const existing = await env.RATE_LIMIT_KV.get(idempKey);
+        if (existing) {
+          return new Response(
+            existing,
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      } catch {
+        // KV error - proceed without deduplication
+      }
+    }
+
     try {
       // Parse request body
       const data: ContactFormData = await request.json();
@@ -519,13 +536,28 @@ Sent from IntegrityStudio.ai contact form at ${new Date().toISOString()}
         );
       }
 
-      // Return success response
+      // Build success response
+      const successBody = JSON.stringify({
+        success: true,
+        message: "Thank you for your message! We'll respond within 24 hours.",
+        submissionId: emailResult?.id || `sub_${Date.now()}`,
+      });
+
+      // Store idempotency key to prevent duplicate processing (5 min TTL)
+      if (idempotencyKey && env.RATE_LIMIT_KV) {
+        try {
+          await env.RATE_LIMIT_KV.put(
+            `idempotency:${idempotencyKey}`,
+            successBody,
+            { expirationTtl: 300 }
+          );
+        } catch {
+          // KV error - response still succeeds, just no dedup protection
+        }
+      }
+
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Thank you for your message! We'll respond within 24 hours.",
-          submissionId: emailResult?.id || `sub_${Date.now()}`,
-        }),
+        successBody,
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
 
