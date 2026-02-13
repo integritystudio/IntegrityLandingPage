@@ -235,9 +235,7 @@ void main() {
 
         expect(find.byType(LandingPage), findsOneWidget);
         expect(find.byType(CustomScrollView), findsOneWidget);
-      },
-      // TODO: Fix tablet layout overflow in resources_section.dart:302
-      skip: true);
+      });
 
       testWidgets('renders correctly on desktop', (tester) async {
         setDesktopSize(tester);

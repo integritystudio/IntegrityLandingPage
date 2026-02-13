@@ -302,10 +302,13 @@ class _BlogPostCard extends StatelessWidget {
           Row(
             children: [
               if (post.author != null) ...[
-                Text(
-                  post.author!,
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.gray400,
+                Flexible(
+                  child: Text(
+                    post.author!,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.gray400,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),

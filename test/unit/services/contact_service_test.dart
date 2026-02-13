@@ -270,7 +270,7 @@ void main() {
         expect(ContactService.isValidEmail('test@example.com'), isTrue);
         expect(ContactService.isValidEmail('user.name@domain.org'), isTrue);
         expect(ContactService.isValidEmail('user+tag@example.co.uk'), isTrue);
-        expect(ContactService.isValidEmail('a@b.c'), isTrue);
+        expect(ContactService.isValidEmail('a@b.co'), isTrue);
       });
 
       test('returns false for invalid emails', () {
@@ -280,6 +280,11 @@ void main() {
         expect(ContactService.isValidEmail('@nodomain.com'), isFalse);
         expect(ContactService.isValidEmail('spaces in@email.com'), isFalse);
         expect(ContactService.isValidEmail('double@@at.com'), isFalse);
+        // Previously accepted, now correctly rejected (#24)
+        expect(ContactService.isValidEmail('admin@-example.com'), isFalse);
+        expect(ContactService.isValidEmail('test@example..com'), isFalse);
+        expect(ContactService.isValidEmail('.leading@example.com'), isFalse);
+        expect(ContactService.isValidEmail('trailing.@example.com'), isFalse);
       });
     });
 
@@ -673,6 +678,106 @@ void main() {
         final success = response as ContactFormSuccess;
         expect(success.submissionId, equals('sub_retry_ok'));
         expect(callCount, equals(2));
+      });
+
+      test('succeeds when CSRF fetch fails (token optional)', () async {
+        // CSRF fetch throws - submission should still proceed
+        when(mockDio.get(any)).thenThrow(DioException(
+          type: DioExceptionType.connectionTimeout,
+          requestOptions: RequestOptions(path: ''),
+        ));
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 200,
+              data: {
+                'success': true,
+                'message': 'Sent!',
+                'submissionId': 'sub_csrf_fail_ok',
+              },
+            ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'This is a valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormSuccess>());
+      });
+
+      test('succeeds when CSRF returns null token', () async {
+        // CSRF fetch returns null token
+        when(mockDio.get(any)).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 200,
+              data: {'csrfToken': null},
+            ));
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 200,
+              data: {
+                'success': true,
+                'message': 'Sent!',
+                'submissionId': 'sub_null_csrf',
+              },
+            ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'This is a valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormSuccess>());
+      });
+
+      test('handles 429 with Retry-After header', () async {
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 429,
+              headers: Headers.fromMap({
+                'retry-after': ['30'],
+              }),
+              data: {
+                'error': 'Too many requests.',
+                'retryAfter': 30,
+              },
+            ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'This is a valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormError>());
+        final error = response as ContactFormError;
+        expect(error.retryAfterSeconds, equals(30));
+        expect(error.error, contains('30 seconds'));
       });
 
       test('does not retry on non-retryable errors', () async {

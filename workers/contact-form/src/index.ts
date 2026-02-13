@@ -47,8 +47,9 @@ const inMemoryRateLimit = new Map<string, RateLimitData>();
 const MAX_IN_MEMORY_ENTRIES = 10000;
 
 // Circuit breaker: track consecutive KV failures
+// Threshold set to 10 to prevent single-attacker trips (see backlog #22)
 let kvFailureCount = 0;
-const KV_CIRCUIT_BREAKER_THRESHOLD = 3;
+const KV_CIRCUIT_BREAKER_THRESHOLD = 10;
 let kvCircuitResetAt = 0;
 
 /**
@@ -162,7 +163,9 @@ async function checkRateLimit(
     };
   } catch (error) {
     kvFailureCount++;
-    kvCircuitResetAt = now + 60_000; // 1 minute cooldown
+    // Jittered cooldown: 60-90s to avoid thundering herd on recovery
+    const jitter = Math.floor(Math.random() * 30_000);
+    kvCircuitResetAt = now + 60_000 + jitter;
 
     console.error(JSON.stringify({
       level: 'error',
@@ -300,15 +303,29 @@ function getCorsHeaders(request: Request): Record<string, string> | null {
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token, X-Idempotency-Key',
+    'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token, X-Idempotency-Key, X-Request-ID',
     'Vary': 'Origin',
   };
 }
 
-// Validate email format
+// Validate email format (RFC 5321 subset)
+// - Local part: 1-64 chars, alphanumeric + . _ % + -
+// - No leading/trailing/consecutive dots in local part
+// - Domain: valid labels, 2+ char TLD, no leading/trailing hyphens
 function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (email.length > 254) return false;
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  const [local, domain] = parts;
+  if (local.length < 1 || local.length > 64) return false;
+  if (/^\.|\.$|\.\./.test(local)) return false;
+  if (!/^[a-zA-Z0-9._%+-]+$/.test(local)) return false;
+  if (!/^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(domain)) return false;
+  return true;
 }
+
+// Maximum request body size (10KB - generous for a contact form)
+const MAX_REQUEST_BODY_BYTES = 10_240;
 
 // Field length limits for security (prevent memory exhaustion, DoS)
 const MAX_NAME_LENGTH = 100;
@@ -371,10 +388,13 @@ export function _resetRateLimitState(): void {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // Extract or generate request ID for distributed tracing (#29)
+    const requestId = request.headers.get('X-Request-ID') || crypto.randomUUID();
+
     // Handle CORS preflight (always allowed to respond)
     if (request.method === 'OPTIONS') {
       const corsHeaders = getCorsHeaders(request)!;
-      return new Response(null, { headers: corsHeaders });
+      return new Response(null, { headers: { ...corsHeaders, 'X-Request-ID': requestId } });
     }
 
     // Reject requests from unauthorized origins
@@ -382,23 +402,33 @@ export default {
     if (!corsHeaders) {
       return new Response(
         JSON.stringify({ error: 'Forbidden: unauthorized origin' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
+        { status: 403, headers: { 'Content-Type': 'application/json', 'X-Request-ID': requestId } }
       );
     }
+
+    // Common response headers include request ID for tracing
+    const responseHeaders = { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-ID': requestId };
 
     // Handle CSRF token request
     if (request.method === 'GET') {
       if (!env.CSRF_SECRET) {
+        console.error(JSON.stringify({
+          level: 'error',
+          event: 'csrf_secret_missing',
+          requestId,
+          timestamp: new Date().toISOString(),
+          message: 'CSRF_SECRET not configured',
+        }));
         return new Response(
-          JSON.stringify({ error: 'CSRF not configured' }),
-          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Service temporarily unavailable' }),
+          { status: 503, headers: responseHeaders }
         );
       }
 
       const token = await generateCsrfToken(env.CSRF_SECRET);
       return new Response(
         JSON.stringify({ csrfToken: token }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: responseHeaders }
       );
     }
 
@@ -406,7 +436,7 @@ export default {
     if (request.method !== 'POST') {
       return new Response(
         JSON.stringify({ error: 'Method not allowed' }),
-        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 405, headers: responseHeaders }
       );
     }
 
@@ -419,6 +449,7 @@ export default {
       console.warn(JSON.stringify({
         level: 'warn',
         event: 'rate_limit_degraded_request',
+        requestId,
         ip: clientIP,
         timestamp: new Date().toISOString(),
         message: 'Request processed in degraded rate limiting mode',
@@ -426,6 +457,16 @@ export default {
     }
 
     if (!rateLimit.allowed) {
+      console.warn(JSON.stringify({
+        level: 'warn',
+        event: 'rate_limit_rejected',
+        requestId,
+        ip: clientIP,
+        remaining: rateLimit.remaining,
+        resetAt: rateLimit.resetAt,
+        degraded: rateLimit.degraded ?? false,
+        timestamp: new Date().toISOString(),
+      }));
       return new Response(
         JSON.stringify({
           error: 'Too many requests. Please try again later.',
@@ -434,8 +475,7 @@ export default {
         {
           status: 429,
           headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
+            ...responseHeaders,
             'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)),
             'X-RateLimit-Limit': String(parseInt(env.RATE_LIMIT_MAX || '') || DEFAULT_RATE_LIMIT_MAX),
             'X-RateLimit-Remaining': '0',
@@ -450,9 +490,17 @@ export default {
       const csrfToken = request.headers.get('X-CSRF-Token');
       const csrfError = await validateCsrfToken(csrfToken, env.CSRF_SECRET);
       if (csrfError) {
+        console.warn(JSON.stringify({
+          level: 'warn',
+          event: 'csrf_validation_failed',
+          requestId,
+          ip: clientIP,
+          error: csrfError,
+          timestamp: new Date().toISOString(),
+        }));
         return new Response(
           JSON.stringify({ error: csrfError }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 403, headers: responseHeaders }
         );
       }
     }
@@ -464,14 +512,30 @@ export default {
       try {
         const existing = await env.RATE_LIMIT_KV.get(idempKey);
         if (existing) {
+          console.info(JSON.stringify({
+            level: 'info',
+            event: 'idempotency_cache_hit',
+            requestId,
+            idempotencyKey,
+            timestamp: new Date().toISOString(),
+          }));
           return new Response(
             existing,
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { status: 200, headers: responseHeaders }
           );
         }
       } catch {
         // KV error - proceed without deduplication
       }
+    }
+
+    // Check request body size before parsing
+    const contentLength = parseInt(request.headers.get('Content-Length') || '0', 10);
+    if (contentLength > MAX_REQUEST_BODY_BYTES) {
+      return new Response(
+        JSON.stringify({ error: 'Request body too large' }),
+        { status: 413, headers: responseHeaders }
+      );
     }
 
     try {
@@ -483,7 +547,7 @@ export default {
       if (validationError) {
         return new Response(
           JSON.stringify({ error: validationError }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 400, headers: responseHeaders }
         );
       }
 
@@ -531,26 +595,41 @@ Sent from IntegrityStudio.ai contact form at ${new Date().toISOString()}
         emailResult = result.data;
         error = result.error;
       } catch (timeoutError) {
-        console.error('Resend timeout:', timeoutError);
+        console.error(JSON.stringify({
+          level: 'error',
+          event: 'resend_timeout',
+          requestId,
+          ip: clientIP,
+          error: String(timeoutError),
+          timestamp: new Date().toISOString(),
+        }));
         return new Response(
           JSON.stringify({ error: 'Email service timeout. Please try again.' }),
-          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 504, headers: responseHeaders }
         );
       }
 
       if (error) {
-        console.error('Resend error:', error);
+        console.error(JSON.stringify({
+          level: 'error',
+          event: 'resend_api_error',
+          requestId,
+          ip: clientIP,
+          error: JSON.stringify(error),
+          timestamp: new Date().toISOString(),
+        }));
         return new Response(
           JSON.stringify({ error: 'Failed to send email. Please try again.' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 500, headers: responseHeaders }
         );
       }
 
       // Build success response
+      const submissionId = emailResult?.id || `sub_${Date.now()}`;
       const successBody = JSON.stringify({
         success: true,
         message: "Thank you for your message! We'll respond within 24 hours.",
-        submissionId: emailResult?.id || `sub_${Date.now()}`,
+        submissionId,
       });
 
       // Store idempotency key to prevent duplicate processing (5 min TTL)
@@ -566,16 +645,32 @@ Sent from IntegrityStudio.ai contact form at ${new Date().toISOString()}
         }
       }
 
+      console.info(JSON.stringify({
+        level: 'info',
+        event: 'contact_form_success',
+        requestId,
+        ip: clientIP,
+        submissionId,
+        hasOrganization: !!data.organization,
+        timestamp: new Date().toISOString(),
+      }));
+
       return new Response(
         successBody,
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: responseHeaders }
       );
 
     } catch (err) {
-      console.error('Worker error:', err);
+      console.error(JSON.stringify({
+        level: 'error',
+        event: 'worker_unhandled_error',
+        requestId,
+        error: String(err),
+        timestamp: new Date().toISOString(),
+      }));
       return new Response(
         JSON.stringify({ error: 'An unexpected error occurred. Please try again.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: responseHeaders }
       );
     }
   },

@@ -1,5 +1,9 @@
 # Cloudflare Pages Headers
 # https://developers.cloudflare.com/pages/configuration/headers/
+#
+# Note (#30): CSP report endpoints are shared across environments (staging/production).
+# Preview deployments use the same Sentry project. Acceptable for landing page use case.
+# If environment-specific reporting is needed, use a build script to replace the DSN.
 
 /*
   X-Frame-Options: DENY

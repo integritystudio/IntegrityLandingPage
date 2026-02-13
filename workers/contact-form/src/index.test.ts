@@ -125,7 +125,7 @@ describe('Contact Form Worker', () => {
       // Returns 503 when CSRF_SECRET is not configured
       expect(response.status).toBe(503);
       const data = await response.json() as ErrorResponse;
-      expect(data.error).toContain('CSRF');
+      expect(data.error).toContain('Service temporarily unavailable');
     });
 
     it('rejects PUT requests with 405', async () => {
@@ -838,31 +838,18 @@ describe('Contact Form Worker', () => {
       );
     });
 
-    it('URL-encodes email in mailto href to prevent parameter injection', async () => {
-      mockResendInstance.emails.send.mockResolvedValue({
-        data: { id: 'email_123' },
-        error: null,
-      });
-
+    it('rejects email with parameter injection characters at validation', async () => {
       const request = createRequest('POST', {
         name: 'John Doe',
         email: 'test@example.com?subject=injected&body=malicious',
         message: 'This is a valid message for testing.',
       });
 
-      await worker.fetch(request, mockEnv);
-
-      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
-        expect.objectContaining({
-          html: expect.stringContaining('mailto:test%40example.com%3Fsubject%3Dinjected%26body%3Dmalicious'),
-        })
-      );
-      // Display text should still be HTML-escaped, not URL-encoded
-      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
-        expect.objectContaining({
-          html: expect.not.stringContaining('mailto:test@example.com?subject=injected'),
-        })
-      );
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(400);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('Invalid email');
+      expect(mockResendInstance.emails.send).not.toHaveBeenCalled();
     });
   });
 
@@ -1129,6 +1116,198 @@ describe('Contact Form Worker', () => {
     });
   });
 
+  describe('Origin Validation Edge Cases', () => {
+    it('returns 403 for POST with missing Origin header', async () => {
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'Test message.',
+        }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(403);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('unauthorized origin');
+    });
+
+    it('returns 403 for case-variant Origin header', async () => {
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://IntegrityStudio.AI',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'Test message.',
+        }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(403);
+    });
+
+    it('returns 403 for Origin with trailing slash', async () => {
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai/',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'Test message.',
+        }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe('Unicode and Special Characters', () => {
+    it('accepts Unicode characters in name field', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_unicode' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'Müller Straße',
+        email: 'test@example.com',
+        message: 'Test with Unicode name.',
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(200);
+    });
+
+    it('accepts emoji in message field', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_emoji' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'test@example.com',
+        message: 'Great product! 🚀🎉 Looking forward to using it.',
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(200);
+    });
+
+    it('accepts CJK characters in organization field', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_cjk' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'test@example.com',
+        organization: '株式会社テスト',
+        message: 'Test with CJK organization.',
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(200);
+    });
+  });
+
+  describe('Distributed Tracing', () => {
+    it('returns X-Request-ID header in response', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'john@example.com',
+        message: 'Test tracing.',
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.headers.get('X-Request-ID')).toBeTruthy();
+    });
+
+    it('echoes client-provided X-Request-ID', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+          'X-Request-ID': 'client-trace-abc-123',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'Test tracing.',
+        }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.headers.get('X-Request-ID')).toBe('client-trace-abc-123');
+    });
+
+    it('generates X-Request-ID when not provided by client', async () => {
+      const request = createRequest('OPTIONS');
+
+      const response = await worker.fetch(request, mockEnv);
+
+      const requestId = response.headers.get('X-Request-ID');
+      expect(requestId).toBeTruthy();
+      // Should be a valid UUID format
+      expect(requestId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      );
+    });
+
+    it('includes X-Request-ID in error responses', async () => {
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://evil.example.com',
+          'X-Request-ID': 'trace-for-error',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'Test.',
+        }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(403);
+      expect(response.headers.get('X-Request-ID')).toBe('trace-for-error');
+    });
+  });
+
   describe('CSRF Protection', () => {
     it('returns CSRF token on GET request', async () => {
       const request = createRequest('GET');
@@ -1146,7 +1325,7 @@ describe('Contact Form Worker', () => {
 
       expect(response.status).toBe(503);
       const data = await response.json() as ErrorResponse;
-      expect(data.error).toContain('CSRF not configured');
+      expect(data.error).toContain('Service temporarily unavailable');
     });
 
     it('accepts valid CSRF token', async () => {

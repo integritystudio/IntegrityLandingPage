@@ -100,6 +100,7 @@ class _LandingPageState extends State<LandingPage> {
   @override
   Widget build(BuildContext context) {
     final isMobile = ResponsiveUtils.isMobile(context);
+    final useCompactNav = !ResponsiveUtils.isDesktop(context);
 
     return Scaffold(
       backgroundColor: AppColors.gray900,
@@ -107,8 +108,8 @@ class _LandingPageState extends State<LandingPage> {
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
-            // Header navigation
-            _buildHeaderNav(context, isMobile),
+            // Header navigation (compact menu for mobile + tablet)
+            _buildHeaderNav(context, useCompactNav),
 
             _buildSection(
               key: _sectionKeys['hero']!,
