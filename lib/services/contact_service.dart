@@ -157,7 +157,9 @@ class ContactService {
     if (RegExp(r'^\.|\.{2,}|\.$').hasMatch(local)) return false;
     if (!RegExp(r'^[a-zA-Z0-9._%+\-]+$').hasMatch(local)) return false;
     if (!RegExp(r'^([a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$')
-        .hasMatch(domain)) return false;
+        .hasMatch(domain)) {
+      return false;
+    }
     return true;
   }
 

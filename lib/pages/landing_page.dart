@@ -99,7 +99,6 @@ class _LandingPageState extends State<LandingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = ResponsiveUtils.isMobile(context);
     final useCompactNav = !ResponsiveUtils.isDesktop(context);
 
     return Scaffold(
