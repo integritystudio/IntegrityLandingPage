@@ -268,11 +268,24 @@ class ContactService {
               'Content-Type': 'application/json',
               if (csrfToken != null) 'X-CSRF-Token': csrfToken,
             },
-            validateStatus: (status) => status != null && status < 500,
+            // Accept client errors (4xx) and 504 (gateway timeout from worker)
+            validateStatus: (status) =>
+                status != null && (status < 500 || status == 504),
           ),
         );
 
         final data = response.data as Map<String, dynamic>;
+
+        if (response.statusCode == 504) {
+          // Worker's Resend API call timed out - retryable
+          if (attempt < _maxRetries) {
+            await Future.delayed(Duration(seconds: 1 << attempt));
+            continue;
+          }
+          return const ContactFormError(
+            error: 'Email service timeout. Please try again.',
+          );
+        }
 
         if (response.statusCode == 200 && data['success'] == true) {
           return ContactFormSuccess(

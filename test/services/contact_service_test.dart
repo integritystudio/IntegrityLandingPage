@@ -342,6 +342,27 @@ void main() {
       expect(error.error.toLowerCase(), contains('timed out'));
     });
 
+    test('handles 504 gateway timeout from worker', () async {
+      mockDio.mockGetResponse({'csrfToken': 'test_token'});
+      mockDio.mockPostResponse(
+        {'error': 'Email service timeout. Please try again.'},
+        statusCode: 504,
+      );
+
+      const validData = ContactFormData(
+        name: 'John Doe',
+        email: 'john@example.com',
+        message: 'This is a valid test message.',
+      );
+
+      final payload = ContactFormPayload(formData: validData);
+      final response = await ContactService.submitForm(payload);
+
+      expect(response, isA<ContactFormError>());
+      final error = response as ContactFormError;
+      expect(error.error.toLowerCase(), contains('timeout'));
+    });
+
     test('handles generic network error', () async {
       mockDio.mockGetResponse({'csrfToken': 'test_token'});
       mockDio.mockPostError(DioExceptionType.unknown);
