@@ -12,12 +12,10 @@ void main() {
   setUp(() {
     mockDio = _MockDio();
     ContactService.setDioForTesting(mockDio);
-    ContactService.clearCsrfCache();
   });
 
   tearDown(() {
     ContactService.resetDio();
-    ContactService.clearCsrfCache();
   });
 
   group('ContactFormData', () {
@@ -362,7 +360,7 @@ void main() {
       expect(error.error.toLowerCase(), contains('network'));
     });
 
-    test('clears CSRF cache after successful submission', () async {
+    test('fetches fresh CSRF token per submission', () async {
       mockDio.mockGetResponse({'csrfToken': 'original_token'});
       mockDio.mockPostResponse({
         'success': true,

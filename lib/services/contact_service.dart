@@ -3,11 +3,11 @@ import 'package:dio/dio.dart';
 import 'analytics.dart';
 
 /// Contact form API endpoint (Cloudflare Worker).
-const _contactApiUrl = 'https://integrity-studio-contact.alyshia-b38.workers.dev';
-
-/// CSRF token cache.
-String? _cachedCsrfToken;
-int? _csrfTokenTimestamp;
+/// Configurable via --dart-define=CONTACT_API_URL for staging/development.
+const _contactApiUrl = String.fromEnvironment(
+  'CONTACT_API_URL',
+  defaultValue: 'https://integrity-studio-contact.alyshia-b38.workers.dev',
+);
 
 /// Contact form data model.
 class ContactFormData {
@@ -212,36 +212,26 @@ class ContactService {
     return !validateForm(formData).hasErrors;
   }
 
-  /// Fetch a CSRF token from the server.
-  /// Returns cached token if still valid (less than 5 minutes old).
-  /// Reduced from 30 minutes for security - shorter cache windows reduce
-  /// the attack surface for token replay attacks.
+  /// Fetch a fresh CSRF token from the server.
+  /// Tokens are fetched per-submission to eliminate cache/expiration mismatch
+  /// and race conditions from concurrent submissions.
   static Future<String?> _fetchCsrfToken() async {
-    // Use cached token if less than 5 minutes old (reduced from 30 for security)
-    const maxAge = 5 * 60 * 1000; // 5 minutes
-    if (_cachedCsrfToken != null &&
-        _csrfTokenTimestamp != null &&
-        DateTime.now().millisecondsSinceEpoch - _csrfTokenTimestamp! < maxAge) {
-      return _cachedCsrfToken;
-    }
-
     try {
       final response = await _dio.get(_contactApiUrl);
       final data = response.data as Map<String, dynamic>;
-      _cachedCsrfToken = data['csrfToken'] as String?;
-      _csrfTokenTimestamp = DateTime.now().millisecondsSinceEpoch;
-      return _cachedCsrfToken;
+      return data['csrfToken'] as String?;
     } catch (e) {
-      // CSRF fetch failed - will be handled during form submission
+      // Log CSRF fetch failures to Sentry for monitoring
+      ErrorTrackingService.captureException(
+        e,
+        context: 'ContactService._fetchCsrfToken',
+        extra: {
+          'endpoint': _contactApiUrl,
+          'type': 'csrf_fetch_failure',
+        },
+      );
       return null;
     }
-  }
-
-  /// Clear cached CSRF token (for testing).
-  /// @visibleForTesting
-  static void clearCsrfCache() {
-    _cachedCsrfToken = null;
-    _csrfTokenTimestamp = null;
   }
 
   // Retry configuration for transient network errors.
@@ -285,8 +275,6 @@ class ContactService {
         final data = response.data as Map<String, dynamic>;
 
         if (response.statusCode == 200 && data['success'] == true) {
-          // Invalidate CSRF token after successful submission to prevent replay
-          clearCsrfCache();
           return ContactFormSuccess(
             message: data['message'] as String? ??
                 "Thank you for your message! We'll respond within 24 hours.",
