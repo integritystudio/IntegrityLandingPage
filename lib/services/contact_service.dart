@@ -72,10 +72,12 @@ class ContactFormSuccess extends ContactFormResponse {
 class ContactFormError extends ContactFormResponse {
   final String error;
   final Map<String, String>? fieldErrors;
+  final int? retryAfterSeconds;
 
   const ContactFormError({
     required this.error,
     this.fieldErrors,
+    this.retryAfterSeconds,
   });
 }
 
@@ -284,6 +286,18 @@ class ContactService {
           }
           return const ContactFormError(
             error: 'Email service timeout. Please try again.',
+          );
+        }
+
+        if (response.statusCode == 429) {
+          final retryAfter =
+              int.tryParse(response.headers.value('retry-after') ?? '');
+          final seconds = retryAfter ?? (data['retryAfter'] as int?);
+          return ContactFormError(
+            error: seconds != null
+                ? 'Too many requests. Please try again in $seconds seconds.'
+                : 'Too many requests. Please try again later.',
+            retryAfterSeconds: seconds,
           );
         }
 
