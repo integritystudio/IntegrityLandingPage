@@ -101,19 +101,6 @@ abstract final class ResourcesContentVariants {
       slug: 'end-to-end-agentic-observability-lifecycle',
       author: 'Alyshia Ledlie',
     ),
-    // TODO: Create HTML file web/blog/eu-ai-act-engineering-guide.html
-    // BlogPostPreviewContent(
-    //   title: 'EU AI Act: What Engineering Teams Need to Know',
-    //   excerpt:
-    //       'A practical guide to EU AI Act compliance for AI engineering teams. '
-    //       'Understand Article 12 traceability requirements, risk classifications, '
-    //       'and how to prepare your systems before enforcement begins.',
-    //   category: 'Compliance',
-    //   publishDate: '2024-12-15',
-    //   readTime: '12 min read',
-    //   slug: 'eu-ai-act-engineering-guide',
-    //   author: 'Alyshia Ledlie',
-    // ),
     BlogPostPreviewContent(
       title: 'LLM Cost Calculator & Optimization Guide (2025)',
       excerpt:
@@ -126,18 +113,6 @@ abstract final class ResourcesContentVariants {
       slug: 'llm-cost-optimization-guide',
       author: 'Alyshia Ledlie',
     ),
-    // TODO: Create HTML file web/blog/ai-agent-observability-guide.html
-    // BlogPostPreviewContent(
-    //   title: 'Complete Guide to AI Agent Observability',
-    //   excerpt:
-    //       'As autonomous AI agents become more complex, observability becomes critical. '
-    //       'Learn how to trace multi-step workflows, debug tool calls, and monitor agent performance.',
-    //   category: 'Best Practices',
-    //   publishDate: '2024-12-05',
-    //   readTime: '15 min read',
-    //   slug: 'ai-agent-observability-guide',
-    //   author: 'Alyshia Ledlie',
-    // ),
   ];
 
   static const _leadMagnets = [
