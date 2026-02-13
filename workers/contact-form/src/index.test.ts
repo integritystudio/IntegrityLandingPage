@@ -836,6 +836,33 @@ describe('Contact Form Worker', () => {
         })
       );
     });
+
+    it('URL-encodes email in mailto href to prevent parameter injection', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'test@example.com?subject=injected&body=malicious',
+        message: 'This is a valid message for testing.',
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          html: expect.stringContaining('mailto:test%40example.com%3Fsubject%3Dinjected%26body%3Dmalicious'),
+        })
+      );
+      // Display text should still be HTML-escaped, not URL-encoded
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          html: expect.not.stringContaining('mailto:test@example.com?subject=injected'),
+        })
+      );
+    });
   });
 
   describe('Rate Limiting', () => {
