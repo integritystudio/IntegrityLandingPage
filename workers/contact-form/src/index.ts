@@ -37,23 +37,64 @@ interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   resetAt: number;
-  error?: string; // Present if rate limiting infrastructure failed
-  degraded?: boolean; // True if operating in degraded mode (fallback)
+  error?: string;
+  degraded?: boolean;
 }
 
+// In-memory rate limit store (fallback when KV unavailable).
+// Uses Worker global scope - persists across requests within an isolate.
+const inMemoryRateLimit = new Map<string, RateLimitData>();
+
+// Circuit breaker: track consecutive KV failures
+let kvFailureCount = 0;
+const KV_CIRCUIT_BREAKER_THRESHOLD = 3;
+let kvCircuitResetAt = 0;
+
 /**
- * Check if running in production environment.
+ * In-memory rate limiting fallback.
+ * Less precise than KV (per-isolate, not global) but prevents abuse.
  */
-function isProduction(env: Env): boolean {
-  return env.ENVIRONMENT === 'production';
+function checkInMemoryRateLimit(
+  ip: string,
+  maxRequests: number,
+  windowSeconds: number
+): RateLimitResult {
+  const now = Date.now();
+  const stored = inMemoryRateLimit.get(ip);
+
+  let data: RateLimitData;
+  if (!stored || stored.resetAt < now) {
+    data = { count: 1, resetAt: now + windowSeconds * 1000 };
+  } else {
+    data = { count: stored.count + 1, resetAt: stored.resetAt };
+  }
+
+  inMemoryRateLimit.set(ip, data);
+
+  // Periodic cleanup: remove expired entries (max 100 per check)
+  if (inMemoryRateLimit.size > 1000) {
+    let cleaned = 0;
+    for (const [key, val] of inMemoryRateLimit) {
+      if (val.resetAt < now) {
+        inMemoryRateLimit.delete(key);
+        if (++cleaned >= 100) break;
+      }
+    }
+  }
+
+  return {
+    allowed: data.count <= maxRequests,
+    remaining: Math.max(0, maxRequests - data.count),
+    resetAt: data.resetAt,
+    degraded: true,
+  };
 }
 
 /**
  * Check and update rate limit for an IP address.
  *
- * Security: In production, this function FAILS CLOSED - if KV is unavailable,
- * requests are denied (returns error). In development, it fails open to avoid
- * blocking local testing.
+ * Uses KV when available, falls back to in-memory rate limiting.
+ * Circuit breaker trips after 3 consecutive KV failures.
  */
 async function checkRateLimit(
   ip: string,
@@ -62,44 +103,47 @@ async function checkRateLimit(
   const maxRequests = parseInt(env.RATE_LIMIT_MAX || '') || DEFAULT_RATE_LIMIT_MAX;
   const windowSeconds = parseInt(env.RATE_LIMIT_WINDOW_SECONDS || '') || DEFAULT_RATE_LIMIT_WINDOW_SECONDS;
   const now = Date.now();
-  const key = `rate_limit:${ip}`;
 
-  // If KV is not configured - graceful degradation
+  // If KV is not configured, use in-memory fallback
   if (!env.RATE_LIMIT_KV) {
-    // Log for monitoring/alerting - this should trigger alerts
     console.error(JSON.stringify({
       level: 'error',
       event: 'rate_limit_kv_unavailable',
       environment: env.ENVIRONMENT || 'unknown',
-      ip: ip,
+      ip,
       timestamp: new Date().toISOString(),
-      message: 'Rate limit KV not configured - operating in degraded mode',
+      message: 'Rate limit KV not configured - using in-memory fallback',
     }));
-    // Graceful degradation: allow request but mark as degraded
-    // This prevents service outage while logging for monitoring
-    return {
-      allowed: true,
-      remaining: 1, // Indicate limited capacity
-      resetAt: now + windowSeconds * 1000,
-      degraded: true,
-    };
+    return checkInMemoryRateLimit(ip, maxRequests, windowSeconds);
   }
+
+  // Circuit breaker: skip KV if too many recent failures
+  if (kvFailureCount >= KV_CIRCUIT_BREAKER_THRESHOLD && now < kvCircuitResetAt) {
+    return checkInMemoryRateLimit(ip, maxRequests, windowSeconds);
+  }
+
+  // Reset circuit breaker after cooldown
+  if (now >= kvCircuitResetAt) {
+    kvFailureCount = 0;
+  }
+
+  const key = `rate_limit:${ip}`;
 
   try {
     const stored = await env.RATE_LIMIT_KV.get(key, 'json') as RateLimitData | null;
 
     let data: RateLimitData;
     if (!stored || stored.resetAt < now) {
-      // Start new window
       data = { count: 1, resetAt: now + windowSeconds * 1000 };
     } else {
-      // Increment existing window
       data = { count: stored.count + 1, resetAt: stored.resetAt };
     }
 
-    // Store updated count with TTL
     const ttl = Math.ceil((data.resetAt - now) / 1000);
     await env.RATE_LIMIT_KV.put(key, JSON.stringify(data), { expirationTtl: Math.max(ttl, 60) });
+
+    // KV succeeded - reset failure count
+    kvFailureCount = 0;
 
     return {
       allowed: data.count <= maxRequests,
@@ -107,23 +151,22 @@ async function checkRateLimit(
       resetAt: data.resetAt,
     };
   } catch (error) {
-    // Log structured error for monitoring/alerting
+    kvFailureCount++;
+    kvCircuitResetAt = now + 60_000; // 1 minute cooldown
+
     console.error(JSON.stringify({
       level: 'error',
       event: 'rate_limit_kv_error',
       environment: env.ENVIRONMENT || 'unknown',
-      ip: ip,
+      ip,
       error: String(error),
+      kvFailureCount,
+      circuitOpen: kvFailureCount >= KV_CIRCUIT_BREAKER_THRESHOLD,
       timestamp: new Date().toISOString(),
-      message: 'Rate limit KV error - operating in degraded mode',
+      message: 'Rate limit KV error - using in-memory fallback',
     }));
-    // Graceful degradation: allow request but mark as degraded
-    return {
-      allowed: true,
-      remaining: 1,
-      resetAt: now + windowSeconds * 1000,
-      degraded: true,
-    };
+
+    return checkInMemoryRateLimit(ip, maxRequests, windowSeconds);
   }
 }
 
@@ -307,6 +350,13 @@ async function generateCsrfToken(secret: string): Promise<string> {
     .replace(/=+$/, '');
 
   return `${timestamp}.${signature}`;
+}
+
+/** Reset in-memory rate limit state (for testing only). */
+export function _resetRateLimitState(): void {
+  inMemoryRateLimit.clear();
+  kvFailureCount = 0;
+  kvCircuitResetAt = 0;
 }
 
 export default {

@@ -31,8 +31,8 @@ vi.mock('resend', () => ({
 
 import { Resend } from 'resend';
 
-// Import the worker handler
-import worker from './index';
+// Import the worker handler and test utilities
+import worker, { _resetRateLimitState } from './index';
 
 // Mock environment
 const mockEnv = {
@@ -96,6 +96,7 @@ describe('Contact Form Worker', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetRateLimitState();
     mockResendInstance = {
       emails: {
         send: vi.fn(),
@@ -992,7 +993,7 @@ describe('Contact Form Worker', () => {
       expect(response.status).toBe(200);
     });
 
-    it('fails open when KV is not configured', async () => {
+    it('uses in-memory fallback when KV is not configured', async () => {
       // mockEnv doesn't have RATE_LIMIT_KV
       mockResendInstance.emails.send.mockResolvedValue({
         data: { id: 'email_123' },
@@ -1007,6 +1008,43 @@ describe('Contact Form Worker', () => {
 
       const response = await worker.fetch(request, mockEnv);
 
+      // Should still succeed using in-memory fallback
+      expect(response.status).toBe(200);
+    });
+
+    it('uses in-memory fallback on KV error', async () => {
+      const failingKV = {
+        get: vi.fn().mockRejectedValue(new Error('KV unavailable')),
+        put: vi.fn().mockRejectedValue(new Error('KV unavailable')),
+      };
+
+      const envWithFailingKV = {
+        ...mockEnv,
+        RATE_LIMIT_KV: failingKV as unknown as KVNamespace,
+        RATE_LIMIT_MAX: '5',
+      };
+
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+          'CF-Connecting-IP': '10.0.0.1',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message.',
+        }),
+      });
+
+      // First request should succeed via in-memory fallback
+      const response = await worker.fetch(request, envWithFailingKV);
       expect(response.status).toBe(200);
     });
   });
