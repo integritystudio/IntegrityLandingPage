@@ -238,9 +238,10 @@ class ContactService {
   }
 
   /// Generate a unique idempotency key for deduplicating submissions.
+  /// Uses 256 bits (32 bytes) for birthday-attack resistance.
   static String _generateIdempotencyKey() {
     final random = Random.secure();
-    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
     return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 

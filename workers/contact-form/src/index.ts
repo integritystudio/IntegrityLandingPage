@@ -44,6 +44,7 @@ interface RateLimitResult {
 // In-memory rate limit store (fallback when KV unavailable).
 // Uses Worker global scope - persists across requests within an isolate.
 const inMemoryRateLimit = new Map<string, RateLimitData>();
+const MAX_IN_MEMORY_ENTRIES = 10000;
 
 // Circuit breaker: track consecutive KV failures
 let kvFailureCount = 0;
@@ -71,14 +72,23 @@ function checkInMemoryRateLimit(
 
   inMemoryRateLimit.set(ip, data);
 
-  // Periodic cleanup: remove expired entries (max 100 per check)
+  // Cleanup: remove expired entries when map grows large
   if (inMemoryRateLimit.size > 1000) {
-    let cleaned = 0;
     for (const [key, val] of inMemoryRateLimit) {
       if (val.resetAt < now) {
         inMemoryRateLimit.delete(key);
-        if (++cleaned >= 100) break;
       }
+    }
+  }
+
+  // Hard cap: evict oldest entries if still over limit (prevent OOM)
+  if (inMemoryRateLimit.size > MAX_IN_MEMORY_ENTRIES) {
+    const excess = inMemoryRateLimit.size - MAX_IN_MEMORY_ENTRIES;
+    let evicted = 0;
+    for (const key of inMemoryRateLimit.keys()) {
+      if (evicted >= excess) break;
+      inMemoryRateLimit.delete(key);
+      evicted++;
     }
   }
 
