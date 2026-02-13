@@ -144,10 +144,21 @@ class ContactService {
     ));
   }
 
-  /// Validate email format.
+  /// Validate email format (RFC 5321 subset).
+  /// Local part: 1-64 chars, no leading/trailing/consecutive dots.
+  /// Domain: valid labels with 2+ char TLD.
   static bool isValidEmail(String email) {
-    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-    return emailRegex.hasMatch(email);
+    if (email.length > 254) return false;
+    final parts = email.split('@');
+    if (parts.length != 2) return false;
+    final local = parts[0];
+    final domain = parts[1];
+    if (local.isEmpty || local.length > 64) return false;
+    if (RegExp(r'^\.|\.{2,}|\.$').hasMatch(local)) return false;
+    if (!RegExp(r'^[a-zA-Z0-9._%+\-]+$').hasMatch(local)) return false;
+    if (!RegExp(r'^([a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$')
+        .hasMatch(domain)) return false;
+    return true;
   }
 
   // Field length limits for security (prevent memory exhaustion, DoS)
@@ -245,6 +256,17 @@ class ContactService {
     return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
+  /// Generate a UUID v4 request ID for distributed tracing (#29).
+  static String _generateRequestId() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 1
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+  }
+
   // Retry configuration for transient network errors.
   static const int _maxRetries = 2;
 
@@ -268,6 +290,8 @@ class ContactService {
 
     // Generate idempotency key once per submission (persists across retries)
     final idempotencyKey = _generateIdempotencyKey();
+    // Generate request ID for distributed tracing (#29)
+    final requestId = _generateRequestId();
 
     for (var attempt = 0; attempt <= _maxRetries; attempt++) {
       try {
@@ -282,6 +306,7 @@ class ContactService {
               'Content-Type': 'application/json',
               if (csrfToken != null) 'X-CSRF-Token': csrfToken,
               'X-Idempotency-Key': idempotencyKey,
+              'X-Request-ID': requestId,
             },
             // Accept client errors (4xx) and 504 (gateway timeout from worker)
             validateStatus: (status) =>
@@ -348,6 +373,7 @@ class ContactService {
             'endpoint': _contactApiUrl,
             'type': 'contact_form',
             'attempt': attempt + 1,
+            'requestId': requestId,
           },
         );
 

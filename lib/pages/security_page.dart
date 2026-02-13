@@ -196,7 +196,6 @@ class _SecurityContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Overview Stats
-        // TODO: Fix card rendering to extend through the entire box
         _SecurityCard(
           icon: LucideIcons.lock,
           title: SecurityContent.commitmentTitle,
@@ -208,15 +207,25 @@ class _SecurityContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              Wrap(
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.md,
-                children: SecurityContent.stats
-                    .map((stat) => _StatCard(
-                          value: stat.value,
-                          label: stat.label,
-                        ))
-                    .toList(),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final cardCount = SecurityContent.stats.length;
+                  final spacing = AppSpacing.md;
+                  final cardWidth = (constraints.maxWidth - spacing * (cardCount - 1)) / cardCount;
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: SecurityContent.stats
+                        .map((stat) => SizedBox(
+                              width: cardWidth.clamp(140, double.infinity),
+                              child: _StatCard(
+                                value: stat.value,
+                                label: stat.label,
+                              ),
+                            ))
+                        .toList(),
+                  );
+                },
               ),
             ],
           ),
@@ -497,7 +506,6 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minWidth: 140, maxWidth: 200),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.md,

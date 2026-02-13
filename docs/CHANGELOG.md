@@ -4,6 +4,73 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 
 ---
 
+## [2026-02-13] - Security Hardening & Bug Fixes
+
+### Contact Form Worker Hardening
+
+**#24: Email Validation (RFC 5321 subset)**
+- Replaced permissive regex (`^[^\s@]+@[^\s@]+\.[^\s@]+$`) with strict RFC 5321 subset
+- Local part: 1-64 chars, alphanumeric + `._%+-`, no leading/trailing/consecutive dots
+- Domain: valid labels, no leading/trailing hyphens, 2+ char TLD
+- Fixed in both `workers/contact-form/src/index.ts` and `lib/services/contact_service.dart`
+- Previously accepted invalid emails (`admin@-example.com`, `test@example..com`) now correctly rejected
+- Prevents invalid emails from reaching Resend API (which returned 500 to users)
+
+**#25: Request Size Limit**
+- Added 10KB Content-Length check before `request.json()` parsing
+- Returns 413 (Payload Too Large) for oversized requests
+- Prevents CPU spikes from maliciously large JSON payloads
+- File: `workers/contact-form/src/index.ts`
+
+**#28: Error Message Information Leak**
+- Replaced "CSRF not configured" response with generic "Service temporarily unavailable"
+- Infrastructure state details now logged server-side only (structured JSON)
+- Prevents attackers from inferring backend configuration
+- File: `workers/contact-form/src/index.ts`
+
+**#22: Circuit Breaker Scoping**
+- Increased KV failure threshold from 3 to 10 consecutive failures
+- Added jittered cooldown (60-90s random) to prevent thundering herd on recovery
+- Mitigates single-attacker ability to force all users into degraded mode
+- File: `workers/contact-form/src/index.ts`
+
+### GitHub Issues Closed (Already Implemented)
+
+| Issue | Resolution |
+|-------|------------|
+| #2 CSP hash CI validation | CSP uses `'self'` (no hash needed); SRI validation added in CI (`ci.yml:174-207`) |
+| #3 Rate limiting fails closed | In-memory fallback + circuit breaker already added (`a9e1437`) |
+| #4 CSP violation reporting | `report-uri`/`report-to` directives already in CSP meta tag and `_headers` |
+| #5 Resend API timeout | `withTimeout(8s)` wrapper already added around Resend API calls |
+
+### E2E Tests
+
+**#6: Blog Routing Tests**
+- Added 4 new Playwright tests in `e2e/tests/routing.spec.ts`:
+  - Blog article HTML files served directly (not via SPA)
+  - Nested blog article routing (`/blog/*/index.html`)
+  - Blog articles return `text/html` content type
+  - Nonexistent blog articles fall back to SPA
+- File: `e2e/tests/routing.spec.ts`
+
+### Test Updates
+
+- Updated CSRF error message expectations in 2 worker tests
+- Changed XSS mailto injection test to verify stricter validation rejects at input layer
+- Updated Dart email validation test: `a@b.c` (invalid 1-char TLD) → `a@b.co`
+- Added 4 invalid email rejection test cases: `admin@-example.com`, `test@example..com`, `.leading@example.com`, `trailing.@example.com`
+
+### Files Modified
+
+- `workers/contact-form/src/index.ts` - #22, #24, #25, #28
+- `workers/contact-form/src/index.test.ts` - updated 3 tests
+- `lib/services/contact_service.dart` - #24
+- `test/unit/services/contact_service_test.dart` - updated + added test cases
+- `e2e/tests/routing.spec.ts` - 4 new blog routing tests
+- `docs/BACKLOG.md` - moved completed items
+
+---
+
 ## [2026-02-01] - Routing Consolidation & Twitter/X Removal
 
 ### Routing Documentation Consolidation

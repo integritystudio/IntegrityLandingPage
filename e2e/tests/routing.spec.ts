@@ -123,8 +123,6 @@ test.describe('Routing and Redirects', () => {
       await waitForFlutter(page);
     });
 
-    // Blog article HTML files would be served directly when they exist
-    // This test validates the route pattern works
     test('/blog path pattern is correctly configured', async ({ page }) => {
       // Verify /blog loads as SPA (not 404)
       const response = await page.goto('/blog', { waitUntil: 'domcontentloaded' });
@@ -133,6 +131,45 @@ test.describe('Routing and Redirects', () => {
       // Content should be Flutter SPA, not static HTML
       const content = await page.content();
       expect(content).toContain('flutter_bootstrap.js');
+    });
+
+    test('blog article HTML files are served directly', async ({ request }) => {
+      const response = await request.get('/blog/best-llm-monitoring-tools-2025.html');
+      expect(response.status()).toBe(200);
+
+      const html = await response.text();
+      // Should be static HTML, not Flutter SPA
+      expect(html).toContain('<html');
+      expect(html).not.toContain('flutter_bootstrap.js');
+    });
+
+    test('nested blog article HTML files are served directly', async ({ request }) => {
+      const response = await request.get('/blog/ai-observability-platform-strategy/index.html');
+      expect(response.status()).toBe(200);
+
+      const html = await response.text();
+      expect(html).toContain('<html');
+    });
+
+    test('blog articles return HTML content type', async ({ request }) => {
+      const response = await request.get('/blog/ai-observability-platform-strategy.html');
+      expect(response.status()).toBe(200);
+
+      const contentType = response.headers()['content-type'];
+      expect(contentType).toContain('text/html');
+    });
+
+    test('nonexistent blog article falls back to SPA', async ({ request }) => {
+      const response = await request.get('/blog/nonexistent-article-xyz.html');
+      // Cloudflare may serve 200 with SPA fallback or 404
+      const status = response.status();
+      expect([200, 404]).toContain(status);
+
+      if (status === 200) {
+        const html = await response.text();
+        // If served, it should be the SPA fallback
+        expect(html).toContain('flutter_bootstrap.js');
+      }
     });
   });
 
