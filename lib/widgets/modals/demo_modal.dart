@@ -85,16 +85,23 @@ class DemoModal extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Video area
-                    Container(
-                      height: modalHeight * 0.75,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: AppColors.gray800,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                    Flexible(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: modalHeight * 0.75,
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: AppColors.gray800,
+                            borderRadius:
+                                BorderRadius.circular(AppSpacing.radiusMD),
+                          ),
+                          child: videoId != null
+                              ? _buildVideoPlayer()
+                              : _buildPlaceholder(context),
+                        ),
                       ),
-                      child: videoId != null
-                          ? _buildVideoPlayer()
-                          : _buildPlaceholder(context),
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     // CTA section
@@ -132,11 +139,11 @@ class DemoModal extends StatelessWidget {
   }
 
   Widget _buildPlaceholder(BuildContext context) {
-    return Center(
+    return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Animated icon
             Container(

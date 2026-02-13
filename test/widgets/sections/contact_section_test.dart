@@ -17,10 +17,11 @@ void main() {
     Widget buildTestWidget({
       Future<bool> Function(Map<String, String>)? onFormSubmit,
       ContactContent? content,
+      Size screenSize = const Size(1920, 1080),
     }) {
       return MaterialApp(
         home: MediaQuery(
-          data: const MediaQueryData(size: Size(1920, 1080)),
+          data: MediaQueryData(size: screenSize),
           child: Scaffold(
             body: SingleChildScrollView(
               child: content != null
@@ -909,6 +910,7 @@ void main() {
           setMobileViewport(tester);
 
           await tester.pumpWidget(buildTestWidget(
+            screenSize: const Size(375, 812),
             content: ContactContent(
               sectionId: 'test',
               title: 'Contact',
@@ -937,7 +939,6 @@ void main() {
           expect(find.byType(ContactSection), findsOneWidget);
           expect(find.text('Contact'), findsOneWidget);
         },
-        skip: true, // Known overflow issues at mobile viewport
       );
     });
 
