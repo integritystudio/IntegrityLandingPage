@@ -250,7 +250,6 @@ void main() {
 
           expect(find.byType(DemoModal), findsOneWidget);
         },
-        skip: true, // Known overflow issues at mobile size
       );
 
       testWidgets('renders on tablet viewport', (tester) async {

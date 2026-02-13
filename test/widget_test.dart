@@ -62,10 +62,6 @@ void main() {
   });
 
   group('IntegrityStudioApp Responsive', () {
-    // Note: Mobile/tablet viewports have known overflow issues in AppBar
-    // These tests are skipped until the responsive layout is fixed
-    // Use integration_test/e2e tests for true responsive testing in browser
-
     testWidgets(
       'renders on mobile viewport',
       (tester) async {
@@ -76,7 +72,6 @@ void main() {
         expect(find.byType(IntegrityStudioApp), findsOneWidget);
         expect(find.byType(MaterialApp), findsOneWidget);
       },
-      skip: true, // Known overflow in AppBar at mobile size
     );
 
     testWidgets(
@@ -89,7 +84,6 @@ void main() {
         expect(find.byType(IntegrityStudioApp), findsOneWidget);
         expect(find.byType(MaterialApp), findsOneWidget);
       },
-      skip: true, // Known overflow in AppBar at tablet size
     );
 
     testWidgets('renders on desktop viewport', (tester) async {
