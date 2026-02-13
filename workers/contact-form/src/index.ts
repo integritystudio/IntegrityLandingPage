@@ -21,8 +21,8 @@ interface Env {
 // CSRF configuration
 const CSRF_TOKEN_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
 
-// API timeout configuration
-const RESEND_API_TIMEOUT_MS = 10000; // 10 seconds
+// API timeout configuration - 8s to leave headroom for client's 10s timeout
+const RESEND_API_TIMEOUT_MS = 8000;
 
 // Rate limiting configuration
 const DEFAULT_RATE_LIMIT_MAX = 5;
