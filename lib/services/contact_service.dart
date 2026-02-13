@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:dio/dio.dart';
 import 'analytics.dart';
 
@@ -236,6 +237,13 @@ class ContactService {
     }
   }
 
+  /// Generate a unique idempotency key for deduplicating submissions.
+  static String _generateIdempotencyKey() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
   // Retry configuration for transient network errors.
   static const int _maxRetries = 2;
 
@@ -257,6 +265,9 @@ class ContactService {
       );
     }
 
+    // Generate idempotency key once per submission (persists across retries)
+    final idempotencyKey = _generateIdempotencyKey();
+
     for (var attempt = 0; attempt <= _maxRetries; attempt++) {
       try {
         // Fetch CSRF token
@@ -269,6 +280,7 @@ class ContactService {
             headers: {
               'Content-Type': 'application/json',
               if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+              'X-Idempotency-Key': idempotencyKey,
             },
             // Accept client errors (4xx) and 504 (gateway timeout from worker)
             validateStatus: (status) =>
