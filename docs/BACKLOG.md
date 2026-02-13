@@ -2011,15 +2011,26 @@ Worker endpoint URL is hardcoded (`contact_service.dart:6`), preventing testing 
 |-------|----------|--------|-------------|
 | #5 Empty string vs null | HIGH | **COMPLETED** | Normalized empty strings to null for optional fields |
 | #6 No retry logic | HIGH | **COMPLETED** | Added exponential backoff (2 retries, 1s/2s) |
-| #14 CSRF lifecycle | MEDIUM | OPEN | Token cache mismatch, silent failures, race conditions |
-| #15 Rate limit fallback | MEDIUM | OPEN | No in-memory fallback when KV unavailable |
-| #16 CORS bypass | MEDIUM | OPEN | Origin header fallback allows unauthorized requests |
-| #17 Idempotency | MEDIUM | OPEN | No duplicate submission protection |
-| #18 Rate limit UX | LOW | OPEN | Client doesn't parse rate limit headers |
-| #19 Mailto XSS | LOW | OPEN | escapeHtml instead of encodeURIComponent in href |
-| #20 Timeout mismatch | LOW | OPEN | Client/worker timeout budget overlap |
-| #21 Hardcoded URL | LOW | OPEN | API endpoint not configurable per environment |
+| #14 CSRF lifecycle | MEDIUM | **COMPLETED** | Removed cache, fetch per-submission, Sentry logging (4e792cb) |
+| #15 Rate limit fallback | MEDIUM | **COMPLETED** | In-memory fallback with circuit breaker, 10K cap (a9e1437, 6034d4b) |
+| #16 CORS bypass | MEDIUM | **COMPLETED** | 403 for unauthorized origins, CORS violation logging (95b08a5) |
+| #17 Idempotency | MEDIUM | **COMPLETED** | Client idempotency key + server KV dedup with 5min TTL (1e65412) |
+| #18 Rate limit UX | LOW | **COMPLETED** | Parse Retry-After header, show countdown to user (6b154e7) |
+| #19 Mailto XSS | LOW | **COMPLETED** | encodeURIComponent for mailto href (4c4485e) |
+| #20 Timeout mismatch | LOW | **COMPLETED** | Worker Resend timeout 8s, client handles 504 with retry (3877f60) |
+| #21 Hardcoded URL | LOW | **COMPLETED** | Configurable via --dart-define=CONTACT_API_URL (4e792cb) |
 
 ---
 
-*Last updated: 2026-02-06 (6 of 7 original issues completed, 3 deferred; 2 of 10 contact form review findings completed, 8 documented)*
+**Contact Form Hardening (2026-02-12):**
+- #14: Removed CSRF token caching, fetch fresh per submission, added Sentry logging for fetch failures
+- #15: In-memory rate limit fallback with circuit breaker (3 failures, 60s cooldown), 10K entry hard cap
+- #16: CORS rejects POST/GET from unauthorized origins with 403, logs violations
+- #17: Client generates 256-bit idempotency key per submission, server deduplicates via KV (5min TTL)
+- #18: Client parses Retry-After header on 429, displays countdown to user
+- #19: Uses encodeURIComponent for mailto href to prevent parameter injection
+- #20: Worker Resend timeout reduced to 8s (from 10s), client handles 504 with retry
+- #21: API endpoint configurable via --dart-define=CONTACT_API_URL
+- Full-stack production code review completed: 57 worker tests, 31 client tests passing
+
+*Last updated: 2026-02-12 (6 of 7 original issues completed, 3 deferred; 10 of 10 contact form review findings completed)*
