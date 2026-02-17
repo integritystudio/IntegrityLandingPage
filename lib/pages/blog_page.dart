@@ -464,13 +464,16 @@ class _SeriesArticleItemState extends State<_SeriesArticleItem> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: _launchUrl,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.xl,
-            vertical: AppSpacing.md,
-          ),
+      child: Semantics(
+        label: widget.title,
+        link: true,
+        child: GestureDetector(
+          onTap: _launchUrl,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xl,
+              vertical: AppSpacing.md,
+            ),
           decoration: BoxDecoration(
             color: _isHovered ? AppColors.gray800 : Colors.transparent,
             borderRadius: widget.isLast
@@ -525,6 +528,7 @@ class _SeriesArticleItemState extends State<_SeriesArticleItem> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

@@ -73,9 +73,12 @@ class _StatusPageState extends State<StatusPage> {
         onPressed: widget.onBack ?? () => context.go('/'),
         tooltip: 'Back',
       ),
-      title: GestureDetector(
-        onTap: () => context.go('/'),
-        child: Row(
+      title: Semantics(
+        label: 'Navigate to home',
+        button: true,
+        child: GestureDetector(
+          onTap: () => context.go('/'),
+          child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(LucideIcons.shield, color: AppColors.blue500, size: isMobile ? 24 : 28),
@@ -90,6 +93,7 @@ class _StatusPageState extends State<StatusPage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
