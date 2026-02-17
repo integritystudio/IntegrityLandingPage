@@ -354,14 +354,17 @@ class _FeatureTabButton extends StatelessWidget {
       onEnter: (_) => onHover(true),
       onExit: (_) => onHover(false),
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.md,
-          ),
+      child: Semantics(
+        label: useShortTitle ? feature.shortTitle : feature.title,
+        button: true,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
           decoration: BoxDecoration(
             color: isActive
                 ? AppColors.gray800
@@ -393,6 +396,7 @@ class _FeatureTabButton extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

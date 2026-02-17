@@ -226,14 +226,17 @@ class _BillingOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm,
-        ),
+    return Semantics(
+      label: label,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.sm,
+          ),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.gray700 : Colors.transparent,
           borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
@@ -267,6 +270,7 @@ class _BillingOption extends StatelessWidget {
             ],
           ],
         ),
+      ),
       ),
     );
   }

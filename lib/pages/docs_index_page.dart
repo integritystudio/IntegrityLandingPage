@@ -322,11 +322,14 @@ class _DocCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cardWidth = isMobile ? double.infinity : 420.0;
 
-    return GestureDetector(
-      onTap: doc.comingSoon
-          ? null
-          : () => context.go(doc.url),
-      child: MouseRegion(
+    return Semantics(
+      label: doc.title,
+      button: true,
+      child: GestureDetector(
+        onTap: doc.comingSoon
+            ? null
+            : () => context.go(doc.url),
+        child: MouseRegion(
         cursor: doc.comingSoon ? SystemMouseCursors.basic : SystemMouseCursors.click,
         child: Container(
           width: cardWidth,
@@ -439,6 +442,7 @@ class _DocCard extends StatelessWidget {
           ),
         ),
       ),
+      ),
     );
   }
 }
@@ -513,30 +517,34 @@ class _QuickLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        if (url.startsWith('http')) {
-          final uri = Uri.parse(url);
-          const mode = kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication;
-          await launchUrl(uri, mode: mode);
-        } else {
-          context.go(url);
-        }
-      },
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: AppColors.gray400),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              label,
-              style: AppTypography.bodyMD.copyWith(
-                color: AppColors.gray300,
+    return Semantics(
+      label: label,
+      link: true,
+      child: GestureDetector(
+        onTap: () async {
+          if (url.startsWith('http')) {
+            final uri = Uri.parse(url);
+            const mode = kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication;
+            await launchUrl(uri, mode: mode);
+          } else {
+            context.go(url);
+          }
+        },
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: AppColors.gray400),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                label,
+                style: AppTypography.bodyMD.copyWith(
+                  color: AppColors.gray300,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

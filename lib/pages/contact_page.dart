@@ -213,11 +213,14 @@ class _QuickContactCardState extends State<_QuickContactCard> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 280,
+      child: Semantics(
+        label: widget.title,
+        button: true,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 280,
           padding: const EdgeInsets.all(AppSpacing.xl),
           decoration: BoxDecoration(
             color: _isHovered ? AppColors.gray800 : AppColors.gray800,
@@ -273,6 +276,7 @@ class _QuickContactCardState extends State<_QuickContactCard> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );
