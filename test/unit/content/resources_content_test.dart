@@ -47,13 +47,10 @@ void main() {
         }
       });
 
-      test('has 3 featured blog posts', () {
+      test('has 5 featured blog posts', () {
         final content = AppContent.resources;
 
-        // TODO: Update to 5 when missing blog HTML files are created:
-        // - web/blog/eu-ai-act-engineering-guide.html
-        // - web/blog/ai-agent-observability-guide.html
-        expect(content.featuredPosts.length, equals(3));
+        expect(content.featuredPosts.length, equals(5));
       });
 
       test('each blog post has required fields', () {
@@ -74,8 +71,7 @@ void main() {
         final categories =
             content.featuredPosts.map((p) => p.category.toLowerCase()).toSet();
 
-        // TODO: Re-enable when eu-ai-act-engineering-guide.html is created
-        // expect(categories, contains('compliance'));
+        expect(categories, contains('compliance'));
         expect(categories, contains('cost optimization'));
         expect(categories, contains('best practices'));
       });

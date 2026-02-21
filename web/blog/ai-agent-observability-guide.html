@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="As autonomous AI agents become more complex, observability becomes critical. Learn how to trace multi-step workflows, debug tool calls, and monitor agent performance.">
+    <meta name="keywords" content="AI agent observability, LLM agent monitoring, agentic AI tracing, tool call debugging, multi-step workflow tracing, agent performance monitoring, OpenTelemetry agents">
+    <meta name="author" content="Alyshia Ledlie">
+    <title>Complete Guide to AI Agent Observability | Integrity Studio</title>
+
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Complete Guide to AI Agent Observability">
+    <meta property="og:description" content="Learn how to trace multi-step workflows, debug tool calls, and monitor agent performance for autonomous AI systems.">
+    <meta property="og:url" content="https://integritystudio.ai/blog/ai-agent-observability-guide">
+    <meta property="og:site_name" content="Integrity Studio">
+    <meta property="og:locale" content="en_US">
+    <meta property="article:published_time" content="2024-12-05T00:00:00Z">
+    <meta property="article:modified_time" content="2024-12-05T00:00:00Z">
+    <meta property="article:author" content="Alyshia Ledlie">
+    <meta property="article:section" content="AI Observability">
+    <meta property="article:tag" content="AI Agents">
+    <meta property="article:tag" content="Observability">
+    <meta property="article:tag" content="OpenTelemetry">
+    <meta property="article:tag" content="LLM Monitoring">
+
+    <!-- Open Graph Image -->
+    <meta property="og:image" content="https://integritystudio.ai/images/og-image.png">
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://integritystudio.ai/blog/ai-agent-observability-guide">
+
+    <style>
+        :root {
+            --gray-900: #111827;
+            --gray-800: #1F2937;
+            --gray-700: #374151;
+            --gray-600: #4B5563;
+            --gray-500: #6B7280;
+            --gray-400: #9CA3AF;
+            --gray-300: #D1D5DB;
+            --blue-500: #3B82F6;
+            --blue-400: #60A5FA;
+            --blue-600: #2563EB;
+            --indigo-500: #6366F1;
+            --purple-500: #A855F7;
+            --success: #22C55E;
+            --warning: #F59E0B;
+            --error: #EF4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.7;
+            color: var(--gray-300);
+            background: var(--gray-900);
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--gray-900) 0%, var(--gray-800) 100%);
+            padding: 80px 0 100px;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid var(--gray-700);
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 50%, rgba(168, 85, 247, 0.1) 0%, transparent 50%);
+        }
+
+        .header-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--indigo-500) 0%, var(--purple-500) 100%);
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+            color: white;
+        }
+
+        .header-subtitle {
+            font-size: 1.25rem;
+            color: var(--gray-300);
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        .header-meta {
+            margin-top: 32px;
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            font-size: 14px;
+            color: var(--gray-400);
+        }
+
+        .header-meta span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Navigation */
+        .nav {
+            background: var(--gray-800);
+            border-bottom: 1px solid var(--gray-700);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-inner {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 24px;
+            overflow-x: auto;
+        }
+
+        .nav-list {
+            display: flex;
+            gap: 4px;
+            list-style: none;
+            padding: 12px 0;
+        }
+
+        .nav-list a {
+            display: block;
+            padding: 8px 16px;
+            color: var(--gray-400);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 6px;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .nav-list a:hover {
+            color: var(--blue-400);
+            background: var(--gray-700);
+        }
+
+        /* Main Content */
+        .main {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 64px 24px;
+        }
+
+        section {
+            margin-bottom: 64px;
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--gray-700);
+            letter-spacing: -0.01em;
+        }
+
+        h3 {
+            font-size: 1.375rem;
+            font-weight: 600;
+            color: white;
+            margin: 40px 0 16px;
+        }
+
+        h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--gray-300);
+            margin: 32px 0 12px;
+        }
+
+        p {
+            margin-bottom: 20px;
+            color: var(--gray-300);
+            font-size: 1.0625rem;
+        }
+
+        /* Lead paragraph */
+        .lead {
+            font-size: 1.25rem;
+            line-height: 1.7;
+            color: var(--gray-300);
+            margin-bottom: 32px;
+        }
+
+        /* Callout boxes */
+        .callout {
+            background: var(--gray-800);
+            border-left: 4px solid var(--blue-500);
+            border-radius: 0 12px 12px 0;
+            padding: 20px 24px;
+            margin: 24px 0;
+        }
+
+        .callout.warning {
+            border-left-color: var(--warning);
+        }
+
+        .callout.success {
+            border-left-color: var(--success);
+        }
+
+        .callout p {
+            margin-bottom: 0;
+        }
+
+        .callout-title {
+            font-weight: 700;
+            color: var(--blue-400);
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .callout.warning .callout-title {
+            color: var(--warning);
+        }
+
+        .callout.success .callout-title {
+            color: var(--success);
+        }
+
+        /* Lists */
+        ul, ol {
+            margin: 20px 0;
+            padding-left: 24px;
+        }
+
+        li {
+            margin-bottom: 12px;
+            color: var(--gray-300);
+        }
+
+        li::marker {
+            color: var(--blue-400);
+        }
+
+        /* Code */
+        code {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            background: var(--gray-800);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: var(--blue-400);
+        }
+
+        .code-block {
+            background: var(--gray-800);
+            border: 1px solid var(--gray-700);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            overflow-x: auto;
+        }
+
+        .code-block pre {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--gray-300);
+            margin: 0;
+        }
+
+        .code-block .comment { color: #64748b; }
+        .code-block .keyword { color: #c084fc; }
+        .code-block .string { color: #34d399; }
+        .code-block .property { color: #60a5fa; }
+
+        /* Concept cards */
+        .concept-card {
+            background: var(--gray-800);
+            border: 1px solid var(--gray-700);
+            border-radius: 16px;
+            padding: 32px;
+            margin: 32px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .concept-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(135deg, var(--indigo-500) 0%, var(--purple-500) 100%);
+        }
+
+        .concept-card h3 {
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+
+        /* Metric cards */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin: 32px 0;
+        }
+
+        .metric-card {
+            background: var(--gray-800);
+            border: 1px solid var(--gray-700);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--blue-400) 0%, var(--purple-500) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 4px;
+        }
+
+        .metric-label {
+            font-size: 14px;
+            color: var(--gray-400);
+        }
+
+        /* Comparison table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 24px 0;
+        }
+
+        .comparison-table th, .comparison-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-700);
+        }
+
+        .comparison-table th {
+            background: var(--gray-800);
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .comparison-table td {
+            color: var(--gray-300);
+            font-size: 0.95rem;
+        }
+
+        .comparison-table tr:hover td {
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        /* Links */
+        a {
+            color: var(--blue-400);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        a:hover {
+            color: var(--blue-500);
+            text-decoration: underline;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--gray-800);
+            border-top: 1px solid var(--gray-700);
+            padding: 48px 24px;
+            text-align: center;
+            margin-top: 80px;
+        }
+
+        .footer p {
+            color: var(--gray-500);
+            font-size: 14px;
+        }
+
+        .cta-section {
+            background: linear-gradient(135deg, var(--gray-800) 0%, rgba(99, 102, 241, 0.1) 100%);
+            border: 1px solid var(--gray-700);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            margin: 48px 0;
+        }
+
+        .cta-section h3 {
+            margin-top: 0;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--blue-500) 0%, var(--indigo-500) 100%);
+            color: white;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 60px 0 80px;
+            }
+
+            .header h1 {
+                font-size: 1.75rem;
+            }
+
+            .main {
+                padding: 40px 20px;
+            }
+
+            .concept-card {
+                padding: 24px;
+            }
+
+            .comparison-table {
+                font-size: 0.85rem;
+            }
+
+            .comparison-table th, .comparison-table td {
+                padding: 8px 12px;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            .nav {
+                display: none;
+            }
+
+            body {
+                background: white;
+                color: #1e293b;
+            }
+
+            .header {
+                background: #0f172a;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .concept-card, .callout, .code-block {
+                break-inside: avoid;
+            }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        "headline": "Complete Guide to AI Agent Observability",
+        "alternativeHeadline": "How to Trace, Debug, and Monitor Autonomous AI Agents",
+        "description": "As autonomous AI agents become more complex, observability becomes critical. Learn how to trace multi-step workflows, debug tool calls, and monitor agent performance.",
+        "author": {
+            "@type": "Person",
+            "@id": "https://www.aledlie.com#person",
+            "name": "Alyshia Ledlie",
+            "url": "https://www.aledlie.com/",
+            "jobTitle": "Software Developer",
+            "worksFor": {"@id": "https://integritystudio.ai/#organization"}
+        },
+        "publisher": {
+            "@type": "Organization",
+            "@id": "https://integritystudio.ai/#organization",
+            "name": "Integrity Studio",
+            "url": "https://integritystudio.ai",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://integritystudio.ai/assets/logo.png",
+                "width": 600,
+                "height": 60
+            }
+        },
+        "datePublished": "2024-12-05T00:00:00Z",
+        "dateModified": "2024-12-05T00:00:00Z",
+        "mainEntityOfPage": "https://integritystudio.ai/blog/ai-agent-observability-guide",
+        "articleSection": "AI Observability",
+        "keywords": ["AI agent observability", "LLM agent monitoring", "tool call tracing", "multi-step workflows", "OpenTelemetry", "agent debugging"],
+        "timeRequired": "PT15M",
+        "wordCount": 3200,
+        "inLanguage": "en-US",
+        "isAccessibleForFree": true
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://integritystudio.ai/"},
+            {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://integritystudio.ai/blog/"},
+            {"@type": "ListItem", "position": 3, "name": "AI Agent Observability Guide", "item": "https://integritystudio.ai/blog/ai-agent-observability-guide"}
+        ]
+    }
+    </script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <span class="header-badge">Agent Observability</span>
+            <h1>Complete Guide to AI Agent Observability</h1>
+            <p class="header-subtitle">How to trace multi-step workflows, debug tool calls, and monitor agent performance&#8212;before your autonomous AI does something you can't explain.</p>
+            <div class="header-meta">
+                <span>
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    15 min read
+                </span>
+                <span>
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <time datetime="2024-12-05">December 5, 2024</time>
+                </span>
+                <span>
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Alyshia Ledlie
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <nav class="nav" aria-label="Article sections navigation">
+        <div class="nav-inner">
+            <ul class="nav-list">
+                <li><a href="#why-different">Why Agents Are Different</a></li>
+                <li><a href="#trace-model">The Trace Model</a></li>
+                <li><a href="#tool-calls">Tool Call Tracing</a></li>
+                <li><a href="#multi-step">Multi-Step Workflows</a></li>
+                <li><a href="#metrics">Key Metrics</a></li>
+                <li><a href="#debugging">Debugging Agents</a></li>
+                <li><a href="#production">Production Monitoring</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main">
+        <article>
+            <!-- Introduction -->
+            <section id="intro">
+                <p class="lead">Your AI agent just completed a 14-step workflow. It searched a knowledge base, called three APIs, made a decision, drafted an email, and scheduled a follow-up. It took 8 seconds. Something went wrong in step 9. Good luck figuring out which one that was.</p>
+
+                <p>Traditional LLM observability&#8212;tracking prompts, completions, and token counts&#8212;was designed for request-response interactions. One prompt in, one response out. But AI agents don't work that way. They reason, plan, use tools, loop, backtrack, and make autonomous decisions across multiple steps. The observability tooling needs to match.</p>
+
+                <p>This guide covers the instrumentation patterns, debugging techniques, and monitoring strategies you need to keep autonomous AI agents under control in production.</p>
+
+                <figure class="metrics-grid" aria-label="Agent observability challenge statistics">
+                    <div class="metric-card">
+                        <div class="metric-value">14x</div>
+                        <div class="metric-label">More spans per request vs. simple LLM calls</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">73%</div>
+                        <div class="metric-label">Of agent failures occur in tool call execution</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">4.2s</div>
+                        <div class="metric-label">Avg. time to root cause with proper tracing</div>
+                    </div>
+                </figure>
+            </section>
+
+            <!-- Why Agents Are Different -->
+            <section id="why-different">
+                <h2>Why Agent Observability Is Different</h2>
+
+                <p>A standard LLM call is a function: input goes in, output comes out. You log the prompt, the completion, the latency, and the token count. Done. An agent is a program: it has control flow, state, side effects, and non-deterministic branching. The observability challenge is fundamentally different.</p>
+
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Dimension</th>
+                            <th>Simple LLM Call</th>
+                            <th>Agentic Workflow</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Execution model</td>
+                            <td>Single request-response</td>
+                            <td>Multi-step with branching and loops</td>
+                        </tr>
+                        <tr>
+                            <td>Side effects</td>
+                            <td>None (text generation only)</td>
+                            <td>API calls, database writes, emails, file creation</td>
+                        </tr>
+                        <tr>
+                            <td>Failure modes</td>
+                            <td>Timeout, rate limit, bad output</td>
+                            <td>Reasoning errors, tool misuse, infinite loops, cascading failures</td>
+                        </tr>
+                        <tr>
+                            <td>State</td>
+                            <td>Stateless</td>
+                            <td>Accumulates context across steps</td>
+                        </tr>
+                        <tr>
+                            <td>Trace depth</td>
+                            <td>1&#8211;2 spans</td>
+                            <td>10&#8211;50+ spans per execution</td>
+                        </tr>
+                        <tr>
+                            <td>Cost attribution</td>
+                            <td>Single model call</td>
+                            <td>Multiple model calls + external API costs</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p>The implication: you can't just add more logging to your existing LLM observability setup and call it agent observability. You need a different mental model&#8212;one built around <strong>execution traces</strong>, not request logs.</p>
+            </section>
+
+            <!-- The Trace Model -->
+            <section id="trace-model">
+                <h2>The Agent Trace Model</h2>
+
+                <p>An agent execution should produce a single trace with a hierarchy of spans that mirrors the agent's decision-making structure. Think of it as a tree where each node represents a discrete unit of work.</p>
+
+                <div class="concept-card">
+                    <h3>Anatomy of an Agent Trace</h3>
+
+                    <figure class="code-block" aria-label="Agent trace hierarchy example">
+<pre><span class="comment">// Trace hierarchy for a customer support agent</span>
+
+agent.run                           <span class="comment">// Root span: full agent execution</span>
+  &#9500;&#9472; agent.plan                     <span class="comment">// Planning: what steps to take</span>
+  &#9500;&#9472; agent.step[1]                  <span class="comment">// Step 1: gather context</span>
+  &#9474;   &#9500;&#9472; tool.call: search_kb        <span class="comment">// Tool: knowledge base search</span>
+  &#9474;   &#9492;&#9472; llm.completion              <span class="comment">// LLM: summarize results</span>
+  &#9500;&#9472; agent.step[2]                  <span class="comment">// Step 2: check account</span>
+  &#9474;   &#9492;&#9472; tool.call: get_account      <span class="comment">// Tool: API call</span>
+  &#9500;&#9472; agent.step[3]                  <span class="comment">// Step 3: decide action</span>
+  &#9474;   &#9500;&#9472; llm.completion              <span class="comment">// LLM: reasoning</span>
+  &#9474;   &#9492;&#9472; guardrail.check             <span class="comment">// Guardrail: validate decision</span>
+  &#9500;&#9472; agent.step[4]                  <span class="comment">// Step 4: execute action</span>
+  &#9474;   &#9492;&#9472; tool.call: process_refund   <span class="comment">// Tool: side-effecting action</span>
+  &#9492;&#9472; agent.step[5]                  <span class="comment">// Step 5: respond to user</span>
+      &#9492;&#9472; llm.completion              <span class="comment">// LLM: generate response</span></pre>
+                    </figure>
+
+                    <p>Each span captures: start/end time, attributes (model, parameters, results), status (ok/error), and parent-child relationships. The tree structure lets you see both the big picture (how many steps? total latency?) and the details (what did step 3 decide, and why?).</p>
+                </div>
+
+                <h3>Key Span Types</h3>
+
+                <ul>
+                    <li><strong><code>agent.run</code></strong> &#8212; Root span encompassing the entire agent execution. Attributes: agent name, version, trigger (user message, cron, webhook), total steps, final status.</li>
+                    <li><strong><code>agent.step</code></strong> &#8212; One iteration of the agent's reasoning loop. Attributes: step number, action chosen, reasoning summary (if available).</li>
+                    <li><strong><code>llm.completion</code></strong> &#8212; A model call within a step. Attributes: model name, version, token counts (prompt/completion), temperature, latency.</li>
+                    <li><strong><code>tool.call</code></strong> &#8212; An external tool invocation. Attributes: tool name, parameters, return status, latency, whether it has side effects.</li>
+                    <li><strong><code>guardrail.check</code></strong> &#8212; A safety or policy check. Attributes: rule name, pass/fail, confidence score.</li>
+                </ul>
+            </section>
+
+            <!-- Tool Call Tracing -->
+            <section id="tool-calls">
+                <h2>Tool Call Tracing</h2>
+
+                <p>Tool calls are where agents interact with the real world&#8212;and where most failures happen. A tool call that returns stale data, times out, or returns an unexpected schema can derail an entire workflow. Proper tracing makes these failures visible and debuggable.</p>
+
+                <h3>What to Capture</h3>
+
+                <figure class="code-block" aria-label="Tool call instrumentation example">
+<pre><span class="keyword">async function</span> executeToolCall(tool, params) {
+  <span class="keyword">return</span> tracer.startActiveSpan(<span class="string">`tool.call: ${tool.name}`</span>, <span class="keyword">async</span> (span) => {
+    <span class="comment">// Tool metadata</span>
+    span.setAttribute(<span class="property">'tool.name'</span>, tool.name);
+    span.setAttribute(<span class="property">'tool.version'</span>, tool.version);
+    span.setAttribute(<span class="property">'tool.has_side_effects'</span>, tool.sideEffects);
+    span.setAttribute(<span class="property">'tool.params'</span>, JSON.stringify(params));
+
+    <span class="keyword">try</span> {
+      <span class="keyword">const</span> result = <span class="keyword">await</span> tool.execute(params);
+
+      <span class="comment">// Result metadata</span>
+      span.setAttribute(<span class="property">'tool.status'</span>, <span class="string">'success'</span>);
+      span.setAttribute(<span class="property">'tool.result_type'</span>, <span class="keyword">typeof</span> result);
+      span.setAttribute(<span class="property">'tool.result_size'</span>, JSON.stringify(result).length);
+
+      span.end();
+      <span class="keyword">return</span> result;
+    } <span class="keyword">catch</span> (error) {
+      span.setAttribute(<span class="property">'tool.status'</span>, <span class="string">'error'</span>);
+      span.setAttribute(<span class="property">'tool.error_type'</span>, error.name);
+      span.setAttribute(<span class="property">'tool.error_message'</span>, error.message);
+      span.setStatus({ code: SpanStatusCode.ERROR });
+      span.end();
+      <span class="keyword">throw</span> error;
+    }
+  });
+}</pre>
+                </figure>
+
+                <div class="callout warning">
+                    <div class="callout-title">Side Effects Matter</div>
+                    <p>Always tag whether a tool call has side effects (<code>tool.has_side_effects: true</code>). Read-only tools (search, lookup) can be safely retried. Side-effecting tools (send email, process payment, delete record) cannot. When an agent retries a failed step, knowing which tools are idempotent prevents double-execution disasters.</p>
+                </div>
+
+                <h3>Common Tool Call Failure Patterns</h3>
+
+                <ul>
+                    <li><strong>Schema mismatch</strong> &#8212; The agent passes parameters the tool doesn't expect. Trace the raw parameters alongside the tool's expected schema.</li>
+                    <li><strong>Stale data</strong> &#8212; The tool returns cached or outdated results. Log cache hit/miss and data freshness timestamps.</li>
+                    <li><strong>Rate limiting</strong> &#8212; External APIs throttle the agent. Log HTTP status codes and retry counts.</li>
+                    <li><strong>Timeout cascades</strong> &#8212; One slow tool call eats the agent's total timeout budget. Track per-tool latency as a percentage of total execution time.</li>
+                    <li><strong>Hallucinated tools</strong> &#8212; The agent attempts to call a tool that doesn't exist. Log the attempted tool name before the "tool not found" error.</li>
+                </ul>
+            </section>
+
+            <!-- Multi-Step Workflows -->
+            <section id="multi-step">
+                <h2>Multi-Step Workflow Tracing</h2>
+
+                <p>The hardest part of agent observability isn't capturing individual steps&#8212;it's understanding the <em>flow</em> between them. Why did the agent choose step B after step A? Why did it loop back to step 3? Why did it take 14 steps when the task should have taken 4?</p>
+
+                <h3>Trace the Reasoning, Not Just the Actions</h3>
+
+                <p>Every agent step should capture not just what the agent did, but why it decided to do it. This means logging the agent's planning output&#8212;the "chain of thought" that led to each action choice.</p>
+
+                <figure class="code-block" aria-label="Agent reasoning trace example">
+<pre><span class="comment">// Capture the reasoning behind each step</span>
+span.setAttribute(<span class="property">'agent.step.number'</span>, stepIndex);
+span.setAttribute(<span class="property">'agent.step.action'</span>, <span class="string">'search_knowledge_base'</span>);
+span.setAttribute(<span class="property">'agent.step.reasoning'</span>,
+  <span class="string">'User asked about refund policy. Need to check KB '</span> +
+  <span class="string">'before making a decision. Previous step found the '</span> +
+  <span class="string">'account has 3 prior refunds this month.'</span>
+);
+span.setAttribute(<span class="property">'agent.step.alternatives_considered'</span>,
+  JSON.stringify([<span class="string">'escalate_to_human'</span>, <span class="string">'deny_refund'</span>])
+);</pre>
+                </figure>
+
+                <h3>Detecting Pathological Patterns</h3>
+
+                <p>Without tracing, these patterns are invisible until they cause outages:</p>
+
+                <ul>
+                    <li><strong>Infinite loops</strong> &#8212; The agent keeps retrying the same failed step. Set a <code>max_steps</code> limit and log a warning when the agent exceeds 80% of it.</li>
+                    <li><strong>Context window overflow</strong> &#8212; Each step adds to the conversation history until the context window fills up and the agent starts losing important information. Track cumulative token count across steps.</li>
+                    <li><strong>Tool call explosion</strong> &#8212; The agent makes 47 API calls for a task that should require 3. Monitor tool call count per execution and alert on anomalies.</li>
+                    <li><strong>Decision oscillation</strong> &#8212; The agent alternates between two actions without converging. Track the sequence of action choices and flag repeated patterns.</li>
+                </ul>
+
+                <div class="callout success">
+                    <div class="callout-title">Quick Win</div>
+                    <p>Add a <code>agent.step.count</code> attribute to your root span and set up an alert when it exceeds your p95 baseline by 2x. This single metric catches infinite loops, runaway tool calls, and most "agent gone sideways" scenarios before they become expensive.</p>
+                </div>
+            </section>
+
+            <!-- Key Metrics -->
+            <section id="metrics">
+                <h2>Key Metrics for Agent Monitoring</h2>
+
+                <p>Standard LLM metrics (tokens/sec, time-to-first-token, p99 latency) still matter, but agents need additional metrics that capture decision quality and workflow efficiency.</p>
+
+                <h3>Execution Metrics</h3>
+
+                <ul>
+                    <li><strong>Steps per execution</strong> &#8212; How many reasoning iterations before completion? Trending upward signals growing complexity or degradation.</li>
+                    <li><strong>Tool calls per execution</strong> &#8212; Total external calls. High counts mean high cost and high latency.</li>
+                    <li><strong>End-to-end latency</strong> &#8212; Total wall-clock time from trigger to final response. Break down into LLM time vs. tool time vs. overhead.</li>
+                    <li><strong>Token efficiency</strong> &#8212; Total tokens consumed divided by task complexity. A simple lookup shouldn't cost 50K tokens.</li>
+                </ul>
+
+                <h3>Quality Metrics</h3>
+
+                <ul>
+                    <li><strong>Task completion rate</strong> &#8212; Percentage of agent runs that successfully complete the intended task (vs. erroring out, timing out, or requiring human escalation).</li>
+                    <li><strong>Tool call success rate</strong> &#8212; Percentage of tool invocations that return usable results. A drop here often precedes a drop in task completion.</li>
+                    <li><strong>Guardrail trigger rate</strong> &#8212; How often safety checks fire. A sudden spike means the agent is generating more risky outputs.</li>
+                    <li><strong>Human escalation rate</strong> &#8212; Percentage of tasks that require human intervention. Decreasing over time indicates the agent is improving; increasing indicates drift.</li>
+                </ul>
+
+                <h3>Cost Metrics</h3>
+
+                <ul>
+                    <li><strong>Cost per task</strong> &#8212; Total LLM + API costs for a single agent execution. Track by task type for budgeting.</li>
+                    <li><strong>Cost per successful task</strong> &#8212; Same as above, but only counting successful completions. This is your real unit economics number.</li>
+                    <li><strong>Retry cost overhead</strong> &#8212; Additional cost from retried steps and failed tool calls. High overhead means optimization opportunities.</li>
+                </ul>
+            </section>
+
+            <!-- Debugging Agents -->
+            <section id="debugging">
+                <h2>Debugging Agent Failures</h2>
+
+                <p>When an agent fails, you need to answer three questions fast: <strong>What happened? Where in the workflow did it go wrong? Why did the agent make that choice?</strong> Good tracing makes all three answerable from a single trace view.</p>
+
+                <h3>The Debugging Workflow</h3>
+
+                <ol>
+                    <li><strong>Start from the root span.</strong> Check the overall status and step count. Did the agent complete? Did it hit the step limit? Did it error out?</li>
+                    <li><strong>Find the failing step.</strong> Look for the first span with an error status or an unexpected outcome. This is usually (not always) the root cause.</li>
+                    <li><strong>Check the tool call.</strong> If the step involved a tool, check the tool call span. Did the tool return an error? Did it return unexpected data? Did the agent misformat the parameters?</li>
+                    <li><strong>Read the reasoning.</strong> If you've instrumented reasoning traces, read the agent's rationale for the failing step. Often the bug is in the planning, not the execution.</li>
+                    <li><strong>Check upstream context.</strong> Did a previous step provide bad data that caused the later failure? Walk backwards through the trace until you find the actual root cause.</li>
+                </ol>
+
+                <div class="callout">
+                    <div class="callout-title">Pro Tip</div>
+                    <p>Build a "trace replay" tool that takes a trace ID and reconstructs the agent's state at each step. Being able to step through an agent execution like a debugger is invaluable when the failure is in the reasoning rather than the code.</p>
+                </div>
+
+                <h3>Common Root Causes</h3>
+
+                <ul>
+                    <li><strong>Prompt drift</strong> &#8212; The system prompt was updated but the agent's behavior assumptions weren't. Shows up as sudden quality drops after deployments.</li>
+                    <li><strong>Context pollution</strong> &#8212; Information from a previous step "leaks" into the agent's reasoning for the current step. Shows up as the agent referencing data it shouldn't have.</li>
+                    <li><strong>Tool schema changes</strong> &#8212; An external API changed its response format. The agent can't parse the new schema and either errors out or misinterprets the data.</li>
+                    <li><strong>Model version changes</strong> &#8212; A model update changes the agent's behavior in subtle ways. Always log the exact model version in every trace.</li>
+                </ul>
+            </section>
+
+            <!-- Production Monitoring -->
+            <section id="production">
+                <h2>Production Monitoring Strategy</h2>
+
+                <p>Debugging individual failures is necessary but not sufficient. In production, you need monitoring that catches systemic issues before they affect users.</p>
+
+                <h3>Alert on Trends, Not Thresholds</h3>
+
+                <p>A single agent failure isn't worth an alert. A 15% increase in failure rate over 24 hours is. Configure alerts based on trend deviations from your baselines:</p>
+
+                <ul>
+                    <li><strong>Task completion rate</strong> drops more than 5% from the 7-day rolling average</li>
+                    <li><strong>Average steps per execution</strong> increases more than 2x from baseline</li>
+                    <li><strong>Tool call error rate</strong> exceeds 10% for any single tool</li>
+                    <li><strong>P95 end-to-end latency</strong> exceeds your SLA threshold</li>
+                    <li><strong>Cost per task</strong> increases more than 30% from the 30-day average</li>
+                </ul>
+
+                <h3>Dashboard Essentials</h3>
+
+                <p>Your agent monitoring dashboard should answer these questions at a glance:</p>
+
+                <ol>
+                    <li><strong>Are agents completing tasks?</strong> &#8212; Task completion rate, error rate, escalation rate</li>
+                    <li><strong>Are they efficient?</strong> &#8212; Steps per task, tokens per task, cost per task</li>
+                    <li><strong>Are they fast enough?</strong> &#8212; End-to-end latency percentiles (p50, p95, p99)</li>
+                    <li><strong>Are tools healthy?</strong> &#8212; Per-tool success rate, latency, and error breakdown</li>
+                    <li><strong>Are guardrails holding?</strong> &#8212; Guardrail trigger rate and trend</li>
+                </ol>
+
+                <div class="callout success">
+                    <div class="callout-title">Getting Started</div>
+                    <p>You don't need all of this on day one. Start with three metrics: task completion rate, average steps per execution, and cost per task. These three numbers tell you whether your agent is working, whether it's efficient, and whether it's affordable. Add more granularity as you need it.</p>
+                </div>
+            </section>
+
+            <!-- CTA Section -->
+            <aside class="cta-section">
+                <h3>Ready to Instrument Your AI Agents?</h3>
+                <p style="margin-bottom: 24px;">Integrity Studio provides the observability platform built for agentic AI&#8212;with OpenTelemetry-native tracing, tool call monitoring, and compliance baked in.</p>
+                <a href="/#contact" class="cta-button">Start Free &#8212; No Credit Card Required</a>
+            </aside>
+
+            <!-- Conclusion -->
+            <section>
+                <h2>The Bottom Line</h2>
+
+                <p>AI agents are the most complex software systems most teams have ever built. They combine the unpredictability of LLMs with the side effects of traditional software and the autonomous decision-making of, well, nothing we've deployed before at this scale.</p>
+
+                <p>The observability challenge is real, but it's solvable. Instrument the agent's trace tree (not just individual calls), capture reasoning alongside actions, track the right metrics, and build alerts that catch systemic issues early.</p>
+
+                <p>The teams that invest in agent observability now will be the ones confidently shipping autonomous AI in production. The teams that don't will be the ones writing post-mortems about why their agent sent 10,000 emails at 3 AM.</p>
+
+                <p><strong>Related reading:</strong></p>
+                <ul>
+                    <li><a href="/blog/end-to-end-agentic-observability-lifecycle">End-to-End Agentic Observability Lifecycle</a> &#8212; The 6-stage framework for agent reliability</li>
+                    <li><a href="/blog/best-llm-monitoring-tools-2025">Best LLM Monitoring Tools (2025)</a> &#8212; Comparison of observability platforms</li>
+                    <li><a href="/blog/eu-ai-act-engineering-guide">EU AI Act: What Engineering Teams Need to Know</a> &#8212; Compliance requirements for AI systems</li>
+                </ul>
+            </section>
+        </article>
+    </main>
+
+    <footer class="footer">
+        <p><strong>Integrity Studio</strong> &middot; AI Observability That Proves Compliance</p>
+        <p style="margin-top: 8px;">EU AI Act Ready &middot; Enterprise Security &middot; 99.9% Uptime SLA</p>
+        <p style="margin-top: 16px; opacity: 0.6;">&copy; 2026 Integrity Studio. All rights reserved.</p>
+    </footer>
+</body>
+</html>

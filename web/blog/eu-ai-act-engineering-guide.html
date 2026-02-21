@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="A practical guide to EU AI Act compliance for AI engineering teams. Understand Article 12 traceability requirements, risk classifications, and how to prepare your systems before enforcement begins.">
+    <meta name="keywords" content="EU AI Act engineering, AI compliance logging, Article 12 traceability, OpenTelemetry AI, high-risk AI systems, AI audit trail, observability compliance">
+    <meta name="author" content="Alyshia Ledlie">
+    <title>EU AI Act: What Engineering Teams Need to Know | Integrity Studio</title>
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="EU AI Act: What Engineering Teams Need to Know">
+    <meta property="og:description" content="A practical guide to EU AI Act compliance for AI engineering teams. Article 12 traceability, risk classifications, and code-level preparation.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://integritystudio.ai/blog/eu-ai-act-engineering-guide">
+    <meta property="og:image" content="https://integritystudio.ai/images/og-image.png">
+    <meta property="og:site_name" content="Integrity Studio">
+    <meta property="article:published_time" content="2024-12-15T00:00:00Z">
+    <meta property="article:author" content="Alyshia Ledlie">
+    <meta property="article:section" content="AI Compliance">
+    <meta property="article:tag" content="EU AI Act">
+    <meta property="article:tag" content="Engineering">
+    <meta property="article:tag" content="Compliance">
+    <meta property="article:tag" content="OpenTelemetry">
+
+    <link rel="canonical" href="https://integritystudio.ai/blog/eu-ai-act-engineering-guide">
+
+    <style>
+        :root {
+            --primary: #0f172a;
+            --secondary: #334155;
+            --accent: #3b82f6;
+            --accent-light: #60a5fa;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --surface: #f8fafc;
+            --surface-alt: #f1f5f9;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --white: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.7;
+            color: var(--text);
+            background: var(--white);
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, #1e3a5f 100%);
+            color: var(--white);
+            padding: 80px 0 100px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .header-subtitle {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin-bottom: 24px;
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 24px;
+            font-size: 14px;
+            opacity: 0.8;
+            flex-wrap: wrap;
+        }
+
+        .header-meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Navigation */
+        .nav {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .nav-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent);
+        }
+
+        /* Main Content */
+        .content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 24px;
+        }
+
+        .content h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 48px 0 24px;
+            color: var(--primary);
+            letter-spacing: -0.01em;
+        }
+
+        .content h3 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            margin: 36px 0 16px;
+            color: var(--primary);
+        }
+
+        .content h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 24px 0 12px;
+            color: var(--secondary);
+        }
+
+        .content p {
+            margin-bottom: 20px;
+            color: var(--text);
+        }
+
+        .content ul, .content ol {
+            margin-bottom: 20px;
+            padding-left: 24px;
+        }
+
+        .content li {
+            margin-bottom: 8px;
+        }
+
+        .content a {
+            color: var(--accent);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        .content a:hover {
+            border-bottom-color: var(--accent);
+        }
+
+        /* Lead paragraph */
+        .lead {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            color: var(--secondary);
+            margin-bottom: 32px;
+        }
+
+        /* Code */
+        code {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            background: var(--surface-alt);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: var(--accent);
+        }
+
+        .code-block {
+            background: var(--primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            overflow-x: auto;
+        }
+
+        .code-block pre {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #e2e8f0;
+            margin: 0;
+        }
+
+        .code-block .code-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .code-block .comment { color: #64748b; }
+        .code-block .keyword { color: #c084fc; }
+        .code-block .string { color: #34d399; }
+        .code-block .property { color: #60a5fa; }
+
+        /* Article requirement cards */
+        .article-card {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            border-left: 4px solid var(--accent);
+        }
+
+        .article-card h4 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .article-card ul {
+            margin-bottom: 0;
+        }
+
+        /* Callout */
+        .callout {
+            background: var(--surface);
+            border-left: 4px solid var(--accent);
+            border-radius: 0 12px 12px 0;
+            padding: 20px 24px;
+            margin: 24px 0;
+        }
+
+        .callout.warning {
+            border-left-color: var(--warning);
+        }
+
+        .callout.success {
+            border-left-color: var(--success);
+        }
+
+        .callout-title {
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            color: var(--accent);
+        }
+
+        .callout.warning .callout-title {
+            color: var(--warning);
+        }
+
+        .callout.success .callout-title {
+            color: var(--success);
+        }
+
+        .callout p {
+            margin-bottom: 0;
+        }
+
+        /* Checklist */
+        .checklist {
+            list-style: none;
+            padding-left: 0;
+            margin: 24px 0;
+        }
+
+        .checklist li {
+            padding: 12px 16px 12px 40px;
+            position: relative;
+            background: var(--surface);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .checklist li::before {
+            content: '\2610';
+            position: absolute;
+            left: 14px;
+            top: 12px;
+            font-size: 18px;
+            color: var(--accent);
+        }
+
+        /* Risk table */
+        .risk-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 24px 0;
+            font-size: 0.95rem;
+        }
+
+        .risk-table th, .risk-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .risk-table th {
+            background: var(--surface);
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .risk-table td:first-child {
+            font-weight: 500;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-high { background: #fef3c7; color: #92400e; }
+        .badge-limited { background: #dbeafe; color: #1e40af; }
+        .badge-minimal { background: #d1fae5; color: #065f46; }
+
+        /* Table of contents */
+        .toc {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px 32px;
+            margin: 32px 0;
+        }
+
+        .toc-title {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 16px;
+        }
+
+        .toc-list {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .toc-list li {
+            margin-bottom: 8px;
+        }
+
+        .toc-list a {
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+
+        .toc-list a:hover {
+            color: var(--accent);
+        }
+
+        /* CTA Section */
+        .cta-section {
+            background: linear-gradient(135deg, var(--primary) 0%, #1e3a5f 100%);
+            color: var(--white);
+            border-radius: 16px;
+            padding: 48px;
+            margin: 48px 0;
+            text-align: center;
+        }
+
+        .cta-section h3 {
+            color: var(--white);
+            margin-top: 0;
+        }
+
+        .cta-section p {
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 500px;
+            margin: 0 auto 24px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s, transform 0.2s;
+        }
+
+        .cta-button:hover {
+            background: var(--accent-light);
+            transform: translateY(-2px);
+            border-bottom-color: transparent;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--primary);
+            color: rgba(255, 255, 255, 0.7);
+            padding: 48px 24px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: var(--accent-light);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 60px 0 80px;
+            }
+
+            .content {
+                padding: 40px 20px;
+            }
+
+            .risk-table {
+                font-size: 0.85rem;
+            }
+
+            .risk-table th, .risk-table td {
+                padding: 8px 12px;
+            }
+
+            .code-block {
+                padding: 16px;
+            }
+
+            .cta-section {
+                padding: 32px 24px;
+            }
+        }
+
+        /* Print */
+        @media print {
+            .nav { display: none; }
+            body { background: white; color: #1e293b; }
+            .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .code-block, .callout, .article-card { break-inside: avoid; }
+        }
+    </style>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "headline": "EU AI Act: What Engineering Teams Need to Know",
+      "description": "A practical guide to EU AI Act compliance for AI engineering teams. Understand Article 12 traceability requirements, risk classifications, and how to prepare your systems before enforcement begins.",
+      "author": {
+        "@type": "Person",
+        "@id": "https://www.aledlie.com#person",
+        "name": "Alyshia Ledlie",
+        "url": "https://www.aledlie.com/",
+        "jobTitle": "Software Developer",
+        "worksFor": {"@id": "https://integritystudio.ai/#organization"}
+      },
+      "publisher": {
+        "@type": "Organization",
+        "@id": "https://integritystudio.ai/#organization",
+        "name": "Integrity Studio",
+        "url": "https://integritystudio.ai",
+        "logo": {
+            "@type": "ImageObject",
+            "url": "https://integritystudio.ai/assets/logo.png",
+            "width": 600,
+            "height": 60
+        }
+      },
+      "datePublished": "2024-12-15T00:00:00Z",
+      "dateModified": "2024-12-15T00:00:00Z",
+      "mainEntityOfPage": "https://integritystudio.ai/blog/eu-ai-act-engineering-guide",
+      "articleSection": "AI Compliance",
+      "keywords": ["EU AI Act", "AI compliance", "Article 12", "OpenTelemetry", "traceability", "engineering"],
+      "timeRequired": "PT12M",
+      "wordCount": 2600,
+      "inLanguage": "en-US",
+      "isAccessibleForFree": true
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://integritystudio.ai"},
+        {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://integritystudio.ai/blog"},
+        {"@type": "ListItem", "position": 3, "name": "EU AI Act Engineering Guide", "item": "https://integritystudio.ai/blog/eu-ai-act-engineering-guide"}
+      ]
+    }
+    </script>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-content">
+            <a href="/" class="nav-logo">Integrity Studio</a>
+            <div class="nav-links">
+                <a href="/blog">Blog</a>
+                <a href="/#features">Features</a>
+                <a href="/#pricing">Pricing</a>
+                <a href="/contact">Contact</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="header">
+        <div class="header-content">
+            <span class="header-badge">Engineering &amp; Compliance</span>
+            <h1>EU AI Act: What Engineering Teams Need to Know</h1>
+            <p class="header-subtitle">A practical guide to Article 12 traceability, risk classifications, and the code-level changes your AI systems need before enforcement deadlines hit.</p>
+            <div class="header-meta">
+                <span>By Alyshia Ledlie</span>
+                <span><time datetime="2024-12-15">December 15, 2024</time></span>
+                <span>12 min read</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="content">
+        <article>
+
+        <p class="lead">You shipped a model to production last Tuesday. It processes customer data from 14 EU member states. Can you tell a regulator exactly what data flowed through that model, what decisions it made, and why? If the answer is "not yet," this guide is for you.</p>
+
+        <p>The EU AI Act is the first comprehensive AI regulation with real enforcement teeth. For engineering teams, this isn't a policy memo to forward to legal&#8212;it's a set of technical requirements that affect how you build, instrument, and deploy AI systems. The good news: most of these requirements align with practices you should be doing anyway. The bad news: "should be" and "are" rarely overlap.</p>
+
+        <div class="toc">
+            <div class="toc-title">In This Guide</div>
+            <ol class="toc-list">
+                <li><a href="#risk-classification">Risk Classification: Where Does Your System Land?</a></li>
+                <li><a href="#article-12">Article 12: The Traceability Requirement</a></li>
+                <li><a href="#instrumentation">Instrumentation Patterns for Compliance</a></li>
+                <li><a href="#data-governance">Data Governance and PII</a></li>
+                <li><a href="#testing">Testing for Compliance</a></li>
+                <li><a href="#checklist">Engineering Readiness Checklist</a></li>
+            </ol>
+        </div>
+
+        <h2 id="risk-classification">Risk Classification: Where Does Your System Land?</h2>
+
+        <p>Before you write a single line of compliance code, you need to know which risk tier your AI system falls into. This determines everything&#8212;from whether you need basic transparency labels or a full conformity assessment with third-party audits.</p>
+
+        <table class="risk-table">
+            <thead>
+                <tr>
+                    <th>Risk Tier</th>
+                    <th>Examples</th>
+                    <th>Engineering Impact</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="badge badge-high">High Risk</span></td>
+                    <td>Credit scoring, hiring tools, medical diagnostics, critical infrastructure</td>
+                    <td>Full audit trail, conformity assessment, continuous monitoring, human oversight hooks</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-limited">Limited Risk</span></td>
+                    <td>Chatbots, content generation, recommendation systems</td>
+                    <td>Transparency labels, user notification that AI is in use</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-minimal">Minimal Risk</span></td>
+                    <td>Spam filters, inventory optimization, code completion</td>
+                    <td>No specific requirements (voluntary best practices encouraged)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="callout warning">
+            <div class="callout-title">Watch Out</div>
+            <p>General-purpose AI models (including most LLMs) have their own transparency and documentation requirements under Title V of the Act, regardless of downstream risk classification. If you're deploying GPT-4, Claude, or similar models, you need to document model capabilities, limitations, and intended uses even if your application is "minimal risk."</p>
+        </div>
+
+        <p>Classification isn't always obvious. A customer support chatbot is "limited risk" until it starts making decisions about refunds or account closures&#8212;then it may cross into "high risk." Map your system's actual decision authority, not just its label.</p>
+
+        <h2 id="article-12">Article 12: The Traceability Requirement</h2>
+
+        <p>Article 12 is where the rubber meets the road for engineering teams. It requires that high-risk AI systems have "automatic recording of events" (logging) throughout the system's lifecycle. In practice, this means:</p>
+
+        <div class="article-card">
+            <h4>What Article 12 Requires</h4>
+            <ul>
+                <li><strong>Input logging</strong> &#8212; Record every prompt, query, or data input the system processes</li>
+                <li><strong>Output logging</strong> &#8212; Capture every response, decision, or action the system produces</li>
+                <li><strong>Operational context</strong> &#8212; Model version, configuration, feature flags, and environment state at decision time</li>
+                <li><strong>Temporal traceability</strong> &#8212; Timestamps that allow reconstruction of the decision sequence</li>
+                <li><strong>Performance monitoring</strong> &#8212; Ongoing measurement of accuracy, fairness, and robustness metrics</li>
+            </ul>
+        </div>
+
+        <p>The key phrase is "reconstruction." A regulator should be able to take any output your system produced and trace backwards to understand exactly what inputs, context, and model state produced it. If your current logging amounts to <code>console.log('got response')</code>, you have work to do.</p>
+
+        <h3>What This Looks Like in OpenTelemetry</h3>
+
+        <p>OpenTelemetry is the natural fit for Article 12 compliance. Its trace/span model maps directly to the "automatic recording of events" requirement, and its vendor-neutral design means you're not locked into a single observability provider.</p>
+
+        <figure class="code-block" aria-label="OpenTelemetry instrumentation example for Article 12 compliance">
+<pre><span class="comment">// Article 12 compliant trace for an LLM decision</span>
+<span class="keyword">const</span> span = tracer.startSpan(<span class="string">'llm.decision'</span>, {
+  attributes: {
+    <span class="comment">// Input traceability</span>
+    <span class="property">'llm.request.model'</span>: <span class="string">'claude-3-opus'</span>,
+    <span class="property">'llm.request.model_version'</span>: <span class="string">'2024-12-01'</span>,
+    <span class="property">'llm.request.max_tokens'</span>: 1024,
+    <span class="property">'llm.request.temperature'</span>: 0.3,
+
+    <span class="comment">// Operational context</span>
+    <span class="property">'app.environment'</span>: <span class="string">'production'</span>,
+    <span class="property">'app.feature_flags'</span>: <span class="string">'guardrails-v2,pii-filter'</span>,
+    <span class="property">'app.decision_type'</span>: <span class="string">'customer_refund'</span>,
+    <span class="property">'app.risk_tier'</span>: <span class="string">'high'</span>,
+
+    <span class="comment">// Human oversight metadata</span>
+    <span class="property">'app.requires_human_review'</span>: <span class="keyword">true</span>,
+    <span class="property">'app.confidence_threshold'</span>: 0.85,
+  }
+});
+
+<span class="comment">// After LLM response</span>
+span.setAttribute(<span class="property">'llm.response.token_count'</span>, response.usage.total);
+span.setAttribute(<span class="property">'app.confidence_score'</span>, confidence);
+span.setAttribute(<span class="property">'app.decision_outcome'</span>, <span class="string">'approved'</span>);
+span.end();</pre>
+        </figure>
+
+        <p>The critical detail: <strong>you must log enough context to reconstruct the decision, but not so much that you violate GDPR.</strong> This tension between Article 12 (log everything) and GDPR (minimize data) is the central engineering challenge. More on that in the <a href="#data-governance">data governance section</a>.</p>
+
+        <h2 id="instrumentation">Instrumentation Patterns for Compliance</h2>
+
+        <p>Bolt-on compliance doesn't work. Teams that try to add Article 12 logging after the fact end up with incomplete traces, missing context, and audit gaps. Instead, build compliance into your instrumentation layer from the start.</p>
+
+        <h3>Pattern 1: Decision Boundary Tracing</h3>
+
+        <p>Instrument every point where your AI system makes or influences a decision. Not just the model call&#8212;the full decision boundary including pre-processing, guardrails, and post-processing.</p>
+
+        <figure class="code-block" aria-label="Decision boundary tracing pattern">
+<pre><span class="comment">// Trace the full decision boundary, not just the model call</span>
+<span class="keyword">async function</span> processRefundRequest(request) {
+  <span class="keyword">return</span> tracer.startActiveSpan(<span class="string">'decision.refund'</span>, <span class="keyword">async</span> (span) => {
+    <span class="comment">// 1. Pre-processing &amp; validation</span>
+    <span class="keyword">const</span> context = <span class="keyword">await</span> tracer.startActiveSpan(<span class="string">'preprocess'</span>, <span class="keyword">async</span> (s) => {
+      <span class="keyword">const</span> ctx = buildContext(request);
+      s.setAttribute(<span class="property">'input.customer_tier'</span>, ctx.tier);
+      s.setAttribute(<span class="property">'input.refund_amount'</span>, ctx.amount);
+      s.end();
+      <span class="keyword">return</span> ctx;
+    });
+
+    <span class="comment">// 2. Guardrail check</span>
+    <span class="keyword">const</span> guardrailResult = <span class="keyword">await</span> tracer.startActiveSpan(<span class="string">'guardrail.check'</span>, <span class="keyword">async</span> (s) => {
+      <span class="keyword">const</span> result = <span class="keyword">await</span> checkGuardrails(context);
+      s.setAttribute(<span class="property">'guardrail.passed'</span>, result.passed);
+      s.setAttribute(<span class="property">'guardrail.rules_evaluated'</span>, result.rulesCount);
+      s.end();
+      <span class="keyword">return</span> result;
+    });
+
+    <span class="comment">// 3. LLM decision (only if guardrails pass)</span>
+    <span class="keyword">if</span> (guardrailResult.passed) {
+      <span class="keyword">const</span> decision = <span class="keyword">await</span> callModel(context);
+      span.setAttribute(<span class="property">'decision.outcome'</span>, decision.action);
+      span.setAttribute(<span class="property">'decision.confidence'</span>, decision.confidence);
+    }
+
+    span.end();
+  });
+}</pre>
+        </figure>
+
+        <h3>Pattern 2: Compliance Metadata as Span Attributes</h3>
+
+        <p>Standardize a set of compliance-specific attributes across all AI spans. This makes audit queries straightforward and ensures consistency across teams.</p>
+
+        <figure class="code-block" aria-label="Standard compliance attributes">
+<pre><span class="comment">// Standard compliance attributes for every AI span</span>
+<span class="keyword">const</span> COMPLIANCE_ATTRS = {
+  <span class="property">'compliance.regulation'</span>: <span class="string">'eu-ai-act'</span>,
+  <span class="property">'compliance.risk_tier'</span>: <span class="string">'high'</span>,
+  <span class="property">'compliance.article_12'</span>: <span class="keyword">true</span>,
+  <span class="property">'compliance.data_retention_days'</span>: 365,
+  <span class="property">'compliance.pii_detected'</span>: <span class="keyword">false</span>,
+  <span class="property">'compliance.human_oversight_required'</span>: <span class="keyword">true</span>,
+};</pre>
+        </figure>
+
+        <h3>Pattern 3: Audit-Ready Log Retention</h3>
+
+        <p>The AI Act doesn't specify exact retention periods, but enforcement actions require historical evidence. Design your storage layer for long-term retention with efficient querying.</p>
+
+        <ul>
+            <li><strong>Hot storage (0&#8211;30 days)</strong> &#8212; Full trace data, queryable in real time</li>
+            <li><strong>Warm storage (30&#8211;365 days)</strong> &#8212; Compressed traces, available within minutes</li>
+            <li><strong>Cold storage (1&#8211;5 years)</strong> &#8212; Archived for regulatory requests, retrievable within hours</li>
+        </ul>
+
+        <div class="callout success">
+            <div class="callout-title">Practical Tip</div>
+            <p>Use OpenTelemetry Collector's export pipeline to fan out traces to both your real-time observability tool (hot) and a long-term archive (cold). This separates operational needs from compliance needs without duplicating instrumentation code.</p>
+        </div>
+
+        <h2 id="data-governance">Data Governance and PII</h2>
+
+        <p>Here's the tension every engineering team faces: Article 12 says "log the inputs and outputs." GDPR says "minimize personal data processing." When your LLM processes a customer's name, address, and financial history to make a decision, you need to log enough for traceability without creating a PII liability.</p>
+
+        <h3>Strategies That Work</h3>
+
+        <ul>
+            <li><strong>PII detection at the instrumentation layer</strong> &#8212; Scan inputs and outputs before logging. Flag spans that contain PII, and apply redaction or tokenization before the data hits your trace storage.</li>
+            <li><strong>Separate PII from trace data</strong> &#8212; Store a reference ID in the trace; store the actual PII in a GDPR-compliant vault with its own access controls and retention policies.</li>
+            <li><strong>Consent-aware logging levels</strong> &#8212; Not all users have the same data processing consent. Your instrumentation should respect consent tiers&#8212;full logging for users who've consented, redacted logging otherwise.</li>
+            <li><strong>Right-to-deletion support</strong> &#8212; GDPR's right to erasure applies to trace data too. Design your storage so PII can be deleted without destroying the structural integrity of the trace.</li>
+        </ul>
+
+        <div class="callout warning">
+            <div class="callout-title">Common Mistake</div>
+            <p>Don't dump raw prompts containing customer data into your trace store. A prompt like "Process refund for John Smith, account #12345, $500 charge on 12/01" contains at least three categories of PII. Detect and handle it at the instrumentation boundary, not after it's been stored across three observability systems.</p>
+        </div>
+
+        <h2 id="testing">Testing for Compliance</h2>
+
+        <p>Compliance isn't something you verify once and forget. The AI Act requires <em>ongoing</em> monitoring and risk management (Articles 9 and 15). Your test suite should reflect this.</p>
+
+        <h3>What to Test</h3>
+
+        <ul>
+            <li><strong>Trace completeness</strong> &#8212; Given an input, does the resulting trace contain all required compliance attributes? Write integration tests that assert on span attribute presence.</li>
+            <li><strong>PII handling</strong> &#8212; Feed test inputs containing known PII patterns. Verify that traces contain redacted versions, not raw data.</li>
+            <li><strong>Decision reconstruction</strong> &#8212; Take a trace ID from your test environment, and verify you can reconstruct the full decision context&#8212;inputs, model version, guardrail results, and output.</li>
+            <li><strong>Retention and deletion</strong> &#8212; Verify that trace data moves through your hot/warm/cold storage tiers on schedule, and that PII deletion propagates correctly.</li>
+            <li><strong>Fairness metrics</strong> &#8212; Track decision outcomes across demographic groups. The AI Act's Article 10 requires data governance that addresses bias. Automated fairness tests catch drift before regulators do.</li>
+        </ul>
+
+        <figure class="code-block" aria-label="Compliance test example">
+<pre><span class="comment">// Example: test that all AI decisions produce compliant traces</span>
+describe(<span class="string">'Article 12 compliance'</span>, () => {
+  it(<span class="string">'should include all required attributes in decision traces'</span>, <span class="keyword">async</span> () => {
+    <span class="keyword">const</span> traces = <span class="keyword">await</span> processTestDecision();
+    <span class="keyword">const</span> span = traces.find(s => s.name === <span class="string">'decision.refund'</span>);
+
+    expect(span.attributes).toHaveProperty(<span class="string">'llm.request.model'</span>);
+    expect(span.attributes).toHaveProperty(<span class="string">'llm.request.model_version'</span>);
+    expect(span.attributes).toHaveProperty(<span class="string">'app.decision_type'</span>);
+    expect(span.attributes).toHaveProperty(<span class="string">'compliance.risk_tier'</span>);
+    expect(span.attributes).toHaveProperty(<span class="string">'decision.outcome'</span>);
+    expect(span.attributes).toHaveProperty(<span class="string">'decision.confidence'</span>);
+  });
+
+  it(<span class="string">'should redact PII before trace storage'</span>, <span class="keyword">async</span> () => {
+    <span class="keyword">const</span> traces = <span class="keyword">await</span> processWithPII(<span class="string">'Refund for John Smith'</span>);
+    <span class="keyword">const</span> rawSpan = JSON.stringify(traces);
+
+    expect(rawSpan).not.toContain(<span class="string">'John Smith'</span>);
+    expect(rawSpan).toContain(<span class="string">'[REDACTED]'</span>);
+  });
+});</pre>
+        </figure>
+
+        <h2 id="checklist">Engineering Readiness Checklist</h2>
+
+        <p>Use this as a starting point for your team's compliance sprint. Not every item applies to every system&#8212;start with your risk classification and work down.</p>
+
+        <h3>High-Risk Systems</h3>
+
+        <ul class="checklist">
+            <li><strong>Risk classification documented</strong> &#8212; System is formally classified under the AI Act's risk framework with supporting rationale</li>
+            <li><strong>Article 12 logging implemented</strong> &#8212; All AI decision points produce traces with input, output, model version, and operational context</li>
+            <li><strong>PII detection and handling</strong> &#8212; Instrumentation layer detects PII and applies redaction/tokenization before storage</li>
+            <li><strong>Human oversight hooks</strong> &#8212; Systems flag low-confidence decisions for human review; override mechanisms are in place</li>
+            <li><strong>Fairness monitoring</strong> &#8212; Automated tests track decision outcomes across demographic groups; alerts fire on drift</li>
+            <li><strong>Audit-ready storage</strong> &#8212; Trace data retention meets regulatory requirements; data is retrievable for inspection</li>
+            <li><strong>Decision reconstruction tested</strong> &#8212; Given any trace ID, the team can reconstruct the full decision context within 24 hours</li>
+            <li><strong>Incident response plan</strong> &#8212; Documented process for AI system failures, including notification to relevant authorities</li>
+        </ul>
+
+        <h3>Limited-Risk Systems</h3>
+
+        <ul class="checklist">
+            <li><strong>Transparency labels implemented</strong> &#8212; Users are informed when interacting with AI-generated content or AI-assisted decisions</li>
+            <li><strong>AI disclosure in user-facing interfaces</strong> &#8212; Chatbots, content generators, and similar systems clearly identify as AI</li>
+            <li><strong>Basic logging in place</strong> &#8212; Sufficient logging to investigate issues and respond to user complaints</li>
+        </ul>
+
+        <h2>What's Next</h2>
+
+        <p>The AI Act's enforcement timeline is staggered, but the technical work to achieve compliance can't be. If your systems fall into the high-risk tier, the instrumentation, storage, and testing infrastructure takes months to build properly&#8212;and that's assuming you start with a clean architecture.</p>
+
+        <p>Start with classification. Know what tier your systems occupy. Then work through the checklist above, prioritizing Article 12 traceability (it's the foundation everything else builds on) and PII handling (it's where AI Act and GDPR intersect, and where mistakes are most expensive).</p>
+
+        <p><strong>Related reading:</strong></p>
+        <ul>
+            <li><a href="/blog/eu-ai-act-enterprise-guide">The EU AI Act Is Here: What Enterprise AI Teams Need to Know</a> &#8212; The business and legal perspective</li>
+            <li><a href="/blog/eu-ai-act-compliance-logging-setup">What Your AI Must Remember: A Legal Guide to EU AI Act Record-Keeping</a> &#8212; Deep dive into Article 12</li>
+            <li><a href="/blog/end-to-end-agentic-observability-lifecycle">End-to-End Agentic Observability Lifecycle</a> &#8212; The broader observability framework</li>
+        </ul>
+
+        <div class="cta-section">
+            <h3>Build Compliant AI Observability</h3>
+            <p>Integrity Studio provides Article 12 compliant tracing, PII detection, and audit-ready storage out of the box. See how it works.</p>
+            <a href="/#contact" class="cta-button">Start Free &#8212; No Credit Card Required</a>
+        </div>
+
+        </article>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 Integrity Studio. All rights reserved.</p>
+        <p><a href="/privacy">Privacy Policy</a> &middot; <a href="/terms">Terms of Service</a> &middot; <a href="/blog">Blog</a></p>
+    </footer>
+</body>
+</html>
