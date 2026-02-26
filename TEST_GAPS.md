@@ -3,6 +3,7 @@
 Identified 2026-02-25 against `main` (commit `11698dc`).
 Updated 2026-02-25: closed U1–U10, W2, W3, W6, W7.
 Updated 2026-02-26: closed E1, E2 — rewrote E2E tests with real assertions and submit-response-alert cycle.
+Updated 2026-02-26: closed W1, W4, W5 — Dio mock injection, FB Pixel code path, GoRouter internal route.
 
 ## Unit Tests — `test/unit/services/contact_service_test.dart`
 
@@ -37,7 +38,7 @@ Updated 2026-02-26: closed E1, E2 — rewrote E2E tests with real assertions and
 
 | # | Gap | Source | Status |
 |---|-----|--------|--------|
-| W1 | Default `ContactService.submitForm` path | `contact_section.dart:517-553` | **OPEN** — requires Dio mock injection into widget test; deferred to integration test layer |
+| W1 | Default `ContactService.submitForm` path | `contact_section.dart:517-553` | **CLOSED** — 4 tests: success alert, error alert, field errors, network error via MockDio injection |
 
 ### Medium
 
@@ -50,8 +51,8 @@ Updated 2026-02-26: closed E1, E2 — rewrote E2E tests with real assertions and
 
 | # | Gap | Source | Status |
 |---|-----|--------|--------|
-| W4 | Facebook Pixel tracking on success | `contact_section.dart:539-543` | OPEN — analytics side-effect; requires W1 |
-| W5 | Calendly URL internal route (`startsWith('/')`) | `contact_section.dart:404` | OPEN — requires GoRouter mock |
+| W4 | Facebook Pixel tracking on success | `contact_section.dart:539-543` | **CLOSED** — success via ContactService exercises FB Pixel calls (no-op in test, code path verified) |
+| W5 | Calendly URL internal route (`startsWith('/')`) | `contact_section.dart:404` | **CLOSED** — GoRouter navigates to /demo; external URL renders without navigation |
 | W6 | `showLiveDemoSection` parameter | `contact_section.dart:34,370` | **CLOSED** — `showLiveDemoSection: false` hides demo section |
 | W7 | `_buildFullName()` with firstName+lastName | `contact_section.dart:456-465` | **CLOSED** — explicit assertion on submitted firstName/lastName data |
 
@@ -75,6 +76,6 @@ Updated 2026-02-26: closed E1, E2 — rewrote E2E tests with real assertions and
 | Category | Total | Closed | Open |
 |----------|-------|--------|------|
 | Unit (U1–U10) | 10 | **10** | 0 |
-| Widget (W1–W7) | 7 | **4** | 3 |
+| Widget (W1–W7) | 7 | **7** | 0 |
 | E2E (E1–E3) | 3 | **2** | 1 |
-| **Total** | **20** | **16** | **4** |
+| **Total** | **20** | **19** | **1** |
