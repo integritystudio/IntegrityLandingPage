@@ -1,6 +1,8 @@
-/// Stub implementation for non-web platforms.
+/// No-op implementation for non-web platforms.
 ///
 /// All methods are no-ops since GTM/analytics only run on web.
+/// Class is named TrackingWeb to match the web implementation
+/// (required by Dart's conditional import pattern in tracking.dart).
 class TrackingWeb {
   TrackingWeb._();
 

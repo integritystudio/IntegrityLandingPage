@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integrity_studio_ai/services/tracking_stub.dart';
+import 'package:integrity_studio_ai/services/tracking_none.dart';
 
 void main() {
   group('TrackingWeb stub', () {
