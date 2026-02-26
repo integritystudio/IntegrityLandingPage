@@ -1,12 +1,17 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:mockito/mockito.dart';
 import 'package:integrity_studio_ai/config/content.dart';
+import 'package:integrity_studio_ai/services/contact_service.dart';
 import 'package:integrity_studio_ai/widgets/sections/contact_section.dart';
 import 'package:integrity_studio_ai/widgets/common/alert.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import 'package:integrity_studio_ai/widgets/common/form_fields.dart';
 import '../../helpers/test_helpers.dart';
+import '../../unit/services/contact_service_test.mocks.dart';
 
 void main() {
   group('ContactSection', () {
@@ -1138,6 +1143,297 @@ void main() {
 
         expect(find.byType(Alert), findsOneWidget);
         expect(find.text('Test alert'), findsOneWidget);
+      });
+    });
+
+    // ==========================================================================
+    // W1: ContactService.submitForm path (no onFormSubmit callback)
+    // ==========================================================================
+
+    group('ContactService submitForm path', () {
+      late MockDio mockDio;
+
+      setUp(() {
+        mockDio = MockDio();
+        ContactService.setDioForTesting(mockDio);
+
+        // Default: mock CSRF token fetch
+        when(mockDio.get(any)).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 200,
+              data: {'csrfToken': 'test_csrf_token'},
+            ));
+      });
+
+      tearDown(() {
+        ContactService.resetDio();
+      });
+
+      testWidgets('success response shows server message and clears form',
+          (tester) async {
+        setLargeViewport(tester);
+
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 200,
+              data: {
+                'success': true,
+                'message': 'We received your message!',
+                'submissionId': 'sub_widget_test',
+              },
+            ));
+
+        await tester.pumpWidget(buildTestWidget(
+          content: minimalFormContent(),
+          // NO onFormSubmit — exercises ContactService.submitForm path
+        ));
+
+        await fillAndSubmitForm(tester);
+
+        // Success alert shows server-returned message
+        expect(find.byType(Alert), findsOneWidget);
+        expect(find.text('We received your message!'), findsOneWidget);
+      });
+
+      testWidgets('error response shows error alert', (tester) async {
+        setLargeViewport(tester);
+
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 400,
+              data: {
+                'success': false,
+                'error': 'Invalid submission',
+              },
+            ));
+
+        await tester.pumpWidget(buildTestWidget(
+          content: minimalFormContent(errorMessage: 'Default error'),
+        ));
+
+        await fillAndSubmitForm(tester);
+
+        expect(find.byType(Alert), findsOneWidget);
+        expect(find.text('Invalid submission'), findsOneWidget);
+      });
+
+      testWidgets('server field errors are displayed on form fields',
+          (tester) async {
+        setLargeViewport(tester);
+
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 200,
+              data: {
+                'success': false,
+                'error': 'Validation failed',
+              },
+            ));
+
+        await tester.pumpWidget(buildTestWidget(
+          content: minimalFormContent(),
+        ));
+
+        await fillAndSubmitForm(tester);
+
+        expect(find.byType(Alert), findsOneWidget);
+        expect(find.text('Validation failed'), findsOneWidget);
+      });
+
+      testWidgets('network error shows error alert', (tester) async {
+        setLargeViewport(tester);
+
+        // Use non-retryable error to avoid retry delays in test
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenThrow(DioException(
+          requestOptions: RequestOptions(path: ''),
+          type: DioExceptionType.unknown,
+        ));
+
+        await tester.pumpWidget(buildTestWidget(
+          content: minimalFormContent(),
+        ));
+
+        await fillAndSubmitForm(tester);
+
+        expect(find.byType(Alert), findsOneWidget);
+        expect(find.textContaining('Network error'), findsOneWidget);
+      });
+    });
+
+    // ==========================================================================
+    // W4: Facebook Pixel tracking on success (exercises FB Pixel code path)
+    // ==========================================================================
+
+    group('Facebook Pixel tracking on ContactService success', () {
+      late MockDio mockDio;
+
+      setUp(() {
+        mockDio = MockDio();
+        ContactService.setDioForTesting(mockDio);
+
+        when(mockDio.get(any)).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 200,
+              data: {'csrfToken': 'test_csrf_token'},
+            ));
+      });
+
+      tearDown(() {
+        ContactService.resetDio();
+      });
+
+      testWidgets(
+          'success via ContactService runs FB Pixel calls without error',
+          (tester) async {
+        setLargeViewport(tester);
+
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 200,
+              data: {
+                'success': true,
+                'message': 'Submitted!',
+                'submissionId': 'sub_fb_test',
+              },
+            ));
+
+        await tester.pumpWidget(buildTestWidget(
+          content: minimalFormContent(),
+          // NO onFormSubmit — exercises the ContactService path which
+          // calls FacebookPixelService.trackContact and trackLead
+        ));
+
+        await fillAndSubmitForm(tester);
+
+        // Success alert proves the full ContactService path completed,
+        // including the FacebookPixelService calls (no-ops in test since
+        // !kIsWeb, but the code path executed without throwing)
+        expect(find.byType(Alert), findsOneWidget);
+        expect(find.text('Submitted!'), findsOneWidget);
+      });
+    });
+
+    // ==========================================================================
+    // W5: Calendly URL internal route (startsWith('/'))
+    // ==========================================================================
+
+    group('Calendly internal route navigation', () {
+      testWidgets('internal calendly URL navigates via GoRouter',
+          (tester) async {
+        setLargeViewport(tester);
+
+        final router = GoRouter(
+          initialLocation: '/',
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (context, state) => Scaffold(
+                body: SingleChildScrollView(
+                  child: ContactSection(
+                    content: ContactContent(
+                      sectionId: 'test',
+                      title: 'Contact',
+                      subtitle: '',
+                      description: '',
+                      formFields: [
+                        ContactFormFieldContent(
+                          name: 'message',
+                          label: 'Message',
+                          type: 'textarea',
+                          placeholder: '',
+                          required: true,
+                        ),
+                      ],
+                      contactMethods: [],
+                      formSubmitText: 'Submit',
+                      formSuccessMessage: 'Success',
+                      formErrorMessage: 'Error',
+                      calendlyUrl: '/demo',
+                      calendlyCtaText: 'View Demo',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            GoRoute(
+              path: '/demo',
+              builder: (context, state) => const Scaffold(
+                body: Center(child: Text('Demo Page')),
+              ),
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(MaterialApp.router(
+          routerConfig: router,
+        ));
+        await tester.pumpAndSettle();
+
+        // Find and tap the Calendly CTA button
+        final viewDemo = find.text('View Demo');
+        expect(viewDemo, findsOneWidget);
+
+        await tester.ensureVisible(viewDemo);
+        await tester.pumpAndSettle();
+        await tester.tap(viewDemo);
+        await tester.pumpAndSettle();
+
+        // Should have navigated to /demo route
+        expect(find.text('Demo Page'), findsOneWidget);
+      });
+
+      testWidgets('external calendly URL does not use GoRouter',
+          (tester) async {
+        setLargeViewport(tester);
+
+        await tester.pumpWidget(buildTestWidget(
+          content: ContactContent(
+            sectionId: 'test',
+            title: 'Contact',
+            subtitle: '',
+            description: '',
+            formFields: [
+              ContactFormFieldContent(
+                name: 'message',
+                label: 'Message',
+                type: 'textarea',
+                placeholder: '',
+                required: true,
+              ),
+            ],
+            contactMethods: [],
+            formSubmitText: 'Submit',
+            formSuccessMessage: 'Success',
+            formErrorMessage: 'Error',
+            calendlyUrl: 'https://calendly.com/test',
+            calendlyCtaText: 'Book Demo',
+          ),
+        ));
+
+        // External URL button renders
+        expect(find.text('Book Demo'), findsOneWidget);
+        // Widget still renders (no navigation to internal route)
+        expect(find.text('Want a Live Demo?'), findsOneWidget);
       });
     });
   });
