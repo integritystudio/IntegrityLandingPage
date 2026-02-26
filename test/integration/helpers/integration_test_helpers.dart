@@ -1,66 +1,59 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:integrity_studio_ai/services/content_loader.dart';
-import '../../helpers/test_content.dart';
 
-// Re-export test content helpers
+// Re-export shared test helpers so integration tests get everything from one import
+export '../../helpers/test_helpers.dart'
+    show
+        testTheme,
+        testableWidget,
+        testableSection,
+        testableWidgetWithProviders,
+        setScreenSize,
+        setMobileSize,
+        setDesktopSize,
+        setTabletSize,
+        TestScreenSizes,
+        setUpOverflowErrorSuppression,
+        tearDownOverflowErrorSuppression,
+        isOverflowError,
+        clearOverflowExceptions,
+        TestData,
+        testPageStructure,
+        testBackButtonCallback,
+        testBackButtonCallbacks,
+        testResponsiveLayout,
+        PagePumpFunction,
+        expectTextStyle,
+        expectContainerDecoration;
 export '../../helpers/test_content.dart' show initializeTestContent;
 
-/// Original error handler, captured at file load time.
-final FlutterExceptionHandler? originalOnError = FlutterError.onError;
+import '../../helpers/test_helpers.dart' as shared
+    show
+        setScreenSize,
+        clearOverflowExceptions,
+        TestScreenSizes,
+        setUpOverflowErrorSuppression,
+        tearDownOverflowErrorSuppression;
+import '../../helpers/test_content.dart' show initializeTestContent;
 
-/// Suppress RenderFlex overflow errors during tests.
-///
-/// NOTE: This is technical debt documented in docs/integration-test-roadmap.md.
-/// Proper fix: Make responsive layouts handle narrow viewports without overflow.
-/// Call this in setUp(), not setUpAll().
-void suppressOverflowErrors() {
-  FlutterError.onError = (FlutterErrorDetails details) {
-    final isOverflowError =
-        details.exception.toString().contains('overflowed') ||
-            details.exception.toString().contains('RenderFlex') ||
-            details.toString().contains('overflowed');
-    if (!isOverflowError) {
-      originalOnError?.call(details);
-    }
-  };
-}
+// =============================================================================
+// Compatibility Aliases
+// =============================================================================
 
-/// Restore original error handler.
-/// Call this in tearDown(), not tearDownAll().
-void restoreErrorHandler() {
-  FlutterError.onError = originalOnError;
-}
+/// Alias for [shared.TestScreenSizes] used by integration tests.
+typedef ScreenSizes = shared.TestScreenSizes;
 
-/// Check if an exception is an overflow error.
-bool isOverflowError(dynamic exception) {
-  if (exception == null) return false;
-  final message = exception.toString();
-  return message.contains('overflowed') ||
-      message.contains('RenderFlex') ||
-      message.contains('A RenderFlex');
-}
+/// Suppress overflow errors. Delegates to shared helper.
+void suppressOverflowErrors() => shared.setUpOverflowErrorSuppression();
 
-/// Clear overflow exceptions from the test framework.
-/// Call this after operations that may cause overflow.
-void clearOverflowExceptions(WidgetTester tester) {
-  dynamic exception = tester.takeException();
-  while (exception != null) {
-    if (!isOverflowError(exception)) {
-      throw exception;
-    }
-    exception = tester.takeException();
-  }
-}
+/// Restore error handler. Delegates to shared helper.
+void restoreErrorHandler() => shared.tearDownOverflowErrorSuppression();
 
-/// Common screen sizes for responsive testing.
-class ScreenSizes {
-  static const mobile = Size(375, 812);
-  static const tablet = Size(768, 1024);
-  static const desktop = Size(1920, 1080);
-}
+// =============================================================================
+// Integration-Specific Helpers
+// =============================================================================
 
 /// Helper to pump frames without using pumpAndSettle.
 ///
@@ -70,7 +63,7 @@ Future<void> pumpFrames(WidgetTester tester, {int frames = 10}) async {
   for (var i = 0; i < frames; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
-  clearOverflowExceptions(tester);
+  shared.clearOverflowExceptions(tester);
 }
 
 /// Helper to dismiss cookie banner if present.
@@ -82,40 +75,17 @@ Future<void> dismissCookieBanner(WidgetTester tester) async {
   }
 }
 
-/// Set up screen size for testing.
-void setScreenSize(WidgetTester tester, Size size) {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1.0;
-  addTearDown(() {
-    tester.view.resetPhysicalSize();
-    tester.view.resetDevicePixelRatio();
-  });
-}
-
-/// Set mobile viewport.
-void setMobileSize(WidgetTester tester) {
-  setScreenSize(tester, ScreenSizes.mobile);
-}
-
-/// Set desktop viewport.
-void setDesktopSize(WidgetTester tester) {
-  setScreenSize(tester, ScreenSizes.desktop);
-}
-
 /// Pumps the app with a testable router at a specific initial location.
-///
-/// This allows testing specific routes without going through navigation.
 Future<void> pumpAppWithRoute(
   WidgetTester tester, {
   required String initialLocation,
-  Size screenSize = ScreenSizes.desktop,
+  Size screenSize = shared.TestScreenSizes.desktop,
 }) async {
-  // Ensure test content is loaded
   if (!Content.isLoaded) {
     initializeTestContent();
   }
 
-  setScreenSize(tester, screenSize);
+  shared.setScreenSize(tester, screenSize);
 
   final router = GoRouter(
     initialLocation: initialLocation,
@@ -199,7 +169,6 @@ Future<void> fillFormField(
       return;
     }
   }
-  // If no label match, try by index for simple forms
   await tester.enterText(textFields.first, value);
   await pumpFrames(tester, frames: 2);
 }
