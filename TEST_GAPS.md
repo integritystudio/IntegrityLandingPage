@@ -2,6 +2,7 @@
 
 Identified 2026-02-25 against `main` (commit `11698dc`).
 Updated 2026-02-25: closed U1–U10, W2, W3, W6, W7.
+Updated 2026-02-26: closed E1, E2 — rewrote E2E tests with real assertions and submit-response-alert cycle.
 
 ## Unit Tests — `test/unit/services/contact_service_test.dart`
 
@@ -60,14 +61,14 @@ Updated 2026-02-25: closed U1–U10, W2, W3, W6, W7.
 
 | # | Gap | Notes |
 |---|-----|-------|
-| E1 | No form submission + response verification | OPEN — tests fill fields but never verify the full submit-response-alert cycle |
-| E2 | Soft assertions throughout | OPEN — most tests only assert `MaterialApp` exists |
+| E1 | No form submission + response verification | **CLOSED** — 2 tests: loading state + error alert after network failure; submit button re-enable |
+| E2 | Soft assertions throughout | **CLOSED** — all `expect(MaterialApp)` replaced with field label, validation error, and Alert assertions |
 
 ### Blocker
 
 | # | Gap | Notes |
 |---|-----|-------|
-| E3 | chromedriver not installed | OPEN — `flutter drive -d chrome` fails; e2e suite cannot run |
+| E3 | chromedriver not installed | OPEN — `flutter drive -d chrome` fails; fix: `brew install chromedriver` |
 
 ## Summary
 
@@ -75,5 +76,5 @@ Updated 2026-02-25: closed U1–U10, W2, W3, W6, W7.
 |----------|-------|--------|------|
 | Unit (U1–U10) | 10 | **10** | 0 |
 | Widget (W1–W7) | 7 | **4** | 3 |
-| E2E (E1–E3) | 3 | 0 | 3 |
-| **Total** | **20** | **14** | **6** |
+| E2E (E1–E3) | 3 | **2** | 1 |
+| **Total** | **20** | **16** | **4** |

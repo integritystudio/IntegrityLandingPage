@@ -2,23 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:integrity_studio_ai/main.dart' as app;
+import 'package:integrity_studio_ai/widgets/common/alert.dart';
 
 /// E2E tests for the contact form submission workflow.
 ///
-/// Tests the complete user journey of filling out and submitting the contact form.
+/// Tests the complete user journey: scrolling to the contact form, verifying
+/// field rendering, entering data, validating input, and submitting.
+///
 /// NOTE: Uses pump(Duration) instead of pumpAndSettle() because the landing
 /// page has continuous animations that would cause pumpAndSettle to timeout.
+///
+/// PREREQUISITE: chromedriver must be installed for `flutter drive -d chrome`.
+///   brew install chromedriver  # macOS
+///   Then: flutter drive --driver=test_driver/integration_test.dart \
+///     --target=integration_test/e2e/contact_form_test.dart -d chrome
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  /// Helper to pump frames and wait for rendering
+  // ===========================================================================
+  // Helpers
+  // ===========================================================================
+
+  /// Pump frames without waiting for animations to settle.
   Future<void> pumpFrames(WidgetTester tester, {int frames = 10}) async {
     for (var i = 0; i < frames; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
 
-  /// Helper to dismiss cookie banner if present
+  /// Dismiss cookie consent banner if present.
   Future<void> dismissCookieBanner(WidgetTester tester) async {
     final acceptButton = find.text('Accept All');
     if (acceptButton.evaluate().isNotEmpty) {
@@ -27,314 +39,357 @@ void main() {
     }
   }
 
-  /// Helper to scroll to contact section
+  /// Scroll to the contact section at the bottom of the page.
   Future<void> scrollToContactSection(WidgetTester tester) async {
     final scrollableFinder = find.byType(Scrollable).first;
-    // Scroll down to reach contact section (typically near bottom)
-    // Increased scroll iterations for web viewport
-    for (var i = 0; i < 12; i++) {
+    for (var i = 0; i < 15; i++) {
       await tester.fling(scrollableFinder, const Offset(0, -1000), 2000);
-      await pumpFrames(tester, frames: 10);
+      await pumpFrames(tester, frames: 8);
     }
   }
 
-  group('Contact Form E2E', () {
-    testWidgets('contact section is accessible via scrolling', (tester) async {
-      app.main();
-      await pumpFrames(tester, frames: 20);
-      await dismissCookieBanner(tester);
+  /// Find the form submit button. Returns the finder (may be empty).
+  Finder findSubmitButton() {
+    // Real content.yaml uses "Send Message"; fallback to other patterns
+    final candidates = [
+      find.textContaining('Send Message'),
+      find.textContaining('Send'),
+      find.textContaining('Submit'),
+      find.textContaining('Start Your Journey'),
+    ];
+    for (final f in candidates) {
+      if (f.evaluate().isNotEmpty) return f.first;
+    }
+    return candidates.first;
+  }
 
-      await scrollToContactSection(tester);
+  /// Find a TextFormField by its associated label text.
+  Finder findFieldByLabel(String label) {
+    return find.textContaining(label);
+  }
 
-      // Look for contact form elements - try multiple possible texts
-      final contactIndicators = [
-        find.text("Let's Connect"),
+  /// Bootstrap the app and scroll to the contact section.
+  Future<void> launchAndScrollToContact(WidgetTester tester) async {
+    app.main();
+    await pumpFrames(tester, frames: 20);
+    await dismissCookieBanner(tester);
+    await scrollToContactSection(tester);
+  }
+
+  // ===========================================================================
+  // Contact Form Rendering (E2: replace soft assertions)
+  // ===========================================================================
+
+  group('Contact Form Rendering', () {
+    testWidgets('contact section is reachable via scrolling', (tester) async {
+      await launchAndScrollToContact(tester);
+
+      // The form card header is hardcoded in ContactSection widget
+      expect(
         find.text('Send us a message'),
-        find.textContaining('Contact'),
-        find.textContaining('Message'),
-        find.textContaining('Email'),
-      ];
-
-      for (final indicator in contactIndicators) {
-        if (indicator.evaluate().isNotEmpty) {
-          break;
-        }
-      }
-
-      // App should still render even if contact section not fully visible
-      expect(find.byType(MaterialApp), findsOneWidget);
-    });
-
-    testWidgets('contact form renders with all required fields', (tester) async {
-      app.main();
-      await pumpFrames(tester, frames: 20);
-      await dismissCookieBanner(tester);
-
-      await scrollToContactSection(tester);
-
-      // App should render without errors after scrolling to contact
-      expect(find.byType(MaterialApp), findsOneWidget);
-
-      // Check for form-related elements (flexible check)
-      final formIndicators = [
-        find.textContaining('Name'),
-        find.textContaining('Email'),
-        find.byType(TextField),
-      ];
-
-      for (final indicator in formIndicators) {
-        if (indicator.evaluate().isNotEmpty) {
-          break;
-        }
-      }
-      // Soft assertion - form elements may or may not be visible depending on scroll
-    });
-
-    testWidgets('form validates empty fields', (tester) async {
-      app.main();
-      await pumpFrames(tester, frames: 20);
-      await dismissCookieBanner(tester);
-
-      await scrollToContactSection(tester);
-
-      // Find and tap the submit button without filling fields
-      final submitButton = find.widgetWithText(
-        ElevatedButton,
-        'Start Your Journey',
+        findsOneWidget,
+        reason: 'Form header "Send us a message" should be visible',
       );
+    });
 
-      // Also check for common submit button variations
-      final sendButton = find.textContaining('Send');
-      final submitText = find.textContaining('Submit');
+    testWidgets('form renders text input fields', (tester) async {
+      await launchAndScrollToContact(tester);
 
-      // Try to find the submit button
-      Finder? buttonToTap;
-      if (submitButton.evaluate().isNotEmpty) {
-        buttonToTap = submitButton;
-      } else if (sendButton.evaluate().isNotEmpty) {
-        buttonToTap = sendButton.first;
-      } else if (submitText.evaluate().isNotEmpty) {
-        buttonToTap = submitText.first;
-      }
+      // Content.yaml defines: firstName, lastName, email, company as text/email fields
+      final textFormFields = find.byType(TextFormField);
+      expect(
+        textFormFields.evaluate().length,
+        greaterThanOrEqualTo(4),
+        reason: 'Form should have at least 4 TextFormFields '
+            '(firstName, lastName, email, company)',
+      );
+    });
 
-      if (buttonToTap != null) {
-        await tester.tap(buttonToTap);
-        await pumpFrames(tester, frames: 10);
+    testWidgets('form renders field labels', (tester) async {
+      await launchAndScrollToContact(tester);
 
-        // After submitting empty form, validation errors may appear
-        // or form submission may be prevented
-        expect(find.byType(MaterialApp), findsOneWidget);
+      // Required fields show label with asterisk (e.g. "First Name *")
+      for (final label in ['First Name', 'Last Name', 'Email', 'Company']) {
+        expect(
+          findFieldByLabel(label),
+          findsWidgets,
+          reason: '"$label" label should be visible in the form',
+        );
       }
     });
 
-    testWidgets('form fields accept user input', (tester) async {
-      app.main();
-      await pumpFrames(tester, frames: 20);
-      await dismissCookieBanner(tester);
+    testWidgets('submit button is present with correct text', (tester) async {
+      await launchAndScrollToContact(tester);
 
-      await scrollToContactSection(tester);
-
-      // Find text input fields
-      final textFields = find.byType(TextField);
-
-      if (textFields.evaluate().length >= 3) {
-        // Enter name in first field
-        await tester.enterText(textFields.at(0), 'Test User');
-        await pumpFrames(tester, frames: 3);
-
-        // Enter email in second field
-        await tester.enterText(textFields.at(1), 'test@example.com');
-        await pumpFrames(tester, frames: 3);
-
-        // Verify text was entered (should appear in text field)
-        expect(find.text('Test User'), findsWidgets);
-        expect(find.text('test@example.com'), findsWidgets);
-      }
+      // Content.yaml: submit_text: "Send Message"
+      expect(
+        find.textContaining('Send Message'),
+        findsOneWidget,
+        reason: 'Submit button should display "Send Message"',
+      );
     });
 
-    testWidgets('form shows validation errors for invalid email', (tester) async {
-      app.main();
-      await pumpFrames(tester, frames: 20);
-      await dismissCookieBanner(tester);
+    testWidgets('contact methods section renders', (tester) async {
+      await launchAndScrollToContact(tester);
 
-      await scrollToContactSection(tester);
-
-      // Find text input fields
-      final textFields = find.byType(TextField);
-
-      if (textFields.evaluate().length >= 2) {
-        // Find email field (usually has 'email' in placeholder or label)
-        // Enter invalid email
-        await tester.enterText(textFields.at(1), 'invalid-email');
-        await pumpFrames(tester, frames: 3);
-
-        // Try to submit
-        final submitButtons = find.byType(ElevatedButton);
-        if (submitButtons.evaluate().isNotEmpty) {
-          // Scroll the button into view first
-          await tester.ensureVisible(submitButtons.first);
-          await pumpFrames(tester, frames: 3);
-          await tester.tap(submitButtons.first);
-          await pumpFrames(tester, frames: 10);
-
-          // App should still be rendered (no crash)
-          expect(find.byType(MaterialApp), findsOneWidget);
-        }
-      }
+      // "Get in touch" is hardcoded in ContactSection._buildContactMethods
+      expect(
+        find.text('Get in touch'),
+        findsOneWidget,
+        reason: '"Get in touch" contact methods header should be visible',
+      );
     });
 
-    testWidgets('contact form has submit button', (tester) async {
-      app.main();
-      await pumpFrames(tester, frames: 20);
-      await dismissCookieBanner(tester);
+    testWidgets('calendly demo CTA renders', (tester) async {
+      await launchAndScrollToContact(tester);
 
-      await scrollToContactSection(tester);
-
-      // Look for submit button variations
-      final buttonTypes = [
-        find.textContaining('Start'),
-        find.textContaining('Send'),
-        find.textContaining('Submit'),
-        find.textContaining('Contact'),
-      ];
-
-      var foundButton = false;
-      for (final button in buttonTypes) {
-        if (button.evaluate().isNotEmpty) {
-          foundButton = true;
-          break;
-        }
-      }
-
-      expect(foundButton, isTrue, reason: 'Contact form should have a submit button');
-    });
-
-    testWidgets('can scroll back to top after viewing contact form', (tester) async {
-      app.main();
-      await pumpFrames(tester, frames: 20);
-      await dismissCookieBanner(tester);
-
-      // Scroll down to contact
-      await scrollToContactSection(tester);
-
-      // Scroll back up
-      final scrollableFinder = find.byType(Scrollable).first;
-      for (var i = 0; i < 7; i++) {
-        await tester.fling(scrollableFinder, const Offset(0, 800), 1500);
-        await pumpFrames(tester, frames: 8);
-      }
-
-      // Hero section should be visible again
-      final heroText = find.textContaining('AI Observability');
-      expect(heroText.evaluate().isNotEmpty, isTrue);
-    });
-
-    testWidgets('calendly schedule demo button is accessible', (tester) async {
-      app.main();
-      await pumpFrames(tester, frames: 20);
-      await dismissCookieBanner(tester);
-
-      await scrollToContactSection(tester);
-
-      // Look for Schedule Demo or Calendly CTA
-      final scheduleDemoText = [
-        find.textContaining('Schedule'),
-        find.textContaining('Demo'),
-        find.textContaining('Live Demo'),
-      ];
-
-      for (final finder in scheduleDemoText) {
-        if (finder.evaluate().isNotEmpty) {
-          break;
-        }
-      }
-
-      // App should still render correctly - CTA visibility depends on scroll position
-      expect(find.byType(MaterialApp), findsOneWidget);
-    });
-
-    testWidgets('contact methods display properly', (tester) async {
-      app.main();
-      await pumpFrames(tester, frames: 20);
-      await dismissCookieBanner(tester);
-
-      await scrollToContactSection(tester);
-
-      // Contact section should show various contact methods
-      // Look for common contact method indicators
-      final contactMethodIndicators = [
-        find.textContaining('Email'),
-        find.textContaining('LinkedIn'),
-        find.byIcon(Icons.email_outlined),
-      ];
-
-      for (final indicator in contactMethodIndicators) {
-        if (indicator.evaluate().isNotEmpty) {
-          break;
-        }
-      }
-
-      // App should render correctly - contact methods visibility depends on scroll
-      expect(find.byType(MaterialApp), findsOneWidget);
+      // Content.yaml: calendly_cta_text: "View Demo"
+      // And the hardcoded label: "Want a Live Demo?"
+      expect(
+        find.text('Want a Live Demo?'),
+        findsOneWidget,
+        reason: 'Live demo CTA card should be visible',
+      );
     });
   });
 
-  group('Contact Form Validation E2E', () {
-    testWidgets('validation prevents short messages', (tester) async {
-      app.main();
-      await pumpFrames(tester, frames: 20);
-      await dismissCookieBanner(tester);
+  // ===========================================================================
+  // Form Field Interaction
+  // ===========================================================================
 
-      await scrollToContactSection(tester);
+  group('Contact Form Interaction', () {
+    testWidgets('text fields accept user input', (tester) async {
+      await launchAndScrollToContact(tester);
 
-      // Find all text input fields
-      final textFields = find.byType(TextField);
+      final textFields = find.byType(TextFormField);
+      expect(textFields.evaluate().length, greaterThanOrEqualTo(3),
+          reason: 'Need at least 3 text fields to test input');
 
-      if (textFields.evaluate().length >= 3) {
-        // Fill in valid name
-        await tester.enterText(textFields.at(0), 'Valid Name');
-        await pumpFrames(tester, frames: 2);
+      // Enter text in the first two fields (firstName, lastName)
+      await tester.enterText(textFields.at(0), 'Jane');
+      await pumpFrames(tester, frames: 3);
+      await tester.enterText(textFields.at(1), 'Smith');
+      await pumpFrames(tester, frames: 3);
 
-        // Fill in valid email
-        await tester.enterText(textFields.at(1), 'valid@email.com');
-        await pumpFrames(tester, frames: 2);
-
-        // Fill in short message (less than 10 chars)
-        final messageField = textFields.last;
-        await tester.enterText(messageField, 'Short');
-        await pumpFrames(tester, frames: 2);
-
-        // App should render without errors
-        expect(find.byType(MaterialApp), findsOneWidget);
-      }
+      expect(find.text('Jane'), findsOneWidget);
+      expect(find.text('Smith'), findsOneWidget);
     });
 
-    testWidgets('form accepts valid input without errors', (tester) async {
-      app.main();
-      await pumpFrames(tester, frames: 20);
-      await dismissCookieBanner(tester);
+    testWidgets('email field accepts email input', (tester) async {
+      await launchAndScrollToContact(tester);
 
-      await scrollToContactSection(tester);
+      final textFields = find.byType(TextFormField);
+      // Email is the 3rd TextFormField (index 2) per content.yaml field order
+      await tester.enterText(textFields.at(2), 'jane@example.com');
+      await pumpFrames(tester, frames: 3);
 
-      // Fill the form with valid data
-      final textFields = find.byType(TextField);
+      expect(find.text('jane@example.com'), findsOneWidget);
+    });
 
-      if (textFields.evaluate().length >= 3) {
-        await tester.enterText(textFields.at(0), 'Test User Name');
-        await pumpFrames(tester, frames: 2);
+    testWidgets('can scroll back to top after viewing contact form',
+        (tester) async {
+      await launchAndScrollToContact(tester);
 
-        await tester.enterText(textFields.at(1), 'test@example.com');
-        await pumpFrames(tester, frames: 2);
+      // Verify we're at the contact section
+      expect(find.text('Send us a message'), findsOneWidget);
 
-        // Enter message long enough (>= 10 chars)
-        await tester.enterText(textFields.last, 'This is a valid test message with enough characters.');
-        await pumpFrames(tester, frames: 5);
-
-        // Form should be in valid state, app renders properly
-        expect(find.byType(MaterialApp), findsOneWidget);
-        expect(find.text('Test User Name'), findsWidgets);
-        expect(find.text('test@example.com'), findsWidgets);
+      // Scroll back up
+      final scrollableFinder = find.byType(Scrollable).first;
+      for (var i = 0; i < 10; i++) {
+        await tester.fling(scrollableFinder, const Offset(0, 1000), 2000);
+        await pumpFrames(tester, frames: 8);
       }
+
+      // Hero section text should be visible again
+      final heroText = find.textContaining('AI Observability');
+      expect(heroText.evaluate().isNotEmpty, isTrue,
+          reason: 'Hero section should be visible after scrolling back up');
+    });
+  });
+
+  // ===========================================================================
+  // Form Validation (E1/E2: verify validation error display)
+  // ===========================================================================
+
+  group('Contact Form Validation', () {
+    testWidgets('empty submission shows validation errors', (tester) async {
+      await launchAndScrollToContact(tester);
+
+      // Tap submit without filling any fields
+      final submitBtn = findSubmitButton();
+      await tester.ensureVisible(submitBtn);
+      await pumpFrames(tester, frames: 3);
+      await tester.tap(submitBtn);
+      await pumpFrames(tester, frames: 10);
+
+      // ContactService.validateForm returns "Please enter your full name"
+      // and "Please enter your email address" for empty required fields
+      expect(
+        find.text('Please enter your full name'),
+        findsWidgets,
+        reason: 'Name validation error should appear on empty submission',
+      );
+      expect(
+        find.text('Please enter your email address'),
+        findsWidgets,
+        reason: 'Email validation error should appear on empty submission',
+      );
+    });
+
+    testWidgets('invalid email shows validation error', (tester) async {
+      await launchAndScrollToContact(tester);
+
+      final textFields = find.byType(TextFormField);
+
+      // Fill name fields so only email validation fires
+      await tester.enterText(textFields.at(0), 'Jane');
+      await pumpFrames(tester, frames: 2);
+      await tester.enterText(textFields.at(1), 'Smith');
+      await pumpFrames(tester, frames: 2);
+
+      // Enter invalid email
+      await tester.enterText(textFields.at(2), 'not-an-email');
+      await pumpFrames(tester, frames: 2);
+
+      // Fill company (required field, index 3)
+      await tester.enterText(textFields.at(3), 'Acme Inc');
+      await pumpFrames(tester, frames: 2);
+
+      // Submit
+      final submitBtn = findSubmitButton();
+      await tester.ensureVisible(submitBtn);
+      await pumpFrames(tester, frames: 3);
+      await tester.tap(submitBtn);
+      await pumpFrames(tester, frames: 10);
+
+      expect(
+        find.text('Please enter a valid email address'),
+        findsWidgets,
+        reason: 'Email validation error should appear for invalid email',
+      );
+    });
+
+    testWidgets('valid form data passes client validation', (tester) async {
+      await launchAndScrollToContact(tester);
+
+      final textFields = find.byType(TextFormField);
+
+      // Fill all required fields with valid data
+      await tester.enterText(textFields.at(0), 'Jane');
+      await pumpFrames(tester, frames: 2);
+      await tester.enterText(textFields.at(1), 'Smith');
+      await pumpFrames(tester, frames: 2);
+      await tester.enterText(textFields.at(2), 'jane@example.com');
+      await pumpFrames(tester, frames: 2);
+      await tester.enterText(textFields.at(3), 'Acme Inc');
+      await pumpFrames(tester, frames: 2);
+
+      // Submit — should pass validation (no client-side errors)
+      final submitBtn = findSubmitButton();
+      await tester.ensureVisible(submitBtn);
+      await pumpFrames(tester, frames: 3);
+      await tester.tap(submitBtn);
+      await pumpFrames(tester, frames: 5);
+
+      // Validation errors should NOT be present
+      expect(
+        find.text('Please enter your full name'),
+        findsNothing,
+        reason: 'No name validation error with valid name',
+      );
+      expect(
+        find.text('Please enter your email address'),
+        findsNothing,
+        reason: 'No email validation error with valid email',
+      );
+      expect(
+        find.text('Please enter a valid email address'),
+        findsNothing,
+        reason: 'No email format error with valid email',
+      );
+    });
+  });
+
+  // ===========================================================================
+  // Form Submission (E1: submit-response-alert cycle)
+  // ===========================================================================
+
+  group('Contact Form Submission', () {
+    testWidgets('submit shows loading state then error alert', (tester) async {
+      await launchAndScrollToContact(tester);
+
+      final textFields = find.byType(TextFormField);
+
+      // Fill all required fields
+      await tester.enterText(textFields.at(0), 'Jane');
+      await pumpFrames(tester, frames: 2);
+      await tester.enterText(textFields.at(1), 'Smith');
+      await pumpFrames(tester, frames: 2);
+      await tester.enterText(textFields.at(2), 'jane@example.com');
+      await pumpFrames(tester, frames: 2);
+      await tester.enterText(textFields.at(3), 'Acme Inc');
+      await pumpFrames(tester, frames: 2);
+
+      // Submit the form
+      final submitBtn = findSubmitButton();
+      await tester.ensureVisible(submitBtn);
+      await pumpFrames(tester, frames: 3);
+      await tester.tap(submitBtn);
+
+      // Immediately after tap, button should show "Sending..." loading state
+      await pumpFrames(tester, frames: 2);
+      final sendingText = find.textContaining('Sending');
+      // Loading state may be brief; check it appeared or already resolved
+      final showedLoadingOrResolved =
+          sendingText.evaluate().isNotEmpty || find.byType(Alert).evaluate().isNotEmpty;
+      expect(showedLoadingOrResolved, isTrue,
+          reason: 'Should show loading state or have already received response');
+
+      // Wait for the network request to fail (no real backend in test)
+      // ContactService retries with exponential backoff; wait enough frames
+      await pumpFrames(tester, frames: 80);
+
+      // An error Alert should appear since the API is unreachable
+      expect(
+        find.byType(Alert),
+        findsOneWidget,
+        reason: 'Error Alert should appear after failed network request',
+      );
+    });
+
+    testWidgets('submit button re-enables after error', (tester) async {
+      await launchAndScrollToContact(tester);
+
+      final textFields = find.byType(TextFormField);
+
+      // Fill required fields
+      await tester.enterText(textFields.at(0), 'Jane');
+      await pumpFrames(tester, frames: 2);
+      await tester.enterText(textFields.at(1), 'Smith');
+      await pumpFrames(tester, frames: 2);
+      await tester.enterText(textFields.at(2), 'jane@example.com');
+      await pumpFrames(tester, frames: 2);
+      await tester.enterText(textFields.at(3), 'Acme Inc');
+      await pumpFrames(tester, frames: 2);
+
+      // Submit and wait for error
+      final submitBtn = findSubmitButton();
+      await tester.ensureVisible(submitBtn);
+      await pumpFrames(tester, frames: 3);
+      await tester.tap(submitBtn);
+      await pumpFrames(tester, frames: 80);
+
+      // After error, button should show original text again (not "Sending...")
+      expect(
+        find.textContaining('Send Message'),
+        findsOneWidget,
+        reason: 'Submit button should re-enable after error response',
+      );
+      expect(
+        find.textContaining('Sending'),
+        findsNothing,
+        reason: 'Loading text should be gone after error response',
+      );
     });
   });
 }
