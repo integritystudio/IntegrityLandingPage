@@ -444,6 +444,113 @@ void main() {
         expect(errors.useCase, isNull);
       });
 
+      // ================================================================
+      // U5: Name exceeding maxNameLength (100)
+      // ================================================================
+
+      test('returns error for name exceeding max length', () {
+        final formData = ContactFormData(
+          name: 'A' * 101,
+          email: 'john@example.com',
+          message: 'Valid message here.',
+        );
+
+        final errors = ContactService.validateForm(formData);
+
+        expect(errors.name, isNotNull);
+        expect(errors.name, contains('100'));
+      });
+
+      test('accepts name at max length', () {
+        final formData = ContactFormData(
+          name: 'A' * 100,
+          email: 'john@example.com',
+          message: 'Valid message here.',
+        );
+
+        final errors = ContactService.validateForm(formData);
+
+        expect(errors.name, isNull);
+      });
+
+      // ================================================================
+      // U6: Email exceeding maxEmailLength (254)
+      // ================================================================
+
+      test('returns error for email exceeding max length', () {
+        // 264 chars: exceeds 254 limit, hits length check in validateForm
+        final formData = ContactFormData(
+          name: 'John Doe',
+          email: '${'a' * 246}@test.com', // 255 chars > 254 limit
+          message: 'Valid message here.',
+        );
+
+        final errors = ContactService.validateForm(formData);
+
+        expect(errors.email, isNotNull);
+        expect(errors.email, contains('254'));
+      });
+
+      // ================================================================
+      // U7: Organization exceeding maxOrganizationLength (200)
+      // ================================================================
+
+      test('returns error for organization exceeding max length', () {
+        final formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          organization: 'A' * 201,
+          message: 'Valid message here.',
+        );
+
+        final errors = ContactService.validateForm(formData);
+
+        expect(errors.organization, isNotNull);
+        expect(errors.organization, contains('200'));
+      });
+
+      test('accepts organization at max length', () {
+        final formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          organization: 'A' * 200,
+          message: 'Valid message here.',
+        );
+
+        final errors = ContactService.validateForm(formData);
+
+        expect(errors.organization, isNull);
+      });
+
+      // ================================================================
+      // U8: Message exceeding maxMessageLength (5000)
+      // ================================================================
+
+      test('returns error for message exceeding max length', () {
+        final formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'A' * 5001,
+        );
+
+        final errors = ContactService.validateForm(formData);
+
+        expect(errors.message, isNotNull);
+        expect(errors.message, contains('5000'));
+      });
+
+      test('accepts message at max length', () {
+        final formData = ContactFormData(
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'A' * 5000,
+        );
+
+        final errors = ContactService.validateForm(formData);
+
+        expect(errors.message, isNull);
+      });
+
       test('returns multiple errors at once', () {
         const formData = ContactFormData(
           name: '',
@@ -778,6 +885,284 @@ void main() {
         final error = response as ContactFormError;
         expect(error.retryAfterSeconds, equals(30));
         expect(error.error, contains('30 seconds'));
+      });
+
+      // ================================================================
+      // U1: 504 gateway timeout retry + exhaustion
+      // ================================================================
+
+      test('retries on 504 gateway timeout then succeeds', () async {
+        var callCount = 0;
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async {
+          callCount++;
+          if (callCount == 1) {
+            return Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 504,
+              data: {'error': 'Gateway Timeout'},
+            );
+          }
+          return Response(
+            requestOptions: RequestOptions(path: ''),
+            statusCode: 200,
+            data: {
+              'success': true,
+              'message': 'Sent!',
+              'submissionId': 'sub_504_retry',
+            },
+          );
+        });
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormSuccess>());
+        expect(callCount, equals(2));
+      });
+
+      test('returns error after exhausting 504 retries', () async {
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 504,
+              data: {'error': 'Gateway Timeout'},
+            ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormError>());
+        final error = response as ContactFormError;
+        expect(error.error, contains('timeout'));
+        // 3 total attempts: 1 initial + 2 retries
+        verify(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).called(3);
+      });
+
+      // ================================================================
+      // U2: Non-Dio exception in submitForm
+      // ================================================================
+
+      test('handles non-Dio exception in submitForm', () async {
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenThrow(const FormatException('Unexpected response format'));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormError>());
+        final error = response as ContactFormError;
+        expect(error.error, contains('unexpected'));
+        // Non-Dio exceptions are not retried
+        verify(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).called(1);
+      });
+
+      // ================================================================
+      // U3: 429 without Retry-After header (seconds == null)
+      // ================================================================
+
+      test('handles 429 without Retry-After header', () async {
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 429,
+              headers: Headers(),
+              data: {
+                'error': 'Too many requests.',
+              },
+            ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormError>());
+        final error = response as ContactFormError;
+        expect(error.retryAfterSeconds, isNull);
+        expect(error.error, contains('try again later'));
+      });
+
+      // ================================================================
+      // U4: receiveTimeout retry path
+      // ================================================================
+
+      test('retries on receiveTimeout and returns error after exhaustion',
+          () async {
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenThrow(DioException(
+          type: DioExceptionType.receiveTimeout,
+          requestOptions: RequestOptions(path: ''),
+        ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormError>());
+        final error = response as ContactFormError;
+        expect(error.error, contains('timed out'));
+        // Should retry: 3 total attempts
+        verify(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).called(3);
+      });
+
+      test('retries on connectionError and returns error after exhaustion',
+          () async {
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenThrow(DioException(
+          type: DioExceptionType.connectionError,
+          requestOptions: RequestOptions(path: ''),
+        ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormError>());
+        final error = response as ContactFormError;
+        expect(error.error, contains('Network error'));
+        // Should retry: 3 total attempts
+        verify(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).called(3);
+      });
+
+      // ================================================================
+      // U9: 200 response with success: false
+      // ================================================================
+
+      test('returns error for 200 response with success: false', () async {
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 200,
+              data: {
+                'success': false,
+                'error': 'Invalid company domain',
+              },
+            ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormError>());
+        final error = response as ContactFormError;
+        expect(error.error, equals('Invalid company domain'));
+      });
+
+      // ================================================================
+      // U10: Success response with null message/submissionId
+      // ================================================================
+
+      test('uses fallback defaults when success response has null fields',
+          () async {
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: 200,
+              data: {
+                'success': true,
+                // message and submissionId are null
+              },
+            ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormSuccess>());
+        final success = response as ContactFormSuccess;
+        expect(success.message, contains('Thank you'));
+        expect(success.submissionId, startsWith('sub_'));
       });
 
       test('does not retry on non-retryable errors', () async {
