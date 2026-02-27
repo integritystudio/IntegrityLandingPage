@@ -133,7 +133,7 @@ void main() {
       final textAreas = find.byType(TextField);
       for (var i = 0; i < textAreas.evaluate().length; i++) {
         final widget = tester.widget<TextField>(textAreas.at(i));
-        if (widget.maxLines == null || widget.maxLines! > 1) {
+        if (widget.maxLines != null && widget.maxLines! > 1) {
           await tester.enterText(textAreas.at(i), text);
           await tester.pump();
           return;
@@ -166,6 +166,7 @@ void main() {
     Widget buildRouterWidget({
       required ContactContent content,
       String demoRoute = '/demo',
+      Size screenSize = TestScreenSizes.desktopLarge,
     }) {
       final router = GoRouter(
         initialLocation: '/',
@@ -184,7 +185,10 @@ void main() {
           ),
         ],
       );
-      return MaterialApp.router(routerConfig: router);
+      return MediaQuery(
+        data: MediaQueryData(size: screenSize),
+        child: MaterialApp.router(routerConfig: router),
+      );
     }
 
     // ==========================================================================
@@ -489,16 +493,10 @@ void main() {
           },
         ));
 
-        // Fill firstName and lastName
-        final textFields = find.byType(TextFormField);
-        await tester.enterText(textFields.at(0), 'Jane');
-        await tester.pump();
-        await tester.enterText(textFields.at(1), 'Smith');
-        await tester.pump();
-
-        // Fill email
-        await tester.enterText(textFields.at(2), 'jane@example.com');
-        await tester.pump();
+        // Fill firstName, lastName, and email by key — safe against field reordering
+        await tester.enterText(find.byKey(const ValueKey('firstName')), 'Jane');
+        await tester.enterText(find.byKey(const ValueKey('lastName')), 'Smith');
+        await tester.enterText(find.byKey(const ValueKey('email')), 'jane@example.com');
 
         await fillTextarea(tester, 'Test message for name building');
 
