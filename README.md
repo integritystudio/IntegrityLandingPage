@@ -23,20 +23,32 @@ flutter build web        # Production build
 | [Architecture](docs/architecture.md) | Tech stack, patterns, directory structure |
 | [Routes](docs/routes.md) | GoRouter configuration, 27 routes |
 | [Changelog](docs/CHANGELOG.md) | Version history, recent changes |
+| [BACKLOG](docs/BACKLOG.md) | documented backlog items
 | [SOC 2 Type II Compliance](docs/SOC2-COMPLIANCE-REPORT.md) | Compliance documentation |
 
 ## Project Structure
 
 ```
 lib/
-├── pages/       # 26 page widgets
-├── widgets/     # Reusable components
-├── services/    # Content loading, analytics, consent
-├── routing/     # GoRouter configuration
-└── theme/       # Design system
+├── config/           # Content configuration
+│   └── content/      # Static content definitions
+├── controllers/      # Business logic controllers
+├── models/           # Data models
+├── pages/            # Page widgets (26 pages)
+├── providers/        # Provider setup
+├── routing/          # GoRouter configuration
+├── services/         # External service integrations (analytics, consent, contact)
+├── theme/            # Design system (colors, decorations, spacing, typography)
+├── widgets/          # Reusable components
+│   ├── common/       # Shared widgets
+│   ├── consent/      # Cookie consent UI
+│   ├── decorative/   # Visual elements
+│   ├── docs/         # Documentation components
+│   ├── modals/       # Dialog components
+│   └── sections/     # Page sections
+├── app.dart          # Main App widget
+└── main.dart         # Application entry point
 ```
-
-See [docs/architecture.md](docs/architecture.md) for detailed breakdown.
 
 ## Testing
 
