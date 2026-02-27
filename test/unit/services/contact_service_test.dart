@@ -592,10 +592,12 @@ void main() {
       setUp(() {
         mockDio = MockDio();
         ContactService.setDioForTesting(mockDio);
+        ContactService.retryDelay = (_) async {};
       });
 
       tearDown(() {
         ContactService.resetDio();
+        ContactService.resetRetryDelay();
       });
 
       test('returns error for invalid form data', () async {
