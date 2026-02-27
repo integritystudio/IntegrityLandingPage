@@ -45,12 +45,22 @@ interface RateLimitResult {
 // Uses Worker global scope - persists across requests within an isolate.
 const inMemoryRateLimit = new Map<string, RateLimitData>();
 const MAX_IN_MEMORY_ENTRIES = 10000;
+// Soft threshold: trigger expired-entry cleanup before eviction
+const IN_MEMORY_CLEANUP_THRESHOLD = 1000;
 
 // Circuit breaker: track consecutive KV failures
 // Threshold set to 10 to prevent single-attacker trips (see backlog #22)
 let kvFailureCount = 0;
 const KV_CIRCUIT_BREAKER_THRESHOLD = 10;
 let kvCircuitResetAt = 0;
+// Cooldown before retrying KV after circuit opens
+const KV_CIRCUIT_RESET_COOLDOWN_MS = 60_000;
+// Random jitter added to cooldown to avoid thundering herd on recovery
+const KV_CIRCUIT_RESET_JITTER_MS = 30_000;
+// Minimum KV TTL to prevent immediate expiry on short windows
+const MIN_KV_TTL_SECONDS = 60;
+// TTL for idempotency keys to prevent duplicate submission processing (5 min)
+const IDEMPOTENCY_TTL_SECONDS = 300;
 
 /**
  * In-memory rate limiting fallback.
@@ -74,7 +84,7 @@ function checkInMemoryRateLimit(
   inMemoryRateLimit.set(ip, data);
 
   // Cleanup: remove expired entries when map grows large
-  if (inMemoryRateLimit.size > 1000) {
+  if (inMemoryRateLimit.size > IN_MEMORY_CLEANUP_THRESHOLD) {
     for (const [key, val] of inMemoryRateLimit) {
       if (val.resetAt < now) {
         inMemoryRateLimit.delete(key);
@@ -151,7 +161,7 @@ async function checkRateLimit(
     }
 
     const ttl = Math.ceil((data.resetAt - now) / 1000);
-    await env.RATE_LIMIT_KV.put(key, JSON.stringify(data), { expirationTtl: Math.max(ttl, 60) });
+    await env.RATE_LIMIT_KV.put(key, JSON.stringify(data), { expirationTtl: Math.max(ttl, MIN_KV_TTL_SECONDS) });
 
     // KV succeeded - reset failure count
     kvFailureCount = 0;
@@ -163,9 +173,9 @@ async function checkRateLimit(
     };
   } catch (error) {
     kvFailureCount++;
-    // Jittered cooldown: 60-90s to avoid thundering herd on recovery
-    const jitter = Math.floor(Math.random() * 30_000);
-    kvCircuitResetAt = now + 60_000 + jitter;
+    // Jittered cooldown: avoid thundering herd on recovery
+    const jitter = Math.floor(Math.random() * KV_CIRCUIT_RESET_JITTER_MS);
+    kvCircuitResetAt = now + KV_CIRCUIT_RESET_COOLDOWN_MS + jitter;
 
     console.error(JSON.stringify({
       level: 'error',
@@ -638,7 +648,7 @@ Sent from IntegrityStudio.ai contact form at ${new Date().toISOString()}
           await env.RATE_LIMIT_KV.put(
             `idempotency:${idempotencyKey}`,
             successBody,
-            { expirationTtl: 300 }
+            { expirationTtl: IDEMPOTENCY_TTL_SECONDS }
           );
         } catch {
           // KV error - response still succeeds, just no dedup protection
