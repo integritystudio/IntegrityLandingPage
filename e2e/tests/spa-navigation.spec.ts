@@ -22,7 +22,6 @@ test.describe('SPA Navigation', () => {
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
         consoleErrors.push(msg.text());
-        console.log('Browser error:', msg.text());
       }
     });
 

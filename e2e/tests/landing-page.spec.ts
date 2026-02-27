@@ -3,10 +3,11 @@ import { waitForFlutter, assertFlutterRendering } from './helpers';
 
 test.describe('IntegrityStudio Landing Page', () => {
   test.beforeEach(async ({ page }) => {
-    // Capture console errors
+    // Capture console errors silently — check screenshots and test assertions for debugging
     page.on('console', msg => {
       if (msg.type() === 'error') {
-        console.log('Browser error:', msg.text());
+        // Errors are available via Playwright trace/screenshot on failure
+        void msg.text();
       }
     });
 
@@ -24,8 +25,6 @@ test.describe('IntegrityStudio Landing Page', () => {
                document.querySelector('canvas'));
     });
     expect(hasFlutterView).toBe(true);
-
-    console.log('Flutter app loaded successfully!');
   });
 
   test('should render landing page content', async ({ page }) => {
