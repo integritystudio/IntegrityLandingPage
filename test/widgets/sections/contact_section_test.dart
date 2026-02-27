@@ -17,6 +17,10 @@ import '../../unit/services/contact_service_test.mocks.dart';
 
 void main() {
   group('ContactSection', () {
+    // Ensure AppContent is loaded before any test in this group,
+    // including content structure tests that access AppContent directly.
+    setUpAll(() => initializeTestContent());
+
     // ==========================================================================
     // Test Fixtures
     // ==========================================================================
@@ -43,6 +47,16 @@ void main() {
       );
     }
 
+    // Static section headings defined in ContactSection widget (not content-driven).
+    // If the widget copy changes, update these constants to match.
+    const kSectionGetInTouch = 'Get in touch';
+    const kSectionFollowUs = 'Follow us';
+    const kSectionSendMessage = 'Send us a message';
+    const kSectionLiveDemo = 'Want a Live Demo?';
+
+    // Intentionally uses desktopLarge (1920×1080) — wider than the shared
+    // setDesktopSize helper (1440×900) to keep all contact section columns
+    // visible and prevent overflow in layout-sensitive tests.
     void setLargeViewport(WidgetTester tester) =>
         setScreenSize(tester, TestScreenSizes.desktopLarge);
 
@@ -132,13 +146,10 @@ void main() {
     /// Uses ValueKey-based selectors — safe against field reordering.
     Future<void> fillAndSubmitForm(WidgetTester tester) async {
       await tester.enterText(find.byKey(const ValueKey('name')), 'John Doe');
-      await tester.pump();
       await tester.enterText(find.byKey(const ValueKey('email')), 'john@example.com');
-      await tester.pump();
-
       await fillTextarea(tester, 'This is a test message with enough characters');
 
-      // Scroll and submit
+      // Settle all field rebuilds before scrolling and submitting
       await tester.drag(
           find.byType(SingleChildScrollView), const Offset(0, -500));
       await tester.pumpAndSettle();
@@ -150,6 +161,32 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    /// Wraps [content] in a GoRouter with an optional [demoRoute] destination.
+    /// Use for tests that need to verify GoRouter navigation behavior.
+    Widget buildRouterWidget({
+      required ContactContent content,
+      String demoRoute = '/demo',
+    }) {
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => Scaffold(
+              body: SingleChildScrollView(child: ContactSection(content: content)),
+            ),
+          ),
+          GoRoute(
+            path: demoRoute,
+            builder: (context, state) => const Scaffold(
+              body: Center(child: Text('Demo Page')),
+            ),
+          ),
+        ],
+      );
+      return MaterialApp.router(routerConfig: router);
+    }
+
     // ==========================================================================
     // Content Tests (no widget rendering needed)
     // ==========================================================================
@@ -157,19 +194,22 @@ void main() {
     group('content structure', () {
       test('form fields are defined', () {
         expect(AppContent.contact.formFields, isNotEmpty);
-        expect(AppContent.contact.formFields.length, equals(7));
+        final fieldNames =
+            AppContent.contact.formFields.map((f) => f.name).toList();
+        expect(fieldNames, containsAll(
+            ['firstName', 'lastName', 'email', 'company', 'companySize', 'useCase', 'message']));
       });
 
       test('contact methods are defined with expected values', () {
-        expect(AppContent.contact.contactMethods.length, equals(5));
-
         final labels =
             AppContent.contact.contactMethods.map((m) => m.label).toList();
         expect(labels, containsAll(['Email', 'LinkedIn', 'GitHub', 'Location', 'Schedule a Demo']));
 
-        final primaryMethods =
-            AppContent.contact.contactMethods.where((m) => m.isPrimary);
-        expect(primaryMethods.length, equals(2));
+        final primaryLabels = AppContent.contact.contactMethods
+            .where((m) => m.isPrimary)
+            .map((m) => m.label)
+            .toList();
+        expect(primaryLabels, containsAll(['Email', 'Schedule a Demo']));
       });
 
       test('required fields count is sufficient', () {
@@ -196,10 +236,10 @@ void main() {
         expect(find.text(AppContent.contact.calendlyCtaText), findsWidgets);
 
         // UI sections
-        expect(find.text('Get in touch'), findsOneWidget);
-        expect(find.text('Follow us'), findsOneWidget);
-        expect(find.text('Send us a message'), findsOneWidget);
-        expect(find.text('Want a Live Demo?'), findsOneWidget);
+        expect(find.text(kSectionGetInTouch), findsOneWidget);
+        expect(find.text(kSectionFollowUs), findsOneWidget);
+        expect(find.text(kSectionSendMessage), findsOneWidget);
+        expect(find.text(kSectionLiveDemo), findsOneWidget);
       });
 
       testWidgets('renders form field widgets', (tester) async {
@@ -217,7 +257,7 @@ void main() {
 
         for (final field in AppContent.contact.formFields) {
           final labelText = field.required ? '${field.label} *' : field.label;
-          expect(find.text(labelText), findsWidgets);
+          expect(find.text(labelText), findsOneWidget);
         }
       });
     });
@@ -355,15 +395,15 @@ void main() {
       });
 
       // ================================================================
-      // W3: Field errors from ContactFormError.fieldErrors
+      // W3: Error alert when callback returns false
+      // Note: onFormSubmit path doesn't support per-field errors.
+      // Field-level error rendering is tested in 'ContactService submitForm path'.
       // ================================================================
 
-      testWidgets('displays server-returned field errors', (tester) async {
+      testWidgets('displays generic error alert when callback returns false',
+          (tester) async {
         setLargeViewport(tester);
 
-        // Simulate a submission that returns false with field-level errors
-        // Note: the onFormSubmit callback path doesn't support fieldErrors,
-        // so we test the error alert path and note this limitation.
         await tester.pumpWidget(buildTestWidget(
           content: minimalFormContent(errorMessage: 'Please fix errors'),
           onFormSubmit: (data) async => false,
@@ -396,8 +436,8 @@ void main() {
           ),
         ));
 
-        // "Want a Live Demo?" should not appear when showLiveDemoSection=false
-        expect(find.text('Want a Live Demo?'), findsNothing);
+        // Live demo section should not appear when showLiveDemoSection=false
+        expect(find.text(kSectionLiveDemo), findsNothing);
       });
 
       // ================================================================
@@ -877,8 +917,7 @@ void main() {
     // ==========================================================================
 
     group('content variations', () {
-      testWidgets('renders with empty content (falls back to AppContent)',
-          (tester) async {
+      testWidgets('renders with partial content override', (tester) async {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
@@ -906,7 +945,7 @@ void main() {
           ),
         ));
 
-        expect(find.text('Want a Live Demo?'), findsNothing);
+        expect(find.text(kSectionLiveDemo), findsNothing);
       });
 
       testWidgets('does not render follow us section when no secondary methods',
@@ -930,7 +969,7 @@ void main() {
           ),
         ));
 
-        expect(find.text('Follow us'), findsNothing);
+        expect(find.text(kSectionFollowUs), findsNothing);
       });
     });
 
@@ -1022,6 +1061,9 @@ void main() {
 
     // ==========================================================================
     // W1: ContactService.submitForm path (no onFormSubmit callback)
+    // This path also exercises FacebookPixelService.trackContact/trackLead.
+    // FB Pixel calls are no-ops in test (!kIsWeb), so success here proves the
+    // full ContactService path completed without throwing.
     // ==========================================================================
 
     group('ContactService submitForm path', () {
@@ -1151,63 +1193,6 @@ void main() {
     });
 
     // ==========================================================================
-    // W4: Facebook Pixel tracking on success (exercises FB Pixel code path)
-    // ==========================================================================
-
-    group('Facebook Pixel tracking on ContactService success', () {
-      late MockDio mockDio;
-
-      setUp(() {
-        mockDio = MockDio();
-        ContactService.setDioForTesting(mockDio);
-
-        when(mockDio.get(any)).thenAnswer((_) async => Response(
-              requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
-              data: {'csrfToken': 'test_csrf_token'},
-            ));
-      });
-
-      tearDown(() {
-        ContactService.resetDio();
-      });
-
-      testWidgets(
-          'success via ContactService runs FB Pixel calls without error',
-          (tester) async {
-        setLargeViewport(tester);
-
-        when(mockDio.post(
-          any,
-          data: anyNamed('data'),
-          options: anyNamed('options'),
-        )).thenAnswer((_) async => Response(
-              requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
-              data: {
-                'success': true,
-                'message': 'Submitted!',
-                'submissionId': 'sub_fb_test',
-              },
-            ));
-
-        await tester.pumpWidget(buildTestWidget(
-          content: minimalFormContent(),
-          // NO onFormSubmit — exercises the ContactService path which
-          // calls FacebookPixelService.trackContact and trackLead
-        ));
-
-        await fillAndSubmitForm(tester);
-
-        // Success alert proves the full ContactService path completed,
-        // including the FacebookPixelService calls (no-ops in test since
-        // !kIsWeb, but the code path executed without throwing)
-        expect(find.byType(Alert), findsOneWidget);
-        expect(find.text('Submitted!'), findsOneWidget);
-      });
-    });
-
-    // ==========================================================================
     // W5: Calendly URL internal route (startsWith('/'))
     // ==========================================================================
 
@@ -1216,42 +1201,20 @@ void main() {
           (tester) async {
         setLargeViewport(tester);
 
-        final router = GoRouter(
-          initialLocation: '/',
-          routes: [
-            GoRoute(
-              path: '/',
-              builder: (context, state) => Scaffold(
-                body: SingleChildScrollView(
-                  child: ContactSection(
-                    content: testContent(
-                      formFields: [
-                        ContactFormFieldContent(
-                          name: 'message',
-                          label: 'Message',
-                          type: 'textarea',
-                          placeholder: '',
-                          required: true,
-                        ),
-                      ],
-                      calendlyUrl: '/demo',
-                      calendlyCtaText: 'View Demo',
-                    ),
-                  ),
-                ),
+        await tester.pumpWidget(buildRouterWidget(
+          content: testContent(
+            formFields: [
+              ContactFormFieldContent(
+                name: 'message',
+                label: 'Message',
+                type: 'textarea',
+                placeholder: '',
+                required: true,
               ),
-            ),
-            GoRoute(
-              path: '/demo',
-              builder: (context, state) => const Scaffold(
-                body: Center(child: Text('Demo Page')),
-              ),
-            ),
-          ],
-        );
-
-        await tester.pumpWidget(MaterialApp.router(
-          routerConfig: router,
+            ],
+            calendlyUrl: '/demo',
+            calendlyCtaText: 'View Demo',
+          ),
         ));
         await tester.pumpAndSettle();
 
@@ -1268,11 +1231,13 @@ void main() {
         expect(find.text('Demo Page'), findsOneWidget);
       });
 
-      testWidgets('external calendly URL does not use GoRouter',
+      testWidgets('external calendly URL does not navigate via GoRouter',
           (tester) async {
         setLargeViewport(tester);
 
-        await tester.pumpWidget(buildTestWidget(
+        // Use buildRouterWidget so we can detect if GoRouter is incorrectly
+        // invoked — tapping an external URL must NOT navigate to /demo.
+        await tester.pumpWidget(buildRouterWidget(
           content: testContent(
             formFields: [
               ContactFormFieldContent(
@@ -1287,11 +1252,16 @@ void main() {
             calendlyCtaText: 'Book Demo',
           ),
         ));
+        await tester.pumpAndSettle();
 
-        // External URL button renders
+        // Tap the external URL button
         expect(find.text('Book Demo'), findsOneWidget);
-        // Widget still renders (no navigation to internal route)
-        expect(find.text('Want a Live Demo?'), findsOneWidget);
+        await tester.tap(find.text('Book Demo'));
+        await tester.pumpAndSettle();
+
+        // Route must not have changed — ContactSection still visible, not Demo Page
+        expect(find.text(kSectionLiveDemo), findsOneWidget);
+        expect(find.text('Demo Page'), findsNothing);
       });
     });
   });
