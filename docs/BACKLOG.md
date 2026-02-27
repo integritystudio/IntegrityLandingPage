@@ -47,74 +47,23 @@ CSP report-uri/report-to endpoints shared across staging/production. Staging is 
 
 ## Code Quality: ast-grep Review Findings (2026-02-25)
 
-### #31: console.log in e2e tests
+### #31: console.log in e2e tests ✅ Done
 
 **Severity:** WARNING
 **Category:** Code Quality
-**Rule:** `no-console-log`
-
-| File | Line | Code |
-|------|------|------|
-| `e2e/tests/landing-page.spec.ts` | 8 | `console.log('Browser error:', msg.text())` |
-| `e2e/tests/landing-page.spec.ts` | 27 | `console.log('Flutter app loaded successfully!')` |
-| `e2e/tests/spa-navigation.spec.ts` | 24 | `console.log('Browser error:', msg.text())` |
-
-**Fix:** Replace with a silent handler or Playwright's built-in `page.on('console')` filtering. Remove line 27 entirely (debug artifact).
+**Resolved:** 2026-02-27 — console.log calls replaced with array capture + afterEach warning pattern in both spec files. Debug artifact on line 27 removed.
 
 ---
 
-### #32: `let` used where `const` suffices — `kvFailureCount`
+### #32-36: `let` used where `const` suffices — kvFailureCount, kvCircuitResetAt, evicted, mismatch, i ✅ False Positives
 
 **Severity:** INFO
 **Category:** Code Quality
-**Rule:** `prefer-const`
-**File:** `workers/contact-form/src/index.ts:50`
-**Code:** `let kvFailureCount = 0;`
-**Fix:** Verify runtime reassignment. If module-scoped and mutated, this is a false positive; otherwise use `const`.
+**Resolved:** 2026-02-27 — All verified as reassigned:
+- `kvFailureCount` / `kvCircuitResetAt`: module-scoped circuit breaker state, mutated by request handlers
+- `evicted` / `mismatch` / `i`: mutated in loop bodies via `++`, `|=`, `++`
 
----
-
-### #33: `let` used where `const` suffices — `kvCircuitResetAt`
-
-**Severity:** INFO
-**Category:** Code Quality
-**Rule:** `prefer-const`
-**File:** `workers/contact-form/src/index.ts:52`
-**Code:** `let kvCircuitResetAt = 0;`
-**Fix:** Same as #32 — verify runtime reassignment.
-
----
-
-### #34: `let` used where `const` suffices — `evicted`
-
-**Severity:** INFO
-**Category:** Code Quality
-**Rule:** `prefer-const`
-**File:** `workers/contact-form/src/index.ts:87`
-**Code:** `let evicted = 0;`
-**Fix:** Replace with `const` if value is never reassigned in its scope.
-
----
-
-### #35: `let` used where `const` suffices — `mismatch`
-
-**Severity:** INFO
-**Category:** Code Quality
-**Rule:** `prefer-const`
-**File:** `workers/contact-form/src/index.ts:251`
-**Code:** `let mismatch = 0;`
-**Fix:** Replace with `const` if value is never reassigned in its scope.
-
----
-
-### #36: `let` used where `const` suffices — `i`
-
-**Severity:** INFO
-**Category:** Code Quality
-**Rule:** `prefer-const`
-**File:** `workers/contact-form/src/index.ts:252`
-**Code:** `let i = 0;`
-**Fix:** If used as a loop counter with reassignment, this is a false positive. Otherwise use `const`.
+All five are correctly typed as `let`; ast-grep rule produced false positives.
 
 ---
 
@@ -129,13 +78,46 @@ CSP report-uri/report-to endpoints shared across staging/production. Staging is 
 
 ---
 
-### #38: Magic numbers in contact-form worker
+### #38: Magic numbers in contact-form worker ✅ Done
 
 **Severity:** LOW
 **Category:** Code Quality
-**Rule:** `magic-number`
-**File:** `workers/contact-form/src/index.ts`
-**Fix:** Extract rate-limit thresholds, timeout values, and HTTP status codes into a config/constants block at the top of the file.
+**Resolved:** 2026-02-27 — Added `IN_MEMORY_CLEANUP_THRESHOLD`, `KV_CIRCUIT_RESET_COOLDOWN_MS`, `KV_CIRCUIT_RESET_JITTER_MS`, `MIN_KV_TTL_SECONDS`, `IDEMPOTENCY_TTL_SECONDS`. All inline literals replaced.
+
+---
+
+## Code Quality: contact_section_test.dart Review (2026-02-26)
+
+Findings from expert code-reviewer audit. H1, H3, H4, M3, M8, M9 were fixed this session.
+
+### #39: Index-based field selectors in fillAndSubmitForm (H2) ✅ Done
+
+**Severity:** HIGH
+**Category:** Test Quality
+**Resolved:** 2026-02-27 — Added `key: ValueKey(field.name)` to all form field widgets in `_buildField`. Migrated `fillAndSubmitForm` and 3 additional inline test locations to `find.byKey()` selectors.
+
+---
+
+### #40-45: contact_section_test MEDIUM issues ✅ Done
+
+**Resolved:** 2026-02-27
+- **#40**: Magic integers → `containsAll` on field/method names
+- **#41**: Renamed misleading test to `'displays generic error alert when callback returns false'`
+- **#42**: Extracted section heading constants (`kSectionGetInTouch`, `kSectionFollowUs`, `kSectionSendMessage`, `kSectionLiveDemo`)
+- **#43**: Added `setUpAll(() => initializeTestContent())` at outer group scope
+- **#44**: Extracted `buildRouterWidget` helper; W5 GoRouter test reduced from 35 inline lines
+- **#45**: Removed W4 Facebook Pixel duplicate group; added documentation comment to W1
+
+---
+
+### #46-50: contact_section_test LOW issues ✅ Done
+
+**Resolved:** 2026-02-27
+- **#46**: Added comment to `setLargeViewport` explaining 1920×1080 vs shared 1440×900 intent
+- **#47**: Renamed `'renders with empty content'` → `'renders with partial content override'`
+- **#48**: Wrapped external URL test in `buildRouterWidget`; asserts `'Demo Page' findsNothing` after tap
+- **#49**: Consolidated redundant `pump()` calls in `fillAndSubmitForm` and 3 inline fill sites
+- **#50**: Changed `findsWidgets` → `findsOneWidget` for form label assertions
 
 ---
 
@@ -146,10 +128,14 @@ CSP report-uri/report-to endpoints shared across staging/production. Staging is 
 | #8-10 OAuth (deferred) | CRITICAL | Security | N/A until OAuth backend |
 | #23 KV consistency | HIGH | Reliability | Accepted risk |
 | #30 Multi-env CSP | LOW | Infrastructure | Accepted |
-| #31 console.log in e2e | WARNING | Code Quality | Open |
-| #32-36 prefer-const (5) | INFO | Code Quality | Open — verify reassignment |
-| #37-38 magic numbers | LOW | Code Quality | Open |
+| #31 console.log in e2e | WARNING | Code Quality | ✅ Done — 2026-02-27 |
+| #32-36 prefer-const (5) | INFO | Code Quality | ✅ False positive — all vars are reassigned (module-scoped circuit breaker state and loop counters) |
+| #37 magic numbers in e2e tests | LOW | Code Quality | Open — 117 instances, deferred |
+| #38 magic numbers in worker | LOW | Code Quality | ✅ Done — 2026-02-27 |
+| #39 Index-based field selectors | HIGH | Test Quality | ✅ Done — 2026-02-27 (ValueKey added to widget + all test selectors migrated) |
+| #40-45 contact_section_test (6) | MEDIUM | Test Quality | ✅ Done — 2026-02-27 |
+| #46-50 contact_section_test (5) | LOW | Test Quality | ✅ Done — 2026-02-27 |
 
 ---
 
-*Last updated: 2026-02-25 | Added #31-#38 from ast-grep code review*
+*Last updated: 2026-02-27 | Resolved #31, #38, #39, #40-50 | #32-36 verified false positives | #37 deferred*
