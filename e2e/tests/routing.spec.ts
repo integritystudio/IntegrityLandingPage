@@ -30,7 +30,8 @@ test.describe('Routing and Redirects', () => {
     ];
 
     for (const route of spaRoutes) {
-      test(`${route.name} (${route.path}) loads Flutter app`, async ({ page }) => {
+      test(`${route.name} (${route.path}) loads Flutter app`, async ({ page, browserName }) => {
+        test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
         const response = await page.goto(route.path, {
           waitUntil: 'domcontentloaded',
         });
@@ -109,7 +110,8 @@ test.describe('Routing and Redirects', () => {
   });
 
   test.describe('Blog Routing', () => {
-    test('/blog serves Flutter SPA (listing page)', async ({ page }) => {
+    test('/blog serves Flutter SPA (listing page)', async ({ page, browserName }) => {
+      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
       const response = await page.goto('/blog', {
         waitUntil: 'domcontentloaded',
       });
@@ -123,7 +125,8 @@ test.describe('Routing and Redirects', () => {
       await waitForFlutter(page);
     });
 
-    test('/blog path pattern is correctly configured', async ({ page }) => {
+    test('/blog path pattern is correctly configured', async ({ page, browserName }) => {
+      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
       // Verify /blog loads as SPA (not 404)
       const response = await page.goto('/blog', { waitUntil: 'domcontentloaded' });
       expect(response?.status()).toBe(200);
@@ -174,7 +177,8 @@ test.describe('Routing and Redirects', () => {
   });
 
   test.describe('404 Handling', () => {
-    test('Unknown routes serve SPA (soft 404)', async ({ page }) => {
+    test('Unknown routes serve SPA (soft 404)', async ({ page, browserName }) => {
+      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
       // Cloudflare serves 200 with SPA, Flutter handles 404 display
       const response = await page.goto('/nonexistent-route-xyz-12345', { waitUntil: 'domcontentloaded' });
       expect(response?.status()).toBe(200);
@@ -187,7 +191,8 @@ test.describe('Routing and Redirects', () => {
       await assertFlutterRendering(page);
     });
 
-    test('Deep unknown routes also serve SPA', async ({ page }) => {
+    test('Deep unknown routes also serve SPA', async ({ page, browserName }) => {
+      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
       const response = await page.goto('/some/deeply/nested/nonexistent/path', { waitUntil: 'domcontentloaded' });
       expect(response?.status()).toBe(200);
 

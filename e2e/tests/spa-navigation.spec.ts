@@ -16,7 +16,8 @@ test.describe('SPA Navigation', () => {
   // Collect console errors for debugging
   const consoleErrors: string[] = [];
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
     consoleErrors.length = 0; // Reset for each test
 
     page.on('console', (msg) => {
@@ -102,6 +103,10 @@ test.describe('SPA Navigation', () => {
 });
 
 test.describe('Navigation URL Handling', () => {
+  test.beforeEach(async ({ browserName }) => {
+    test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
+  });
+
   test('trailing slash is handled correctly', async ({ page }) => {
     // Navigate with trailing slash
     const response = await page.goto('/pricing/', { waitUntil: 'domcontentloaded' });

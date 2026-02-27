@@ -19,7 +19,8 @@ test.describe('Mobile Viewport', () => {
     test.describe(`${device.name}`, () => {
       test.use({ viewport: device.viewport, userAgent: device.userAgent });
 
-      test('homepage loads on mobile viewport', async ({ page }) => {
+      test('homepage loads on mobile viewport', async ({ page, browserName }) => {
+        test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
         const response = await page.goto('/', {
           waitUntil: 'domcontentloaded',
         });
@@ -29,7 +30,8 @@ test.describe('Mobile Viewport', () => {
         await assertFlutterRendering(page);
       });
 
-      test('pricing page loads on mobile viewport', async ({ page }) => {
+      test('pricing page loads on mobile viewport', async ({ page, browserName }) => {
+        test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
         const response = await page.goto('/pricing', {
           waitUntil: 'domcontentloaded',
         });
@@ -39,7 +41,8 @@ test.describe('Mobile Viewport', () => {
         await assertFlutterRendering(page);
       });
 
-      test('contact page loads on mobile viewport', async ({ page }) => {
+      test('contact page loads on mobile viewport', async ({ page, browserName }) => {
+        test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
         const response = await page.goto('/contact', {
           waitUntil: 'domcontentloaded',
         });
@@ -69,7 +72,8 @@ test.describe('Mobile Viewport', () => {
       hasTouch: true,
     });
 
-    test('scrolling works on mobile', async ({ page }) => {
+    test('scrolling works on mobile', async ({ page, browserName }) => {
+      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
       await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
 
