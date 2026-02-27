@@ -65,7 +65,8 @@ test.describe('Accessibility', () => {
   });
 
   test.describe('keyboard navigation', () => {
-    test('page is keyboard navigable', async ({ page }) => {
+    test('page is keyboard navigable', async ({ page, browserName }) => {
+      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
       await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
 

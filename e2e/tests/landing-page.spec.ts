@@ -4,7 +4,8 @@ import { waitForFlutter, assertFlutterRendering } from './helpers';
 test.describe('IntegrityStudio Landing Page', () => {
   const consoleErrors: string[] = [];
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
     consoleErrors.length = 0;
 
     page.on('console', msg => {
