@@ -30,7 +30,7 @@ void main() {
       ContactContent? content,
       Size screenSize = TestScreenSizes.desktopLarge,
     }) {
-      initializeTestContent();
+      // initializeTestContent() is called in setUpAll — no need to repeat here
       final section = ContactSection(
         onFormSubmit: onFormSubmit,
         content: content ?? AppContent.contact,
@@ -525,13 +525,9 @@ void main() {
           onFormSubmit: (data) => completer.future,
         ));
 
-        // Fill form
-        final textFields = find.byType(TextFormField);
-        await tester.enterText(textFields.at(0), 'John Doe');
-        await tester.pump();
-        await tester.enterText(textFields.at(1), 'john@example.com');
-        await tester.pump();
-
+        // Fill form — use ValueKey selectors to be safe against field reordering
+        await tester.enterText(find.byKey(const ValueKey('name')), 'John Doe');
+        await tester.enterText(find.byKey(const ValueKey('email')), 'john@example.com');
         await fillTextarea(tester, 'This is a test message with enough chars');
 
         // Scroll and submit
@@ -582,12 +578,8 @@ void main() {
           onFormSubmit: (data) async => true,
         ));
 
-        final textFields = find.byType(TextFormField);
-        await tester.enterText(textFields.at(0), 'John Doe');
-        await tester.pump();
-        await tester.enterText(textFields.at(1), 'invalid-email');
-        await tester.pump();
-
+        await tester.enterText(find.byKey(const ValueKey('name')), 'John Doe');
+        await tester.enterText(find.byKey(const ValueKey('email')), 'invalid-email');
         await fillTextarea(tester, 'Test message here');
 
         await tester.drag(
@@ -607,12 +599,8 @@ void main() {
           onFormSubmit: (data) async => true,
         ));
 
-        final textFields = find.byType(TextFormField);
-        await tester.enterText(textFields.at(0), 'John Doe');
-        await tester.pump();
-        await tester.enterText(textFields.at(1), 'john@example.com');
-        await tester.pump();
-
+        await tester.enterText(find.byKey(const ValueKey('name')), 'John Doe');
+        await tester.enterText(find.byKey(const ValueKey('email')), 'john@example.com');
         // Short message - should be accepted since message is optional
         await fillTextarea(tester, 'Hi');
 

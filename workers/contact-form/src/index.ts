@@ -115,7 +115,7 @@ function checkInMemoryRateLimit(
  * Check and update rate limit for an IP address.
  *
  * Uses KV when available, falls back to in-memory rate limiting.
- * Circuit breaker trips after 3 consecutive KV failures.
+ * Circuit breaker trips after KV_CIRCUIT_BREAKER_THRESHOLD consecutive KV failures.
  */
 async function checkRateLimit(
   ip: string,
