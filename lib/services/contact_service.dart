@@ -144,6 +144,16 @@ class ContactService {
     ));
   }
 
+  /// Retry delay function, injectable for testing.
+  /// @visibleForTesting
+  static Future<void> Function(Duration) retryDelay = Future.delayed;
+
+  /// Reset retry delay to default.
+  /// @visibleForTesting
+  static void resetRetryDelay() {
+    retryDelay = Future.delayed;
+  }
+
   /// Validate email format (RFC 5321 subset).
   /// Local part: 1-64 chars, no leading/trailing/consecutive dots.
   /// Domain: valid labels with 2+ char TLD.
@@ -321,7 +331,7 @@ class ContactService {
         if (response.statusCode == 504) {
           // Worker's Resend API call timed out - retryable
           if (attempt < _maxRetries) {
-            await Future.delayed(Duration(seconds: 1 << attempt));
+            await retryDelay(Duration(seconds: 1 << attempt));
             continue;
           }
           return const ContactFormError(
@@ -362,7 +372,7 @@ class ContactService {
 
         if (isRetryable && attempt < _maxRetries) {
           // Exponential backoff: 1s, 2s
-          await Future.delayed(Duration(seconds: 1 << attempt));
+          await retryDelay(Duration(seconds: 1 << attempt));
           continue;
         }
 

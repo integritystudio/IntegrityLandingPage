@@ -1058,6 +1058,7 @@ void main() {
       setUp(() {
         mockDio = MockDio();
         ContactService.setDioForTesting(mockDio);
+        ContactService.retryDelay = (_) async {};
 
         // Default: mock CSRF token fetch
         when(mockDio.get(any)).thenAnswer((_) async => Response(
@@ -1069,6 +1070,7 @@ void main() {
 
       tearDown(() {
         ContactService.resetDio();
+        ContactService.resetRetryDelay();
       });
 
       testWidgets('success response shows server message and clears form',

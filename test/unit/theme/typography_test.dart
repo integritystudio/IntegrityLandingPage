@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:integrity_studio_ai/theme/colors.dart';
 import 'package:integrity_studio_ai/theme/typography.dart';
 import '../../helpers/test_helpers.dart';
-
-// Note: Most AppTypography style getter tests are skipped because they
-// trigger Google Fonts network loading. The fonts would need to be bundled
-// as assets to test in isolation. Typography is tested implicitly via
-// widget tests that render full UI components.
 
 void main() {
   group('AppTypography', () {
@@ -22,43 +18,169 @@ void main() {
       });
     });
 
-    // All style getter tests are skipped due to Google Fonts loading.
-    // The styles are tested implicitly through widget tests that render text.
-    group('style getters (skipped - Google Fonts)', () {
-      final styleNames = [
-        'headingXL',
-        'headingLG',
-        'headingMD',
-        'headingSM',
-        'bodyLG',
-        'bodyMD',
-        'bodySM',
-        'buttonText',
-        'caption',
-        'label',
-        'statValue',
-        'statLabel',
-        'link',
-        'linkHover',
-        'code',
-        'codeBlock',
-      ];
+    // Google Fonts network fetching is disabled in flutter_test_config.dart.
+    // Style getters still return valid TextStyle with correct properties.
+    group('heading styles', () {
+      test('headingXL has correct properties', () {
+        final style = AppTypography.headingXL;
+        expect(style.fontSize, 64);
+        expect(style.fontWeight, FontWeight.bold);
+        expect(style.height, 1.1);
+        expect(style.letterSpacing, -0.02);
+        expect(style.color, AppColors.textPrimary);
+      });
 
-      for (final name in styleNames) {
-        test('$name exists', () {}, skip: 'Accessing style triggers Google Fonts loading');
-      }
+      test('headingLG has correct properties', () {
+        final style = AppTypography.headingLG;
+        expect(style.fontSize, 48);
+        expect(style.fontWeight, FontWeight.bold);
+        expect(style.height, 1.15);
+        expect(style.letterSpacing, -0.01);
+        expect(style.color, AppColors.textPrimary);
+      });
+
+      test('headingMD has correct properties', () {
+        final style = AppTypography.headingMD;
+        expect(style.fontSize, 36);
+        expect(style.fontWeight, FontWeight.bold);
+        expect(style.height, 1.2);
+        expect(style.color, AppColors.textPrimary);
+      });
+
+      test('headingSM has correct properties', () {
+        final style = AppTypography.headingSM;
+        expect(style.fontSize, 24);
+        expect(style.fontWeight, FontWeight.w600);
+        expect(style.height, 1.3);
+        expect(style.color, AppColors.textPrimary);
+      });
     });
 
-    group('responsive helper getters (skipped - Google Fonts)', () {
-      final responsiveNames = [
-        'headingXLResponsive',
-        'headingLGResponsive',
-        'headingMDResponsive',
-      ];
+    group('body styles', () {
+      test('bodyLG has correct properties', () {
+        final style = AppTypography.bodyLG;
+        expect(style.fontSize, 20);
+        expect(style.fontWeight, FontWeight.normal);
+        expect(style.height, 1.6);
+        expect(style.color, AppColors.textSecondary);
+      });
 
-      for (final name in responsiveNames) {
-        test('$name exists', () {}, skip: 'Accessing style triggers Google Fonts loading');
-      }
+      test('bodyMD has correct properties', () {
+        final style = AppTypography.bodyMD;
+        expect(style.fontSize, 16);
+        expect(style.fontWeight, FontWeight.normal);
+        expect(style.height, 1.5);
+        expect(style.color, AppColors.textSecondary);
+      });
+
+      test('bodySM has correct properties', () {
+        final style = AppTypography.bodySM;
+        expect(style.fontSize, 14);
+        expect(style.fontWeight, FontWeight.normal);
+        expect(style.height, 1.5);
+        expect(style.color, AppColors.textSecondary);
+      });
+    });
+
+    group('special styles', () {
+      test('buttonText has correct properties', () {
+        final style = AppTypography.buttonText;
+        expect(style.fontSize, 16);
+        expect(style.fontWeight, FontWeight.w600);
+        expect(style.height, 1.0);
+        expect(style.letterSpacing, 0.01);
+        expect(style.color, AppColors.textPrimary);
+      });
+
+      test('caption has correct properties', () {
+        final style = AppTypography.caption;
+        expect(style.fontSize, 12);
+        expect(style.fontWeight, FontWeight.w500);
+        expect(style.height, 1.4);
+        expect(style.color, AppColors.textSecondary);
+      });
+
+      test('label has correct properties', () {
+        final style = AppTypography.label;
+        expect(style.fontSize, 14);
+        expect(style.fontWeight, FontWeight.w500);
+        expect(style.height, 1.4);
+        expect(style.color, AppColors.textSecondary);
+      });
+
+      test('statValue has correct properties', () {
+        final style = AppTypography.statValue;
+        expect(style.fontSize, 36);
+        expect(style.fontWeight, FontWeight.bold);
+        expect(style.height, 1.0);
+        expect(style.color, AppColors.textPrimary);
+      });
+
+      test('statLabel has correct properties', () {
+        final style = AppTypography.statLabel;
+        expect(style.fontSize, 14);
+        expect(style.fontWeight, FontWeight.w500);
+        expect(style.height, 1.4);
+        expect(style.color, AppColors.textSecondary);
+      });
+    });
+
+    group('link styles', () {
+      test('link has correct properties', () {
+        final style = AppTypography.link;
+        expect(style.fontSize, 16);
+        expect(style.fontWeight, FontWeight.w500);
+        expect(style.height, 1.5);
+        expect(style.color, AppColors.textLink);
+        expect(style.decoration, TextDecoration.none);
+      });
+
+      test('linkHover inherits from link with underline', () {
+        final style = AppTypography.linkHover;
+        expect(style.fontSize, 16);
+        expect(style.fontWeight, FontWeight.w500);
+        expect(style.color, AppColors.textLink);
+        expect(style.decoration, TextDecoration.underline);
+      });
+    });
+
+    group('code styles', () {
+      test('code has correct properties', () {
+        final style = AppTypography.code;
+        expect(style.fontSize, 14);
+        expect(style.fontWeight, FontWeight.normal);
+        expect(style.height, 1.5);
+        expect(style.color, AppColors.blue400);
+      });
+
+      test('codeBlock has correct properties', () {
+        final style = AppTypography.codeBlock;
+        expect(style.fontSize, 14);
+        expect(style.fontWeight, FontWeight.normal);
+        expect(style.height, 1.6);
+        expect(style.color, AppColors.gray300);
+      });
+
+      test('code uses mono font family', () {
+        // code and codeBlock should use the same mono font
+        expect(AppTypography.code.fontFamily, AppTypography.codeBlock.fontFamily);
+      });
+    });
+
+    group('font families', () {
+      test('heading and body styles share a font family', () {
+        final headingFont = AppTypography.headingXL.fontFamily;
+        expect(AppTypography.headingLG.fontFamily, headingFont);
+        expect(AppTypography.bodyMD.fontFamily, headingFont);
+        expect(AppTypography.buttonText.fontFamily, headingFont);
+      });
+
+      test('code styles use different font than body', () {
+        expect(
+          AppTypography.code.fontFamily,
+          isNot(equals(AppTypography.bodyMD.fontFamily)),
+        );
+      });
     });
 
     group('responsive helper widget tests', () {

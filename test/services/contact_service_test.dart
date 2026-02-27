@@ -12,10 +12,12 @@ void main() {
   setUp(() {
     mockDio = _MockDio();
     ContactService.setDioForTesting(mockDio);
+    ContactService.retryDelay = (_) async {};
   });
 
   tearDown(() {
     ContactService.resetDio();
+    ContactService.resetRetryDelay();
   });
 
   group('ContactFormData', () {

@@ -17,8 +17,27 @@ import 'colors.dart';
 class AppTypography {
   AppTypography._();
 
-  static String get _fontFamily => GoogleFonts.inter().fontFamily!;
-  static String get _monoFontFamily => GoogleFonts.jetBrainsMono().fontFamily!;
+  static String get _fontFamily => _testFontFamily ?? GoogleFonts.inter().fontFamily!;
+  static String get _monoFontFamily => _testMonoFontFamily ?? GoogleFonts.jetBrainsMono().fontFamily!;
+
+  /// Override font families for testing.
+  /// @visibleForTesting
+  static String? _testFontFamily;
+  static String? _testMonoFontFamily;
+
+  /// Set test font families to avoid Google Fonts network loading.
+  /// @visibleForTesting
+  static void setTestFonts({String fontFamily = 'Inter', String monoFontFamily = 'JetBrainsMono'}) {
+    _testFontFamily = fontFamily;
+    _testMonoFontFamily = monoFontFamily;
+  }
+
+  /// Reset to real Google Fonts.
+  /// @visibleForTesting
+  static void resetTestFonts() {
+    _testFontFamily = null;
+    _testMonoFontFamily = null;
+  }
 
   // Headings
   static TextStyle get headingXL => TextStyle(
