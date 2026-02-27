@@ -22,7 +22,7 @@ void main() {
     Widget buildTestWidget({
       Future<bool> Function(Map<String, String>)? onFormSubmit,
       ContactContent? content,
-      Size screenSize = const Size(1920, 1080),
+      Size screenSize = TestScreenSizes.desktopLarge,
     }) {
       return MaterialApp(
         home: MediaQuery(
@@ -43,30 +43,50 @@ void main() {
       );
     }
 
-    void setLargeViewport(WidgetTester tester) {
-      tester.view.physicalSize = const Size(1920, 1080);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+    void setLargeViewport(WidgetTester tester) =>
+        setScreenSize(tester, TestScreenSizes.desktopLarge);
+
+    void setMobileViewport(WidgetTester tester) =>
+        setScreenSize(tester, TestScreenSizes.mobile);
+
+    /// Factory for ContactContent with sensible defaults.
+    /// Override only the fields relevant to each test.
+    ContactContent testContent({
+      String sectionId = 'test',
+      String title = 'Contact',
+      String subtitle = '',
+      String description = '',
+      List<ContactFormFieldContent> formFields = const [],
+      List<ContactMethodContent> contactMethods = const [],
+      String formSubmitText = 'Submit',
+      String formSuccessMessage = 'Success',
+      String formErrorMessage = 'Error',
+      String calendlyUrl = '',
+      String calendlyCtaText = '',
+    }) {
+      return ContactContent(
+        sectionId: sectionId,
+        title: title,
+        subtitle: subtitle,
+        description: description,
+        formFields: formFields,
+        contactMethods: contactMethods,
+        formSubmitText: formSubmitText,
+        formSuccessMessage: formSuccessMessage,
+        formErrorMessage: formErrorMessage,
+        calendlyUrl: calendlyUrl,
+        calendlyCtaText: calendlyCtaText,
+      );
     }
 
-    void setMobileViewport(WidgetTester tester) {
-      tester.view.physicalSize = const Size(375, 812);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-    }
-
-    /// Standard form content for submission tests
+    /// Standard 3-field form content for submission tests.
     ContactContent minimalFormContent({
       String successMessage = 'Success',
       String errorMessage = 'Error',
     }) {
-      return ContactContent(
-        sectionId: 'test',
-        title: 'Contact',
-        subtitle: '',
-        description: '',
+      return testContent(
+        formSuccessMessage: successMessage,
+        formErrorMessage: errorMessage,
         formFields: [
           ContactFormFieldContent(
             name: 'name',
@@ -90,13 +110,20 @@ void main() {
             required: true,
           ),
         ],
-        contactMethods: [],
-        formSubmitText: 'Submit',
-        formSuccessMessage: successMessage,
-        formErrorMessage: errorMessage,
-        calendlyUrl: '',
-        calendlyCtaText: '',
       );
+    }
+
+    /// Finds the first multiline TextField and enters [text].
+    Future<void> fillTextarea(WidgetTester tester, String text) async {
+      final textAreas = find.byType(TextField);
+      for (var i = 0; i < textAreas.evaluate().length; i++) {
+        final widget = tester.widget<TextField>(textAreas.at(i));
+        if (widget.maxLines != null && widget.maxLines! > 1) {
+          await tester.enterText(textAreas.at(i), text);
+          break;
+        }
+      }
+      await tester.pump();
     }
 
     /// Helper to fill and submit the minimal form
@@ -107,17 +134,7 @@ void main() {
       await tester.enterText(textFields.at(1), 'john@example.com');
       await tester.pump();
 
-      // Fill textarea
-      final textAreas = find.byType(TextField);
-      for (var i = 0; i < textAreas.evaluate().length; i++) {
-        final widget = tester.widget<TextField>(textAreas.at(i));
-        if (widget.maxLines != null && widget.maxLines! > 1) {
-          await tester.enterText(
-              textAreas.at(i), 'This is a test message with enough characters');
-          break;
-        }
-      }
-      await tester.pump();
+      await fillTextarea(tester, 'This is a test message with enough characters');
 
       // Scroll and submit
       await tester.drag(
@@ -315,7 +332,11 @@ void main() {
       // W2: Form data cleared on success
       // ================================================================
 
-      testWidgets('clears form fields on successful submission',
+      // NOTE: Field clearing on success only applies to the ContactService path
+      // (no onFormSubmit callback). The callback path sets _submitSuccess but
+      // does not clear _formData. See 'ContactService submitForm path' group (W1)
+      // for the test that verifies actual field clearing.
+      testWidgets('callback path shows success alert on submission',
           (tester) async {
         setLargeViewport(tester);
 
@@ -326,15 +347,8 @@ void main() {
 
         await fillAndSubmitForm(tester);
 
-        // After success, form fields should be empty
-        // The text fields should no longer contain the entered values
         expect(find.byType(Alert), findsOneWidget);
         expect(find.text('Thank you!'), findsOneWidget);
-
-        // Form data is cleared in the onFormSubmit=null path (ContactService path).
-        // With onFormSubmit override, the widget sets _submitSuccess but doesn't
-        // clear _formData. This test documents that the callback path does NOT
-        // clear fields — only the ContactService path does (see W1).
       });
 
       // ================================================================
@@ -368,7 +382,7 @@ void main() {
 
         await tester.pumpWidget(MaterialApp(
           home: MediaQuery(
-            data: const MediaQueryData(size: Size(1920, 1080)),
+            data: const MediaQueryData(size: TestScreenSizes.desktopLarge),
             child: Scaffold(
               body: SingleChildScrollView(
                 child: ContactSection(
@@ -394,11 +408,7 @@ void main() {
         Map<String, String>? submittedData;
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                 name: 'firstName',
@@ -429,12 +439,6 @@ void main() {
                 required: true,
               ),
             ],
-            contactMethods: [],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
           onFormSubmit: (data) async {
             submittedData = data;
@@ -453,17 +457,7 @@ void main() {
         await tester.enterText(textFields.at(2), 'jane@example.com');
         await tester.pump();
 
-        // Fill message textarea
-        final textAreas = find.byType(TextField);
-        for (var i = 0; i < textAreas.evaluate().length; i++) {
-          final widget = tester.widget<TextField>(textAreas.at(i));
-          if (widget.maxLines != null && widget.maxLines! > 1) {
-            await tester.enterText(
-                textAreas.at(i), 'Test message for name building');
-            break;
-          }
-        }
-        await tester.pump();
+        await fillTextarea(tester, 'Test message for name building');
 
         // Submit
         await tester.drag(
@@ -496,16 +490,7 @@ void main() {
         await tester.enterText(textFields.at(1), 'john@example.com');
         await tester.pump();
 
-        final textAreas = find.byType(TextField);
-        for (var i = 0; i < textAreas.evaluate().length; i++) {
-          final widget = tester.widget<TextField>(textAreas.at(i));
-          if (widget.maxLines != null && widget.maxLines! > 1) {
-            await tester.enterText(
-                textAreas.at(i), 'This is a test message with enough chars');
-            break;
-          }
-        }
-        await tester.pump();
+        await fillTextarea(tester, 'This is a test message with enough chars');
 
         // Scroll and submit
         await tester.drag(
@@ -557,16 +542,7 @@ void main() {
         await tester.enterText(textFields.at(1), 'invalid-email');
         await tester.pump();
 
-        // Fill message
-        final textAreas = find.byType(TextField);
-        for (var i = 0; i < textAreas.evaluate().length; i++) {
-          final widget = tester.widget<TextField>(textAreas.at(i));
-          if (widget.maxLines != null && widget.maxLines! > 1) {
-            await tester.enterText(textAreas.at(i), 'Test message here');
-            break;
-          }
-        }
-        await tester.pump();
+        await fillTextarea(tester, 'Test message here');
 
         await tester.drag(
             find.byType(SingleChildScrollView), const Offset(0, -500));
@@ -592,15 +568,7 @@ void main() {
         await tester.pump();
 
         // Short message - should be accepted since message is optional
-        final textAreas = find.byType(TextField);
-        for (var i = 0; i < textAreas.evaluate().length; i++) {
-          final widget = tester.widget<TextField>(textAreas.at(i));
-          if (widget.maxLines != null && widget.maxLines! > 1) {
-            await tester.enterText(textAreas.at(i), 'Hi');
-            break;
-          }
-        }
-        await tester.pump();
+        await fillTextarea(tester, 'Hi');
 
         await tester.drag(
             find.byType(SingleChildScrollView), const Offset(0, -500));
@@ -621,8 +589,7 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
+          content: testContent(
             title: 'Test Contact',
             subtitle: 'Test Subtitle',
             description: 'Test Description',
@@ -641,7 +608,6 @@ void main() {
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
             ],
-            contactMethods: [],
             formSubmitText: 'Send',
             formSuccessMessage: 'Sent!',
             formErrorMessage: 'Failed',
@@ -660,23 +626,13 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                   name: 'phone', label: 'Phone', type: 'phone', placeholder: '', required: false),
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
             ],
-            contactMethods: [],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
         ));
 
@@ -690,23 +646,13 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                   name: 'website', label: 'Website', type: 'url', placeholder: '', required: false),
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
             ],
-            contactMethods: [],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
         ));
 
@@ -720,23 +666,13 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                   name: 'custom', label: 'Custom', type: 'unknown_type', placeholder: '', required: false),
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
             ],
-            contactMethods: [],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
         ));
 
@@ -752,11 +688,7 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                   name: 'dept', label: 'Department', type: 'select', placeholder: 'Select',
@@ -764,12 +696,6 @@ void main() {
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
             ],
-            contactMethods: [],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
         ));
 
@@ -788,23 +714,13 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                   name: 'category', label: 'Category', type: 'select', placeholder: 'Select', required: false),
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
             ],
-            contactMethods: [],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
         ));
 
@@ -821,11 +737,8 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
+          content: testContent(
             title: 'Test',
-            subtitle: '',
-            description: '',
             formFields: [
               ContactFormFieldContent(
                   name: 'firstName', label: 'First Name', type: 'text', placeholder: '', required: true),
@@ -834,12 +747,6 @@ void main() {
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
             ],
-            contactMethods: [],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
         ));
 
@@ -851,11 +758,7 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                   name: 'company', label: 'Company', type: 'text', placeholder: '', required: true),
@@ -864,12 +767,6 @@ void main() {
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
             ],
-            contactMethods: [],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
         ));
 
@@ -886,11 +783,7 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
@@ -904,11 +797,6 @@ void main() {
                 isPrimary: true,
               ),
             ],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
         ));
 
@@ -920,11 +808,7 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
@@ -937,11 +821,6 @@ void main() {
                 isPrimary: true,
               ),
             ],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
         ));
 
@@ -952,11 +831,7 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
@@ -970,11 +845,6 @@ void main() {
                 isPrimary: false,
               ),
             ],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
         ));
 
@@ -992,17 +862,9 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: const ContactContent(
-            sectionId: 'test',
+          content: testContent(
             title: 'Test Title',
             subtitle: 'Test Subtitle',
-            description: '',
-            formFields: [],
-            contactMethods: [],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
             calendlyCtaText: 'Schedule',
           ),
         ));
@@ -1015,20 +877,11 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
             ],
-            contactMethods: [],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
             calendlyCtaText: 'Book Demo',
           ),
         ));
@@ -1041,11 +894,7 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                   name: 'message', label: 'Message', type: 'textarea', placeholder: '', required: true),
@@ -1058,11 +907,6 @@ void main() {
                 isPrimary: true,
               ),
             ],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
-            calendlyUrl: '',
-            calendlyCtaText: '',
           ),
         ));
 
@@ -1082,12 +926,9 @@ void main() {
           setMobileViewport(tester);
 
           await tester.pumpWidget(buildTestWidget(
-            screenSize: const Size(375, 812),
-            content: ContactContent(
-              sectionId: 'test',
-              title: 'Contact',
+            screenSize: TestScreenSizes.mobile,
+            content: testContent(
               subtitle: 'Subtitle',
-              description: '',
               formFields: [
                 ContactFormFieldContent(
                     name: 'name', label: 'Name', type: 'text', placeholder: '', required: true),
@@ -1100,11 +941,6 @@ void main() {
                   isPrimary: true,
                 ),
               ],
-              formSubmitText: 'Submit',
-              formSuccessMessage: 'Success',
-              formErrorMessage: 'Error',
-              calendlyUrl: '',
-              calendlyCtaText: '',
             ),
           ));
 
@@ -1125,7 +961,25 @@ void main() {
         final semanticsHandle = tester.ensureSemantics();
         await tester.pumpWidget(buildTestWidget());
 
-        expect(find.text('Email'), findsWidgets);
+        // Primary contact method labels must be visible as text (readable by assistive tech)
+        for (final method
+            in AppContent.contact.contactMethods.where((m) => m.isPrimary)) {
+          expect(
+            find.text(method.label),
+            findsWidgets,
+            reason: '${method.label} (primary) should be visible as text',
+          );
+        }
+
+        // Secondary methods must expose at least one Tooltip for keyboard/screen reader access
+        final hasSecondary =
+            AppContent.contact.contactMethods.any((m) => !m.isPrimary);
+        if (hasSecondary) {
+          expect(find.byType(Tooltip), findsWidgets);
+        }
+
+        // Form submit button must have readable text
+        expect(find.text(AppContent.contact.formSubmitText), findsOneWidget);
 
         semanticsHandle.dispose();
       });
@@ -1350,11 +1204,7 @@ void main() {
               builder: (context, state) => Scaffold(
                 body: SingleChildScrollView(
                   child: ContactSection(
-                    content: ContactContent(
-                      sectionId: 'test',
-                      title: 'Contact',
-                      subtitle: '',
-                      description: '',
+                    content: testContent(
                       formFields: [
                         ContactFormFieldContent(
                           name: 'message',
@@ -1364,10 +1214,6 @@ void main() {
                           required: true,
                         ),
                       ],
-                      contactMethods: [],
-                      formSubmitText: 'Submit',
-                      formSuccessMessage: 'Success',
-                      formErrorMessage: 'Error',
                       calendlyUrl: '/demo',
                       calendlyCtaText: 'View Demo',
                     ),
@@ -1407,11 +1253,7 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: ContactContent(
-            sectionId: 'test',
-            title: 'Contact',
-            subtitle: '',
-            description: '',
+          content: testContent(
             formFields: [
               ContactFormFieldContent(
                 name: 'message',
@@ -1421,10 +1263,6 @@ void main() {
                 required: true,
               ),
             ],
-            contactMethods: [],
-            formSubmitText: 'Submit',
-            formSuccessMessage: 'Success',
-            formErrorMessage: 'Error',
             calendlyUrl: 'https://calendly.com/test',
             calendlyCtaText: 'Book Demo',
           ),
