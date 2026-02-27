@@ -2,17 +2,25 @@ import { test, expect } from '@playwright/test';
 import { waitForFlutter, assertFlutterRendering } from './helpers';
 
 test.describe('IntegrityStudio Landing Page', () => {
+  const consoleErrors: string[] = [];
+
   test.beforeEach(async ({ page }) => {
-    // Capture console errors silently — check screenshots and test assertions for debugging
+    consoleErrors.length = 0;
+
     page.on('console', msg => {
       if (msg.type() === 'error') {
-        // Errors are available via Playwright trace/screenshot on failure
-        void msg.text();
+        consoleErrors.push(msg.text());
       }
     });
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
+  });
+
+  test.afterEach(async ({}, testInfo) => {
+    if (consoleErrors.length > 0 && testInfo.status === 'passed') {
+      console.warn(`Test "${testInfo.title}" passed but had console errors:`, consoleErrors);
+    }
   });
 
   test('should load Flutter app successfully', async ({ page }) => {
