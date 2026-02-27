@@ -229,6 +229,7 @@ class _ContactSectionState extends State<ContactSection> {
     switch (field.type) {
       case 'select':
         return FormSelect<String>(
+          key: ValueKey(field.name),
           label: field.label,
           value: _formData[field.name],
           items: field.options
@@ -253,6 +254,7 @@ class _ContactSectionState extends State<ContactSection> {
 
       case 'textarea':
         return FormTextArea(
+          key: ValueKey(field.name),
           label: field.label,
           value: _formData[field.name] ?? '',
           required: field.required,
@@ -269,6 +271,7 @@ class _ContactSectionState extends State<ContactSection> {
 
       case 'email':
         return FormTextField(
+          key: ValueKey(field.name),
           label: field.label,
           value: _formData[field.name] ?? '',
           type: FormTextFieldType.email,
@@ -285,6 +288,7 @@ class _ContactSectionState extends State<ContactSection> {
 
       case 'phone':
         return FormTextField(
+          key: ValueKey(field.name),
           label: field.label,
           value: _formData[field.name] ?? '',
           type: FormTextFieldType.phone,
@@ -301,6 +305,7 @@ class _ContactSectionState extends State<ContactSection> {
 
       case 'url':
         return FormTextField(
+          key: ValueKey(field.name),
           label: field.label,
           value: _formData[field.name] ?? '',
           type: FormTextFieldType.url,
@@ -317,6 +322,7 @@ class _ContactSectionState extends State<ContactSection> {
 
       default:
         return FormTextField(
+          key: ValueKey(field.name),
           label: field.label,
           value: _formData[field.name] ?? '',
           type: FormTextFieldType.text,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,20 +26,18 @@ void main() {
       ContactContent? content,
       Size screenSize = TestScreenSizes.desktopLarge,
     }) {
+      initializeTestContent();
+      final section = ContactSection(
+        onFormSubmit: onFormSubmit,
+        content: content ?? AppContent.contact,
+      );
       return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: testTheme,
         home: MediaQuery(
           data: MediaQueryData(size: screenSize),
           child: Scaffold(
-            body: SingleChildScrollView(
-              child: content != null
-                  ? ContactSection(
-                      onFormSubmit: onFormSubmit,
-                      content: content,
-                    )
-                  : ContactSection(
-                      onFormSubmit: onFormSubmit,
-                    ),
-            ),
+            body: SingleChildScrollView(child: section),
           ),
         ),
       );
@@ -114,24 +114,26 @@ void main() {
     }
 
     /// Finds the first multiline TextField and enters [text].
+    /// Fails explicitly if no multiline TextField is found.
     Future<void> fillTextarea(WidgetTester tester, String text) async {
       final textAreas = find.byType(TextField);
       for (var i = 0; i < textAreas.evaluate().length; i++) {
         final widget = tester.widget<TextField>(textAreas.at(i));
-        if (widget.maxLines != null && widget.maxLines! > 1) {
+        if (widget.maxLines == null || widget.maxLines! > 1) {
           await tester.enterText(textAreas.at(i), text);
-          break;
+          await tester.pump();
+          return;
         }
       }
-      await tester.pump();
+      fail('No multiline TextField found in widget tree');
     }
 
-    /// Helper to fill and submit the minimal form
+    /// Helper to fill and submit the minimal form.
+    /// Uses ValueKey-based selectors — safe against field reordering.
     Future<void> fillAndSubmitForm(WidgetTester tester) async {
-      final textFields = find.byType(TextFormField);
-      await tester.enterText(textFields.at(0), 'John Doe');
+      await tester.enterText(find.byKey(const ValueKey('name')), 'John Doe');
       await tester.pump();
-      await tester.enterText(textFields.at(1), 'john@example.com');
+      await tester.enterText(find.byKey(const ValueKey('email')), 'john@example.com');
       await tester.pump();
 
       await fillTextarea(tester, 'This is a test message with enough characters');
@@ -252,12 +254,13 @@ void main() {
           of: textarea.first,
           matching: find.byType(TextField),
         );
+        expect(textAreas, findsOneWidget,
+            reason: 'FormTextArea must contain a TextField');
 
-        if (textAreas.evaluate().isNotEmpty) {
-          await tester.enterText(textAreas.first,
-              'This is a longer message that contains multiple words.');
-          await tester.pump();
-        }
+        const longText = 'This is a longer message that contains multiple words.';
+        await tester.enterText(textAreas.first, longText);
+        await tester.pump();
+        expect(find.text(longText), findsOneWidget);
       });
     });
 
@@ -475,12 +478,11 @@ void main() {
       testWidgets('shows sending state during submission', (tester) async {
         setLargeViewport(tester);
 
+        final completer = Completer<bool>();
+
         await tester.pumpWidget(buildTestWidget(
           content: minimalFormContent(),
-          onFormSubmit: (data) async {
-            await Future.delayed(const Duration(seconds: 2));
-            return true;
-          },
+          onFormSubmit: (data) => completer.future,
         ));
 
         // Fill form
@@ -499,8 +501,12 @@ void main() {
         await tester.tap(find.text('Submit'));
         await tester.pump();
 
+        // While the completer is pending, sending state should be visible
         expect(find.text('Sending...'), findsOneWidget);
-        await tester.pumpAndSettle(const Duration(seconds: 3));
+
+        // Complete the future and settle
+        completer.complete(true);
+        await tester.pumpAndSettle();
       });
     });
 
@@ -750,8 +756,22 @@ void main() {
           ),
         ));
 
-        expect(find.byType(Row), findsWidgets);
-        expect(find.byType(FormTextField), findsWidgets);
+        // Verify two FormTextFields exist as siblings inside a single Row
+        expect(find.byType(FormTextField), findsNWidgets(2));
+        final rows = find.byType(Row);
+        bool foundPairedRow = false;
+        for (final element in rows.evaluate()) {
+          final fieldsInRow = find.descendant(
+            of: find.byElementPredicate((e) => e == element),
+            matching: find.byType(FormTextField),
+          );
+          if (fieldsInRow.evaluate().length == 2) {
+            foundPairedRow = true;
+            break;
+          }
+        }
+        expect(foundPairedRow, isTrue,
+            reason: 'firstName and lastName should be paired in a single Row');
       });
 
       testWidgets('does not pair non-name text fields', (tester) async {
