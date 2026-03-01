@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../theme/theme.dart';
@@ -240,6 +241,7 @@ class _AnimatedAlertState extends State<AnimatedAlert>
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  Timer? _autoDismissTimer;
 
   @override
   void initState() {
@@ -259,12 +261,13 @@ class _AnimatedAlertState extends State<AnimatedAlert>
     _controller.forward();
 
     if (widget.autoDismissDuration != null) {
-      Future.delayed(widget.autoDismissDuration!, _dismiss);
+      _autoDismissTimer = Timer(widget.autoDismissDuration!, _dismiss);
     }
   }
 
   @override
   void dispose() {
+    _autoDismissTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }

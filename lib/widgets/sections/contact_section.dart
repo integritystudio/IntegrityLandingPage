@@ -558,11 +558,16 @@ class _ContactSectionState extends State<ContactSection> {
           }
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      ErrorTrackingService.captureException(
+        e,
+        stackTrace: stackTrace,
+        context: 'ContactSection._handleSubmit',
+      );
       setState(() {
         _isSubmitting = false;
         _submitSuccess = false;
-        _errorMessage = e.toString();
+        _errorMessage = _content.formErrorMessage;
       });
     }
   }

@@ -415,24 +415,15 @@ class _GradientButtonState extends State<GradientButton>
               ? Border.all(color: AppColors.blue400, width: 2)
               : null,
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: isDisabled ? null : widget.onPressed,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-            hoverColor: Colors.white.withValues(alpha: 0.1),
-            focusColor: Colors.white.withValues(alpha: 0.1),
-            child: Container(
-              width: widget.fullWidth ? double.infinity : null,
-              padding: kButtonPadding,
-              child: ButtonContent(
-                text: widget.text,
-                icon: widget.icon,
-                isLoading: widget.isLoading,
-                fullWidth: widget.fullWidth,
-              ).build(),
-            ),
-          ),
+        child: Container(
+          width: widget.fullWidth ? double.infinity : null,
+          padding: kButtonPadding,
+          child: ButtonContent(
+            text: widget.text,
+            icon: widget.icon,
+            isLoading: widget.isLoading,
+            fullWidth: widget.fullWidth,
+          ).build(),
         ),
       ),
     );
@@ -505,24 +496,16 @@ class _OutlineButtonState extends State<OutlineButton>
             width: isFocused ? 2 : 1,
           ),
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: isDisabled ? null : widget.onPressed,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-            hoverColor: Colors.transparent,
-            child: Container(
-              width: widget.fullWidth ? double.infinity : null,
-              padding: kButtonPadding,
-              child: ButtonContent(
-                text: widget.text,
-                icon: widget.icon,
-                isLoading: widget.isLoading,
-                fullWidth: widget.fullWidth,
-                textColor: _textColor,
-              ).build(),
-            ),
-          ),
+        child: Container(
+          width: widget.fullWidth ? double.infinity : null,
+          padding: kButtonPadding,
+          child: ButtonContent(
+            text: widget.text,
+            icon: widget.icon,
+            isLoading: widget.isLoading,
+            fullWidth: widget.fullWidth,
+            textColor: _textColor,
+          ).build(),
         ),
       ),
     );

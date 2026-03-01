@@ -43,7 +43,6 @@ class StatusSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDesktop = ResponsiveUtils.isDesktop(context);
-    final isTablet = ResponsiveUtils.isTablet(context);
 
     return SectionContainer(
       id: 'status',
@@ -62,7 +61,7 @@ class StatusSection extends StatelessWidget {
           SizedBox(height: AppSpacing.sectionPadding(context) * 0.5),
           _MetricsGrid(
             metrics: _content.metrics,
-            columns: isDesktop ? 4 : (isTablet ? 2 : 2),
+            columns: isDesktop ? 4 : 2,
           ),
           const SizedBox(height: AppSpacing.xl),
           _ServicesCard(services: _content.services),

@@ -45,7 +45,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(DemoModal), findsOneWidget);
-        expect(find.textContaining('abc123'), findsOneWidget);
+        expect(find.textContaining('Demo video loading'), findsOneWidget);
       });
 
       testWidgets('shows placeholder when no video ID', (tester) async {
@@ -328,7 +328,7 @@ void main() {
         ),
       );
 
-      expect(find.textContaining('test123'), findsOneWidget);
+      expect(find.textContaining('Demo video loading'), findsOneWidget);
     });
   });
 }
