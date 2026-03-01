@@ -210,7 +210,7 @@ class FooterSection extends StatelessWidget {
           return Column(
             children: [
               Text(
-                '$year Integrity Studio. All rights reserved.',
+                '\u00A9 $year Integrity Studio. All rights reserved.',
                 style: AppTypography.caption,
                 textAlign: TextAlign.center,
               ),
@@ -253,7 +253,7 @@ class FooterSection extends StatelessWidget {
           runSpacing: AppSpacing.sm,
           children: [
             Text(
-              '$year Integrity Studio. All rights reserved.',
+              '\u00A9 $year Integrity Studio. All rights reserved.',
               style: AppTypography.caption,
             ),
             Wrap(
@@ -340,16 +340,20 @@ class _FooterLinkState extends State<_FooterLink> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Text(
-          widget.text,
-          style: AppTypography.bodySM.copyWith(
-            color: _isHovered ? AppColors.textPrimary : AppColors.gray400,
+    return Semantics(
+      button: true,
+      label: widget.text,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Text(
+            widget.text,
+            style: AppTypography.bodySM.copyWith(
+              color: _isHovered ? AppColors.textPrimary : AppColors.gray400,
+            ),
           ),
         ),
       ),

@@ -118,7 +118,7 @@ class DemoModal extends StatelessWidget {
 
   Widget _buildVideoPlayer() {
     // Placeholder for YouTube embed
-    // In production, use youtube_player_iframe or similar package
+    // TODO: integrate youtube_player_iframe or similar package
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -130,7 +130,7 @@ class DemoModal extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Video ID: $videoId',
+            'Demo video loading...',
             style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
           ),
         ],

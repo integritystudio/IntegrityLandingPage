@@ -346,14 +346,14 @@ void main() {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
-          content: minimalFormContent(),
+          content: minimalFormContent(errorMessage: 'Something went wrong'),
           onFormSubmit: (data) async => throw Exception('Network error'),
         ));
 
         await fillAndSubmitForm(tester);
 
         expect(find.byType(Alert), findsOneWidget);
-        expect(find.textContaining('Network error'), findsOneWidget);
+        expect(find.text('Something went wrong'), findsOneWidget);
       });
 
       testWidgets('can dismiss alert', (tester) async {
@@ -589,7 +589,7 @@ void main() {
         expect(find.textContaining('valid email'), findsOneWidget);
       });
 
-      testWidgets('accepts short message (optional field)', (tester) async {
+      testWidgets('accepts short message without length validation', (tester) async {
         setLargeViewport(tester);
 
         await tester.pumpWidget(buildTestWidget(
@@ -599,7 +599,7 @@ void main() {
 
         await tester.enterText(find.byKey(const ValueKey('name')), 'John Doe');
         await tester.enterText(find.byKey(const ValueKey('email')), 'john@example.com');
-        // Short message - should be accepted since message is optional
+        // Short message - no minimum length validation
         await fillTextarea(tester, 'Hi');
 
         await tester.drag(

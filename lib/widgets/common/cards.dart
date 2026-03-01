@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../theme/theme.dart';
+import 'buttons.dart';
 import 'containers.dart';
 
 /// Glass morphism card with performance optimization
@@ -387,7 +389,7 @@ class PricingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Icon(
-                      Icons.check_circle,
+                      LucideIcons.checkCircle,
                       size: 20,
                       color: AppColors.success,
                     ),
@@ -402,18 +404,17 @@ class PricingCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
 
           // CTA - stays at bottom
-          SizedBox(
-            width: double.infinity,
-            child: isPopular
-                ? ElevatedButton(
-                    onPressed: onCtaPressed,
-                    child: Text(ctaText),
-                  )
-                : OutlinedButton(
-                    onPressed: onCtaPressed,
-                    child: Text(ctaText),
-                  ),
-          ),
+          isPopular
+              ? GradientButton(
+                  text: ctaText,
+                  onPressed: onCtaPressed,
+                  fullWidth: true,
+                )
+              : OutlineButton(
+                  text: ctaText,
+                  onPressed: onCtaPressed,
+                  fullWidth: true,
+                ),
         ],
       ),
     );

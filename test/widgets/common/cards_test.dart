@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import 'package:integrity_studio_ai/widgets/common/cards.dart';
 import '../../helpers/test_helpers.dart';
 
@@ -150,12 +152,12 @@ void main() {
       expect(find.text('Unlimited users'), findsOneWidget);
       expect(find.text('Advanced analytics'), findsOneWidget);
       expect(find.text('Priority support'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle), findsNWidgets(3));
+      expect(find.byIcon(LucideIcons.checkCircle), findsNWidgets(3));
       expect(find.text('Start Free Trial'), findsOneWidget);
     });
 
     testWidgets(
-        'popular tier shows badge, uses ElevatedButton, and primary GlassCard',
+        'popular tier shows badge, uses GradientButton, and primary GlassCard',
         (tester) async {
       // Test popular tier
       await tester.pumpWidget(
@@ -171,7 +173,7 @@ void main() {
       );
 
       expect(find.text('Most Popular'), findsOneWidget);
-      expect(find.byType(ElevatedButton), findsOneWidget);
+      expect(find.byType(GradientButton), findsOneWidget);
       expect(find.byType(GlassCard), findsOneWidget);
 
       // Test non-popular tier
@@ -188,7 +190,7 @@ void main() {
       );
 
       expect(find.text('Most Popular'), findsNothing);
-      expect(find.byType(OutlinedButton), findsOneWidget);
+      expect(find.byType(OutlineButton), findsOneWidget);
       expect(find.byType(GlassCard), findsOneWidget);
     });
 
