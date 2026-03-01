@@ -13,7 +13,7 @@ import {
  * 2. Verify Flutter is actually rendering content
  *
  * @param page - Playwright page object
- * @param timeout - Maximum time to wait in milliseconds (default: 90000)
+ * @param timeout - Maximum time to wait in milliseconds (default: FLUTTER_INIT_TIMEOUT_MS = 90_000)
  */
 export async function waitForFlutter(page: Page, timeout = FLUTTER_INIT_TIMEOUT_MS): Promise<void> {
   // Wait for Flutter rendering surface to appear.

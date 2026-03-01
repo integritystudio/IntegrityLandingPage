@@ -12,10 +12,17 @@
 /** Maximum time for Flutter to fully initialize after navigation. */
 export const FLUTTER_INIT_TIMEOUT_MS = 90_000;
 
-/** Maximum time for a route change to complete. */
+/** Maximum time for a route change (URL update) to complete. */
 export const ROUTE_CHANGE_TIMEOUT_MS = 10_000;
 
-/** Maximum time for Flutter to re-render after a route change. */
+/**
+ * Maximum time for Flutter to re-render after a route change.
+ *
+ * Note: this is a separate guard applied after the URL-change guard
+ * (`ROUTE_CHANGE_TIMEOUT_MS`). It intentionally has a longer ceiling to
+ * account for slow CanvasKit paint after navigation, and is independent
+ * of any caller-supplied timeout passed to `waitForRoute`.
+ */
 export const ROUTE_RENDER_TIMEOUT_MS = 30_000;
 
 /** Settle time after a mouse click before taking assertions. */
