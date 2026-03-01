@@ -45,6 +45,18 @@ CSP report-uri/report-to endpoints shared across staging/production. Staging is 
 
 ---
 
+## Testing Infrastructure
+
+### E3: chromedriver not installed
+
+**Severity:** LOW
+**Category:** Testing Infrastructure
+**Source:** `TEST_GAPS.md`
+
+`flutter drive -d chrome` fails because chromedriver is not installed. Fix: `brew install chromedriver` (local) or add to CI pipeline.
+
+---
+
 ## Code Quality: ast-grep Review Findings (2026-02-25)
 
 ### #31: console.log in e2e tests ✅ Done
@@ -125,6 +137,7 @@ Findings from expert code-reviewer audit. H1, H3, H4, M3, M8, M9 were fixed this
 
 | Issue | Severity | Category | Status |
 |-------|----------|----------|--------|
+| E3 chromedriver not installed | LOW | Testing Infra | Open — `brew install chromedriver` |
 | #8-10 OAuth (deferred) | CRITICAL | Security | N/A until OAuth backend |
 | #23 KV consistency | HIGH | Reliability | Accepted risk |
 | #30 Multi-env CSP | LOW | Infrastructure | Accepted |
@@ -138,4 +151,4 @@ Findings from expert code-reviewer audit. H1, H3, H4, M3, M8, M9 were fixed this
 
 ---
 
-*Last updated: 2026-02-27 | Resolved #31, #38, #39, #40-50 | #32-36 verified false positives | #37 deferred*
+*Last updated: 2026-02-28 | Resolved #31, #38, #39, #40-50 | #32-36 verified false positives | #37, E3 deferred*
