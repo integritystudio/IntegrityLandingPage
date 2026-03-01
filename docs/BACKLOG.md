@@ -151,4 +151,28 @@ Findings from expert code-reviewer audit. H1, H3, H4, M3, M8, M9 were fixed this
 
 ---
 
-*Last updated: 2026-02-28 | Resolved #31, #38, #39, #40-50 | #32-36 verified false positives | #37, E3 deferred*
+## Code Quality: Widget Review & Quality Hardening (2026-03-01)
+
+### youtube_player_iframe Integration
+
+**Severity:** LOW
+**Category:** Code Quality/Feature
+**File:** `lib/widgets/modals/demo_modal.dart:121`
+**Status:** Open — identified as TODO during bug-fix session
+
+DemoModal has placeholder video player. TODO comment marks need to integrate `youtube_player_iframe` or similar package for actual video embedding. Deferred pending project requirements for video hosting.
+
+---
+
+### ContactSection._content Heuristic Edge Case
+
+**Severity:** LOW
+**Category:** Code Quality/Edge Case
+**File:** `lib/widgets/sections/contact_section.dart:39-41`
+**Status:** Open — acceptable but noted by LLM-as-Judge
+
+The `_content` getter falls back to `AppContent.contact` when `formFields.isEmpty`. This heuristic could misfire if a consumer intentionally passes a `ContactContent` object with no form fields. Current behavior is reasonable for the landing page use case but warrants documentation or stricter validation if reused.
+
+---
+
+*Last updated: 2026-03-01 | Fixed 8 widget bugs (8f31e0b) + 4 OTEL quality issues | Added 2 deferred items*

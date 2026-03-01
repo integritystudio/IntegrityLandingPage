@@ -29,25 +29,13 @@ import '../common/form_fields.dart';
 /// )
 /// ```
 class ContactSection extends StatefulWidget {
-  final ContactContent content;
+  final ContactContent? content;
   final Future<bool> Function(Map<String, String>)? onFormSubmit;
   final bool showLiveDemoSection;
 
   const ContactSection({
     super.key,
-    this.content = const ContactContent(
-      sectionId: 'contact',
-      title: 'Contact',
-      subtitle: '',
-      description: '',
-      formFields: [],
-      contactMethods: [],
-      formSubmitText: 'Submit',
-      formSuccessMessage: 'Thank you!',
-      formErrorMessage: 'Error',
-      calendlyUrl: '',
-      calendlyCtaText: 'Schedule Demo',
-    ),
+    this.content,
     this.onFormSubmit,
     this.showLiveDemoSection = true,
   });
@@ -65,9 +53,7 @@ class _ContactSectionState extends State<ContactSection> {
   String? _successMessage;
   String? _errorMessage;
 
-  // Use content from widget or fallback to AppContent
-  ContactContent get _content =>
-      widget.content.formFields.isEmpty ? AppContent.contact : widget.content;
+  ContactContent get _content => widget.content ?? AppContent.contact;
 
   @override
   Widget build(BuildContext context) {
