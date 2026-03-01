@@ -164,15 +164,13 @@ DemoModal has placeholder video player. TODO comment marks need to integrate `yo
 
 ---
 
-### ContactSection._content Heuristic Edge Case
+### ContactSection._content Heuristic Edge Case ✅ Done
 
 **Severity:** LOW
 **Category:** Code Quality/Edge Case
 **File:** `lib/widgets/sections/contact_section.dart:39-41`
-**Status:** Open — acceptable but noted by LLM-as-Judge
-
-The `_content` getter falls back to `AppContent.contact` when `formFields.isEmpty`. This heuristic could misfire if a consumer intentionally passes a `ContactContent` object with no form fields. Current behavior is reasonable for the landing page use case but warrants documentation or stricter validation if reused.
+**Resolved:** 2026-03-01 — Made `content` nullable; null-sentinel pattern replaces fragile `formFields.isEmpty` heuristic (4395245).
 
 ---
 
-*Last updated: 2026-03-01 | Fixed 8 widget bugs (8f31e0b) + 4 OTEL quality issues | Added 2 deferred items*
+*Last updated: 2026-03-01 | Fixed 8 widget bugs (8f31e0b) + 4 OTEL quality issues + ContactSection heuristic (4395245)*
