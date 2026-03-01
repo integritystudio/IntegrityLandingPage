@@ -1,4 +1,9 @@
 import { expect, Page } from '@playwright/test';
+import {
+  FLUTTER_INIT_TIMEOUT_MS,
+  ROUTE_CHANGE_TIMEOUT_MS,
+  ROUTE_RENDER_TIMEOUT_MS,
+} from './constants';
 
 /**
  * Wait for Flutter to fully initialize.
@@ -10,7 +15,7 @@ import { expect, Page } from '@playwright/test';
  * @param page - Playwright page object
  * @param timeout - Maximum time to wait in milliseconds (default: 90000)
  */
-export async function waitForFlutter(page: Page, timeout = 90000): Promise<void> {
+export async function waitForFlutter(page: Page, timeout = FLUTTER_INIT_TIMEOUT_MS): Promise<void> {
   // Wait for Flutter rendering surface to appear.
   // Note: waitForFunction(fn, arg, options) - pass undefined as arg to avoid
   // Playwright treating the options object as a function argument.
@@ -57,7 +62,7 @@ export async function assertFlutterRendering(page: Page): Promise<void> {
 export async function waitForRoute(
   page: Page,
   urlPattern: string | RegExp,
-  timeout = 10000
+  timeout = ROUTE_CHANGE_TIMEOUT_MS
 ): Promise<void> {
   await page.waitForURL(urlPattern, { timeout });
   // Wait for Flutter to re-render after route change
@@ -70,7 +75,7 @@ export async function waitForRoute(
       );
     },
     undefined,
-    { timeout: 30000 }
+    { timeout: ROUTE_RENDER_TIMEOUT_MS }
   );
 }
 
