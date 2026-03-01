@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../theme/theme.dart';
 import '../../services/consent_manager.dart';
@@ -272,7 +273,7 @@ class _CookieBannerState extends State<CookieBanner>
         Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.gray300),
+              icon: const Icon(LucideIcons.arrowLeft, color: AppColors.gray300),
               onPressed: () => setState(() => _showPreferences = false),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),

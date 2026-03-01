@@ -846,7 +846,7 @@ void main() {
           ),
         ));
 
-        expect(find.byIcon(Icons.arrow_forward), findsWidgets);
+        expect(find.byIcon(LucideIcons.arrowRight), findsWidgets);
       });
 
       testWidgets('primary method without url does not show arrow',
@@ -870,7 +870,7 @@ void main() {
           ),
         ));
 
-        expect(find.byIcon(Icons.arrow_forward), findsNothing);
+        expect(find.byIcon(LucideIcons.arrowRight), findsNothing);
       });
 
       testWidgets('secondary contact method shows tooltip', (tester) async {

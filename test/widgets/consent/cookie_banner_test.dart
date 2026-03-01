@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/models/consent_preferences.dart';
 import 'package:integrity_studio_ai/widgets/consent/cookie_banner.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
@@ -221,7 +222,7 @@ void main() {
         await navigateToPreferences(tester);
 
         // Navigation
-        expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+        expect(find.byIcon(LucideIcons.arrowLeft), findsOneWidget);
 
         // Cookie categories
         expect(find.text('Essential Cookies'), findsOneWidget);
@@ -249,7 +250,7 @@ void main() {
 
         expect(find.text('Essential Cookies'), findsOneWidget);
 
-        await tester.tap(find.byIcon(Icons.arrow_back));
+        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
         await tester.pump();
 
         expect(find.text('Essential Cookies'), findsNothing);

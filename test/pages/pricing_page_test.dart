@@ -282,9 +282,9 @@ void main() {
         await pumpPricingPage(tester);
 
         final section = find.byKey(const Key('pricing-tiers-section'));
-        // PricingCard uses check_circle icons for features
+        // PricingCard uses LucideIcons.checkCircle for features
         expect(
-          find.descendant(of: section, matching: find.byIcon(Icons.check_circle)),
+          find.descendant(of: section, matching: find.byIcon(LucideIcons.checkCircle)),
           findsWidgets,
         );
       });
