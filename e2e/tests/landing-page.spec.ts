@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForFlutter, assertFlutterRendering } from './helpers';
+import { waitForFlutter } from './helpers';
 import {
   CLICK_SETTLE_MS,
   KEY_SETTLE_MS,
@@ -8,6 +8,15 @@ import {
   NAV_Y,
   SCROLL_DELTA_PX,
   SCROLL_SETTLE_MS,
+  SCREENSHOT_AFTER_CTA_CLICK,
+  SCREENSHOT_AFTER_NAV_CLICK,
+  SCREENSHOT_AFTER_SCROLL,
+  SCREENSHOT_BEFORE_CTA_CLICK,
+  SCREENSHOT_BEFORE_NAV_CLICK,
+  SCREENSHOT_BEFORE_SCROLL,
+  SCREENSHOT_CONTENT,
+  SCREENSHOT_KEYBOARD_NAV,
+  SCREENSHOT_LANDING,
 } from './constants';
 
 test.describe('IntegrityStudio Landing Page', () => {
@@ -34,7 +43,7 @@ test.describe('IntegrityStudio Landing Page', () => {
   });
 
   test('should load Flutter app successfully', async ({ page }) => {
-    await page.screenshot({ path: 'screenshots/01-landing.png' });
+    await page.screenshot({ path: SCREENSHOT_LANDING });
 
     // Flutter renders to canvas - verify app loaded by checking Flutter elements exist
     const hasFlutterView = await page.evaluate(() => {
@@ -46,7 +55,7 @@ test.describe('IntegrityStudio Landing Page', () => {
   });
 
   test('should render landing page content', async ({ page }) => {
-    await page.screenshot({ path: 'screenshots/02-content.png' });
+    await page.screenshot({ path: SCREENSHOT_CONTENT });
 
     // Verify Flutter is rendering content
     // Flutter web may use flt-glass-pane, flutter-view, or canvas
@@ -69,7 +78,7 @@ test.describe('IntegrityStudio Landing Page', () => {
     }
 
     // Take before screenshot
-    await page.screenshot({ path: 'screenshots/03-before-click.png' });
+    await page.screenshot({ path: SCREENSHOT_BEFORE_NAV_CLICK });
 
     // Click on "Pricing" area in the navigation bar
     // Based on screenshots: header is at top, Pricing is around NAV_PRICING_X
@@ -77,7 +86,7 @@ test.describe('IntegrityStudio Landing Page', () => {
     await page.waitForTimeout(CLICK_SETTLE_MS);
 
     // Take after screenshot
-    await page.screenshot({ path: 'screenshots/03-after-click.png' });
+    await page.screenshot({ path: SCREENSHOT_AFTER_NAV_CLICK });
 
     // App should still be functional (not crashed)
     const hasFlutterView = await page.evaluate(() => {
@@ -95,14 +104,14 @@ test.describe('IntegrityStudio Landing Page', () => {
     }
 
     // Take before screenshot
-    await page.screenshot({ path: 'screenshots/04-before-cta.png' });
+    await page.screenshot({ path: SCREENSHOT_BEFORE_CTA_CLICK });
 
     // Click on "Get Started" button in header (right side, ~NAV_CTA_X)
     await page.mouse.click(NAV_CTA_X, NAV_Y);
     await page.waitForTimeout(CLICK_SETTLE_MS);
 
     // Take after screenshot
-    await page.screenshot({ path: 'screenshots/04-after-cta.png' });
+    await page.screenshot({ path: SCREENSHOT_AFTER_CTA_CLICK });
 
     // App should still be functional
     const hasFlutterView = await page.evaluate(() => {
@@ -120,7 +129,7 @@ test.describe('IntegrityStudio Landing Page', () => {
     await page.keyboard.press('Tab');
     await page.waitForTimeout(KEY_SETTLE_MS);
 
-    await page.screenshot({ path: 'screenshots/05-keyboard-nav.png' });
+    await page.screenshot({ path: SCREENSHOT_KEYBOARD_NAV });
 
     // App should still be functional
     const hasFlutterView = await page.evaluate(() => {
@@ -133,14 +142,14 @@ test.describe('IntegrityStudio Landing Page', () => {
 
   test('should scroll the page', async ({ page }) => {
     // Take before screenshot
-    await page.screenshot({ path: 'screenshots/06-before-scroll.png' });
+    await page.screenshot({ path: SCREENSHOT_BEFORE_SCROLL });
 
     // Scroll down
     await page.mouse.wheel(0, SCROLL_DELTA_PX);
     await page.waitForTimeout(SCROLL_SETTLE_MS);
 
     // Take after screenshot
-    await page.screenshot({ path: 'screenshots/06-after-scroll.png' });
+    await page.screenshot({ path: SCREENSHOT_AFTER_SCROLL });
 
     // App should still be functional
     const hasFlutterView = await page.evaluate(() => {

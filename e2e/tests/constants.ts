@@ -47,3 +47,17 @@ export const NAV_CTA_X = 610;
 
 /** Pixel distance for a standard programmatic scroll. */
 export const SCROLL_DELTA_PX = 500;
+
+// ---------------------------------------------------------------------------
+// Screenshot output paths
+// ---------------------------------------------------------------------------
+
+export const SCREENSHOT_LANDING = 'screenshots/01-landing.png';
+export const SCREENSHOT_CONTENT = 'screenshots/02-content.png';
+export const SCREENSHOT_BEFORE_NAV_CLICK = 'screenshots/03-before-click.png';
+export const SCREENSHOT_AFTER_NAV_CLICK = 'screenshots/03-after-click.png';
+export const SCREENSHOT_BEFORE_CTA_CLICK = 'screenshots/04-before-cta.png';
+export const SCREENSHOT_AFTER_CTA_CLICK = 'screenshots/04-after-cta.png';
+export const SCREENSHOT_KEYBOARD_NAV = 'screenshots/05-keyboard-nav.png';
+export const SCREENSHOT_BEFORE_SCROLL = 'screenshots/06-before-scroll.png';
+export const SCREENSHOT_AFTER_SCROLL = 'screenshots/06-after-scroll.png';
