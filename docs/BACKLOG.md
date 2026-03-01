@@ -79,14 +79,11 @@ All five are correctly typed as `let`; ast-grep rule produced false positives.
 
 ---
 
-### #37: Magic numbers in e2e tests
+### #37: Magic numbers in e2e tests ✅ Done
 
 **Severity:** LOW
 **Category:** Code Quality
-**Rule:** `magic-number`
-**Files:** `e2e/tests/landing-page.spec.ts`, `e2e/tests/*.spec.ts`, `workers/contact-form/src/index.ts`
-**Count:** 117 instances (viewport sizes, timeouts, HTTP status codes, rate limits)
-**Fix:** Extract repeated values into named constants (e.g., `VIEWPORT_WIDTH`, `RATE_LIMIT_WINDOW_MS`, `HTTP_429`).
+**Resolved:** 2026-03-01 — Created `e2e/tests/constants.ts` with named constants for timeout durations (FLUTTER_INIT_TIMEOUT_MS, ROUTE_CHANGE_TIMEOUT_MS, CLICK_SETTLE_MS, etc.), nav bar pixel coordinates (NAV_Y, NAV_PRICING_X, NAV_CTA_X), scroll delta (SCROLL_DELTA_PX), and screenshot output paths (9 constants). Updated landing-page.spec.ts and helpers.ts. Removed unused import. (00b36c3, 39074bf)
 
 ---
 
@@ -143,7 +140,7 @@ Findings from expert code-reviewer audit. H1, H3, H4, M3, M8, M9 were fixed this
 | #30 Multi-env CSP | LOW | Infrastructure | Accepted |
 | #31 console.log in e2e | WARNING | Code Quality | ✅ Done — 2026-02-27 |
 | #32-36 prefer-const (5) | INFO | Code Quality | ✅ False positive — all vars are reassigned (module-scoped circuit breaker state and loop counters) |
-| #37 magic numbers in e2e tests | LOW | Code Quality | Open — 117 instances, deferred |
+| #37 magic numbers in e2e tests | LOW | Code Quality | ✅ Done — 2026-03-01 (constants.ts + landing-page.spec.ts + helpers.ts) |
 | #38 magic numbers in worker | LOW | Code Quality | ✅ Done — 2026-02-27 |
 | #39 Index-based field selectors | HIGH | Test Quality | ✅ Done — 2026-02-27 (ValueKey added to widget + all test selectors migrated) |
 | #40-45 contact_section_test (6) | MEDIUM | Test Quality | ✅ Done — 2026-02-27 |
@@ -173,4 +170,4 @@ DemoModal has placeholder video player. TODO comment marks need to integrate `yo
 
 ---
 
-*Last updated: 2026-03-01 | Fixed 8 widget bugs (8f31e0b) + 4 OTEL quality issues + ContactSection heuristic (4395245)*
+*Last updated: 2026-03-01 | Fixed 8 widget bugs (8f31e0b) + 4 OTEL quality issues + ContactSection heuristic (4395245) + #37 e2e magic numbers (00b36c3)*
