@@ -1,5 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { waitForFlutter, assertFlutterRendering } from './helpers';
+import {
+  CLICK_SETTLE_MS,
+  KEY_SETTLE_MS,
+  NAV_CTA_X,
+  NAV_PRICING_X,
+  NAV_Y,
+  SCROLL_DELTA_PX,
+  SCROLL_SETTLE_MS,
+} from './constants';
 
 test.describe('IntegrityStudio Landing Page', () => {
   const consoleErrors: string[] = [];
@@ -63,9 +72,9 @@ test.describe('IntegrityStudio Landing Page', () => {
     await page.screenshot({ path: 'screenshots/03-before-click.png' });
 
     // Click on "Pricing" area in the navigation bar
-    // Based on screenshots: header is at top, Pricing is around x=500
-    await page.mouse.click(500, 25);
-    await page.waitForTimeout(3000);
+    // Based on screenshots: header is at top, Pricing is around NAV_PRICING_X
+    await page.mouse.click(NAV_PRICING_X, NAV_Y);
+    await page.waitForTimeout(CLICK_SETTLE_MS);
 
     // Take after screenshot
     await page.screenshot({ path: 'screenshots/03-after-click.png' });
@@ -88,9 +97,9 @@ test.describe('IntegrityStudio Landing Page', () => {
     // Take before screenshot
     await page.screenshot({ path: 'screenshots/04-before-cta.png' });
 
-    // Click on "Get Started" button in header (right side, ~x=610)
-    await page.mouse.click(610, 25);
-    await page.waitForTimeout(3000);
+    // Click on "Get Started" button in header (right side, ~NAV_CTA_X)
+    await page.mouse.click(NAV_CTA_X, NAV_Y);
+    await page.waitForTimeout(CLICK_SETTLE_MS);
 
     // Take after screenshot
     await page.screenshot({ path: 'screenshots/04-after-cta.png' });
@@ -107,9 +116,9 @@ test.describe('IntegrityStudio Landing Page', () => {
   test('should handle keyboard navigation', async ({ page }) => {
     // Test that keyboard input works
     await page.keyboard.press('Tab');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(KEY_SETTLE_MS);
     await page.keyboard.press('Tab');
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(KEY_SETTLE_MS);
 
     await page.screenshot({ path: 'screenshots/05-keyboard-nav.png' });
 
@@ -127,8 +136,8 @@ test.describe('IntegrityStudio Landing Page', () => {
     await page.screenshot({ path: 'screenshots/06-before-scroll.png' });
 
     // Scroll down
-    await page.mouse.wheel(0, 500);
-    await page.waitForTimeout(2000);
+    await page.mouse.wheel(0, SCROLL_DELTA_PX);
+    await page.waitForTimeout(SCROLL_SETTLE_MS);
 
     // Take after screenshot
     await page.screenshot({ path: 'screenshots/06-after-scroll.png' });
