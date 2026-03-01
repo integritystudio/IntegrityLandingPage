@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:integrity_studio_ai/pages/contact_page.dart';
 import 'package:integrity_studio_ai/widgets/common/form_fields.dart';
@@ -204,7 +205,7 @@ void main() {
       await pumpFrames(tester, frames: 20);
 
       // Find and tap back button
-      final backButton = find.byIcon(Icons.arrow_back);
+      final backButton = find.byIcon(LucideIcons.arrowLeft);
       if (backButton.evaluate().isEmpty) {
         // Try lucide icon
         final icons = find.byType(IconButton);

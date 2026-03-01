@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/content.dart';
 import '../../theme/theme.dart';
@@ -219,7 +220,7 @@ class _ServiceCard extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   const Icon(
-                    Icons.arrow_forward,
+                    LucideIcons.arrowRight,
                     size: 16,
                     color: AppColors.blue400,
                   ),
