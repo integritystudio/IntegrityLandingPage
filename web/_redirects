@@ -7,8 +7,8 @@
 /assets/*  /assets/:splat  200
 /screenshots/*  /screenshots/:splat  200
 
-# Blog listing page - serve SPA (Flutter handles /blog route)
-/blog  /index.html  200
+# Blog listing page - redirect to trailing slash so CF serves blog/index.html
+/blog  /blog/  301
 
 # Blog article HTML files - serve directly
 /blog/*.html  /blog/:splat.html  200
