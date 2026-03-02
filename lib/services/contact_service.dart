@@ -305,11 +305,11 @@ class ContactService {
     // Generate request ID for distributed tracing (#29)
     final requestId = _generateRequestId();
 
+    // Fetch CSRF token once; re-fetch only on 403
+    var csrfToken = await _fetchCsrfToken();
+
     for (var attempt = 0; attempt <= _maxRetries; attempt++) {
       try {
-        // Fetch CSRF token
-        final csrfToken = await _fetchCsrfToken();
-
         final response = await _dio.post(
           _contactApiUrl,
           data: jsonEncode(payload.formData.toJson()),
@@ -320,11 +320,21 @@ class ContactService {
               'X-Idempotency-Key': idempotencyKey,
               'X-Request-ID': requestId,
             },
-            // Accept client errors (4xx) and 504 (gateway timeout from worker)
+            // Accept only status codes we explicitly handle
             validateStatus: (status) =>
-                status != null && (status < 500 || status == 504),
+                status != null &&
+                (status == 200 || status == 403 || status == 429 || status == 504),
           ),
         );
+
+        // CSRF token rejected — refresh and retry
+        if (response.statusCode == 403) {
+          csrfToken = await _fetchCsrfToken();
+          if (attempt < _maxRetries) continue;
+          return const ContactFormError(
+            error: 'Security token expired. Please try again.',
+          );
+        }
 
         final data = response.data as Map<String, dynamic>;
 
