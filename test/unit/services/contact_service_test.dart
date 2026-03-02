@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/services/contact_service.dart';
+import 'package:integrity_studio_ai/services/http_status.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 
@@ -627,7 +628,7 @@ void main() {
           options: anyNamed('options'),
         )).thenAnswer((_) async => Response(
               requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
+              statusCode: HttpStatus.ok.code,
               data: {
                 'success': true,
                 'message': 'Thank you for your message!',
@@ -659,7 +660,7 @@ void main() {
           options: anyNamed('options'),
         )).thenAnswer((_) async => Response(
               requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
+              statusCode: HttpStatus.ok.code,
               data: {
                 'success': true,
                 'message': 'Your message has been received.',
@@ -764,7 +765,7 @@ void main() {
           }
           return Response(
             requestOptions: RequestOptions(path: ''),
-            statusCode: 200,
+            statusCode: HttpStatus.ok.code,
             data: {
               'success': true,
               'message': 'Sent!',
@@ -801,7 +802,7 @@ void main() {
           options: anyNamed('options'),
         )).thenAnswer((_) async => Response(
               requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
+              statusCode: HttpStatus.ok.code,
               data: {
                 'success': true,
                 'message': 'Sent!',
@@ -826,7 +827,7 @@ void main() {
         // CSRF fetch returns null token
         when(mockDio.get(any)).thenAnswer((_) async => Response(
               requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
+              statusCode: HttpStatus.ok.code,
               data: {'csrfToken': null},
             ));
         when(mockDio.post(
@@ -835,7 +836,7 @@ void main() {
           options: anyNamed('options'),
         )).thenAnswer((_) async => Response(
               requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
+              statusCode: HttpStatus.ok.code,
               data: {
                 'success': true,
                 'message': 'Sent!',
@@ -863,7 +864,7 @@ void main() {
           options: anyNamed('options'),
         )).thenAnswer((_) async => Response(
               requestOptions: RequestOptions(path: ''),
-              statusCode: 429,
+              statusCode: HttpStatus.tooManyRequests.code,
               headers: Headers.fromMap({
                 'retry-after': ['30'],
               }),
@@ -904,13 +905,13 @@ void main() {
           if (callCount == 1) {
             return Response(
               requestOptions: RequestOptions(path: ''),
-              statusCode: 504,
+              statusCode: HttpStatus.gatewayTimeout.code,
               data: {'error': 'Gateway Timeout'},
             );
           }
           return Response(
             requestOptions: RequestOptions(path: ''),
-            statusCode: 200,
+            statusCode: HttpStatus.ok.code,
             data: {
               'success': true,
               'message': 'Sent!',
@@ -940,7 +941,7 @@ void main() {
           options: anyNamed('options'),
         )).thenAnswer((_) async => Response(
               requestOptions: RequestOptions(path: ''),
-              statusCode: 504,
+              statusCode: HttpStatus.gatewayTimeout.code,
               data: {'error': 'Gateway Timeout'},
             ));
 
@@ -1008,7 +1009,7 @@ void main() {
           options: anyNamed('options'),
         )).thenAnswer((_) async => Response(
               requestOptions: RequestOptions(path: ''),
-              statusCode: 429,
+              statusCode: HttpStatus.tooManyRequests.code,
               headers: Headers(),
               data: {
                 'error': 'Too many requests.',
@@ -1110,7 +1111,7 @@ void main() {
           options: anyNamed('options'),
         )).thenAnswer((_) async => Response(
               requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
+              statusCode: HttpStatus.ok.code,
               data: {
                 'success': false,
                 'error': 'Invalid company domain',
@@ -1144,7 +1145,7 @@ void main() {
           options: anyNamed('options'),
         )).thenAnswer((_) async => Response(
               requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
+              statusCode: HttpStatus.ok.code,
               data: {
                 'success': true,
                 // message and submissionId are null
@@ -1165,6 +1166,262 @@ void main() {
         final success = response as ContactFormSuccess;
         expect(success.message, contains('Thank you'));
         expect(success.submissionId, startsWith('sub_'));
+      });
+
+      // ================================================================
+      // CSRF fetch-once and 403 handling
+      // ================================================================
+
+      test('fetches CSRF token once on successful submission', () async {
+        when(mockDio.get(any)).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: HttpStatus.ok.code,
+              data: {'csrfToken': 'token_abc'},
+            ));
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: HttpStatus.ok.code,
+              data: {
+                'success': true,
+                'message': 'Sent!',
+                'submissionId': 'sub_once',
+              },
+            ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormSuccess>());
+        // CSRF GET called exactly once (not per attempt)
+        verify(mockDio.get(any)).called(1);
+        verify(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).called(1);
+      });
+
+      test('does not re-fetch CSRF on non-403 retries', () async {
+        // CSRF fetch succeeds once
+        when(mockDio.get(any)).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: HttpStatus.ok.code,
+              data: {'csrfToken': 'token_stable'},
+            ));
+        // First attempt: 504, second attempt: success
+        var postCount = 0;
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async {
+          postCount++;
+          if (postCount == 1) {
+            return Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: HttpStatus.gatewayTimeout.code,
+              data: {'error': 'Gateway Timeout'},
+            );
+          }
+          return Response(
+            requestOptions: RequestOptions(path: ''),
+            statusCode: HttpStatus.ok.code,
+            data: {
+              'success': true,
+              'message': 'Sent!',
+              'submissionId': 'sub_no_refetch',
+            },
+          );
+        });
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormSuccess>());
+        // CSRF GET called only once (not re-fetched on 504 retry)
+        verify(mockDio.get(any)).called(1);
+        expect(postCount, equals(2));
+      });
+
+      test('re-fetches CSRF on 403 and retries successfully', () async {
+        var getCount = 0;
+        when(mockDio.get(any)).thenAnswer((_) async {
+          getCount++;
+          return Response(
+            requestOptions: RequestOptions(path: ''),
+            statusCode: HttpStatus.ok.code,
+            data: {
+              'csrfToken': getCount == 1 ? 'stale_token' : 'fresh_token',
+            },
+          );
+        });
+
+        var postCount = 0;
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async {
+          postCount++;
+          if (postCount == 1) {
+            return Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: HttpStatus.forbidden.code,
+              data: {'error': 'Invalid CSRF token'},
+            );
+          }
+          return Response(
+            requestOptions: RequestOptions(path: ''),
+            statusCode: HttpStatus.ok.code,
+            data: {
+              'success': true,
+              'message': 'Sent!',
+              'submissionId': 'sub_csrf_refresh',
+            },
+          );
+        });
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormSuccess>());
+        // Initial fetch + re-fetch on 403
+        expect(getCount, equals(2));
+        expect(postCount, equals(2));
+      });
+
+      test('returns error after persistent 403 on all retries', () async {
+        when(mockDio.get(any)).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: HttpStatus.ok.code,
+              data: {'csrfToken': 'always_stale'},
+            ));
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: HttpStatus.forbidden.code,
+              data: {'error': 'Invalid CSRF token'},
+            ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormError>());
+        final error = response as ContactFormError;
+        expect(error.error, contains('Security token expired'));
+        // 3 POST attempts (initial + 2 retries)
+        verify(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).called(3);
+      });
+
+      // ================================================================
+      // validateStatus rejects unhandled 5xx
+      // ================================================================
+
+      test('rejects 500 via validateStatus as DioException', () async {
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenThrow(DioException(
+          type: DioExceptionType.badResponse,
+          requestOptions: RequestOptions(path: ''),
+          response: Response(
+            requestOptions: RequestOptions(path: ''),
+            statusCode: 500,
+            data: {'error': 'Internal Server Error'},
+          ),
+        ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormError>());
+        // 500 is not retryable — single attempt
+        verify(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).called(1);
+      });
+
+      test('rejects 502 via validateStatus as DioException', () async {
+        when(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).thenThrow(DioException(
+          type: DioExceptionType.badResponse,
+          requestOptions: RequestOptions(path: ''),
+          response: Response(
+            requestOptions: RequestOptions(path: ''),
+            statusCode: 502,
+            data: {'error': 'Bad Gateway'},
+          ),
+        ));
+
+        final payload = ContactFormPayload(
+          formData: const ContactFormData(
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Valid message for testing.',
+          ),
+        );
+
+        final response = await ContactService.submitForm(payload);
+
+        expect(response, isA<ContactFormError>());
+        // 502 is not retryable — single attempt
+        verify(mockDio.post(
+          any,
+          data: anyNamed('data'),
+          options: anyNamed('options'),
+        )).called(1);
       });
 
       test('does not retry on non-retryable errors', () async {
