@@ -55,3 +55,10 @@ package-lock.json
 # Repomix output files
 repomix-output.xml
 .ralph-prompt.md
+
+# TypeScript / JavaScript
+*.ts
+*.js
+*.d.ts
+*.js.map
+dist/

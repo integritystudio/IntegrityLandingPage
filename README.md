@@ -23,7 +23,8 @@ flutter build web        # Production build
 | [Architecture](docs/architecture.md) | Tech stack, patterns, directory structure |
 | [Routes](docs/routes.md) | GoRouter configuration, 27 routes |
 | [Changelog](docs/CHANGELOG.md) | Version history, recent changes |
-| [BACKLOG](docs/BACKLOG.md) | documented backlog items
+| [BACKLOG](docs/BACKLOG.md) | documented backlog items |
+| [Token Count Tree](docs/repomix/token-count-tree.txt) | File tree with token counts |
 | [SOC 2 Type II Compliance](docs/SOC2-COMPLIANCE-REPORT.md) | Compliance documentation |
 
 ## Project Structure

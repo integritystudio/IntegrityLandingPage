@@ -388,7 +388,7 @@ class _ContactSectionState extends State<ContactSection> {
                   width: double.infinity,
                   child: GradientButton(
                     text: _content.calendlyCtaText,
-                    onPressed: () {
+                    onPressed: () async {
                       AnalyticsService.trackCTAClick(
                         buttonName: _content.calendlyCtaText,
                         location: 'contact_section',
@@ -397,7 +397,16 @@ class _ContactSectionState extends State<ContactSection> {
                       if (url.startsWith('/')) {
                         context.go(url);
                       } else {
-                        launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                        try {
+                          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                        } catch (e, stackTrace) {
+                          ErrorTrackingService.captureException(
+                            e,
+                            stackTrace: stackTrace,
+                            context: 'ContactSection.calendlyLaunch',
+                            extra: {'url': url},
+                          );
+                        }
                       }
                     },
                   ),
@@ -579,8 +588,17 @@ class _ContactMethodItem extends StatelessWidget {
         child: InkWell(
           onTap: method.url != null
               ? () async {
-                  final uri = Uri.parse(method.url!);
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  try {
+                    final uri = Uri.parse(method.url!);
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } catch (e, stackTrace) {
+                    ErrorTrackingService.captureException(
+                      e,
+                      stackTrace: stackTrace,
+                      context: 'ContactMethodItem.socialLinkLaunch',
+                      extra: {'url': method.url},
+                    );
+                  }
                 }
               : null,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -599,8 +617,17 @@ class _ContactMethodItem extends StatelessWidget {
     return InkWell(
       onTap: method.url != null
           ? () async {
-              final uri = Uri.parse(method.url!);
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
+              try {
+                final uri = Uri.parse(method.url!);
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              } catch (e, stackTrace) {
+                ErrorTrackingService.captureException(
+                  e,
+                  stackTrace: stackTrace,
+                  context: 'ContactMethodItem.primaryLinkLaunch',
+                  extra: {'url': method.url},
+                );
+              }
             }
           : null,
       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
