@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:dio/dio.dart';
 import 'analytics.dart';
+import 'http_status.dart';
 
 /// Contact form API endpoint (Cloudflare Worker).
 /// Configurable via --dart-define=CONTACT_API_URL for staging/development.
@@ -323,12 +324,15 @@ class ContactService {
             // Accept only status codes we explicitly handle
             validateStatus: (status) =>
                 status != null &&
-                (status == 200 || status == 403 || status == 429 || status == 504),
+                (status == HttpStatus.ok.code ||
+                    status == HttpStatus.forbidden.code ||
+                    status == HttpStatus.tooManyRequests.code ||
+                    status == HttpStatus.gatewayTimeout.code),
           ),
         );
 
         // CSRF token rejected — refresh and retry
-        if (response.statusCode == 403) {
+        if (response.statusCode == HttpStatus.forbidden.code) {
           csrfToken = await _fetchCsrfToken();
           if (attempt < _maxRetries) continue;
           return const ContactFormError(
@@ -338,7 +342,7 @@ class ContactService {
 
         final data = response.data as Map<String, dynamic>;
 
-        if (response.statusCode == 504) {
+        if (response.statusCode == HttpStatus.gatewayTimeout.code) {
           // Worker's Resend API call timed out - retryable
           if (attempt < _maxRetries) {
             await retryDelay(Duration(seconds: 1 << attempt));
@@ -349,7 +353,7 @@ class ContactService {
           );
         }
 
-        if (response.statusCode == 429) {
+        if (response.statusCode == HttpStatus.tooManyRequests.code) {
           final retryAfter =
               int.tryParse(response.headers.value('retry-after') ?? '');
           final seconds = retryAfter ?? (data['retryAfter'] as int?);
@@ -361,7 +365,7 @@ class ContactService {
           );
         }
 
-        if (response.statusCode == 200 && data['success'] == true) {
+        if (response.statusCode == HttpStatus.ok.code && data['success'] == true) {
           return ContactFormSuccess(
             message: data['message'] as String? ??
                 "Thank you for your message! We'll respond within 24 hours.",
