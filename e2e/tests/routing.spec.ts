@@ -176,6 +176,63 @@ test.describe('Routing and Redirects', () => {
     });
   });
 
+  test.describe('Blog Redirect Behavior', () => {
+    // Regression tests for /blog 308→/ bug (fixed in 0c1b161).
+    // Root cause: rewrite rule "/blog /index.html 200" caused CF pretty-URL
+    // normalization to 308 redirect to / instead of serving the blog page.
+
+    test('/blog redirects to /blog/ (not /)', async ({ request }) => {
+      const response = await request.get('/blog', {
+        maxRedirects: 0,
+      });
+      const status = response.status();
+      const location = response.headers()['location'];
+
+      // Must be a redirect to /blog/
+      expect([301, 302, 308]).toContain(status);
+      expect(location).toMatch(/\/blog\/$/);
+    });
+
+    test('/blog does NOT redirect to /', async ({ request }) => {
+      const response = await request.get('/blog', {
+        maxRedirects: 0,
+      });
+      const location = response.headers()['location'] ?? '';
+
+      // The bug was location: / — ensure this never regresses
+      expect(location).not.toBe('/');
+      expect(location).not.toMatch(/^https?:\/\/[^/]+\/$/);
+    });
+
+    test('/blog redirect chain lands on blog page (200)', async ({ request }) => {
+      // Follow redirects — final response must be 200 with SPA content
+      const response = await request.get('/blog');
+      expect(response.status()).toBe(200);
+
+      const html = await response.text();
+      expect(html).toContain('flutter_bootstrap.js');
+    });
+
+    test('/blog/ serves 200 directly (no redirect)', async ({ request }) => {
+      const response = await request.get('/blog/', {
+        maxRedirects: 0,
+      });
+      expect(response.status()).toBe(200);
+    });
+
+    test('/internship redirects to /internship/ (not /)', async ({ request }) => {
+      const response = await request.get('/internship', {
+        maxRedirects: 0,
+      });
+      const status = response.status();
+      const location = response.headers()['location'] ?? '';
+
+      expect([301, 302, 308]).toContain(status);
+      expect(location).toMatch(/\/internship\/$/);
+      expect(location).not.toBe('/');
+    });
+  });
+
   test.describe('404 Handling', () => {
     test('Unknown routes serve SPA (soft 404)', async ({ page, browserName }) => {
       test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
