@@ -342,6 +342,21 @@ void main() {
         expect(contact.calendlyUrl, isNotEmpty);
         expect(contact.calendlyCtaText, isNotEmpty);
       });
+
+      test('calendly duration is 15 minutes everywhere', () {
+        final contact = AppContent.contact;
+
+        // URL slug must be 15min
+        expect(contact.calendlyUrl, contains('15min'));
+        expect(contact.calendlyUrl, isNot(contains('30min')));
+
+        // "Schedule a Demo" contact method label
+        final demoMethod = contact.contactMethods.firstWhere(
+          (m) => m.label == 'Schedule a Demo',
+        );
+        expect(demoMethod.value, contains('15-minute'));
+        expect(demoMethod.value, isNot(contains('30')));
+      });
     });
 
     group('getHeroVariant', () {

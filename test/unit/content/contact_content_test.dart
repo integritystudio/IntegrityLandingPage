@@ -26,6 +26,35 @@ void main() {
         expect(content.calendlyCtaText, isNotEmpty);
       });
 
+      test('calendly URL matches 15-minute duration', () {
+        final content = AppContent.contact;
+
+        expect(content.calendlyUrl, contains('15min'));
+        expect(content.calendlyUrl, isNot(contains('30min')));
+      });
+
+      test('schedule demo label says 15-minute not 30-minute', () {
+        final content = AppContent.contact;
+        final demoMethod = content.contactMethods.firstWhere(
+          (m) => m.label == 'Schedule a Demo',
+        );
+
+        expect(demoMethod.value, contains('15-minute'));
+        expect(demoMethod.value, isNot(contains('30')));
+      });
+
+      test('calendly URL and label duration are consistent', () {
+        final content = AppContent.contact;
+        final demoMethod = content.contactMethods.firstWhere(
+          (m) => m.label == 'Schedule a Demo',
+        );
+
+        // URL says 15min → label must say 15-minute
+        expect(content.calendlyUrl, contains('15min'));
+        expect(demoMethod.value, contains('15'));
+        expect(demoMethod.url, equals(content.calendlyUrl));
+      });
+
       test('has 7 form fields', () {
         final content = AppContent.contact;
 

@@ -4181,7 +4181,7 @@
       "@type": "Event",
       "@id": "https://integritystudio.ai/#demo-event",
       "name": "Integrity Studio Product Demo",
-      "description": "Schedule a personalized 30-minute demo to see how Integrity Studio provides end-to-end AI observability, LLM monitoring, and EU AI Act compliance reporting.",
+      "description": "Schedule a personalized 15-minute demo to see how Integrity Studio provides end-to-end AI observability, LLM monitoring, and EU AI Act compliance reporting.",
       "startDate": "2025-01-01",
       "endDate": "2025-12-31",
       "eventSchedule": {
