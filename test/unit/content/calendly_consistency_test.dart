@@ -1,14 +1,12 @@
-/// Regression tests: Calendly URL and duration labels must stay consistent
-/// across all content sources (constants, content models, content.yaml).
-///
-/// Background: The Calendly event is 15 minutes but labels in 4 files
-/// previously said "30 minutes". These tests prevent that drift.
-import 'dart:convert';
+// Regression tests: Calendly URL and duration labels must stay consistent
+// across all content sources (constants, content models, content.yaml).
+//
+// Background: The Calendly event is 15 minutes but labels in 4 files
+// previously said "30 minutes". These tests prevent that drift.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/config/content.dart';
-import 'package:integrity_studio_ai/config/content/constants.dart';
 
 void main() {
   group('Calendly duration consistency', () {
@@ -79,14 +77,6 @@ void main() {
   });
 
   group('JSON-LD calendly consistency', () {
-    late Map<String, dynamic> jsonLd;
-
-    setUpAll(() {
-      final file = File('jsonld_combined.json');
-      if (!file.existsSync()) return;
-      jsonLd = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-    });
-
     test('JSON-LD demo event description says 15-minute', () {
       final file = File('jsonld_combined.json');
       if (!file.existsSync()) {
