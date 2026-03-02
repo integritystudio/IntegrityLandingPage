@@ -756,7 +756,7 @@ contact:
 
     - icon: "calendar"
       label: "Schedule a Demo"
-      value: "Book a 30-minute call"
+      value: "Book a 15-minute call"
       url: "https://calendly.com/alyshialedlie/15min"
       is_primary: true
 

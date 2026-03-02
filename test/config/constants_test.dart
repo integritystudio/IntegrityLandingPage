@@ -31,6 +31,17 @@ void main() {
     });
   });
 
+  group('ExternalUrls', () {
+    test('calendly URL points to 15-minute meeting', () {
+      expect(ExternalUrls.calendlyDemo, contains('15min'));
+      expect(ExternalUrls.calendlyDemo, isNot(contains('30min')));
+    });
+
+    test('calendly URL is a valid calendly.com link', () {
+      expect(ExternalUrls.calendlyDemo, startsWith('https://calendly.com/'));
+    });
+  });
+
   group('CTAText', () {
     test('primary CTAs are non-empty', () {
       expect(CTAText.startFreeTrial, isNotEmpty);

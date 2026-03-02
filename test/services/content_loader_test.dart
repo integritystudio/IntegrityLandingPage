@@ -95,6 +95,7 @@ void main() {
       expect(ContentLoader.instance.getHeroVariant('current'), isNotEmpty);
       expect(Content.getHeroVariant('current'), isNotEmpty);
     });
+
   });
 
   group('ContentLoader with loaded content', () {
