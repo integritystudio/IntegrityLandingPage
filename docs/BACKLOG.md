@@ -47,13 +47,11 @@ CSP report-uri/report-to endpoints shared across staging/production. Staging is 
 
 ## Testing Infrastructure
 
-### E3: chromedriver not installed
+### E3: chromedriver not installed ✅ Done
 
 **Severity:** LOW
 **Category:** Testing Infrastructure
-**Source:** `TEST_GAPS.md`
-
-`flutter drive -d chrome` fails because chromedriver is not installed. Fix: `brew install chromedriver` (local) or add to CI pipeline.
+**Resolved:** 2026-03-01 — chromedriver v145.0.7632.117 installed at `~/.local/bin/chromedriver`, matching Chrome v145.0.7632.117.
 
 ---
 
@@ -134,7 +132,9 @@ Findings from expert code-reviewer audit. H1, H3, H4, M3, M8, M9 were fixed this
 
 | Issue | Severity | Category | Status |
 |-------|----------|----------|--------|
-| E3 chromedriver not installed | LOW | Testing Infra | Open — `brew install chromedriver` |
+| E3 chromedriver not installed | LOW | Testing Infra | ✅ Done — 2026-03-01 (v145.0.7632.117) |
+| E4 flutter drive CSP hang | HIGH | Testing Infra | ✅ Done — 2026-03-01 (use --profile flag) |
+| E5 contact_form_test enterText + placeholder | HIGH | Testing Infra | ✅ Done — 2026-03-01 (directEnterText + 'Doe' not 'Smith') |
 | #8-10 OAuth (deferred) | CRITICAL | Security | N/A until OAuth backend |
 | #23 KV consistency | HIGH | Reliability | Accepted risk |
 | #30 Multi-env CSP | LOW | Infrastructure | Accepted |
@@ -170,4 +170,52 @@ DemoModal has placeholder video player. TODO comment marks need to integrate `yo
 
 ---
 
-*Last updated: 2026-03-01 | Fixed 8 widget bugs (8f31e0b) + 4 OTEL quality issues + ContactSection heuristic (4395245) + #37 e2e magic numbers (00b36c3)*
+### E4: `flutter drive -d chrome` hangs indefinitely ✅ Done
+
+**Severity:** HIGH
+**Category:** Testing Infrastructure
+**Resolved:** 2026-03-01
+
+**Root cause:** `web/index.html` has a strict CSP without `'unsafe-inline'` in `script-src` and without `ws://localhost:*` in `connect-src`. Flutter's DDC debug build injects DWDS (Dart Web Dev Service) which:
+1. Executes inline scripts → blocked by CSP
+2. Connects via WebSocket to localhost → blocked by CSP
+
+Result: `window.$flutterDriver` is never registered → `waitUntilExtensionInstalled` waits up to 365 days (default timeout).
+
+**Fix:** Add `--profile` flag to all `flutter drive` invocations. Profile mode uses dart2js (not DDC), no DWDS injection, CSP-safe.
+
+```bash
+flutter drive \
+  --driver=test_driver/integration_test.dart \
+  --target=integration_test/e2e/<test>.dart \
+  --driver-port=4444 \
+  --profile \
+  -d chrome
+```
+
+Smoke test and full landing_page_test confirmed passing with this fix.
+
+---
+
+### E5: contact_form_test.dart — all 14 tests failing (enterText + placeholder collision) ✅ Done
+
+**Severity:** HIGH
+**Category:** Testing Infrastructure
+**Resolved:** 2026-03-01
+
+**Root causes (2):**
+
+1. **`tester.enterText()` broken in `IntegrationTestWidgetsFlutterBinding`**: `LiveTestWidgetsFlutterBinding.showKeyboard()` does not call `testTextInput.register()`, leaving `testTextInput._client = null`. In profile mode (dart2js), asserts are disabled so the null dereference produces a TypeError that serializes as an empty string in flutter drive output.
+
+2. **Test data `'Smith'` collides with lastName placeholder `"Smith"`**: Flutter's `InputDecorator` keeps hint text as a `Text` widget at opacity 0 even when the field has a value. `find.text('Smith')` matches both the hint `Text` and the `EditableText`, so `findsOneWidget` fails with 2 matches.
+
+**Fixes:**
+- Replaced `tester.enterText()` with `directEnterText()` helper that calls `EditableTextState.updateEditingValue()` directly, bypassing `testTextInput`
+- Changed test data from `'Smith'` to `'Doe'` to avoid placeholder collision
+- Added `scrollUntilVisible` (from previous session) to reliably reach contact section
+
+All 14 tests now pass consistently. Smoke test also passes.
+
+---
+
+*Last updated: 2026-03-01 | Fixed 8 widget bugs (8f31e0b) + 4 OTEL quality issues + ContactSection heuristic (4395245) + #37 e2e magic numbers (00b36c3) + E4 flutter drive CSP hang (profile mode fix) + E5 contact_form_test enterText + placeholder fix*

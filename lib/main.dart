@@ -63,9 +63,15 @@ Future<void> main() async {
   // This must be called before runApp() for deep linking to work
   usePathUrlStrategy();
 
-  // Initialize Marionette for AI agent testing in debug mode
+  // Initialize Marionette for AI agent testing in debug mode.
+  // Guard: if a binding already exists (e.g. IntegrationTestWidgetsFlutterBinding
+  // from flutter drive), skip MarionetteBinding to avoid a duplicate-binding crash.
   if (kDebugMode) {
-    MarionetteBinding.ensureInitialized();
+    try {
+      MarionetteBinding.ensureInitialized();
+    } on Object {
+      // Binding already initialized (integration test environment)
+    }
   } else {
     WidgetsFlutterBinding.ensureInitialized();
   }

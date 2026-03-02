@@ -12,6 +12,18 @@ import 'package:integrity_studio_ai/widgets/common/alert.dart';
 /// NOTE: Uses pump(Duration) instead of pumpAndSettle() because the landing
 /// page has continuous animations that would cause pumpAndSettle to timeout.
 ///
+/// NOTE: Uses directEnterText() instead of tester.enterText() because
+/// IntegrationTestWidgetsFlutterBinding (which extends LiveTestWidgetsFlutterBinding)
+/// does not register testTextInput in showKeyboard(), leaving _client null.
+/// In profile mode (dart2js), the null dereference produces an empty TypeError.
+/// directEnterText bypasses testTextInput by calling EditableTextState.updateEditingValue
+/// directly.
+///
+/// NOTE: Test data must not match field placeholder text (e.g. content.yaml
+/// sets lastName placeholder to "Smith"). Hint text stays in the widget tree
+/// at opacity 0, so find.text matches both the hint and the entered value,
+/// causing findsOneWidget to fail with 2 matches.
+///
 /// PREREQUISITE: chromedriver must be installed for `flutter drive -d chrome`.
 ///   brew install chromedriver  # macOS
 ///   Then: flutter drive --driver=test_driver/integration_test.dart \
@@ -40,12 +52,18 @@ void main() {
   }
 
   /// Scroll to the contact section at the bottom of the page.
+  ///
+  /// Uses scrollUntilVisible to reliably reach the contact form header
+  /// regardless of total page height (the section count can grow).
   Future<void> scrollToContactSection(WidgetTester tester) async {
     final scrollableFinder = find.byType(Scrollable).first;
-    for (var i = 0; i < 15; i++) {
-      await tester.fling(scrollableFinder, const Offset(0, -1000), 2000);
-      await pumpFrames(tester, frames: 8);
-    }
+    await tester.scrollUntilVisible(
+      find.text('Send us a message'),
+      500.0,
+      scrollable: scrollableFinder,
+      maxScrolls: 100,
+    );
+    await pumpFrames(tester, frames: 5);
   }
 
   /// Find the form submit button. Returns the finder (may be empty).
@@ -66,6 +84,25 @@ void main() {
   /// Find a TextFormField by its associated label text.
   Finder findFieldByLabel(String label) {
     return find.textContaining(label);
+  }
+
+  /// Scroll field into viewport then enter text via EditableTextState.
+  ///
+  /// Bypasses tester.enterText() which is broken in
+  /// IntegrationTestWidgetsFlutterBinding (testTextInput._client is null).
+  /// Instead, directly calls updateEditingValue on the EditableTextState.
+  Future<void> directEnterText(
+      WidgetTester tester, Finder field, String text) async {
+    await tester.ensureVisible(field);
+    await pumpFrames(tester, frames: 2);
+    final EditableTextState editableState = tester.state<EditableTextState>(
+      find.descendant(of: field, matching: find.byType(EditableText)),
+    );
+    editableState.updateEditingValue(TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    ));
+    await pumpFrames(tester, frames: 5);
   }
 
   /// Bootstrap the app and scroll to the contact section.
@@ -166,13 +203,11 @@ void main() {
           reason: 'Need at least 3 text fields to test input');
 
       // Enter text in the first two fields (firstName, lastName)
-      await tester.enterText(textFields.at(0), 'Jane');
-      await pumpFrames(tester, frames: 3);
-      await tester.enterText(textFields.at(1), 'Smith');
-      await pumpFrames(tester, frames: 3);
+      await directEnterText(tester, textFields.at(0), 'Jane');
+      await directEnterText(tester, textFields.at(1), 'Doe');
 
       expect(find.text('Jane'), findsOneWidget);
-      expect(find.text('Smith'), findsOneWidget);
+      expect(find.text('Doe'), findsOneWidget);
     });
 
     testWidgets('email field accepts email input', (tester) async {
@@ -180,8 +215,7 @@ void main() {
 
       final textFields = find.byType(TextFormField);
       // Email is the 3rd TextFormField (index 2) per content.yaml field order
-      await tester.enterText(textFields.at(2), 'jane@example.com');
-      await pumpFrames(tester, frames: 3);
+      await directEnterText(tester, textFields.at(2), 'jane@example.com');
 
       expect(find.text('jane@example.com'), findsOneWidget);
     });
@@ -242,18 +276,14 @@ void main() {
       final textFields = find.byType(TextFormField);
 
       // Fill name fields so only email validation fires
-      await tester.enterText(textFields.at(0), 'Jane');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(1), 'Smith');
-      await pumpFrames(tester, frames: 2);
+      await directEnterText(tester, textFields.at(0), 'Jane');
+      await directEnterText(tester, textFields.at(1), 'Doe');
 
       // Enter invalid email
-      await tester.enterText(textFields.at(2), 'not-an-email');
-      await pumpFrames(tester, frames: 2);
+      await directEnterText(tester, textFields.at(2), 'not-an-email');
 
       // Fill company (required field, index 3)
-      await tester.enterText(textFields.at(3), 'Acme Inc');
-      await pumpFrames(tester, frames: 2);
+      await directEnterText(tester, textFields.at(3), 'Acme Inc');
 
       // Submit
       final submitBtn = findSubmitButton();
@@ -275,21 +305,19 @@ void main() {
       final textFields = find.byType(TextFormField);
 
       // Fill all required fields with valid data
-      await tester.enterText(textFields.at(0), 'Jane');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(1), 'Smith');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(2), 'jane@example.com');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(3), 'Acme Inc');
-      await pumpFrames(tester, frames: 2);
+      await directEnterText(tester, textFields.at(0), 'Jane');
+      await directEnterText(tester, textFields.at(1), 'Doe');
+      await directEnterText(tester, textFields.at(2), 'jane@example.com');
+      await directEnterText(tester, textFields.at(3), 'Acme Inc');
 
       // Submit — should pass validation (no client-side errors)
       final submitBtn = findSubmitButton();
       await tester.ensureVisible(submitBtn);
       await pumpFrames(tester, frames: 3);
       await tester.tap(submitBtn);
-      await pumpFrames(tester, frames: 5);
+      // Wait long enough for async network response to arrive and
+      // reset _isSubmitting, preventing state leakage into the next test.
+      await pumpFrames(tester, frames: 30);
 
       // Validation errors should NOT be present
       expect(
@@ -321,14 +349,10 @@ void main() {
       final textFields = find.byType(TextFormField);
 
       // Fill all required fields
-      await tester.enterText(textFields.at(0), 'Jane');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(1), 'Smith');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(2), 'jane@example.com');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(3), 'Acme Inc');
-      await pumpFrames(tester, frames: 2);
+      await directEnterText(tester, textFields.at(0), 'Jane');
+      await directEnterText(tester, textFields.at(1), 'Doe');
+      await directEnterText(tester, textFields.at(2), 'jane@example.com');
+      await directEnterText(tester, textFields.at(3), 'Acme Inc');
 
       // Submit the form
       final submitBtn = findSubmitButton();
@@ -363,14 +387,10 @@ void main() {
       final textFields = find.byType(TextFormField);
 
       // Fill required fields
-      await tester.enterText(textFields.at(0), 'Jane');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(1), 'Smith');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(2), 'jane@example.com');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(3), 'Acme Inc');
-      await pumpFrames(tester, frames: 2);
+      await directEnterText(tester, textFields.at(0), 'Jane');
+      await directEnterText(tester, textFields.at(1), 'Doe');
+      await directEnterText(tester, textFields.at(2), 'jane@example.com');
+      await directEnterText(tester, textFields.at(3), 'Acme Inc');
 
       // Submit and wait for error
       final submitBtn = findSubmitButton();
