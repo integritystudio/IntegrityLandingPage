@@ -34,26 +34,34 @@ class _IntegrityStudioAppState extends State<IntegrityStudioApp> {
 
   /// Initialize tracking for returning users with saved consent
   Future<void> _initializeTracking() async {
-    if (ConsentManager.hasConsent()) {
-      final prefs = await ConsentManager.getStoredConsent();
-      if (prefs != null && kIsWeb) {
-        // Update Consent Mode with stored preferences
-        TrackingWeb.updateConsent(
-          analytics: prefs.analytics,
-          marketing: prefs.marketing,
-        );
+    try {
+      if (ConsentManager.hasConsent()) {
+        final prefs = await ConsentManager.getStoredConsent();
+        if (prefs != null && kIsWeb) {
+          // Update Consent Mode with stored preferences
+          TrackingWeb.updateConsent(
+            analytics: prefs.analytics,
+            marketing: prefs.marketing,
+          );
 
-        // Initialize analytics if previously consented
-        if (prefs.analytics) {
-          await AnalyticsService.initialize();
-        }
+          // Initialize analytics if previously consented
+          if (prefs.analytics) {
+            await AnalyticsService.initialize();
+          }
 
-        // Initialize Facebook Pixel if marketing was consented
-        if (prefs.marketing) {
-          TrackingWeb.injectFacebookPixel();
-          TrackingWeb.sendFBPageView();
+          // Initialize Facebook Pixel if marketing was consented
+          if (prefs.marketing) {
+            TrackingWeb.injectFacebookPixel();
+            TrackingWeb.sendFBPageView();
+          }
         }
       }
+    } catch (e, stackTrace) {
+      ErrorTrackingService.captureException(
+        e,
+        stackTrace: stackTrace,
+        context: 'IntegrityStudioApp._initializeTracking',
+      );
     }
   }
 

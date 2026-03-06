@@ -4,14 +4,24 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/content.dart';
+import '../../services/analytics.dart';
 import '../../theme/theme.dart';
 import '../common/containers.dart';
 
 /// Launch URL with web-compatible mode
 Future<void> _launchUrl(String url) async {
-  final uri = Uri.parse(url);
-  const mode = kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication;
-  await launchUrl(uri, mode: mode);
+  try {
+    final uri = Uri.parse(url);
+    const mode = kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication;
+    await launchUrl(uri, mode: mode);
+  } catch (e, stackTrace) {
+    ErrorTrackingService.captureException(
+      e,
+      stackTrace: stackTrace,
+      context: 'footer._launchUrl',
+      extra: {'url': url},
+    );
+  }
 }
 
 /// Footer section with links and legal information
