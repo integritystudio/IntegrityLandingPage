@@ -45,7 +45,7 @@ CSP report-uri/report-to endpoints shared across staging/production. Staging is 
 
 ---
 
-### #51: Magic numbers in footer_section.dart
+### #51: Magic numbers in footer_section.dart ✅ Done
 
 **Severity:** LOW
 **Category:** Code Quality
@@ -60,7 +60,7 @@ Three inline magic numbers bypass project conventions:
 
 ---
 
-### #54: Unused `iconWidget` field on _SocialLink
+### #54: Unused `iconWidget` field on _SocialLink ✅ Done
 
 **Severity:** LOW
 **Category:** Dead Code
@@ -72,7 +72,7 @@ Three inline magic numbers bypass project conventions:
 
 ---
 
-### #57: Stale hardcoded copyright year in CompanyInfo
+### #57: Stale hardcoded copyright year in CompanyInfo ✅ Done
 
 **Severity:** LOW
 **Category:** Stale Data
@@ -88,7 +88,7 @@ static String get copyright =>
 
 ---
 
-### #58: Routes.euAiAct is an external URL in internal Routes class
+### #58: Routes.euAiAct is an external URL in internal Routes class ✅ Done
 
 **Severity:** LOW
 **Category:** Consistency
@@ -100,7 +100,7 @@ static String get copyright =>
 
 ---
 
-### #59: Duplicate route aliases — Routes.support/contact and Routes.docsApi/api
+### #59: Duplicate route aliases — Routes.support/contact and Routes.docsApi/api ✅ Done
 
 **Severity:** LOW
 **Category:** Consistency
@@ -116,7 +116,7 @@ This creates confusion about which to use and risks divergence if one is updated
 
 ---
 
-### #61: Hardcoded '/signup?tier=Team' in landing_page.dart
+### #61: Hardcoded '/signup?tier=Team' in landing_page.dart ✅ Done
 
 **Severity:** LOW
 **Category:** Consistency
@@ -128,7 +128,7 @@ This creates confusion about which to use and risks divergence if one is updated
 
 ---
 
-### #65: app_router.dart — large flat route list
+### #65: app_router.dart — large flat route list ✅ Done
 
 **Severity:** LOW
 **Category:** Maintainability
@@ -149,7 +149,7 @@ routes: [
 
 ---
 
-### #66: Repetitive onBack callback in every route
+### #66: Repetitive onBack callback in every route ✅ Done
 
 **Severity:** LOW
 **Category:** DRY Violation
@@ -161,7 +161,7 @@ Nearly every route passes `onBack: () => context.go('/')`. This is repeated 25+ 
 
 ---
 
-### #68: Repetitive onChanged closures in ContactSection._buildField
+### #68: Repetitive onChanged closures in ContactSection._buildField ✅ Done
 
 **Severity:** LOW
 **Category:** DRY Violation
@@ -214,7 +214,7 @@ Findings from code-reviewer audit of commit 65495a5. HIGH/MEDIUM items fixed sam
 
 ---
 
-### #71: Changelog version history table missing 2026-02-13 and 2026-02-27 entries
+### #71: Changelog version history table missing 2026-02-13 and 2026-02-27 entries ✅ Done
 
 **Severity:** LOW
 **Category:** Documentation
@@ -230,7 +230,7 @@ Reorder version numbers to maintain descending chronological order.
 
 ---
 
-### #72: Changelog #62 entry claims "−22 lines net" without distinguishing source vs test
+### #72: Changelog #62 entry claims "−22 lines net" without distinguishing source vs test ✅ Done
 
 **Severity:** LOW
 **Category:** Documentation Accuracy
@@ -244,25 +244,27 @@ The #62 entry says "removed dead code (−22 lines net)" but this net figure exc
 
 ## Open Issues Priority Matrix (2026-03-06)
 
-| Issue | Severity | Category |
-|-------|----------|----------|
-| #51 Magic numbers in footer | LOW | Code Quality |
-| #54 Unused iconWidget field | LOW | Dead Code |
-| #57 Stale hardcoded copyright year | LOW | Stale Data |
-| #58 Routes.euAiAct is external URL | LOW | Consistency |
-| #59 Duplicate route aliases | LOW | Consistency |
-| #61 Hardcoded signup route in landing page | LOW | Consistency |
-| #65 Flat route list in app_router | LOW | Maintainability |
-| #66 Repetitive onBack callback | LOW | DRY Violation |
-| #68 Repetitive onChanged closures | LOW | DRY Violation |
-| #71 Changelog version history table gaps | LOW | Documentation |
-| #72 Changelog #62 line count ambiguous | LOW | Documentation |
-| #73 Footer test: pure-unit constants test has limited value | LOW | Test Quality |
-| #74 Footer test: mobile bottom bar labels not covered | LOW | Test Coverage |
+All open items resolved in backlog sprint (2026-03-06).
+
+| Issue | Severity | Category | Status |
+|-------|----------|----------|--------|
+| #51 Magic numbers in footer | LOW | Code Quality | ✅ Done |
+| #54 Unused iconWidget field | LOW | Dead Code | ✅ Done |
+| #57 Stale hardcoded copyright year | LOW | Stale Data | ✅ Done |
+| #58 Routes.euAiAct is external URL | LOW | Consistency | ✅ Done |
+| #59 Duplicate route aliases | LOW | Consistency | ✅ Done |
+| #61 Hardcoded signup route in landing page | LOW | Consistency | ✅ Done |
+| #65 Flat route list in app_router | LOW | Maintainability | ✅ Done |
+| #66 Repetitive onBack callback | LOW | DRY Violation | ✅ Done |
+| #68 Repetitive onChanged closures | LOW | DRY Violation | ✅ Done |
+| #71 Changelog version history table gaps | LOW | Documentation | ✅ Done |
+| #72 Changelog #62 line count ambiguous | LOW | Documentation | ✅ Done |
+| #73 Footer test: pure-unit constants test | LOW | Test Quality | ✅ Done |
+| #74 Footer test: mobile bottom bar labels | LOW | Test Coverage | ✅ Done |
 
 ---
 
-### #73: Footer test — pure-unit constants test has limited value
+### #73: Footer test — pure-unit constants test has limited value ✅ Done
 
 **Severity:** LOW
 **Category:** Test Quality
@@ -272,7 +274,7 @@ The `'test constants match expected counts'` test asserts `hasLength` on file-sc
 
 ---
 
-### #74: Footer test — mobile bottom bar labels not covered
+### #74: Footer test — mobile bottom bar labels not covered ✅ Done
 
 **Severity:** LOW
 **Category:** Test Coverage
@@ -284,4 +286,4 @@ Desktop legal labels (`Privacy Policy`, `Terms of Service`, etc.) are tested, bu
 
 *Last updated: 2026-03-06*
 *Migrated items: 9 (3 HIGH, 6 MEDIUM) → docs/changelog/1.0/CHANGELOG.md*
-*Remaining open: 13 LOW severity issues (#69, #70 fixed earlier; #73, #74 added this session)*
+*Remaining open: 0 — all 13 LOW items resolved in backlog sprint 2026-03-06*
