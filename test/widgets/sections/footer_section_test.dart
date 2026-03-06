@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:integrity_studio_ai/widgets/common/hover_text_link.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import '../../helpers/test_helpers.dart';
 
@@ -162,6 +163,89 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(GestureDetector), findsWidgets);
+    });
+
+    // =======================================================================
+    // Regression: #62 — HoverTextLink replaces _FooterLink
+    // =======================================================================
+
+    testWidgets('footer links use HoverTextLink widget (#62 regression)',
+        (tester) async {
+      setDesktopSize(tester);
+
+      await tester.pumpWidget(
+        testableSection(const FooterSection()),
+      );
+      await tester.pumpAndSettle();
+
+      // HoverTextLink should be used for footer link items
+      final hoverLinks = find.descendant(
+        of: find.byType(FooterSection),
+        matching: find.byType(HoverTextLink),
+      );
+      // At minimum: Product(4) + Company(5) + Resources(3) + legal(5) = 17
+      expect(hoverLinks, findsAtLeast(17));
+    });
+
+    // =======================================================================
+    // Regression: #53 — Routes constants (no hardcoded paths)
+    // =======================================================================
+
+    testWidgets('footer renders all expected route destination links (#53 regression)',
+        (tester) async {
+      setDesktopSize(tester);
+
+      await tester.pumpWidget(
+        testableSection(const FooterSection()),
+      );
+      await tester.pumpAndSettle();
+
+      // These link texts must exist — they map to Routes constants
+      const expectedLinks = [
+        'Features', // Routes.features (#features anchor)
+        'Pricing', // Routes.pricing
+        'Documentation', // Routes.docs
+        'API Reference', // Routes.api
+        'About', // Routes.about
+        'Blog', // Routes.blog
+        'Sources', // Routes.sources
+        'Careers', // Routes.careers
+        'Contact', // Routes.contact
+        'Help Center', // Routes.support
+        'Status', // Routes.status
+        'Security', // Routes.security
+      ];
+
+      for (final linkText in expectedLinks) {
+        expect(find.text(linkText), findsOneWidget,
+            reason: '$linkText link missing from footer');
+      }
+    });
+
+    // =======================================================================
+    // Regression: #55 — _launchUrl error handling
+    // =======================================================================
+
+    testWidgets('social icon buttons are tappable without crash (#55 regression)',
+        (tester) async {
+      setDesktopSize(tester);
+
+      await tester.pumpWidget(
+        testableSection(const FooterSection()),
+      );
+      await tester.pumpAndSettle();
+
+      // Tapping social icons should not throw (error handling wraps launchUrl)
+      final iconButtons = find.byType(IconButton);
+      expect(iconButtons, findsWidgets);
+
+      // Tap first icon button — launchUrl will fail in test env but
+      // try/catch in _launchUrl (#55) prevents crash
+      await tester.tap(iconButtons.first);
+      await tester.pumpAndSettle();
+
+      // App should remain stable
+      expect(find.byType(FooterSection), findsOneWidget);
     });
   });
 }

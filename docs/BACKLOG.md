@@ -196,52 +196,21 @@ Then use `onChanged: (v) => _onFieldChanged(field.name, v)` in each case.
 
 Findings from code-reviewer audit of commit 65495a5. HIGH/MEDIUM items fixed same session.
 
-### #69: HoverTextLink test — no coverage for Semantics label when onTap is null
+### #69: HoverTextLink test — no coverage for Semantics label when onTap is null ✅ Done
 
 **Severity:** LOW
 **Category:** Test Coverage
 **File:** `test/widgets/common/hover_text_link_test.dart`
-
-The `'has Semantics with button role and label'` test always provides `onTap: () {}`. There is no test verifying that `Semantics.label` is still set correctly when `onTap` is null — the more common "link with no action" use case.
-
-**Fix:** Add a test case:
-```dart
-testWidgets('has Semantics label even without onTap', (tester) async {
-  await tester.pumpWidget(
-    testableWidget(
-      HoverTextLink(
-        text: 'No Action Link',
-        defaultColor: AppColors.gray400,
-        hoverColor: AppColors.textPrimary,
-      ),
-    ),
-  );
-
-  final semantics = tester.firstWidget<Semantics>(
-    find.descendant(
-      of: find.byType(HoverTextLink),
-      matching: find.byType(Semantics),
-    ),
-  );
-  expect(semantics.properties.label, equals('No Action Link'));
-  expect(semantics.properties.button, isTrue);
-});
-```
+**Resolved:** 2026-03-06 — Added `'has Semantics label even without onTap'` test verifying label and button role when onTap is null.
 
 ---
 
-### #70: HoverTextLink test — custom style does not verify fontSize preservation
+### #70: HoverTextLink test — custom style does not verify fontSize preservation ✅ Done
 
 **Severity:** LOW
 **Category:** Test Coverage
 **File:** `test/widgets/common/hover_text_link_test.dart`
-
-The `'applies custom style'` test verifies `fontWeight` and `color` survive the `copyWith(color:)` merge, but does not verify `fontSize` from `AppTypography.bodySM` is preserved. If `copyWith` were accidentally replaced with `TextStyle(color:)`, the `fontWeight` check catches it but `fontSize` regression would not be detected.
-
-**Fix:** Add assertion:
-```dart
-expect(textWidget.style?.fontSize, equals(AppTypography.bodySM.fontSize));
-```
+**Resolved:** 2026-03-06 — Added `fontSize` assertion to `'applies custom style preserving all properties'` test.
 
 ---
 
@@ -286,8 +255,6 @@ The #62 entry says "removed dead code (−22 lines net)" but this net figure exc
 | #65 Flat route list in app_router | LOW | Maintainability |
 | #66 Repetitive onBack callback | LOW | DRY Violation |
 | #68 Repetitive onChanged closures | LOW | DRY Violation |
-| #69 HoverTextLink test missing null-onTap Semantics | LOW | Test Coverage |
-| #70 Custom style test missing fontSize check | LOW | Test Coverage |
 | #71 Changelog version history table gaps | LOW | Documentation |
 | #72 Changelog #62 line count ambiguous | LOW | Documentation |
 
@@ -295,4 +262,4 @@ The #62 entry says "removed dead code (−22 lines net)" but this net figure exc
 
 *Last updated: 2026-03-06*
 *Migrated items: 9 (3 HIGH, 6 MEDIUM) → docs/changelog/1.0/CHANGELOG.md*
-*Remaining open: 13 LOW severity issues*
+*Remaining open: 11 LOW severity issues (#69, #70 fixed this session)*
