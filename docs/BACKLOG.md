@@ -1,6 +1,6 @@
 # Security & Infrastructure Backlog
 
-Open and deferred items only. Completed items are documented in `docs/CHANGELOG.md`.
+Open and deferred items only. Completed items are documented in `docs/changelog/1.0/CHANGELOG.md`.
 
 ---
 
@@ -192,6 +192,87 @@ Then use `onChanged: (v) => _onFieldChanged(field.name, v)` in each case.
 
 ---
 
+## Code Review Findings: Changelog & Test Quality (2026-03-06)
+
+Findings from code-reviewer audit of commit 65495a5. HIGH/MEDIUM items fixed same session.
+
+### #69: HoverTextLink test — no coverage for Semantics label when onTap is null
+
+**Severity:** LOW
+**Category:** Test Coverage
+**File:** `test/widgets/common/hover_text_link_test.dart`
+
+The `'has Semantics with button role and label'` test always provides `onTap: () {}`. There is no test verifying that `Semantics.label` is still set correctly when `onTap` is null — the more common "link with no action" use case.
+
+**Fix:** Add a test case:
+```dart
+testWidgets('has Semantics label even without onTap', (tester) async {
+  await tester.pumpWidget(
+    testableWidget(
+      HoverTextLink(
+        text: 'No Action Link',
+        defaultColor: AppColors.gray400,
+        hoverColor: AppColors.textPrimary,
+      ),
+    ),
+  );
+
+  final semantics = tester.firstWidget<Semantics>(
+    find.descendant(
+      of: find.byType(HoverTextLink),
+      matching: find.byType(Semantics),
+    ),
+  );
+  expect(semantics.properties.label, equals('No Action Link'));
+  expect(semantics.properties.button, isTrue);
+});
+```
+
+---
+
+### #70: HoverTextLink test — custom style does not verify fontSize preservation
+
+**Severity:** LOW
+**Category:** Test Coverage
+**File:** `test/widgets/common/hover_text_link_test.dart`
+
+The `'applies custom style'` test verifies `fontWeight` and `color` survive the `copyWith(color:)` merge, but does not verify `fontSize` from `AppTypography.bodySM` is preserved. If `copyWith` were accidentally replaced with `TextStyle(color:)`, the `fontWeight` check catches it but `fontSize` regression would not be detected.
+
+**Fix:** Add assertion:
+```dart
+expect(textWidget.style?.fontSize, equals(AppTypography.bodySM.fontSize));
+```
+
+---
+
+### #71: Changelog version history table missing 2026-02-13 and 2026-02-27 entries
+
+**Severity:** LOW
+**Category:** Documentation
+**File:** `docs/changelog/1.0/CHANGELOG.md` (Version History table)
+
+The version history table at the bottom of the changelog jumps from 1.9 (2026-02-01) to 2.0 (2026-03-06). Missing entries for 2026-02-13 (security hardening, added as 1.10 this session) and 2026-02-27 sessions that resolved #31, #37-50. The 2026-02-27 work has a prose section but no version row.
+
+**Fix:** Add a row for the 2026-02-27 session:
+```
+| 2026-02-27 | 1.11 | ast-grep findings, contact_section_test quality hardening |
+```
+Reorder version numbers to maintain descending chronological order.
+
+---
+
+### #72: Changelog #62 entry claims "−22 lines net" without distinguishing source vs test
+
+**Severity:** LOW
+**Category:** Documentation Accuracy
+**File:** `docs/changelog/1.0/CHANGELOG.md`
+
+The #62 entry says "removed dead code (−22 lines net)" but this net figure excludes the 201-line test file added in the same commit. The claim is technically about widget source code only but the phrasing is ambiguous. Could mislead someone reviewing the commit's actual `--stat` output (346 insertions, 282 deletions).
+
+**Fix:** Clarify: "removed dead code (−22 lines net in widget source)" or remove the line count claim entirely.
+
+---
+
 ## Open Issues Priority Matrix (2026-03-06)
 
 | Issue | Severity | Category |
@@ -205,9 +286,13 @@ Then use `onChanged: (v) => _onFieldChanged(field.name, v)` in each case.
 | #65 Flat route list in app_router | LOW | Maintainability |
 | #66 Repetitive onBack callback | LOW | DRY Violation |
 | #68 Repetitive onChanged closures | LOW | DRY Violation |
+| #69 HoverTextLink test missing null-onTap Semantics | LOW | Test Coverage |
+| #70 Custom style test missing fontSize check | LOW | Test Coverage |
+| #71 Changelog version history table gaps | LOW | Documentation |
+| #72 Changelog #62 line count ambiguous | LOW | Documentation |
 
 ---
 
 *Last updated: 2026-03-06*
 *Migrated items: 9 (3 HIGH, 6 MEDIUM) → docs/changelog/1.0/CHANGELOG.md*
-*Remaining open: 9 LOW severity issues*
+*Remaining open: 13 LOW severity issues*
