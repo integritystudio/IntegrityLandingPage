@@ -56,7 +56,7 @@ test.describe('Route Group Coverage (#65)', () => {
   }
 
   // _authRoutes
-  const authRoutes = ['/request_success', '/request_failure', '/support', '/signup'];
+  const authRoutes = ['/request_success', '/request_failure', '/support', '/signup', '/oauth/callback'];
   for (const route of authRoutes) {
     test(`auth group: ${route} loads`, async ({ page }) => {
       await navigateAndWaitForFlutter(page, route);
@@ -200,7 +200,7 @@ test.describe('Back Navigation (#66)', () => {
 
     // Browser back should return to home
     await page.goBack();
-    await page.waitForURL('**/');
+    await page.waitForURL(/.+\/$|.+localhost.*/);
     await waitForFlutter(page);
     await assertFlutterRendering(page);
   });

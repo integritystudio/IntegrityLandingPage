@@ -90,8 +90,10 @@ abstract final class Routes {
   static const String signup = '/signup';
   static const String signupTeam = '/signup?tier=Team';
 
+  // Feature pages
+  static const String features = '/features';
+
   // Anchor sections
-  static const String features = '#features';
   static const String pricingSection = '#pricing';
   static const String services = '#services';
   static const String demo = '/demo';
