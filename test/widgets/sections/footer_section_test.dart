@@ -28,12 +28,15 @@ void main() {
     // Footer Link Data
     // =======================================================================
 
-    test('test constants match expected counts', () {
-      // Sanity: catch divergence if widget adds/removes a section
-      expect(_navLabels, hasLength(12));
-      expect(_legalLabels, hasLength(5));
-      expect(_socialLabels, hasLength(2));
-      expect(_navLabels.contains('Sources'), isTrue); // Transparency link
+    testWidgets('renders expected number of nav, legal, and social elements', (tester) async {
+      setDesktopSize(tester);
+      await tester.pumpWidget(testableSection(const FooterSection()));
+      await tester.pumpAndSettle();
+
+      // Verify actual rendered widget counts match expected label counts
+      expect(find.byType(IconButton), findsNWidgets(_socialLabels.length));
+      expect(find.byType(HoverTextLink), findsNWidgets(_expectedHoverLinkCount));
+      expect(find.text('Sources'), findsOneWidget); // Transparency link
     });
 
     // =======================================================================
