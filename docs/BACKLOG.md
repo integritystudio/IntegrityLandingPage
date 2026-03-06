@@ -257,9 +257,31 @@ The #62 entry says "removed dead code (−22 lines net)" but this net figure exc
 | #68 Repetitive onChanged closures | LOW | DRY Violation |
 | #71 Changelog version history table gaps | LOW | Documentation |
 | #72 Changelog #62 line count ambiguous | LOW | Documentation |
+| #73 Footer test: pure-unit constants test has limited value | LOW | Test Quality |
+| #74 Footer test: mobile bottom bar labels not covered | LOW | Test Coverage |
+
+---
+
+### #73: Footer test — pure-unit constants test has limited value
+
+**Severity:** LOW
+**Category:** Test Quality
+**File:** `test/widgets/sections/footer_section_test.dart`
+
+The `'test constants match expected counts'` test asserts `hasLength` on file-scope constants. These are compile-time tautologies — the constants are defined in the same file. The test documents expected shape but does not verify the widget. Consider replacing with widget-driven assertions or removing entirely since the regression test already validates rendered labels.
+
+---
+
+### #74: Footer test — mobile bottom bar labels not covered
+
+**Severity:** LOW
+**Category:** Test Coverage
+**File:** `test/widgets/sections/footer_section_test.dart`
+
+Desktop legal labels (`Privacy Policy`, `Terms of Service`, etc.) are tested, but the mobile bottom bar renders abbreviated labels (`Privacy`, `Terms`, `Cookies`). No test currently validates these mobile-specific labels. The `_legalLabels` constant only covers desktop. A mobile-specific test or a separate `_mobileLegalLabels` constant would close this gap.
 
 ---
 
 *Last updated: 2026-03-06*
 *Migrated items: 9 (3 HIGH, 6 MEDIUM) → docs/changelog/1.0/CHANGELOG.md*
-*Remaining open: 11 LOW severity issues (#69, #70 fixed this session)*
+*Remaining open: 13 LOW severity issues (#69, #70 fixed earlier; #73, #74 added this session)*

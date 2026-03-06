@@ -5,7 +5,8 @@ import 'package:integrity_studio_ai/widgets/common/hover_text_link.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import '../../helpers/test_helpers.dart';
 
-// Desktop footer link labels — single source of truth for all tests
+// Desktop footer link labels — single source of truth for desktop-layout tests.
+// Mobile bottom bar uses abbreviated labels ('Privacy', 'Terms', 'Cookies').
 const _productLabels = ['Features', 'Pricing', 'Documentation', 'API Reference'];
 const _companyLabels = ['About', 'Blog', 'Sources', 'Careers', 'Contact'];
 const _resourceLabels = ['Help Center', 'Status', 'Security'];
@@ -17,9 +18,9 @@ const _legalLabels = [
   'Accessibility',
   'Cookie Settings',
 ];
-const _socialPlatforms = ['X', 'LinkedIn', 'GitHub'];
-// Desktop layout: nav columns (4+5+3=12) + bottom bar legal (5) = 17
-final _expectedHoverLinkCount = _navLabels.length + _legalLabels.length;
+const _socialLabels = ['LinkedIn', 'GitHub'];
+// Desktop layout: 12 nav + 5 legal = 17 HoverTextLink widgets
+final _expectedHoverLinkCount = _navLabels.length + _legalLabels.length; // = 17
 
 void main() {
   group('FooterSection', () {
@@ -27,22 +28,12 @@ void main() {
     // Footer Link Data
     // =======================================================================
 
-    test('footer link structure and social platforms are defined correctly', () {
-      expect(_productLabels, hasLength(4));
-      expect(_companyLabels, hasLength(5));
-      expect(_companyLabels.contains('Sources'), isTrue); // Transparency link
-      expect(_resourceLabels, hasLength(3));
-      expect(_socialPlatforms, hasLength(3));
-    });
-
-    // =======================================================================
-    // Copyright and Legal Links
-    // =======================================================================
-
-    test('copyright year and legal links are valid', () {
-      final currentYear = DateTime.now().year;
-      expect(currentYear, greaterThanOrEqualTo(2024));
+    test('test constants match expected counts', () {
+      // Sanity: catch divergence if widget adds/removes a section
+      expect(_navLabels, hasLength(12));
       expect(_legalLabels, hasLength(5));
+      expect(_socialLabels, hasLength(2));
+      expect(_navLabels.contains('Sources'), isTrue); // Transparency link
     });
 
     // =======================================================================
@@ -100,7 +91,7 @@ void main() {
 
       expect(find.byIcon(LucideIcons.linkedin), findsOneWidget);
       expect(find.byIcon(LucideIcons.github), findsOneWidget);
-      expect(find.byType(IconButton), findsWidgets);
+      expect(find.byType(IconButton), findsNWidgets(_socialLabels.length));
     });
 
     // =======================================================================
