@@ -36,6 +36,195 @@ import '../pages/oauth_callback_page.dart';
 /// Used to avoid repeating `() => context.go(Routes.home)` across every route.
 VoidCallback _goHome(BuildContext context) => () => context.go(Routes.home);
 
+GoRoute _homeRoute(VoidCallback onShowCookieSettings) => GoRoute(
+      path: '/',
+      builder: (context, state) => LandingPage(
+        onShowCookieSettings: onShowCookieSettings,
+        scrollToSection: state.uri.queryParameters['section'],
+      ),
+    );
+
+List<GoRoute> _blogRoutes() => [
+      GoRoute(
+        path: '/blog',
+        builder: (context, state) => BlogPage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/whylabs-alternative',
+        builder: (context, state) => ComparisonPage.whylabs(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/compare/arize-ai-alternative',
+        builder: (context, state) => ComparisonPage.arize(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/sources',
+        builder: (context, state) => SourcesPage(onBack: _goHome(context)),
+      ),
+    ];
+
+List<GoRoute> _mainPageRoutes(VoidCallback onShowCookieSettings) => [
+      GoRoute(
+        path: '/about',
+        builder: (context, state) => AboutPage(
+          onBack: _goHome(context),
+          onShowCookieSettings: onShowCookieSettings,
+        ),
+      ),
+      GoRoute(
+        path: '/features',
+        builder: (context, state) => FeaturesPage(
+          onBack: _goHome(context),
+          onShowCookieSettings: onShowCookieSettings,
+        ),
+      ),
+      GoRoute(
+        path: '/status',
+        builder: (context, state) => StatusPage(
+          onBack: _goHome(context),
+          onShowCookieSettings: onShowCookieSettings,
+        ),
+      ),
+      GoRoute(
+        path: '/pricing',
+        builder: (context, state) => PricingPage(
+          onBack: _goHome(context),
+          onShowCookieSettings: onShowCookieSettings,
+        ),
+      ),
+      GoRoute(
+        path: '/contact',
+        builder: (context, state) => ContactPage(
+          onBack: _goHome(context),
+          onShowCookieSettings: onShowCookieSettings,
+        ),
+      ),
+      GoRoute(
+        path: '/demo',
+        builder: (context, state) => DemoPage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/careers',
+        builder: (context, state) => CareersPage(
+          onBack: _goHome(context),
+          onShowCookieSettings: onShowCookieSettings,
+        ),
+      ),
+    ];
+
+List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
+      GoRoute(
+        path: '/request_success',
+        builder: (context, state) => RequestSuccessPage(
+          onBack: _goHome(context),
+          onShowCookieSettings: onShowCookieSettings,
+        ),
+      ),
+      GoRoute(
+        path: '/request_failure',
+        builder: (context, state) => RequestFailurePage(
+          onBack: _goHome(context),
+          onShowCookieSettings: onShowCookieSettings,
+        ),
+      ),
+      GoRoute(
+        path: '/support',
+        builder: (context, state) => HelpCenterPage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/oauth/callback',
+        builder: (context, state) {
+          final params = state.uri.queryParameters;
+          return OAuthCallbackPage(
+            onBack: _goHome(context),
+            code: params['code'],
+            state: params['state'],
+            error: params['error'],
+            errorDescription: params['error_description'],
+          );
+        },
+      ),
+      GoRoute(
+        path: '/signup',
+        builder: (context, state) => SignupPage(
+          tier: state.uri.queryParameters['tier'] ?? 'starter',
+          onBack: _goHome(context),
+        ),
+      ),
+    ];
+
+List<GoRoute> _legalRoutes() => [
+      GoRoute(
+        path: '/privacy',
+        builder: (context, state) => LegalPage.privacy(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/terms',
+        builder: (context, state) => LegalPage.terms(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/cookies',
+        builder: (context, state) => LegalPage.cookies(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/accessibility',
+        builder: (context, state) => LegalPage.accessibility(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/security',
+        builder: (context, state) => SecurityPage(onBack: _goHome(context)),
+      ),
+    ];
+
+List<GoRoute> _docsRoutes() => [
+      GoRoute(
+        path: '/docs',
+        builder: (context, state) => DocsIndexPage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/docs/llm-observability',
+        builder: (context, state) => DocsObservabilityPage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/docs/tracing',
+        builder: (context, state) => DocsTracingPage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/docs/integrations',
+        builder: (context, state) => DocsInteroperabilityPage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/api',
+        builder: (context, state) => DocsApiPage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/api/toolkit',
+        builder: (context, state) => ApiToolkitPage(
+          onBack: () => context.go(Routes.docs),
+        ),
+      ),
+      GoRoute(
+        path: '/docs/quickstart',
+        builder: (context, state) => DocsQuickstartPage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/docs/alerts',
+        builder: (context, state) => DocsAlertsPage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/docs/agents',
+        builder: (context, state) => DocsAgentsPage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/compliance',
+        builder: (context, state) => CompliancePage(onBack: _goHome(context)),
+      ),
+      GoRoute(
+        path: '/eu-ai-act',
+        builder: (context, state) => EuAiActPage(onBack: _goHome(context)),
+      ),
+    ];
+
 /// Creates the application router with all routes and redirects.
 ///
 /// Parameters:
@@ -63,247 +252,12 @@ GoRouter createAppRouter({
           child: child,
         ),
         routes: [
-          // Home
-          GoRoute(
-            path: '/',
-            builder: (context, state) => LandingPage(
-              onShowCookieSettings: onShowCookieSettings,
-              scrollToSection: state.uri.queryParameters['section'],
-            ),
-          ),
-
-          // Blog
-          GoRoute(
-            path: '/blog',
-            builder: (context, state) => BlogPage(
-              onBack: _goHome(context),
-            ),
-          ),
-
-          // Comparison pages
-          GoRoute(
-            path: '/whylabs-alternative',
-            builder: (context, state) => ComparisonPage.whylabs(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/compare/arize-ai-alternative',
-            builder: (context, state) => ComparisonPage.arize(
-              onBack: _goHome(context),
-            ),
-          ),
-
-          // Sources
-          GoRoute(
-            path: '/sources',
-            builder: (context, state) => SourcesPage(
-              onBack: _goHome(context),
-            ),
-          ),
-
-          // Main pages with cookie settings
-          GoRoute(
-            path: '/about',
-            builder: (context, state) => AboutPage(
-              onBack: _goHome(context),
-              onShowCookieSettings: onShowCookieSettings,
-            ),
-          ),
-          GoRoute(
-            path: '/features',
-            builder: (context, state) => FeaturesPage(
-              onBack: _goHome(context),
-              onShowCookieSettings: onShowCookieSettings,
-            ),
-          ),
-          GoRoute(
-            path: '/status',
-            builder: (context, state) => StatusPage(
-              onBack: _goHome(context),
-              onShowCookieSettings: onShowCookieSettings,
-            ),
-          ),
-          GoRoute(
-            path: '/pricing',
-            builder: (context, state) => PricingPage(
-              onBack: _goHome(context),
-              onShowCookieSettings: onShowCookieSettings,
-            ),
-          ),
-          GoRoute(
-            path: '/contact',
-            builder: (context, state) => ContactPage(
-              onBack: _goHome(context),
-              onShowCookieSettings: onShowCookieSettings,
-            ),
-          ),
-          GoRoute(
-            path: '/demo',
-            builder: (context, state) => DemoPage(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/careers',
-            builder: (context, state) => CareersPage(
-              onBack: _goHome(context),
-              onShowCookieSettings: onShowCookieSettings,
-            ),
-          ),
-
-          // Request result pages
-          GoRoute(
-            path: '/request_success',
-            builder: (context, state) => RequestSuccessPage(
-              onBack: _goHome(context),
-              onShowCookieSettings: onShowCookieSettings,
-            ),
-          ),
-          GoRoute(
-            path: '/request_failure',
-            builder: (context, state) => RequestFailurePage(
-              onBack: _goHome(context),
-              onShowCookieSettings: onShowCookieSettings,
-            ),
-          ),
-          GoRoute(
-            path: '/support',
-            builder: (context, state) => HelpCenterPage(
-              onBack: _goHome(context),
-            ),
-          ),
-
-          // OAuth callback
-          GoRoute(
-            path: '/oauth/callback',
-            builder: (context, state) {
-              final params = state.uri.queryParameters;
-              return OAuthCallbackPage(
-                onBack: _goHome(context),
-                code: params['code'],
-                state: params['state'],
-                error: params['error'],
-                errorDescription: params['error_description'],
-              );
-            },
-          ),
-
-          // Signup with tier query parameter
-          GoRoute(
-            path: '/signup',
-            builder: (context, state) {
-              final tier = state.uri.queryParameters['tier'] ?? 'starter';
-              return SignupPage(
-                tier: tier,
-                onBack: _goHome(context),
-              );
-            },
-          ),
-
-          // Legal pages
-          GoRoute(
-            path: '/privacy',
-            builder: (context, state) => LegalPage.privacy(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/terms',
-            builder: (context, state) => LegalPage.terms(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/cookies',
-            builder: (context, state) => LegalPage.cookies(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/accessibility',
-            builder: (context, state) => LegalPage.accessibility(
-              onBack: _goHome(context),
-            ),
-          ),
-
-          // Security
-          GoRoute(
-            path: '/security',
-            builder: (context, state) => SecurityPage(
-              onBack: _goHome(context),
-            ),
-          ),
-
-          // Documentation
-          GoRoute(
-            path: '/docs',
-            builder: (context, state) => DocsIndexPage(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/docs/llm-observability',
-            builder: (context, state) => DocsObservabilityPage(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/docs/tracing',
-            builder: (context, state) => DocsTracingPage(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/docs/integrations',
-            builder: (context, state) => DocsInteroperabilityPage(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/api',
-            builder: (context, state) => DocsApiPage(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/api/toolkit',
-            builder: (context, state) => ApiToolkitPage(
-              onBack: () => context.go('/docs'),
-            ),
-          ),
-          GoRoute(
-            path: '/docs/quickstart',
-            builder: (context, state) => DocsQuickstartPage(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/docs/alerts',
-            builder: (context, state) => DocsAlertsPage(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/docs/agents',
-            builder: (context, state) => DocsAgentsPage(
-              onBack: _goHome(context),
-            ),
-          ),
-
-          // Compliance
-          GoRoute(
-            path: '/compliance',
-            builder: (context, state) => CompliancePage(
-              onBack: _goHome(context),
-            ),
-          ),
-          GoRoute(
-            path: '/eu-ai-act',
-            builder: (context, state) => EuAiActPage(
-              onBack: _goHome(context),
-            ),
-          ),
+          _homeRoute(onShowCookieSettings),
+          ..._blogRoutes(),
+          ..._mainPageRoutes(onShowCookieSettings),
+          ..._authRoutes(onShowCookieSettings),
+          ..._legalRoutes(),
+          ..._docsRoutes(),
         ],
       ),
     ],
