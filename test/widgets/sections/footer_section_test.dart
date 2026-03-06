@@ -167,9 +167,11 @@ void main() {
 
     // =======================================================================
     // Regression: #62 — HoverTextLink replaces _FooterLink
+    // Also covers #53 — verifies all expected link labels are rendered
+    // via HoverTextLink (route-constant usage enforced at source level)
     // =======================================================================
 
-    testWidgets('footer links use HoverTextLink widget (#62 regression)',
+    testWidgets('all footer links are HoverTextLink with expected labels (#62, #53 regression)',
         (tester) async {
       setDesktopSize(tester);
 
@@ -178,47 +180,28 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // HoverTextLink should be used for footer link items
+      // Exact count: Product(4) + Company(5) + Resources(3) + legal(5) = 17
       final hoverLinks = find.descendant(
         of: find.byType(FooterSection),
         matching: find.byType(HoverTextLink),
       );
-      // At minimum: Product(4) + Company(5) + Resources(3) + legal(5) = 17
-      expect(hoverLinks, findsAtLeast(17));
-    });
+      expect(hoverLinks, findsNWidgets(17));
 
-    // =======================================================================
-    // Regression: #53 — Routes constants (no hardcoded paths)
-    // =======================================================================
-
-    testWidgets('footer renders all expected route destination links (#53 regression)',
-        (tester) async {
-      setDesktopSize(tester);
-
-      await tester.pumpWidget(
-        testableSection(const FooterSection()),
-      );
-      await tester.pumpAndSettle();
-
-      // These link texts must exist — they map to Routes constants
-      const expectedLinks = [
-        'Features', // Routes.features (#features anchor)
-        'Pricing', // Routes.pricing
-        'Documentation', // Routes.docs
-        'API Reference', // Routes.api
-        'About', // Routes.about
-        'Blog', // Routes.blog
-        'Sources', // Routes.sources
-        'Careers', // Routes.careers
-        'Contact', // Routes.contact
-        'Help Center', // Routes.support
-        'Status', // Routes.status
-        'Security', // Routes.security
+      // Every nav link label must appear inside a HoverTextLink
+      const expectedNavLabels = [
+        'Features', 'Pricing', 'Documentation', 'API Reference',
+        'About', 'Blog', 'Sources', 'Careers', 'Contact',
+        'Help Center', 'Status', 'Security',
       ];
-
-      for (final linkText in expectedLinks) {
-        expect(find.text(linkText), findsOneWidget,
-            reason: '$linkText link missing from footer');
+      for (final label in expectedNavLabels) {
+        expect(
+          find.descendant(
+            of: find.byType(HoverTextLink),
+            matching: find.text(label),
+          ),
+          findsOneWidget,
+          reason: '$label must be rendered inside HoverTextLink',
+        );
       }
     });
 
