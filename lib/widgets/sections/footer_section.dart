@@ -334,25 +334,22 @@ class FooterSection extends StatelessWidget {
 }
 
 class _SocialLink extends StatelessWidget {
-  final IconData? icon;
-  final Widget? iconWidget;
+  final IconData icon;
   final String url;
   final String label;
 
   const _SocialLink({
-    this.icon,
-    this.iconWidget,
+    required this.icon,
     required this.url,
     required this.label,
-  }) : assert(icon != null || iconWidget != null,
-            'Either icon or iconWidget must be provided');
+  });
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       label: label,
       child: IconButton(
-        icon: iconWidget ?? Icon(icon, size: 20),
+        icon: Icon(icon, size: 20),
         color: AppColors.gray400,
         hoverColor: AppColors.gray700,
         onPressed: () => _launchUrl(url),
