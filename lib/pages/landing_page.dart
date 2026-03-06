@@ -362,18 +362,22 @@ class _NavLinkState extends State<_NavLink> {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Text(
-            widget.text,
-            style: AppTypography.bodySM.copyWith(
-              color: _isHovered ? AppColors.blue400 : AppColors.gray300,
-              fontWeight: FontWeight.w500,
+    return Semantics(
+      button: true,
+      label: widget.text,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Text(
+              widget.text,
+              style: AppTypography.bodySM.copyWith(
+                color: _isHovered ? AppColors.blue400 : AppColors.gray300,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ),
