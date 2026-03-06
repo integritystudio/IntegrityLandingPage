@@ -33,10 +33,17 @@ void main() {
       final currentYear = DateTime.now().year;
       expect(currentYear, greaterThanOrEqualTo(2024));
 
-      const legalLinks = ['Privacy Policy', 'Terms of Service', 'Cookie Settings'];
-      expect(legalLinks.contains('Privacy Policy'), isTrue);
-      expect(legalLinks.contains('Terms of Service'), isTrue);
-      expect(legalLinks.contains('Cookie Settings'), isTrue);
+      const legalLinks = [
+        'Privacy Policy',
+        'Terms of Service',
+        'Cookie Policy',
+        'Accessibility',
+        'Cookie Settings',
+      ];
+      expect(legalLinks, hasLength(5));
+      for (final link in legalLinks) {
+        expect(legalLinks.contains(link), isTrue);
+      }
     });
 
     // =======================================================================
@@ -78,6 +85,8 @@ void main() {
       // Legal links
       expect(find.text('Privacy Policy'), findsOneWidget);
       expect(find.text('Terms of Service'), findsOneWidget);
+      expect(find.text('Cookie Policy'), findsOneWidget);
+      expect(find.text('Accessibility'), findsOneWidget);
       expect(find.text('Cookie Settings'), findsOneWidget);
 
       // Compliance disclaimer
@@ -180,7 +189,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Product(4) + Company(5) + Resources(3) + legal(5) = 17
+      // Desktop layout: nav columns (4+5+3=12) + bottom bar legal (5) = 17
       const expectedHoverLinkCount = 17;
       final hoverLinks = find.descendant(
         of: find.byType(FooterSection),
