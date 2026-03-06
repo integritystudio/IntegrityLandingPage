@@ -267,7 +267,7 @@ footer:
     - title: "Product"
       links:
         - label: "Features"
-          url: "#features"
+          url: "/features"
         - label: "Pricing"
           url: "#pricing"
     - title: "Company"
@@ -633,7 +633,7 @@ footer:
     - title: "Product"
       links:
         - label: "Features"
-          url: "#features"
+          url: "/features"
         - label: "Pricing"
           url: "#pricing"
           is_external: false

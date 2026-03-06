@@ -628,7 +628,7 @@ Resolved 9 HIGH & MEDIUM severity issues from Flutter expert audit across 7 most
 - Eliminates list allocation on every build cycle
 
 **#53: Mixed Route Constants & Hardcoded Paths**
-- Replaced hardcoded `'/features'` → `Routes.features` (anchor `#features`)
+- Replaced hardcoded `'/features'` → `Routes.features` (`/features`)
 - Replaced hardcoded `'/support'` → `Routes.support` (`/contact`)
 - All footer links now use centralized Routes constants
 

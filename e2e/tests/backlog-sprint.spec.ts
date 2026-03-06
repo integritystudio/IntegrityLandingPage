@@ -200,7 +200,7 @@ test.describe('Back Navigation (#66)', () => {
 
     // Browser back should return to home
     await page.goBack();
-    await page.waitForURL(/.+\/$|.+localhost.*/);
+    await page.waitForURL(/https?:\/\/[^/]+(:\d+)?\/?$/);
     await waitForFlutter(page);
     await assertFlutterRendering(page);
   });
