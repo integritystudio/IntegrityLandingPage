@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'analytics.dart';
 import 'http_status.dart';
 
@@ -131,13 +132,13 @@ class ContactService {
   ));
 
   /// Set a custom Dio instance for testing.
-  /// @visibleForTesting
+  @visibleForTesting
   static void setDioForTesting(Dio dio) {
     _dio = dio;
   }
 
   /// Reset Dio to default instance.
-  /// @visibleForTesting
+  @visibleForTesting
   static void resetDio() {
     _dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 10),
@@ -146,11 +147,11 @@ class ContactService {
   }
 
   /// Retry delay function, injectable for testing.
-  /// @visibleForTesting
+  @visibleForTesting
   static Future<void> Function(Duration) retryDelay = Future.delayed;
 
   /// Reset retry delay to default.
-  /// @visibleForTesting
+  @visibleForTesting
   static void resetRetryDelay() {
     retryDelay = Future.delayed;
   }

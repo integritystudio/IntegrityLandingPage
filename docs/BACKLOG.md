@@ -238,33 +238,21 @@ Three inline magic numbers bypass project conventions:
 
 ---
 
-### #52: _linkSections getter re-allocates list on every build
+### #52: _linkSections getter re-allocates list on every build ✅ Done
 
 **Severity:** MEDIUM
 **Category:** Performance
-**File:** `lib/widgets/sections/footer_section.dart:383-411`
-
-`List<_LinkSection> get _linkSections` is a top-level getter that creates a new `List<_LinkSection>` with nested `_LinkItem` objects on every call. Called from both `_buildDesktopLayout` and `_buildMobileLayout`, so it allocates twice per `FooterSection.build()`.
-
-**Fix:** Convert to a `final` top-level list (the `_LinkSection` and `_LinkItem` constructors are already `const`, so the list can be `const` too):
-```dart
-const _linkSections = <_LinkSection>[
-  _LinkSection(title: 'Product', links: [...]),
-  ...
-];
-```
+**File:** `lib/widgets/sections/footer_section.dart`
+**Resolved:** 2026-03-06 — Converted top-level getter to `const _linkSections` list. Zero allocations per build.
 
 ---
 
-### #53: Mixed hardcoded routes and Routes constants in footer
+### #53: Mixed hardcoded routes and Routes constants in footer ✅ Done
 
 **Severity:** MEDIUM
 **Category:** Consistency
-**File:** `lib/widgets/sections/footer_section.dart:387,406`
-
-Two link URLs use hardcoded strings (`'/features'`, `'/support'`) while adjacent links use `Routes.pricing`, `Routes.docs`, etc. If routes change, these will silently break.
-
-**Fix:** Replace `'/features'` with `Routes.features` and `'/support'` with `Routes.support` (both already defined in `lib/config/content/constants.dart`).
+**File:** `lib/widgets/sections/footer_section.dart`
+**Resolved:** 2026-03-06 — Replaced `'/features'` → `Routes.features` and `'/support'` → `Routes.support`. All footer links now use Routes constants.
 
 ---
 
@@ -342,15 +330,12 @@ This creates confusion about which to use and risks divergence if one is updated
 
 ---
 
-### #60: @visibleForTesting as comments instead of annotations
+### #60: @visibleForTesting as comments instead of annotations ✅ Done
 
 **Severity:** MEDIUM
 **Category:** Bug Risk
-**File:** `lib/services/contact_service.dart:134,141,149,153`
-
-`setDioForTesting`, `resetDio`, `retryDelay`, and `resetRetryDelay` have `/// @visibleForTesting` in doc comments instead of the actual `@visibleForTesting` annotation from `package:flutter/foundation.dart` (or `package:meta/meta.dart`). The Dart analyzer cannot enforce the visibility constraint, so production code could call these methods without warning.
-
-**Fix:** Add `import 'package:meta/meta.dart';` and replace comment-only annotations with actual `@visibleForTesting` annotations above each method/field.
+**File:** `lib/services/contact_service.dart`
+**Resolved:** 2026-03-06 — Replaced 4 comment-only `/// @visibleForTesting` with actual `@visibleForTesting` annotations. Imported from `package:flutter/foundation.dart`.
 
 ---
 
@@ -366,20 +351,12 @@ This creates confusion about which to use and risks divergence if one is updated
 
 ---
 
-### #62: _NavLink and _FooterLink are duplicate hover-link widgets
+### #62: _NavLink and _FooterLink are duplicate hover-link widgets ✅ Done
 
 **Severity:** MEDIUM
 **Category:** DRY Violation
-**File:** `lib/pages/landing_page.dart:347-383` and `lib/widgets/sections/footer_section.dart:325-362`
-
-Both `_NavLink` (in landing_page.dart) and `_FooterLink` (in footer_section.dart) are private `StatefulWidget`s with identical structure:
-- `MouseRegion` with `onEnter`/`onExit` toggling `_isHovered` bool via `setState`
-- `GestureDetector` with `onTap`
-- `Text` with color switching on hover
-
-The only differences are the hover/default colors.
-
-**Fix:** Extract a shared `HoverTextLink` widget to `lib/widgets/common/` that accepts `text`, `onTap`, `defaultColor`, `hoverColor`, and optional `style`. Replace both private widgets.
+**File:** `lib/widgets/common/hover_text_link.dart`
+**Resolved:** 2026-03-06 — Extracted shared `HoverTextLink` widget with `defaultColor`, `hoverColor`, `style`, `padding` params. Includes `Semantics` with `onTap`. Replaced `_FooterLink` and `_NavLink` in both files.
 
 ---
 
@@ -392,29 +369,12 @@ The only differences are the hover/default colors.
 
 ---
 
-### #64: Scroll depth analytics fires on every pixel
+### #64: Scroll depth analytics fires on every pixel ✅ Done
 
 **Severity:** MEDIUM
 **Category:** Performance
-**File:** `lib/pages/landing_page.dart:81-87`
-
-`_onScroll` is attached as a listener to `_scrollController` and calls `AnalyticsService.trackScrollDepth(percentage)` on every scroll event. On a smooth scroll, this can fire 60+ times per second, flooding the analytics pipeline with redundant data.
-
-**Fix:** Track only milestone thresholds (25%, 50%, 75%, 100%) and deduplicate:
-```dart
-int _lastTrackedMilestone = 0;
-
-void _onScroll() {
-  final maxScroll = _scrollController.position.maxScrollExtent;
-  if (maxScroll <= 0) return;
-  final percentage = ((_scrollController.offset / maxScroll) * 100).round();
-  final milestone = (percentage ~/ 25) * 25;
-  if (milestone > _lastTrackedMilestone) {
-    _lastTrackedMilestone = milestone;
-    AnalyticsService.trackScrollDepth(milestone);
-  }
-}
-```
+**File:** `lib/pages/landing_page.dart`
+**Resolved:** 2026-03-06 — Scroll analytics now tracks only 25% milestones (25, 50, 75, 100) with deduplication via `_lastTrackedMilestone`. Eliminates 60+ redundant events/second.
 
 ---
 
@@ -451,27 +411,12 @@ Nearly every route passes `onBack: () => context.go('/')`. This is repeated 25+ 
 
 ---
 
-### #67: ContactSection form data duplication on submit
+### #67: ContactSection form data duplication on submit ✅ Done
 
 **Severity:** MEDIUM
 **Category:** Code Quality
-**File:** `lib/widgets/sections/contact_section.dart:470-532`
-
-`_validateForm()` (line 470) builds a `ContactFormData` object to validate. Then `_handleSubmit()` (line 522) builds an identical `ContactFormData` again for submission. The validated data is discarded and rebuilt, which means validation and submission could diverge if the `_formData` map is mutated between calls.
-
-**Fix:** Have `_validateForm` return the built `ContactFormData` (or null on failure), and reuse it in `_handleSubmit`:
-```dart
-ContactFormData? _validateForm() {
-  final formData = ContactFormData(
-    name: _buildFullName(),
-    email: _formData['email'] ?? '',
-    // ...
-  );
-  final errors = ContactService.validateForm(formData);
-  // ... set field errors ...
-  return errors.hasErrors ? null : formData;
-}
-```
+**File:** `lib/widgets/sections/contact_section.dart`
+**Resolved:** 2026-03-06 — `_validateForm()` now returns `ContactFormData?` (null on failure). `_handleSubmit` reuses the validated data directly, eliminating duplicate construction and potential validate/submit divergence.
 
 ---
 
@@ -511,24 +456,24 @@ Then use `onChanged: (v) => _onFieldChanged(field.name, v)` in each case.
 | Issue | Severity | Category | Status |
 |-------|----------|----------|--------|
 | #51 Magic numbers in footer | LOW | Code Quality | Open |
-| #52 _linkSections re-allocates every build | MEDIUM | Performance | Open |
-| #53 Mixed hardcoded/constant routes in footer | MEDIUM | Consistency | Open |
+| #52 _linkSections re-allocates every build | MEDIUM | Performance | ✅ Done — 2026-03-06 |
+| #53 Mixed hardcoded/constant routes in footer | MEDIUM | Consistency | ✅ Done — 2026-03-06 |
 | #54 Unused iconWidget field | LOW | Dead Code | Open |
 | #55 _launchUrl missing error handling | HIGH | Bug Risk | ✅ Done — 2026-03-06 |
 | #56 _initializeTracking async error unhandled | HIGH | Bug Risk | ✅ Done — 2026-03-06 |
 | #57 Stale hardcoded copyright year | LOW | Stale Data | Open |
 | #58 Routes.euAiAct is external URL | LOW | Consistency | Open |
 | #59 Duplicate route aliases | LOW | Consistency | Open |
-| #60 @visibleForTesting as comments | MEDIUM | Bug Risk | Open |
+| #60 @visibleForTesting as comments | MEDIUM | Bug Risk | ✅ Done — 2026-03-06 |
 | #61 Hardcoded signup route in landing page | LOW | Consistency | Open |
-| #62 Duplicate hover-link widgets | MEDIUM | DRY Violation | Open |
+| #62 Duplicate hover-link widgets | MEDIUM | DRY Violation | ✅ Done — 2026-03-06 |
 | #63 _NavLink missing Semantics | HIGH | Accessibility | ✅ Done — 2026-03-06 |
-| #64 Scroll analytics fires every pixel | MEDIUM | Performance | Open |
+| #64 Scroll analytics fires every pixel | MEDIUM | Performance | ✅ Done — 2026-03-06 |
 | #65 Flat route list in app_router | LOW | Maintainability | Open |
 | #66 Repetitive onBack callback | LOW | DRY Violation | Open |
-| #67 Form data built twice on submit | MEDIUM | Code Quality | Open |
+| #67 Form data built twice on submit | MEDIUM | Code Quality | ✅ Done — 2026-03-06 |
 | #68 Repetitive onChanged closures | LOW | DRY Violation | Open |
 
 ---
 
-*Last updated: 2026-03-06 | Flutter expert audit: 18 issues (#51-#68) across 7 most-edited files — 3 HIGH fixed (#55 _launchUrl error handling, #56 _initializeTracking try/catch, #63 _NavLink Semantics), 6 MEDIUM open, 9 LOW open*
+*Last updated: 2026-03-06 | Flutter expert audit: 18 issues (#51-#68) across 7 most-edited files — 3 HIGH fixed, 6 MEDIUM fixed, 9 LOW open*

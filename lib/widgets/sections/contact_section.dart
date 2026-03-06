@@ -467,7 +467,8 @@ class _ContactSectionState extends State<ContactSection> {
   }
 
   /// Validate form using ContactService.
-  bool _validateForm() {
+  /// Returns the validated [ContactFormData] or null if validation fails.
+  ContactFormData? _validateForm() {
     // Build ContactFormData from form fields
     // Normalize empty strings to null for optional fields
     final formData = ContactFormData(
@@ -475,6 +476,8 @@ class _ContactSectionState extends State<ContactSection> {
       email: _formData['email'] ?? '',
       organization: _emptyToNull(_formData['organization'] ?? _formData['company']),
       message: _emptyToNull(_formData['message']),
+      companySize: _emptyToNull(_formData['companySize']),
+      useCase: _emptyToNull(_formData['useCase']),
     );
 
     final errors = ContactService.validateForm(formData);
@@ -493,12 +496,13 @@ class _ContactSectionState extends State<ContactSection> {
       if (errors.message != null) _fieldErrors['message'] = errors.message!;
     });
 
-    return !errors.hasErrors;
+    return errors.hasErrors ? null : formData;
   }
 
   Future<void> _handleSubmit() async {
     // Validate using ContactService
-    if (!_validateForm()) return;
+    final validatedData = _validateForm();
+    if (validatedData == null) return;
 
     setState(() {
       _isSubmitting = true;
@@ -517,18 +521,8 @@ class _ContactSectionState extends State<ContactSection> {
           _submitSuccess = success;
         });
       } else {
-        // Use ContactService for submission
-        // Normalize empty strings to null for optional fields
-        final formData = ContactFormData(
-          name: _buildFullName(),
-          email: _formData['email'] ?? '',
-          organization: _emptyToNull(_formData['organization'] ?? _formData['company']),
-          message: _emptyToNull(_formData['message']),
-          companySize: _emptyToNull(_formData['companySize']),
-          useCase: _emptyToNull(_formData['useCase']),
-        );
-
-        final payload = ContactFormPayload(formData: formData);
+        // Use validated data from _validateForm (single source of truth)
+        final payload = ContactFormPayload(formData: validatedData);
         final response = await ContactService.submitForm(payload);
 
         setState(() {
@@ -539,10 +533,10 @@ class _ContactSectionState extends State<ContactSection> {
               _successMessage = message;
               // Track Facebook Pixel events on success
               FacebookPixelService.trackContact(
-                email: formData.email,
-                name: formData.name,
+                email: validatedData.email,
+                name: validatedData.name,
               );
-              FacebookPixelService.trackLead(email: formData.email);
+              FacebookPixelService.trackLead(email: validatedData.email);
               // Clear form on success
               _formData.clear();
             case ContactFormError(:final error, :final fieldErrors):
