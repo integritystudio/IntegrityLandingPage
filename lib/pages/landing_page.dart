@@ -17,6 +17,7 @@ import '../widgets/sections/pricing_section.dart';
 import '../widgets/sections/status_section.dart';
 import '../widgets/sections/cta_section.dart';
 import '../widgets/sections/footer_section.dart';
+import '../widgets/common/hover_text_link.dart';
 
 /// Main landing page composing all sections.
 ///
@@ -78,12 +79,18 @@ class _LandingPageState extends State<LandingPage> {
     super.dispose();
   }
 
+  int _lastTrackedMilestone = 0;
+
   void _onScroll() {
     final maxScroll = _scrollController.position.maxScrollExtent;
     if (maxScroll <= 0) return;
 
     final percentage = ((_scrollController.offset / maxScroll) * 100).round();
-    AnalyticsService.trackScrollDepth(percentage);
+    final milestone = (percentage ~/ 25) * 25;
+    if (milestone > _lastTrackedMilestone) {
+      _lastTrackedMilestone = milestone;
+      AnalyticsService.trackScrollDepth(milestone);
+    }
   }
 
   void _scrollToSection(String sectionName) {
@@ -262,24 +269,44 @@ class _LandingPageState extends State<LandingPage> {
             ]
           : [
               // Desktop: inline nav links
-              _NavLink(
+              HoverTextLink(
                 text: 'Features',
+                defaultColor: AppColors.gray300,
+                hoverColor: AppColors.blue400,
+                style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 onTap: () => _scrollToSection('features'),
               ),
-              _NavLink(
+              HoverTextLink(
                 text: 'About',
+                defaultColor: AppColors.gray300,
+                hoverColor: AppColors.blue400,
+                style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 onTap: () => _scrollToSection('about'),
               ),
-              _NavLink(
+              HoverTextLink(
                 text: 'Blog',
+                defaultColor: AppColors.gray300,
+                hoverColor: AppColors.blue400,
+                style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 onTap: () => _scrollToSection('resources'),
               ),
-              _NavLink(
+              HoverTextLink(
                 text: 'Pricing',
+                defaultColor: AppColors.gray300,
+                hoverColor: AppColors.blue400,
+                style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 onTap: () => _scrollToSection('pricing'),
               ),
-              _NavLink(
+              HoverTextLink(
                 text: 'Contact',
+                defaultColor: AppColors.gray300,
+                hoverColor: AppColors.blue400,
+                style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 onTap: () => _scrollToSection('contact'),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -343,46 +370,3 @@ class _LandingPageState extends State<LandingPage> {
   }
 }
 
-/// Navigation link for header
-class _NavLink extends StatefulWidget {
-  final String text;
-  final VoidCallback onTap;
-
-  const _NavLink({
-    required this.text,
-    required this.onTap,
-  });
-
-  @override
-  State<_NavLink> createState() => _NavLinkState();
-}
-
-class _NavLinkState extends State<_NavLink> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: widget.text,
-      onTap: widget.onTap,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Text(
-              widget.text,
-              style: AppTypography.bodySM.copyWith(
-                color: _isHovered ? AppColors.blue400 : AppColors.gray300,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

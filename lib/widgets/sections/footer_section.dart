@@ -7,6 +7,7 @@ import '../../config/content.dart';
 import '../../services/analytics.dart';
 import '../../theme/theme.dart';
 import '../common/containers.dart';
+import '../common/hover_text_link.dart';
 
 /// Launch URL with web-compatible mode
 Future<void> _launchUrl(String url) async {
@@ -164,8 +165,11 @@ class FooterSection extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
         ...section.links.map((link) => Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: _FooterLink(
+              child: HoverTextLink(
                 text: link.text,
+                defaultColor: AppColors.gray400,
+                hoverColor: AppColors.textPrimary,
+                style: AppTypography.bodySM,
                 onTap: () {
                   // Handle blog navigation specially
                   if (link.url == Routes.blog) {
@@ -230,24 +234,39 @@ class FooterSection extends StatelessWidget {
                 spacing: AppSpacing.md,
                 runSpacing: AppSpacing.xs,
                 children: [
-                  _FooterLink(
+                  HoverTextLink(
                     text: 'Privacy',
+                    defaultColor: AppColors.gray400,
+                    hoverColor: AppColors.textPrimary,
+                    style: AppTypography.bodySM,
                     onTap: () => context.go(Routes.privacy),
                   ),
-                  _FooterLink(
+                  HoverTextLink(
                     text: 'Terms',
+                    defaultColor: AppColors.gray400,
+                    hoverColor: AppColors.textPrimary,
+                    style: AppTypography.bodySM,
                     onTap: () => context.go(Routes.terms),
                   ),
-                  _FooterLink(
+                  HoverTextLink(
                     text: 'Cookies',
+                    defaultColor: AppColors.gray400,
+                    hoverColor: AppColors.textPrimary,
+                    style: AppTypography.bodySM,
                     onTap: () => context.go(Routes.cookies),
                   ),
-                  _FooterLink(
+                  HoverTextLink(
                     text: 'Accessibility',
+                    defaultColor: AppColors.gray400,
+                    hoverColor: AppColors.textPrimary,
+                    style: AppTypography.bodySM,
                     onTap: () => context.go(Routes.accessibility),
                   ),
-                  _FooterLink(
+                  HoverTextLink(
                     text: 'Cookie Settings',
+                    defaultColor: AppColors.gray400,
+                    hoverColor: AppColors.textPrimary,
+                    style: AppTypography.bodySM,
                     onTap: onCookieSettings,
                   ),
                 ],
@@ -270,24 +289,39 @@ class FooterSection extends StatelessWidget {
               spacing: AppSpacing.lg,
               runSpacing: AppSpacing.sm,
               children: [
-                _FooterLink(
+                HoverTextLink(
                   text: 'Privacy Policy',
+                  defaultColor: AppColors.gray400,
+                  hoverColor: AppColors.textPrimary,
+                  style: AppTypography.bodySM,
                   onTap: () => context.go(Routes.privacy),
                 ),
-                _FooterLink(
+                HoverTextLink(
                   text: 'Terms of Service',
+                  defaultColor: AppColors.gray400,
+                  hoverColor: AppColors.textPrimary,
+                  style: AppTypography.bodySM,
                   onTap: () => context.go(Routes.terms),
                 ),
-                _FooterLink(
+                HoverTextLink(
                   text: 'Cookie Policy',
+                  defaultColor: AppColors.gray400,
+                  hoverColor: AppColors.textPrimary,
+                  style: AppTypography.bodySM,
                   onTap: () => context.go(Routes.cookies),
                 ),
-                _FooterLink(
+                HoverTextLink(
                   text: 'Accessibility',
+                  defaultColor: AppColors.gray400,
+                  hoverColor: AppColors.textPrimary,
+                  style: AppTypography.bodySM,
                   onTap: () => context.go(Routes.accessibility),
                 ),
-                _FooterLink(
+                HoverTextLink(
                   text: 'Cookie Settings',
+                  defaultColor: AppColors.gray400,
+                  hoverColor: AppColors.textPrimary,
+                  style: AppTypography.bodySM,
                   onTap: onCookieSettings,
                 ),
               ],
@@ -332,46 +366,6 @@ class _SocialLink extends StatelessWidget {
   }
 }
 
-class _FooterLink extends StatefulWidget {
-  final String text;
-  final VoidCallback? onTap;
-
-  const _FooterLink({
-    required this.text,
-    this.onTap,
-  });
-
-  @override
-  State<_FooterLink> createState() => _FooterLinkState();
-}
-
-class _FooterLinkState extends State<_FooterLink> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: widget.text,
-      onTap: widget.onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: Text(
-            widget.text,
-            style: AppTypography.bodySM.copyWith(
-              color: _isHovered ? AppColors.textPrimary : AppColors.gray400,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _LinkSection {
   final String title;
   final List<_LinkItem> links;
@@ -391,11 +385,11 @@ class _LinkItem {
   });
 }
 
-List<_LinkSection> get _linkSections => [
+const _linkSections = <_LinkSection>[
   _LinkSection(
     title: 'Product',
     links: [
-      _LinkItem(text: 'Features', url: '/features'),
+      _LinkItem(text: 'Features', url: Routes.features),
       _LinkItem(text: 'Pricing', url: Routes.pricing),
       _LinkItem(text: 'Documentation', url: Routes.docs),
       _LinkItem(text: 'API Reference', url: Routes.api),
@@ -414,7 +408,7 @@ List<_LinkSection> get _linkSections => [
   _LinkSection(
     title: 'Resources',
     links: [
-      _LinkItem(text: 'Help Center', url: '/support'),
+      _LinkItem(text: 'Help Center', url: Routes.support),
       _LinkItem(text: 'Status', url: Routes.status),
       _LinkItem(text: 'Security', url: Routes.security),
     ],
