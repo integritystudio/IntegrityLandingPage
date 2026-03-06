@@ -167,8 +167,8 @@ void main() {
 
     // =======================================================================
     // Regression: #62 — HoverTextLink replaces _FooterLink
-    // Also covers #53 — verifies all expected link labels are rendered
-    // via HoverTextLink (route-constant usage enforced at source level)
+    // Also covers #53 — verifies all nav and legal labels render inside
+    // HoverTextLink (route-constant usage enforced at source level)
     // =======================================================================
 
     testWidgets('all footer links are HoverTextLink with expected labels (#62, #53 regression)',
@@ -180,20 +180,37 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Exact count: Product(4) + Company(5) + Resources(3) + legal(5) = 17
+      // Product(4) + Company(5) + Resources(3) + legal(5) = 17
+      const expectedHoverLinkCount = 17;
       final hoverLinks = find.descendant(
         of: find.byType(FooterSection),
         matching: find.byType(HoverTextLink),
       );
-      expect(hoverLinks, findsNWidgets(17));
+      expect(hoverLinks, findsNWidgets(expectedHoverLinkCount));
 
-      // Every nav link label must appear inside a HoverTextLink
+      // Every link label must appear inside a HoverTextLink
       const expectedNavLabels = [
-        'Features', 'Pricing', 'Documentation', 'API Reference',
-        'About', 'Blog', 'Sources', 'Careers', 'Contact',
-        'Help Center', 'Status', 'Security',
+        'Features',
+        'Pricing',
+        'Documentation',
+        'API Reference',
+        'About',
+        'Blog',
+        'Sources',
+        'Careers',
+        'Contact',
+        'Help Center',
+        'Status',
+        'Security',
       ];
-      for (final label in expectedNavLabels) {
+      const expectedLegalLabels = [
+        'Privacy Policy',
+        'Terms of Service',
+        'Cookie Policy',
+        'Accessibility',
+        'Cookie Settings',
+      ];
+      for (final label in [...expectedNavLabels, ...expectedLegalLabels]) {
         expect(
           find.descendant(
             of: find.byType(HoverTextLink),
