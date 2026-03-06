@@ -5,6 +5,22 @@ import 'package:integrity_studio_ai/widgets/common/hover_text_link.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import '../../helpers/test_helpers.dart';
 
+// Desktop footer link labels — single source of truth for all tests
+const _productLabels = ['Features', 'Pricing', 'Documentation', 'API Reference'];
+const _companyLabels = ['About', 'Blog', 'Sources', 'Careers', 'Contact'];
+const _resourceLabels = ['Help Center', 'Status', 'Security'];
+final _navLabels = [..._productLabels, ..._companyLabels, ..._resourceLabels];
+const _legalLabels = [
+  'Privacy Policy',
+  'Terms of Service',
+  'Cookie Policy',
+  'Accessibility',
+  'Cookie Settings',
+];
+const _socialPlatforms = ['X', 'LinkedIn', 'GitHub'];
+// Desktop layout: nav columns (4+5+3=12) + bottom bar legal (5) = 17
+final _expectedHoverLinkCount = _navLabels.length + _legalLabels.length;
+
 void main() {
   group('FooterSection', () {
     // =======================================================================
@@ -12,17 +28,11 @@ void main() {
     // =======================================================================
 
     test('footer link structure and social platforms are defined correctly', () {
-      // Footer sections are defined statically in the widget
-      const productLinks = ['Features', 'Pricing', 'Documentation', 'API Reference'];
-      const companyLinks = ['About', 'Blog', 'Sources', 'Careers', 'Contact'];
-      const resourceLinks = ['Help Center', 'Status', 'Security'];
-      const socialPlatforms = ['X', 'LinkedIn', 'GitHub'];
-
-      expect(productLinks, hasLength(4));
-      expect(companyLinks, hasLength(5));
-      expect(companyLinks.contains('Sources'), isTrue); // Transparency link
-      expect(resourceLinks, hasLength(3));
-      expect(socialPlatforms, hasLength(3));
+      expect(_productLabels, hasLength(4));
+      expect(_companyLabels, hasLength(5));
+      expect(_companyLabels.contains('Sources'), isTrue); // Transparency link
+      expect(_resourceLabels, hasLength(3));
+      expect(_socialPlatforms, hasLength(3));
     });
 
     // =======================================================================
@@ -32,18 +42,7 @@ void main() {
     test('copyright year and legal links are valid', () {
       final currentYear = DateTime.now().year;
       expect(currentYear, greaterThanOrEqualTo(2024));
-
-      const legalLinks = [
-        'Privacy Policy',
-        'Terms of Service',
-        'Cookie Policy',
-        'Accessibility',
-        'Cookie Settings',
-      ];
-      expect(legalLinks, hasLength(5));
-      for (final link in legalLinks) {
-        expect(legalLinks.contains(link), isTrue);
-      }
+      expect(_legalLabels, hasLength(5));
     });
 
     // =======================================================================
@@ -62,32 +61,15 @@ void main() {
       expect(find.byType(FooterSection), findsOneWidget);
       expect(find.text('IntegrityStudio'), findsOneWidget);
 
-      // Product section
+      // Section headings
       expect(find.text('Product'), findsOneWidget);
-      expect(find.text('Features'), findsOneWidget);
-      expect(find.text('Pricing'), findsOneWidget);
-      expect(find.text('Documentation'), findsOneWidget);
-
-      // Company section (includes Sources for transparency)
       expect(find.text('Company'), findsOneWidget);
-      expect(find.text('About'), findsOneWidget);
-      expect(find.text('Blog'), findsOneWidget);
-      expect(find.text('Sources'), findsOneWidget);
-      expect(find.text('Careers'), findsOneWidget);
-      expect(find.text('Contact'), findsOneWidget);
-
-      // Resources section
       expect(find.text('Resources'), findsOneWidget);
-      expect(find.text('Help Center'), findsOneWidget);
-      expect(find.text('Status'), findsOneWidget);
-      expect(find.text('Security'), findsOneWidget);
 
-      // Legal links
-      expect(find.text('Privacy Policy'), findsOneWidget);
-      expect(find.text('Terms of Service'), findsOneWidget);
-      expect(find.text('Cookie Policy'), findsOneWidget);
-      expect(find.text('Accessibility'), findsOneWidget);
-      expect(find.text('Cookie Settings'), findsOneWidget);
+      // All nav and legal link labels render
+      for (final label in [..._navLabels, ..._legalLabels]) {
+        expect(find.text(label), findsOneWidget, reason: '$label missing');
+      }
 
       // Compliance disclaimer
       expect(
@@ -189,37 +171,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Desktop layout: nav columns (4+5+3=12) + bottom bar legal (5) = 17
-      const expectedHoverLinkCount = 17;
       final hoverLinks = find.descendant(
         of: find.byType(FooterSection),
         matching: find.byType(HoverTextLink),
       );
-      expect(hoverLinks, findsNWidgets(expectedHoverLinkCount));
+      expect(hoverLinks, findsNWidgets(_expectedHoverLinkCount));
 
-      // Every link label must appear inside a HoverTextLink
-      const expectedNavLabels = [
-        'Features',
-        'Pricing',
-        'Documentation',
-        'API Reference',
-        'About',
-        'Blog',
-        'Sources',
-        'Careers',
-        'Contact',
-        'Help Center',
-        'Status',
-        'Security',
-      ];
-      const expectedLegalLabels = [
-        'Privacy Policy',
-        'Terms of Service',
-        'Cookie Policy',
-        'Accessibility',
-        'Cookie Settings',
-      ];
-      for (final label in [...expectedNavLabels, ...expectedLegalLabels]) {
+      // Every nav and legal label must appear inside a HoverTextLink
+      for (final label in [..._navLabels, ..._legalLabels]) {
         expect(
           find.descendant(
             of: find.byType(HoverTextLink),
