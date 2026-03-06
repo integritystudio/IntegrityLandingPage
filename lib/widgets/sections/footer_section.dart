@@ -404,7 +404,7 @@ const _linkSections = <_LinkSection>[
   _LinkSection(
     title: 'Resources',
     links: [
-      _LinkItem(text: 'Help Center', url: Routes.contact),
+      _LinkItem(text: 'Help Center', url: '/support'),
       _LinkItem(text: 'Status', url: Routes.status),
       _LinkItem(text: 'Security', url: Routes.security),
     ],
