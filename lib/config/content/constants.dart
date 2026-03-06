@@ -59,6 +59,9 @@ abstract final class ExternalUrls {
   // Status page
   static const String statusPage = 'https://integritystudio.ai/status';
 
+  // Documentation
+  static const String euAiAct = 'https://integritystudio.ai/docs/tracing#eu-ai-act';
+
   // Social media
   static const String linkedIn = 'https://linkedin.com/company/integrity-studio-ai';
   static const String github = 'https://github.com/integritystudio';
@@ -104,7 +107,6 @@ abstract final class Routes {
   static const String docsAlerts = '/docs/alerts';
 
   // Resources
-  static const String euAiAct = 'https://integritystudio.ai/docs/tracing#eu-ai-act';
   static const String support = '/contact';
   static const String api = '/api';
   static const String careers = '/careers';
