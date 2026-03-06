@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../config/content/constants.dart';
 import 'cookie_shell.dart';
 import '../pages/landing_page.dart';
 import '../pages/blog_page.dart';
@@ -30,6 +31,10 @@ import '../pages/demo_page.dart';
 import '../pages/request_success_page.dart';
 import '../pages/request_failure_page.dart';
 import '../pages/oauth_callback_page.dart';
+
+/// Returns a callback that navigates to the home route.
+/// Used to avoid repeating `() => context.go(Routes.home)` across every route.
+VoidCallback _goHome(BuildContext context) => () => context.go(Routes.home);
 
 /// Creates the application router with all routes and redirects.
 ///
@@ -71,7 +76,7 @@ GoRouter createAppRouter({
           GoRoute(
             path: '/blog',
             builder: (context, state) => BlogPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
 
@@ -79,13 +84,13 @@ GoRouter createAppRouter({
           GoRoute(
             path: '/whylabs-alternative',
             builder: (context, state) => ComparisonPage.whylabs(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/compare/arize-ai-alternative',
             builder: (context, state) => ComparisonPage.arize(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
 
@@ -93,7 +98,7 @@ GoRouter createAppRouter({
           GoRoute(
             path: '/sources',
             builder: (context, state) => SourcesPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
 
@@ -101,48 +106,48 @@ GoRouter createAppRouter({
           GoRoute(
             path: '/about',
             builder: (context, state) => AboutPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
               onShowCookieSettings: onShowCookieSettings,
             ),
           ),
           GoRoute(
             path: '/features',
             builder: (context, state) => FeaturesPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
               onShowCookieSettings: onShowCookieSettings,
             ),
           ),
           GoRoute(
             path: '/status',
             builder: (context, state) => StatusPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
               onShowCookieSettings: onShowCookieSettings,
             ),
           ),
           GoRoute(
             path: '/pricing',
             builder: (context, state) => PricingPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
               onShowCookieSettings: onShowCookieSettings,
             ),
           ),
           GoRoute(
             path: '/contact',
             builder: (context, state) => ContactPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
               onShowCookieSettings: onShowCookieSettings,
             ),
           ),
           GoRoute(
             path: '/demo',
             builder: (context, state) => DemoPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/careers',
             builder: (context, state) => CareersPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
               onShowCookieSettings: onShowCookieSettings,
             ),
           ),
@@ -151,21 +156,21 @@ GoRouter createAppRouter({
           GoRoute(
             path: '/request_success',
             builder: (context, state) => RequestSuccessPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
               onShowCookieSettings: onShowCookieSettings,
             ),
           ),
           GoRoute(
             path: '/request_failure',
             builder: (context, state) => RequestFailurePage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
               onShowCookieSettings: onShowCookieSettings,
             ),
           ),
           GoRoute(
             path: '/support',
             builder: (context, state) => HelpCenterPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
 
@@ -175,7 +180,7 @@ GoRouter createAppRouter({
             builder: (context, state) {
               final params = state.uri.queryParameters;
               return OAuthCallbackPage(
-                onBack: () => context.go('/'),
+                onBack: _goHome(context),
                 code: params['code'],
                 state: params['state'],
                 error: params['error'],
@@ -191,7 +196,7 @@ GoRouter createAppRouter({
               final tier = state.uri.queryParameters['tier'] ?? 'starter';
               return SignupPage(
                 tier: tier,
-                onBack: () => context.go('/'),
+                onBack: _goHome(context),
               );
             },
           ),
@@ -200,25 +205,25 @@ GoRouter createAppRouter({
           GoRoute(
             path: '/privacy',
             builder: (context, state) => LegalPage.privacy(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/terms',
             builder: (context, state) => LegalPage.terms(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/cookies',
             builder: (context, state) => LegalPage.cookies(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/accessibility',
             builder: (context, state) => LegalPage.accessibility(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
 
@@ -226,7 +231,7 @@ GoRouter createAppRouter({
           GoRoute(
             path: '/security',
             builder: (context, state) => SecurityPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
 
@@ -234,31 +239,31 @@ GoRouter createAppRouter({
           GoRoute(
             path: '/docs',
             builder: (context, state) => DocsIndexPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/docs/llm-observability',
             builder: (context, state) => DocsObservabilityPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/docs/tracing',
             builder: (context, state) => DocsTracingPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/docs/integrations',
             builder: (context, state) => DocsInteroperabilityPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/api',
             builder: (context, state) => DocsApiPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
@@ -270,19 +275,19 @@ GoRouter createAppRouter({
           GoRoute(
             path: '/docs/quickstart',
             builder: (context, state) => DocsQuickstartPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/docs/alerts',
             builder: (context, state) => DocsAlertsPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/docs/agents',
             builder: (context, state) => DocsAgentsPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
 
@@ -290,13 +295,13 @@ GoRouter createAppRouter({
           GoRoute(
             path: '/compliance',
             builder: (context, state) => CompliancePage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
           GoRoute(
             path: '/eu-ai-act',
             builder: (context, state) => EuAiActPage(
-              onBack: () => context.go('/'),
+              onBack: _goHome(context),
             ),
           ),
         ],
