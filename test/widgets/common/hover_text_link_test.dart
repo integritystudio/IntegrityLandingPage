@@ -42,7 +42,7 @@ void main() {
       expect(tapped, isTrue);
     });
 
-    testWidgets('applies custom style', (tester) async {
+    testWidgets('applies custom style preserving all properties', (tester) async {
       await tester.pumpWidget(
         testableWidget(
           HoverTextLink(
@@ -57,6 +57,8 @@ void main() {
       final textWidget = tester.widget<Text>(find.text('Styled'));
       expect(textWidget.style?.fontWeight, equals(FontWeight.w500));
       expect(textWidget.style?.color, equals(AppColors.gray300));
+      // #70 regression: fontSize from base style must survive copyWith(color:)
+      expect(textWidget.style?.fontSize, equals(AppTypography.bodySM.fontSize));
     });
 
     testWidgets('renders padding when provided', (tester) async {
@@ -194,6 +196,29 @@ void main() {
       await tester.tap(find.text('No Action'));
       await tester.pump();
       expect(find.text('No Action'), findsOneWidget);
+    });
+
+    // #69 regression: Semantics label must be set even without onTap
+    testWidgets('has Semantics label even without onTap', (tester) async {
+      await tester.pumpWidget(
+        testableWidget(
+          HoverTextLink(
+            text: 'No Action Link',
+            defaultColor: AppColors.gray400,
+            hoverColor: AppColors.textPrimary,
+          ),
+        ),
+      );
+
+      final semantics = tester.firstWidget<Semantics>(
+        find.descendant(
+          of: find.byType(HoverTextLink),
+          matching: find.byType(Semantics),
+        ),
+      );
+      expect(semantics.properties.label, equals('No Action Link'));
+      expect(semantics.properties.button, isTrue);
+      expect(semantics.properties.onTap, isNull);
     });
   });
 }
