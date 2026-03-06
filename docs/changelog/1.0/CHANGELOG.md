@@ -600,6 +600,8 @@ Items that appear in console but are not tech debt:
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-03-06 | 2.0 | Code quality hardening sprint — 9 issues fixed, E2E + widget tests |
+| 2026-02-13 | 1.10 | Security hardening — email validation, request size, error leaks, circuit breaker |
 | 2026-02-01 | 1.9 | Routing consolidation, Twitter/X removal, blog updates |
 | 2026-01-31 | 1.8 | Test optimization (144s→51s), Twitter→X migration, content caching |
 | 2026-01-30 | 1.7.1 | CI fix, section test consolidation, RenderFlex overflow fixes |
@@ -709,6 +711,10 @@ Resolved 9 HIGH & MEDIUM severity issues from Flutter expert audit across 7 most
 **#38: Magic Numbers in Contact Form Worker** (resolved 2026-02-27)
 - Added constants: `IN_MEMORY_CLEANUP_THRESHOLD`, `KV_CIRCUIT_RESET_COOLDOWN_MS`, `KV_CIRCUIT_RESET_JITTER_MS`, etc.
 
+**#32-36: prefer-const False Positives** (resolved 2026-02-27)
+- All 5 `let` usages verified as correctly reassigned (module-scoped circuit breaker state and loop counters)
+- ast-grep rule produced false positives; no code changes needed
+
 **#31: console.log in E2E Tests** (resolved 2026-02-27)
 - Replaced debug logging with array capture + afterEach warning pattern
 
@@ -718,7 +724,7 @@ Resolved 9 HIGH & MEDIUM severity issues from Flutter expert audit across 7 most
 
 ### E2E Test Coverage Added
 
-**4 new Playwright test files:**
+**3 new Playwright test files:**
 - `e2e/tests/footer-links.spec.ts` — 16 tests validating all footer route destinations
 - `e2e/tests/scroll-analytics.spec.ts` — 3 tests for scroll milestone stability
 - `e2e/tests/contact-form.spec.ts` — 5 tests for contact page navigation and form behavior
@@ -739,6 +745,11 @@ All regression tests pass (50+/50+).
 | `lib/pages/landing_page.dart` | #62 HoverTextLink, #63 Semantics, #64 milestone scroll tracking |
 | `lib/services/contact_service.dart` | #60 @visibleForTesting annotations |
 | `lib/widgets/sections/contact_section.dart` | #67 _validateForm returns ContactFormData?, form data reuse |
+| `lib/app.dart` | #56 try/catch around `_initializeTracking` |
+| `test/widgets/common/hover_text_link_test.dart` | NEW — 9 widget tests for HoverTextLink |
+| `e2e/tests/footer-links.spec.ts` | NEW — 16 footer route destination tests |
+| `e2e/tests/scroll-analytics.spec.ts` | NEW — 3 scroll milestone stability tests |
+| `e2e/tests/contact-form.spec.ts` | NEW — 5 contact page navigation tests |
 | `docs/BACKLOG.md` | Updated priority matrix, marked 9 items Done |
 
 ---

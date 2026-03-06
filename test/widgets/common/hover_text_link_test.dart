@@ -1,6 +1,5 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/widgets/common/hover_text_link.dart';
 import 'package:integrity_studio_ai/theme/theme.dart';
@@ -75,12 +74,12 @@ void main() {
       );
 
       expect(find.text('Padded'), findsOneWidget);
-      final padding = tester.widget<Padding>(
-        find.ancestor(
-          of: find.text('Padded'),
-          matching: find.byType(Padding),
-        ).first,
+      final paddingFinder = find.descendant(
+        of: find.byType(HoverTextLink),
+        matching: find.byType(Padding),
       );
+      expect(paddingFinder, findsOneWidget);
+      final padding = tester.widget<Padding>(paddingFinder);
       expect(padding.padding, equals(testPadding));
     });
 
@@ -95,7 +94,6 @@ void main() {
         ),
       );
 
-      // The only Padding should come from Scaffold/MaterialApp, not HoverTextLink
       final paddings = find.descendant(
         of: find.byType(HoverTextLink),
         matching: find.byType(Padding),
@@ -115,7 +113,7 @@ void main() {
         ),
       );
 
-      final semantics = tester.widget<Semantics>(
+      final semantics = tester.firstWidget<Semantics>(
         find.descendant(
           of: find.byType(HoverTextLink),
           matching: find.byType(Semantics),
@@ -166,7 +164,7 @@ void main() {
       await gesture.addPointer(location: Offset.zero);
       addTearDown(gesture.removePointer);
       await gesture.moveTo(tester.getCenter(find.text('Hover Me')));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       // Hover state
       textWidget = tester.widget<Text>(find.text('Hover Me'));
@@ -174,7 +172,7 @@ void main() {
 
       // Simulate hover exit (move far outside widget bounds)
       await gesture.moveTo(const Offset(-100, -100));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       // Back to default
       textWidget = tester.widget<Text>(find.text('Hover Me'));
