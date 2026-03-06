@@ -14,7 +14,7 @@ import '../../services/content_loader.dart';
 abstract final class CompanyInfo {
   static const String name = 'Integrity Studio';
   static const String tagline = 'AI Observability That Proves Compliance';
-  static const String copyright = '© 2025 Integrity Studio. All rights reserved.';
+  static String get copyright => '\u00A9 ${DateTime.now().year} Integrity Studio. All rights reserved.';
   static const String foundedYear = '2025';
   static const String locationCity = 'Austin';
   static const String locationRegion = 'Texas';
