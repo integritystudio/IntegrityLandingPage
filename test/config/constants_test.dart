@@ -18,7 +18,7 @@ void main() {
 
     test('has copyright with year', () {
       expect(CompanyInfo.copyright, contains('©'));
-      expect(CompanyInfo.copyright, contains('2025'));
+      expect(CompanyInfo.copyright, contains('${DateTime.now().year}'));
     });
 
     test('has location info', () {

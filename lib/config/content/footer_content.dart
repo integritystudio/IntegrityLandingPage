@@ -6,7 +6,7 @@ import 'constants.dart';
 
 /// Footer content.
 abstract final class FooterContentVariants {
-  static const current = FooterContent(
+  static final current = FooterContent(
     companyName: CompanyInfo.name,
     tagline: CompanyInfo.tagline,
     copyright: CompanyInfo.copyright,
