@@ -121,7 +121,7 @@ class _LandingPageState extends State<LandingPage> {
               key: _sectionKeys['hero']!,
               label: 'Hero section',
               child: HeroSection(
-                onGetStarted: () => context.go('/signup?tier=Team'),
+                onGetStarted: () => context.go(Routes.signupTeam),
                 onWatchDemo: _handleWatchDemo,
               ),
             ),
@@ -182,7 +182,7 @@ class _LandingPageState extends State<LandingPage> {
               key: _sectionKeys['cta']!,
               label: 'Call to action section',
               child: CTASection(
-                onGetStarted: () => context.go('/signup?tier=Team'),
+                onGetStarted: () => context.go(Routes.signupTeam),
               ),
             ),
             _buildSection(
