@@ -43,7 +43,7 @@ urls:
     about: "/about"
     contact: "/contact"
     signup: "/signup"
-    features: "#features"
+    features: "/features"
     pricing_section: "#pricing"
     services: "#services"
     demo: "#demo"
@@ -789,7 +789,7 @@ footer:
     - title: "Product"
       links:
         - label: "Features"
-          url: "#features"
+          url: "/features"
         - label: "Pricing"
           url: "#pricing"
         - label: "Documentation"
