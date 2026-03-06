@@ -19,6 +19,7 @@ const _legalLabels = [
   'Cookie Settings',
 ];
 const _socialLabels = ['LinkedIn', 'GitHub'];
+const _mobileLegalLabels = ['Privacy', 'Terms', 'Cookies', 'Accessibility', 'Cookie Settings'];
 // Desktop layout: 12 nav + 5 legal = 17 HoverTextLink widgets
 final _expectedHoverLinkCount = _navLabels.length + _legalLabels.length; // = 17
 
@@ -114,6 +115,19 @@ void main() {
       expect(find.byType(GestureDetector), findsWidgets);
 
       // Note: Tablet test skipped due to pre-existing footer layout issue at 768-900px widths
+    });
+
+    testWidgets('renders abbreviated mobile bottom bar labels', (tester) async {
+      setMobileSize(tester);
+
+      await tester.pumpWidget(
+        testableSection(const FooterSection()),
+      );
+      await tester.pumpAndSettle();
+
+      for (final label in _mobileLegalLabels) {
+        expect(find.text(label), findsOneWidget, reason: 'mobile label "$label" missing');
+      }
     });
 
     // =======================================================================
