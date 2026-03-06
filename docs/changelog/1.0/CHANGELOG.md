@@ -753,6 +753,87 @@ All regression tests pass (50+/50+).
 | `e2e/tests/contact-form.spec.ts` | NEW — 5 contact page navigation tests |
 | `docs/BACKLOG.md` | Updated priority matrix, marked 9 items Done |
 
+### Additional Code Quality Sprint (Backlog Clearance)
+
+**#51: Magic Numbers in Footer Section**
+- Extracted `AppSpacing.footerMobileLinkColumnWidth = 150`
+- Extracted `AppSpacing.footerBrandColumnMaxWidth = 280`
+- Removed `fontSize: 11` magic number; uses `AppTypography.caption` directly
+- Files: `lib/theme/spacing.dart`, `lib/widgets/sections/footer_section.dart`
+
+**#54: Remove Dead `_SocialLink.iconWidget` Field**
+- Removed unused `iconWidget` parameter and assertion
+- Simplified to require `icon` directly (was never passed)
+- Files: `lib/widgets/sections/footer_section.dart`
+
+**#57: Dynamic Copyright Year Getter**
+- Changed `CompanyInfo.copyright` from hardcoded `'© 2025'` to dynamic year getter
+- Returns `'© ${DateTime.now().year} Integrity Studio. All rights reserved.'`
+- Updated `FooterContentVariants.current` from `const` to `final` to accommodate getter
+- Files: `lib/config/content/constants.dart`, `lib/config/content/footer_content.dart`, `test/config/constants_test.dart`
+
+**#58: Move Routes.euAiAct to ExternalUrls**
+- Moved `Routes.euAiAct` (external full URL) to `ExternalUrls.euAiAct`
+- Routes should only contain internal paths (`/pricing`, `/docs`)
+- Updated references in `footer_content.dart` and `services_content.dart`
+- Files: `lib/config/content/constants.dart`, `lib/config/content/footer_content.dart`, `lib/config/content/services_content.dart`
+
+**#59: Remove Duplicate Route Aliases**
+- Removed `Routes.support = '/contact'` (duplicate of `Routes.contact`)
+- Removed `Routes.docsApi = '/api'` (duplicate of `Routes.api`)
+- Updated all references to use canonical names (`Routes.contact`, `Routes.api`)
+- Files: `lib/config/content/constants.dart`, `lib/config/content/footer_content.dart`, `lib/config/content/resources_content.dart`, `lib/widgets/sections/footer_section.dart`
+
+**#61: Replace Hardcoded Signup Route with Constant**
+- Replaced `'/signup?tier=Team'` (2 occurrences) with `Routes.signupTeam`
+- Files: `lib/pages/landing_page.dart`
+
+**#65: Extract Route Groups into Helper Functions**
+- Refactored flat 250-line routes list into 6 grouped helper functions:
+  - `_homeRoute(onShowCookieSettings)`
+  - `_blogRoutes()`
+  - `_mainPageRoutes(onShowCookieSettings)`
+  - `_authRoutes(onShowCookieSettings)`
+  - `_legalRoutes()`
+  - `_docsRoutes()`
+- Replaced `routes: [GoRoute(...), GoRoute(...), ...]` with `routes: [_homeRoute(...), ..._blogRoutes(), ...]`
+- Net lines: 250 → 195 (22% reduction)
+- Files: `lib/routing/app_router.dart`
+
+**#66: Extract _goHome Helper for Repetitive onBack**
+- Defined top-level `_goHome(BuildContext context)` helper
+- Replaced 25+ `onBack: () => context.go('/')` with `onBack: _goHome(context)`
+- Reduces closure duplication while maintaining same semantics
+- Files: `lib/routing/app_router.dart`
+
+**#68: Extract _onFieldChanged Method**
+- Created `_onFieldChanged(String fieldName, String value)` helper in `ContactSection`
+- Replaced 6 duplicate `onChanged` closures with calls to the helper
+- Net lines in switch block: 36 → 13 (64% reduction)
+- Files: `lib/widgets/sections/contact_section.dart`
+
+**#71: Add 2026-02-27 Version Row to Changelog**
+- Added missing version history entry: `2026-02-27 | 1.11 | ast-grep findings, contact_section_test quality hardening`
+- Version table was jumping from 1.9 → 2.0, missing 1.10 and 1.11
+- Files: `docs/changelog/1.0/CHANGELOG.md`
+
+**#72: Clarify #62 Line Count Claim**
+- Updated `#62` entry from "removed dead code (−22 lines net)" to "removed dead code (−22 lines net in widget source)"
+- Clarifies that 22-line reduction is widget source only; 201-line test file not included in this count
+- Files: `docs/changelog/1.0/CHANGELOG.md`
+
+**#73: Replace Tautological Constants Test**
+- Replaced pure-unit `'test constants match expected counts'` test with `'renders expected number of nav, legal, and social elements'` widget test
+- New test verifies ACTUAL rendered widget counts match expected label counts
+- Tests: `find.byType(IconButton)`, `find.byType(HoverTextLink)`, `find.text('Sources')`
+- Files: `test/widgets/sections/footer_section_test.dart`
+
+**#74: Add Mobile Bottom Bar Label Coverage**
+- Added `_mobileLegalLabels` constant with abbreviated mobile labels: `['Privacy', 'Terms', 'Cookies', 'Accessibility', 'Cookie Settings']`
+- Added `'renders abbreviated mobile bottom bar labels'` widget test
+- Closes gap: desktop labels were tested, but mobile-specific abbreviated labels were not
+- Files: `test/widgets/sections/footer_section_test.dart`
+
 ---
 
 *For detailed implementation plans, see:*
