@@ -56,6 +56,13 @@ class _ContactSectionState extends State<ContactSection> {
 
   ContactContent get _content => widget.content ?? AppContent.contact;
 
+  void _onFieldChanged(String fieldName, String value) {
+    setState(() {
+      _formData[fieldName] = value;
+      _fieldErrors.remove(fieldName);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = ResponsiveUtils.isMobile(context);
@@ -230,12 +237,7 @@ class _ContactSectionState extends State<ContactSection> {
           placeholder: field.placeholder,
           errorText: _fieldErrors[field.name],
           onChanged: (value) {
-            if (value != null) {
-              setState(() {
-                _formData[field.name] = value;
-                _fieldErrors.remove(field.name);
-              });
-            }
+            if (value != null) _onFieldChanged(field.name, value);
           },
         );
 
@@ -248,12 +250,7 @@ class _ContactSectionState extends State<ContactSection> {
           placeholder: field.placeholder,
           rows: 4,
           errorText: _fieldErrors[field.name],
-          onChanged: (value) {
-            setState(() {
-              _formData[field.name] = value;
-              _fieldErrors.remove(field.name);
-            });
-          },
+          onChanged: (value) => _onFieldChanged(field.name, value),
         );
 
       case 'email':
@@ -265,12 +262,7 @@ class _ContactSectionState extends State<ContactSection> {
           required: field.required,
           placeholder: field.placeholder,
           errorText: _fieldErrors[field.name],
-          onChanged: (value) {
-            setState(() {
-              _formData[field.name] = value;
-              _fieldErrors.remove(field.name);
-            });
-          },
+          onChanged: (value) => _onFieldChanged(field.name, value),
         );
 
       case 'phone':
@@ -282,12 +274,7 @@ class _ContactSectionState extends State<ContactSection> {
           required: field.required,
           placeholder: field.placeholder,
           errorText: _fieldErrors[field.name],
-          onChanged: (value) {
-            setState(() {
-              _formData[field.name] = value;
-              _fieldErrors.remove(field.name);
-            });
-          },
+          onChanged: (value) => _onFieldChanged(field.name, value),
         );
 
       case 'url':
@@ -299,12 +286,7 @@ class _ContactSectionState extends State<ContactSection> {
           required: field.required,
           placeholder: field.placeholder,
           errorText: _fieldErrors[field.name],
-          onChanged: (value) {
-            setState(() {
-              _formData[field.name] = value;
-              _fieldErrors.remove(field.name);
-            });
-          },
+          onChanged: (value) => _onFieldChanged(field.name, value),
         );
 
       default:
@@ -316,12 +298,7 @@ class _ContactSectionState extends State<ContactSection> {
           required: field.required,
           placeholder: field.placeholder,
           errorText: _fieldErrors[field.name],
-          onChanged: (value) {
-            setState(() {
-              _formData[field.name] = value;
-              _fieldErrors.remove(field.name);
-            });
-          },
+          onChanged: (value) => _onFieldChanged(field.name, value),
         );
     }
   }
