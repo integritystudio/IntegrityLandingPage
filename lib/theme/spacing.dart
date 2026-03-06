@@ -40,6 +40,10 @@ class AppSpacing {
   static const double formFieldGap = 16;
   static const double formSectionGap = 32;
 
+  // Footer layout
+  static const double footerMobileLinkColumnWidth = 150;
+  static const double footerBrandColumnMaxWidth = 280;
+
   // Border radius
   static const double radiusSM = 4;
   static const double radiusMD = 8;

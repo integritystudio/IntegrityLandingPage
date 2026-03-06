@@ -104,7 +104,7 @@ class FooterSection extends StatelessWidget {
           runSpacing: AppSpacing.lg,
           children: _linkSections.map((section) {
             return SizedBox(
-              width: 150,
+              width: AppSpacing.footerMobileLinkColumnWidth,
               child: _buildLinkColumn(context, section),
             );
           }).toList(),
@@ -125,7 +125,7 @@ class FooterSection extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 280),
+          constraints: const BoxConstraints(maxWidth: AppSpacing.footerBrandColumnMaxWidth),
           child: Text(
             'Enterprise-grade AI observability platform for monitoring, debugging, and optimizing LLM applications.',
             style: AppTypography.bodySM,
@@ -210,7 +210,6 @@ class FooterSection extends StatelessWidget {
         ComplianceDisclaimers.general,
         style: AppTypography.caption.copyWith(
           color: AppColors.gray500,
-          fontSize: 11,
         ),
         textAlign: TextAlign.center,
       ),
