@@ -601,6 +601,7 @@ Items that appear in console but are not tech debt:
 | Date | Version | Changes |
 |------|---------|---------|
 | 2026-03-06 | 2.0 | Code quality hardening sprint — 9 issues fixed, E2E + widget tests |
+| 2026-02-27 | 1.11 | ast-grep findings, contact_section_test quality hardening |
 | 2026-02-13 | 1.10 | Security hardening — email validation, request size, error leaks, circuit breaker |
 | 2026-02-01 | 1.9 | Routing consolidation, Twitter/X removal, blog updates |
 | 2026-01-31 | 1.8 | Test optimization (144s→51s), Twitter→X migration, content caching |
@@ -635,7 +636,7 @@ Resolved 9 HIGH & MEDIUM severity issues from Flutter expert audit across 7 most
 - Extracted shared `HoverTextLink` widget from duplicate `_NavLink` and `_FooterLink`
 - Params: `text`, `onTap`, `defaultColor`, `hoverColor`, `style`, `padding`
 - Includes `Semantics(button: true, label, onTap)` and `MouseRegion` with click cursor
-- Replaced all usages; removed dead code (−22 lines net)
+- Replaced all usages; removed dead code (−22 lines net in widget source)
 - Added comprehensive widget tests (9 tests)
 
 ### Accessibility & Error Handling
