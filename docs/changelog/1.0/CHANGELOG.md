@@ -614,6 +614,135 @@ Items that appear in console but are not tech debt:
 
 ---
 
+## [2026-03-06] - Code Quality Hardening Sprint (Flutter Expert Audit)
+
+Resolved 9 HIGH & MEDIUM severity issues from Flutter expert audit across 7 most-edited files.
+
+### Widget & Code Quality Improvements
+
+**#52: _linkSections Re-allocation**
+- Converted top-level getter to `const` list in `footer_section.dart`
+- Eliminates list allocation on every build cycle
+
+**#53: Mixed Route Constants & Hardcoded Paths**
+- Replaced hardcoded `'/features'` → `Routes.features` (anchor `#features`)
+- Replaced hardcoded `'/support'` → `Routes.support` (`/contact`)
+- All footer links now use centralized Routes constants
+
+**#62: Duplicate Hover-Link Widgets**
+- Extracted shared `HoverTextLink` widget from duplicate `_NavLink` and `_FooterLink`
+- Params: `text`, `onTap`, `defaultColor`, `hoverColor`, `style`, `padding`
+- Includes `Semantics(button: true, label, onTap)` and `MouseRegion` with click cursor
+- Replaced all usages; removed dead code (−22 lines net)
+- Added comprehensive widget tests (9 tests)
+
+### Accessibility & Error Handling
+
+**#55: _launchUrl Missing Error Handling**
+- Added try/catch around `launchUrl` call with `ErrorTrackingService.captureException`
+- Prevents unhandled exceptions during social media link launches
+
+**#56: _initializeTracking Async Error Not Handled**
+- Wrapped tracking initialization in try/catch with error capture
+- Ensures app remains stable on service startup failures
+
+**#63: _NavLink Missing Accessibility**
+- Added `Semantics(button: true, label)` to navigation links
+- Complements existing `_FooterLink` accessibility pattern
+
+### Performance & Analytics
+
+**#64: Scroll Depth Analytics Fired Every Pixel**
+- Implemented milestone-based throttling (25%, 50%, 75%, 100% only)
+- Tracks via `_lastTrackedMilestone` to deduplicate
+- Eliminates 60+ redundant analytics events/second
+
+**#60: @visibleForTesting as Comments Only**
+- Replaced 4 doc-comment-only `/// @visibleForTesting` with actual annotations
+- Imported from `package:flutter/foundation.dart`
+- Enables IDE/analyzer warnings when test methods used in production
+
+### Form Data Consistency
+
+**#67: ContactSection Form Data Duplication**
+- Refactored `_validateForm()` to return `ContactFormData?` (null on failure)
+- `_handleSubmit()` now reuses validated data directly
+- Eliminates duplicate `ContactFormData` construction
+- Prevents validate/submit logic divergence
+
+### Test Infrastructure (Prior Sessions)
+
+**E3: chromedriver Installation** (resolved 2026-03-01)
+- Installed chromedriver v145.0.7632.117 at `~/.local/bin/chromedriver`
+
+**E4: flutter drive CSP Hang** (resolved 2026-03-01)
+- Added `--profile` flag to all `flutter drive` invocations
+- Prevents DDC/DWDS CSP violations causing 365-day timeout
+
+**E5: contact_form_test Failures** (resolved 2026-03-01)
+- Replaced broken `tester.enterText()` with `directEnterText()` helper
+- Changed test data `'Smith'` → `'Doe'` to avoid placeholder collision
+- All 14 tests now pass consistently
+
+**#39: Index-Based Field Selectors** (resolved 2026-02-27)
+- Added `ValueKey` to all form fields in `_buildField`
+- Migrated all tests to `find.byKey()` selectors
+
+**#40-45: contact_section_test MEDIUM Issues** (resolved 2026-02-27)
+- Magic integers → `containsAll` on field/method names
+- Renamed misleading tests
+- Extracted section heading constants
+- Added `setUpAll()` with content initialization
+- Extracted `buildRouterWidget` helper
+
+**#46-50: contact_section_test LOW Issues** (resolved 2026-02-27)
+- Added comments explaining viewport choices
+- Renamed vague test names to describe behavior
+- Wrapped external URL test properly
+- Consolidated `pump()` calls
+- Fixed widget matchers
+
+**#37: Magic Numbers in E2E Tests** (resolved 2026-03-01)
+- Created `e2e/tests/constants.ts` with 9 named constants
+- Replaced all inline magic numbers in landing-page.spec.ts
+
+**#38: Magic Numbers in Contact Form Worker** (resolved 2026-02-27)
+- Added constants: `IN_MEMORY_CLEANUP_THRESHOLD`, `KV_CIRCUIT_RESET_COOLDOWN_MS`, `KV_CIRCUIT_RESET_JITTER_MS`, etc.
+
+**#31: console.log in E2E Tests** (resolved 2026-02-27)
+- Replaced debug logging with array capture + afterEach warning pattern
+
+**ContactSection._content Heuristic Edge Case** (resolved 2026-03-01)
+- Made `content` nullable; replaced fragile `formFields.isEmpty` heuristic
+- Adds test-ability and reduces coupling
+
+### E2E Test Coverage Added
+
+**4 new Playwright test files:**
+- `e2e/tests/footer-links.spec.ts` — 16 tests validating all footer route destinations
+- `e2e/tests/scroll-analytics.spec.ts` — 3 tests for scroll milestone stability
+- `e2e/tests/contact-form.spec.ts` — 5 tests for contact page navigation and form behavior
+
+### Regression Tests Added
+
+**Widget Tests:**
+- `test/widgets/common/hover_text_link_test.dart` — 9 tests covering hover states, accessibility, cursors, callbacks
+
+All regression tests pass (50+/50+).
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `lib/widgets/common/hover_text_link.dart` | NEW — shared hover-link widget |
+| `lib/widgets/sections/footer_section.dart` | #52 const list, #53 Routes constants, #62 HoverTextLink, #55 error handling |
+| `lib/pages/landing_page.dart` | #62 HoverTextLink, #63 Semantics, #64 milestone scroll tracking |
+| `lib/services/contact_service.dart` | #60 @visibleForTesting annotations |
+| `lib/widgets/sections/contact_section.dart` | #67 _validateForm returns ContactFormData?, form data reuse |
+| `docs/BACKLOG.md` | Updated priority matrix, marked 9 items Done |
+
+---
+
 *For detailed implementation plans, see:*
 - `FLUTTER_LANDING_PAGE_PLAN.md` - Original implementation plan
 - `FLUTTER_ARCHITECTURE_GUIDELINES.md` - Architecture patterns
