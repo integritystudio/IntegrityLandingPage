@@ -39,7 +39,7 @@ abstract final class FooterContentVariants {
     FooterLinkGroup(
       title: 'Resources',
       links: [
-        FooterLink(label: 'EU AI Act Guide', url: Routes.euAiAct),
+        FooterLink(label: 'EU AI Act Guide', url: ExternalUrls.euAiAct),
         FooterLink(label: 'API Reference', url: Routes.api),
         FooterLink(
           label: 'Status',

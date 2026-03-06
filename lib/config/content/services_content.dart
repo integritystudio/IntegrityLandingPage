@@ -68,7 +68,7 @@ abstract final class ServicesContentVariants {
         'GDPR-compliant data handling and retention',
       ],
       ctaText: 'EU AI Act Guide',
-      ctaUrl: Routes.euAiAct,
+      ctaUrl: ExternalUrls.euAiAct,
       disclaimer: ComplianceDisclaimers.euAiActShort,
     ),
     ServiceItemContent(
