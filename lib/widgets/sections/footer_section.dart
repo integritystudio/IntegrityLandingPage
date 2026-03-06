@@ -353,6 +353,7 @@ class _FooterLinkState extends State<_FooterLink> {
     return Semantics(
       button: true,
       label: widget.text,
+      onTap: widget.onTap,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),

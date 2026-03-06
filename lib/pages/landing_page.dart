@@ -365,6 +365,7 @@ class _NavLinkState extends State<_NavLink> {
     return Semantics(
       button: true,
       label: widget.text,
+      onTap: widget.onTap,
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
