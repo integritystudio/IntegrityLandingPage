@@ -100,14 +100,12 @@ abstract final class Routes {
   static const String docsObservability = '/docs/llm-observability';
   static const String docsTracing = '/docs/tracing';
   static const String docsQuickstart = '/docs/quickstart';
-  static const String docsApi = '/api';
   static const String docsCompliance = '/compliance';
   static const String docsIntegrations = '/docs/integrations';
   static const String docsAgents = '/docs/agents';
   static const String docsAlerts = '/docs/alerts';
 
   // Resources
-  static const String support = '/contact';
   static const String api = '/api';
   static const String careers = '/careers';
   static const String privacy = '/privacy';
