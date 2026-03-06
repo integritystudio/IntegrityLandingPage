@@ -46,7 +46,7 @@ abstract final class FooterContentVariants {
           url: ExternalUrls.statusPage,
           isExternal: true,
         ),
-        FooterLink(label: 'Support', url: Routes.support),
+        FooterLink(label: 'Support', url: Routes.contact),
       ],
     ),
   ];

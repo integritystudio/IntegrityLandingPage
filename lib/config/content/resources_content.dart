@@ -40,7 +40,7 @@ abstract final class ResourcesContentVariants {
       title: 'API Reference',
       description:
           'Complete API documentation with examples for all endpoints and SDK methods.',
-      url: Routes.docsApi,
+      url: Routes.api,
       popularTopics: [
         'Trace Ingestion API',
         'Query API',
