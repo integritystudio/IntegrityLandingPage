@@ -734,6 +734,8 @@ Resolved 9 HIGH & MEDIUM severity issues from Flutter expert audit across 7 most
 
 **Widget Tests:**
 - `test/widgets/common/hover_text_link_test.dart` — 9 tests covering hover states, accessibility, cursors, callbacks
+  - **#69**: Added `'has Semantics label even without onTap'` test verifying label and button role when onTap is null
+  - **#70**: Added `fontSize` assertion to `'applies custom style preserving all properties'` test
 
 All regression tests pass (50+/50+).
 

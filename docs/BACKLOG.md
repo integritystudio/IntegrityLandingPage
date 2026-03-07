@@ -46,31 +46,11 @@ CSP report-uri/report-to endpoints shared across staging/production. Staging is 
 ---
 
 
-## Code Review Findings: Changelog & Test Quality (2026-03-06)
-
-Findings from code-reviewer audit of commit 65495a5. HIGH/MEDIUM items fixed same session.
-
-### #69: HoverTextLink test — no coverage for Semantics label when onTap is null ✅ Done
-
-**Severity:** LOW
-**Category:** Test Coverage
-**File:** `test/widgets/common/hover_text_link_test.dart`
-**Resolved:** 2026-03-06 — Added `'has Semantics label even without onTap'` test verifying label and button role when onTap is null.
-
----
-
-### #70: HoverTextLink test — custom style does not verify fontSize preservation ✅ Done
-
-**Severity:** LOW
-**Category:** Test Coverage
-**File:** `test/widgets/common/hover_text_link_test.dart`
-**Resolved:** 2026-03-06 — Added `fontSize` assertion to `'applies custom style preserving all properties'` test.
-
----
 
 
 *Last updated: 2026-03-06*
-*Migrated items: 22 total → docs/changelog/1.0/CHANGELOG.md:*
+*Migrated items: 24 total → docs/changelog/1.0/CHANGELOG.md:*
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit*
   *- 13 items (all LOW) from backlog implementation sprint*
+  *- 2 items (all LOW) from code review test coverage findings*
 *Remaining open: 0 + 3 deferred (OAuth #8-#10)*
