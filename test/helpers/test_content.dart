@@ -4,8 +4,10 @@
 /// to render without requiring actual asset loading.
 library;
 
-import 'dart:io';
 import 'package:integrity_studio_ai/services/content_loader.dart';
+import 'load_content_stub.dart'
+    if (dart.library.io) 'load_content_native.dart'
+    if (dart.library.html) 'load_content_web.dart' as platform;
 
 /// Minimal test content YAML that satisfies all Content getters.
 const testContentYaml = '''
@@ -438,6 +440,12 @@ void initializeTestContent() {
   loadRealContent();
 }
 
+/// Async variant for web platform where dart:io is unavailable.
+/// Loads content.yaml from Flutter assets via rootBundle.
+Future<void> initializeTestContentAsync() async {
+  await platform.loadRealContentAsync();
+}
+
 /// Reset content state after tests.
 ///
 /// Call this in tearDownAll or tearDown if needed.
@@ -447,16 +455,10 @@ void resetTestContent() {
 
 /// Load the real content.yaml file for unit tests.
 ///
-/// This reads content.yaml directly from the file system.
+/// On native: reads content.yaml from the file system via dart:io.
+/// On web: throws — use [initializeTestContentAsync] instead.
 void loadRealContent() {
-  final file = File('content.yaml');
-  if (!file.existsSync()) {
-    throw StateError(
-      'content.yaml not found. Run tests from the project root directory.',
-    );
-  }
-  final yamlString = file.readAsStringSync();
-  Content.loadFromString(yamlString);
+  platform.loadRealContent();
 }
 
 /// Initialize with minimal test content (for isolated widget tests).

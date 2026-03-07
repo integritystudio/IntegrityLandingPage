@@ -1308,6 +1308,180 @@ describe('Contact Form Worker', () => {
     });
   });
 
+  describe('Circuit Breaker (#22)', () => {
+    it('trips after KV_CIRCUIT_BREAKER_THRESHOLD consecutive failures', async () => {
+      const failingKV = {
+        get: vi.fn().mockRejectedValue(new Error('KV unavailable')),
+        put: vi.fn().mockRejectedValue(new Error('KV unavailable')),
+      };
+
+      const envWithFailingKV = {
+        ...mockEnv,
+        RATE_LIMIT_KV: failingKV as unknown as KVNamespace,
+        RATE_LIMIT_MAX: '100', // high limit so in-memory won't block
+      };
+
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      // Send 10 requests to trip circuit breaker (threshold = 10)
+      for (let i = 0; i < 10; i++) {
+        const request = new Request('https://worker.test/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'https://integritystudio.ai',
+            'CF-Connecting-IP': `circuit-test-${i}`,
+          },
+          body: JSON.stringify({
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Circuit breaker test.',
+          }),
+        });
+
+        await worker.fetch(request, envWithFailingKV);
+      }
+
+      // After 10 failures, circuit should be open — KV.get should not be called again
+      failingKV.get.mockClear();
+
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+          'CF-Connecting-IP': 'circuit-test-after',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'After circuit open.',
+        }),
+      });
+
+      const response = await worker.fetch(request, envWithFailingKV);
+      // Should still succeed via in-memory fallback
+      expect(response.status).toBe(200);
+      // KV should NOT be called when circuit is open
+      expect(failingKV.get).not.toHaveBeenCalled();
+    });
+
+    it('resets circuit breaker after cooldown expires', async () => {
+      const failingKV = {
+        get: vi.fn().mockRejectedValue(new Error('KV unavailable')),
+        put: vi.fn().mockRejectedValue(new Error('KV unavailable')),
+      };
+
+      const envWithFailingKV = {
+        ...mockEnv,
+        RATE_LIMIT_KV: failingKV as unknown as KVNamespace,
+        RATE_LIMIT_MAX: '100',
+      };
+
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      // Trip the circuit breaker with 10 failures
+      for (let i = 0; i < 10; i++) {
+        const request = new Request('https://worker.test/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'https://integritystudio.ai',
+            'CF-Connecting-IP': `cooldown-test-${i}`,
+          },
+          body: JSON.stringify({
+            name: 'John Doe',
+            email: 'john@example.com',
+            message: 'Trip circuit.',
+          }),
+        });
+
+        await worker.fetch(request, envWithFailingKV);
+      }
+
+      // Advance time past cooldown (60s + 30s max jitter = 90s max)
+      vi.useFakeTimers();
+      vi.setSystemTime(Date.now() + 91_000);
+
+      failingKV.get.mockClear();
+
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+          'CF-Connecting-IP': 'cooldown-test-after',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'After cooldown.',
+        }),
+      });
+
+      await worker.fetch(request, envWithFailingKV);
+      // KV should be retried after cooldown
+      expect(failingKV.get).toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe('Request Size Limit (#25)', () => {
+    it('returns 413 for request exceeding 10KB Content-Length', async () => {
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+          'Content-Length': '20000',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'x'.repeat(15000),
+        }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(413);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('Request body too large');
+    });
+
+    it('accepts request within 10KB Content-Length', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+          'Content-Length': '200',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'Short message.',
+        }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(200);
+    });
+  });
+
   describe('CSRF Protection', () => {
     it('returns CSRF token on GET request', async () => {
       const request = createRequest('GET');

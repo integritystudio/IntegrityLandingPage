@@ -288,6 +288,65 @@ void main() {
       });
     });
 
+    group('scroll depth analytics (#64)', () {
+      testWidgets('scroll listener is attached to controller', (tester) async {
+        setDesktopSize(tester);
+        await pumpLandingPage(tester);
+
+        final scrollView = tester.widget<CustomScrollView>(
+          find.byType(CustomScrollView),
+        );
+        final controller = scrollView.controller!;
+
+        // Scrolling should not throw (listener is attached)
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+        await tester.pump();
+        await tester.pump();
+
+        expect(controller.offset, greaterThan(0));
+      });
+
+      testWidgets('incremental scrolls do not throw errors', (tester) async {
+        setDesktopSize(tester);
+        await pumpLandingPage(tester);
+
+        // Simulate multiple small scrolls (milestone dedup path)
+        for (var i = 0; i < 5; i++) {
+          await tester.drag(
+            find.byType(CustomScrollView),
+            const Offset(0, -200),
+          );
+          await tester.pump();
+          await tester.pump();
+        }
+
+        // Page should still be intact after repeated scrolls
+        expect(find.byType(LandingPage), findsOneWidget);
+      });
+
+      testWidgets('scroll to bottom and back does not crash', (tester) async {
+        setDesktopSize(tester);
+        await pumpLandingPage(tester);
+
+        final scrollView = tester.widget<CustomScrollView>(
+          find.byType(CustomScrollView),
+        );
+        final controller = scrollView.controller!;
+
+        // Scroll to bottom
+        controller.jumpTo(controller.position.maxScrollExtent);
+        await tester.pump();
+        await tester.pump();
+
+        // Scroll back to top
+        controller.jumpTo(0);
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byType(LandingPage), findsOneWidget);
+      });
+    });
+
     group('state management', () {
       testWidgets('widget can be disposed without errors', (tester) async {
         setDesktopSize(tester);
