@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:integrity_studio_ai/theme/typography.dart';
 import 'helpers/test_content.dart';
@@ -17,7 +19,13 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   AppTypography.setTestFonts();
 
   // Load content once at suite level for all tests.
-  initializeTestContent();
+  // Web platform cannot use dart:io — load via rootBundle instead.
+  if (kIsWeb) {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await initializeTestContentAsync();
+  } else {
+    initializeTestContent();
+  }
 
   await testMain();
 }

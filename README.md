@@ -60,3 +60,14 @@ flutter test test/pages/               # Page tests only
 ```
 
 **[View Coverage Report](https://aledlie.github.io/IntegrityLandingPage/)** (~94% coverage)
+
+### Platform-Limited Test Gaps
+
+These items have test coverage gaps that require `flutter test --platform chrome` (web-only):
+
+| Item | File | Reason |
+|------|------|--------|
+| #55 `_launchUrl` error handling | `lib/widgets/sections/footer_section.dart` | `url_launcher` failures cannot be triggered in widget tests |
+| #56 `_initializeTracking` error handling | `lib/app.dart` | `kIsWeb` is a compile-time constant; tracking branches require web platform |
+
+See `test/app_test.dart:690-701` for details on native test ceiling (~50% for `app.dart`).
