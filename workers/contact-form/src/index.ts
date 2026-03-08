@@ -107,7 +107,6 @@ function checkInMemoryRateLimit(
     allowed: data.count <= maxRequests,
     remaining: Math.max(0, maxRequests - data.count),
     resetAt: data.resetAt,
-    degraded: true,
   };
 }
 
@@ -125,7 +124,15 @@ async function checkRateLimit(
   const windowSeconds = parseInt(env.RATE_LIMIT_WINDOW_SECONDS || '') || DEFAULT_RATE_LIMIT_WINDOW_SECONDS;
   const now = Date.now();
 
-  // If KV is not configured, use in-memory fallback
+  // Always enforce in-memory rate limit first (per-isolate consistency).
+  // This bounds the consistency window regardless of KV availability.
+  const inMemoryResult = checkInMemoryRateLimit(ip, maxRequests, windowSeconds);
+  if (!inMemoryResult.allowed) {
+    // Denial is accurate (in-memory) — not degraded
+    return inMemoryResult;
+  }
+
+  // If KV is not configured, in-memory is the sole mechanism — mark degraded
   if (!env.RATE_LIMIT_KV) {
     console.error(JSON.stringify({
       level: 'error',
@@ -135,12 +142,12 @@ async function checkRateLimit(
       timestamp: new Date().toISOString(),
       message: 'Rate limit KV not configured - using in-memory fallback',
     }));
-    return checkInMemoryRateLimit(ip, maxRequests, windowSeconds);
+    return { ...inMemoryResult, degraded: true };
   }
 
-  // Circuit breaker: skip KV if too many recent failures
+  // Circuit breaker: skip KV if too many recent failures — in-memory is sole mechanism
   if (kvFailureCount >= KV_CIRCUIT_BREAKER_THRESHOLD && now < kvCircuitResetAt) {
-    return checkInMemoryRateLimit(ip, maxRequests, windowSeconds);
+    return { ...inMemoryResult, degraded: true };
   }
 
   // Reset circuit breaker after cooldown
@@ -166,6 +173,7 @@ async function checkRateLimit(
     // KV succeeded - reset failure count
     kvFailureCount = 0;
 
+    // Both in-memory and KV must allow; KV is the authoritative cross-DC count
     return {
       allowed: data.count <= maxRequests,
       remaining: Math.max(0, maxRequests - data.count),
@@ -189,7 +197,8 @@ async function checkRateLimit(
       message: 'Rate limit KV error - using in-memory fallback',
     }));
 
-    return checkInMemoryRateLimit(ip, maxRequests, windowSeconds);
+    // KV errored — in-memory already allowed, but it's now the sole mechanism
+    return { ...inMemoryResult, degraded: true };
   }
 }
 
