@@ -50,6 +50,7 @@ void main() {
       });
 
       test('initialize can be called multiple times without error', () {
+        // Idempotent: second call should not re-track page view
         expect(() {
           controller.initialize();
           controller.initialize();
@@ -340,7 +341,9 @@ void main() {
         expect(controller.scrollController.offset, equals(maxExtent));
       });
 
-      testWidgets('scroll tracking does not throw on repeated scroll cycles',
+      // Milestone dedup: 25% should only be tracked once even after re-scroll.
+      // Argument verification requires AnalyticsService mock (see BACKLOG).
+      testWidgets('scroll tracking deduplicates milestones on repeated scrolls',
           (tester) async {
         tester.view.physicalSize = const Size(400, 200);
         tester.view.devicePixelRatio = 1.0;
@@ -383,7 +386,9 @@ void main() {
         expect(controller.scrollController.offset, closeTo(maxExtent * 0.3, 1));
       });
 
-      testWidgets('resetScrollTracking allows re-scrolling without error',
+      // After reset, milestones should re-fire on re-scroll.
+      // Argument verification requires AnalyticsService mock (see BACKLOG).
+      testWidgets('resetScrollTracking allows re-tracking milestones',
           (tester) async {
         tester.view.physicalSize = const Size(400, 200);
         tester.view.devicePixelRatio = 1.0;
