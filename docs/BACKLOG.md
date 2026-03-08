@@ -148,7 +148,7 @@ Controller analytics tests (e.g. `trackTierSelection`, `handleGetStarted`, `hand
 
 `kShortAnimationSettle`, `kNavigationSettle`, `kScrollToPricingOffset`, and `kScrollToCTAOffset` are defined at the top of `landing_page_test.dart`. If other test files use the same raw durations/offsets, these constants should be moved to `test/helpers/test_constants.dart` to avoid redeclaration.
 
-**Status:** Open — constants are well-named and scoped; promote to shared file when a second test file needs them.
+**Status:** Ready to implement — raw duplicates already exist in `hero_section_test.dart` (7), `cta_section_test.dart` (5), `docs_api_page_test.dart` (2), `docs_quickstart_page_test.dart` (3), `eu_ai_act_page_test.dart` (1), `about_page_test.dart` (2).
 
 ---
 
@@ -169,4 +169,4 @@ Recent backlog entries (AnalyticsService mock, test constants) lack tracking num
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit*
   *- 13 items (all LOW) from backlog implementation sprint*
   *- 2 items (all LOW) from code review test coverage findings*
-*Remaining open: 1 blocked (#77) + 5 deferred (OAuth #8-#10, test coverage #75-#76) + 1 open (AnalyticsService mock)*
+*Remaining open: 1 blocked (#77) + 5 deferred (OAuth #8-#10, test coverage #75-#76) + 3 open (AnalyticsService mock, test constants, entry numbering)*
