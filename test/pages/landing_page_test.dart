@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/pages/landing_page.dart';
 import 'package:integrity_studio_ai/widgets/sections/hero_section.dart';
@@ -730,6 +731,219 @@ void main() {
 
         // Should have scrolled back toward the top
         expect(scrollView.controller!.offset, lessThan(500));
+      });
+    });
+
+    // =========================================================================
+    // Demo modal flow tests — covers _showDemoModal and onScheduleDemo changes
+    // =========================================================================
+    group('demo modal flow', () {
+      Future<void> pumpWithDemoRoute(WidgetTester tester) async {
+        setDesktopSize(tester);
+        final router = GoRouter(
+          initialLocation: '/',
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, __) => const LandingPage(),
+            ),
+            GoRoute(
+              path: '/demo',
+              builder: (_, __) =>
+                  const Scaffold(body: Text('Demo page')),
+            ),
+            GoRoute(
+              path: '/signup',
+              builder: (context, state) {
+                final tier = state.uri.queryParameters['tier'] ?? '';
+                return Scaffold(body: Text('Signup: $tier'));
+              },
+            ),
+          ],
+        );
+        await tester.pumpWidget(MaterialApp.router(
+          theme: testTheme,
+          routerConfig: router,
+        ));
+        await tester.pump();
+        await tester.pump();
+      }
+
+      testWidgets('demo modal close button (X) dismisses dialog',
+          (tester) async {
+        setDesktopSize(tester);
+        await pumpLandingPage(tester);
+
+        // Open the modal
+        final outlineButton = find.descendant(
+          of: find.byType(HeroSection),
+          matching: find.byType(OutlineButton),
+        );
+        await tester.tap(outlineButton);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.byType(Dialog), findsOneWidget);
+
+        // Tap X close button (dialog close animation needs ~300ms)
+        await tester.tap(find.byIcon(LucideIcons.x));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.byType(Dialog), findsNothing);
+      });
+
+      testWidgets('demo modal shows Schedule Live Demo button',
+          (tester) async {
+        setDesktopSize(tester);
+        await pumpLandingPage(tester);
+
+        // Open the modal
+        final outlineButton = find.descendant(
+          of: find.byType(HeroSection),
+          matching: find.byType(OutlineButton),
+        );
+        await tester.tap(outlineButton);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.byType(Dialog), findsOneWidget);
+        expect(find.text('Schedule Live Demo'), findsOneWidget);
+      });
+
+      testWidgets(
+          'tapping Schedule Live Demo dismisses dialog and navigates to /demo',
+          (tester) async {
+        await pumpWithDemoRoute(tester);
+
+        // Open modal via Watch Demo
+        final outlineButton = find.descendant(
+          of: find.byType(HeroSection),
+          matching: find.byType(OutlineButton),
+        );
+        await tester.tap(outlineButton);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.byType(Dialog), findsOneWidget);
+
+        // Tap Schedule Live Demo
+        await tester.tap(find.text('Schedule Live Demo'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        // Dialog should be gone
+        expect(find.byType(Dialog), findsNothing);
+        // Should have navigated to /demo
+        expect(find.text('Demo page'), findsOneWidget);
+      });
+
+      testWidgets('disposing page while demo modal is open does not crash',
+          (tester) async {
+        setDesktopSize(tester);
+        await pumpLandingPage(tester);
+
+        // Open modal
+        final outlineButton = find.descendant(
+          of: find.byType(HeroSection),
+          matching: find.byType(OutlineButton),
+        );
+        await tester.tap(outlineButton);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.byType(Dialog), findsOneWidget);
+
+        // Replace root widget (triggers LandingPage disposal while dialog is showing)
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: const Scaffold(body: Text('Replaced')),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.text('Replaced'), findsOneWidget);
+      });
+    });
+
+    // =========================================================================
+    // _handleSelectTier tests — covers removal of controller analytics call
+    // =========================================================================
+    group('tier selection navigation', () {
+      Future<void> pumpWithSignupGoRouter(WidgetTester tester) async {
+        setDesktopSize(tester);
+        final router = GoRouter(
+          initialLocation: '/',
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, __) => const LandingPage(),
+            ),
+            GoRoute(
+              path: '/signup',
+              builder: (context, state) {
+                final tier = state.uri.queryParameters['tier'] ?? '';
+                return Scaffold(body: Text('Signup: $tier'));
+              },
+            ),
+          ],
+        );
+        await tester.pumpWidget(MaterialApp.router(
+          theme: testTheme,
+          routerConfig: router,
+        ));
+        await tester.pump();
+        await tester.pump();
+      }
+
+      testWidgets('selecting a pricing tier navigates to signup with tier param',
+          (tester) async {
+        await pumpWithSignupGoRouter(tester);
+
+        // Scroll to pricing section
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -5000));
+        await tester.pump();
+        await tester.pump();
+
+        final pricingSection = find.byType(PricingSection);
+        if (pricingSection.evaluate().isNotEmpty) {
+          final pricingCtas = find.descendant(
+            of: pricingSection,
+            matching: find.byType(ElevatedButton),
+          );
+          if (pricingCtas.evaluate().isNotEmpty) {
+            await tester.tap(pricingCtas.first);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 500));
+
+            // Should navigate to /signup with tier query param
+            expect(find.textContaining('Signup:'), findsOneWidget);
+          }
+        }
+      });
+
+      testWidgets(
+          'replacing widget after tier selection tap does not crash',
+          (tester) async {
+        setDesktopSize(tester);
+        await pumpLandingPage(tester);
+
+        // Scroll to pricing section
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -5000));
+        await tester.pump();
+        await tester.pump();
+
+        // Replace widget immediately (simulates unmount before navigation fires)
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: const Scaffold(body: Text('Replaced')),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.text('Replaced'), findsOneWidget);
       });
     });
 

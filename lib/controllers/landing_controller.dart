@@ -148,8 +148,11 @@ class LandingController extends ChangeNotifier {
     onShowDemoModal?.call();
   }
 
-  /// Handle pricing tier selection (analytics only; navigation stays in widget)
-  void handleTierSelection(String tier) {
+  /// Track pricing tier selection for analytics.
+  ///
+  /// Note: PricingSection already calls trackPricingView before invoking
+  /// onSelectTier, so this method exists for non-PricingSection callers only.
+  void trackTierSelection(String tier) {
     AnalyticsService.trackPricingView(tier);
   }
 

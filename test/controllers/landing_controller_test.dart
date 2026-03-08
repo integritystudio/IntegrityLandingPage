@@ -242,9 +242,20 @@ void main() {
         expect(true, isTrue);
       });
 
-      test('handleTierSelection tracks tier', () {
-        controller.handleTierSelection('enterprise');
-        expect(true, isTrue);
+      test('trackTierSelection does not throw for enterprise tier', () {
+        expect(() => controller.trackTierSelection('enterprise'), returnsNormally);
+      });
+
+      test('trackTierSelection does not throw for team tier', () {
+        expect(() => controller.trackTierSelection('team'), returnsNormally);
+      });
+
+      test('trackTierSelection does not throw for starter tier', () {
+        expect(() => controller.trackTierSelection('starter'), returnsNormally);
+      });
+
+      test('trackTierSelection handles empty string without throw', () {
+        expect(() => controller.trackTierSelection(''), returnsNormally);
       });
 
       test('handleFeatureInteraction tracks feature', () {
@@ -267,17 +278,7 @@ void main() {
       });
 
       test('handleRequestDemo handles null callback gracefully', () {
-        // Controller created without callback
-        controller.handleRequestDemo();
-        // Should not throw
-        expect(true, isTrue);
-      });
-
-      test('handleTierSelection tracks analytics without navigation', () {
-        // Controller handles analytics only; navigation stays in the widget
-        controller.handleTierSelection('enterprise');
-        // Should not throw
-        expect(true, isTrue);
+        expect(() => controller.handleRequestDemo(), returnsNormally);
       });
     });
 

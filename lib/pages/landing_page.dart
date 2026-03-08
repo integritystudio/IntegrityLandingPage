@@ -338,14 +338,17 @@ class _LandingPageState extends State<LandingPage> {
   }
 
   void _showDemoModal() {
+    if (!mounted) return;
     DemoModal.show(
       context,
-      onScheduleDemo: () => context.go('/demo'),
+      onScheduleDemo: () {
+        if (mounted) context.go('/demo');
+      },
     );
   }
 
   void _handleSelectTier(String tier) {
-    _controller.handleTierSelection(tier);
+    // PricingSection already tracks analytics; just navigate
     if (mounted) context.go('/signup?tier=$tier');
   }
 }
