@@ -46,7 +46,7 @@ urls:
     features: "/features"
     pricing_section: "#pricing"
     services: "#services"
-    demo: "#demo"
+    demo: "/demo"
     docs_quickstart: "/docs/quickstart"
     docs_api: "/docs/api"
     docs_compliance: "/docs/compliance"
