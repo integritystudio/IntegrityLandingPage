@@ -19,6 +19,9 @@ const kNavigationSettle = Duration(milliseconds: 500);
 /// Scroll offset large enough to reveal the pricing section in tests.
 const kScrollToPricingOffset = Offset(0, -5000);
 
+/// Scroll offset large enough to reveal the CTA section in tests.
+const kScrollToCTAOffset = Offset(0, -6000);
+
 void main() {
   setUp(setUpOverflowErrorSuppression);
   tearDown(tearDownOverflowErrorSuppression);
@@ -616,7 +619,7 @@ void main() {
         await pumpLandingPage(tester);
 
         // Scroll down to CTA section
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -6000));
+        await tester.drag(find.byType(CustomScrollView), kScrollToCTAOffset);
         await tester.pump();
         await tester.pump();
 
@@ -638,7 +641,7 @@ void main() {
         await pumpLandingPage(tester);
 
         // Scroll down to CTA section
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -6000));
+        await tester.drag(find.byType(CustomScrollView), kScrollToCTAOffset);
         await tester.pump();
         await tester.pump();
 
