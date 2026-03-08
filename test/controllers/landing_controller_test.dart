@@ -50,7 +50,8 @@ void main() {
       });
 
       test('initialize can be called multiple times without error', () {
-        // Idempotent: second call should not re-track page view
+        // Idempotent: second call should not re-track page view.
+        // Argument verification requires AnalyticsService mock (see BACKLOG).
         expect(() {
           controller.initialize();
           controller.initialize();
