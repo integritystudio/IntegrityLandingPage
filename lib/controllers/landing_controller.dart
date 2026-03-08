@@ -14,7 +14,6 @@ import '../config/content.dart';
 /// ```dart
 /// final controller = LandingController(
 ///   onShowDemoModal: () => DemoModal.show(context, onScheduleDemo: launchCalendly),
-///   onNavigateToSignup: (tier) => Navigator.pushNamed(context, '/signup?tier=$tier'),
 /// );
 ///
 /// // In widget
@@ -34,7 +33,6 @@ class LandingController extends ChangeNotifier {
 
   // Callbacks for UI actions (requires BuildContext)
   final VoidCallback? onShowDemoModal;
-  final void Function(String tier)? onNavigateToSignup;
 
   // Section keys for navigation
   final Map<String, GlobalKey> _sectionKeys = {};
@@ -51,7 +49,6 @@ class LandingController extends ChangeNotifier {
 
   LandingController({
     this.onShowDemoModal,
-    this.onNavigateToSignup,
   });
 
   /// Get current hero content based on variant
@@ -151,10 +148,9 @@ class LandingController extends ChangeNotifier {
     onShowDemoModal?.call();
   }
 
-  /// Handle pricing tier selection
+  /// Handle pricing tier selection (analytics only; navigation stays in widget)
   void handleTierSelection(String tier) {
     AnalyticsService.trackPricingView(tier);
-    onNavigateToSignup?.call(tier);
   }
 
   /// Handle feature interaction

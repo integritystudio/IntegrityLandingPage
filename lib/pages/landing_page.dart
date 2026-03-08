@@ -62,7 +62,6 @@ class _LandingPageState extends State<LandingPage> {
     super.initState();
     _controller = LandingController(
       onShowDemoModal: _showDemoModal,
-      onNavigateToSignup: (tier) => context.go('/signup?tier=$tier'),
     );
 
     // Register section keys
@@ -347,6 +346,7 @@ class _LandingPageState extends State<LandingPage> {
 
   void _handleSelectTier(String tier) {
     _controller.handleTierSelection(tier);
+    if (mounted) context.go('/signup?tier=$tier');
   }
 }
 
