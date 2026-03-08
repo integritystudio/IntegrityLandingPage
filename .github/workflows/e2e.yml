@@ -40,7 +40,7 @@ jobs:
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ github.event_name }}-${{ hashFiles('e2e/package-lock.json') }}
 
       - name: Determine browsers to install
         id: browsers
