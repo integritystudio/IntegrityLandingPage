@@ -28,22 +28,16 @@ void main() {
 
       test('accepts optional callbacks', () {
         var demoModalShown = false;
-        String? selectedTier;
 
         final controllerWithCallbacks = LandingController(
           onShowDemoModal: () => demoModalShown = true,
-          onNavigateToSignup: (tier) => selectedTier = tier,
         );
 
         expect(controllerWithCallbacks.onShowDemoModal, isNotNull);
-        expect(controllerWithCallbacks.onNavigateToSignup, isNotNull);
 
-        // Verify callbacks are stored correctly
+        // Verify callback is stored correctly
         controllerWithCallbacks.onShowDemoModal!();
         expect(demoModalShown, isTrue);
-
-        controllerWithCallbacks.onNavigateToSignup!('pro');
-        expect(selectedTier, equals('pro'));
 
         controllerWithCallbacks.dispose();
       });
@@ -279,38 +273,11 @@ void main() {
         expect(true, isTrue);
       });
 
-      test('handleTierSelection invokes onNavigateToSignup callback', () {
-        String? receivedTier;
-        final controllerWithCallback = LandingController(
-          onNavigateToSignup: (tier) => receivedTier = tier,
-        );
-
-        controllerWithCallback.handleTierSelection('enterprise');
-        expect(receivedTier, equals('enterprise'));
-
-        controllerWithCallback.dispose();
-      });
-
-      test('handleTierSelection handles null callback gracefully', () {
-        // Controller created without callback
-        controller.handleTierSelection('starter');
+      test('handleTierSelection tracks analytics without navigation', () {
+        // Controller handles analytics only; navigation stays in the widget
+        controller.handleTierSelection('enterprise');
         // Should not throw
         expect(true, isTrue);
-      });
-
-      test('handleTierSelection passes correct tier values', () {
-        final tiers = <String>[];
-        final controllerWithCallback = LandingController(
-          onNavigateToSignup: (tier) => tiers.add(tier),
-        );
-
-        controllerWithCallback.handleTierSelection('starter');
-        controllerWithCallback.handleTierSelection('pro');
-        controllerWithCallback.handleTierSelection('enterprise');
-
-        expect(tiers, equals(['starter', 'pro', 'enterprise']));
-
-        controllerWithCallback.dispose();
       });
     });
 
