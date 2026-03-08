@@ -10,6 +10,15 @@ import 'package:integrity_studio_ai/widgets/sections/cta_section.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import '../helpers/test_helpers.dart';
 
+/// Duration to settle short animations (dialog open/close, popup menu).
+const kShortAnimationSettle = Duration(milliseconds: 300);
+
+/// Duration to settle navigation route transitions.
+const kNavigationSettle = Duration(milliseconds: 500);
+
+/// Scroll offset large enough to reveal the pricing section in tests.
+const kScrollToPricingOffset = Offset(0, -5000);
+
 void main() {
   setUp(setUpOverflowErrorSuppression);
   tearDown(tearDownOverflowErrorSuppression);
@@ -514,7 +523,7 @@ void main() {
         // Tap to trigger onWatchDemo -> _handleWatchDemo
         await tester.tap(outlineButton);
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(kShortAnimationSettle);
 
         // DemoModal should appear (it's a Dialog)
         expect(find.byType(Dialog), findsOneWidget);
@@ -557,7 +566,7 @@ void main() {
         await pumpWithSignupRoute(tester);
 
         // Scroll down to pricing section
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -5000));
+        await tester.drag(find.byType(CustomScrollView), kScrollToPricingOffset);
         await tester.pump();
         await tester.pump();
 
@@ -578,7 +587,7 @@ void main() {
         await pumpWithSignupRoute(tester);
 
         // Scroll down to pricing section
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -5000));
+        await tester.drag(find.byType(CustomScrollView), kScrollToPricingOffset);
         await tester.pump();
         await tester.pump();
 
@@ -592,7 +601,7 @@ void main() {
         if (pricingCtas.evaluate().isNotEmpty) {
           await tester.tap(pricingCtas.first);
           await tester.pump();
-          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pump(kNavigationSettle);
 
           // Should navigate to signup page
           expect(find.textContaining('Signup:'), findsOneWidget);
@@ -781,14 +790,14 @@ void main() {
         );
         await tester.tap(outlineButton);
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(kShortAnimationSettle);
 
         expect(find.byType(Dialog), findsOneWidget);
 
         // Tap X close button (dialog close animation needs ~300ms)
         await tester.tap(find.byIcon(LucideIcons.x));
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(kShortAnimationSettle);
 
         expect(find.byType(Dialog), findsNothing);
       });
@@ -805,7 +814,7 @@ void main() {
         );
         await tester.tap(outlineButton);
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(kShortAnimationSettle);
 
         expect(find.byType(Dialog), findsOneWidget);
         expect(find.text('Schedule Live Demo'), findsOneWidget);
@@ -823,14 +832,14 @@ void main() {
         );
         await tester.tap(outlineButton);
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(kShortAnimationSettle);
 
         expect(find.byType(Dialog), findsOneWidget);
 
         // Tap Schedule Live Demo
         await tester.tap(find.text('Schedule Live Demo'));
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(kShortAnimationSettle);
 
         // Dialog should be gone
         expect(find.byType(Dialog), findsNothing);
@@ -850,7 +859,7 @@ void main() {
         );
         await tester.tap(outlineButton);
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(kShortAnimationSettle);
 
         expect(find.byType(Dialog), findsOneWidget);
 
@@ -902,7 +911,7 @@ void main() {
         await pumpWithSignupGoRouter(tester);
 
         // Scroll to pricing section
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -5000));
+        await tester.drag(find.byType(CustomScrollView), kScrollToPricingOffset);
         await tester.pump();
         await tester.pump();
 
@@ -915,7 +924,7 @@ void main() {
           if (pricingCtas.evaluate().isNotEmpty) {
             await tester.tap(pricingCtas.first);
             await tester.pump();
-            await tester.pump(const Duration(milliseconds: 500));
+            await tester.pump(kNavigationSettle);
 
             // Should navigate to /signup with tier query param
             expect(find.textContaining('Signup:'), findsOneWidget);
@@ -930,7 +939,7 @@ void main() {
         await pumpLandingPage(tester);
 
         // Scroll to pricing section
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -5000));
+        await tester.drag(find.byType(CustomScrollView), kScrollToPricingOffset);
         await tester.pump();
         await tester.pump();
 
@@ -957,7 +966,7 @@ void main() {
         // Tap the hamburger menu
         await tester.tap(find.byIcon(LucideIcons.menu));
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(kShortAnimationSettle);
         clearOverflowExceptions(tester);
 
         // Tap a menu item (Pricing)
