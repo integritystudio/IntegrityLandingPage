@@ -49,11 +49,11 @@ void main() {
         expect(controller.scrollController, isNotNull);
       });
 
-      test('initialize only tracks page view once', () {
-        controller.initialize();
-        controller.initialize(); // Second call should not track again
-        // No error means it passed
-        expect(true, isTrue);
+      test('initialize can be called multiple times without error', () {
+        expect(() {
+          controller.initialize();
+          controller.initialize();
+        }, returnsNormally);
       });
     });
 
@@ -149,36 +149,25 @@ void main() {
     });
 
     group('scroll to section', () {
-      testWidgets('scrollToSection handles unregistered section gracefully',
-          (tester) async {
-        // Should not throw
-        controller.scrollToSection('nonexistent');
-        expect(true, isTrue);
+      test('scrollToSection handles unregistered section gracefully', () {
+        expect(() => controller.scrollToSection('nonexistent'), returnsNormally);
       });
 
-      testWidgets('scrollToPricing calls scrollToSection with pricing',
-          (tester) async {
-        final key = GlobalKey();
-        controller.registerSection('pricing', key);
-        controller.scrollToPricing();
-        // No error means it works (though context may be null)
-        expect(true, isTrue);
+      test('scrollToPricing does not throw with unattached key', () {
+        controller.registerSection('pricing', GlobalKey());
+        expect(() => controller.scrollToPricing(), returnsNormally);
       });
 
-      testWidgets('scrollToCTA calls scrollToSection with cta', (tester) async {
-        final key = GlobalKey();
-        controller.registerSection('cta', key);
-        controller.scrollToCTA();
-        expect(true, isTrue);
+      test('scrollToCTA does not throw with unattached key', () {
+        controller.registerSection('cta', GlobalKey());
+        expect(() => controller.scrollToCTA(), returnsNormally);
       });
 
-      testWidgets('scrollToSection with null context does not throw',
-          (tester) async {
+      test('scrollToSection with null context does not throw', () {
         final key = GlobalKey();
         controller.registerSection('test', key);
         // Key exists but has no context (not attached to widget)
-        controller.scrollToSection('test');
-        expect(true, isTrue);
+        expect(() => controller.scrollToSection('test'), returnsNormally);
       });
 
       testWidgets('scrollToSection scrolls to visible widget', (tester) async {
@@ -224,22 +213,20 @@ void main() {
     });
 
     group('analytics handlers', () {
-      testWidgets('handleGetStarted tracks analytics', (tester) async {
-        final key = GlobalKey();
-        controller.registerSection('pricing', key);
-        controller.handleGetStarted();
-        // Should not throw
-        expect(true, isTrue);
+      test('handleGetStarted does not throw', () {
+        controller.registerSection('pricing', GlobalKey());
+        expect(() => controller.handleGetStarted(), returnsNormally);
       });
 
-      testWidgets('handleGetStarted accepts custom location', (tester) async {
-        controller.handleGetStarted(location: 'navbar');
-        expect(true, isTrue);
+      test('handleGetStarted accepts custom location', () {
+        expect(
+          () => controller.handleGetStarted(location: 'navbar'),
+          returnsNormally,
+        );
       });
 
-      test('handleRequestDemo tracks analytics', () {
-        controller.handleRequestDemo();
-        expect(true, isTrue);
+      test('handleRequestDemo does not throw', () {
+        expect(() => controller.handleRequestDemo(), returnsNormally);
       });
 
       test('trackTierSelection does not throw for enterprise tier', () {
@@ -258,9 +245,11 @@ void main() {
         expect(() => controller.trackTierSelection(''), returnsNormally);
       });
 
-      test('handleFeatureInteraction tracks feature', () {
-        controller.handleFeatureInteraction('AI Observability');
-        expect(true, isTrue);
+      test('handleFeatureInteraction does not throw', () {
+        expect(
+          () => controller.handleFeatureInteraction('AI Observability'),
+          returnsNormally,
+        );
       });
     });
 
@@ -283,10 +272,8 @@ void main() {
     });
 
     group('scroll tracking', () {
-      test('resetScrollTracking clears milestones', () {
-        controller.resetScrollTracking();
-        // Should not throw
-        expect(true, isTrue);
+      test('resetScrollTracking does not throw', () {
+        expect(() => controller.resetScrollTracking(), returnsNormally);
       });
 
       testWidgets('scroll tracking handles zero maxScrollExtent',
@@ -309,14 +296,12 @@ void main() {
         controller.initialize();
         await tester.pumpAndSettle();
 
-        // maxScrollExtent should be 0 or negative for non-scrollable content
-        // _handleScroll should return early without tracking
-        expect(true, isTrue);
+        // maxScrollExtent should be 0 for non-scrollable content
+        expect(controller.scrollController.position.maxScrollExtent, equals(0));
       });
 
       testWidgets('scroll tracking tracks milestones at correct percentages',
           (tester) async {
-        // Set a smaller viewport to ensure scrollable content
         tester.view.physicalSize = const Size(400, 200);
         tester.view.devicePixelRatio = 1.0;
         addTearDown(() {
@@ -341,23 +326,21 @@ void main() {
         controller.initialize();
         await tester.pumpAndSettle();
 
+        final maxExtent = controller.scrollController.position.maxScrollExtent;
+        expect(maxExtent, greaterThan(0));
+
         // Scroll to 50%
-        controller.scrollController.jumpTo(
-          controller.scrollController.position.maxScrollExtent * 0.5,
-        );
+        controller.scrollController.jumpTo(maxExtent * 0.5);
         await tester.pumpAndSettle();
+        expect(controller.scrollController.offset, closeTo(maxExtent * 0.5, 1));
 
         // Scroll to 100%
-        controller.scrollController.jumpTo(
-          controller.scrollController.position.maxScrollExtent,
-        );
+        controller.scrollController.jumpTo(maxExtent);
         await tester.pumpAndSettle();
-
-        // No errors means milestone tracking worked
-        expect(true, isTrue);
+        expect(controller.scrollController.offset, equals(maxExtent));
       });
 
-      testWidgets('scroll tracking does not duplicate milestone tracking',
+      testWidgets('scroll tracking does not throw on repeated scroll cycles',
           (tester) async {
         tester.view.physicalSize = const Size(400, 200);
         tester.view.devicePixelRatio = 1.0;
@@ -383,25 +366,24 @@ void main() {
         controller.initialize();
         await tester.pumpAndSettle();
 
-        // Scroll past 25% multiple times
-        controller.scrollController.jumpTo(
-          controller.scrollController.position.maxScrollExtent * 0.3,
-        );
+        final maxExtent = controller.scrollController.position.maxScrollExtent;
+
+        // Scroll past 25% multiple times (milestone dedup path)
+        controller.scrollController.jumpTo(maxExtent * 0.3);
         await tester.pumpAndSettle();
+        expect(controller.scrollController.offset, closeTo(maxExtent * 0.3, 1));
 
         controller.scrollController.jumpTo(0);
         await tester.pumpAndSettle();
+        expect(controller.scrollController.offset, equals(0));
 
-        controller.scrollController.jumpTo(
-          controller.scrollController.position.maxScrollExtent * 0.3,
-        );
+        // Re-scroll past same milestone — should not throw
+        controller.scrollController.jumpTo(maxExtent * 0.3);
         await tester.pumpAndSettle();
-
-        // 25% milestone should only be tracked once
-        expect(true, isTrue);
+        expect(controller.scrollController.offset, closeTo(maxExtent * 0.3, 1));
       });
 
-      testWidgets('resetScrollTracking allows re-tracking milestones',
+      testWidgets('resetScrollTracking allows re-scrolling without error',
           (tester) async {
         tester.view.physicalSize = const Size(400, 200);
         tester.view.devicePixelRatio = 1.0;
@@ -426,53 +408,36 @@ void main() {
 
         controller.initialize();
         await tester.pumpAndSettle();
+
+        final maxExtent = controller.scrollController.position.maxScrollExtent;
 
         // Scroll to 50%
-        controller.scrollController.jumpTo(
-          controller.scrollController.position.maxScrollExtent * 0.5,
-        );
+        controller.scrollController.jumpTo(maxExtent * 0.5);
         await tester.pumpAndSettle();
+        expect(controller.scrollController.offset, closeTo(maxExtent * 0.5, 1));
 
-        // Reset tracking
+        // Reset tracking, scroll back to 0, then re-scroll
         controller.resetScrollTracking();
-
-        // Scroll again - should re-track 25% and 50%
         controller.scrollController.jumpTo(0);
         await tester.pumpAndSettle();
+        expect(controller.scrollController.offset, equals(0));
 
-        controller.scrollController.jumpTo(
-          controller.scrollController.position.maxScrollExtent * 0.5,
-        );
+        controller.scrollController.jumpTo(maxExtent * 0.5);
         await tester.pumpAndSettle();
-
-        expect(true, isTrue);
+        expect(controller.scrollController.offset, closeTo(maxExtent * 0.5, 1));
       });
     });
 
     group('disposal', () {
-      test('dispose cleans up scroll controller', () {
+      test('dispose after initialize does not throw', () {
         final testController = LandingController();
         testController.initialize();
-        testController.dispose();
-        // Should not throw
-        expect(true, isTrue);
+        expect(() => testController.dispose(), returnsNormally);
       });
 
-      test('dispose removes scroll listener', () {
+      test('dispose without initialization does not throw', () {
         final testController = LandingController();
-        testController.initialize();
-
-        // Dispose should remove listener without error
-        testController.dispose();
-
-        expect(true, isTrue);
-      });
-
-      test('controller can be disposed without initialization', () {
-        final testController = LandingController();
-        // Dispose without calling initialize
-        testController.dispose();
-        expect(true, isTrue);
+        expect(() => testController.dispose(), returnsNormally);
       });
     });
   });

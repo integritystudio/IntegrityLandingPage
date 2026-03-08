@@ -126,9 +126,23 @@ When web-platform CI is added, these MUST be covered.
 
 ---
 
-*Last updated: 2026-03-06*
+## Open: AnalyticsService Test Observability
+
+**Severity:** MEDIUM
+**Category:** Test Quality
+**File:** `test/controllers/landing_controller_test.dart`
+
+Controller analytics tests (e.g. `trackTierSelection`, `handleGetStarted`, `handleFeatureInteraction`) use `returnsNormally` to verify no exception is thrown, but cannot detect regressions in analytics call arguments. If `AnalyticsService.trackPricingView` were called with the wrong tier string or stopped being called entirely, these tests would still pass.
+
+**Recommendation:** Introduce an `AnalyticsService` mock/spy (e.g. via a static `trackPricingView` call log or dependency injection) to assert that analytics methods are called with the correct arguments.
+
+**Status:** Open — vacuous `expect(true, isTrue)` assertions were replaced with `returnsNormally` in commit `09f2cf0`, but argument verification requires AnalyticsService to be mockable.
+
+---
+
+*Last updated: 2026-03-08*
 *Migrated items: 24 total → docs/changelog/1.0/CHANGELOG.md:*
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit*
   *- 13 items (all LOW) from backlog implementation sprint*
   *- 2 items (all LOW) from code review test coverage findings*
-*Remaining open: 1 blocked (#77) + 5 deferred (OAuth #8-#10, test coverage #75-#76)*
+*Remaining open: 1 blocked (#77) + 5 deferred (OAuth #8-#10, test coverage #75-#76) + 1 open (AnalyticsService mock)*
