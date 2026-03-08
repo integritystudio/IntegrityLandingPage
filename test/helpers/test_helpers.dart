@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:provider/provider.dart';
 import 'package:integrity_studio_ai/theme/colors.dart';
-import 'package:integrity_studio_ai/controllers/landing_controller.dart';
 import 'package:integrity_studio_ai/services/content_loader.dart';
 import 'test_content.dart';
 
@@ -68,29 +66,6 @@ Widget testableSection(Widget section, {ThemeData? theme}) {
   );
 }
 
-/// Wraps widget with providers for testing.
-///
-/// Automatically initializes test content if not already loaded.
-Widget testableWidgetWithProviders(
-  Widget child, {
-  LandingController? landingController,
-}) {
-  _ensureContentLoaded();
-  return MaterialApp(
-    debugShowCheckedModeBanner: false,
-    theme: testTheme,
-    home: MultiProvider(
-      providers: [
-        if (landingController != null)
-          ChangeNotifierProvider<LandingController>.value(
-            value: landingController,
-          ),
-      ],
-      child: Scaffold(body: child),
-    ),
-  );
-}
-
 // =============================================================================
 // WidgetTester Extensions
 // =============================================================================
@@ -105,20 +80,6 @@ extension WidgetTesterX on WidgetTester {
   /// Pump section widget with scroll support.
   Future<void> pumpSection(Widget section) async {
     await pumpWidget(testableSection(section));
-    await pumpAndSettle();
-  }
-
-  /// Pump widget with providers.
-  Future<void> pumpAppWithProviders(
-    Widget widget, {
-    LandingController? landingController,
-  }) async {
-    await pumpWidget(
-      testableWidgetWithProviders(
-        widget,
-        landingController: landingController,
-      ),
-    );
     await pumpAndSettle();
   }
 

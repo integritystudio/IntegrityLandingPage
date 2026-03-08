@@ -9,7 +9,6 @@ export '../../helpers/test_helpers.dart'
         testTheme,
         testableWidget,
         testableSection,
-        testableWidgetWithProviders,
         setScreenSize,
         setMobileSize,
         setDesktopSize,

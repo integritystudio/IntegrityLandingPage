@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
-import '../config/content.dart';
 import '../config/content/constants.dart';
-import '../services/analytics.dart';
+import '../controllers/landing_controller.dart';
 import '../widgets/modals/demo_modal.dart';
 import '../widgets/sections/hero_section.dart';
 import '../widgets/sections/tabbed_features_section.dart';
@@ -41,67 +40,50 @@ class LandingPage extends StatefulWidget {
 }
 
 class _LandingPageState extends State<LandingPage> {
-  final ScrollController _scrollController = ScrollController();
+  late final LandingController _controller;
 
-  // Section keys for scroll navigation
-  final _sectionKeys = <String, GlobalKey>{
-    'hero': GlobalKey(),
-    'features-explorer': GlobalKey(),
-    'social-proof': GlobalKey(),
-    'features': GlobalKey(),
-    'services': GlobalKey(),
-    'about': GlobalKey(),
-    'resources': GlobalKey(),
-    'contact': GlobalKey(),
-    'status': GlobalKey(),
-    'pricing': GlobalKey(),
-    'cta': GlobalKey(),
-  };
+  // Section IDs for registration with the controller
+  static const _sectionIds = [
+    'hero',
+    'features-explorer',
+    'social-proof',
+    'features',
+    'services',
+    'about',
+    'resources',
+    'contact',
+    'status',
+    'pricing',
+    'cta',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-    AnalyticsService.trackPageView('landing');
+    _controller = LandingController(
+      onShowDemoModal: _showDemoModal,
+      onNavigateToSignup: (tier) => context.go('/signup?tier=$tier'),
+    );
+
+    // Register section keys
+    for (final id in _sectionIds) {
+      _controller.registerSection(id, GlobalKey());
+    }
+
+    _controller.initialize();
 
     // Scroll to section if specified (after first frame)
     if (widget.scrollToSection != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToSection(widget.scrollToSection!);
+        _controller.scrollToSection(widget.scrollToSection!);
       });
     }
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    _controller.dispose();
     super.dispose();
-  }
-
-  int _lastTrackedMilestone = 0;
-
-  void _onScroll() {
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    if (maxScroll <= 0) return;
-
-    final percentage = ((_scrollController.offset / maxScroll) * 100).round();
-    final milestone = (percentage ~/ 25) * 25;
-    if (milestone > _lastTrackedMilestone) {
-      _lastTrackedMilestone = milestone;
-      AnalyticsService.trackScrollDepth(milestone);
-    }
-  }
-
-  void _scrollToSection(String sectionName) {
-    final key = _sectionKeys[sectionName];
-    if (key?.currentContext == null) return;
-
-    Scrollable.ensureVisible(
-      key!.currentContext!,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-    );
   }
 
   @override
@@ -112,13 +94,13 @@ class _LandingPageState extends State<LandingPage> {
       backgroundColor: AppColors.gray900,
       body: SelectionArea(
         child: CustomScrollView(
-          controller: _scrollController,
+          controller: _controller.scrollController,
           slivers: [
             // Header navigation (compact menu for mobile + tablet)
             _buildHeaderNav(context, useCompactNav),
 
             _buildSection(
-              key: _sectionKeys['hero']!,
+              key: _controller.getSectionKey('hero'),
               label: 'Hero section',
               child: HeroSection(
                 onGetStarted: () => context.go(Routes.signupTeam),
@@ -127,41 +109,41 @@ class _LandingPageState extends State<LandingPage> {
             ),
             // Tabbed feature explorer (AiSDR-inspired interactive tabs)
             _buildSection(
-              key: _sectionKeys['features-explorer']!,
+              key: _controller.getSectionKey('features-explorer'),
               label: 'Feature explorer section',
               child: const TabbedFeaturesSection(),
             ),
             // Social proof section - hidden until we have real testimonials
             // _buildSection(
-            //   key: _sectionKeys['social-proof']!,
+            //   key: _controller.getSectionKey('social-proof'),
             //   label: 'Social proof section',
             //   child: const SocialProofSection(),
             // ),
             _buildSection(
-              key: _sectionKeys['features']!,
+              key: _controller.getSectionKey('features'),
               label: 'Features section',
               child: const FeaturesSection(),
             ),
             // Services section (platform capabilities)
             _buildSection(
-              key: _sectionKeys['services']!,
+              key: _controller.getSectionKey('services'),
               label: 'Services section',
               child: const ServicesSection(),
             ),
             // About section (company story, values, team)
             _buildSection(
-              key: _sectionKeys['about']!,
+              key: _controller.getSectionKey('about'),
               label: 'About section',
               child: const AboutSection(),
             ),
             // Resources section (docs, blog, lead magnets)
             _buildSection(
-              key: _sectionKeys['resources']!,
+              key: _controller.getSectionKey('resources'),
               label: 'Resources section',
               child: const ResourcesSection(),
             ),
             _buildSection(
-              key: _sectionKeys['pricing']!,
+              key: _controller.getSectionKey('pricing'),
               label: 'Pricing section',
               child: PricingSection(
                 onSelectTier: _handleSelectTier,
@@ -169,17 +151,17 @@ class _LandingPageState extends State<LandingPage> {
             ),
             // Contact section (form, contact methods)
             _buildSection(
-              key: _sectionKeys['contact']!,
+              key: _controller.getSectionKey('contact'),
               label: 'Contact section',
               child: const ContactSection(),
             ),
             _buildSection(
-              key: _sectionKeys['status']!,
+              key: _controller.getSectionKey('status'),
               label: 'Status section',
               child: const StatusSection(),
             ),
             _buildSection(
-              key: _sectionKeys['cta']!,
+              key: _controller.getSectionKey('cta'),
               label: 'Call to action section',
               child: CTASection(
                 onGetStarted: () => context.go(Routes.signupTeam),
@@ -225,7 +207,7 @@ class _LandingPageState extends State<LandingPage> {
       elevation: 0,
       toolbarHeight: isMobile ? 56 : 64,
       title: GestureDetector(
-        onTap: () => _scrollController.animateTo(
+        onTap: () => _controller.scrollController.animateTo(
           0,
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOut,
@@ -275,7 +257,7 @@ class _LandingPageState extends State<LandingPage> {
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                onTap: () => _scrollToSection('features'),
+                onTap: () => _controller.scrollToSection('features'),
               ),
               HoverTextLink(
                 text: 'About',
@@ -283,7 +265,7 @@ class _LandingPageState extends State<LandingPage> {
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                onTap: () => _scrollToSection('about'),
+                onTap: () => _controller.scrollToSection('about'),
               ),
               HoverTextLink(
                 text: 'Blog',
@@ -291,7 +273,7 @@ class _LandingPageState extends State<LandingPage> {
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                onTap: () => _scrollToSection('resources'),
+                onTap: () => _controller.scrollToSection('resources'),
               ),
               HoverTextLink(
                 text: 'Pricing',
@@ -299,7 +281,7 @@ class _LandingPageState extends State<LandingPage> {
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                onTap: () => _scrollToSection('pricing'),
+                onTap: () => _controller.scrollToSection('pricing'),
               ),
               HoverTextLink(
                 text: 'Contact',
@@ -307,14 +289,14 @@ class _LandingPageState extends State<LandingPage> {
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                onTap: () => _scrollToSection('contact'),
+                onTap: () => _controller.scrollToSection('contact'),
               ),
               const SizedBox(width: AppSpacing.md),
               // CTA button
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.md),
                 child: TextButton(
-                  onPressed: () => _scrollToSection('pricing'),
+                  onPressed: () => _controller.scrollToSection('pricing'),
                   style: TextButton.styleFrom(
                     backgroundColor: AppColors.blue600,
                     padding: const EdgeInsets.symmetric(
@@ -349,24 +331,22 @@ class _LandingPageState extends State<LandingPage> {
   }
 
   void _handleNavItemSelected(String value) {
-    _scrollToSection(value);
+    _controller.scrollToSection(value);
   }
 
   void _handleWatchDemo() {
-    AnalyticsService.trackDemoRequest();
+    _controller.handleRequestDemo();
+  }
+
+  void _showDemoModal() {
     DemoModal.show(
       context,
-      onScheduleDemo: () => _launchCalendly(),
+      onScheduleDemo: () => context.go('/demo'),
     );
   }
 
   void _handleSelectTier(String tier) {
-    AnalyticsService.trackPricingView(tier);
-    context.go('/signup?tier=$tier');
-  }
-
-  void _launchCalendly() {
-    context.go('/demo');
+    _controller.handleTierSelection(tier);
   }
 }
 
