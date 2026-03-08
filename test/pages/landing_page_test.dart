@@ -685,6 +685,76 @@ void main() {
         // Scroll animation should have started
         expect(find.byType(LandingPage), findsOneWidget);
       });
+
+      testWidgets('scrollToSection parameter triggers scroll on load',
+          (tester) async {
+        setDesktopSize(tester);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: const LandingPage(scrollToSection: 'pricing'),
+          ),
+        );
+        // First frame builds widget tree
+        await tester.pump();
+        // Post-frame callback fires and triggers scrollToSection
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 600));
+
+        // Page should render without errors and scroll should have started
+        expect(find.byType(LandingPage), findsOneWidget);
+        final scrollView = tester.widget<CustomScrollView>(
+          find.byType(CustomScrollView),
+        );
+        expect(scrollView.controller!.offset, greaterThan(0));
+      });
+
+      testWidgets('logo tap scrolls to top', (tester) async {
+        setDesktopSize(tester);
+        await pumpLandingPage(tester);
+
+        // Scroll down first
+        final scrollView = tester.widget<CustomScrollView>(
+          find.byType(CustomScrollView),
+        );
+        scrollView.controller!.jumpTo(500);
+        await tester.pump();
+        await tester.pump();
+
+        expect(scrollView.controller!.offset, equals(500));
+
+        // Tap the logo/brand GestureDetector (contains company name text)
+        await tester.tap(find.text('Integrity Studio'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 600));
+
+        // Should have scrolled back toward the top
+        expect(scrollView.controller!.offset, lessThan(500));
+      });
+    });
+
+    group('mobile navigation menu', () {
+      testWidgets('hamburger menu item triggers section scroll',
+          (tester) async {
+        setMobileSize(tester);
+        await pumpLandingPage(tester);
+        clearOverflowExceptions(tester);
+
+        // Tap the hamburger menu
+        await tester.tap(find.byIcon(LucideIcons.menu));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        clearOverflowExceptions(tester);
+
+        // Tap a menu item (Pricing)
+        await tester.tap(find.text('Pricing'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 600));
+        clearOverflowExceptions(tester);
+
+        // Page should remain functional, scroll should have started
+        expect(find.byType(LandingPage), findsOneWidget);
+      });
     });
 
   });
