@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/pages/docs_quickstart_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../helpers/test_helpers.dart';
+import '../helpers/test_constants.dart';
 
 void main() {
   setUp(setUpOverflowErrorSuppression);
@@ -459,7 +460,7 @@ void main() {
         await pumpDocsQuickstartPage(tester);
 
         await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -5000));
+            find.byType(CustomScrollView), kScrollToPricingOffset);
         await tester.pump();
 
         expect(find.text('Next Steps'), findsOneWidget);
@@ -469,7 +470,7 @@ void main() {
         await pumpDocsQuickstartPage(tester);
 
         await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -5000));
+            find.byType(CustomScrollView), kScrollToPricingOffset);
         await tester.pump();
 
         expect(find.byIcon(LucideIcons.arrowRight), findsOneWidget);

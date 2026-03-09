@@ -6,6 +6,7 @@ import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../helpers/test_helpers.dart';
+import '../helpers/test_constants.dart';
 
 void main() {
   setUp(setUpOverflowErrorSuppression);
@@ -193,7 +194,7 @@ void main() {
         await pumpAboutPage(tester);
 
         // Scroll to bottom
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -5000));
+        await tester.drag(find.byType(CustomScrollView), kScrollToPricingOffset);
         await tester.pump();
         await tester.pump();
 
@@ -207,7 +208,7 @@ void main() {
         );
 
         // Scroll to bottom to render footer
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -5000));
+        await tester.drag(find.byType(CustomScrollView), kScrollToPricingOffset);
         await tester.pump();
         await tester.pump();
 

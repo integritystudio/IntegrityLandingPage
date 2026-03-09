@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/pages/eu_ai_act_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../helpers/test_helpers.dart';
+import '../helpers/test_constants.dart';
 
 void main() {
   setUp(setUpOverflowErrorSuppression);
@@ -125,7 +126,7 @@ void main() {
       testWidgets('renders copyright', (tester) async {
         await pumpEuAiActPage(tester);
 
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -6000));
+        await tester.drag(find.byType(CustomScrollView), kScrollToCTAOffset);
         await tester.pump();
 
         expect(find.textContaining('Integrity Studio'), findsWidgets);

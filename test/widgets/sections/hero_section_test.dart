@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/sections/hero_section.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 import '../../helpers/test_helpers.dart';
+import '../../helpers/test_constants.dart';
 
 void main() {
 
@@ -23,7 +24,7 @@ void main() {
             ),
           ),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         await tester.tap(find.text('Start Free Trial').first);
         await tester.pump();
@@ -42,7 +43,7 @@ void main() {
             ),
           ),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         await tester.tap(find.text('Request Demo'));
         await tester.pump();
@@ -58,7 +59,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const HeroSection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.text('EU AI Act Ready'), findsWidgets);
       });
@@ -69,7 +70,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const HeroSection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.textContaining('AI Observability'), findsOneWidget);
       });
@@ -80,7 +81,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const HeroSection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.text('Start Free Trial'), findsOneWidget);
       });
@@ -91,7 +92,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const HeroSection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.text('Request Demo'), findsOneWidget);
       });
@@ -102,7 +103,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const HeroSection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.text('Enterprise Security'), findsOneWidget);
         expect(find.text('99.9% Uptime'), findsOneWidget);
@@ -115,7 +116,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const HeroSection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.byIcon(LucideIcons.check), findsWidgets);
       });
@@ -140,7 +141,7 @@ void main() {
             ),
           ),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.text('Custom Badge'), findsOneWidget);
         expect(find.text('Custom Headline'), findsOneWidget);
@@ -155,7 +156,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const HeroSection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         // Both CTAs should be present
         expect(find.text('Start Free Trial'), findsOneWidget);
@@ -169,7 +170,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const HeroSection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.text('Start Free Trial'), findsOneWidget);
       });
@@ -182,7 +183,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const HeroSection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         // Should have Stack for layered content
         expect(find.byType(Stack), findsWidgets);
@@ -196,7 +197,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const HeroSection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.byType(Semantics), findsWidgets);
       });
