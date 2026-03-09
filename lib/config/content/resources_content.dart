@@ -26,7 +26,7 @@ abstract final class ResourcesContentVariants {
       icon: LucideIcons.bookOpen,
       title: 'Getting Started',
       description:
-          'Quick start guides and tutorials to get your first traces flowing in under 5 minutes.',
+          'Quick start guides and tutorials to get your first traces flowing in under 15 min.',
       url: Routes.docsQuickstart,
       popularTopics: [
         'Python SDK Setup',

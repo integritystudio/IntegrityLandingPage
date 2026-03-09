@@ -104,7 +104,7 @@ class _HeroSection extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Text(
-                    '5-Minute Setup',
+                    '${PlatformMetrics.setupTime} Setup',
                     style: AppTypography.bodySM.copyWith(
                       color: AppColors.success,
                       fontWeight: FontWeight.w600,
@@ -129,7 +129,7 @@ class _HeroSection extends StatelessWidget {
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 700),
               child: Text(
-                'Start monitoring your LLM applications in under 5 minutes. Install the SDK, add a few lines of code, and see your first traces.',
+                'Start monitoring your LLM applications in under ${PlatformMetrics.setupTime}. Install the SDK, add a few lines of code, and see your first traces.',
                 style: AppTypography.bodyLG,
                 textAlign: TextAlign.center,
               ),

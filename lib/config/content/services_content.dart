@@ -108,7 +108,7 @@ abstract final class ServicesContentVariants {
       title: 'Developer Experience',
       description:
           'Drop-in SDKs for Python, TypeScript, and Go. OpenTelemetry-native with '
-          'minimal instrumentation required. Get to value in under 5 minutes.',
+          'minimal instrumentation required. Get to value in under 15 min.',
       capabilities: [
         'Python, TypeScript, and Go SDKs',
         'Auto-instrumentation for popular frameworks',

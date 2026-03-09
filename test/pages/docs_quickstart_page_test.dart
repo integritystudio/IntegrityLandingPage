@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/docs_quickstart_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../helpers/test_helpers.dart';
@@ -55,7 +56,7 @@ void main() {
       testWidgets('renders 5-Minute Setup badge', (tester) async {
         await pumpDocsQuickstartPage(tester);
 
-        expect(find.text('5-Minute Setup'), findsOneWidget);
+        expect(find.text('${PlatformMetrics.setupTime} Setup'), findsOneWidget);
       });
 
       testWidgets('renders rocket icon in badge', (tester) async {
@@ -533,7 +534,7 @@ void main() {
       testWidgets('renders hero section on mobile', (tester) async {
         await pumpDocsQuickstartPage(tester, mobile: true);
 
-        expect(find.text('5-Minute Setup'), findsOneWidget);
+        expect(find.text('${PlatformMetrics.setupTime} Setup'), findsOneWidget);
         expect(find.text('Get Started with Integrity Studio'), findsOneWidget);
       });
 
