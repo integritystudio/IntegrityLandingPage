@@ -2,18 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/controllers/landing_controller.dart';
 import 'package:integrity_studio_ai/config/content.dart';
+import 'package:integrity_studio_ai/services/analytics.dart';
 
 void main() {
 
   group('LandingController', () {
     late LandingController controller;
+    late List<({AnalyticsEvent event, Map<String, dynamic> params})> analyticsLog;
 
     setUp(() {
+      analyticsLog = AnalyticsService.enableCallLog();
       controller = LandingController();
     });
 
     tearDown(() {
       controller.dispose();
+      AnalyticsService.resetForTesting();
     });
 
     group('construction', () {
@@ -51,11 +55,14 @@ void main() {
 
       test('initialize can be called multiple times without error', () {
         // Idempotent: second call should not re-track page view.
-        // Argument verification requires AnalyticsService mock (see BACKLOG).
-        expect(() {
-          controller.initialize();
-          controller.initialize();
-        }, returnsNormally);
+        controller.initialize();
+        controller.initialize();
+        // Only one page_view event despite two initialize() calls
+        final pageViews = analyticsLog
+            .where((e) => e.event == AnalyticsEvent.pageView)
+            .toList();
+        expect(pageViews, hasLength(1));
+        expect(pageViews.first.params['page_title'], 'landing');
       });
     });
 
@@ -215,43 +222,88 @@ void main() {
     });
 
     group('analytics handlers', () {
-      test('handleGetStarted does not throw', () {
+      test('handleGetStarted tracks CTA click with default location', () {
         controller.registerSection('pricing', GlobalKey());
-        expect(() => controller.handleGetStarted(), returnsNormally);
+        controller.handleGetStarted();
+
+        final ctaClicks = analyticsLog
+            .where((e) => e.event == AnalyticsEvent.ctaClick)
+            .toList();
+        expect(ctaClicks, hasLength(1));
+        expect(ctaClicks.first.params['button_name'], 'Get Started');
+        expect(ctaClicks.first.params['location'], 'hero');
+        expect(ctaClicks.first.params['cta_type'], 'primary');
       });
 
-      test('handleGetStarted accepts custom location', () {
-        expect(
-          () => controller.handleGetStarted(location: 'navbar'),
-          returnsNormally,
-        );
+      test('handleGetStarted tracks CTA click with custom location', () {
+        controller.handleGetStarted(location: 'navbar');
+
+        final ctaClicks = analyticsLog
+            .where((e) => e.event == AnalyticsEvent.ctaClick)
+            .toList();
+        expect(ctaClicks, hasLength(1));
+        expect(ctaClicks.first.params['location'], 'navbar');
       });
 
-      test('handleRequestDemo does not throw', () {
-        expect(() => controller.handleRequestDemo(), returnsNormally);
+      test('handleRequestDemo tracks CTA click as secondary', () {
+        controller.handleRequestDemo();
+
+        final ctaClicks = analyticsLog
+            .where((e) => e.event == AnalyticsEvent.ctaClick)
+            .toList();
+        expect(ctaClicks, hasLength(1));
+        expect(ctaClicks.first.params['button_name'], 'Request Demo');
+        expect(ctaClicks.first.params['cta_type'], 'secondary');
       });
 
-      test('trackTierSelection does not throw for enterprise tier', () {
-        expect(() => controller.trackTierSelection('enterprise'), returnsNormally);
+      test('trackTierSelection sends correct tier to analytics', () {
+        controller.trackTierSelection('enterprise');
+
+        final tierViews = analyticsLog
+            .where((e) => e.event == AnalyticsEvent.pricingTierView)
+            .toList();
+        expect(tierViews, hasLength(1));
+        expect(tierViews.first.params['tier'], 'enterprise');
       });
 
-      test('trackTierSelection does not throw for team tier', () {
-        expect(() => controller.trackTierSelection('team'), returnsNormally);
+      test('trackTierSelection sends team tier', () {
+        controller.trackTierSelection('team');
+
+        final tierViews = analyticsLog
+            .where((e) => e.event == AnalyticsEvent.pricingTierView)
+            .toList();
+        expect(tierViews, hasLength(1));
+        expect(tierViews.first.params['tier'], 'team');
       });
 
-      test('trackTierSelection does not throw for starter tier', () {
-        expect(() => controller.trackTierSelection('starter'), returnsNormally);
+      test('trackTierSelection sends starter tier', () {
+        controller.trackTierSelection('starter');
+
+        final tierViews = analyticsLog
+            .where((e) => e.event == AnalyticsEvent.pricingTierView)
+            .toList();
+        expect(tierViews, hasLength(1));
+        expect(tierViews.first.params['tier'], 'starter');
       });
 
-      test('trackTierSelection handles empty string without throw', () {
-        expect(() => controller.trackTierSelection(''), returnsNormally);
+      test('trackTierSelection handles empty string', () {
+        controller.trackTierSelection('');
+
+        final tierViews = analyticsLog
+            .where((e) => e.event == AnalyticsEvent.pricingTierView)
+            .toList();
+        expect(tierViews, hasLength(1));
+        expect(tierViews.first.params['tier'], '');
       });
 
-      test('handleFeatureInteraction does not throw', () {
-        expect(
-          () => controller.handleFeatureInteraction('AI Observability'),
-          returnsNormally,
-        );
+      test('handleFeatureInteraction sends feature name', () {
+        controller.handleFeatureInteraction('AI Observability');
+
+        final interactions = analyticsLog
+            .where((e) => e.event == AnalyticsEvent.featureInteraction)
+            .toList();
+        expect(interactions, hasLength(1));
+        expect(interactions.first.params['feature_name'], 'AI Observability');
       });
     });
 
