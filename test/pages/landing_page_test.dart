@@ -9,18 +9,7 @@ import 'package:integrity_studio_ai/widgets/sections/pricing_section.dart';
 import 'package:integrity_studio_ai/widgets/sections/cta_section.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import '../helpers/test_helpers.dart';
-
-/// Duration to settle short animations (dialog open/close, popup menu).
-const kShortAnimationSettle = Duration(milliseconds: 300);
-
-/// Duration to settle navigation route transitions.
-const kNavigationSettle = Duration(milliseconds: 500);
-
-/// Scroll offset large enough to reveal the pricing section in tests.
-const kScrollToPricingOffset = Offset(0, -5000);
-
-/// Scroll offset large enough to reveal the CTA section in tests.
-const kScrollToCTAOffset = Offset(0, -6000);
+import '../helpers/test_constants.dart';
 
 void main() {
   setUp(setUpOverflowErrorSuppression);

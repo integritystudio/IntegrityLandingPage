@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/sections/cta_section.dart';
 import 'package:integrity_studio_ai/widgets/common/containers.dart';
 import '../../helpers/test_helpers.dart';
+import '../../helpers/test_constants.dart';
 
 void main() {
 
@@ -22,7 +23,7 @@ void main() {
             ),
           ),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         await tester.tap(find.text('Start Free Trial'));
         await tester.pump();
@@ -38,7 +39,7 @@ void main() {
             const CTASection(onGetStarted: null),
           ),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.byType(CTASection), findsOneWidget);
         expect(find.text('Start Free Trial'), findsOneWidget);
@@ -52,7 +53,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const CTASection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.textContaining('Ready to Understand Your AI'), findsOneWidget);
       });
@@ -63,7 +64,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const CTASection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.textContaining('free trial'), findsOneWidget);
       });
@@ -74,7 +75,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const CTASection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.text('Start Free Trial'), findsOneWidget);
       });
@@ -85,7 +86,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const CTASection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.byIcon(LucideIcons.arrowRight), findsOneWidget);
       });
@@ -98,7 +99,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const CTASection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.byType(SectionContainer), findsWidgets);
       });
@@ -109,7 +110,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const CTASection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         // Should have Container with gradient decoration
         expect(find.byType(Container), findsWidgets);
@@ -123,7 +124,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const CTASection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.text('Start Free Trial'), findsOneWidget);
       });
@@ -134,7 +135,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const CTASection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.text('Start Free Trial'), findsOneWidget);
       });
@@ -147,7 +148,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const CTASection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.byType(MouseRegion), findsWidgets);
       });
@@ -158,7 +159,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const CTASection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.byType(AnimatedContainer), findsWidgets);
       });
@@ -169,7 +170,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const CTASection()),
         );
-        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(kNavigationSettle);
 
         expect(find.byType(GestureDetector), findsWidgets);
       });

@@ -4,6 +4,7 @@ import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/docs_api_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../helpers/test_helpers.dart';
+import '../helpers/test_constants.dart';
 
 void main() {
   setUp(setUpOverflowErrorSuppression);
@@ -164,7 +165,7 @@ void main() {
         await pumpDocsApiPage(tester);
 
         await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -5000));
+            find.byType(CustomScrollView), kScrollToPricingOffset);
         await tester.pump();
 
         expect(find.text('SDKs & Libraries'), findsOneWidget);
@@ -175,7 +176,7 @@ void main() {
         await pumpDocsApiPage(tester);
 
         await tester.drag(
-            find.byType(CustomScrollView), const Offset(0, -6000));
+            find.byType(CustomScrollView), kScrollToCTAOffset);
         await tester.pump();
 
         expect(find.text('Error Handling'), findsOneWidget);
