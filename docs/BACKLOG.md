@@ -56,9 +56,29 @@ CSP report-uri/report-to endpoints shared across staging/production. Staging is 
 
 `flutter test --platform chrome` never executes — hangs at "loading" forever, even on a trivial empty test. This blocks all web-only test coverage (#75, #76) and prevents testing `kIsWeb` branches.
 
-### Root Cause
+### Root Cause (confirmed 2026-03-08)
 
-The `package:test` Chrome runner fails to establish WebSocket communication with headless Chrome. Affects both DDC (default) and `--wasm` compilation modes. The test compiles successfully but the runner never receives a response from Chrome.
+Two upstream bugs in Flutter's `ChromiumLauncher` (`flutter_tools/lib/src/web/chrome.dart:249-254`):
+
+1. **`--disable-gpu` flag** — Flutter passes `--disable-gpu` when launching headless Chrome for tests. This disables WebGL, which CanvasKit/SkWasm requires to initialize. Without WebGL, the Flutter web app never loads and the test runner hangs waiting for a response.
+2. **`package:test` Chrome runner WebSocket hang** — even after patching out `--disable-gpu`, the `package:test` browser manager on Flutter 3.38.5 fails to establish WebSocket communication with headless Chrome. The test compiles and Chrome launches, but the runner never receives a response.
+
+### Upstream Issues
+
+- [flutter/flutter#177008](https://github.com/flutter/flutter/issues/177008) — `flutter test --platform chrome --wasm` hangs (CLOSED 2026-02-23, fix merged)
+- [flutter/flutter#162798](https://github.com/flutter/flutter/issues/162798) — `flutter test --platform chrome` hangs on loading (OPEN, same root cause)
+- [flutter/flutter#182618](https://github.com/flutter/flutter/pull/182618) — `[web] Remove --disable-gpu from flutter chrome tests` (merged to master 2026-02-23)
+
+### Fix Availability
+
+| Channel | Version | `--disable-gpu` fix? |
+|---------|---------|---------------------|
+| stable  | 3.38.5 (current) | No |
+| stable  | 3.41.4 (latest)  | No |
+| beta    | 3.42.0-0.4.pre   | No |
+| master  | HEAD             | Yes (PR #182618)    |
+
+The fix removes `'--disable-gpu'` from the headless Chrome args. It landed on master but has not been cherry-picked to any stable or beta release as of 2026-03-08.
 
 ### Environment
 
@@ -74,6 +94,9 @@ The `package:test` Chrome runner fails to establish WebSocket communication with
 2. `flutter test --platform chrome --wasm test/web_smoke_test.dart` — compiles wasm successfully, still hangs at "loading"
 3. `CHROME_EXECUTABLE=... flutter test --platform chrome` — same hang
 4. `flutter test --platform chrome -v` — verbose log stops at "Found 1 files which will be executed as Widget Tests", never reaches Chrome launch
+5. `flutter drive -d chrome --headless` with ChromeDriver — connected to debug service (`ws://127.0.0.1:…/ws`), DDC loaded 666/666 scripts, then hung indefinitely. Same `--disable-gpu`/WebGL failure.
+6. `dart_test.yaml` with `override_platforms` — does NOT control Flutter's `ChromiumLauncher`, so cannot override Chrome flags. Not a viable workaround.
+7. **Local SDK patch** — removed `'--disable-gpu'` from `chrome.dart:252`, deleted `flutter_tools.snapshot` to force recompile. Flutter rebuilt the tool, but `flutter test --platform chrome` still hung at "loading". Confirms the `--disable-gpu` fix alone is insufficient on Flutter 3.38.5; the `package:test` WebSocket runner has a separate bug at this SDK version.
 
 ### Prerequisite Fix Applied
 
@@ -91,9 +114,9 @@ The `package:test` Chrome runner fails to establish WebSocket communication with
 
 ### Next Steps
 
-- Check if Flutter 3.40+ fixes the `package:test` Chrome runner
-- Try `dart_test.yaml` with custom `browsers: [{name: chrome, flags: [...]}]`
-- Consider `flutter drive --platform chrome --profile` as alternative (worked for E2E in E4)
+1. **Upgrade to Flutter 3.41.4** and re-apply the `--disable-gpu` patch — 3.41 may have the `package:test` WebSocket fix that 3.38 lacks (3.41.4 includes `[stable] Update test package and related packages for stable release`)
+2. **Wait for Flutter 3.43+ stable** — the `--disable-gpu` fix (PR #182618) will ship in the next stable release after 3.42 beta promotion
+3. **Switch to master channel** — risky for a production project, but would immediately unblock
 
 ---
 
