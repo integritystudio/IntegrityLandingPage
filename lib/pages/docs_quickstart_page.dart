@@ -7,7 +7,7 @@ import '../widgets/navigation/doc_page_scaffold.dart';
 
 /// Quick Start documentation page.
 ///
-/// Covers getting started with Integrity Studio in under 5 minutes,
+/// Covers getting started with Integrity Studio in under 15 min,
 /// including SDK setup, basic instrumentation, and viewing traces.
 class DocsQuickstartPage extends StatelessWidget {
   final VoidCallback? onBack;

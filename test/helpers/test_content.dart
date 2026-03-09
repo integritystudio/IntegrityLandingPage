@@ -312,7 +312,7 @@ resources:
   documentation:
     - icon: "book-open"
       title: "Getting Started"
-      description: "Quick start in under 5 minutes."
+      description: "Quick start in under 15 min."
       url: "/docs/quickstart"
       popular_topics:
         - "Python SDK"
