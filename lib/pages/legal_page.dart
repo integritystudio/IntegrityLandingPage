@@ -322,7 +322,7 @@ We do **not** sell your data, share it with third-party advertisers, or use it f
 - **Website analytics**: Anonymized data retained for 26 months
 - **Communication records**: Retained for 5 years for legal compliance
 
-You may request deletion of your data at any time by contacting us at privacy@integritystudio.ai.
+You may request deletion of your data at any time by contacting us at ${CompanyInfo.privacyEmail}.
 ''',
         ),
         _LegalSection(
@@ -407,7 +407,7 @@ We may update this Privacy Policy periodically. Significant changes will be comm
           content: '''
 For privacy questions, data requests, or concerns:
 
-- **Privacy Inquiries**: privacy@integritystudio.ai
+- **Privacy Inquiries**: ${CompanyInfo.privacyEmail}
 - **General Contact**: ${CompanyInfo.email}
 - **Phone**: ${CompanyInfo.phone}
 - **Location**: ${CompanyInfo.locationCity}, ${CompanyInfo.locationRegion}
@@ -752,7 +752,7 @@ Your continued use of our website after changes constitutes acceptance of the up
           content: '''
 If you have questions about our use of cookies:
 
-- **Email**: privacy@integritystudio.ai
+- **Email**: ${CompanyInfo.privacyEmail}
 - **General Contact**: ${CompanyInfo.email}
 
 **Related Policies**: Privacy Policy, Terms of Service
