@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
 /// Alerts & Incident Management documentation page.
@@ -199,7 +200,7 @@ class _DocsContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Overview Section
-        _DocSection(
+        DocSection(
           key: const Key('overview-section'),
           icon: LucideIcons.info,
           title: 'Overview',
@@ -217,7 +218,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Alert Types Section
-        _DocSection(
+        DocSection(
           key: const Key('alert-types-section'),
           icon: LucideIcons.layers,
           title: 'Alert Types',
@@ -276,7 +277,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Creating Alerts Section
-        _DocSection(
+        DocSection(
           key: const Key('creating-alerts-section'),
           icon: LucideIcons.plus,
           title: 'Creating Alerts',
@@ -293,7 +294,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _NumberedList(items: [
+              const DocNumberedList(accentColor: AppColors.warning, items: [
                 'Navigate to Alerts \u2192 Create Alert',
                 'Select the alert type (Budget, Anomaly, Performance, Error)',
                 'Configure the condition and threshold',
@@ -307,7 +308,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 code: '''curl -X POST "https://api.integritystudio.ai/v1/alerts" \\
   -H "Authorization: Bearer \$API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -331,7 +332,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Conditions Section
-        _DocSection(
+        DocSection(
           key: const Key('alert-conditions-section'),
           icon: LucideIcons.filter,
           title: 'Alert Conditions',
@@ -348,7 +349,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Metric', 'Description', 'Unit'],
                 rows: [
                   ['gen_ai.client.cost', 'Total cost incurred', 'USD'],
@@ -364,7 +365,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Operator', 'Description', 'Example'],
                 rows: [
                   ['gt', 'Greater than', 'cost > 100'],
@@ -381,7 +382,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              _BulletList(items: const [
+              DocBulletList(bulletColor: AppColors.warning, items: const [
                 '5m, 15m, 30m \u2014 Short-term spikes',
                 '1h, 6h, 12h \u2014 Hourly patterns',
                 '24h, 7d, 30d \u2014 Daily/weekly/monthly budgets',
@@ -391,7 +392,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Notification Channels Section
-        _DocSection(
+        DocSection(
           key: const Key('notification-channels-section'),
           icon: LucideIcons.send,
           title: 'Notification Channels',
@@ -448,7 +449,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Alert Severity Section
-        _DocSection(
+        DocSection(
           key: const Key('alert-severity-section'),
           icon: LucideIcons.thermometer,
           title: 'Alert Severity',
@@ -488,7 +489,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Schedules Section
-        _DocSection(
+        DocSection(
           key: const Key('alert-schedules-section'),
           icon: LucideIcons.clock,
           title: 'Alert Schedules',
@@ -505,7 +506,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 code: '''{
   "schedule": {
     "timezone": "America/New_York",
@@ -524,7 +525,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              _BulletList(items: const [
+              DocBulletList(bulletColor: AppColors.warning, items: const [
                 'Primary \u2192 Backup escalation after 15 minutes',
                 'Weekend routing to on-call team',
                 'Holiday schedules with reduced alerting',
@@ -535,7 +536,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Best Practices Section
-        _DocSection(
+        DocSection(
           key: const Key('best-practices-section'),
           icon: LucideIcons.lightbulb,
           title: 'Best Practices',
@@ -576,7 +577,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Example Alerts Section
-        _DocSection(
+        DocSection(
           key: const Key('example-alerts-section'),
           icon: LucideIcons.fileCode,
           title: 'Example Alert Configurations',
@@ -588,7 +589,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 code: '''{
   "name": "Daily Cost Budget - Production",
   "type": "budget",
@@ -613,7 +614,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 code: '''{
   "name": "P95 Latency Alert",
   "type": "performance",
@@ -637,7 +638,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 code: '''{
   "name": "Token Usage Anomaly",
   "type": "anomaly",
@@ -657,14 +658,14 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Related Docs Section
-        _DocSection(
+        DocSection(
           key: const Key('related-docs-section'),
           icon: LucideIcons.bookOpen,
           title: 'Related Documentation',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _BulletList(items: const [
+              DocBulletList(bulletColor: AppColors.warning, items: const [
                 'Alerts API Reference \u2014 /docs/api#alerts',
                 'Slack Integration \u2014 /docs/integrations',
                 'Cost Tracking \u2014 /docs/observability',
@@ -680,65 +681,6 @@ class _DocsContent extends StatelessWidget {
 
 // Reusable Components
 
-class _DocSection extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Widget child;
-
-  const _DocSection({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: title,
-      container: true,
-      child: Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.warning,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                ),
-                child: Icon(icon, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.headingSM.copyWith(
-                    color: AppColors.warning,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          child,
-        ],
-      ),
-      ),
-    );
-  }
-}
-
 class _FeatureGrid extends StatelessWidget {
   const _FeatureGrid();
 
@@ -748,79 +690,31 @@ class _FeatureGrid extends StatelessWidget {
       spacing: AppSpacing.md,
       runSpacing: AppSpacing.md,
       children: const [
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.dollarSign,
           title: 'Budget Protection',
           description: 'Never exceed your AI spend limits.',
+          accentColor: AppColors.warning,
         ),
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.brain,
           title: 'Smart Detection',
           description: 'ML-powered anomaly detection.',
+          accentColor: AppColors.warning,
         ),
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.zap,
           title: 'Instant Routing',
           description: 'Alerts delivered in seconds.',
+          accentColor: AppColors.warning,
         ),
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.settings,
           title: 'Flexible Rules',
           description: 'Custom thresholds and schedules.',
+          accentColor: AppColors.warning,
         ),
       ],
-    );
-  }
-}
-
-class _FeatureCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-
-  const _FeatureCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray700,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray600),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.warning.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-            ),
-            child: Icon(icon, color: AppColors.warning, size: 18),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            title,
-            style: AppTypography.bodyMD.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            description,
-            style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1100,178 +994,3 @@ class _BestPractice extends StatelessWidget {
   }
 }
 
-class _NumberedList extends StatelessWidget {
-  final List<String> items;
-
-  const _NumberedList({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: items.asMap().entries.map((entry) {
-        final index = entry.key + 1;
-        final item = entry.value;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    '$index',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.warning,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    item,
-                    style: AppTypography.bodyMD.copyWith(
-                      color: AppColors.gray300,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _CodeBlock extends StatelessWidget {
-  final String code;
-
-  const _CodeBlock({required this.code});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray900,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: SelectableText(
-        code,
-        style: TextStyle(
-          fontFamily: 'JetBrains Mono',
-          fontSize: 13,
-          color: AppColors.gray300,
-          height: 1.5,
-        ),
-      ),
-    );
-  }
-}
-
-class _SimpleTable extends StatelessWidget {
-  final List<String> headers;
-  final List<List<String>> rows;
-
-  const _SimpleTable({required this.headers, required this.rows});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        child: Table(
-          border: TableBorder.symmetric(
-            inside: BorderSide(color: AppColors.gray700),
-          ),
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: AppColors.gray800),
-              children: headers
-                  .map((h) => Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Text(
-                          h,
-                          style: AppTypography.bodySM.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ))
-                  .toList(),
-            ),
-            ...rows.map(
-              (row) => TableRow(
-                children: row
-                    .map((cell) => Padding(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          child: Text(
-                            cell,
-                            style: AppTypography.bodySM.copyWith(
-                              color: AppColors.gray300,
-                            ),
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BulletList extends StatelessWidget {
-  final List<String> items;
-
-  const _BulletList({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: items
-          .map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '\u2022 ',
-                      style: AppTypography.bodyMD.copyWith(
-                        color: AppColors.warning,
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: AppTypography.bodyMD.copyWith(
-                          color: AppColors.gray300,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ))
-          .toList(),
-    );
-  }
-}
