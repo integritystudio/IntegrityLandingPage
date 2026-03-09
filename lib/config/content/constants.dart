@@ -52,26 +52,31 @@ abstract final class CTAText {
 // =============================================================================
 
 /// External URLs and links used throughout the application.
+/// Values with content.yaml equivalents are loaded via [Content];
+/// the rest are defined as constants here.
 abstract final class ExternalUrls {
-  // Calendly
-  static const String calendlyDemo = 'https://calendly.com/alyshialedlie/15min';
+  // Calendly (from content.yaml: urls.external.calendly_demo / calendly_intro)
+  static String get calendlyDemo => Content.calendlyUrl;
+  static String get calendlyIntro => Content.calendlyIntroUrl;
 
-  // Status page
-  static const String statusPage = 'https://integritystudio.ai/status';
+  // Status page (from content.yaml: urls.external.status_page)
+  static String get statusPage => Content.statusPageUrl;
 
   // Documentation
   static const String euAiAct = 'https://integritystudio.ai/docs/tracing#eu-ai-act';
 
-  // Social media
-  static const String linkedIn = 'https://linkedin.com/company/integrity-studio-ai';
-  static const String github = 'https://github.com/integritystudio';
+  // Social media (from content.yaml: urls.external.linkedin / github)
+  static String get linkedIn => Content.linkedInUrl;
+  static String get github => Content.githubUrl;
 
-  // Personal (founder)
-  static const String founderLinkedIn = 'https://www.linkedin.com/in/aledlie';
+  // Personal (from content.yaml: urls.external.founder_linkedin)
+  static String get founderLinkedIn => Content.founderLinkedInUrl;
 
-  // Location
-  static const String googleMaps =
-      'https://www.google.com/maps/search/?api=1&query=248+Addie+Roy+Road+Austin+TX+78746';
+  // Calendly deep dive (from content.yaml: urls.external.deep_dive)
+  static String get calendlyDeepDive => Content.deepDiveUrl;
+
+  // Location (from content.yaml: urls.external.address)
+  static String get googleMaps => Content.addressUrl;
 }
 
 // =============================================================================
@@ -153,14 +158,16 @@ abstract final class TrustIndicators {
 // =============================================================================
 
 /// Platform performance and scale metrics for social proof.
+/// Platform performance and scale metrics.
+/// Values loaded from content.yaml: platform_metrics.*
 abstract final class PlatformMetrics {
-  static const String uptime = '99.9%';
-  static const String uptimeSla = 'SLA Guaranteed';
-  static const String tracesProcessed = '10M+';
-  static const String tracesProcessedPeriod = 'Daily';
-  static const String aiTeams = '500+';
-  static const String setupTime = '5 min';
-  static const String setupTimeLabel = 'Average';
+  static String get uptime => Content.metricsUptime;
+  static String get uptimeSla => Content.metricsUptimeSla;
+  static String get tracesProcessed => Content.metricsTracesProcessed;
+  static String get tracesProcessedPeriod => Content.metricsTracesProcessedPeriod;
+  static String get aiTeams => Content.metricsAiTeams;
+  static String get setupTime => Content.metricsSetupTime;
+  static String get setupTimeLabel => Content.metricsSetupTimeLabel;
 }
 
 // =============================================================================
@@ -200,18 +207,6 @@ abstract final class FormMessages {
       'Something went wrong. Please try again or email us directly at ${CompanyInfo.email}';
   static const String subscribeSuccess = 'Thanks for subscribing!';
   static const String subscribeError = 'Could not subscribe. Please try again.';
-}
-
-// =============================================================================
-// PROMO CODES
-// =============================================================================
-
-/// Active promotional codes and offers.
-abstract final class PromoCodes {
-  static const String whylabsMigration = 'WHYLABS2025';
-  static const String whylabsOfferDescription =
-      'Get 3 months free on Team tier when you migrate from WhyLabs. '
-      'Use code $whylabsMigration at checkout.';
 }
 
 // =============================================================================

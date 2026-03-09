@@ -1,18 +1,18 @@
 // Regression tests: Calendly URL and duration labels must stay consistent
 // across all content sources (constants, content models, content.yaml).
 //
-// Background: The Calendly event is 15 minutes but labels in 4 files
-// previously said "30 minutes". These tests prevent that drift.
+// Background: Calendly URL must point to integritystudio/demo.
+// Labels in content files must say "15-minute". These tests prevent drift.
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 
 void main() {
-  group('Calendly duration consistency', () {
-    test('ExternalUrls.calendlyDemo contains 15min slug', () {
-      expect(ExternalUrls.calendlyDemo, contains('15min'));
-      expect(ExternalUrls.calendlyDemo, isNot(contains('30min')));
+  group('Calendly URL consistency', () {
+    test('ExternalUrls.calendlyDemo points to integritystudio/demo', () {
+      expect(ExternalUrls.calendlyDemo,
+          equals('https://calendly.com/integritystudio/demo'));
     });
 
     test('ContactContent calendlyUrl matches ExternalUrls constant', () {
@@ -64,9 +64,11 @@ void main() {
       yamlContent = file.readAsStringSync();
     });
 
-    test('content.yaml calendly_demo URL contains 15min', () {
-      expect(yamlContent, contains('calendly.com/alyshialedlie/15min'));
-      expect(yamlContent, isNot(contains('calendly.com/alyshialedlie/30min')));
+    test('content.yaml calendly_demo URL points to integritystudio', () {
+      expect(yamlContent,
+          contains('calendly.com/integritystudio/demo'));
+      expect(yamlContent,
+          isNot(contains('calendly.com/alyshialedlie')));
     });
 
     test('content.yaml contact method value says 15-minute', () {
@@ -96,7 +98,7 @@ void main() {
       }
     });
 
-    test('JSON-LD calendly URLs use 15min slug', () {
+    test('JSON-LD calendly URLs point to integritystudio', () {
       final file = File('jsonld_combined.json');
       if (!file.existsSync()) {
         markTestSkipped('jsonld_combined.json not present');
@@ -104,9 +106,8 @@ void main() {
       }
 
       final raw = file.readAsStringSync();
-      expect(raw, isNot(contains('calendly.com/alyshialedlie/30min')));
-      // Verify 15min URLs are present
-      expect(raw, contains('calendly.com/alyshialedlie/15min'));
+      expect(raw, isNot(contains('calendly.com/alyshialedlie')));
+      expect(raw, contains('calendly.com/integritystudio/demo'));
     });
   });
 

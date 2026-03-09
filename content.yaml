@@ -29,11 +29,14 @@ company:
 # =============================================================================
 urls:
   external:
-    calendly_demo: "https://calendly.com/alyshialedlie/15min"
+    calendly_demo: "https://calendly.com/integritystudio/demo"
+    calendly_intro: "https://calendly.com/integritystudio/intro"
     status_page: "https://integritystudio.ai/status"
     linkedin: "https://linkedin.com/company/integrity-studio-ai"
     github: "https://github.com/integritystudio"
     founder_linkedin: "https://linkedin.com/in/aledlie"
+    deep_dive: "https://calendly.com/integritystudio/deep-dive"
+    address: "https://www.google.com/maps/search/?api=1&query=248+Addie+Roy+Road+Austin+TX+78746"
 
   internal:
     home: "/"
@@ -108,6 +111,7 @@ platform_metrics:
   uptime_sla: &uptime_sla "SLA Guaranteed"
   traces_processed: &traces_processed "10M+ (Jan 2026)"
   traces_processed_period: &traces_period "Daily"
+  ai_teams: "500+"
   setup_time: &setup_time "15 min"
   setup_time_label: &setup_label "Average"
 
@@ -141,14 +145,6 @@ form_messages:
   subscribe:
     success: "Thanks for subscribing!"
     error: "Could not subscribe. Please try again."
-
-# =============================================================================
-# PROMO CODES
-# =============================================================================
-promo_codes:
-  whylabs_migration:
-    code: "WHYLABS2026"
-    description: "Get 3 months free on Team tier when you migrate from WhyLabs. Use code WHYLABS2026 at checkout."
 
 # =============================================================================
 # COMPLIANCE DISCLAIMERS
@@ -757,7 +753,7 @@ contact:
     - icon: "calendar"
       label: "Schedule a Demo"
       value: "Book a 15-minute call"
-      url: "https://calendly.com/alyshialedlie/15min"
+      url: "https://calendly.com/integritystudio/demo"
       is_primary: true
 
     - icon: "map-pin"

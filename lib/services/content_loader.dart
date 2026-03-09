@@ -72,10 +72,13 @@ class ContentLoader {
   // ===========================================================================
 
   String get calendlyUrl => _getString('urls.external.calendly_demo');
+  String get calendlyIntroUrl => _getString('urls.external.calendly_intro');
   String get statusPageUrl => _getString('urls.external.status_page');
   String get linkedInUrl => _getString('urls.external.linkedin');
   String get githubUrl => _getString('urls.external.github');
   String get founderLinkedInUrl => _getString('urls.external.founder_linkedin');
+  String get deepDiveUrl => _getString('urls.external.deep_dive');
+  String get addressUrl => _getString('urls.external.address');
 
   // ===========================================================================
   // CTA TEXT
@@ -101,9 +104,12 @@ class ContentLoader {
   // ===========================================================================
 
   String get metricsUptime => _getString('platform_metrics.uptime');
+  String get metricsUptimeSla => _getString('platform_metrics.uptime_sla');
   String get metricsTracesProcessed => _getString('platform_metrics.traces_processed');
+  String get metricsTracesProcessedPeriod => _getString('platform_metrics.traces_processed_period');
   String get metricsAiTeams => _getString('platform_metrics.ai_teams');
   String get metricsSetupTime => _getString('platform_metrics.setup_time');
+  String get metricsSetupTimeLabel => _getString('platform_metrics.setup_time_label');
 
   // ===========================================================================
   // PRICING
@@ -228,13 +234,6 @@ class ContentLoader {
   String get disclaimerEuAiActShort => _getString('disclaimers.eu_ai_act_short');
   String get disclaimerSecurity => _getString('disclaimers.security');
   String get disclaimerGeneral => _getString('disclaimers.general');
-
-  // ===========================================================================
-  // PROMO CODES
-  // ===========================================================================
-
-  String get promoWhylabsCode => _getString('promo_codes.whylabs_migration.code');
-  String get promoWhylabsDescription => _getString('promo_codes.whylabs_migration.description');
 
   // ===========================================================================
   // STATISTICS - INDUSTRY
@@ -436,10 +435,13 @@ class Content {
 
   // URLs
   static String get calendlyUrl => _loader.calendlyUrl;
+  static String get calendlyIntroUrl => _loader.calendlyIntroUrl;
   static String get statusPageUrl => _loader.statusPageUrl;
   static String get linkedInUrl => _loader.linkedInUrl;
   static String get githubUrl => _loader.githubUrl;
   static String get founderLinkedInUrl => _loader.founderLinkedInUrl;
+  static String get deepDiveUrl => _loader.deepDiveUrl;
+  static String get addressUrl => _loader.addressUrl;
 
   // CTA Text
   static String get ctaStartFreeTrial => _loader.ctaStartFreeTrial;
@@ -456,9 +458,12 @@ class Content {
 
   // Platform Metrics
   static String get metricsUptime => _loader.metricsUptime;
+  static String get metricsUptimeSla => _loader.metricsUptimeSla;
   static String get metricsTracesProcessed => _loader.metricsTracesProcessed;
+  static String get metricsTracesProcessedPeriod => _loader.metricsTracesProcessedPeriod;
   static String get metricsAiTeams => _loader.metricsAiTeams;
   static String get metricsSetupTime => _loader.metricsSetupTime;
+  static String get metricsSetupTimeLabel => _loader.metricsSetupTimeLabel;
 
   // Pricing
   static String get pricingTitle => _loader.pricingTitle;
@@ -546,10 +551,6 @@ class Content {
   static String get disclaimerEuAiActShort => _loader.disclaimerEuAiActShort;
   static String get disclaimerSecurity => _loader.disclaimerSecurity;
   static String get disclaimerGeneral => _loader.disclaimerGeneral;
-
-  // Promo Codes
-  static String get promoWhylabsCode => _loader.promoWhylabsCode;
-  static String get promoWhylabsDescription => _loader.promoWhylabsDescription;
 
   // Statistics - Industry
   static String get statisticsMarketSizeValue => _loader.statisticsMarketSizeValue;

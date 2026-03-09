@@ -7,7 +7,7 @@ import 'constants.dart';
 /// Status section content.
 abstract final class StatusContentVariants {
   /// Current production content
-  static const current = StatusContent(
+  static final current = StatusContent(
     title: 'Platform Status',
     subtitle: 'Real-time operational health and performance metrics',
     statusBadge: 'All Systems Operational',
@@ -18,7 +18,7 @@ abstract final class StatusContentVariants {
     statusPageCta: 'View Full Status Page',
   );
 
-  static const _metrics = [
+  static final _metrics = [
     StatusMetricContent(
       label: 'Uptime',
       value: PlatformMetrics.uptime,

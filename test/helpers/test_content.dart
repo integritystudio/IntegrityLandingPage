@@ -26,10 +26,13 @@ company:
 urls:
   external:
     calendly_demo: "https://calendly.com/test"
+    calendly_intro: "https://calendly.com/test-intro"
     status_page: "https://status.test.com"
     linkedin: "https://linkedin.com/test"
     github: "https://github.com/test"
     founder_linkedin: "https://linkedin.com/in/founder"
+    deep_dive: "https://calendly.com/test-deep-dive"
+    address: "https://www.google.com/maps/search/?api=1&query=Test+Address"
 
 cta_text:
   primary:
@@ -54,9 +57,12 @@ trust_indicators:
 
 platform_metrics:
   uptime: "99.9%"
+  uptime_sla: "SLA Guaranteed"
   traces_processed: "10M+"
+  traces_processed_period: "Daily"
   ai_teams: "500+"
   setup_time: "5 min"
+  setup_time_label: "Average"
 
 pricing_constants:
   annual_discount: "Save 20%"
@@ -385,11 +391,6 @@ disclaimers:
   security: "Security certifications in progress."
   general: "This platform provides AI governance tools."
 
-promo_codes:
-  whylabs_migration:
-    code: "WHYLABS2025"
-    description: "Get 3 months free on Team tier."
-
 statistics:
   industry:
     market_size:
@@ -493,10 +494,13 @@ company:
 urls:
   external:
     calendly_demo: "https://calendly.com/test"
+    calendly_intro: "https://calendly.com/test-intro"
     status_page: "https://status.test.com"
     linkedin: "https://linkedin.com/test"
     github: "https://github.com/test"
     founder_linkedin: "https://linkedin.com/in/founder"
+    deep_dive: "https://calendly.com/test-deep-dive"
+    address: "https://www.google.com/maps/search/?api=1&query=Test+Address"
 
 cta_text:
   primary:
@@ -520,9 +524,12 @@ trust_indicators:
 
 platform_metrics:
   uptime: "99.9%"
+  uptime_sla: "SLA Guaranteed"
   traces_processed: "10M+"
+  traces_processed_period: "Daily"
   ai_teams: "500+"
   setup_time: "5 min"
+  setup_time_label: "Average"
 
 pricing_constants:
   annual_discount: "Save 20%"
@@ -696,11 +703,6 @@ disclaimers:
   eu_ai_act_short: "Short disclaimer"
   security: "Security disclaimer"
   general: "General disclaimer"
-
-promo_codes:
-  whylabs_migration:
-    code: "TEST2025"
-    description: "Test promo"
 ''';
 
 /// Set up content loader for tests.

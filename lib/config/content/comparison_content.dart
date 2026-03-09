@@ -29,8 +29,6 @@ abstract final class ComparisonPageVariants {
     whyChooseThem: _whylabsWhyThem,
     migrationSteps: _whylabsMigrationSteps,
     migrationTimeEstimate: 'Most teams complete migration in under 1 hour',
-    specialOfferBadge: 'WhyLabs Migration Special',
-    specialOfferText: PromoCodes.whylabsOfferDescription,
   );
 
   /// Arize AI comparison page content
@@ -164,8 +162,7 @@ abstract final class ComparisonPageVariants {
       number: 2,
       title: 'Create Integrity Studio Account',
       description:
-          'Sign up for a free account. Existing WhyLabs customers get 3 months free '
-          'on Team tier with code ${PromoCodes.whylabsMigration}.',
+          'Sign up for a free account and start your migration.',
       docsUrl: '/signup?ref=whylabs',
     ),
     MigrationStep(

@@ -8,7 +8,7 @@ import 'constants.dart';
 /// Contact section content.
 abstract final class ContactContentVariants {
   /// Current production content
-  static const current = ContactContent(
+  static final current = ContactContent(
     sectionId: 'contact',
     title: 'Get in Touch',
     subtitle: "Let's discuss how we can help",
@@ -92,7 +92,7 @@ abstract final class ContactContentVariants {
     ),
   ];
 
-  static const _contactMethods = [
+  static final _contactMethods = [
     ContactMethodContent(
       icon: LucideIcons.mail,
       label: 'Email',

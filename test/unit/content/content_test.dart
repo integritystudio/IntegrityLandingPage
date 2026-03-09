@@ -343,12 +343,11 @@ void main() {
         expect(contact.calendlyCtaText, isNotEmpty);
       });
 
-      test('calendly duration is 15 minutes everywhere', () {
+      test('calendly URL points to integritystudio', () {
         final contact = AppContent.contact;
 
-        // URL slug must be 15min
-        expect(contact.calendlyUrl, contains('15min'));
-        expect(contact.calendlyUrl, isNot(contains('30min')));
+        expect(contact.calendlyUrl,
+            equals('https://calendly.com/integritystudio/demo'));
 
         // "Schedule a Demo" contact method label
         final demoMethod = contact.contactMethods.firstWhere(

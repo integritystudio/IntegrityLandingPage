@@ -109,13 +109,9 @@ void main() {
         }
       });
 
-      test('has special offer', () {
-        expect(ComparisonPageVariants.whylabs.specialOfferBadge, isNotNull);
-        expect(ComparisonPageVariants.whylabs.specialOfferText, isNotNull);
-        expect(
-          ComparisonPageVariants.whylabs.specialOfferText,
-          contains('WHYLABS2025'),
-        );
+      test('has no special offer', () {
+        expect(ComparisonPageVariants.whylabs.specialOfferBadge, isNull);
+        expect(ComparisonPageVariants.whylabs.specialOfferText, isNull);
       });
 
       test('has reasons to choose both platforms', () {
@@ -202,21 +198,9 @@ void main() {
           await tester.pump();
           await tester.pump();
 
-          // Use key-based lookup for special offer section
+          // Special offer section should not render (promo removed)
           final section = find.byKey(const Key('special-offer-section'));
-          expect(section, findsOneWidget);
-          expect(
-            find.descendant(of: section, matching: find.text('WhyLabs Migration Special')),
-            findsOneWidget,
-          );
-          expect(
-            find.descendant(of: section, matching: find.textContaining('WHYLABS2025')),
-            findsOneWidget,
-          );
-          expect(
-            find.descendant(of: section, matching: find.byIcon(LucideIcons.gift)),
-            findsOneWidget,
-          );
+          expect(section, findsNothing);
         });
 
         testWidgets('renders key differentiators section', (tester) async {

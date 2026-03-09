@@ -3612,7 +3612,7 @@
           "contactType": "sales",
           "email": "hello@integritystudio.ai",
           "telephone": "(512) 829-1644",
-          "url": "https://calendly.com/alyshialedlie/15min",
+          "url": "https://calendly.com/integritystudio/demo",
           "availableLanguage": "English",
           "areaServed": "Global"
         },
@@ -3628,7 +3628,7 @@
         "name": "Schedule Demo",
         "target": {
           "@type": "EntryPoint",
-          "urlTemplate": "https://calendly.com/alyshialedlie/15min",
+          "urlTemplate": "https://calendly.com/integritystudio/demo",
           "actionPlatform": [
             "http://schema.org/DesktopWebPlatform",
             "http://schema.org/MobileWebPlatform"
@@ -4202,7 +4202,7 @@
       "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
       "location": {
         "@type": "VirtualLocation",
-        "url": "https://calendly.com/alyshialedlie/15min"
+        "url": "https://calendly.com/integritystudio/demo"
       },
       "organizer": {
         "@type": "Organization",
@@ -4219,7 +4219,7 @@
         "price": "0",
         "priceCurrency": "USD",
         "availability": "https://schema.org/InStock",
-        "url": "https://calendly.com/alyshialedlie/15min",
+        "url": "https://calendly.com/integritystudio/demo",
         "validFrom": "2024-01-01"
       },
       "duration": "PT30M",
