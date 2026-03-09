@@ -134,6 +134,24 @@ The fix removes `'--disable-gpu'` from the headless Chrome args. It landed on ma
 
 ---
 
+## Done: Widget Duplication Consolidation (#88)
+
+**Severity:** MEDIUM
+**Category:** Code Quality (DRY)
+**Analysis:** [docs/duplicate-findings.md](duplicate-findings.md)
+
+294 widgets scanned; 358 duplicate pairs found at >=70% Jaccard similarity. Primary source: docs pages re-declare private widgets (`_SimpleTable`, `_CodeBlock`, `_BulletList`, `_DocSection`, `_FeatureCard`, `_InfoCallout`/`_WarningCallout`/`_SuccessCallout`) that already exist as shared components in `lib/widgets/docs/doc_components.dart`. 27 pairs are 100% byte-identical.
+
+**Phases:**
+1. Replace private docs widgets with shared `doc_components.dart` equivalents (~200 pairs eliminated)
+2. Extract `DocsPageScaffold` for 7 docs pages (~21 pairs)
+3. Extract shared hero/page templates (~30 pairs)
+4. Low-priority: button base, trust badge, page shells (~10 pairs)
+
+**Status:** Done — Phase 1 complete. Replaced private docs widgets with shared `doc_components.dart` equivalents across all 5 target pages (agents, tracing, api, alerts, quickstart). ~200 duplicate pairs eliminated. Commits: 3aae289 (doc_components enhancements), a51ccfb, 088d9a0, c1e167f, 969e8e1, 41bd76c. Phases 2-4 deferred.
+
+---
+
 ## Deferred: Platform-Limited Test Coverage Gaps
 
 These changelog items have error-handling code that cannot be tested without `flutter test --platform chrome`.
@@ -163,91 +181,8 @@ When web-platform CI is added, these MUST be covered.
 
 ---
 
-## ~~Open~~ Done: AnalyticsService Test Observability (#81)
 
-**Severity:** MEDIUM
-**Category:** Test Quality
-**File:** `test/controllers/landing_controller_test.dart`
 
-Controller analytics tests (e.g. `trackTierSelection`, `handleGetStarted`, `handleFeatureInteraction`) use `returnsNormally` to verify no exception is thrown, but cannot detect regressions in analytics call arguments. If `AnalyticsService.trackPricingView` were called with the wrong tier string or stopped being called entirely, these tests would still pass.
-
-**Recommendation:** Introduce an `AnalyticsService` mock/spy (e.g. via a static `trackPricingView` call log or dependency injection) to assert that analytics methods are called with the correct arguments.
-
-**Status:** Done — `@visibleForTesting` call log spy added to `lib/services/analytics.dart` (`enableCallLog()`, `resetForTesting()`, `callLog`). All 8 controller analytics tests upgraded from `returnsNormally` to argument-verifying assertions. Committed in `678b892`.
-
----
-
-## ~~Open~~ Done: Extract Test Constants to Shared File (#82)
-
-**Severity:** LOW
-**Category:** Test Quality
-**File:** `test/pages/landing_page_test.dart`
-
-`kShortAnimationSettle`, `kNavigationSettle`, `kScrollToPricingOffset`, and `kScrollToCTAOffset` are defined at the top of `landing_page_test.dart`. If other test files use the same raw durations/offsets, these constants should be moved to `test/helpers/test_constants.dart` to avoid redeclaration.
-
-**Status:** Done — `test/helpers/test_constants.dart` created with all 4 constants. Landing page test definitions removed; 7 test files updated to import and use the shared constants. Committed in `d00205b`.
-
----
-
-## ~~Open~~ Done: BACKLOG Entry Numbering (#83)
-
-**Severity:** LOW
-**Category:** Documentation
-**File:** `docs/BACKLOG.md`
-
-Recent backlog entries (AnalyticsService mock, test constants) lack tracking numbers (`#N`) unlike earlier numbered items. Add sequential IDs for consistency.
-
-**Status:** Done — IDs #81–#87 assigned to all unnumbered entries in this session.
-
----
-
-## ~~Open~~ Done: Hardcoded Content Duplicating content.yaml
-
-### ~~Open~~ Done: "Book a 15-minute call" duplicated in Dart source (#84)
-
-**Severity:** LOW
-**Category:** Code Quality (DRY)
-**Files:** `lib/config/content/contact_content.dart:106`, `lib/pages/contact_page.dart:175`
-
-The string `'Book a 15-minute call'` is hardcoded in two Dart files despite being defined in `content.yaml` (line 761, contact methods). These should read from the yaml-loaded contact method value instead of duplicating the string.
-
-**Status:** Done — added `Content.contactScheduleDemoValue` accessor to `content_loader.dart` (reads `contact.contact_methods[label='Schedule a Demo'].value` from yaml). `contact_page.dart:175` now uses the accessor. Committed in `23cab05`.
-
----
-
-### ~~Open~~ Done: "Austin, TX" hardcoded in about page (#85)
-
-**Severity:** LOW
-**Category:** Code Quality (DRY)
-**File:** `lib/pages/about_page.dart:458`
-
-`_StatData('Austin, TX', 'Headquarters', ...)` hardcodes the location instead of using `CompanyInfo.locationCity` / `CompanyInfo.locationRegion` which are defined in constants and content.yaml.
-
-**Status:** Done — added `CompanyInfo.locationRegionAbbrev = 'TX'` to `constants.dart`. `about_page.dart:458` now uses `'${CompanyInfo.locationCity}, ${CompanyInfo.locationRegionAbbrev}'`. Committed in `23cab05` + `ff68a7f`.
-
----
-
-### ~~Open~~ Done: `privacy@integritystudio.ai` hardcoded in legal page (#86)
-
-**Severity:** LOW
-**Category:** Code Quality
-**File:** `lib/pages/legal_page.dart:325,410,755`
-
-The privacy contact email `privacy@integritystudio.ai` is hardcoded 3 times in the legal page with no content.yaml entry.
-
-**Status:** Done — added `CompanyInfo.privacyEmail = 'privacy@integritystudio.ai'` to `constants.dart`. All 3 occurrences in `legal_page.dart` use `${CompanyInfo.privacyEmail}`. Committed in `23cab05`.
-
----
-
-### ~~Open~~ Done: Hardcoded "5-minute" setup claims in marketing copy (#87)
-
-**Severity:** LOW
-**Category:** Content Consistency
-**Files:** `lib/config/content/comparison_content.dart:53,212,242`, `lib/config/content/resources_content.dart:29`, `lib/config/content/services_content.dart:111`, `lib/pages/docs_quickstart_page.dart:107,132`, `lib/pages/docs_index_page.dart:222`
-
-Multiple files contain hardcoded "5-minute" or "under 5 minutes" setup time claims inconsistent with `PlatformMetrics.setupTime` ("15 min" from content.yaml).
-
-**Status:** Done — comparison_content.dart literals updated; docs pages use `PlatformMetrics.setupTime`; dead-code variants updated; stale doc comment and test stub fixed. Committed in `8ae8936` + `eca800a`. Note: `content.yaml` prose strings at lines 465, 832 still contain "5 minutes" (pre-existing yaml content inconsistency, out of code scope).
 
 ## Open: E2E Test Timeout and Navigation Issues
 
@@ -270,53 +205,12 @@ Two Playwright e2e tests timeout waiting for Flutter to initialize on production
 
 ---
 
-### #79: E2E Anchor Navigation Response Undefined
 
-**Severity:** LOW
-**Category:** Test Infrastructure
-**File:** `e2e/tests/footer-links.spec.ts:75`
-
-Test `anchor route #features navigates to home page` fails with:
-```
-Error: expect(received).toBe(expected) // Object.is equality
-Expected: 200
-Received: undefined
-```
-
-At line: `expect(response?.status()).toBe(200);`
-
-**Root cause:** Hash navigation (`page.goto('/#features')`) is client-side only — `response` object is undefined for anchor-only navigations. The test should check if response is null before asserting status.
-
-**Fix:** Change assertion from `expect(response?.status()).toBe(200)` to `expect(response === null || response.status() === 200).toBe(true)` (accept null response for hash-only navigation).
-
-**Status:** Done — Fixed in `e2e/tests/footer-links.spec.ts` with `if (response) { expect(response.status()).toBe(200); }`. Committed in `a902ef5`.
-
----
-
-### #80: Flutter SDK ink_sparkle.frag Shader Format Version Mismatch
-
-**Severity:** MEDIUM
-**Category:** Flutter SDK
-**Root cause:** Stale compiled shader artifacts from previous Flutter version
-
-During `flutter test` run, shader format version mismatch causes 36 test failures in `cookie_banner_test.dart`:
-```
-Exception: Asset 'shaders/ink_sparkle.frag' manifest could not be decoded: INVALID_ARGUMENT:
-Unsupported runtime stages format version. Expected 1, got 0.
-```
-
-**Upstream context:** Flutter PR #175470 (merged Dec 2, 2025) introduced flatbuffer format versioning for impellerc. Stale pre-versioning compiled artifacts (v0) trigger the error when loaded by new engine expecting v1.
-
-**Workaround applied:** `flutter clean && flutter pub get` clears artifacts and forces recompile with correct format version. After clean, all 2319 tests pass.
-
-**Status:** Closed (workaround in place). Recommend running `flutter clean` on CI before test runs or upgrading to a newer Flutter stable that backports the engine fix.
-
----
-
-*Last updated: 2026-03-09 (e2e suite and Flutter test completion)*
-*Migrated items: 24 total → docs/changelog/1.0/CHANGELOG.md:*
-  *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit*
-  *- 13 items (all LOW) from backlog implementation sprint*
-  *- 2 items (all LOW) from code review test coverage findings*
-*Remaining open: 1 blocked (#77) + 5 deferred (OAuth #8-#10, test coverage #75-#76) + 1 deferred (#78 intermittent timeout)*
-*Closed this session: #79 (anchor nav), #80 (shader format), #81 (analytics spy), #82 (test constants), #83 (backlog numbering), #84 (15-min call), #85 (Austin TX), #86 (privacy email), #87 (5-min setup)*
+*Last updated: 2026-03-09 (widget duplication analysis + backlog migration)*
+*Migrated items: 32 total → docs/changelog/1.0/CHANGELOG.md:*
+  *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit (2026-02-13)*
+  *- 13 items (all LOW) from backlog implementation sprint (2026-02-13)*
+  *- 2 items (all LOW) from code review test coverage findings (2026-02-13)*
+  *- 8 items (1 MEDIUM, 7 LOW) from test quality & code quality session (2026-03-09)*
+*Remaining open: 0 open + 1 blocked (#77) + 5 deferred (OAuth #8-#10, test coverage #75-#76) + 1 deferred (#78 intermittent timeout)*
+*Migrated this session (2026-03-09): #79 (anchor nav), #80 (shader format), #81 (analytics spy), #82 (test constants), #83 (backlog numbering), #84 (15-min call), #85 (Austin TX), #86 (privacy email), #87 (5-min setup)*
