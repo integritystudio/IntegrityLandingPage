@@ -8,7 +8,7 @@ import 'constants.dart';
 /// About section content.
 abstract final class AboutContentVariants {
   /// Current production content
-  static const current = AboutContent(
+  static final current = AboutContent(
     sectionId: 'about',
     title: 'About ${CompanyInfo.name}',
     subtitle: 'Building Trust in AI Systems',
@@ -70,7 +70,7 @@ abstract final class AboutContentVariants {
     ),
   ];
 
-  static const _team = [
+  static final _team = [
     TeamMemberContent(
       name: 'Chase Hoffman',
       role: 'Co-Founder and President',

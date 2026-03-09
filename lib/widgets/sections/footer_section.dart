@@ -134,13 +134,13 @@ class FooterSection extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
         Row(
           children: [
-            const _SocialLink(
+            _SocialLink(
               icon: LucideIcons.linkedin,
               url: ExternalUrls.linkedIn,
               label: 'LinkedIn',
             ),
             const SizedBox(width: AppSpacing.md),
-            const _SocialLink(
+            _SocialLink(
               icon: LucideIcons.github,
               url: ExternalUrls.github,
               label: 'GitHub',

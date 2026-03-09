@@ -32,13 +32,37 @@ void main() {
   });
 
   group('ExternalUrls', () {
-    test('calendly URL points to 15-minute meeting', () {
-      expect(ExternalUrls.calendlyDemo, contains('15min'));
-      expect(ExternalUrls.calendlyDemo, isNot(contains('30min')));
+    test('calendly URL points to integritystudio/demo', () {
+      expect(ExternalUrls.calendlyDemo,
+          equals('https://calendly.com/integritystudio/demo'));
     });
 
     test('calendly URL is a valid calendly.com link', () {
       expect(ExternalUrls.calendlyDemo, startsWith('https://calendly.com/'));
+    });
+  });
+
+  group('PlatformMetrics', () {
+    test('setupTime matches content.yaml value', () {
+      expect(PlatformMetrics.setupTime, equals('15 min'));
+    });
+
+    test('setupTimeLabel matches content.yaml value', () {
+      expect(PlatformMetrics.setupTimeLabel, equals('Average'));
+    });
+
+    test('uptime matches content.yaml value', () {
+      expect(PlatformMetrics.uptime, equals('99.9%'));
+    });
+
+    test('all metrics are non-empty', () {
+      expect(PlatformMetrics.uptime, isNotEmpty);
+      expect(PlatformMetrics.uptimeSla, isNotEmpty);
+      expect(PlatformMetrics.tracesProcessed, isNotEmpty);
+      expect(PlatformMetrics.tracesProcessedPeriod, isNotEmpty);
+      expect(PlatformMetrics.aiTeams, isNotEmpty);
+      expect(PlatformMetrics.setupTime, isNotEmpty);
+      expect(PlatformMetrics.setupTimeLabel, isNotEmpty);
     });
   });
 

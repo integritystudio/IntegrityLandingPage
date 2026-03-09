@@ -85,10 +85,9 @@ void main() {
       expect(loader.resourcesDocumentation, isNotEmpty);
       expect(Content.resourcesFeaturedPosts, isNotEmpty);
 
-      // Social/Disclaimers/Promo
+      // Social/Disclaimers
       expect(loader.socialProofTestimonials, isNotEmpty);
       expect(Content.disclaimerEuAiAct, isNotEmpty);
-      expect(loader.promoWhylabsCode, isNotEmpty);
     });
 
     test('getHeroVariant methods work', () {
@@ -167,8 +166,6 @@ void main() {
         'disclaimerEuAiActShort': (() => ContentLoader.instance.disclaimerEuAiActShort, 'Short disclaimer'),
         'disclaimerSecurity': (() => ContentLoader.instance.disclaimerSecurity, 'Security disclaimer'),
         'disclaimerGeneral': (() => ContentLoader.instance.disclaimerGeneral, 'General disclaimer'),
-        'promoWhylabsCode': (() => ContentLoader.instance.promoWhylabsCode, 'TEST2025'),
-        'promoWhylabsDescription': (() => ContentLoader.instance.promoWhylabsDescription, 'Test promo'),
       };
 
       for (final entry in stringValues.entries) {

@@ -26,11 +26,11 @@ void main() {
         expect(content.calendlyCtaText, isNotEmpty);
       });
 
-      test('calendly URL matches 15-minute duration', () {
+      test('calendly URL points to integritystudio/demo', () {
         final content = AppContent.contact;
 
-        expect(content.calendlyUrl, contains('15min'));
-        expect(content.calendlyUrl, isNot(contains('30min')));
+        expect(content.calendlyUrl,
+            equals('https://calendly.com/integritystudio/demo'));
       });
 
       test('schedule demo label says 15-minute not 30-minute', () {
@@ -43,14 +43,13 @@ void main() {
         expect(demoMethod.value, isNot(contains('30')));
       });
 
-      test('calendly URL and label duration are consistent', () {
+      test('calendly URL and label are consistent', () {
         final content = AppContent.contact;
         final demoMethod = content.contactMethods.firstWhere(
           (m) => m.label == 'Schedule a Demo',
         );
 
-        // URL says 15min → label must say 15-minute
-        expect(content.calendlyUrl, contains('15min'));
+        expect(content.calendlyUrl, contains('integritystudio'));
         expect(demoMethod.value, contains('15'));
         expect(demoMethod.url, equals(content.calendlyUrl));
       });

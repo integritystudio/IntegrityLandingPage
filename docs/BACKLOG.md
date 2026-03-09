@@ -164,9 +164,59 @@ Recent backlog entries (AnalyticsService mock, test constants) lack tracking num
 
 ---
 
+## Open: Hardcoded Content Duplicating content.yaml
+
+### "Book a 15-minute call" duplicated in Dart source
+
+**Severity:** LOW
+**Category:** Code Quality (DRY)
+**Files:** `lib/config/content/contact_content.dart:106`, `lib/pages/contact_page.dart:175`
+
+The string `'Book a 15-minute call'` is hardcoded in two Dart files despite being defined in `content.yaml` (line 761, contact methods). These should read from the yaml-loaded contact method value instead of duplicating the string.
+
+**Status:** Open
+
+---
+
+### "Austin, TX" hardcoded in about page
+
+**Severity:** LOW
+**Category:** Code Quality (DRY)
+**File:** `lib/pages/about_page.dart:458`
+
+`_StatData('Austin, TX', 'Headquarters', ...)` hardcodes the location instead of using `CompanyInfo.locationCity` / `CompanyInfo.locationRegion` which are defined in constants and content.yaml.
+
+**Status:** Open
+
+---
+
+### `privacy@integritystudio.ai` hardcoded in legal page
+
+**Severity:** LOW
+**Category:** Code Quality
+**File:** `lib/pages/legal_page.dart:325,410,755`
+
+The privacy contact email `privacy@integritystudio.ai` is hardcoded 3 times in the legal page with no content.yaml entry. Consider adding a `company.contact.privacy_email` key to content.yaml if this email should be centrally managed.
+
+**Status:** Open
+
+---
+
+### Hardcoded "5-minute" setup claims in marketing copy
+
+**Severity:** LOW
+**Category:** Content Consistency
+**Files:** `lib/config/content/comparison_content.dart:53,212,242`, `lib/config/content/resources_content.dart:29`, `lib/config/content/services_content.dart:111`, `lib/pages/docs_quickstart_page.dart:107,132`, `lib/pages/docs_index_page.dart:222`
+
+Multiple files contain hardcoded "5-minute" or "under 5 minutes" setup time claims in marketing copy. `PlatformMetrics.setupTime` now reads `"15 min"` from content.yaml, but these prose strings are separate. Consider using a shared constant or content.yaml value for the prose variant.
+
+**Status:** Open
+
+---
+
 *Last updated: 2026-03-08*
 *Migrated items: 24 total → docs/changelog/1.0/CHANGELOG.md:*
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit*
   *- 13 items (all LOW) from backlog implementation sprint*
   *- 2 items (all LOW) from code review test coverage findings*
-*Remaining open: 1 blocked (#77) + 5 deferred (OAuth #8-#10, test coverage #75-#76) + 3 open (AnalyticsService mock, test constants, entry numbering)*
+*Remaining open: 1 blocked (#77) + 5 deferred (OAuth #8-#10, test coverage #75-#76) + 7 open (AnalyticsService mock, test constants, entry numbering, 4 hardcoded content items)*

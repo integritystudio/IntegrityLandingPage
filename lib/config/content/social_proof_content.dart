@@ -12,7 +12,7 @@ import 'constants.dart';
 /// @deprecated Use AppContent.socialProof instead, which loads from content.yaml.
 abstract final class SocialProofContentVariants {
   /// Placeholder content (legacy - use AppContent.socialProof instead)
-  static const placeholder = SocialProofContent(
+  static final placeholder = SocialProofContent(
     title: 'Trusted by AI Teams',
     logos: _placeholderLogos,
     testimonials: [], // Testimonials now sourced from content.yaml

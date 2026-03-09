@@ -18,7 +18,7 @@ abstract final class FooterContentVariants {
     cookieSettingsLabel: 'Cookie Settings',
   );
 
-  static const _linkGroups = [
+  static final _linkGroups = [
     FooterLinkGroup(
       title: 'Product',
       links: [
