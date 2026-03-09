@@ -182,6 +182,10 @@ class ContentLoader {
   String get contactDescription => _getString('contact.description');
   List<Map<String, dynamic>> get contactFormFields => _getMapList('contact.form.fields');
   List<Map<String, dynamic>> get contactMethods => _getMapList('contact.contact_methods');
+  String get contactScheduleDemoValue => (contactMethods
+          .where((m) => m['label'] == 'Schedule a Demo')
+          .firstOrNull?['value'] as String?) ??
+      'Book a 15-minute call';
   String get contactSuccessMessage => _getString('contact.form.success_message');
   String get contactErrorMessage => _getString('contact.form.error_message');
 
@@ -512,6 +516,8 @@ class Content {
       _loader.contactFormFields;
   static List<Map<String, dynamic>> get contactMethods =>
       _loader.contactMethods;
+  static String get contactScheduleDemoValue =>
+      _loader.contactScheduleDemoValue;
   static String get contactSuccessMessage => _loader.contactSuccessMessage;
   static String get contactErrorMessage => _loader.contactErrorMessage;
 

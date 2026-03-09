@@ -3,8 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/content.dart';
-import '../theme/theme.dart';
 import '../services/analytics.dart';
+import '../services/content_loader.dart';
+import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/navigation/shared_app_bar.dart';
 import '../widgets/sections/contact_section.dart';
@@ -172,7 +173,7 @@ class _QuickContactSection extends StatelessWidget {
               _QuickContactCard(
                 icon: LucideIcons.calendar,
                 title: 'Schedule a Demo',
-                subtitle: 'Book a 15-minute call',
+                subtitle: Content.contactScheduleDemoValue,
                 onTap: () => context.go('/demo'),
               ),
             ],
