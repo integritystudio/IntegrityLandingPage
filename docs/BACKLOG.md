@@ -205,6 +205,96 @@ Two Playwright e2e tests timeout waiting for Flutter to initialize on production
 
 ---
 
+## Deferred: Widget Refactoring Phases 2-4 (#88 Follow-up)
+
+Phases 2-4 of #88 Widget Duplication Consolidation were deferred after Phase 1 completed. These represent the next refactoring targets to reach 100% duplication elimination.
+
+### #89: Extract DocsPageScaffold for Docs Pages
+
+**Severity:** MEDIUM
+**Category:** Code Quality (DRY)
+**Files:** `lib/pages/docs_*.dart` (7 pages: agents, alerts, api, interop, observability, quickstart, tracing)
+**Source:** Session 2026-03-09 (#88 Phase 2 deferred)
+
+All 7 docs pages share similar page structure: hero section, navigation, content area, footer. Extracting `DocsPageScaffold(title, description, child, accentColor)` would eliminate ~21 duplicate pairs. Requires parameterizing hero color and content area height.
+
+**Status:** Deferred — Phase 1 consolidation complete. Schedule Phase 2 after other medium-priority items.
+
+---
+
+### #90: Extract Shared Page Hero and Template Components
+
+**Severity:** MEDIUM
+**Category:** Code Quality (Architecture)
+**Files:** `lib/pages/`, `lib/widgets/docs/`
+**Source:** Session 2026-03-09 (#88 Phase 3 deferred)
+
+Hero sections, feature grids, and step templates repeat across multiple pages. Creating `PageHeroSection(title, icon, description, color)` and consolidating grid/step layouts would eliminate ~30 duplicate pairs. Requires careful parameterization of conditional content (e.g., cards vs steps vs metrics).
+
+**Status:** Deferred — Phase 1 consolidation complete.
+
+---
+
+### #91: Extract Button Base, Trust Badge, and Page Shell Primitives
+
+**Severity:** LOW
+**Category:** Code Quality (Consolidation)
+**Files:** `lib/pages/`, `lib/widgets/`
+**Source:** Session 2026-03-09 (#88 Phase 4 deferred)
+
+Low-priority consolidation of button base styles, trust badge variants, and page shell patterns. ~10 duplicate pairs. Lower ROI than phases 2-3.
+
+**Status:** Deferred — Low priority, schedule after critical items.
+
+---
+
+## Deferred: Code Review Findings (#88 Implementation)
+
+Code reviewer identified medium and low findings during #88 Phase 1 consolidation. These are deferred architectural improvements, not correctness issues.
+
+### #92: Consolidate _WarningCallout and _WarningAlert Variants
+
+**Severity:** MEDIUM
+**Category:** Code Quality (Consistency)
+**Files:** `lib/pages/docs_api_page.dart:744` (_WarningCallout), `lib/pages/docs_quickstart_page.dart:1101` (_WarningAlert)
+**Source:** Code review (session 2026-03-09)
+
+Three visually distinct warning callout styles exist post-#88:
+1. `DocCallout.warning` — column layout with left border, requires title
+2. `_WarningCallout` (api_page) — row layout with left border, no title param
+3. `_WarningAlert` (quickstart_page) — full border layout with warning color
+
+The api_page and quickstart_page variants cannot be directly replaced with `DocCallout.warning` because they use different layouts (Row vs Column, full border vs left border). Decision: keep as-is per reviewer PASS, but this is a missed consolidation opportunity and creates visual/API inconsistency.
+
+**Status:** Deferred — Pre-existing architectural inconsistency, lower priority than Phase 2 extraction.
+
+---
+
+### #93: Document DocBulletList bulletColor Behavior When checked=true
+
+**Severity:** LOW
+**Category:** Code Quality (Documentation)
+**File:** `lib/widgets/docs/doc_components.dart` (DocBulletList class)
+**Source:** Code review (session 2026-03-09)
+
+The `DocBulletList` class silently ignores `bulletColor` param when `checked: true` is set. Current doc comment (`/// Set [checked] to true to show checkmark icons instead of bullet characters.`) is correct but doesn't warn callers that `bulletColor` is ignored. No active callers currently pass both params, but this is a potential footgun.
+
+**Status:** Deferred — Add doc comment clarification: `/// When [checked] is true, [bulletColor] is ignored and success color is used instead.`
+
+---
+
+### #94: Add const Optimization to DocCallout Call Sites
+
+**Severity:** LOW
+**Category:** Code Quality (Performance)
+**Files:** `lib/pages/docs_agents_page.dart`, `lib/pages/docs_tracing_page.dart`, `lib/pages/docs_quickstart_page.dart`
+**Source:** Code review (session 2026-03-09)
+
+`DocCallout` named constructors are `const`-compatible when all params are literals. Several call sites omit `const` keyword (e.g., quickstart_page lines 238, 488, 522, 675, 742), while others use `const` (agents_page lines 259, 338). Inconsistent use represents minor missed optimization, not a correctness issue.
+
+**Status:** Deferred — Optional cleanup. Add `const` to all literal-param `DocCallout` calls when polishing docs pages.
+
+---
 
 *Last updated: 2026-03-09 (widget duplication analysis + backlog migration)*
 *Migrated items: 32 total → docs/changelog/1.0/CHANGELOG.md:*
@@ -214,3 +304,4 @@ Two Playwright e2e tests timeout waiting for Flutter to initialize on production
   *- 8 items (1 MEDIUM, 7 LOW) from test quality & code quality session (2026-03-09)*
 *Remaining open: 0 open + 1 blocked (#77) + 5 deferred (OAuth #8-#10, test coverage #75-#76) + 1 deferred (#78 intermittent timeout)*
 *Migrated this session (2026-03-09): #79 (anchor nav), #80 (shader format), #81 (analytics spy), #82 (test constants), #83 (backlog numbering), #84 (15-min call), #85 (Austin TX), #86 (privacy email), #87 (5-min setup)*
+*Appended this session (2026-03-09): #89 (DocsPageScaffold), #90 (hero templates), #91 (button/badge/shell), #92 (_WarningCallout variants), #93 (DocBulletList bulletColor doc), #94 (const optimization)*
