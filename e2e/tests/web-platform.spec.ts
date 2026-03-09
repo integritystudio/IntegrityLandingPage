@@ -286,18 +286,11 @@ test.describe('Web Platform: Consent Manager Web Storage (#76)', () => {
     await page.waitForTimeout(GTM_INJECT_SETTLE_MS);
 
     // GTM script should be injected after consent-based initialization.
-    // Note: If the consent key format doesn't exactly match what
-    // ConsentManager.getStoredConsent() expects, GTM won't inject.
-    // We warn rather than hard-assert to avoid flaky test from format drift.
+    // consentJson() matches ConsentPreferences.fromJson() exactly:
+    // {essential, analytics, marketing, timestamp, consentVersion}
     const hasGTM = await hasScriptSrc(page, `gtm.js?id=${GTM_CONTAINER_ID}`);
-    if (!hasGTM) {
-      console.warn(
-        'GTM not injected after consent reload. ' +
-        'Verify localStorage format matches ConsentPreferences.fromJson().',
-      );
-    }
+    expect(hasGTM).toBe(true);
 
-    // App must still be rendering regardless
     await assertFlutterRendering(page);
   });
 });
