@@ -23,7 +23,7 @@ flutter build web        # Production build
 | [Architecture](docs/architecture.md) | Tech stack, patterns, directory structure |
 | [Routes](docs/routes.md) | GoRouter configuration, 27 routes |
 | [Changelog](docs/CHANGELOG.md) | Version history, recent changes |
-| [BACKLOG](docs/BACKLOG.md) | documented backlog items |
+| [BACKLOG](docs/BACKLOG.md) | Open, deferred, and blocked items |
 | [Token Count Tree](docs/repomix/token-count-tree.txt) | File tree with token counts |
 | [SOC 2 Type II Compliance](docs/SOC2-COMPLIANCE-REPORT.md) | Compliance documentation |
 
@@ -67,7 +67,7 @@ These items have test coverage gaps that require `flutter test --platform chrome
 
 | Item | File | Reason |
 |------|------|--------|
-| #55 `_launchUrl` error handling | `lib/widgets/sections/footer_section.dart` | `url_launcher` failures cannot be triggered in widget tests |
-| #56 `_initializeTracking` error handling | `lib/app.dart` | `kIsWeb` is a compile-time constant; tracking branches require web platform |
+| #75 `_launchUrl` error handling | `lib/widgets/sections/footer_section.dart` | `url_launcher` failures cannot be triggered in widget tests |
+| #76 `_initializeTracking` error handling | `lib/app.dart` | `kIsWeb` is a compile-time constant; tracking branches require web platform |
 
 See `test/app_test.dart:690-701` for details on native test ceiling (~50% for `app.dart`).
