@@ -20,48 +20,51 @@ class DocSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = accentColor ?? AppColors.blue500;
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+    return Semantics(
+      label: title,
+      container: true,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        decoration: BoxDecoration(
+          color: AppColors.gray800,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+          border: Border.all(color: AppColors.gray700),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 20),
                 ),
-                child: Icon(icon, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.headingSM.copyWith(
-                    color: color.withValues(alpha: 0.9),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: AppTypography.headingSM.copyWith(
+                      color: color.withValues(alpha: 0.9),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          child,
-        ],
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            child,
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Feature card for documentation pages.
 class DocFeatureCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -126,12 +129,13 @@ class DocFeatureCard extends StatelessWidget {
 /// Code block with monospace font and syntax-friendly styling.
 class DocCodeBlock extends StatelessWidget {
   final String code;
+  final String? title;
 
-  const DocCodeBlock({super.key, required this.code});
+  const DocCodeBlock({super.key, required this.code, this.title});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final codeWidget = Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -148,6 +152,21 @@ class DocCodeBlock extends StatelessWidget {
           height: 1.5,
         ),
       ),
+    );
+    if (title == null) return codeWidget;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title!,
+          style: AppTypography.bodySM.copyWith(
+            color: AppColors.gray400,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        codeWidget,
+      ],
     );
   }
 }
@@ -221,14 +240,17 @@ class DocTable extends StatelessWidget {
 }
 
 /// Bullet list with accent-colored bullets.
+/// Set [checked] to true to show checkmark icons instead of bullet characters.
 class DocBulletList extends StatelessWidget {
   final List<String> items;
   final Color? bulletColor;
+  final bool checked;
 
   const DocBulletList({
     super.key,
     required this.items,
     this.bulletColor,
+    this.checked = false,
   });
 
   @override
@@ -242,10 +264,20 @@ class DocBulletList extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '\u2022 ',
-                      style: AppTypography.bodyMD.copyWith(color: color),
-                    ),
+                    if (checked)
+                      Padding(
+                        padding: const EdgeInsets.only(right: AppSpacing.sm),
+                        child: Icon(
+                          LucideIcons.checkSquare,
+                          size: 18,
+                          color: AppColors.success,
+                        ),
+                      )
+                    else
+                      Text(
+                        '\u2022 ',
+                        style: AppTypography.bodyMD.copyWith(color: color),
+                      ),
                     Expanded(
                       child: Text(
                         item,
