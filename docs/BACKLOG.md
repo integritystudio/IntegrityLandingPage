@@ -112,11 +112,25 @@ The fix removes `'--disable-gpu'` from the headless Chrome args. It landed on ma
 - **#76**: `_initializeTracking` error handling test (`app.dart:36-66`)
 - All `kIsWeb` branch coverage in `app.dart` (currently ~50% native ceiling)
 
+### Research Update (2026-03-08)
+
+- **PR #182618** merged to master Feb 23, 2026 but NOT cherry-picked to stable or beta
+- **Flutter 3.41** (latest stable, Feb 2026) branch cutoff was Jan 6 — fix missed the train
+- **Issue #162798** (WebSocket hang) remains OPEN with no upstream fix
+- **`package:test` version** is SDK-bundled via `flutter_test` (pubspec.lock shows only `test_api: 0.7.7` transitive) — cannot be independently upgraded to 1.25.12
+- **Upgrading to 3.41 alone will NOT fix this** — both bugs remain unpatched in all stable/beta releases
+- **Next stable with the fix: Flutter 3.44 (May 2026)** — branch cutoff April 7, 2026
+
 ### Next Steps
 
-1. **Upgrade to Flutter 3.41.4** and re-apply the `--disable-gpu` patch — 3.41 may have the `package:test` WebSocket fix that 3.38 lacks (3.41.4 includes `[stable] Update test package and related packages for stable release`)
-2. **Wait for Flutter 3.43+ stable** — the `--disable-gpu` fix (PR #182618) will ship in the next stable release after 3.42 beta promotion
-3. **Switch to master channel** — risky for a production project, but would immediately unblock
+1. ~~**File cherry-pick request** for PR #182618 to stable~~ — DONE 2026-03-08, [comment posted](https://github.com/flutter/flutter/pull/182618#issuecomment-4021062481)
+2. ~~**Test on master channel**~~ — DONE 2026-03-08. Tested on Flutter master 3.42.0-1.0.pre-441 (Dart 3.12.0, `test_api` 0.7.10). **Still hangs at "loading"** after 90s. Confirms `--disable-gpu` fix alone is insufficient — the `package:test` WebSocket hang (#162798) is a separate, independent bug
+3. **Wait for Flutter 3.44 stable (May 2026)** — the `--disable-gpu` fix (PR #182618) ships automatically if it lands before the April 7 cutoff
+4. ~~**Playwright workaround**~~ — DONE 2026-03-09. Added `e2e/tests/web-platform.spec.ts` (11 tests, all passing) covering:
+   - #76: `_initializeTracking` consent → GTM/GA4/FB Pixel flow, corrupted data resilience, consent persistence across reload
+   - #75: `_launchUrl` web platform availability (window.open), footer scroll stability
+   - GDPR: GTM not injected before consent, meta-pixel.js loaded, dataLayer initialized
+   - Shared constants added to `e2e/tests/constants.ts` (CONSENT_STORAGE_KEY, GTM_CONTAINER_ID, etc.)
 
 ---
 
@@ -133,7 +147,7 @@ When web-platform CI is added, these MUST be covered.
 
 `_launchUrl` wraps `launchUrl()` in try/catch with `ErrorTrackingService.captureException`. The error path cannot be triggered in native widget tests because `url_launcher` uses platform channels that cannot be mocked to throw from the call site.
 
-**Status:** Deferred until web-platform test CI is available.
+**Status:** Partially covered by Playwright e2e (`e2e/tests/web-platform.spec.ts`). Happy path (web platform link opening) verified. Error path (catch block with `ErrorTrackingService.captureException`) still requires `flutter test --platform chrome` for unit-level coverage.
 
 ---
 
@@ -145,7 +159,7 @@ When web-platform CI is added, these MUST be covered.
 
 `_initializeTracking()` is wrapped in try/catch, but the tracking branches (`kIsWeb`, `ConsentManager.hasConsent()`, `TrackingWeb.*`) are unreachable in native tests. `kIsWeb` is a compile-time constant — native tests always evaluate to `false`, skipping all tracking logic. See `test/app_test.dart:690-701`.
 
-**Status:** Deferred until web-platform test CI is available.
+**Status:** Partially covered by Playwright e2e (`e2e/tests/web-platform.spec.ts`). Tests verify: consent persistence, corrupted data resilience (exercises try/catch), GTM injection after consent, and no unhandled errors. Unit-level mock coverage of `ErrorTrackingService.captureException` still requires `flutter test --platform chrome`.
 
 ---
 
@@ -235,9 +249,71 @@ Multiple files contain hardcoded "5-minute" or "under 5 minutes" setup time clai
 
 **Status:** Open
 
+## Open: E2E Test Timeout and Navigation Issues
+
+**Category:** Test Infrastructure (Playwright)
+**Source:** Session 2026-03-09 (e2e suite run)
+
+### #78: E2E Route Load Timeout on Production
+
+**Severity:** MEDIUM
+**Category:** Test Infrastructure
+**Files:** `e2e/tests/backlog-sprint.spec.ts:85`, `e2e/tests/scroll-analytics.spec.ts:43`
+
+Two Playwright e2e tests timeout waiting for Flutter to initialize on production routes:
+- `backlog-sprint.spec.ts:85` — `/docs/tracing` route fails with `TimeoutError: page.waitForFunction: Timeout 90000ms exceeded`
+- `scroll-analytics.spec.ts:43` — `incremental scrolling` test fails with `mouse.wheel: Test timeout of 120000ms exceeded`
+
+**Root cause:** Unknown — likely production site performance variance or network latency. Tests run successfully against local dev server.
+
+**Status:** Deferred (intermittent, may be infrastructure-dependent). Monitor test runs; if consistently fails, investigate production CDN/route performance.
+
 ---
 
-*Last updated: 2026-03-08*
+### #79: E2E Anchor Navigation Response Undefined
+
+**Severity:** LOW
+**Category:** Test Infrastructure
+**File:** `e2e/tests/footer-links.spec.ts:75`
+
+Test `anchor route #features navigates to home page` fails with:
+```
+Error: expect(received).toBe(expected) // Object.is equality
+Expected: 200
+Received: undefined
+```
+
+At line: `expect(response?.status()).toBe(200);`
+
+**Root cause:** Hash navigation (`page.goto('/#features')`) is client-side only — `response` object is undefined for anchor-only navigations. The test should check if response is null before asserting status.
+
+**Fix:** Change assertion from `expect(response?.status()).toBe(200)` to `expect(response === null || response.status() === 200).toBe(true)` (accept null response for hash-only navigation).
+
+**Status:** Ready to implement.
+
+---
+
+### #80: Flutter SDK ink_sparkle.frag Shader Format Version Mismatch
+
+**Severity:** MEDIUM
+**Category:** Flutter SDK
+**Root cause:** Stale compiled shader artifacts from previous Flutter version
+
+During `flutter test` run, shader format version mismatch causes 36 test failures in `cookie_banner_test.dart`:
+```
+Exception: Asset 'shaders/ink_sparkle.frag' manifest could not be decoded: INVALID_ARGUMENT:
+Unsupported runtime stages format version. Expected 1, got 0.
+```
+
+**Upstream context:** Flutter PR #175470 (merged Dec 2, 2025) introduced flatbuffer format versioning for impellerc. Stale pre-versioning compiled artifacts (v0) trigger the error when loaded by new engine expecting v1.
+
+**Workaround applied:** `flutter clean && flutter pub get` clears artifacts and forces recompile with correct format version. After clean, all 2319 tests pass.
+
+**Status:** Closed (workaround in place). Recommend running `flutter clean` on CI before test runs or upgrading to a newer Flutter stable that backports the engine fix.
+
+---
+
+*Last updated: 2026-03-09 (e2e suite and Flutter test completion)*
 *Migrated items: 24 total → docs/changelog/1.0/CHANGELOG.md:*
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit*
   *- 13 items (all LOW) from backlog implementation sprint*

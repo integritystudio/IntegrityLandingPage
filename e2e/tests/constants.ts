@@ -68,3 +68,19 @@ export const SCREENSHOT_AFTER_CTA_CLICK = 'screenshots/04-after-cta.png';
 export const SCREENSHOT_KEYBOARD_NAV = 'screenshots/05-keyboard-nav.png';
 export const SCREENSHOT_BEFORE_SCROLL = 'screenshots/06-before-scroll.png';
 export const SCREENSHOT_AFTER_SCROLL = 'screenshots/06-after-scroll.png';
+
+// ---------------------------------------------------------------------------
+// Consent / Tracking (must match Dart-side values)
+// ---------------------------------------------------------------------------
+
+/** localStorage key for ConsentManager (consent_manager.dart `_storageKey`). */
+export const CONSENT_STORAGE_KEY = 'integrity_cookie_consent';
+
+/** GTM container ID (tracking_web.dart `gtmContainerId`). */
+export const GTM_CONTAINER_ID = 'GTM-NLLQ5ZM3';
+
+/** Facebook Pixel ID (tracking_web.dart `fbPixelId`). */
+export const FB_PIXEL_ID = '2038045626963282';
+
+/** Settle time for GTM script injection after consent-triggered reload. */
+export const GTM_INJECT_SETTLE_MS = 5_000;
