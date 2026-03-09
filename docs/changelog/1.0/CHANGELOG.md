@@ -4,6 +4,115 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 
 ---
 
+## [2026-03-09] - Test Coverage & Code Quality Hardening
+
+### E2E Test Infrastructure
+
+**#79: E2E Anchor Navigation Response Undefined**
+- Fixed Playwright test `anchor route #features navigates to home page` in `e2e/tests/footer-links.spec.ts`
+- Root cause: Hash navigation (`page.goto('/#features')`) is client-side only — `response` object is undefined for anchor-only navigations
+- Fix: Added null check before asserting response status; test now accepts null response for hash-only navigation
+- Committed in `a902ef5`
+
+### Test Quality & Observability
+
+**#81: AnalyticsService Test Observability**
+- Added `@visibleForTesting` call log spy to `lib/services/analytics.dart` with `enableCallLog()`, `resetForTesting()`, and `callLog` accessor
+- Upgraded all 8 controller analytics tests from `returnsNormally` to argument-verifying assertions
+- Now detects regressions in analytics call arguments (e.g., wrong tier string, missing calls)
+- File: `lib/services/analytics.dart`, `test/controllers/landing_controller_test.dart`
+- Committed in `678b892`
+
+**#82: Extract Test Constants to Shared File**
+- Created `test/helpers/test_constants.dart` with shared test constants
+- Extracted: `kShortAnimationSettle`, `kNavigationSettle`, `kScrollToPricingOffset`, `kScrollToCTAOffset`
+- Removed duplicates from `landing_page_test.dart`; 7 test files updated to import shared constants
+- File: `test/helpers/test_constants.dart`
+- Committed in `d00205b`
+
+**#83: BACKLOG Entry Numbering**
+- Assigned sequential IDs #81–#87 to all unnumbered entries for consistency tracking
+
+### Code Quality & DRY Consolidation
+
+**#84: "Book a 15-minute call" Hardcoded in Dart**
+- Replaced hardcoded string `'Book a 15-minute call'` in `lib/pages/contact_page.dart:175` with `Content.contactScheduleDemoValue`
+- Added accessor to `content_loader.dart` that reads from `content.yaml` contact methods definition
+- Eliminates duplication across `lib/config/content/contact_content.dart:106` and `lib/pages/contact_page.dart:175`
+- Committed in `23cab05`
+
+**#85: "Austin, TX" Hardcoded in About Page**
+- Replaced hardcoded location `'Austin, TX'` in `lib/pages/about_page.dart:458`
+- Added `CompanyInfo.locationRegionAbbrev = 'TX'` to `constants.dart`
+- Now uses `'${CompanyInfo.locationCity}, ${CompanyInfo.locationRegionAbbrev}'` pulling from centralized constants
+- Committed in `23cab05` + `ff68a7f`
+
+**#86: `privacy@integritystudio.ai` Hardcoded in Legal Page**
+- Replaced 3 hardcoded occurrences of `privacy@integritystudio.ai` in `lib/pages/legal_page.dart:325,410,755`
+- Added `CompanyInfo.privacyEmail = 'privacy@integritystudio.ai'` to `constants.dart`
+- All references now use `${CompanyInfo.privacyEmail}`
+- Committed in `23cab05`
+
+**#87: Hardcoded "5-minute" Setup Claims in Marketing Copy**
+- Updated hardcoded "5-minute" or "under 5 minutes" setup time claims across 7 files to use `PlatformMetrics.setupTime` ("15 min" from content.yaml)
+- Files: `lib/config/content/comparison_content.dart:53,212,242`, `lib/config/content/resources_content.dart:29`, `lib/config/content/services_content.dart:111`, `lib/pages/docs_quickstart_page.dart:107,132`, `lib/pages/docs_index_page.dart:222`
+- Updated dead-code variants; fixed stale doc comment and test stub
+- Note: Pre-existing yaml content inconsistency in `content.yaml` lines 465, 832 remains (out of code scope)
+- Committed in `8ae8936` + `eca800a`
+
+### Flutter SDK & Test Infrastructure
+
+**#80: Flutter SDK ink_sparkle.frag Shader Format Version Mismatch**
+- Root cause: Stale compiled shader artifacts from previous Flutter version
+- During `flutter test`: shader format version mismatch (Expected 1, got 0) causing 36 test failures in `cookie_banner_test.dart`
+- Upstream issue: Flutter PR #175470 (merged Dec 2, 2025) introduced flatbuffer format versioning for impellerc
+- Workaround: `flutter clean && flutter pub get` clears artifacts, forces recompile with correct format version
+- Result: All 2319 tests pass after clean
+- Recommendation: Run `flutter clean` on CI before test runs or upgrade to newer Flutter stable with backported engine fix
+
+---
+
+## [2026-02-26] - Contact Form Test Gap Closure
+
+Closed all 20 test gaps identified 2026-02-25 against `main` (commit `11698dc`). Tracked in `TEST_GAPS.md` (now deleted).
+
+### Unit Tests — `test/unit/services/contact_service_test.dart` (10/10 closed)
+
+| # | Gap | Resolution |
+|---|-----|------------|
+| U1 | 504 gateway timeout retry + exhaustion | 2 tests: retry-then-succeed + exhaustion |
+| U2 | Non-Dio exception in `submitForm` | FormatException exercised, no-retry verified |
+| U3 | 429 without Retry-After header | `seconds == null` branch, `retryAfterSeconds` asserted null |
+| U4 | `receiveTimeout` retry path | 2 tests: receiveTimeout + connectionError, 3 attempts each |
+| U5 | Name exceeding `maxNameLength` (100) | Boundary tests: 101 (error) + 100 (ok) |
+| U6 | Email exceeding `maxEmailLength` (254) | 255-char email triggers length error |
+| U7 | Organization exceeding `maxOrganizationLength` (200) | Boundary tests: 201 (error) + 200 (ok) |
+| U8 | Message exceeding `maxMessageLength` (5000) | Boundary tests: 5001 (error) + 5000 (ok) |
+| U9 | 200 response with `success: false` | Distinct from 400 path, error message asserted |
+| U10 | Success response with null message/submissionId | Fallback defaults verified |
+
+### Widget Tests — `test/widgets/sections/contact_section_test.dart` (7/7 closed)
+
+| # | Gap | Resolution |
+|---|-----|------------|
+| W1 | Default `ContactService.submitForm` path | 4 tests: success alert, error alert, field errors, network error via MockDio injection |
+| W2 | Form data cleared on success | Test documents callback vs ContactService path behavior |
+| W3 | Field errors from `ContactFormError.fieldErrors` | Error alert path verified; fieldErrors map requires W1 (ContactService path) |
+| W4 | Facebook Pixel tracking on success | Success via ContactService exercises FB Pixel calls (no-op in test, code path verified) |
+| W5 | Calendly URL internal route (`startsWith('/')`) | GoRouter navigates to /demo; external URL renders without navigation |
+| W6 | `showLiveDemoSection` parameter | `showLiveDemoSection: false` hides demo section |
+| W7 | `_buildFullName()` with firstName+lastName | Explicit assertion on submitted firstName/lastName data |
+
+### E2E Tests — `integration_test/e2e/contact_form_test.dart` (3/3 closed)
+
+| # | Gap | Resolution |
+|---|-----|------------|
+| E1 | No form submission + response verification | 2 tests: loading state + error alert after network failure; submit button re-enable |
+| E2 | Soft assertions throughout | All `expect(MaterialApp)` replaced with field label, validation error, and Alert assertions |
+| E3 | chromedriver not installed | Superseded by Playwright E2E suite (`e2e/tests/contact-form.spec.ts`, commit `ef3a121`) |
+
+---
+
 ## [2026-02-13] - Security Hardening & Bug Fixes
 
 ### Contact Form Worker Hardening
@@ -602,6 +711,7 @@ Items that appear in console but are not tech debt:
 |------|---------|---------|
 | 2026-03-06 | 2.0 | Code quality hardening sprint — 9 issues fixed, E2E + widget tests |
 | 2026-02-27 | 1.11 | ast-grep findings, contact_section_test quality hardening |
+| 2026-02-26 | 1.11.1 | Contact form test gap closure — 20/20 gaps closed (unit, widget, E2E) |
 | 2026-02-13 | 1.10 | Security hardening — email validation, request size, error leaks, circuit breaker |
 | 2026-02-01 | 1.9 | Routing consolidation, Twitter/X removal, blog updates |
 | 2026-01-31 | 1.8 | Test optimization (144s→51s), Twitter→X migration, content caching |
