@@ -18,6 +18,7 @@ abstract final class CompanyInfo {
   static const String foundedYear = '2025';
   static const String locationCity = 'Austin';
   static const String locationRegion = 'Texas';
+  static const String locationRegionAbbrev = 'TX';
   static const String email = 'hello@integritystudio.ai';
   static const String privacyEmail = 'privacy@integritystudio.ai';
   static const String phone = '(512) 829-1644';

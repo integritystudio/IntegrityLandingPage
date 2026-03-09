@@ -455,7 +455,7 @@ class _StatsSection extends StatelessWidget {
       _StatData('6', 'Team Members', AppColors.blue500),
       _StatData('12+', 'Avg Yrs Experience', AppColors.indigo500),
       _StatData('2025', 'Founded', AppColors.purple500),
-      _StatData('${CompanyInfo.locationCity}, ${CompanyInfo.locationRegion}', 'Headquarters', AppColors.blue500),
+      _StatData('${CompanyInfo.locationCity}, ${CompanyInfo.locationRegionAbbrev}', 'Headquarters', AppColors.blue500),
     ];
 
     return SectionContainer(
