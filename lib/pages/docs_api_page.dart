@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
 /// API Reference documentation page.
@@ -206,9 +207,10 @@ class _DocsContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Authentication Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.key,
           title: 'Authentication',
+          accentColor: const Color(0xFF06B6D4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -217,7 +219,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Header Authentication',
                 code: '''# Include in all requests
 Authorization: Bearer <your-api-key>
@@ -231,7 +233,7 @@ X-API-Key: <your-api-key>''',
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Scope', 'Permissions'],
                 rows: [
                   ['traces:write', 'Ingest traces and spans'],
@@ -250,13 +252,14 @@ X-API-Key: <your-api-key>''',
         ),
 
         // Base URL Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.globe,
           title: 'Base URLs',
+          accentColor: const Color(0xFF06B6D4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Environment', 'Base URL'],
                 rows: [
                   ['Production', 'https://api.integritystudio.ai/v1'],
@@ -265,7 +268,7 @@ X-API-Key: <your-api-key>''',
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              _InfoCallout(
+              DocCallout.info(
                 title: 'Rate Limits',
                 message:
                     'Free tier: 100 req/min. Team: 1,000 req/min. Enterprise: Custom limits.',
@@ -275,9 +278,10 @@ X-API-Key: <your-api-key>''',
         ),
 
         // Trace Ingestion Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.upload,
           title: 'Trace Ingestion API',
+          accentColor: const Color(0xFF06B6D4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -291,7 +295,7 @@ X-API-Key: <your-api-key>''',
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Environment Configuration',
                 code: '''# Configure OTLP exporter
 export OTEL_EXPORTER_OTLP_ENDPOINT="https://ingest.integritystudio.ai"
@@ -310,7 +314,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
                 description: 'Ingest a batch of spans',
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Request Body',
                 code: '''{
   "resourceSpans": [{
@@ -339,7 +343,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
 }''',
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Response Code', 'Description'],
                 rows: [
                   ['200 OK', 'Traces accepted successfully'],
@@ -353,9 +357,10 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
         ),
 
         // Query API Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.search,
           title: 'Query API',
+          accentColor: const Color(0xFF06B6D4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -375,7 +380,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Parameter', 'Type', 'Description'],
                 rows: [
                   ['start', 'ISO 8601', 'Start time (required)'],
@@ -388,7 +393,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Example Request',
                 code: '''curl -X GET "https://api.integritystudio.ai/v1/traces?\\
   start=2024-01-01T00:00:00Z&\\
@@ -411,7 +416,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
                 description: 'Get token usage aggregations',
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Token Metrics Response',
                 code: '''{
   "data": {
@@ -433,9 +438,10 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
         ),
 
         // Alerts API Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.bell,
           title: 'Alerts API',
+          accentColor: const Color(0xFF06B6D4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -450,7 +456,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
                 description: 'Create a new alert rule',
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Create Alert Request',
                 code: '''{
   "name": "High Token Usage Alert",
@@ -474,7 +480,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Operator', 'Description'],
                 rows: [
                   ['gt', 'Greater than threshold'],
@@ -506,9 +512,10 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
         ),
 
         // SDK Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.package,
           title: 'SDKs & Libraries',
+          accentColor: const Color(0xFF06B6D4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -522,7 +529,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Installation & Usage',
                 code: '''# Install
 pip install integrity-studio
@@ -543,7 +550,7 @@ with client.trace("ai.inference") as span:
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Installation & Usage',
                 code: '''// Install
 npm install @integrity-studio/sdk
@@ -566,7 +573,7 @@ const response = await client.trace('ai.inference', async (span) => {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Installation & Usage',
                 code: '''// Install
 go get github.com/integritystudio/sdk-go
@@ -587,9 +594,10 @@ span.SetAttribute("gen_ai.request.model", "claude-3-opus")''',
         ),
 
         // Error Handling Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.alertCircle,
           title: 'Error Handling',
+          accentColor: const Color(0xFF06B6D4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -598,7 +606,7 @@ span.SetAttribute("gen_ai.request.model", "claude-3-opus")''',
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Error Response Format',
                 code: '''{
   "error": {
@@ -618,7 +626,7 @@ span.SetAttribute("gen_ai.request.model", "claude-3-opus")''',
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Code', 'HTTP Status', 'Description'],
                 rows: [
                   ['INVALID_API_KEY', '401', 'API key is invalid or expired'],
@@ -634,13 +642,14 @@ span.SetAttribute("gen_ai.request.model", "claude-3-opus")''',
         ),
 
         // Related Docs Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.bookOpen,
           title: 'Related Documentation',
+          accentColor: const Color(0xFF06B6D4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _BulletList(items: const [
+              DocBulletList(bulletColor: const Color(0xFF22D3EE), items: const [
                 'Getting Started Guide \u2014 /docs/quickstart',
                 'Integrations \u2014 /docs/integrations',
                 'Distributed Tracing \u2014 /docs/tracing',
@@ -655,60 +664,6 @@ span.SetAttribute("gen_ai.request.model", "claude-3-opus")''',
 }
 
 // Reusable Components
-
-class _DocSection extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Widget child;
-
-  const _DocSection({
-    required this.icon,
-    required this.title,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF06B6D4),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                ),
-                child: Icon(icon, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.headingSM.copyWith(
-                    color: const Color(0xFF22D3EE),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          child,
-        ],
-      ),
-    );
-  }
-}
 
 class _EndpointCard extends StatelessWidget {
   final String method;
@@ -779,188 +734,6 @@ class _EndpointCard extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CodeBlock extends StatelessWidget {
-  final String code;
-  final String? title;
-
-  const _CodeBlock({required this.code, this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (title != null) ...[
-          Text(
-            title!,
-            style: AppTypography.bodySM.copyWith(
-              color: AppColors.gray400,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-        ],
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.gray900,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-            border: Border.all(color: AppColors.gray700),
-          ),
-          child: SelectableText(
-            code,
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 13,
-              color: AppColors.gray300,
-              height: 1.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SimpleTable extends StatelessWidget {
-  final List<String> headers;
-  final List<List<String>> rows;
-
-  const _SimpleTable({required this.headers, required this.rows});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        child: Table(
-          border: TableBorder.symmetric(
-            inside: BorderSide(color: AppColors.gray700),
-          ),
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: AppColors.gray800),
-              children: headers
-                  .map((h) => Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Text(
-                          h,
-                          style: AppTypography.bodySM.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ))
-                  .toList(),
-            ),
-            ...rows.map(
-              (row) => TableRow(
-                children: row
-                    .map((cell) => Padding(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          child: Text(
-                            cell,
-                            style: AppTypography.bodySM.copyWith(
-                              color: AppColors.gray300,
-                            ),
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BulletList extends StatelessWidget {
-  final List<String> items;
-
-  const _BulletList({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: items
-          .map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '\u2022 ',
-                      style: AppTypography.bodyMD.copyWith(
-                        color: const Color(0xFF22D3EE),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: AppTypography.bodyMD.copyWith(
-                          color: AppColors.gray300,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ))
-          .toList(),
-    );
-  }
-}
-
-class _InfoCallout extends StatelessWidget {
-  final String title;
-  final String message;
-
-  const _InfoCallout({required this.title, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: const Color(0xFF06B6D4).withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: const Border(
-          left: BorderSide(color: Color(0xFF06B6D4), width: 3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(LucideIcons.lightbulb, color: Color(0xFF22D3EE), size: 18),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                title,
-                style: AppTypography.bodyMD.copyWith(
-                  color: const Color(0xFF22D3EE),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            message,
-            style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
           ),
         ],
       ),
