@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../config/content.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
@@ -219,7 +220,7 @@ class _DocsGrid extends StatelessWidget {
       _DocCategory(
         icon: LucideIcons.rocket,
         title: 'Getting Started',
-        description: 'Quick start guides to get your first traces flowing in under 5 minutes.',
+        description: 'Quick start guides to get your first traces flowing in under ${PlatformMetrics.setupTime}.',
         url: '/docs/quickstart',
         color: AppColors.success,
         topics: ['Python SDK', 'TypeScript', 'OpenTelemetry', 'Dashboard'],

@@ -48,7 +48,7 @@ abstract final class ComparisonPageVariants {
     whyChooseUs: _arizeWhyUs,
     whyChooseThem: _arizeWhyThem,
     migrationSteps: [],
-    migrationTimeEstimate: 'Setup takes under 5 minutes',
+    migrationTimeEstimate: 'Setup takes under 15 min',
   );
 
   // WhyLabs content details
@@ -206,7 +206,7 @@ integrity migrate whylabs \\
   static const _arizeDifferentiators = [
     'Transparent, predictable pricing',
     'EU AI Act compliance tools included',
-    'Faster integration - under 5 minutes',
+    'Faster integration - under 15 min setup',
     'No complex enterprise negotiations',
   ];
 
@@ -236,7 +236,7 @@ integrity migrate whylabs \\
   static const _arizeWhyUs = [
     'Transparent pricing without enterprise negotiations',
     'EU AI Act compliance documentation built-in',
-    'Faster time-to-value with 5-minute setup',
+    'Faster time-to-value with 15-min setup',
   ];
 
   static const _arizeWhyThem = [
