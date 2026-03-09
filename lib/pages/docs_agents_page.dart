@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
 /// Agent Observability documentation page.
@@ -236,10 +237,10 @@ class _DocsContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Overview Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.eye,
           title: 'The Agent Observability Challenge',
-          color: AppColors.purple500,
+          accentColor: AppColors.purple500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -248,14 +249,14 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _BulletList(items: [
+              const DocBulletList(bulletColor: AppColors.purple500, items: [
                 'Non-deterministic execution: Same input may produce different tool call sequences',
                 'Multi-turn reasoning: Extended context across many LLM calls',
                 'Tool orchestration: External system interactions within agent loops',
                 'Framework diversity: LangGraph, CrewAI, AutoGen, Claude Code have different patterns',
               ]),
               const SizedBox(height: AppSpacing.lg),
-              const _InfoCallout(
+              const DocCallout.info(
                 title: 'Industry Insight',
                 message:
                     '89% of teams have implemented observability for agents, but only 52% have implemented evaluations. This gap represents a critical blind spot.',
@@ -265,10 +266,10 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Agent Span Semantics
-        _DocSection(
+        DocSection(
           icon: LucideIcons.gitBranch,
           title: 'Agent Span Semantics',
-          color: AppColors.purple500,
+          accentColor: AppColors.purple500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -277,7 +278,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Operation', 'Purpose', 'Example'],
                 rows: [
                   ['create_agent', 'Agent instantiation', 'CustomerSupportAgent initialized'],
@@ -286,7 +287,7 @@ class _DocsContent extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Agent Invocation Span Hierarchy',
                 code: '''Span: invoke_agent CustomerSupportAgent
 \u251c\u2500\u2500 gen_ai.operation.name: "invoke_agent"
@@ -310,10 +311,10 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Tool Execution Attributes
-        _DocSection(
+        DocSection(
           icon: LucideIcons.wrench,
           title: 'Tool Execution Tracking',
-          color: AppColors.purple500,
+          accentColor: AppColors.purple500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -322,7 +323,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Attribute', 'Type', 'Description'],
                 rows: [
                   ['gen_ai.tool.name', 'string', 'Tool identifier'],
@@ -334,7 +335,7 @@ class _DocsContent extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _WarningCallout(
+              const DocCallout.warning(
                 title: 'Sensitive Data',
                 message:
                     'Tool arguments and results may contain sensitive data. Enable capture only when needed and ensure proper data handling.',
@@ -344,10 +345,10 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Agent Evaluation Metrics
-        _DocSection(
+        DocSection(
           icon: LucideIcons.checkCircle,
           title: 'Agent Evaluation Metrics',
-          color: AppColors.purple500,
+          accentColor: AppColors.purple500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -356,7 +357,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Metric', 'Scope', 'Description'],
                 rows: [
                   ['Task Completion', 'End-to-end', 'Did agent achieve stated goal?'],
@@ -368,7 +369,7 @@ class _DocsContent extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _InfoCallout(
+              const DocCallout.info(
                 title: 'Single vs Multi-Turn',
                 message:
                     'Single-turn agents complete in one interaction. Multi-turn agents span multiple user exchanges. Internal agent-to-agent calls do NOT count as turns\u2014only end-user interactions define turn boundaries.',
@@ -378,10 +379,10 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Agent-as-a-Judge
-        _DocSection(
+        DocSection(
           icon: LucideIcons.scale,
           title: 'Agent-as-a-Judge Evaluation',
-          color: AppColors.purple500,
+          accentColor: AppColors.purple500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -390,7 +391,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _BulletList(items: [
+              const DocBulletList(bulletColor: AppColors.purple500, items: [
                 'Multi-step execution with intermediate states',
                 'Tool calls that introduce external system interactions',
                 'Success depends on task completion, not just response quality',
@@ -404,7 +405,7 @@ class _DocsContent extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
               const _FeatureGrid(),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Agent-as-a-Judge Evaluation Flow',
                 code: '''Subject Agent Execution          Judge Agent (Parallel)
 \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510         \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
@@ -426,10 +427,10 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Framework Support
-        _DocSection(
+        DocSection(
           icon: LucideIcons.layers,
           title: 'Framework Support',
-          color: AppColors.purple500,
+          accentColor: AppColors.purple500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -438,7 +439,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Framework', 'Integration', 'Key Features'],
                 rows: [
                   ['LangChain', 'Auto-instrumentation', 'Chain tracing, tool calls, memory'],
@@ -449,7 +450,7 @@ class _DocsContent extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Python Auto-Instrumentation',
                 code: '''from integrity_studio import IntegrityStudio
 
@@ -471,10 +472,10 @@ result = agent.invoke({"input": "Help me with..."})''',
         ),
 
         // OTel Evaluation Events
-        _DocSection(
+        DocSection(
           icon: LucideIcons.fileCheck,
           title: 'OpenTelemetry Evaluation Events',
-          color: AppColors.purple500,
+          accentColor: AppColors.purple500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -483,7 +484,7 @@ result = agent.invoke({"input": "Help me with..."})''',
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Attribute', 'Type', 'Description'],
                 rows: [
                   ['gen_ai.evaluation.name', 'string', 'Evaluation metric name'],
@@ -494,7 +495,7 @@ result = agent.invoke({"input": "Help me with..."})''',
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Evaluation Event Example',
                 code: '''Trace: Customer Support Query
 \u251c\u2500\u2500 Span: invoke_agent CustomerSupportBot
@@ -515,14 +516,14 @@ result = agent.invoke({"input": "Help me with..."})''',
         ),
 
         // Next Steps
-        _DocSection(
+        DocSection(
           icon: LucideIcons.arrowRight,
           title: 'Next Steps',
-          color: AppColors.purple500,
+          accentColor: AppColors.purple500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _BulletList(items: [
+              const DocBulletList(bulletColor: AppColors.purple500, items: [
                 'Set up distributed tracing \u2014 /docs/tracing',
                 'Configure alerting for agent failures \u2014 /docs/alerts',
                 'Explore the API for custom metrics \u2014 /api',
@@ -536,62 +537,6 @@ result = agent.invoke({"input": "Help me with..."})''',
   }
 }
 
-// Reusable Components
-
-class _DocSection extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Color color;
-  final Widget child;
-
-  const _DocSection({
-    required this.icon,
-    required this.title,
-    required this.color,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                ),
-                child: Icon(icon, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.headingSM.copyWith(color: color),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
 class _FeatureGrid extends StatelessWidget {
   const _FeatureGrid();
 
@@ -601,305 +546,31 @@ class _FeatureGrid extends StatelessWidget {
       spacing: AppSpacing.md,
       runSpacing: AppSpacing.md,
       children: const [
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.eye,
           title: 'Observation',
           description: 'Inspect intermediate steps and action logs',
+          accentColor: AppColors.purple500,
         ),
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.wrench,
           title: 'Tool Access',
           description: 'Verify tool calls against expected behavior',
+          accentColor: AppColors.purple500,
         ),
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.play,
           title: 'Parallel Execution',
           description: 'Monitor decisions at each step in real-time',
+          accentColor: AppColors.purple500,
         ),
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.messageSquare,
           title: 'Granular Feedback',
           description: 'Identify which requirements were met/missed',
+          accentColor: AppColors.purple500,
         ),
       ],
-    );
-  }
-}
-
-class _FeatureCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-
-  const _FeatureCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray700,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray600),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.purple500.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-            ),
-            child: Icon(icon, color: AppColors.purple500, size: 18),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            title,
-            style: AppTypography.bodyMD.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            description,
-            style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BulletList extends StatelessWidget {
-  final List<String> items;
-
-  const _BulletList({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: items
-          .map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '\u2022 ',
-                      style: AppTypography.bodyMD.copyWith(
-                        color: AppColors.purple500,
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: AppTypography.bodyMD.copyWith(
-                          color: AppColors.gray300,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ))
-          .toList(),
-    );
-  }
-}
-
-class _SimpleTable extends StatelessWidget {
-  final List<String> headers;
-  final List<List<String>> rows;
-
-  const _SimpleTable({required this.headers, required this.rows});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        child: Table(
-          border: TableBorder.symmetric(
-            inside: BorderSide(color: AppColors.gray700),
-          ),
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: AppColors.gray800),
-              children: headers
-                  .map((h) => Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Text(
-                          h,
-                          style: AppTypography.bodySM.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ))
-                  .toList(),
-            ),
-            ...rows.map(
-              (row) => TableRow(
-                children: row
-                    .map((cell) => Padding(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          child: Text(
-                            cell,
-                            style: AppTypography.bodySM.copyWith(
-                              color: AppColors.gray300,
-                            ),
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CodeBlock extends StatelessWidget {
-  final String code;
-  final String? title;
-
-  const _CodeBlock({required this.code, this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (title != null) ...[
-          Text(
-            title!,
-            style: AppTypography.bodySM.copyWith(
-              color: AppColors.gray400,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-        ],
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.gray900,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-            border: Border.all(color: AppColors.gray700),
-          ),
-          child: SelectableText(
-            code,
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 13,
-              color: AppColors.gray300,
-              height: 1.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InfoCallout extends StatelessWidget {
-  final String title;
-  final String message;
-
-  const _InfoCallout({required this.title, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.blue500.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border(
-          left: BorderSide(color: AppColors.blue500, width: 3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(LucideIcons.lightbulb, color: AppColors.blue400, size: 18),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                title,
-                style: AppTypography.bodyMD.copyWith(
-                  color: AppColors.blue400,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            message,
-            style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WarningCallout extends StatelessWidget {
-  final String title;
-  final String message;
-
-  const _WarningCallout({required this.title, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border(
-          left: BorderSide(color: AppColors.warning, width: 3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(LucideIcons.alertTriangle, color: AppColors.warning, size: 18),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                title,
-                style: AppTypography.bodyMD.copyWith(
-                  color: AppColors.warning,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            message,
-            style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
-          ),
-        ],
-      ),
     );
   }
 }
