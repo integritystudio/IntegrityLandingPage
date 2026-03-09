@@ -208,8 +208,36 @@ class AnalyticsService {
   // Internal Methods
   // ---------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+  // Test Spy (only available in tests via @visibleForTesting)
+  // ---------------------------------------------------------------------------
+
+  /// Call log for verifying analytics calls in tests.
+  /// Each entry is `{event: AnalyticsEvent, params: Map}`.
+  @visibleForTesting
+  static List<({AnalyticsEvent event, Map<String, dynamic> params})>? callLog;
+
+  /// Enable the call log spy for testing. Returns the log list.
+  @visibleForTesting
+  static List<({AnalyticsEvent event, Map<String, dynamic> params})>
+      enableCallLog() {
+    callLog = [];
+    return callLog!;
+  }
+
+  /// Disable the call log and reset analytics state for testing.
+  @visibleForTesting
+  static void resetForTesting() {
+    callLog = null;
+    _initialized = false;
+    _enabled = true;
+  }
+
   /// Core tracking method with guard clause.
   static void _track(AnalyticsEvent event, Map<String, dynamic> params) {
+    // Record to call log if spy is active (test mode)
+    callLog?.add((event: event, params: Map<String, dynamic>.from(params)));
+
     if (!isReady) return;
 
     _sendEvent(event.name, params);
