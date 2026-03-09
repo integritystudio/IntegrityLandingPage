@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
 /// Quick Start documentation page.
@@ -216,9 +217,10 @@ class _DocsContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Prerequisites Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.checkCircle,
           title: 'Prerequisites',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -227,13 +229,13 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.md),
-              _CheckList(items: const [
+              DocBulletList(bulletColor: AppColors.success, items: const [
                 'An Integrity Studio account (free tier available)',
                 'Python 3.8+, Node.js 18+, or Go 1.20+',
                 'An LLM application to instrument',
               ]),
               const SizedBox(height: AppSpacing.lg),
-              _InfoCallout(
+              DocCallout.info(
                 title: 'No Account Yet?',
                 message:
                     'Sign up at integritystudio.ai/signup to get your API key. The free tier includes 50K traces/month.',
@@ -243,9 +245,10 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Step 1: Get API Key
-        _DocSection(
+        DocSection(
           icon: LucideIcons.key,
           title: 'Step 1: Get Your API Key',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -271,7 +274,7 @@ class _DocsContent extends StatelessWidget {
                 content: 'Save your API key in an environment variable.',
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Set Environment Variable',
                 code: '''# Add to your shell profile (.bashrc, .zshrc, etc.)
 export INTEGRITY_API_KEY="your-api-key-here"
@@ -288,9 +291,10 @@ INTEGRITY_API_KEY=your-api-key-here''',
         ),
 
         // Step 2: Install SDK
-        _DocSection(
+        DocSection(
           icon: LucideIcons.download,
           title: 'Step 2: Install the SDK',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -330,9 +334,10 @@ require github.com/integritystudio/sdk-go v1.0.0''',
         ),
 
         // Step 3: Initialize
-        _DocSection(
+        DocSection(
           icon: LucideIcons.play,
           title: 'Step 3: Initialize the SDK',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -392,9 +397,10 @@ func main() {
         ),
 
         // Step 4: Instrument Your Code
-        _DocSection(
+        DocSection(
           icon: LucideIcons.code,
           title: 'Step 4: Instrument Your Code',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -465,9 +471,10 @@ span.SetAttribute("result.status", "success")''',
         ),
 
         // Step 5: View Traces
-        _DocSection(
+        DocSection(
           icon: LucideIcons.barChart3,
           title: 'Step 5: View Your Traces',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -478,7 +485,7 @@ span.SetAttribute("result.status", "success")''',
               const SizedBox(height: AppSpacing.lg),
               const _FeatureGrid(),
               const SizedBox(height: AppSpacing.lg),
-              _SuccessCallout(
+              DocCallout.success(
                 title: "You're All Set!",
                 message:
                     'Your traces should now be flowing to Integrity Studio. Check your dashboard to see LLM calls, token usage, latency, and costs.',
@@ -488,9 +495,10 @@ span.SetAttribute("result.status", "success")''',
         ),
 
         // What's Captured Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.database,
           title: "What's Captured Automatically",
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -499,7 +507,7 @@ span.SetAttribute("result.status", "success")''',
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Attribute', 'Description', 'Example'],
                 rows: [
                   ['gen_ai.system', 'LLM provider', 'anthropic, openai'],
@@ -511,7 +519,7 @@ span.SetAttribute("result.status", "success")''',
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              _InfoCallout(
+              DocCallout.info(
                 title: 'Cost Tracking',
                 message:
                     'Token counts are automatically converted to cost estimates based on current model pricing.',
@@ -521,9 +529,10 @@ span.SetAttribute("result.status", "success")''',
         ),
 
         // OpenTelemetry Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.plug,
           title: 'OpenTelemetry Configuration',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -532,7 +541,7 @@ span.SetAttribute("result.status", "success")''',
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Environment Variables',
                 code: '''# OTLP Configuration
 export OTEL_EXPORTER_OTLP_ENDPOINT="https://ingest.integritystudio.ai"
@@ -553,9 +562,10 @@ export OTEL_RESOURCE_ATTRIBUTES="deployment.environment=production"''',
         ),
 
         // Troubleshooting Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.helpCircle,
           title: 'Troubleshooting',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -590,9 +600,10 @@ export OTEL_RESOURCE_ATTRIBUTES="deployment.environment=production"''',
         ),
 
         // Health Monitoring Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.heartPulse,
           title: 'Health Monitoring',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -603,7 +614,7 @@ export OTEL_RESOURCE_ATTRIBUTES="deployment.environment=production"''',
               const SizedBox(height: AppSpacing.lg),
               const _HealthMetricsGrid(),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Health Check Endpoint',
                 code: '''# Check pipeline health
 curl https://api.integritystudio.ai/v1/health \\
@@ -629,9 +640,10 @@ curl https://api.integritystudio.ai/v1/health \\
         ),
 
         // Cache Performance Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.database,
           title: 'Cache Performance',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -640,7 +652,7 @@ curl https://api.integritystudio.ai/v1/health \\
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Hit Rate', 'Interpretation', 'Action'],
                 rows: [
                   ['>80%', 'Excellent', 'Cache is working effectively'],
@@ -650,7 +662,7 @@ curl https://api.integritystudio.ai/v1/health \\
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Metric', 'Description'],
                 rows: [
                   ['hits', 'Successful cache lookups'],
@@ -660,7 +672,7 @@ curl https://api.integritystudio.ai/v1/health \\
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              _InfoCallout(
+              DocCallout.info(
                 title: 'Cache Configuration',
                 message:
                     'Default TTL is 60 seconds with max 100 entries. Configure via CACHE_TTL_MS environment variable.',
@@ -670,9 +682,10 @@ curl https://api.integritystudio.ai/v1/health \\
         ),
 
         // Query Performance Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.timer,
           title: 'Query Performance',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -681,7 +694,7 @@ curl https://api.integritystudio.ai/v1/health \\
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Duration', 'Status', 'Action'],
                 rows: [
                   ['<500ms', 'Normal', 'No action needed'],
@@ -705,9 +718,10 @@ curl https://api.integritystudio.ai/v1/health \\
         ),
 
         // Circuit Breaker Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.shield,
           title: 'Circuit Breaker',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -716,7 +730,7 @@ curl https://api.integritystudio.ai/v1/health \\
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['State', 'Description'],
                 rows: [
                   ['Closed', 'Normal operation - requests flow through'],
@@ -725,7 +739,7 @@ curl https://api.integritystudio.ai/v1/health \\
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              _InfoCallout(
+              DocCallout.info(
                 title: 'Recovery Time',
                 message:
                     'After opening, the circuit breaker attempts recovery after 30 seconds. Successful requests close the circuit.',
@@ -735,13 +749,14 @@ curl https://api.integritystudio.ai/v1/health \\
         ),
 
         // Next Steps Section
-        _DocSection(
+        DocSection(
           icon: LucideIcons.arrowRight,
           title: 'Next Steps',
+          accentColor: AppColors.success,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _BulletList(items: const [
+              DocBulletList(bulletColor: AppColors.success, items: const [
                 'Set up alerts \u2014 /docs/alerts',
                 'Configure integrations \u2014 /docs/integrations',
                 'Explore the API \u2014 /docs/api',
@@ -757,64 +772,6 @@ curl https://api.integritystudio.ai/v1/health \\
 
 // Reusable Components
 
-class _DocSection extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Widget child;
-
-  const _DocSection({
-    required this.icon,
-    required this.title,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: title,
-      container: true,
-      child: Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.success,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                ),
-                child: Icon(icon, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.headingSM.copyWith(
-                    color: AppColors.success,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          child,
-        ],
-      ),
-      ),
-    );
-  }
-}
-
 class _FeatureGrid extends StatelessWidget {
   const _FeatureGrid();
 
@@ -824,79 +781,31 @@ class _FeatureGrid extends StatelessWidget {
       spacing: AppSpacing.md,
       runSpacing: AppSpacing.md,
       children: const [
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.activity,
           title: 'Trace Explorer',
           description: 'Search and filter traces by service, operation, or time range.',
+          accentColor: AppColors.success,
         ),
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.dollarSign,
           title: 'Cost Dashboard',
           description: 'Track spend by model, team, or application.',
+          accentColor: AppColors.success,
         ),
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.gauge,
           title: 'Latency Metrics',
           description: 'Monitor P50, P95, P99 latencies in real-time.',
+          accentColor: AppColors.success,
         ),
-        _FeatureCard(
+        DocFeatureCard(
           icon: LucideIcons.bell,
           title: 'Alerting',
           description: 'Get notified when costs or errors exceed thresholds.',
+          accentColor: AppColors.success,
         ),
       ],
-    );
-  }
-}
-
-class _FeatureCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-
-  const _FeatureCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray700,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray600),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-            ),
-            child: Icon(icon, color: AppColors.success, size: 18),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            title,
-            style: AppTypography.bodyMD.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            description,
-            style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1019,183 +928,8 @@ class _LanguageTabState extends State<_LanguageTab> {
         ),
         const SizedBox(height: AppSpacing.md),
         // Code block
-        _CodeBlock(code: widget.codeBlocks[_selectedIndex]),
+        DocCodeBlock(code: widget.codeBlocks[_selectedIndex]),
       ],
-    );
-  }
-}
-
-class _CodeBlock extends StatelessWidget {
-  final String code;
-  final String? title;
-
-  const _CodeBlock({required this.code, this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (title != null) ...[
-          Text(
-            title!,
-            style: AppTypography.bodySM.copyWith(
-              color: AppColors.gray400,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-        ],
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.gray900,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-            border: Border.all(color: AppColors.gray700),
-          ),
-          child: SelectableText(
-            code,
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 13,
-              color: AppColors.gray300,
-              height: 1.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SimpleTable extends StatelessWidget {
-  final List<String> headers;
-  final List<List<String>> rows;
-
-  const _SimpleTable({required this.headers, required this.rows});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        child: Table(
-          border: TableBorder.symmetric(
-            inside: BorderSide(color: AppColors.gray700),
-          ),
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: AppColors.gray800),
-              children: headers
-                  .map((h) => Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Text(
-                          h,
-                          style: AppTypography.bodySM.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ))
-                  .toList(),
-            ),
-            ...rows.map(
-              (row) => TableRow(
-                children: row
-                    .map((cell) => Padding(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          child: Text(
-                            cell,
-                            style: AppTypography.bodySM.copyWith(
-                              color: AppColors.gray300,
-                            ),
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BulletList extends StatelessWidget {
-  final List<String> items;
-
-  const _BulletList({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: items
-          .map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '\u2022 ',
-                      style: AppTypography.bodyMD.copyWith(
-                        color: AppColors.success,
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: AppTypography.bodyMD.copyWith(
-                          color: AppColors.gray300,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ))
-          .toList(),
-    );
-  }
-}
-
-class _CheckList extends StatelessWidget {
-  final List<String> items;
-
-  const _CheckList({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: items
-          .map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      LucideIcons.checkCircle,
-                      size: 18,
-                      color: AppColors.success,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: AppTypography.bodyMD.copyWith(
-                          color: AppColors.gray300,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ))
-          .toList(),
     );
   }
 }
@@ -1253,94 +987,6 @@ class _TroubleshootItem extends StatelessWidget {
               ),
             )),
       ],
-    );
-  }
-}
-
-class _SuccessCallout extends StatelessWidget {
-  final String title;
-  final String message;
-
-  const _SuccessCallout({required this.title, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.success.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border(
-          left: BorderSide(color: AppColors.success, width: 3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(LucideIcons.checkCircle, color: AppColors.success, size: 18),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                title,
-                style: AppTypography.bodyMD.copyWith(
-                  color: AppColors.success,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            message,
-            style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoCallout extends StatelessWidget {
-  final String title;
-  final String message;
-
-  const _InfoCallout({required this.title, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.blue500.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border(
-          left: BorderSide(color: AppColors.blue500, width: 3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(LucideIcons.lightbulb, color: AppColors.blue400, size: 18),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                title,
-                style: AppTypography.bodyMD.copyWith(
-                  color: AppColors.blue400,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            message,
-            style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
-          ),
-        ],
-      ),
     );
   }
 }
