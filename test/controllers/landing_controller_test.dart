@@ -4,6 +4,8 @@ import 'package:integrity_studio_ai/controllers/landing_controller.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/services/analytics.dart';
 
+import '../helpers/test_helpers.dart';
+
 void main() {
 
   group('LandingController', () {
