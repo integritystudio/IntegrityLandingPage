@@ -89,13 +89,21 @@ class _AnimatedOrbState extends State<AnimatedOrb>
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+
     // CRITICAL: RepaintBoundary isolates animation repaints
     return RepaintBoundary(
       child: AnimatedBuilder(
-        animation: _controller,
+        animation: reduceMotion
+            ? const AlwaysStoppedAnimation(0.0)
+            : _controller,
         builder: (context, child) {
+          final scale = reduceMotion ? 1.0 : _scaleAnimation.value;
+          final opacity =
+              reduceMotion ? widget.opacity : _opacityAnimation.value;
           return Transform.scale(
-            scale: _scaleAnimation.value,
+            scale: scale,
             child: Container(
               width: widget.size,
               height: widget.size,
@@ -103,7 +111,7 @@ class _AnimatedOrbState extends State<AnimatedOrb>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    widget.color.withValues(alpha: _opacityAnimation.value),
+                    widget.color.withValues(alpha: opacity),
                     Colors.transparent,
                   ],
                 ),

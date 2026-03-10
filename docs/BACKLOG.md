@@ -296,7 +296,136 @@ The `DocBulletList` class silently ignores `bulletColor` param when `checked: tr
 
 ---
 
-*Last updated: 2026-03-09 (widget duplication analysis + backlog migration)*
+## Open: High-Similarity Widget Duplication (>90%)
+
+Detected by `scripts/find_duplication.sh` on 2026-03-09. Only pairs >90% Jaccard similarity listed. DocsPage scaffolding pairs (93%) already tracked by #89; _WarningAlert/_DangerAlert pairs (92-100%) already tracked by #92.
+
+### #95: Migrate api_toolkit_page Private Widgets to Shared doc_components
+
+**Severity:** MEDIUM
+**Category:** Code Quality (DRY)
+**Files:** `lib/pages/api_toolkit_page.dart`, `lib/widgets/docs/doc_components.dart`
+**Source:** Duplication scan 2026-03-09
+
+`api_toolkit_page.dart` was not included in #88 Phase 1 and still declares private widgets that are near-identical to shared `doc_components.dart` equivalents:
+
+| Private Widget | Shared Equivalent | Similarity |
+|---------------|-------------------|------------|
+| `_StatCard` (lines 207-247) | — (no shared equivalent yet) | 97% vs docs_api_page, docs_observability_page |
+| `_DocSection` (lines 817-869) | `DocSection` (doc_components:6-66) | 82% (also 91% vs security_page `_SecurityCard`) |
+| `_CodeBlock` (lines 871-913) | `DocCodeBlock` (doc_components:130-172) | 92% |
+| `_SimpleTable` (lines 915-970) | `DocTable` (doc_components:176-240) | 80% |
+
+**Status:** Open — apply same Phase 1 migration pattern used for other docs pages.
+
+---
+
+### #96: Extract Shared _StatCard Widget Across 3 Pages
+
+**Severity:** MEDIUM
+**Category:** Code Quality (DRY)
+**Files:** `lib/pages/api_toolkit_page.dart:207-247`, `lib/pages/docs_api_page.dart:159-199`, `lib/pages/docs_observability_page.dart:159-199`
+**Source:** Duplication scan 2026-03-09
+
+Three pages declare nearly identical `_StatCard` widgets (97% Jaccard similarity). No shared equivalent exists in `doc_components.dart`. Should extract to `DocStatCard` in `lib/widgets/docs/doc_components.dart` and replace all three private declarations.
+
+Additional lower-similarity matches: `eu_ai_act_page::_TimelineCard` (85%), `security_page::_StatCard` (81-84%).
+
+**Status:** Open — extract shared `DocStatCard`, then replace across all pages.
+
+---
+
+### #97: security_page _SecurityCard Duplicates DocSection (91%)
+
+**Severity:** LOW
+**Category:** Code Quality (DRY)
+**Files:** `lib/pages/security_page.dart:446-498`, `lib/widgets/docs/doc_components.dart:6-66`
+**Source:** Duplication scan 2026-03-09
+
+`security_page::_SecurityCard` is 91% similar to `api_toolkit_page::_DocSection` and 85% similar to shared `DocSection`. `security_page` was not included in #88 Phase 1. Candidate for replacement with `DocSection` after verifying visual parity.
+
+**Status:** Open — evaluate after #95 migration.
+
+---
+
+## Open: Test Timeout Prevention (Animation & Settle Fixes)
+
+**Category:** Test Infrastructure (Widget Tests)
+**Source:** Session 2026-03-09 (code review: test timeouts & animation hang prevention)
+
+### #98: Fix scrollUntilVisible() Unbounded pumpAndSettle Loop
+
+**Severity:** HIGH
+**Category:** Test Infrastructure (Correctness)
+**File:** `test/helpers/test_helpers.dart:87-98`
+**Source:** Code review session 2026-03-09, fix #2
+
+`scrollUntilVisible()` calls `pumpAndSettle()` inside a loop (up to 50 iterations). If the target widget is never found, the test silently passes after 50 × 10s timeout = 500s. When the page contains repeating animations, each `pumpAndSettle()` hangs indefinitely (separate issue now gated by #98 replacement).
+
+**Fix:** Replace `await pumpAndSettle()` with `await pump(const Duration(milliseconds: 100))` (lines 95), and add assertion after loop: `expect(finder.evaluate().isNotEmpty, true, reason: 'Element not found after $maxScrolls scrolls')` to prevent silent failures.
+
+**Status:** Deferred — identified but not implemented. Replace and add assertion in one edit.
+
+---
+
+### #99: Add Clarifying Comment to didChangeDependencies Re-entry Guard
+
+**Severity:** LOW
+**Category:** Code Quality (Documentation)
+**Files:**
+- `lib/widgets/common/buttons.dart:237-241`
+- `lib/widgets/decorative/animated_orb.dart:74-81`
+**Source:** Code review session 2026-03-09
+
+The `else if (!_controller.isAnimating)` guard in both `didChangeDependencies` methods prevents re-entrant `repeat()` calls on dependency changes. Purpose is non-obvious; a brief comment prevents future misreading as dead code.
+
+**Suggested comment:**
+```dart
+// Guard against re-entrant calls on subsequent dependency changes
+// (e.g., theme or MediaQuery updates after initial mount).
+} else if (!_controller.isAnimating) {
+```
+
+**Status:** Deferred — low priority polish.
+
+---
+
+### #100: Consider Animation Reset Pattern for disableAnimations Toggle
+
+**Severity:** LOW
+**Category:** Code Quality (Edge Case)
+**Files:**
+- `lib/widgets/common/buttons.dart:237-241`
+- `lib/widgets/decorative/animated_orb.dart:74-81`
+**Source:** Code review session 2026-03-09
+
+If user toggles `disableAnimations` from `true→false` at runtime (rare but possible via system accessibility settings), `didChangeDependencies` resumes animation from the stopped position, not from 0. This causes a visible jump/snap in the animation. A `_controller.reset()` before `repeat()` would fix, at the cost of a jump-to-start visual discontinuity. This is a product design decision and low-priority.
+
+**Status:** Deferred — edge case, lower priority. Requires decision on whether jump-to-start is acceptable.
+
+---
+
+### #101: Add Header Warning to Inactive Test File
+
+**Severity:** LOW
+**Category:** Test Infrastructure (Documentation)
+**File:** `test/widgets/sections/social_proof_section_test.dart.inactive`
+**Source:** Code review session 2026-03-09
+
+The `.inactive` file contains ~50 bare `pumpAndSettle()` calls not converted to `pumpAndSettleWithTimeout()` (commit d61fbea). If the file is ever reactivated without updating these calls, tests will timeout.
+
+**Fix:** Add header comment:
+```dart
+/// WARNING: This file contains 50+ pumpAndSettle() calls not yet converted to
+/// pumpAndSettleWithTimeout(). Before reactivating this test file, run:
+/// sed -i '' 's/pumpAndSettle()/pumpAndSettleWithTimeout()/g' social_proof_section_test.dart.inactive
+```
+
+**Status:** Deferred — optional documentation. Low-priority safety note.
+
+---
+
+*Last updated: 2026-03-09 (widget duplication analysis + backlog migration + animation/test timeout fixes)*
 *Migrated items: 32 total → docs/changelog/1.0/CHANGELOG.md:*
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit (2026-02-13)*
   *- 13 items (all LOW) from backlog implementation sprint (2026-02-13)*
@@ -304,4 +433,5 @@ The `DocBulletList` class silently ignores `bulletColor` param when `checked: tr
   *- 8 items (1 MEDIUM, 7 LOW) from test quality & code quality session (2026-03-09)*
 *Remaining open: 0 open + 1 blocked (#77) + 5 deferred (OAuth #8-#10, test coverage #75-#76) + 1 deferred (#78 intermittent timeout)*
 *Migrated this session (2026-03-09): #79 (anchor nav), #80 (shader format), #81 (analytics spy), #82 (test constants), #83 (backlog numbering), #84 (15-min call), #85 (Austin TX), #86 (privacy email), #87 (5-min setup)*
-*Appended this session (2026-03-09): #89 (DocsPageScaffold), #90 (hero templates), #91 (button/badge/shell), #92 (_WarningCallout variants), #93 (DocBulletList bulletColor doc), #94 (const optimization)*
+*Appended this session (2026-03-09): #89 (DocsPageScaffold), #90 (hero templates), #91 (button/badge/shell), #92 (_WarningCallout variants), #93 (DocBulletList bulletColor doc), #94 (const optimization), #95 (api_toolkit_page migration), #96 (shared _StatCard), #97 (security_page _SecurityCard)*
+*Appended this session continued (2026-03-09): #98 (scrollUntilVisible loop), #99 (didChangeDependencies comment), #100 (animation reset on toggle), #101 (inactive file warning)*
