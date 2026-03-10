@@ -84,6 +84,10 @@ extension WidgetTesterX on WidgetTester {
   }
 
   /// Scroll until widget is visible.
+  ///
+  /// Uses a fixed pump duration to avoid hanging on pages with continuous
+  /// animations. Asserts the widget is found after scrolling to prevent
+  /// silent failures when the target is never reached.
   Future<void> scrollUntilVisible(
     Finder finder, {
     double delta = 100,
@@ -92,9 +96,14 @@ extension WidgetTesterX on WidgetTester {
     int scrollCount = 0;
     while (!finder.evaluate().isNotEmpty && scrollCount < maxScrolls) {
       await drag(find.byType(SingleChildScrollView), Offset(0, -delta));
-      await pumpAndSettleWithTimeout();
+      await pump(const Duration(milliseconds: 100));
       scrollCount++;
     }
+    expect(
+      finder.evaluate().isNotEmpty,
+      true,
+      reason: 'Element not found after $maxScrolls scrolls',
+    );
   }
 
   /// Wait for animations to complete with timeout.
