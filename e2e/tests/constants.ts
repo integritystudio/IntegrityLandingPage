@@ -9,8 +9,14 @@
 // Timeout durations (milliseconds)
 // ---------------------------------------------------------------------------
 
-/** Maximum time for Flutter to fully initialize after navigation. */
-export const FLUTTER_INIT_TIMEOUT_MS = 90_000;
+/**
+ * Maximum time for Flutter to fully initialize after navigation.
+ *
+ * Set to 120s to accommodate slower production CDN loads. Local dev server
+ * is typically <10s; production CanvasKit routes can take 60-90s on cold
+ * requests (#78).
+ */
+export const FLUTTER_INIT_TIMEOUT_MS = 120_000;
 
 /** Maximum time for a route change (URL update) to complete. */
 export const ROUTE_CHANGE_TIMEOUT_MS = 10_000;
