@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/docs/doc_components.dart';
 
 /// MCP Toolkit API Reference page.
 ///
@@ -191,56 +192,14 @@ class _HeroSection extends StatelessWidget {
               runSpacing: AppSpacing.md,
               alignment: WrapAlignment.center,
               children: const [
-                _StatCard(value: '8', label: 'MCP Tools'),
-                _StatCard(value: '10/10', label: 'OTel GenAI'),
-                _StatCard(value: 'v1.8.0', label: 'Version'),
-                _StatCard(value: '939+', label: 'Tests'),
+                DocStatCard(value: '8', label: 'MCP Tools', accentColor: Color(0xFFA78BFA)),
+                DocStatCard(value: '10/10', label: 'OTel GenAI', accentColor: Color(0xFFA78BFA)),
+                DocStatCard(value: 'v1.8.0', label: 'Version', accentColor: Color(0xFFA78BFA)),
+                DocStatCard(value: '939+', label: 'Tests', accentColor: Color(0xFFA78BFA)),
               ],
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String value;
-  final String label;
-
-  const _StatCard({required this.value, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 140, maxWidth: 160),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: AppTypography.headingMD.copyWith(
-              color: const Color(0xFFA78BFA),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            label,
-            style: AppTypography.bodySM.copyWith(
-              color: AppColors.gray400,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }
@@ -255,7 +214,7 @@ class _DocsContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Overview Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.info,
           title: 'Overview',
           child: Column(
@@ -266,7 +225,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Architecture',
                 code: '''src/
 \u251C\u2500\u2500 server.ts              # MCP server entry point
@@ -293,7 +252,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // MCP Tools Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.wrench,
           title: 'MCP Tools',
           child: Column(
@@ -304,7 +263,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Tool', 'Description'],
                 rows: [
                   ['obs_query_traces', 'Query distributed traces with filtering'],
@@ -322,7 +281,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Query Traces Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.gitBranch,
           title: 'obs_query_traces',
           child: Column(
@@ -338,7 +297,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Parameter', 'Type', 'Description'],
                 rows: [
                   ['traceId', 'string', 'Filter by specific trace ID'],
@@ -361,7 +320,7 @@ class _DocsContent extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Example Query',
                 code: '''{
   "serviceName": "ai-inference",
@@ -380,7 +339,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Query LLM Events Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.messageSquare,
           title: 'obs_query_llm_events',
           child: Column(
@@ -396,7 +355,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Parameter', 'Type', 'Description'],
                 rows: [
                   ['operationName', 'string', 'chat, embeddings, invoke_agent, execute_tool'],
@@ -418,7 +377,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'LLMEventResponse',
                 code: '''{
   "timestamp": "2026-01-29T10:30:00Z",
@@ -442,7 +401,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Query Metrics Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.barChart3,
           title: 'obs_query_metrics',
           child: Column(
@@ -453,7 +412,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Parameter', 'Type', 'Description'],
                 rows: [
                   ['metricName', 'string', 'Filter by metric name'],
@@ -467,7 +426,7 @@ class _DocsContent extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Example: Token Usage by Model',
                 code: '''{
   "metricName": "gen_ai.client.token.usage",
@@ -483,7 +442,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Query Logs Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.fileText,
           title: 'obs_query_logs',
           child: Column(
@@ -494,7 +453,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Parameter', 'Type', 'Description'],
                 rows: [
                   ['severity', 'string', 'ERROR, WARN, INFO, DEBUG'],
@@ -514,7 +473,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Query Evaluations Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.checkCircle2,
           title: 'obs_query_evaluations',
           child: Column(
@@ -525,7 +484,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Parameter', 'Type', 'Description'],
                 rows: [
                   ['evaluationName', 'string', 'Filter by metric (Relevance, Faithfulness)'],
@@ -540,7 +499,7 @@ class _DocsContent extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Evaluation Result',
                 code: '''{
   "timestamp": "2026-01-29T10:30:00Z",
@@ -558,7 +517,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // OTel GenAI Compliance Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.shield,
           title: 'OTel GenAI Semantic Conventions',
           child: Column(
@@ -574,7 +533,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Attribute', 'Requirement', 'Description'],
                 rows: [
                   ['gen_ai.operation.name', 'Required', 'chat, embeddings, invoke_agent, execute_tool'],
@@ -595,7 +554,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Attribute', 'Type', 'Description'],
                 rows: [
                   ['gen_ai.agent.id', 'string', 'Unique agent identifier'],
@@ -611,7 +570,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Provider', 'Value'],
                 rows: [
                   ['Anthropic', 'anthropic'],
@@ -629,7 +588,7 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Data Types Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.database,
           title: 'Data Types',
           child: Column(
@@ -640,7 +599,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'TraceSpan Interface',
                 code: '''{
   traceId: string;
@@ -665,7 +624,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'LogRecord Interface',
                 code: '''{
   timestamp: string;
@@ -685,7 +644,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'MetricDataPoint Interface',
                 code: '''{
   timestamp: string;
@@ -703,13 +662,13 @@ class _DocsContent extends StatelessWidget {
         ),
 
         // Environment Variables Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.settings,
           title: 'Environment Variables',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SimpleTable(
+              const DocTable(
                 headers: ['Variable', 'Default', 'Description'],
                 rows: [
                   ['TELEMETRY_DIR', '~/.claude/telemetry', 'Local telemetry directory'],
@@ -721,7 +680,7 @@ class _DocsContent extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Example Configuration',
                 code: '''# Local-only mode
 export TELEMETRY_DIR=~/.claude/telemetry
@@ -738,7 +697,7 @@ export SIGNOZ_QUERY_URL=https://us.signoz.cloud/api/v3''',
         ),
 
         // Health Check Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.heartPulse,
           title: 'obs_health_check',
           child: Column(
@@ -749,7 +708,7 @@ export SIGNOZ_QUERY_URL=https://us.signoz.cloud/api/v3''',
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const _CodeBlock(
+              const DocCodeBlock(
                 title: 'Health Check Response',
                 code: '''{
   "status": "healthy",
@@ -771,13 +730,13 @@ export SIGNOZ_QUERY_URL=https://us.signoz.cloud/api/v3''',
         ),
 
         // Performance Features Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.zap,
           title: 'Performance Features',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _BulletList(items: const [
+              DocBulletList(bulletColor: AppColors.purple500, items: const [
                 'LRU Query Caching \u2014 Configurable TTL with hit/miss tracking',
                 'File Indexing \u2014 .idx sidecar files for fast lookups without full scans',
                 'Gzip Compression \u2014 Transparent handling of .gz telemetry files',
@@ -791,13 +750,13 @@ export SIGNOZ_QUERY_URL=https://us.signoz.cloud/api/v3''',
         ),
 
         // Related Docs Section
-        _DocSection(
+        DocSection(accentColor: const Color(0xFF8B5CF6), 
           icon: LucideIcons.bookOpen,
           title: 'Related Documentation',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _BulletList(items: const [
+              DocBulletList(bulletColor: AppColors.purple500, items: const [
                 'Platform API Reference \u2014 /api',
                 'LLM Observability Guide \u2014 /docs/llm-observability',
                 'Distributed Tracing \u2014 /docs/tracing',
@@ -812,196 +771,3 @@ export SIGNOZ_QUERY_URL=https://us.signoz.cloud/api/v3''',
   }
 }
 
-// Reusable Components
-
-class _DocSection extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Widget child;
-
-  const _DocSection({
-    required this.icon,
-    required this.title,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8B5CF6),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                ),
-                child: Icon(icon, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.headingSM.copyWith(
-                    color: const Color(0xFFA78BFA),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _CodeBlock extends StatelessWidget {
-  final String code;
-  final String? title;
-
-  const _CodeBlock({required this.code, this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (title != null) ...[
-          Text(
-            title!,
-            style: AppTypography.bodySM.copyWith(
-              color: AppColors.gray400,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-        ],
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.gray900,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-            border: Border.all(color: AppColors.gray700),
-          ),
-          child: SelectableText(
-            code,
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 13,
-              color: AppColors.gray300,
-              height: 1.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SimpleTable extends StatelessWidget {
-  final List<String> headers;
-  final List<List<String>> rows;
-
-  const _SimpleTable({required this.headers, required this.rows});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        child: Table(
-          border: TableBorder.symmetric(
-            inside: BorderSide(color: AppColors.gray700),
-          ),
-          children: [
-            TableRow(
-              decoration: BoxDecoration(color: AppColors.gray800),
-              children: headers
-                  .map((h) => Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Text(
-                          h,
-                          style: AppTypography.bodySM.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ))
-                  .toList(),
-            ),
-            ...rows.map(
-              (row) => TableRow(
-                children: row
-                    .map((cell) => Padding(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          child: Text(
-                            cell,
-                            style: AppTypography.bodySM.copyWith(
-                              color: AppColors.gray300,
-                            ),
-                          ),
-                        ))
-                    .toList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BulletList extends StatelessWidget {
-  final List<String> items;
-
-  const _BulletList({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: items
-          .map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '\u2022 ',
-                      style: AppTypography.bodyMD.copyWith(
-                        color: const Color(0xFFA78BFA),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: AppTypography.bodyMD.copyWith(
-                          color: AppColors.gray300,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ))
-          .toList(),
-    );
-  }
-}
