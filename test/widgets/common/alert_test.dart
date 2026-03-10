@@ -201,7 +201,7 @@ void main() {
       expect(find.byType(AnimatedAlert), findsOneWidget);
 
       // Animation should complete
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
       expect(find.text('Animated alert'), findsOneWidget);
     });
 
@@ -222,7 +222,7 @@ void main() {
 
       expect(find.text('Auto dismiss alert'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 600));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
       expect(dismissed, isTrue);
 
       // Without auto dismiss duration - should persist
@@ -257,9 +257,9 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
       await tester.tap(find.byIcon(LucideIcons.x));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
       expect(dismissed, isTrue);
 
       // With title
@@ -273,7 +273,7 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
       expect(find.text('Animated Title'), findsOneWidget);
       expect(find.text('Animated message'), findsOneWidget);
     });

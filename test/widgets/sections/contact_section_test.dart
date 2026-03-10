@@ -152,13 +152,13 @@ void main() {
       // Settle all field rebuilds before scrolling and submitting
       await tester.drag(
           find.byType(SingleChildScrollView), const Offset(0, -500));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       final submitButton = find.text('Submit');
       await tester.ensureVisible(submitButton);
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
       await tester.tap(submitButton);
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
     }
 
     /// Wraps [content] in a GoRouter with an optional [demoRoute] destination.
@@ -370,7 +370,7 @@ void main() {
         final dismissButton = find.byIcon(LucideIcons.x);
         expect(dismissButton, findsOneWidget);
         await tester.tap(dismissButton);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(Alert), findsNothing);
       });
@@ -503,9 +503,9 @@ void main() {
         // Submit
         await tester.drag(
             find.byType(SingleChildScrollView), const Offset(0, -500));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         await tester.tap(find.text('Submit'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         // Verify the submitted data contains firstName and lastName
         expect(submittedData, isNotNull);
@@ -531,7 +531,7 @@ void main() {
         // Scroll and submit
         await tester.drag(
             find.byType(SingleChildScrollView), const Offset(0, -500));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         await tester.tap(find.text('Submit'));
         await tester.pump();
 
@@ -540,7 +540,7 @@ void main() {
 
         // Complete the future and settle
         completer.complete(true);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
       });
     });
 
@@ -561,9 +561,9 @@ void main() {
         // Submit without filling
         await tester.drag(
             find.byType(SingleChildScrollView), const Offset(0, -500));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         await tester.tap(find.text('Submit'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.textContaining('Please enter'), findsWidgets);
       });
@@ -582,9 +582,9 @@ void main() {
 
         await tester.drag(
             find.byType(SingleChildScrollView), const Offset(0, -500));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         await tester.tap(find.text('Submit'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.textContaining('valid email'), findsOneWidget);
       });
@@ -604,9 +604,9 @@ void main() {
 
         await tester.drag(
             find.byType(SingleChildScrollView), const Offset(0, -500));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         await tester.tap(find.text('Submit'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.textContaining('more details'), findsNothing);
       });
@@ -734,10 +734,10 @@ void main() {
         final dropdown = find.byType(DropdownButtonFormField<String>);
         expect(dropdown, findsOneWidget);
         await tester.tap(dropdown);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         await tester.tap(find.text('Sales').last);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text('Sales'), findsWidgets);
       });
@@ -1204,16 +1204,16 @@ void main() {
             calendlyCtaText: 'View Demo',
           ),
         ));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         // Find and tap the Calendly CTA button
         final viewDemo = find.text('View Demo');
         expect(viewDemo, findsOneWidget);
 
         await tester.ensureVisible(viewDemo);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         await tester.tap(viewDemo);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         // Should have navigated to /demo route
         expect(find.text('Demo Page'), findsOneWidget);
@@ -1240,12 +1240,12 @@ void main() {
             calendlyCtaText: 'Book Demo',
           ),
         ));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         // Tap the external URL button
         expect(find.text('Book Demo'), findsOneWidget);
         await tester.tap(find.text('Book Demo'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         // Route must not have changed — ContactSection still visible, not Demo Page
         expect(find.text(kSectionLiveDemo), findsOneWidget);

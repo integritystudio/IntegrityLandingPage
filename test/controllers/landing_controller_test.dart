@@ -214,7 +214,7 @@ void main() {
 
         // Scroll to CTA section
         controller.scrollToSection('cta');
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         // Verify scroll happened (CTA should be visible)
         expect(find.text('CTA Section'), findsOneWidget);
@@ -348,7 +348,7 @@ void main() {
         );
 
         controller.initialize();
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         // maxScrollExtent should be 0 for non-scrollable content
         expect(controller.scrollController.position.maxScrollExtent, equals(0));
@@ -378,19 +378,19 @@ void main() {
         );
 
         controller.initialize();
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         final maxExtent = controller.scrollController.position.maxScrollExtent;
         expect(maxExtent, greaterThan(0));
 
         // Scroll to 50%
         controller.scrollController.jumpTo(maxExtent * 0.5);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         expect(controller.scrollController.offset, closeTo(maxExtent * 0.5, 1));
 
         // Scroll to 100%
         controller.scrollController.jumpTo(maxExtent);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         expect(controller.scrollController.offset, equals(maxExtent));
       });
 
@@ -420,22 +420,22 @@ void main() {
         );
 
         controller.initialize();
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         final maxExtent = controller.scrollController.position.maxScrollExtent;
 
         // Scroll past 25% multiple times (milestone dedup path)
         controller.scrollController.jumpTo(maxExtent * 0.3);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         expect(controller.scrollController.offset, closeTo(maxExtent * 0.3, 1));
 
         controller.scrollController.jumpTo(0);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         expect(controller.scrollController.offset, equals(0));
 
         // Re-scroll past same milestone — should not throw
         controller.scrollController.jumpTo(maxExtent * 0.3);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         expect(controller.scrollController.offset, closeTo(maxExtent * 0.3, 1));
       });
 
@@ -465,23 +465,23 @@ void main() {
         );
 
         controller.initialize();
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         final maxExtent = controller.scrollController.position.maxScrollExtent;
 
         // Scroll to 50%
         controller.scrollController.jumpTo(maxExtent * 0.5);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         expect(controller.scrollController.offset, closeTo(maxExtent * 0.5, 1));
 
         // Reset tracking, scroll back to 0, then re-scroll
         controller.resetScrollTracking();
         controller.scrollController.jumpTo(0);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         expect(controller.scrollController.offset, equals(0));
 
         controller.scrollController.jumpTo(maxExtent * 0.5);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         expect(controller.scrollController.offset, closeTo(maxExtent * 0.5, 1));
       });
     });

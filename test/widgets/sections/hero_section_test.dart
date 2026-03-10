@@ -10,7 +10,7 @@ void main() {
 
   group('HeroSection', () {
     // HeroSection has continuous animations (DecorativeOrbs), so use pump() with duration
-    // instead of pumpAndSettle() which would timeout
+    // instead of pumpAndSettleWithTimeout() which would timeout
 
     group('callback handling', () {
       testWidgets('invokes onGetStarted when primary CTA tapped', (tester) async {

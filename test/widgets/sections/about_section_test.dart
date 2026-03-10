@@ -9,7 +9,7 @@ void main() {
       testWidgets('renders section title', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const AboutSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text(AppContent.about.title), findsOneWidget);
       });
@@ -17,7 +17,7 @@ void main() {
       testWidgets('renders section subtitle', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const AboutSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text(AppContent.about.subtitle), findsOneWidget);
       });
@@ -25,7 +25,7 @@ void main() {
       testWidgets('renders mission statement', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const AboutSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text(AppContent.about.missionStatement), findsOneWidget);
       });
@@ -33,7 +33,7 @@ void main() {
       testWidgets('renders vision statement', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const AboutSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text(AppContent.about.visionStatement), findsOneWidget);
       });
@@ -41,7 +41,7 @@ void main() {
       testWidgets('renders all 4 company values', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const AboutSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         for (final value in AppContent.about.values) {
           expect(find.text(value.title), findsOneWidget);
@@ -51,7 +51,7 @@ void main() {
       testWidgets('renders team member names', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const AboutSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         for (final member in AppContent.about.team) {
           expect(find.text(member.name), findsOneWidget);
@@ -61,7 +61,7 @@ void main() {
       testWidgets('renders location info', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const AboutSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.textContaining(AppContent.about.locationCity), findsWidgets);
       });
@@ -69,7 +69,7 @@ void main() {
       testWidgets('renders founding year', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const AboutSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.textContaining(AppContent.about.foundedYear), findsWidgets);
       });
@@ -80,7 +80,7 @@ void main() {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         final semanticsHandle = tester.ensureSemantics();
         await tester.pumpWidget(testableSection(const AboutSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text('Our Mission'), findsOneWidget);
         expect(find.text('Our Vision'), findsOneWidget);

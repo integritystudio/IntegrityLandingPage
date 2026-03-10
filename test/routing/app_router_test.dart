@@ -119,7 +119,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pumpAndSettleWithTimeout();
     clearOverflowExceptions(tester);
     return testRouter;
   }
@@ -134,7 +134,7 @@ void main() {
     final backButton = find.byType(IconButton);
     if (backButton.evaluate().isNotEmpty) {
       await tester.tap(backButton.first);
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
       clearOverflowExceptions(tester);
       expect(
         router.routerDelegate.currentConfiguration.uri.path,
@@ -491,7 +491,7 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
       clearOverflowExceptions(tester);
 
       // The callback should be accessible to the page
@@ -537,7 +537,7 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
       clearOverflowExceptions(tester);
 
       // The CookieBannerShell should show the banner

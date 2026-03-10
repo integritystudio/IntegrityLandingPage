@@ -89,7 +89,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/blog'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(BlogPage), findsOneWidget);
       });
@@ -98,7 +98,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/whylabs-alternative'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(ComparisonPage), findsOneWidget);
       });
@@ -107,7 +107,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/compare/arize-ai-alternative'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(ComparisonPage), findsOneWidget);
       });
@@ -116,7 +116,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/sources'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(SourcesPage), findsOneWidget);
       });
@@ -125,7 +125,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/about'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(AboutPage), findsOneWidget);
       });
@@ -134,7 +134,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/signup'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(SignupPage), findsOneWidget);
       });
@@ -143,7 +143,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/signup?tier=growth'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(SignupPage), findsOneWidget);
       });
@@ -152,7 +152,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/privacy'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(LegalPage), findsOneWidget);
       });
@@ -161,7 +161,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/terms'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(LegalPage), findsOneWidget);
       });
@@ -170,7 +170,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/cookies'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(LegalPage), findsOneWidget);
       });
@@ -179,7 +179,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/accessibility'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(LegalPage), findsOneWidget);
       });
@@ -188,7 +188,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/nonexistent-page'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(LandingPage), findsOneWidget);
       });
@@ -198,7 +198,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/docs/security/audit-trails'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DocsTracingPage), findsOneWidget);
       });
@@ -366,7 +366,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/pricing'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(PricingPage), findsOneWidget);
       });
@@ -390,7 +390,7 @@ void main() {
         };
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/careers'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         FlutterError.onError = oldHandler;
 
@@ -401,7 +401,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/security'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(SecurityPage), findsOneWidget);
       });
@@ -411,7 +411,7 @@ void main() {
 
         await tester
             .pumpWidget(buildTestApp(initialLocation: '/docs/llm-observability'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DocsObservabilityPage), findsOneWidget);
       });
@@ -421,7 +421,7 @@ void main() {
 
         await tester
             .pumpWidget(buildTestApp(initialLocation: '/docs/integrations'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DocsInteroperabilityPage), findsOneWidget);
       });
@@ -430,7 +430,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/api'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DocsApiPage), findsOneWidget);
       });
@@ -440,7 +440,7 @@ void main() {
 
         await tester
             .pumpWidget(buildTestApp(initialLocation: '/docs/quickstart'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DocsQuickstartPage), findsOneWidget);
       });
@@ -449,7 +449,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/docs/alerts'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DocsAlertsPage), findsOneWidget);
       });
@@ -460,7 +460,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/docs/agents'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DocsAgentsPage), findsOneWidget);
       });
@@ -469,7 +469,7 @@ void main() {
         setDesktopSize(tester);
 
         await tester.pumpWidget(buildTestApp(initialLocation: '/support'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(HelpCenterPage), findsOneWidget);
       });
@@ -479,7 +479,7 @@ void main() {
 
         await tester
             .pumpWidget(buildTestApp(initialLocation: '/reports/any-report'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DocsIndexPage), findsOneWidget);
       });

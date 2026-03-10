@@ -22,7 +22,7 @@ void main() {
 
         // Tap button to open modal
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DemoModal), findsOneWidget);
         expect(find.byType(Dialog), findsOneWidget);
@@ -42,7 +42,7 @@ void main() {
         );
 
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DemoModal), findsOneWidget);
         expect(find.textContaining('Demo video loading'), findsOneWidget);
@@ -62,7 +62,7 @@ void main() {
         );
 
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text('Demo Video Coming Soon'), findsOneWidget);
       });
@@ -81,7 +81,7 @@ void main() {
         );
 
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.textContaining('Integrity Studio'), findsWidgets);
       });
@@ -102,7 +102,7 @@ void main() {
         );
 
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         // Find close icon button
         expect(find.byType(IconButton), findsWidgets);
@@ -122,14 +122,14 @@ void main() {
         );
 
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DemoModal), findsOneWidget);
 
         // Find and tap close button (first IconButton)
         final closeButtons = find.byType(IconButton);
         await tester.tap(closeButtons.first);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DemoModal), findsNothing);
       });
@@ -150,7 +150,7 @@ void main() {
         );
 
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text('Close'), findsOneWidget);
       });
@@ -172,7 +172,7 @@ void main() {
         );
 
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text('Schedule Live Demo'), findsOneWidget);
       });
@@ -196,10 +196,10 @@ void main() {
         );
 
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         await tester.tap(find.text('Schedule Live Demo'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(scheduleCalled, isTrue);
         expect(find.byType(DemoModal), findsNothing);
@@ -219,10 +219,10 @@ void main() {
         );
 
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         await tester.tap(find.text('Close'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DemoModal), findsNothing);
       });
@@ -246,7 +246,7 @@ void main() {
           );
 
           await tester.tap(find.text('Open Modal'));
-          await tester.pumpAndSettle();
+          await tester.pumpAndSettleWithTimeout();
 
           expect(find.byType(DemoModal), findsOneWidget);
         },
@@ -266,7 +266,7 @@ void main() {
         );
 
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DemoModal), findsOneWidget);
       });
@@ -287,13 +287,13 @@ void main() {
         );
 
         await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DemoModal), findsOneWidget);
 
         // Tap outside the dialog to dismiss
         await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DemoModal), findsNothing);
       });

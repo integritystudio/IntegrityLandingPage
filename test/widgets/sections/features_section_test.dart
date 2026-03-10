@@ -16,7 +16,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const FeaturesSection()),
         );
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(SectionContainer), findsWidgets);
       });
@@ -27,7 +27,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const FeaturesSection()),
         );
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(ResponsiveGrid), findsOneWidget);
       });
@@ -38,7 +38,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const FeaturesSection()),
         );
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(SectionTitle), findsOneWidget);
       });
@@ -51,7 +51,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const FeaturesSection()),
         );
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         // Should render cards from AppContent.features
         final featureCount = AppContent.features.features.length;
@@ -82,7 +82,7 @@ void main() {
             ),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text('Custom Title'), findsOneWidget);
         expect(find.text('Custom Subtitle'), findsOneWidget);
@@ -96,7 +96,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const FeaturesSection()),
         );
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(FeaturesSection), findsOneWidget);
       });
@@ -107,7 +107,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const FeaturesSection()),
         );
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(FeaturesSection), findsOneWidget);
       });
@@ -118,7 +118,7 @@ void main() {
         await tester.pumpWidget(
           testableSection(const FeaturesSection()),
         );
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(FeaturesSection), findsOneWidget);
       });
@@ -139,7 +139,7 @@ void main() {
             ),
           ),
         );
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         // Should use AppContent.features title instead
         expect(find.text(AppContent.features.title), findsOneWidget);

@@ -9,7 +9,7 @@ void main() {
       testWidgets('renders section title', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text(AppContent.resources.title), findsOneWidget);
       });
@@ -17,7 +17,7 @@ void main() {
       testWidgets('renders section subtitle', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text(AppContent.resources.subtitle), findsOneWidget);
       });
@@ -25,7 +25,7 @@ void main() {
       testWidgets('renders all 4 documentation category titles', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         for (final doc in AppContent.resources.documentation) {
           expect(find.text(doc.title), findsOneWidget);
@@ -35,7 +35,7 @@ void main() {
       testWidgets('renders blog post titles', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         for (final post in AppContent.resources.featuredPosts) {
           expect(find.text(post.title), findsOneWidget);
@@ -45,7 +45,7 @@ void main() {
       testWidgets('renders blog CTA', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text(AppContent.resources.blogCtaText), findsOneWidget);
       });
@@ -53,7 +53,7 @@ void main() {
       testWidgets('renders docs CTA', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text(AppContent.resources.docsCtaText), findsOneWidget);
       });
@@ -63,7 +63,7 @@ void main() {
       testWidgets('renders blog post categories', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         for (final post in AppContent.resources.featuredPosts) {
           expect(find.text(post.category), findsWidgets);
@@ -73,7 +73,7 @@ void main() {
       testWidgets('renders blog post read times', (tester) async {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         for (final post in AppContent.resources.featuredPosts) {
           expect(find.text(post.readTime), findsWidgets);
@@ -86,7 +86,7 @@ void main() {
         setScreenSize(tester, TestScreenSizes.desktopLarge);
         final semanticsHandle = tester.ensureSemantics();
         await tester.pumpWidget(testableSection(const ResourcesSection()));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(find.text('Getting Started'), findsOneWidget);
         expect(find.text('API Reference'), findsOneWidget);
