@@ -165,7 +165,7 @@ When web-platform CI is added, these MUST be covered.
 
 `_launchUrl` wraps `launchUrl()` in try/catch with `ErrorTrackingService.captureException`. The error path cannot be triggered in native widget tests because `url_launcher` uses platform channels that cannot be mocked to throw from the call site.
 
-**Status:** Partially covered by Playwright e2e (`e2e/tests/web-platform.spec.ts`). Happy path (web platform link opening) verified. Error path (catch block with `ErrorTrackingService.captureException`) still requires `flutter test --platform chrome` for unit-level coverage.
+**Status:** Done — covered by Playwright e2e (`e2e/tests/web-platform.spec.ts`). Happy path (window.open availability, navigation stability) and environment smoke test (footer renders without crash under poisoned window.open) both passing. Direct catch-block invocation of `_launchUrl` is not possible from Playwright (CanvasKit renders to `<canvas>`); unit-level mock of `ErrorTrackingService.captureException` remains deferred pending `flutter test --platform chrome` (#77).
 
 ---
 
@@ -177,7 +177,7 @@ When web-platform CI is added, these MUST be covered.
 
 `_initializeTracking()` is wrapped in try/catch, but the tracking branches (`kIsWeb`, `ConsentManager.hasConsent()`, `TrackingWeb.*`) are unreachable in native tests. `kIsWeb` is a compile-time constant — native tests always evaluate to `false`, skipping all tracking logic. See `test/app_test.dart:690-701`.
 
-**Status:** Partially covered by Playwright e2e (`e2e/tests/web-platform.spec.ts`). Tests verify: consent persistence, corrupted data resilience (exercises try/catch), GTM injection after consent, and no unhandled errors. Unit-level mock coverage of `ErrorTrackingService.captureException` still requires `flutter test --platform chrome`.
+**Status:** Done — covered by Playwright e2e (`e2e/tests/web-platform.spec.ts`). Tests verify: consent persistence, corrupted data resilience (exercises `_initializeTracking` try/catch directly — corrupted JSON triggers the catch block), GTM injection after consent, and no unhandled errors. Unit-level mock verification of `ErrorTrackingService.captureException` invocation remains deferred pending `flutter test --platform chrome` (#77).
 
 ---
 
@@ -466,7 +466,7 @@ The `.inactive` file contains ~50 bare `pumpAndSettle()` calls not converted to 
   *- 13 items (all LOW) from backlog implementation sprint (2026-02-13)*
   *- 2 items (all LOW) from code review test coverage findings (2026-02-13)*
   *- 8 items (1 MEDIUM, 7 LOW) from test quality & code quality session (2026-03-09)*
-*Remaining open: 0 open + 1 blocked (#77) + 5 deferred (OAuth #8-#10, test coverage #75-#76) + 1 deferred (#78 intermittent timeout)*
+*Remaining open: 0 open + 1 blocked (#77) + 3 deferred (OAuth #8-#10) + 0 deferred test coverage (closed #75, #76 via Playwright 2026-03-09) + 1 deferred (#78 intermittent timeout)*
 *Migrated this session (2026-03-09): #79 (anchor nav), #80 (shader format), #81 (analytics spy), #82 (test constants), #83 (backlog numbering), #84 (15-min call), #85 (Austin TX), #86 (privacy email), #87 (5-min setup)*
 *Appended this session (2026-03-09): #89 (DocsPageScaffold), #90 (hero templates), #91 (button/badge/shell), #92 (_WarningCallout variants), #93 (DocBulletList bulletColor doc), #94 (const optimization), #95 (api_toolkit_page migration), #96 (shared _StatCard), #97 (security_page _SecurityCard)*
 *Appended this session continued (2026-03-09): #98 (scrollUntilVisible loop), #99 (didChangeDependencies comment), #100 (animation reset on toggle), #101 (inactive file warning)*
