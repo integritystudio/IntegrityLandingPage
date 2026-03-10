@@ -308,6 +308,7 @@ test.describe('Web Platform: Consent Manager Web Storage (#76)', () => {
     const unhandledErrors = consoleErrors.filter(
       (e) =>
         e.includes('Uncaught') ||
+        e.includes('Unhandled') ||
         e.includes('unhandled') ||
         e.includes('EXCEPTION'),
     );
