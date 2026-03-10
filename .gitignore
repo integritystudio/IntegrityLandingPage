@@ -55,6 +55,10 @@ package-lock.json
 # Repomix output files
 repomix-output.xml
 docs/repomix/*.xml
+*-output.xml
+
+# E2E screenshots
+e2e/screenshots/
 .ralph-prompt.md
 
 # TypeScript / JavaScript
