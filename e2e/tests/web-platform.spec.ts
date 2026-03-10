@@ -181,6 +181,48 @@ test.describe('Web Platform: External Links (#75)', () => {
       }
     });
   });
+
+  test('footer renders without crash under poisoned window.open environment (#75)', async ({ page }) => {
+    // Smoke test for #75: verifies the footer section and Flutter app render
+    // successfully even when window.open is configured to throw.
+    //
+    // On web, url_launcher delegates to window.open. By poisoning window.open
+    // before Flutter loads we confirm that Flutter's initialization and kIsWeb
+    // widget tree setup do not crash when the URL-launch mechanism is broken.
+    // Direct invocation of _launchUrl is not possible from Playwright because
+    // Flutter CanvasKit renders to <canvas>, not DOM elements; full catch-block
+    // unit coverage requires flutter test --platform chrome (#77).
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+
+    // Poison window.open before Flutter loads
+    await page.addInitScript(() => {
+      window.open = (..._args: Parameters<typeof window.open>): null => {
+        throw new Error('Simulated url_launcher failure');
+      };
+    });
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await waitForFlutter(page);
+
+    // Scroll to footer to trigger footer widget render in kIsWeb context
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(SCROLL_SETTLE_MS);
+
+    await assertFlutterRendering(page);
+
+    // No unhandled exceptions from initialization under poisoned window.open
+    const unhandledErrors = consoleErrors.filter(
+      (e) =>
+        e.includes('Uncaught') ||
+        e.includes('Unhandled') ||
+        e.includes('unhandled') ||
+        e.includes('EXCEPTION'),
+    );
+    expect(unhandledErrors).toHaveLength(0);
+  });
 });
 
 test.describe('Web Platform: Consent Manager Web Storage (#76)', () => {
