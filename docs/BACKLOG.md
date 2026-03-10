@@ -344,7 +344,7 @@ Additional lower-similarity matches: `eu_ai_act_page::_TimelineCard` (85%), `sec
 
 `security_page::_SecurityCard` is 91% similar to `api_toolkit_page::_DocSection` and 85% similar to shared `DocSection`. `security_page` was not included in #88 Phase 1. Candidate for replacement with `DocSection` after verifying visual parity.
 
-**Status:** Open — evaluate after #95 migration.
+**Status:** Done — replaced with shared `DocSection` from `doc_components.dart`. All 11 call sites updated. Commit c16f227.
 
 ---
 
@@ -443,7 +443,7 @@ The `.inactive` file contains ~50 bare `pumpAndSettle()` calls not converted to 
 - Custom `accentColor` applies to value text
 - `const` constructor works with all-literal params
 
-**Status:** Open — add tests to existing `doc_components_test.dart`.
+**Status:** Done — 4 tests added to `doc_components_test.dart` covering value/label render, default/custom accentColor, and const constructor. Commit 9420f48.
 
 ---
 
@@ -456,7 +456,7 @@ The `.inactive` file contains ~50 bare `pumpAndSettle()` calls not converted to 
 
 `api_toolkit_page.dart` has no corresponding test file (`test/pages/api_toolkit_page_test.dart` does not exist). Other docs pages (`docs_api_page`, `docs_observability_page`) have page-level tests. After #95 migration, the page now uses shared `DocStatCard`, `DocSection`, `DocCodeBlock`, `DocTable`, and `DocBulletList` — a smoke test confirming the page renders without errors would catch integration issues.
 
-**Status:** Open — create `test/pages/api_toolkit_page_test.dart` with basic render smoke test.
+**Status:** Done — `test/pages/api_toolkit_page_test.dart` created with 10 tests: page structure, title, navigation callbacks, and responsive layout. Also parameterized `testBackButtonCallbacks()` in test_helpers.dart. Commit b53dd07.
 
 ---
 
