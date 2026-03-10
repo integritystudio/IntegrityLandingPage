@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/theme/colors.dart';
 import 'package:integrity_studio_ai/services/content_loader.dart';
+import 'test_constants.dart';
 import 'test_content.dart';
 
 // Re-export test content helpers for convenience
@@ -90,13 +91,13 @@ extension WidgetTesterX on WidgetTester {
   /// silent failures when the target is never reached.
   Future<void> scrollUntilVisible(
     Finder finder, {
-    double delta = 100,
-    int maxScrolls = 50,
+    double delta = kScrollDelta,
+    int maxScrolls = kMaxScrollIterations,
   }) async {
     int scrollCount = 0;
     while (!finder.evaluate().isNotEmpty && scrollCount < maxScrolls) {
       await drag(find.byType(SingleChildScrollView), Offset(0, -delta));
-      await pump(const Duration(milliseconds: 100));
+      await pump(kFramePumpDuration);
       scrollCount++;
     }
     expect(
@@ -108,10 +109,10 @@ extension WidgetTesterX on WidgetTester {
 
   /// Wait for animations to complete with timeout.
   Future<void> pumpAndSettleWithTimeout({
-    Duration timeout = const Duration(seconds: 5),
+    Duration timeout = kSettleTimeout,
   }) async {
     await pumpAndSettle(
-      const Duration(milliseconds: 100),
+      kFramePumpDuration,
       EnginePhase.sendSemanticsUpdate,
       timeout,
     );
@@ -122,9 +123,9 @@ extension WidgetTesterX on WidgetTester {
   /// Use this instead of pumpAndSettle() for pages with continuous animations
   /// that would cause pumpAndSettle to timeout. This approach is ~5x faster.
   /// Automatically clears overflow exceptions after pumping.
-  Future<void> pumpFrames({int frames = 10}) async {
+  Future<void> pumpFrames({int frames = kDefaultFrameCount}) async {
     for (var i = 0; i < frames; i++) {
-      await pump(const Duration(milliseconds: 100));
+      await pump(kFramePumpDuration);
     }
     clearOverflowExceptions(this);
   }
@@ -158,7 +159,7 @@ extension FinderX on CommonFinders {
 /// Creates a test window size for responsive testing.
 void setScreenSize(WidgetTester tester, Size size) {
   tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1.0;
+  tester.view.devicePixelRatio = kTestDevicePixelRatio;
   addTearDown(() {
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
