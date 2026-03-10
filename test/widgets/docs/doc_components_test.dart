@@ -339,4 +339,45 @@ function example() {
       expect(find.byIcon(LucideIcons.lightbulb), findsOneWidget);
     });
   });
+
+  group('DocStatCard', () {
+    testWidgets('renders value and label text', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocStatCard(value: '99.9%', label: 'Uptime'),
+      ));
+
+      expect(find.text('99.9%'), findsOneWidget);
+      expect(find.text('Uptime'), findsOneWidget);
+    });
+
+    testWidgets('defaults accentColor to AppColors.blue400', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocStatCard(value: '42', label: 'Items'),
+      ));
+
+      final valueText = tester.widget<Text>(find.text('42'));
+      expect(valueText.style?.color, AppColors.blue400);
+    });
+
+    testWidgets('applies custom accentColor to value text', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocStatCard(
+          value: '100',
+          label: 'Score',
+          accentColor: AppColors.success,
+        ),
+      ));
+
+      final valueText = tester.widget<Text>(find.text('100'));
+      expect(valueText.style?.color, AppColors.success);
+    });
+
+    testWidgets('const constructor works with all-literal params', (tester) async {
+      const widget = DocStatCard(value: 'v1.0', label: 'Version');
+      await tester.pumpWidget(testableWidget(widget));
+
+      expect(find.text('v1.0'), findsOneWidget);
+      expect(find.text('Version'), findsOneWidget);
+    });
+  });
 }
