@@ -31,6 +31,26 @@ export const ROUTE_CHANGE_TIMEOUT_MS = 10_000;
  */
 export const ROUTE_RENDER_TIMEOUT_MS = 30_000;
 
+/**
+ * Global per-test timeout budget.
+ *
+ * Must exceed FLUTTER_INIT_TIMEOUT_MS by enough to run the test body.
+ * 180s = 120s max Flutter init + 60s headroom (#78).
+ */
+export const TEST_TIMEOUT_MS = 180_000;
+
+/** Timeout for expect() assertions. */
+export const EXPECT_TIMEOUT_MS = 15_000;
+
+/** Maximum time for a single Playwright action (click, fill, etc.). */
+export const ACTION_TIMEOUT_MS = 30_000;
+
+/** Maximum time for page.goto() and other navigation calls. */
+export const NAVIGATION_TIMEOUT_MS = 60_000;
+
+/** Maximum time for the local Flutter dev server to start. */
+export const WEB_SERVER_STARTUP_TIMEOUT_MS = 120_000;
+
 /** Settle time after a mouse click before taking assertions. */
 export const CLICK_SETTLE_MS = 3_000;
 

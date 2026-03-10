@@ -1,4 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import {
+  TEST_TIMEOUT_MS,
+  EXPECT_TIMEOUT_MS,
+  ACTION_TIMEOUT_MS,
+  NAVIGATION_TIMEOUT_MS,
+  WEB_SERVER_STARTUP_TIMEOUT_MS,
+} from './tests/constants';
 
 /**
  * Playwright E2E test configuration for IntegrityStudio.ai
@@ -21,18 +28,16 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 4 : 1,
   reporter: process.env.CI ? 'html' : 'list',
-  // 180s: Flutter init can take up to 120s on production CDN (FLUTTER_INIT_TIMEOUT_MS),
-  // leaving 60s headroom for test body execution (#78).
-  timeout: 180000,
+  timeout: TEST_TIMEOUT_MS,
   expect: {
-    timeout: 15000,
+    timeout: EXPECT_TIMEOUT_MS,
   },
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    actionTimeout: 30000,
-    navigationTimeout: 60000,
+    actionTimeout: ACTION_TIMEOUT_MS,
+    navigationTimeout: NAVIGATION_TIMEOUT_MS,
   },
   projects: [
     {
@@ -69,7 +74,7 @@ export default defineConfig({
           command: 'flutter run -d chrome --web-port=3000',
           url: 'http://localhost:3000',
           reuseExistingServer: true,
-          timeout: 120000,
+          timeout: WEB_SERVER_STARTUP_TIMEOUT_MS,
         },
       }
     : {}),
