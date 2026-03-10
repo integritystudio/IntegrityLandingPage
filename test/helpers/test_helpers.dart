@@ -362,14 +362,17 @@ void testBackButtonCallback(PagePumpFunction pumpPage) {
 ///   testBackButtonCallbacks(pumpMyPage);
 /// });
 /// ```
-void testBackButtonCallbacks(PagePumpFunction pumpPage) {
+void testBackButtonCallbacks(
+  PagePumpFunction pumpPage, {
+  String backButtonText = 'Back to Home',
+}) {
   testBackButtonCallback(pumpPage);
 
-  testWidgets('Back to Home button triggers onBack callback', (tester) async {
+  testWidgets('$backButtonText button triggers onBack callback', (tester) async {
     bool backCalled = false;
     await pumpPage(tester, onBack: () => backCalled = true, mobile: false);
 
-    await tester.tap(find.text('Back to Home'));
+    await tester.tap(find.text(backButtonText));
     await tester.pump();
 
     expect(backCalled, isTrue);
