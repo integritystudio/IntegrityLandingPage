@@ -364,7 +364,7 @@ Additional lower-similarity matches: `eu_ai_act_page::_TimelineCard` (85%), `sec
 
 **Fix:** Replace `await pumpAndSettle()` with `await pump(const Duration(milliseconds: 100))` (lines 95), and add assertion after loop: `expect(finder.evaluate().isNotEmpty, true, reason: 'Element not found after $maxScrolls scrolls')` to prevent silent failures.
 
-**Status:** Deferred — identified but not implemented. Replace and add assertion in one edit.
+**Status:** Done — replaced `pumpAndSettleWithTimeout()` with `pump(const Duration(milliseconds: 100))` and added post-loop assertion. Commit a8fe6f6.
 
 ---
 
