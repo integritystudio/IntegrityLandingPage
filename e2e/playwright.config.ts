@@ -21,7 +21,9 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 4 : 1,
   reporter: process.env.CI ? 'html' : 'list',
-  timeout: 120000,
+  // 180s: Flutter init can take up to 120s on production CDN (FLUTTER_INIT_TIMEOUT_MS),
+  // leaving 60s headroom for test body execution (#78).
+  timeout: 180000,
   expect: {
     timeout: 15000,
   },
