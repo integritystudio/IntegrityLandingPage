@@ -143,56 +143,14 @@ class _HeroSection extends StatelessWidget {
               runSpacing: AppSpacing.md,
               alignment: WrapAlignment.center,
               children: const [
-                _StatCard(value: '81%', label: 'Cost Reduction'),
-                _StatCard(value: '12', label: 'Instrumented Hooks'),
-                _StatCard(value: '8', label: 'Dashboards'),
-                _StatCard(value: '85%', label: 'MCP Token Savings'),
+                DocStatCard(value: '81%', label: 'Cost Reduction'),
+                DocStatCard(value: '12', label: 'Instrumented Hooks'),
+                DocStatCard(value: '8', label: 'Dashboards'),
+                DocStatCard(value: '85%', label: 'MCP Token Savings'),
               ],
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String value;
-  final String label;
-
-  const _StatCard({required this.value, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 140, maxWidth: 160),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: AppTypography.headingMD.copyWith(
-              color: AppColors.blue400,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            label,
-            style: AppTypography.bodySM.copyWith(
-              color: AppColors.gray400,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }

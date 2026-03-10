@@ -294,6 +294,53 @@ class DocBulletList extends StatelessWidget {
   }
 }
 
+/// Stat card for displaying a key metric with a label.
+/// [accentColor] controls the value text color; defaults to [AppColors.blue400].
+class DocStatCard extends StatelessWidget {
+  final String value;
+  final String label;
+  final Color? accentColor;
+
+  const DocStatCard({
+    super.key,
+    required this.value,
+    required this.label,
+    this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = accentColor ?? AppColors.blue400;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 140, maxWidth: 160),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.gray800,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        border: Border.all(color: AppColors.gray700),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: AppTypography.headingMD.copyWith(color: color),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            label,
+            style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Numbered list with accent-colored numbers in circles.
 class DocNumberedList extends StatelessWidget {
   final List<String> items;

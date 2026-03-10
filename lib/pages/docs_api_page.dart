@@ -143,56 +143,14 @@ class _HeroSection extends StatelessWidget {
               runSpacing: AppSpacing.md,
               alignment: WrapAlignment.center,
               children: const [
-                _StatCard(value: 'OTLP', label: 'Native Protocol'),
-                _StatCard(value: 'REST', label: 'Fallback API'),
-                _StatCard(value: '3', label: 'SDK Languages'),
-                _StatCard(value: '<100ms', label: 'Avg Latency'),
+                DocStatCard(value: 'OTLP', label: 'Native Protocol', accentColor: Color(0xFF22D3EE)),
+                DocStatCard(value: 'REST', label: 'Fallback API', accentColor: Color(0xFF22D3EE)),
+                DocStatCard(value: '3', label: 'SDK Languages', accentColor: Color(0xFF22D3EE)),
+                DocStatCard(value: '<100ms', label: 'Avg Latency', accentColor: Color(0xFF22D3EE)),
               ],
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String value;
-  final String label;
-
-  const _StatCard({required this.value, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 140, maxWidth: 160),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: AppTypography.headingMD.copyWith(
-              color: const Color(0xFF22D3EE),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            label,
-            style: AppTypography.bodySM.copyWith(
-              color: AppColors.gray400,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }

@@ -311,12 +311,12 @@ Detected by `scripts/find_duplication.sh` on 2026-03-09. Only pairs >90% Jaccard
 
 | Private Widget | Shared Equivalent | Similarity |
 |---------------|-------------------|------------|
-| `_StatCard` (lines 207-247) | — (no shared equivalent yet) | 97% vs docs_api_page, docs_observability_page |
+| `_StatCard` (lines 207-247) | `DocStatCard` (doc_components) | 97% vs docs_api_page, docs_observability_page |
 | `_DocSection` (lines 817-869) | `DocSection` (doc_components:6-66) | 82% (also 91% vs security_page `_SecurityCard`) |
 | `_CodeBlock` (lines 871-913) | `DocCodeBlock` (doc_components:130-172) | 92% |
 | `_SimpleTable` (lines 915-970) | `DocTable` (doc_components:176-240) | 80% |
 
-**Status:** Open — apply same Phase 1 migration pattern used for other docs pages.
+**Status:** Done — all 5 private widgets (`_StatCard`, `_DocSection`, `_CodeBlock`, `_SimpleTable`, `_BulletList`) replaced with shared `doc_components.dart` equivalents. Uncommitted.
 
 ---
 
@@ -327,11 +327,11 @@ Detected by `scripts/find_duplication.sh` on 2026-03-09. Only pairs >90% Jaccard
 **Files:** `lib/pages/api_toolkit_page.dart:207-247`, `lib/pages/docs_api_page.dart:159-199`, `lib/pages/docs_observability_page.dart:159-199`
 **Source:** Duplication scan 2026-03-09
 
-Three pages declare nearly identical `_StatCard` widgets (97% Jaccard similarity). No shared equivalent exists in `doc_components.dart`. Should extract to `DocStatCard` in `lib/widgets/docs/doc_components.dart` and replace all three private declarations.
+Three pages declare nearly identical `_StatCard` widgets (97% Jaccard similarity). Extracted `DocStatCard` to `lib/widgets/docs/doc_components.dart` with optional `accentColor` parameter and replaced all three private declarations.
 
-Additional lower-similarity matches: `eu_ai_act_page::_TimelineCard` (85%), `security_page::_StatCard` (81-84%).
+Additional lower-similarity matches: `eu_ai_act_page::_TimelineCard` (85%), `security_page::_StatCard` (81-84%) — not yet migrated.
 
-**Status:** Open — extract shared `DocStatCard`, then replace across all pages.
+**Status:** Done — `DocStatCard` extracted to `doc_components.dart`, private `_StatCard` removed from all 3 pages. Uncommitted.
 
 ---
 
@@ -360,7 +360,7 @@ Additional lower-similarity matches: `eu_ai_act_page::_TimelineCard` (85%), `sec
 **File:** `test/helpers/test_helpers.dart:87-98`
 **Source:** Code review session 2026-03-09, fix #2
 
-`scrollUntilVisible()` calls `pumpAndSettle()` inside a loop (up to 50 iterations). If the target widget is never found, the test silently passes after 50 × 10s timeout = 500s. When the page contains repeating animations, each `pumpAndSettle()` hangs indefinitely (separate issue now gated by #98 replacement).
+`scrollUntilVisible()` calls `pumpAndSettle()` inside a loop (up to 50 iterations). If the target widget is never found, the test silently passes after 50 × 5s timeout = 250s. When the page contains repeating animations, each `pumpAndSettle()` hangs indefinitely (separate issue now gated by #98 replacement).
 
 **Fix:** Replace `await pumpAndSettle()` with `await pump(const Duration(milliseconds: 100))` (lines 95), and add assertion after loop: `expect(finder.evaluate().isNotEmpty, true, reason: 'Element not found after $maxScrolls scrolls')` to prevent silent failures.
 
@@ -425,7 +425,42 @@ The `.inactive` file contains ~50 bare `pumpAndSettle()` calls not converted to 
 
 ---
 
-*Last updated: 2026-03-09 (widget duplication analysis + backlog migration + animation/test timeout fixes)*
+## Open: Test Coverage Gaps (#95/#96 Implementation)
+
+**Category:** Test Coverage
+**Source:** Session 2026-03-09 (#95/#96 widget consolidation)
+
+### #102: Add Unit Tests for DocStatCard Widget
+
+**Severity:** MEDIUM
+**Category:** Test Coverage
+**File:** `lib/widgets/docs/doc_components.dart` (`DocStatCard` class)
+**Source:** Session 2026-03-09 (#96 implementation)
+
+`DocStatCard` was extracted as a new shared widget in `doc_components.dart` but has no unit test coverage in `test/widgets/docs/doc_components_test.dart`. Tests should verify:
+- Renders `value` and `label` text
+- Default `accentColor` falls back to `AppColors.blue400`
+- Custom `accentColor` applies to value text
+- `const` constructor works with all-literal params
+
+**Status:** Open — add tests to existing `doc_components_test.dart`.
+
+---
+
+### #103: Add Page-Level Test for api_toolkit_page
+
+**Severity:** LOW
+**Category:** Test Coverage
+**File:** `lib/pages/api_toolkit_page.dart`
+**Source:** Session 2026-03-09 (#95 implementation)
+
+`api_toolkit_page.dart` has no corresponding test file (`test/pages/api_toolkit_page_test.dart` does not exist). Other docs pages (`docs_api_page`, `docs_observability_page`) have page-level tests. After #95 migration, the page now uses shared `DocStatCard`, `DocSection`, `DocCodeBlock`, `DocTable`, and `DocBulletList` — a smoke test confirming the page renders without errors would catch integration issues.
+
+**Status:** Open — create `test/pages/api_toolkit_page_test.dart` with basic render smoke test.
+
+---
+
+*Last updated: 2026-03-09 (widget duplication analysis + backlog migration + animation/test timeout fixes + #95/#96 done + test gaps #102/#103)*
 *Migrated items: 32 total → docs/changelog/1.0/CHANGELOG.md:*
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit (2026-02-13)*
   *- 13 items (all LOW) from backlog implementation sprint (2026-02-13)*
