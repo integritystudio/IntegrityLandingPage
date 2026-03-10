@@ -201,7 +201,7 @@ Two Playwright e2e tests timeout waiting for Flutter to initialize on production
 
 **Root cause:** Unknown — likely production site performance variance or network latency. Tests run successfully against local dev server.
 
-**Status:** Deferred (intermittent, may be infrastructure-dependent). Monitor test runs; if consistently fails, investigate production CDN/route performance.
+**Status:** Done — increased `FLUTTER_INIT_TIMEOUT_MS` from 90s to 120s and global test timeout from 120s to 180s to accommodate production CDN latency. Commit 13f5a05.
 
 ---
 
