@@ -166,7 +166,7 @@ void main() {
       await gesture.addPointer(location: Offset.zero);
       addTearDown(gesture.removePointer);
       await gesture.moveTo(tester.getCenter(find.text('Hover Me')));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       // Hover state
       textWidget = tester.widget<Text>(find.text('Hover Me'));
@@ -174,7 +174,7 @@ void main() {
 
       // Simulate hover exit (move far outside widget bounds)
       await gesture.moveTo(const Offset(-100, -100));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       // Back to default
       textWidget = tester.widget<Text>(find.text('Hover Me'));

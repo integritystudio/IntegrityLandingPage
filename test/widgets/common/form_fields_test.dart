@@ -343,10 +343,10 @@ void main() {
       );
 
       await tester.tap(find.byType(DropdownButtonFormField<String>));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       await tester.tap(find.text('UK').last);
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(selectedValue, equals('uk'));
     });
@@ -370,7 +370,7 @@ void main() {
       );
 
       await tester.tap(find.byType(DropdownButtonFormField<String>));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(selectedValue, isNull);
     });
@@ -393,9 +393,9 @@ void main() {
       );
 
       await tester.tap(find.byType(DropdownButtonFormField<int>));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
       await tester.tap(find.text('21').last);
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(intValue, equals(21));
 
@@ -416,9 +416,9 @@ void main() {
       );
 
       await tester.tap(find.byType(DropdownButtonFormField<_TestEnum>));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
       await tester.tap(find.text('High').last);
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(enumValue, equals(_TestEnum.high));
     });

@@ -32,7 +32,7 @@ void main() {
     testWidgets('renders expected number of nav, legal, and social elements', (tester) async {
       setDesktopSize(tester);
       await tester.pumpWidget(testableSection(const FooterSection()));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       // Verify actual rendered widget counts match expected label counts
       expect(find.byType(IconButton), findsNWidgets(_socialLabels.length));
@@ -50,7 +50,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const FooterSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       // Footer section exists
       expect(find.byType(FooterSection), findsOneWidget);
@@ -91,7 +91,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const FooterSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.byIcon(LucideIcons.linkedin), findsOneWidget);
       expect(find.byIcon(LucideIcons.github), findsOneWidget);
@@ -108,7 +108,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const FooterSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.byType(FooterSection), findsOneWidget);
       expect(find.text('Sources'), findsOneWidget);
@@ -123,7 +123,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const FooterSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       for (final label in _mobileLegalLabels) {
         expect(find.text(label), findsOneWidget, reason: 'mobile label "$label" missing');
@@ -143,10 +143,10 @@ void main() {
           FooterSection(onCookieSettings: () => cookieSettingsCalled = true),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       await tester.tap(find.text('Cookie Settings'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(cookieSettingsCalled, isTrue);
     });
@@ -159,7 +159,7 @@ void main() {
           FooterSection(onNavigateToBlog: () {}),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.byType(GestureDetector), findsWidgets);
     });
@@ -177,7 +177,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const FooterSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       final hoverLinks = find.descendant(
         of: find.byType(FooterSection),
@@ -209,7 +209,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const FooterSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       // Tapping social icons should not throw (error handling wraps launchUrl)
       final iconButtons = find.byType(IconButton);
@@ -218,7 +218,7 @@ void main() {
       // Tap first icon button — launchUrl will fail in test env but
       // try/catch in _launchUrl (#55) prevents crash
       await tester.tap(iconButtons.first);
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       // App should remain stable
       expect(find.byType(FooterSection), findsOneWidget);

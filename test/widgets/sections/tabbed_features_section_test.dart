@@ -21,7 +21,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const TabbedFeaturesSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.text('Everything you need for AI observability'), findsOneWidget);
       expect(find.text('Purpose-built tools for LLM applications'), findsOneWidget);
@@ -37,7 +37,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const TabbedFeaturesSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       // Tab titles
       expect(find.text('Real-Time Tracing'), findsOneWidget);
@@ -61,7 +61,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const TabbedFeaturesSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.text('Tracing'), findsOneWidget);
       expect(find.text('Costs'), findsOneWidget);
@@ -79,7 +79,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const TabbedFeaturesSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       // Title and description
       expect(find.text('See every decision your AI makes'), findsOneWidget);
@@ -103,10 +103,10 @@ void main() {
       await tester.pumpWidget(
         testableSection(const TabbedFeaturesSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       await tester.tap(find.text('Cost Analytics'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.text('Stop overpaying for AI infrastructure'), findsOneWidget);
       expect(find.text('40%'), findsOneWidget);
@@ -119,10 +119,10 @@ void main() {
       await tester.pumpWidget(
         testableSection(const TabbedFeaturesSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       await tester.tap(find.text('EU AI Act Tools'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.text('Compliance preparation, simplified'), findsOneWidget);
       expect(find.text('Risk category assessment'), findsOneWidget);
@@ -139,10 +139,10 @@ void main() {
       await tester.pumpWidget(
         testableSection(const TabbedFeaturesSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       await tester.tap(find.text('Quality Metrics'));
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.text('Measure what matters for AI quality'), findsOneWidget);
       expect(find.text('Quality scoring'), findsOneWidget);
@@ -163,7 +163,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const TabbedFeaturesSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.text('Everything you need for AI observability'), findsOneWidget);
       expect(find.text('Tracing'), findsOneWidget);
@@ -174,7 +174,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const TabbedFeaturesSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.text('Everything you need for AI observability'), findsOneWidget);
 
@@ -183,7 +183,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const TabbedFeaturesSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.text('Everything you need for AI observability'), findsOneWidget);
       expect(find.text('Real-Time Tracing'), findsOneWidget);
@@ -199,7 +199,7 @@ void main() {
       await tester.pumpWidget(
         testableSection(const TabbedFeaturesSection()),
       );
-      await tester.pumpAndSettle();
+      await tester.pumpAndSettleWithTimeout();
 
       expect(find.byType(AnimatedSwitcher), findsOneWidget);
       expect(find.byType(AnimatedContainer), findsWidgets);

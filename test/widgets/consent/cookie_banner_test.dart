@@ -150,7 +150,7 @@ void main() {
 
         await pumpBannerAndWait(tester, onConsentGiven: () => consentGiven = true);
         await tester.tap(find.text('Accept All'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(consentGiven, isTrue);
       });
@@ -161,7 +161,7 @@ void main() {
 
         await pumpBannerAndWait(tester, onConsentGiven: () => consentGiven = true);
         await tester.tap(find.text('Reject Non-Essential'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(consentGiven, isTrue);
       });
@@ -172,7 +172,7 @@ void main() {
 
         await pumpBannerAndWait(tester, onConsentGiven: () => consentGiven = true);
         await tester.tap(find.text('Accept All'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(consentGiven, isTrue);
       });
@@ -183,7 +183,7 @@ void main() {
 
         await pumpBannerAndWait(tester, onConsentGiven: () => consentGiven = true);
         await tester.tap(find.text('Reject'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(consentGiven, isTrue);
       });
@@ -264,7 +264,7 @@ void main() {
         await pumpBannerAndWait(tester, onConsentGiven: () => consentGiven = true);
         await navigateToPreferences(tester);
         await tester.tap(find.text('Save Preferences'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(consentGiven, isTrue);
       });
@@ -276,7 +276,7 @@ void main() {
         await pumpBannerAndWait(tester, onConsentGiven: () => consentGiven = true);
         await navigateToPreferences(tester);
         await tester.tap(find.text('Reject All'));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(consentGiven, isTrue);
       });
@@ -290,9 +290,9 @@ void main() {
 
         final saveButton = find.text('Save Preferences');
         await tester.ensureVisible(saveButton);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
         await tester.tap(saveButton);
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(consentGiven, isTrue);
       });
@@ -361,7 +361,7 @@ void main() {
         await tester.tap(find.text('Accept All'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 150));
-        await tester.pumpAndSettle();
+        await tester.pumpAndSettleWithTimeout();
 
         expect(consentGiven, isTrue);
       });

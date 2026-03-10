@@ -74,13 +74,13 @@ extension WidgetTesterX on WidgetTester {
   /// Pump widget wrapped in MaterialApp.
   Future<void> pumpApp(Widget widget) async {
     await pumpWidget(testableWidget(widget));
-    await pumpAndSettle();
+    await pumpAndSettleWithTimeout();
   }
 
   /// Pump section widget with scroll support.
   Future<void> pumpSection(Widget section) async {
     await pumpWidget(testableSection(section));
-    await pumpAndSettle();
+    await pumpAndSettleWithTimeout();
   }
 
   /// Scroll until widget is visible.
@@ -92,7 +92,7 @@ extension WidgetTesterX on WidgetTester {
     int scrollCount = 0;
     while (!finder.evaluate().isNotEmpty && scrollCount < maxScrolls) {
       await drag(find.byType(SingleChildScrollView), Offset(0, -delta));
-      await pumpAndSettle();
+      await pumpAndSettleWithTimeout();
       scrollCount++;
     }
   }
