@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/docs/doc_components.dart';
 
 /// Security page displaying security practices and commitments.
 class SecurityPage extends StatelessWidget {
@@ -196,7 +197,7 @@ class _SecurityContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Overview Stats
-        _SecurityCard(
+        DocSection(
           icon: LucideIcons.lock,
           title: SecurityContent.commitmentTitle,
           child: Column(
@@ -232,7 +233,7 @@ class _SecurityContent extends StatelessWidget {
         ),
 
         // Authentication Security
-        _SecurityCard(
+        DocSection(
           icon: LucideIcons.user,
           title: SecurityContent.authTitle,
           child: Column(
@@ -250,7 +251,7 @@ class _SecurityContent extends StatelessWidget {
         ),
 
         // Data Protection
-        _SecurityCard(
+        DocSection(
           icon: LucideIcons.database,
           title: SecurityContent.dataProtectionTitle,
           child: Column(
@@ -279,7 +280,7 @@ class _SecurityContent extends StatelessWidget {
         ),
 
         // Observability Pipeline Security
-        _SecurityCard(
+        DocSection(
           icon: LucideIcons.activity,
           title: SecurityContent.observabilitySecurityTitle,
           child: Column(
@@ -297,7 +298,7 @@ class _SecurityContent extends StatelessWidget {
         ),
 
         // Access Control
-        _SecurityCard(
+        DocSection(
           icon: LucideIcons.key,
           title: SecurityContent.accessControlTitle,
           child: Column(
@@ -317,7 +318,7 @@ class _SecurityContent extends StatelessWidget {
         ),
 
         // Enterprise Identity
-        _SecurityCard(
+        DocSection(
           icon: LucideIcons.fingerprint,
           title: SecurityContent.enterpriseIdentityTitle,
           child: Column(
@@ -335,7 +336,7 @@ class _SecurityContent extends StatelessWidget {
         ),
 
         // Compliance & Governance
-        _SecurityCard(
+        DocSection(
           icon: LucideIcons.scale,
           title: SecurityContent.complianceTitle,
           child: Column(
@@ -353,7 +354,7 @@ class _SecurityContent extends StatelessWidget {
         ),
 
         // API Security
-        _SecurityCard(
+        DocSection(
           icon: LucideIcons.plug,
           title: SecurityContent.apiSecurityTitle,
           child: Column(
@@ -371,7 +372,7 @@ class _SecurityContent extends StatelessWidget {
         ),
 
         // Best Practices
-        _SecurityCard(
+        DocSection(
           icon: LucideIcons.bookOpen,
           title: SecurityContent.bestPracticesTitle,
           child: Column(
@@ -401,7 +402,7 @@ class _SecurityContent extends StatelessWidget {
         ),
 
         // Production Checklist
-        _SecurityCard(
+        DocSection(
           icon: LucideIcons.clipboardCheck,
           title: SecurityContent.checklistTitle,
           child: Column(
@@ -419,7 +420,7 @@ class _SecurityContent extends StatelessWidget {
         ),
 
         // Reporting
-        _SecurityCard(
+        DocSection(
           icon: LucideIcons.alertTriangle,
           title: SecurityContent.reportingTitle,
           child: Column(
@@ -439,60 +440,6 @@ class _SecurityContent extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SecurityCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Widget child;
-
-  const _SecurityCard({
-    required this.icon,
-    required this.title,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.blue500,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                ),
-                child: Icon(icon, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.headingSM.copyWith(
-                    color: AppColors.blue400,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          child,
-        ],
-      ),
     );
   }
 }
