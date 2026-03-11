@@ -57,42 +57,8 @@ const _docsPagesWithBackButton = [
 ];
 
 void main() {
-  // Suppress overflow errors in layout tests
-  final originalOnError = FlutterError.onError;
-
-  setUp(() {
-    FlutterError.onError = (FlutterErrorDetails details) {
-      final isOverflowError =
-          details.exception.toString().contains('overflowed');
-      if (!isOverflowError) {
-        originalOnError?.call(details);
-      }
-    };
-  });
-
-  tearDown(() {
-    FlutterError.onError = originalOnError;
-  });
-
-  // Helper to check if an error is an overflow error we should suppress
-  bool isOverflowError(dynamic exception) {
-    if (exception == null) return false;
-    final message = exception.toString();
-    return message.contains('overflowed') ||
-        message.contains('RenderFlex') ||
-        message.contains('A RenderFlex');
-  }
-
-  // Helper to clear overflow exceptions after operations
-  void clearOverflowExceptions(WidgetTester tester) {
-    dynamic exception = tester.takeException();
-    while (exception != null) {
-      if (!isOverflowError(exception)) {
-        throw exception;
-      }
-      exception = tester.takeException();
-    }
-  }
+  setUp(setUpOverflowErrorSuppression);
+  tearDown(tearDownOverflowErrorSuppression);
 
   /// Helper to pump a router app at a specific location
   Future<GoRouter> pumpRouterApp(
@@ -119,8 +85,15 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettleWithTimeout();
+    // Use pump() instead of pumpAndSettle() — AboutPage has a fixed-height
+    // Column that overflows at 1920x1080 and throws during pumpAndSettle.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     clearOverflowExceptions(tester);
+
+    // Deferred layout may fire additional overflow after the initial clear.
+    addTearDown(() => clearOverflowExceptions(tester));
+
     return testRouter;
   }
 
