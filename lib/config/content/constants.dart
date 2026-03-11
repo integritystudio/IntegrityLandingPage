@@ -43,6 +43,9 @@ abstract final class CTAText {
   static const String viewAll = 'View All';
   static const String viewDocs = 'View Documentation';
 
+  // Careers CTAs
+  static String get keepInTouch => Content.ctaKeepInTouch;
+
   // Form CTAs
   static const String sendMessage = 'Send Message';
   static const String downloadNow = 'Download Now';

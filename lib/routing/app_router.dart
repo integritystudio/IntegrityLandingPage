@@ -97,6 +97,7 @@ List<GoRoute> _mainPageRoutes(VoidCallback onShowCookieSettings) => [
         builder: (context, state) => ContactPage(
           onBack: _goHome(context),
           onShowCookieSettings: onShowCookieSettings,
+          ref: state.uri.queryParameters['ref'],
         ),
       ),
       GoRoute(

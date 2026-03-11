@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../config/content/constants.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
@@ -48,7 +49,7 @@ class _CareersPageState extends State<CareersPage> {
             SharedAppBar.subPage(onBack: widget.onBack),
             const SliverToBoxAdapter(child: _CareersHeroSection()),
             const SliverToBoxAdapter(child: _NoOpeningsSection()),
-            const SliverToBoxAdapter(child: _SubmitResumeSection()),
+            const SliverToBoxAdapter(child: _KeepInTouchSection()),
             SliverToBoxAdapter(
               child: FooterSection(
                 onCookieSettings: widget.onShowCookieSettings,
@@ -199,8 +200,8 @@ class _NoOpeningsSection extends StatelessWidget {
   }
 }
 
-class _SubmitResumeSection extends StatelessWidget {
-  const _SubmitResumeSection();
+class _KeepInTouchSection extends StatelessWidget {
+  const _KeepInTouchSection();
 
   @override
   Widget build(BuildContext context) {
@@ -250,10 +251,10 @@ class _SubmitResumeSection extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xl),
               GradientButton(
-                text: 'Keep in Touch',
+                text: CTAText.keepInTouch,
                 onPressed: () {
                   AnalyticsService.trackCTAClick(
-                    buttonName: 'Keep in Touch',
+                    buttonName: CTAText.keepInTouch,
                     location: 'careers_page',
                   );
                   context.go('/contact?ref=careers');

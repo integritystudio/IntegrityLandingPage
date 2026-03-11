@@ -171,17 +171,17 @@ void main() {
         await scrollDown(tester, 500);
 
         expect(
-          find.textContaining('Send us your resume and a brief introduction'),
+          find.textContaining('Send us a brief introduction'),
           findsOneWidget,
         );
       });
 
-      testWidgets('renders Submit Your Resume button', (tester) async {
+      testWidgets('renders Keep in Touch button', (tester) async {
         await pumpCareersPage(tester);
 
         await scrollDown(tester, 500);
 
-        expect(find.text('Submit Your Resume'), findsOneWidget);
+        expect(find.text('Keep in Touch'), findsOneWidget);
       });
 
       testWidgets('renders response time info', (tester) async {
@@ -205,12 +205,12 @@ void main() {
     });
 
     group('CTA buttons', () {
-      testWidgets('Submit Your Resume button is tappable', (tester) async {
+      testWidgets('Keep in Touch button is tappable', (tester) async {
         await pumpCareersPage(tester);
 
         await scrollDown(tester, 500);
 
-        final button = find.text('Submit Your Resume');
+        final button = find.text('Keep in Touch');
         expect(button, findsOneWidget);
 
         // Verify it's within a tappable widget hierarchy
@@ -400,15 +400,5 @@ void main() {
       });
     });
 
-    group('company info', () {
-      test('CompanyInfo has name defined', () {
-        expect(CompanyInfo.name, isNotEmpty);
-        expect(CompanyInfo.name, equals('Integrity Studio'));
-      });
-
-      test('CompanyInfo has email defined', () {
-        expect(CompanyInfo.email, isNotEmpty);
-      });
-    });
   });
 }

@@ -87,11 +87,12 @@ class AnalyticsService {
   // Page & Navigation Tracking
   // ---------------------------------------------------------------------------
 
-  /// Track page view.
-  static void trackPageView(String pageName) {
+  /// Track page view with optional referral source.
+  static void trackPageView(String pageName, {String? ref}) {
     _track(AnalyticsEvent.pageView, {
       'page_title': pageName,
       'page_location': pageName,
+      if (ref != null) 'page_referrer': ref,
     });
   }
 

@@ -114,6 +114,7 @@ class ContentLoader {
   String get ctaContactSales => _getString('cta_text.primary.contact_sales');
   String get ctaLearnMore => _getString('cta_text.primary.learn_more');
   String get ctaSendMessage => _getString('cta_text.form.send_message');
+  String get ctaKeepInTouch => _getString('cta_text.careers.keep_in_touch');
 
   // ===========================================================================
   // TRUST INDICATORS
@@ -490,6 +491,7 @@ class Content {
   static String get ctaContactSales => _loader.ctaContactSales;
   static String get ctaLearnMore => _loader.ctaLearnMore;
   static String get ctaSendMessage => _loader.ctaSendMessage;
+  static String get ctaKeepInTouch => _loader.ctaKeepInTouch;
 
   // Trust Indicators
   static List<String> get trustIndicators => _loader.trustIndicators;

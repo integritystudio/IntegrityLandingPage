@@ -33,12 +33,14 @@ class ContactSection extends StatefulWidget {
   final ContactContent? content;
   final Future<bool> Function(Map<String, String>)? onFormSubmit;
   final bool showLiveDemoSection;
+  final String? ref;
 
   const ContactSection({
     super.key,
     this.content,
     this.onFormSubmit,
     this.showLiveDemoSection = true,
+    this.ref,
   });
 
   @override
@@ -455,6 +457,7 @@ class _ContactSectionState extends State<ContactSection> {
       message: _emptyToNull(_formData['message']),
       companySize: _emptyToNull(_formData['companySize']),
       useCase: _emptyToNull(_formData['useCase']),
+      ref: widget.ref,
     );
 
     final errors = ContactService.validateForm(formData);

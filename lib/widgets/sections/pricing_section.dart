@@ -159,7 +159,6 @@ class _PricingSectionState extends State<PricingSection> {
       }).toList(),
     );
   }
-
 }
 
 class _BillingOption extends StatelessWidget {
