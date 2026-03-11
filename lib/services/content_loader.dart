@@ -154,10 +154,14 @@ class ContentLoader {
   String get heroPrimaryCta => _getString('hero.current.primary_cta');
   String get heroSecondaryCta => _getString('hero.current.secondary_cta');
 
-  /// Get hero variant by name.
+  /// Get hero variant by name. Falls back to current hero for empty/unknown variants.
   Map<String, dynamic> getHeroVariant(String variant) {
-    if (variant == 'current') return heroCurrent;
-    return _getMap('hero.variants.$variant');
+    if (variant.isEmpty || variant == 'current') return heroCurrent;
+    final value = _getValue('hero.variants.$variant');
+    if (value == null) return heroCurrent;
+    if (value is YamlMap) return _yamlMapToMap(value);
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return heroCurrent;
   }
 
   // ===========================================================================
