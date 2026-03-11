@@ -137,6 +137,7 @@ test.describe('SEO Meta Tags', () => {
 
     test('JSON-LD contains Organization entity', async () => {
       const match = html.match(/<script\s+type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/);
+      expect(match).not.toBeNull();
       const jsonld = JSON.parse(match![1]);
       const graph = jsonld['@graph'] ?? [jsonld];
       const org = graph.find((n: { '@type': string }) => n['@type'] === 'Organization');
@@ -147,6 +148,7 @@ test.describe('SEO Meta Tags', () => {
 
     test('JSON-LD contains WebSite entity with search action', async () => {
       const match = html.match(/<script\s+type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/);
+      expect(match).not.toBeNull();
       const jsonld = JSON.parse(match![1]);
       const graph = jsonld['@graph'] ?? [jsonld];
       const website = graph.find((n: { '@type': string }) => n['@type'] === 'WebSite');

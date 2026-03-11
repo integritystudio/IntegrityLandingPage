@@ -71,21 +71,14 @@ test.describe('Accessibility', () => {
       await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
 
-      // Tab should work without errors - use waitForLoadState instead of arbitrary timeouts
+      // Tab should work without errors — let Flutter settle between presses
       await page.keyboard.press('Tab');
-      await page.waitForLoadState('domcontentloaded');
+      await page.waitForTimeout(KEY_SETTLE_MS);
       await page.keyboard.press('Tab');
-      await page.waitForLoadState('domcontentloaded');
+      await page.waitForTimeout(KEY_SETTLE_MS);
 
       // Page should still be functional after keyboard interaction
-      const hasFlutter = await page.evaluate(() => {
-        return !!(
-          document.querySelector('flt-glass-pane') ||
-          document.querySelector('flutter-view') ||
-          document.querySelector('canvas')
-        );
-      });
-      expect(hasFlutter).toBe(true);
+      await assertFlutterRendering(page);
     });
 
     // #113: Keyboard Navigation Audit Per Page

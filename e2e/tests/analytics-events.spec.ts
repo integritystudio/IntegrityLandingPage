@@ -43,7 +43,9 @@ test.describe('Analytics Event Payload Validation (#112)', () => {
     test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
   });
 
-  test.afterEach(async ({ page }) => {
+  test.afterEach(async ({ page, browserName }) => {
+    // Guard: skip cleanup on non-Chromium where beforeEach skipped the test
+    if (browserName !== 'chromium') return;
     await page.evaluate((key) => localStorage.removeItem(key), CONSENT_STORAGE_KEY);
   });
 
