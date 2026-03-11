@@ -369,8 +369,8 @@ void testBackButtonCallbacks(
 }) {
   testBackButtonCallback(pumpPage);
 
-  final resolvedText = backButtonText ?? CTAText.backToHome;
-  testWidgets('$resolvedText button triggers onBack callback', (tester) async {
+  testWidgets('back-to-home button triggers onBack callback', (tester) async {
+    final resolvedText = backButtonText ?? CTAText.backToHome;
     bool backCalled = false;
     await pumpPage(tester, onBack: () => backCalled = true, mobile: false);
 
