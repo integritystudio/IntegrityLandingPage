@@ -199,11 +199,11 @@ void main() {
 
         final section = find.byKey(const Key('pricing-tiers-section'));
         expect(
-          find.descendant(of: section, matching: find.text('Get Started')),
+          find.descendant(of: section, matching: find.text('Start Free Trial')),
           findsWidgets,
         );
         expect(
-          find.descendant(of: section, matching: find.text('Start Free Trial')),
+          find.descendant(of: section, matching: find.text('Get Started')),
           findsOneWidget,
         );
         expect(

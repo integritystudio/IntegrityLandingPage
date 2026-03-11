@@ -277,7 +277,7 @@ pricing:
       monthly_price: "Free"
       annual_price: "Free"
       description: "For individual developers"
-      cta_text: "Get Started"
+      cta_text: "Start Free Trial"
       features:
         - "50K traces/month"
         - "7-day retention"
@@ -291,7 +291,7 @@ pricing:
       period: "/month"
       description: "For growing teams"
       is_popular: true
-      cta_text: "Start Free Trial"
+      cta_text: "Get Started"
       features:
         - "500K traces/month"
         - "30-day retention"
