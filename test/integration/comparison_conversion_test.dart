@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/comparison_page.dart';
 import 'package:integrity_studio_ai/pages/signup_page.dart';
 // test_helpers imported via integration_test_helpers.dart
@@ -348,7 +349,7 @@ void main() {
       expect(currentRoute, equals('/whylabs-alternative'));
 
       // Navigate to signup
-      await tester.tap(find.text('Start Free Trial'));
+      await tester.tap(find.text(CTAText.startFreeTrial));
       await pumpFrames(tester, frames: 20);
 
       expect(currentRoute, equals('/signup'));

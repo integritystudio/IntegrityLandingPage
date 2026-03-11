@@ -43,7 +43,7 @@ void main() {
       testWidgets('renders Back to Home text button', (tester) async {
         await pumpDocsApiPage(tester);
 
-        expect(find.text('Back to Home'), findsOneWidget);
+        expect(find.text(CTAText.backToHome), findsOneWidget);
       });
     });
 

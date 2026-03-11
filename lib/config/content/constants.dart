@@ -39,17 +39,17 @@ abstract final class CTAText {
   static const String learnMore = 'Learn More';
 
   // Navigation CTAs
-  static const String backToHome = 'Back to Home';
-  static const String viewAll = 'View All';
-  static const String viewDocs = 'View Documentation';
+  static String get backToHome => Content.ctaBackToHome;
+  static String get viewAll => Content.ctaViewAll;
+  static String get viewDocs => Content.ctaViewDocs;
 
   // Careers CTAs
   static String get keepInTouch => Content.ctaKeepInTouch;
 
   // Form CTAs
-  static const String sendMessage = 'Send Message';
-  static const String downloadNow = 'Download Now';
-  static const String calculateSavings = 'Calculate Savings';
+  static String get sendMessage => Content.ctaSendMessage;
+  static String get downloadNow => Content.ctaDownloadNow;
+  static String get calculateSavings => Content.ctaCalculateSavings;
 }
 
 // =============================================================================

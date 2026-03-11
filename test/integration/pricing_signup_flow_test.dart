@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/pricing_page.dart';
 import 'package:integrity_studio_ai/pages/signup_page.dart';
 // test_helpers imported via integration_test_helpers.dart
@@ -180,7 +181,7 @@ void main() {
       await pumpFrames(tester, frames: 10);
 
       // Tap Get Started
-      await tester.tap(find.text('Get Started'));
+      await tester.tap(find.text(CTAText.getStarted));
       await pumpFrames(tester, frames: 15);
 
       expect(navigatedTier, equals('growth'));

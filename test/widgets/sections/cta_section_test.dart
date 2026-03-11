@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/sections/cta_section.dart';
 import 'package:integrity_studio_ai/widgets/common/containers.dart';
+import 'package:integrity_studio_ai/config/content.dart';
 import '../../helpers/test_helpers.dart';
 import '../../helpers/test_constants.dart';
 
@@ -25,7 +26,7 @@ void main() {
         );
         await tester.pump(kNavigationSettle);
 
-        await tester.tap(find.text('Start Free Trial'));
+        await tester.tap(find.text(CTAText.startFreeTrial));
         await tester.pump();
 
         expect(getStartedCalled, isTrue);
@@ -42,7 +43,7 @@ void main() {
         await tester.pump(kNavigationSettle);
 
         expect(find.byType(CTASection), findsOneWidget);
-        expect(find.text('Start Free Trial'), findsOneWidget);
+        expect(find.text(CTAText.startFreeTrial), findsOneWidget);
       });
     });
 
@@ -77,7 +78,7 @@ void main() {
         );
         await tester.pump(kNavigationSettle);
 
-        expect(find.text('Start Free Trial'), findsOneWidget);
+        expect(find.text(CTAText.startFreeTrial), findsOneWidget);
       });
 
       testWidgets('renders arrow icon on button', (tester) async {
@@ -126,7 +127,7 @@ void main() {
         );
         await tester.pump(kNavigationSettle);
 
-        expect(find.text('Start Free Trial'), findsOneWidget);
+        expect(find.text(CTAText.startFreeTrial), findsOneWidget);
       });
 
       testWidgets('renders on desktop', (tester) async {
@@ -137,7 +138,7 @@ void main() {
         );
         await tester.pump(kNavigationSettle);
 
-        expect(find.text('Start Free Trial'), findsOneWidget);
+        expect(find.text(CTAText.startFreeTrial), findsOneWidget);
       });
     });
 

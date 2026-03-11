@@ -100,7 +100,7 @@ void main() {
       testWidgets('renders Back to Home button', (tester) async {
         await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
 
-        expect(find.text('Back to Home'), findsOneWidget);
+        expect(find.text(CTAText.backToHome), findsOneWidget);
       });
 
       testWidgets('renders Continue button', (tester) async {

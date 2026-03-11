@@ -26,7 +26,7 @@ void main() {
         );
         await tester.pump(kNavigationSettle);
 
-        await tester.tap(find.text('Start Free Trial').first);
+        await tester.tap(find.text(CTAText.startFreeTrial).first);
         await tester.pump();
 
         expect(getStartedCalled, isTrue);
@@ -45,7 +45,7 @@ void main() {
         );
         await tester.pump(kNavigationSettle);
 
-        await tester.tap(find.text('Request Demo'));
+        await tester.tap(find.text(CTAText.requestDemo));
         await tester.pump();
 
         expect(requestDemoCalled, isTrue);
@@ -83,7 +83,7 @@ void main() {
         );
         await tester.pump(kNavigationSettle);
 
-        expect(find.text('Start Free Trial'), findsOneWidget);
+        expect(find.text(CTAText.startFreeTrial), findsOneWidget);
       });
 
       testWidgets('renders secondary CTA button', (tester) async {
@@ -94,7 +94,7 @@ void main() {
         );
         await tester.pump(kNavigationSettle);
 
-        expect(find.text('Request Demo'), findsOneWidget);
+        expect(find.text(CTAText.requestDemo), findsOneWidget);
       });
 
       testWidgets('renders trust indicators', (tester) async {
@@ -159,8 +159,8 @@ void main() {
         await tester.pump(kNavigationSettle);
 
         // Both CTAs should be present
-        expect(find.text('Start Free Trial'), findsOneWidget);
-        expect(find.text('Request Demo'), findsOneWidget);
+        expect(find.text(CTAText.startFreeTrial), findsOneWidget);
+        expect(find.text(CTAText.requestDemo), findsOneWidget);
       });
 
       testWidgets('renders on larger screens', (tester) async {
@@ -172,7 +172,7 @@ void main() {
         );
         await tester.pump(kNavigationSettle);
 
-        expect(find.text('Start Free Trial'), findsOneWidget);
+        expect(find.text(CTAText.startFreeTrial), findsOneWidget);
       });
     });
 

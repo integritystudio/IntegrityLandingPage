@@ -327,7 +327,7 @@ void main() {
             findsOneWidget,
           );
           expect(
-            find.descendant(of: section, matching: find.text('Schedule Demo')),
+            find.descendant(of: section, matching: find.text(CTAText.scheduledDemo)),
             findsOneWidget,
           );
         });
@@ -371,7 +371,7 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        await tester.tap(find.text('Back to Home'));
+        await tester.tap(find.text(CTAText.backToHome));
         await tester.pump();
 
         expect(backCalled, isTrue);

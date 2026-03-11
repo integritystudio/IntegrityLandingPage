@@ -232,7 +232,7 @@ void main() {
             .where((e) => e.event == AnalyticsEvent.ctaClick)
             .toList();
         expect(ctaClicks, hasLength(1));
-        expect(ctaClicks.first.params['button_name'], 'Get Started');
+        expect(ctaClicks.first.params['button_name'], CTAText.getStarted);
         expect(ctaClicks.first.params['location'], 'hero');
         expect(ctaClicks.first.params['cta_type'], 'primary');
       });
@@ -254,7 +254,7 @@ void main() {
             .where((e) => e.event == AnalyticsEvent.ctaClick)
             .toList();
         expect(ctaClicks, hasLength(1));
-        expect(ctaClicks.first.params['button_name'], 'Request Demo');
+        expect(ctaClicks.first.params['button_name'], CTAText.requestDemo);
         expect(ctaClicks.first.params['cta_type'], 'secondary');
       });
 

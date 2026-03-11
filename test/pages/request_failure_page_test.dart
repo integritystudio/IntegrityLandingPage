@@ -143,7 +143,7 @@ void main() {
       testWidgets('renders Back to Home button', (tester) async {
         await pumpRequestFailurePage(tester);
 
-        expect(find.text('Back to Home'), findsOneWidget);
+        expect(find.text(CTAText.backToHome), findsOneWidget);
       });
 
       testWidgets('renders Try Again button', (tester) async {
@@ -155,7 +155,7 @@ void main() {
       testWidgets('Back to Home button is tappable', (tester) async {
         await pumpRequestFailurePage(tester);
 
-        final button = find.text('Back to Home');
+        final button = find.text(CTAText.backToHome);
         expect(button, findsOneWidget);
 
         final buttonWidget = find.ancestor(

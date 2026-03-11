@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/landing_page.dart';
 import 'package:integrity_studio_ai/widgets/sections/hero_section.dart';
 import 'package:integrity_studio_ai/widgets/sections/tabbed_features_section.dart';
@@ -647,7 +648,7 @@ void main() {
           if (ctaButton.evaluate().isNotEmpty) {
             // The CTA section uses a custom _CTAButton that wraps content
             // Find the text "Start Free Trial" and tap near it
-            final startTrialText = find.text('Start Free Trial');
+            final startTrialText = find.text(CTAText.startFreeTrial);
             if (startTrialText.evaluate().isNotEmpty) {
               await tester.tap(startTrialText);
               await tester.pump();

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/legal_page.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../helpers/test_helpers.dart';
@@ -122,7 +123,7 @@ void main() {
     group('app bar', () {
       testWidgets('has Back to Home text button', (tester) async {
         await pumpLegalPage(tester, LegalPageType.privacy);
-        expect(find.text('Back to Home'), findsOneWidget);
+        expect(find.text(CTAText.backToHome), findsOneWidget);
       });
 
       testWidgets('back button triggers onBack callback', (tester) async {
@@ -148,7 +149,7 @@ void main() {
           onBack: () => backCalled = true,
         );
 
-        await tester.tap(find.text('Back to Home'));
+        await tester.tap(find.text(CTAText.backToHome));
         await tester.pump();
 
         expect(backCalled, isTrue);
