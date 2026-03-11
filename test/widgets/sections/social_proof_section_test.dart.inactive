@@ -1,3 +1,6 @@
+// WARNING: This file contains 50+ pumpAndSettle() calls not yet converted to
+// pumpAndSettleWithTimeout(). Before reactivating this test file, run:
+// sed -i '' 's/pumpAndSettle()/pumpAndSettleWithTimeout(tester)/g' social_proof_section_test.dart.inactive
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
