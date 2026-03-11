@@ -1,5 +1,5 @@
 import { test, expect, devices } from '@playwright/test';
-import { waitForFlutter, assertFlutterRendering, navigateAndWaitForFlutter } from './helpers';
+import { assertFlutterRendering, navigateAndWaitForFlutter } from './helpers';
 import { SCROLL_SETTLE_MS } from './constants';
 
 /**
