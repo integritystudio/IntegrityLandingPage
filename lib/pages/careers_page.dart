@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../config/content.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
@@ -252,13 +251,12 @@ class _SubmitResumeSection extends StatelessWidget {
               const SizedBox(height: AppSpacing.xl),
               GradientButton(
                 text: 'Submit Your Resume',
-                onPressed: () async {
+                onPressed: () {
                   AnalyticsService.trackCTAClick(
                     buttonName: 'Submit Resume',
                     location: 'careers_page',
                   );
-                  final uri = Uri.parse('mailto:${CompanyInfo.email}?subject=Career%20Inquiry%20-%20Resume%20Submission');
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  context.go('/contact?ref=careers');
                 },
               ),
               const SizedBox(height: AppSpacing.lg),
