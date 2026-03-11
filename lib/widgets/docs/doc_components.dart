@@ -426,28 +426,32 @@ class DocCallout extends StatelessWidget {
     required this.title,
     this.message,
     this.items,
-  }) : variant = DocCalloutVariant.success;
+  })  : variant = DocCalloutVariant.success,
+        assert(message != null || items != null);
 
   const DocCallout.info({
     super.key,
     required this.title,
     this.message,
     this.items,
-  }) : variant = DocCalloutVariant.info;
+  })  : variant = DocCalloutVariant.info,
+        assert(message != null || items != null);
 
   const DocCallout.warning({
     super.key,
     required this.title,
     this.message,
     this.items,
-  }) : variant = DocCalloutVariant.warning;
+  })  : variant = DocCalloutVariant.warning,
+        assert(message != null || items != null);
 
   const DocCallout.danger({
     super.key,
     required this.title,
     this.message,
     this.items,
-  }) : variant = DocCalloutVariant.danger;
+  })  : variant = DocCalloutVariant.danger,
+        assert(message != null || items != null);
 
   Color get _color => switch (variant) {
         DocCalloutVariant.success => AppColors.success,
