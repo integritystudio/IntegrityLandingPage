@@ -71,10 +71,18 @@ class _OAuthCallbackPageState extends State<OAuthCallbackPage> {
           'error_type': widget.error ?? 'unknown',
         },
       );
-    } else if (widget.code != null) {
-      // Track successful OAuth callback
+    } else if (widget.success) {
+      // Track confirmed authentication (backend completed token exchange)
       AnalyticsService.trackEvent(
         eventName: 'oauth_callback_success',
+        parameters: {
+          'has_state': widget.state != null,
+        },
+      );
+    } else if (widget.code != null) {
+      // Track code received (token exchange pending)
+      AnalyticsService.trackEvent(
+        eventName: 'oauth_callback_code_received',
         parameters: {
           'has_state': widget.state != null,
         },
