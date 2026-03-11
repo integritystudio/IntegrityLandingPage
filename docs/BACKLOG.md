@@ -595,7 +595,270 @@ assert(value != null || allowNull, 'Required content key "$path" is missing');
 
 ---
 
-*Last updated: 2026-03-11 (#104 /docs/tracing static HTML root cause + CI workaround + #104-#108 contentloader refactoring deferred; #93, #94, #99, #101, #107, #108 implemented 2026-03-11)*
+## Open: E2E Test Coverage Gaps (Generated Tests #109-#119)
+
+**Source:** Session 2026-03-11 (e2e-test-framework:generate-e2e analysis)
+**Status:** 59 new e2e tests added (seo-meta, auth-flows, redirect-rules, mobile-nav). These gaps remain:
+
+### #109: Contact Form Submission Flow
+
+**Severity:** MEDIUM
+**Category:** E2E Test Coverage
+**Files:** `e2e/tests/contact-form.spec.ts`
+**Source:** Coverage gap analysis 2026-03-11
+
+Contact form page loads and navigates ✓, but form submission flow is untested. Requires:
+- Filling form fields with valid data
+- Submitting form (POST to `/api/contact`)
+- Verifying redirect to `/request_success` or `/request_failure`
+- Error message display on failed submission
+- Backend mock or live endpoint for test environment
+
+**Status:** Deferred — requires backend integration or service worker mock. Consider using Playwright network intercept to mock contact-form worker response.
+
+---
+
+### #110: Pricing Page Plan Selection and CTA
+
+**Severity:** MEDIUM
+**Category:** E2E Test Coverage
+**Files:** `e2e/tests/pricing-interactions.spec.ts`
+**Source:** Coverage gap analysis 2026-03-11
+
+Pricing page loads ✓, but no interaction testing:
+- Plan card hover/tap states
+- CTA button clicks
+- Price comparison table
+- Responsive layout on mobile/tablet
+- Tier selection state persistence
+
+**Status:** Deferred — low priority user flow (not critical path). Schedule after #109.
+
+---
+
+### #111: Documentation Page Content Rendering
+
+**Severity:** MEDIUM
+**Category:** E2E Test Coverage (Flutter Canvas Limitation)
+**Files:** `e2e/tests/`, `lib/pages/docs_*.dart`
+**Source:** Coverage gap analysis 2026-03-11
+
+Doc pages load ✓, but content is rendered to CanvasKit (canvas), making content verification impossible from Playwright:
+- Table rendering (headers, rows, alignment)
+- Code block syntax highlighting
+- Callout variants (warning, info, success colors)
+- Section navigation (jump links, scroll anchors)
+- Hero section images and gradients
+
+**Status:** Deferred — Flutter web canvas rendering limitation. Cannot inspect rendered content without adding debug endpoints. Consider:
+1. Add `?debug=true` query param to export page content as JSON
+2. Use Flutter's accessibility tree (limited to text content)
+3. Add screenshot comparison tests (visual regression)
+
+---
+
+### #112: Analytics Event Payload Validation
+
+**Severity:** LOW
+**Category:** E2E Test Coverage
+**Files:** `e2e/tests/analytics-events.spec.ts`
+**Source:** Coverage gap analysis 2026-03-11
+
+Tracking initialization is tested (#76), but actual event payloads are not validated:
+- Page view events (route changes)
+- Button click tracking
+- Form interaction events
+- Scroll depth tracking
+- Custom event attributes (referrer, UTM params)
+
+**Status:** Deferred — requires network listener to capture GTM dataLayer and GA4 event stream. Playwright can intercept via `page.on('console')` for logged events, but GTM payload validation is P3.
+
+---
+
+### #113: Keyboard Navigation Audit Per Page
+
+**Severity:** LOW
+**Category:** E2E Test Coverage (A11y)
+**Files:** `e2e/tests/accessibility.spec.ts`
+**Source:** Coverage gap analysis 2026-03-11
+
+Keyboard navigation tested on home page only. Gaps:
+- Tab order on docs pages
+- Tab order on form pages (/contact, /signup)
+- Focus trap (if any)
+- Keyboard shortcuts (if any)
+- Skip-to-main link (if present)
+
+**Status:** Deferred — low priority a11y improvement. Requires per-page tab order audit in Flutter.
+
+---
+
+### #114: 404 Error Recovery UI Validation
+
+**Severity:** LOW
+**Category:** E2E Test Coverage
+**Files:** `e2e/tests/routing.spec.ts`
+**Source:** Coverage gap analysis 2026-03-11
+
+Unknown routes render home page (errorBuilder) ✓, but error display is untested:
+- Does landing page display "404 not found" message?
+- Is there a link back to /docs or /home?
+- Is error reported to Sentry?
+- Mobile 404 behavior
+
+**Status:** Deferred — low priority error path. Requires adding explicit error page or 404 messaging.
+
+---
+
+### #115: Redirect Chain Validation
+
+**Severity:** LOW
+**Category:** E2E Test Coverage
+**Files:** `e2e/tests/redirect-rules.spec.ts`
+**Source:** Coverage gap analysis 2026-03-11
+
+Simple redirects tested, but complex chains are not:
+- `/blog` → `/blog/` → blog page (301 → 200)
+- `/internship` → `/internship/` → landing page
+- `/reports/foo` → `/docs` → docs page
+- Verify no redirect loops
+
+**Status:** Deferred — low priority infrastructure test. Useful for regression detection but not customer-facing.
+
+---
+
+### #116: Page-Specific Meta Tags Per Route
+
+**Severity:** LOW
+**Category:** E2E Test Coverage (SEO)
+**Files:** `e2e/tests/seo-meta.spec.ts`
+**Source:** Coverage gap analysis 2026-03-11
+
+Meta tags tested for home page only. Gaps:
+- Dynamic `og:title`, `og:description` per route (e.g., `/pricing` should have "Pricing" in og:title)
+- Route-specific canonical URLs
+- Hreflang tags for i18n (if deployed)
+- Page-specific JSON-LD (e.g., `Product` schema for /pricing)
+
+**Status:** Deferred — requires building per-route meta tag strategy and updating Cloudflare/Flutter HTML shell. P3 SEO enhancement.
+
+---
+
+### #117: Mobile Hamburger Menu and Touch Interactions
+
+**Severity:** MEDIUM
+**Category:** E2E Test Coverage (Flutter Canvas Limitation)
+**Files:** `e2e/tests/mobile-nav.spec.ts`
+**Source:** Coverage gap analysis 2026-03-11
+
+Mobile pages load ✓, but mobile-specific interactions are untested:
+- Hamburger menu tap to open/close
+- Full navigation menu rendering
+- Mobile-specific CTA positioning
+- Touch scroll vs pointer scroll
+- iOS safe area / notch handling
+
+**Status:** Deferred — Flutter web canvas limitation. Hamburger menu is rendered to canvas, no DOM selector available. Would require:
+1. Add tap detection to canvas and emit custom events
+2. Or refactor navigation to HTML (out of scope)
+
+---
+
+### #118: Search Functionality (if present in docs)
+
+**Severity:** LOW
+**Category:** E2E Test Coverage
+**Files:** `e2e/tests/docs-search.spec.ts`
+**Source:** Coverage gap analysis 2026-03-11
+
+Docs pages load, but if search is available, it's untested:
+- Search box availability
+- Query input and submission
+- Search results rendering
+- No results state
+
+**Status:** Deferred — verify if search exists before implementing. Low priority docs feature.
+
+---
+
+### #119: Deep Linking Within Doc Sections (Anchor Navigation)
+
+**Severity:** LOW
+**Category:** E2E Test Coverage
+**Files:** `e2e/tests/spa-navigation.spec.ts`
+**Source:** Coverage gap analysis 2026-03-11
+
+Deep links to routes work ✓, but jump-to-section within docs pages is untested:
+- `/docs/quickstart#installation` should scroll to installation section
+- `/docs/api#endpoints` should scroll to endpoints
+- Scroll position restored on back navigation
+- Section highlighting (if implemented)
+
+**Status:** Deferred — requires adding `#anchor` support to Flutter routing or detecting scroll events. Low priority UX improvement.
+
+---
+
+## Deferred: Code Review Findings (Backlog Sprint 2026-03-11)
+
+Code reviewer identified low findings during backlog implementation (#93, #94, #107, #108). All are pre-existing patterns surfaced by the changes, not regressions.
+
+### #120: Add assert to DocCallout Named Constructors
+
+**Severity:** LOW
+**Category:** Code Quality (Correctness)
+**File:** `lib/widgets/docs/doc_components.dart:424-450`
+**Source:** Code review (session 2026-03-11, #94 review)
+
+The primary constructor `DocCallout()` has `assert(message != null || items != null)`, but the four named constructors (`.success`, `.info`, `.warning`, `.danger`) do not inherit this assert. A call like `DocCallout.info(title: 'x')` with neither `message` nor `items` compiles silently and renders a title-only callout with no body.
+
+**Fix:** Add `assert(message != null || items != null)` to each named constructor's initializer list.
+
+**Status:** Deferred — pre-existing, no active callers trigger this. Low priority safety guard.
+
+---
+
+### #121: Add const to DocBulletList Call Sites
+
+**Severity:** LOW
+**Category:** Code Quality (Performance)
+**Files:** `lib/pages/docs_tracing_page.dart:219,267,509,521`, `lib/pages/docs_quickstart_page.dart:232,759`
+**Source:** Code review (session 2026-03-11, #94 review)
+
+Six `DocBulletList` call sites pass only const-compatible params (`items: const [...]`, `bulletColor: AppColors.success`) but omit the outer `const` keyword. `DocBulletList` has a const constructor and all arguments are compile-time constants. Inconsistent with the #94 `DocCallout` const cleanup.
+
+**Status:** Deferred — optional, same pattern as #94 but for `DocBulletList`.
+
+---
+
+### #122: Add Blank Line Before _TimelineItem in docs_tracing_page
+
+**Severity:** LOW
+**Category:** Code Quality (Style)
+**File:** `lib/pages/docs_tracing_page.dart:568-569`
+**Source:** Code review (session 2026-03-11)
+
+`_TimelineItem` class declaration at line 569 follows the closing brace of the previous class at line 568 with no blank line separator. Pre-existing style inconsistency — not introduced by #94.
+
+**Status:** Deferred — cosmetic, pre-existing.
+
+---
+
+### #123: Make Inactive Test sed Command Cross-Platform
+
+**Severity:** LOW
+**Category:** Code Quality (Documentation)
+**File:** `test/widgets/sections/social_proof_section_test.dart.inactive:3`
+**Source:** Code review (session 2026-03-11, #101 review)
+
+The `sed -i ''` command in the header warning uses macOS-specific syntax. On GNU/Linux `sed`, `-i ''` is invalid (expects `-i` with no space or `-i.bak`). Since this is a developer-facing comment (not executed code), impact is documentation-only.
+
+**Fix:** Add platform note: `# macOS sed syntax; on Linux use: sed -i 's/...'`
+
+**Status:** Deferred — documentation-only, low priority.
+
+---
+
+*Last updated: 2026-03-11 (#104 /docs/tracing static HTML root cause + CI workaround + #104-#108 contentloader refactoring deferred; 59 e2e tests generated (#109-#119 gaps identified); 4 new spec files: seo-meta, auth-flows, redirect-rules, mobile-nav; #120-#123 code review findings from backlog sprint)*
 *Migrated items: 32 total → docs/changelog/1.0/CHANGELOG.md:*
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit (2026-02-13)*
   *- 13 items (all LOW) from backlog implementation sprint (2026-02-13)*
