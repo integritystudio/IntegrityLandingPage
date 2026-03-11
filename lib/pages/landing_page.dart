@@ -248,8 +248,8 @@ class _LandingPageState extends State<LandingPage> {
                   _buildPopupMenuItem('Team', 'team'),
                   _buildPopupMenuItem('Blog', 'resources'),
                   _buildPopupMenuItem('Pricing', 'pricing'),
-                  _buildPopupMenuItem('Docs', Routes.docs),
                   _buildPopupMenuItem('Contact', 'contact'),
+                  _buildPopupMenuItem('Docs', Routes.docs),
                 ],
               ),
             ]
@@ -296,20 +296,20 @@ class _LandingPageState extends State<LandingPage> {
                 onTap: () => _controller.scrollToSection('pricing'),
               ),
               HoverTextLink(
-                text: 'Docs',
-                defaultColor: AppColors.gray300,
-                hoverColor: AppColors.blue400,
-                style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                onTap: () => context.go(Routes.docs),
-              ),
-              HoverTextLink(
                 text: 'Contact',
                 defaultColor: AppColors.gray300,
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 onTap: () => _controller.scrollToSection('contact'),
+              ),
+              HoverTextLink(
+                text: 'Docs',
+                defaultColor: AppColors.gray300,
+                hoverColor: AppColors.blue400,
+                style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                onTap: () => context.go(Routes.docs),
               ),
               const SizedBox(width: AppSpacing.md),
               // CTA button

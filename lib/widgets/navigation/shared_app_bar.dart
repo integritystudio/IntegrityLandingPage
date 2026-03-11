@@ -215,8 +215,8 @@ class SharedAppBar extends StatelessWidget {
         NavItem(text: 'Team', sectionId: 'team'),
         NavItem(text: 'Blog', sectionId: 'resources'),
         NavItem(text: 'Pricing', sectionId: 'pricing'),
-        NavItem(text: 'Docs', route: Routes.docs),
         NavItem(text: 'Contact', sectionId: 'contact'),
+        NavItem(text: 'Docs', route: Routes.docs),
       ];
     } else {
       // Sub-page: route-based nav (Team omitted — About scrolls nearby)
@@ -224,8 +224,8 @@ class SharedAppBar extends StatelessWidget {
         NavItem(text: 'Features', route: '/?section=features'),
         NavItem(text: 'About', route: '/?section=about'),
         NavItem(text: 'Pricing', route: '/pricing'),
-        NavItem(text: 'Docs', route: Routes.docs),
         NavItem(text: 'Contact', route: '/contact'),
+        NavItem(text: 'Docs', route: Routes.docs),
       ];
     }
   }
