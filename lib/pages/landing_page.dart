@@ -50,6 +50,7 @@ class _LandingPageState extends State<LandingPage> {
     'features',
     'services',
     'about',
+    'team',
     'resources',
     'contact',
     'status',
@@ -133,7 +134,9 @@ class _LandingPageState extends State<LandingPage> {
             _buildSection(
               key: _controller.getSectionKey('about'),
               label: 'About section',
-              child: const AboutSection(),
+              child: AboutSection(
+                teamKey: _controller.getSectionKey('team'),
+              ),
             ),
             // Resources section (docs, blog, lead magnets)
             _buildSection(
