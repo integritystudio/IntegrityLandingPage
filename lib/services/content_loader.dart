@@ -61,7 +61,6 @@ class ContentLoader {
   static void reset() {
     _content = null;
     _isLoaded = false;
-    _instance = null;
   }
 
   /// Get the raw YAML content.
