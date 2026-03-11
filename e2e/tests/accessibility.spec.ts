@@ -86,6 +86,32 @@ test.describe('Accessibility', () => {
       });
       expect(hasFlutter).toBe(true);
     });
+
+    // #113: Keyboard Navigation Audit Per Page
+    const keyboardRoutes = ['/docs', '/contact', '/signup', '/pricing'];
+
+    for (const route of keyboardRoutes) {
+      test(`${route} remains functional after keyboard Tab navigation`, async ({ page, browserName }) => {
+        test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
+        await page.goto(route, { waitUntil: 'domcontentloaded' });
+        await waitForFlutter(page);
+
+        // Press Tab 3 times — Flutter intercepts, page must not crash
+        for (let i = 0; i < 3; i++) {
+          await page.keyboard.press('Tab');
+        }
+        await page.waitForLoadState('domcontentloaded');
+
+        const hasFlutter = await page.evaluate(() => {
+          return !!(
+            document.querySelector('flt-glass-pane') ||
+            document.querySelector('flutter-view') ||
+            document.querySelector('canvas')
+          );
+        });
+        expect(hasFlutter).toBe(true);
+      });
+    }
   });
 
   test.describe('color and contrast', () => {

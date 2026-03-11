@@ -135,3 +135,49 @@ test.describe('Navigation URL Handling', () => {
     await assertFlutterRendering(page);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Anchor / deep-link navigation within doc sections (#119)
+// ---------------------------------------------------------------------------
+
+test.describe('Doc Section Anchor Navigation', () => {
+  test.beforeEach(async ({ browserName }) => {
+    test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
+  });
+
+  const docAnchors = [
+    '/docs/quickstart#installation',
+    '/docs/quickstart#overview',
+    '/api#endpoints',
+    '/docs#getting-started',
+  ];
+
+  for (const anchor of docAnchors) {
+    test(`${anchor} loads without error`, async ({ page }) => {
+      await page.goto(anchor, { waitUntil: 'domcontentloaded' });
+      await waitForFlutter(page);
+      await assertFlutterRendering(page);
+    });
+  }
+
+  test('anchor in URL is preserved on load', async ({ page }) => {
+    await page.goto('/pricing#enterprise', { waitUntil: 'domcontentloaded' });
+    await waitForFlutter(page);
+    // URL hash should still contain the fragment
+    expect(page.url()).toContain('#enterprise');
+    await assertFlutterRendering(page);
+  });
+
+  test('anchor navigation does not break back button', async ({ page }) => {
+    test.slow();
+    await page.goto('/pricing', { waitUntil: 'domcontentloaded' });
+    await waitForFlutter(page);
+
+    await page.goto('/pricing#enterprise', { waitUntil: 'domcontentloaded' });
+    await page.goBack();
+    await waitForFlutter(page);
+
+    expect(page.url()).toContain('/pricing');
+    await assertFlutterRendering(page);
+  });
+});
