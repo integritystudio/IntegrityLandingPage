@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { waitForFlutter, navigateAndWaitForFlutter } from './helpers';
 import {
   CONSENT_STORAGE_KEY,
@@ -31,7 +31,7 @@ function consentJson(analytics: boolean, marketing: boolean): string {
 }
 
 /** Read the full window.dataLayer array. */
-async function getDataLayer(page: Parameters<typeof test>[1] extends (args: { page: infer P }) => unknown ? P : never): Promise<unknown[]> {
+async function getDataLayer(page: Page): Promise<unknown[]> {
   return page.evaluate(() => {
     const dl = (window as unknown as { dataLayer?: unknown[] }).dataLayer;
     return Array.isArray(dl) ? dl : [];
@@ -138,8 +138,8 @@ test.describe('Analytics Event Payload Validation (#112)', () => {
         return Array.isArray(dl) ? dl.length : 0;
       });
 
-      // Navigating should push at least the route init events
-      expect(afterLength).toBeGreaterThanOrEqual(beforeLength);
+      // Route change should push at least one new dataLayer entry
+      expect(afterLength).toBeGreaterThan(beforeLength);
     });
   });
 });
