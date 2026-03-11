@@ -858,7 +858,39 @@ The `sed -i ''` command in the header warning uses macOS-specific syntax. On GNU
 
 ---
 
-*Last updated: 2026-03-11 (#104 /docs/tracing static HTML root cause + CI workaround + #104-#108 contentloader refactoring deferred; 59 e2e tests generated (#109-#119 gaps identified); 4 new spec files: seo-meta, auth-flows, redirect-rules, mobile-nav; #120-#123 code review findings from backlog sprint)*
+## Deferred: Code Review Findings (Backlog Sprint #120-#123)
+
+### #124: Remove Redundant Inner const on DocBulletList items Lists
+
+**Severity:** LOW
+**Category:** Code Quality (Style)
+**Files:** `lib/pages/docs_tracing_page.dart` (lines 219, 267, 509, 521), `lib/pages/docs_quickstart_page.dart` (lines 232, 759)
+**Source:** Code review (session 2026-03-11, #121 review)
+
+After adding outer `const` to `DocBulletList(...)` call sites, the inner `items: const [...]` is redundant — the outer const context already makes all list literals implicitly const. Pattern `const DocBulletList(items: const [...])` is valid but noisy.
+
+**Fix:** Remove inner `const` from `items:` parameter at these 6 sites.
+
+**Status:** Deferred — cosmetic style cleanup. No behavioral impact.
+
+---
+
+### #125: DocBulletList const Sweep — Verify No Remaining Sites
+
+**Severity:** LOW
+**Category:** Code Quality (Performance)
+**Files:** `lib/pages/`
+**Source:** Code review (session 2026-03-11, #121 review)
+
+After #121 + follow-up commit 1de8419, known non-const sites in `docs_tracing_page`, `docs_quickstart_page`, `docs_alerts_page`, `docs_api_page`, and `api_toolkit_page` are fixed. Run a full sweep to confirm no remaining non-const `DocBulletList` call sites exist in other pages (e.g., `docs_observability_page`, `security_page`, `eu_ai_act_page`).
+
+**Fix:** `grep -n 'DocBulletList(' lib/pages/*.dart | grep -v 'const DocBulletList'`
+
+**Status:** Deferred — verification only. Low effort.
+
+---
+
+*Last updated: 2026-03-11 (#104 /docs/tracing static HTML root cause + CI workaround + #104-#108 contentloader refactoring deferred; 59 e2e tests generated (#109-#119 gaps identified); 4 new spec files: seo-meta, auth-flows, redirect-rules, mobile-nav; #120-#125 code review findings from backlog sprint)*
 *Migrated items: 32 total → docs/changelog/1.0/CHANGELOG.md:*
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit (2026-02-13)*
   *- 13 items (all LOW) from backlog implementation sprint (2026-02-13)*
