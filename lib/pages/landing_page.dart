@@ -245,8 +245,10 @@ class _LandingPageState extends State<LandingPage> {
                 itemBuilder: (context) => [
                   _buildPopupMenuItem('Features', 'features'),
                   _buildPopupMenuItem('About', 'about'),
+                  _buildPopupMenuItem('Team', 'team'),
                   _buildPopupMenuItem('Blog', 'resources'),
                   _buildPopupMenuItem('Pricing', 'pricing'),
+                  _buildPopupMenuItem('Docs', Routes.docs),
                   _buildPopupMenuItem('Contact', 'contact'),
                 ],
               ),
@@ -258,7 +260,7 @@ class _LandingPageState extends State<LandingPage> {
                 defaultColor: AppColors.gray300,
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 onTap: () => _controller.scrollToSection('features'),
               ),
               HoverTextLink(
@@ -266,15 +268,23 @@ class _LandingPageState extends State<LandingPage> {
                 defaultColor: AppColors.gray300,
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 onTap: () => _controller.scrollToSection('about'),
+              ),
+              HoverTextLink(
+                text: 'Team',
+                defaultColor: AppColors.gray300,
+                hoverColor: AppColors.blue400,
+                style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                onTap: () => _controller.scrollToSection('team'),
               ),
               HoverTextLink(
                 text: 'Blog',
                 defaultColor: AppColors.gray300,
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 onTap: () => _controller.scrollToSection('resources'),
               ),
               HoverTextLink(
@@ -282,15 +292,23 @@ class _LandingPageState extends State<LandingPage> {
                 defaultColor: AppColors.gray300,
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 onTap: () => _controller.scrollToSection('pricing'),
+              ),
+              HoverTextLink(
+                text: 'Docs',
+                defaultColor: AppColors.gray300,
+                hoverColor: AppColors.blue400,
+                style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                onTap: () => context.go(Routes.docs),
               ),
               HoverTextLink(
                 text: 'Contact',
                 defaultColor: AppColors.gray300,
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 onTap: () => _controller.scrollToSection('contact'),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -333,7 +351,11 @@ class _LandingPageState extends State<LandingPage> {
   }
 
   void _handleNavItemSelected(String value) {
-    _controller.scrollToSection(value);
+    if (value.startsWith('/')) {
+      context.go(value);
+    } else {
+      _controller.scrollToSection(value);
+    }
   }
 
   void _handleWatchDemo() {
