@@ -419,7 +419,7 @@ class DocCallout extends StatelessWidget {
     this.message,
     this.items,
     this.variant = DocCalloutVariant.info,
-  }) : assert(message != null || items != null);
+  }) : assert(message != null || items != null, 'DocCallout requires at least one of message or items');
 
   const DocCallout.success({
     super.key,
@@ -427,7 +427,7 @@ class DocCallout extends StatelessWidget {
     this.message,
     this.items,
   })  : variant = DocCalloutVariant.success,
-        assert(message != null || items != null);
+        assert(message != null || items != null, 'DocCallout requires at least one of message or items');
 
   const DocCallout.info({
     super.key,
@@ -435,7 +435,7 @@ class DocCallout extends StatelessWidget {
     this.message,
     this.items,
   })  : variant = DocCalloutVariant.info,
-        assert(message != null || items != null);
+        assert(message != null || items != null, 'DocCallout requires at least one of message or items');
 
   const DocCallout.warning({
     super.key,
@@ -443,7 +443,7 @@ class DocCallout extends StatelessWidget {
     this.message,
     this.items,
   })  : variant = DocCalloutVariant.warning,
-        assert(message != null || items != null);
+        assert(message != null || items != null, 'DocCallout requires at least one of message or items');
 
   const DocCallout.danger({
     super.key,
@@ -451,7 +451,7 @@ class DocCallout extends StatelessWidget {
     this.message,
     this.items,
   })  : variant = DocCalloutVariant.danger,
-        assert(message != null || items != null);
+        assert(message != null || items != null, 'DocCallout requires at least one of message or items');
 
   Color get _color => switch (variant) {
         DocCalloutVariant.success => AppColors.success,
