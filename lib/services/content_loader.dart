@@ -363,6 +363,7 @@ class ContentLoader {
   Map<String, dynamic> _getMap(String path) {
     return _mapCache.putIfAbsent(path, () {
       final value = _getValue(path);
+      assert(value != null, 'Required content key "$path" is missing from content.yaml');
       if (value is YamlMap) return _yamlMapToMap(value);
       if (value is Map) return Map<String, dynamic>.from(value);
       return {};
