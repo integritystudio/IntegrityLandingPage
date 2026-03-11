@@ -76,6 +76,8 @@ class _AnimatedOrbState extends State<AnimatedOrb>
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     if (reduceMotion) {
       _controller.stop();
+    // Guard against re-entrant calls on subsequent dependency changes
+    // (e.g., theme or MediaQuery updates after initial mount).
     } else if (!_controller.isAnimating) {
       _controller.repeat(reverse: true);
     }
