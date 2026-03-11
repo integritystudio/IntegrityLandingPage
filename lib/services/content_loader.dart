@@ -3,6 +3,7 @@
 /// Loads content from content.yaml at runtime and provides typed access.
 library;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
 
@@ -28,24 +29,39 @@ class ContentLoader {
     if (_isLoaded) return;
 
     final yamlString = await rootBundle.loadString('content.yaml');
-    _content = loadYaml(yamlString) as YamlMap;
+    final parsed = loadYaml(yamlString);
+    if (parsed is! YamlMap) {
+      throw FormatException(
+        'content.yaml must be a YAML map at root level, got ${parsed.runtimeType}',
+      );
+    }
+    _content = parsed;
     _isLoaded = true;
   }
 
   /// Load content from a YAML string (for testing).
   ///
   /// This allows tests to inject content without requiring asset loading.
+  @visibleForTesting
   void loadFromString(String yamlString) {
-    _content = loadYaml(yamlString) as YamlMap;
+    final parsed = loadYaml(yamlString);
+    if (parsed is! YamlMap) {
+      throw FormatException(
+        'YAML content must be a map at root level, got ${parsed.runtimeType}',
+      );
+    }
+    _content = parsed;
     _isLoaded = true;
   }
 
   /// Reset content state (for testing).
   ///
   /// Clears loaded content so it can be reloaded.
+  @visibleForTesting
   static void reset() {
     _content = null;
     _isLoaded = false;
+    _instance = null;
   }
 
   /// Get the raw YAML content.
@@ -418,10 +434,12 @@ class Content {
   static Future<void> load() => _loader.load();
 
   /// Load content from a YAML string (for testing).
+  @visibleForTesting
   static void loadFromString(String yamlString) =>
       _loader.loadFromString(yamlString);
 
   /// Reset content state (for testing).
+  @visibleForTesting
   static void reset() => ContentLoader.reset();
 
   /// Whether content has been loaded.
