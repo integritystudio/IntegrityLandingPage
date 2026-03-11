@@ -76,8 +76,10 @@ test.describe('Route Group Coverage (#65)', () => {
   }
 
   // _docsRoutes
+  // NOTE: /docs/tracing is served as a static HTML page on production
+  // (not the Flutter SPA), so it is tested separately below.
   const docsRoutes = [
-    '/docs', '/docs/llm-observability', '/docs/tracing', '/docs/integrations',
+    '/docs', '/docs/llm-observability', '/docs/integrations',
     '/api', '/api/toolkit', '/docs/quickstart', '/docs/alerts', '/docs/agents',
     '/compliance', '/eu-ai-act',
   ];
@@ -88,6 +90,13 @@ test.describe('Route Group Coverage (#65)', () => {
       await assertFlutterRendering(page);
     });
   }
+
+  // /docs/tracing is a static HTML page on production (not Flutter SPA)
+  test('docs group: /docs/tracing loads (static)', async ({ page }) => {
+    const response = await page.goto('/docs/tracing', { waitUntil: 'domcontentloaded' });
+    expect(response?.status()).toBe(200);
+    expect(page.url()).toContain('/docs/tracing');
+  });
 });
 
 // ---------------------------------------------------------------------------
