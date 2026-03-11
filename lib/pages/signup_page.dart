@@ -9,6 +9,7 @@ import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/common/form_fields.dart';
+import '../services/contact_service.dart';
 
 /// Signup page with tier selection.
 ///
@@ -375,14 +376,39 @@ class _SignupPageState extends State<SignupPage> {
     AnalyticsService.trackFormSubmit('signup_form');
     FacebookPixelService.trackLead(email: _emailController.text);
 
-    // Simulate processing delay
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final response = await ContactService.submitForm(
+        ContactFormPayload(
+          formData: ContactFormData(
+            name: _nameController.text.trim(),
+            email: _emailController.text.trim(),
+            organization: _companyController.text.trim().isNotEmpty
+                ? _companyController.text.trim()
+                : null,
+            message: 'Signup request for ${widget.tier} tier',
+          ),
+        ),
+      );
 
-    setState(() => _isSubmitting = false);
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
 
-    // Redirect to demo page for onboarding
-    if (mounted) {
-      context.go('/demo');
+      switch (response) {
+        case ContactFormSuccess():
+          context.go('/request_success');
+        case ContactFormError(:final error, :final fieldErrors):
+          if (fieldErrors != null) {
+            // Validation errors — show inline so user can fix
+            setState(() => _fieldErrors.addAll(fieldErrors));
+          } else {
+            // Network/server error — redirect to failure page
+            context.go('/request_failure');
+          }
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      context.go('/request_failure');
     }
   }
 
