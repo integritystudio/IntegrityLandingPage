@@ -382,7 +382,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              DocBulletList(bulletColor: AppColors.warning, items: const [
+              const DocBulletList(bulletColor: AppColors.warning, items: const [
                 '5m, 15m, 30m \u2014 Short-term spikes',
                 '1h, 6h, 12h \u2014 Hourly patterns',
                 '24h, 7d, 30d \u2014 Daily/weekly/monthly budgets',
@@ -525,7 +525,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              DocBulletList(bulletColor: AppColors.warning, items: const [
+              const DocBulletList(bulletColor: AppColors.warning, items: const [
                 'Primary \u2192 Backup escalation after 15 minutes',
                 'Weekend routing to on-call team',
                 'Holiday schedules with reduced alerting',
@@ -665,7 +665,7 @@ class _DocsContent extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              DocBulletList(bulletColor: AppColors.warning, items: const [
+              const DocBulletList(bulletColor: AppColors.warning, items: const [
                 'Alerts API Reference \u2014 /docs/api#alerts',
                 'Slack Integration \u2014 /docs/integrations',
                 'Cost Tracking \u2014 /docs/observability',
