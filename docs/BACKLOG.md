@@ -877,6 +877,102 @@ After adding outer `const` to `DocBulletList(...)` call sites, the inner `items:
 **Files:** `lib/pages/`
 **Source:** Code review (session 2026-03-11, #121 review)
 
+Sweep `lib/pages/*.dart` to verify no remaining `DocBulletList()` call sites are missing the outer `const` keyword after #121 const-ification.
+
+**Status:** Deferred — low priority style cleanup.
+
+---
+
+## Deferred: E2E Test Code Review Findings (Session 2026-03-11, #109-#119)
+
+### #126: seo-meta.spec.ts — Add env fallback for SITE_URL/SITE_NAME
+
+**Severity:** MEDIUM
+**Category:** E2E Test Coverage
+**File:** `e2e/tests/seo-meta.spec.ts:15-16`
+**Source:** Code review (session 2026-03-11, final full-stack review, commit ce16ee0)
+
+`SITE_URL` and `SITE_NAME` are hardcoded to production values. When tests run against staging/dev (via `BASE_URL` env override), the HTML canonical/og:url tags contain the staging URL, causing SEO tests to fail. Pattern should match `contact-worker.spec.ts`: `process.env['BASE_URL'] ?? 'prod-fallback'`.
+
+**Fix:** Add env fallback for `SITE_URL` and `SITE_NAME` to `constants.ts` or inline with pattern.
+
+**Status:** Deferred — affects staging/dev test environments only.
+
+---
+
+### #127: seo-meta.spec.ts — Document beforeAll pattern rationale
+
+**Severity:** LOW
+**Category:** Code Quality (Documentation)
+**File:** `e2e/tests/seo-meta.spec.ts:20-25`
+**Source:** Code review (session 2026-03-11, final full-stack review, commit ce16ee0)
+
+`seo-meta.spec.ts` is the only E2E spec using `test.beforeAll` with mutable `let html` shared state. Pattern saves HTTP round trips (one fetch vs per-test) but creates test-ordering risk if `beforeAll` is skipped or a prior shard's state leaks. All other specs use `beforeEach`. Requires explicit comment explaining deliberate choice.
+
+**Fix:** Add JSDoc or inline comment explaining beforeAll cost/benefit trade-off.
+
+**Status:** Deferred — documentation-only, functional but should be explicit.
+
+---
+
+### #128: seo-meta.spec.ts — Fix meta-description length assertion/comment mismatch
+
+**Severity:** MEDIUM
+**Category:** Code Quality (Documentation Accuracy)
+**File:** `e2e/tests/seo-meta.spec.ts:39`
+**Source:** Code review (session 2026-03-11, final full-stack review, commit ce16ee0)
+
+Assertion uses 200-char upper bound, but comment says "50-160 chars for optimal SEO". Documentation/assertion mismatch. Should be `toHaveLengthLessThanOrEqual(160)` or comment should acknowledge 200-char limit.
+
+**Fix:** Align assertion and comment — either tighten to 160 or update comment.
+
+**Status:** Deferred — low priority documentation accuracy.
+
+---
+
+### #129: Move shared test env constants to constants.ts
+
+**Severity:** LOW
+**Category:** Code Quality (Refactoring)
+**Files:** `e2e/tests/contact-worker.spec.ts`, `e2e/tests/seo-meta.spec.ts`
+**Source:** Code review (session 2026-03-11, multiple reviews)
+
+Production URLs hardcoded in multiple specs: `CONTACT_WORKER_URL`, `BASE_URL`, `SITE_URL`. Patterns should be centralized in `constants.ts` with env overrides, matching the codebase convention.
+
+**Fix:** Define `CONTACT_WORKER_URL` and `SITE_URL` in `constants.ts` with env fallbacks.
+
+**Status:** Deferred — refactoring for consistency, not a functional issue.
+
+---
+
+### #130: redirect-rules.spec.ts — Improve no-loop verification with maxRedirects guard
+
+**Severity:** LOW
+**Category:** E2E Test Coverage (Assertion Precision)
+**File:** `e2e/tests/redirect-rules.spec.ts:100-109`
+**Source:** Code review (session 2026-03-11, final full-stack review, commit ce16ee0)
+
+Redirect chain tests imply "no loop" by relying on timeout. Test completes within Playwright timeout, so logically no loop, but assertion doesn't explicitly prevent redirect loops. Could use `{ maxRedirects: 5 }` to fail fast on loop, making test semantics clearer.
+
+**Fix:** Add `{ maxRedirects: 5 }` to redirect chain requests and assert on response code.
+
+**Status:** Deferred — low priority; current test is semantically correct but could be tighter.
+
+---
+
+### #131: contact-worker.spec.ts — CSRF token test can pass vacuously on 503
+
+**Severity:** MEDIUM
+**Category:** E2E Test Coverage (Assertion Tightness)
+**File:** `e2e/tests/contact-worker.spec.ts:128-139`
+**Source:** Code review (session 2026-03-11, contact-worker review, commit 27546c6)
+
+Test "GET with valid origin and 200 returns valid CSRF token format" wraps all assertions in `if (response.status() === 200)`. When worker returns 503, body assertions are skipped and test passes silently — no guarantee CSRF endpoint is functional. Should split into two tests or fail explicitly on 503.
+
+**Fix:** Either split into "endpoint reachability (200|503)" and "token format (200-only)" tests, or use `test.fail()` on consistent 503 to signal expected failure.
+
+**Status:** Deferred — token generation fallback (503) is documented; current pattern is pragmatic but could be stricter.
+
 After #121 + follow-up commit 1de8419, known non-const sites in `docs_tracing_page`, `docs_quickstart_page`, `docs_alerts_page`, `docs_api_page`, and `api_toolkit_page` are fixed. Run a full sweep to confirm no remaining non-const `DocBulletList` call sites exist in other pages (e.g., `docs_observability_page`, `security_page`, `eu_ai_act_page`).
 
 **Fix:** `grep -n 'DocBulletList(' lib/pages/*.dart | grep -v 'const DocBulletList'`
