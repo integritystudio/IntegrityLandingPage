@@ -336,7 +336,7 @@ The api_page and quickstart_page variants cannot be directly replaced with `DocC
 
 The `DocBulletList` class silently ignores `bulletColor` param when `checked: true` is set. Current doc comment (`/// Set [checked] to true to show checkmark icons instead of bullet characters.`) is correct but doesn't warn callers that `bulletColor` is ignored. No active callers currently pass both params, but this is a potential footgun.
 
-**Status:** Deferred — Add doc comment clarification: `/// When [checked] is true, [bulletColor] is ignored and success color is used instead.`
+**Status:** Done — doc comment added to DocBulletList in `doc_components.dart`. Commit e9d5310.
 
 ---
 
@@ -349,7 +349,7 @@ The `DocBulletList` class silently ignores `bulletColor` param when `checked: tr
 
 `DocCallout` named constructors are `const`-compatible when all params are literals. Several call sites omit `const` keyword (e.g., quickstart_page lines 238, 488, 522, 675, 742), while others use `const` (agents_page lines 259, 338). Inconsistent use represents minor missed optimization, not a correctness issue.
 
-**Status:** Deferred — Optional cleanup. Add `const` to all literal-param `DocCallout` calls when polishing docs pages.
+**Status:** Done — `const` added to all literal-param `DocCallout` calls in `docs_quickstart_page.dart` (5 sites) and `docs_tracing_page.dart` (3 sites). Commit 0214c69.
 
 ---
 
@@ -443,7 +443,7 @@ The `else if (!_controller.isAnimating)` guard in both `didChangeDependencies` m
 } else if (!_controller.isAnimating) {
 ```
 
-**Status:** Deferred — low priority polish.
+**Status:** Done — comment added to both `buttons.dart` and `animated_orb.dart`. Commit 2685c60.
 
 ---
 
@@ -478,7 +478,7 @@ The `.inactive` file contains ~50 bare `pumpAndSettle()` calls not converted to 
 /// sed -i '' 's/pumpAndSettle()/pumpAndSettleWithTimeout()/g' social_proof_section_test.dart.inactive
 ```
 
-**Status:** Deferred — optional documentation. Low-priority safety note.
+**Status:** Done — header warning added. Commit 76622db.
 
 ---
 
@@ -578,7 +578,7 @@ Code review findings from content_loader.dart audit (session 2026-03-11). High-p
 assert(value != null || allowNull, 'Required content key "$path" is missing');
 ```
 
-**Status:** Deferred — Optional robustness. Low-priority defensive check for misconfigured YAML.
+**Status:** Done — assert added to `_getMap`; `content_loader_test.dart` updated to expect `AssertionError` for missing paths. Commit 0bf5597.
 
 ---
 
@@ -591,11 +591,11 @@ assert(value != null || allowNull, 'Required content key "$path" is missing');
 
 `AppContent.socialProofStats` getter calls `Content.socialProofStats` which calls `_getMap()` (now cached) and immediately allocates a new `Map<String, String>` via `.map(...)` on every access. For a static, immutable map, this allocation is wasteful. A dedicated cache entry or static field would eliminate repeated allocations on reads.
 
-**Status:** Deferred — Low-priority optimization. Only relevant if widgets read this getter multiple times per frame (unlikely). Consider deferring until profiling indicates a bottleneck.
+**Status:** Done — `_stringMapCache` added to `ContentLoader`; `socialProofStats` uses `putIfAbsent` to avoid repeated `.map()` allocations. Cache cleared in `loadFromString()` and `reset()`. Commit 04c3c67.
 
 ---
 
-*Last updated: 2026-03-11 (#104 /docs/tracing static HTML root cause + CI workaround + #104-#108 contentloader refactoring deferred)*
+*Last updated: 2026-03-11 (#104 /docs/tracing static HTML root cause + CI workaround + #104-#108 contentloader refactoring deferred; #93, #94, #99, #101, #107, #108 implemented 2026-03-11)*
 *Migrated items: 32 total → docs/changelog/1.0/CHANGELOG.md:*
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit (2026-02-13)*
   *- 13 items (all LOW) from backlog implementation sprint (2026-02-13)*
