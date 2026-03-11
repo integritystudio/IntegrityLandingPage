@@ -396,7 +396,7 @@ class _SignupPageState extends State<SignupPage> {
       switch (response) {
         case ContactFormSuccess():
           context.go('/request_success');
-        case ContactFormError(:final error, :final fieldErrors):
+        case ContactFormError(:final fieldErrors):
           if (fieldErrors != null) {
             // Validation errors — show inline so user can fix
             setState(() => _fieldErrors.addAll(fieldErrors));
