@@ -47,6 +47,7 @@ class ContentLoader {
     _mapCache.clear();
     _listCache.clear();
     _stringListCache.clear();
+    _stringMapCache.clear();
     final parsed = loadYaml(yamlString);
     if (parsed is! YamlMap) {
       throw FormatException(
@@ -67,6 +68,7 @@ class ContentLoader {
     _mapCache.clear();
     _listCache.clear();
     _stringListCache.clear();
+    _stringMapCache.clear();
   }
 
   /// Get the raw YAML content.
@@ -245,8 +247,10 @@ class ContentLoader {
 
   String get socialProofTitle => _getString('social_proof.title');
   Map<String, String> get socialProofStats {
-    final stats = _getMap('social_proof.stats');
-    return stats.map((k, v) => MapEntry(k.toString(), v.toString()));
+    return _stringMapCache.putIfAbsent('social_proof.stats', () {
+      final stats = _getMap('social_proof.stats');
+      return stats.map((k, v) => MapEntry(k.toString(), v.toString()));
+    });
   }
 
   List<Map<String, dynamic>> get socialProofTestimonials => _getMapList('social_proof.testimonials');
@@ -329,6 +333,7 @@ class ContentLoader {
   static final Map<String, Map<String, dynamic>> _mapCache = {};
   static final Map<String, List<Map<String, dynamic>>> _listCache = {};
   static final Map<String, List<String>> _stringListCache = {};
+  static final Map<String, Map<String, String>> _stringMapCache = {};
 
   /// Get a value by dot-notation path.
   dynamic _getValue(String path) {
