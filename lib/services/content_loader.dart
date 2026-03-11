@@ -198,9 +198,9 @@ class ContentLoader {
   List<Map<String, dynamic>> get contactFormFields => _getMapList('contact.form.fields');
   List<Map<String, dynamic>> get contactMethods => _getMapList('contact.contact_methods');
   String get contactScheduleDemoValue => (contactMethods
-          .where((m) => m['label'] == 'Schedule a Demo')
+          .where((m) => m['label'] == _scheduleDemoLabel)
           .firstOrNull?['value'] as String?) ??
-      'Book a 15-minute call';
+      _scheduleDemoFallback;
   String get contactSuccessMessage => _getString('contact.form.success_message');
   String get contactErrorMessage => _getString('contact.form.error_message');
 
@@ -315,8 +315,12 @@ class ContentLoader {
   // HELPER METHODS
   // ===========================================================================
 
+  static const _scheduleDemoLabel = 'Schedule a Demo';
+  static const _scheduleDemoFallback = 'Book a 15-minute call';
+
   /// Get a value by dot-notation path.
   dynamic _getValue(String path) {
+    assert(!path.contains('..'), 'Invalid content path: "$path" (double dot)');
     if (_content == null) {
       throw StateError('Content not loaded. Call load() first.');
     }
