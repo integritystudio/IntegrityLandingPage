@@ -13,7 +13,9 @@ When OAuth is implemented, these MUST be added.
 |-------|----------|-------------|
 | #8 OAuth State Validation | CRITICAL | CSRF via unvalidated `state` parameter |
 | #9 PKCE Implementation | CRITICAL | Authorization code interception (RFC 7636) |
-| #10 Auth Code Validation | CRITICAL | Success shown before token exchange |
+| #10 Auth Code Validation | CRITICAL | ~~Success shown before token exchange~~ — **Done** (see below) |
+
+**#10 Done** — `OAuthCallbackPage` now requires an explicit `success: true` param (set by the backend redirect after token exchange) to show the "Authentication Successful" UI. Receiving an auth `code` alone now shows a "Completing Sign-In" pending state. Router wires `params['success'] == 'true'`. See commit for details.
 
 See git history for full implementation plans (removed from backlog on 2026-02-12 migration to CHANGELOG).
 
