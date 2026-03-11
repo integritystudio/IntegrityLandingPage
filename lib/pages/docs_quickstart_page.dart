@@ -235,7 +235,7 @@ class _DocsContent extends StatelessWidget {
                 'An LLM application to instrument',
               ]),
               const SizedBox(height: AppSpacing.lg),
-              DocCallout.info(
+              const DocCallout.info(
                 title: 'No Account Yet?',
                 message:
                     'Sign up at integritystudio.ai/signup to get your API key. The free tier includes 50K traces/month.',
@@ -485,7 +485,7 @@ span.SetAttribute("result.status", "success")''',
               const SizedBox(height: AppSpacing.lg),
               const _FeatureGrid(),
               const SizedBox(height: AppSpacing.lg),
-              DocCallout.success(
+              const DocCallout.success(
                 title: "You're All Set!",
                 message:
                     'Your traces should now be flowing to Integrity Studio. Check your dashboard to see LLM calls, token usage, latency, and costs.',
@@ -519,7 +519,7 @@ span.SetAttribute("result.status", "success")''',
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              DocCallout.info(
+              const DocCallout.info(
                 title: 'Cost Tracking',
                 message:
                     'Token counts are automatically converted to cost estimates based on current model pricing.',
@@ -672,7 +672,7 @@ curl https://api.integritystudio.ai/v1/health \\
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              DocCallout.info(
+              const DocCallout.info(
                 title: 'Cache Configuration',
                 message:
                     'Default TTL is 60 seconds with max 100 entries. Configure via CACHE_TTL_MS environment variable.',
@@ -739,7 +739,7 @@ curl https://api.integritystudio.ai/v1/health \\
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              DocCallout.info(
+              const DocCallout.info(
                 title: 'Recovery Time',
                 message:
                     'After opening, the circuit breaker attempts recovery after 30 seconds. Successful requests close the circuit.',

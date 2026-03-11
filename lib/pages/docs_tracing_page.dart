@@ -163,7 +163,7 @@ class _DocsContent extends StatelessWidget {
               const SizedBox(height: AppSpacing.lg),
               const _FeatureGrid(),
               const SizedBox(height: AppSpacing.lg),
-              DocCallout.warning(
+              const DocCallout.warning(
                 title: 'Compliance Deadline',
                 message: 'August 2, 2026 marks full enforcement of the EU AI Act. Organizations should begin implementation now\u2014conformity assessment alone takes 6-12 months. Penalties can reach up to \u20AC35M or 7% of global revenue.',
               ),
@@ -223,7 +223,7 @@ class _DocsContent extends StatelessWidget {
                 'Distributors \u2014 Those making AI systems available in the supply chain',
               ]),
               const SizedBox(height: AppSpacing.lg),
-              DocCallout.info(
+              const DocCallout.info(
                 title: 'Global Impact',
                 message: 'Even organizations outside the EU must comply if their AI systems are used within the EU market or their outputs affect EU residents.',
               ),
@@ -387,7 +387,7 @@ async function processAIRequest(request) {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              DocCallout.success(
+              const DocCallout.success(
                 title: 'Cost-Effective Archival',
                 message: 'Use tiered storage: hot storage for recent data (30 days), warm storage for mid-term (1 year), and cold storage (S3 Glacier, etc.) for long-term compliance archives.',
               ),
