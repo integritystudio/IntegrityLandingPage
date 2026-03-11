@@ -241,6 +241,7 @@ class DocTable extends StatelessWidget {
 
 /// Bullet list with accent-colored bullets.
 /// Set [checked] to true to show checkmark icons instead of bullet characters.
+/// When [checked] is true, [bulletColor] is ignored and success color is used instead.
 class DocBulletList extends StatelessWidget {
   final List<String> items;
   final Color? bulletColor;
