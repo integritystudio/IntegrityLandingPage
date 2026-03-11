@@ -346,11 +346,14 @@ void main() {
     setUp(() => Content.reset());
     tearDown(() => Content.reset());
 
-    test('_getMap returns empty map for non-existent path', () {
+    test('_getMap asserts on missing key in debug mode', () {
       Content.loadFromString('company:\n  name: "Test"\n');
-      final result = ContentLoader.instance.heroCurrent;
-      expect(result, isA<Map<String, dynamic>>());
-      expect(result, isEmpty);
+      // _getMap fires an assertion in debug mode for missing keys.
+      // In release mode it falls back to empty map.
+      expect(
+        () => ContentLoader.instance.heroCurrent,
+        throwsA(isA<AssertionError>()),
+      );
     });
 
     test('_getStringList returns empty list for non-existent path', () {
