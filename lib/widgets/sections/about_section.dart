@@ -24,9 +24,11 @@ import '../common/containers.dart';
 /// ```
 class AboutSection extends StatelessWidget {
   final AboutContent content;
+  final GlobalKey? teamKey;
 
   const AboutSection({
     super.key,
+    this.teamKey,
     this.content = const AboutContent(
       sectionId: 'about',
       title: 'About',
@@ -222,6 +224,7 @@ class AboutSection extends StatelessWidget {
 
   Widget _buildTeamSection(BuildContext context, bool isMobile) {
     return Column(
+      key: teamKey,
       children: [
         Text(
           'Meet the Team',

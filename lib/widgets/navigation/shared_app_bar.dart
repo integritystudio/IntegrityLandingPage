@@ -209,16 +209,20 @@ class SharedAppBar extends StatelessWidget {
       return const [
         NavItem(text: 'Features', sectionId: 'features'),
         NavItem(text: 'About', sectionId: 'about'),
+        NavItem(text: 'Team', sectionId: 'team'),
         NavItem(text: 'Blog', sectionId: 'resources'),
         NavItem(text: 'Pricing', sectionId: 'pricing'),
+        NavItem(text: 'Docs', route: Routes.docs),
         NavItem(text: 'Contact', sectionId: 'contact'),
       ];
     } else {
       // Sub-page: route-based nav
       return const [
         NavItem(text: 'Features', route: '/'),
+        NavItem(text: 'About', route: Routes.about),
+        NavItem(text: 'Team', route: Routes.about),
         NavItem(text: 'Pricing', route: '/pricing'),
-        NavItem(text: 'About', route: '/about'),
+        NavItem(text: 'Docs', route: Routes.docs),
         NavItem(text: 'Contact', route: '/contact'),
       ];
     }
