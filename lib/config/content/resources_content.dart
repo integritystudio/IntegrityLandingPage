@@ -8,7 +8,7 @@ import 'constants.dart';
 /// Resources section content.
 abstract final class ResourcesContentVariants {
   /// Current production content
-  static const current = ResourcesContent(
+  static final current = ResourcesContent(
     sectionId: 'resources',
     title: 'Resources',
     subtitle: 'Guides, Documentation & Insights',
@@ -115,7 +115,7 @@ abstract final class ResourcesContentVariants {
     ),
   ];
 
-  static const _leadMagnets = [
+  static final _leadMagnets = [
     LeadMagnetContent(
       icon: LucideIcons.clipboardCheck,
       title: 'EU AI Act Compliance Checklist',
