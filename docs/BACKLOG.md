@@ -813,7 +813,7 @@ The primary constructor `DocCallout()` has `assert(message != null || items != n
 
 **Fix:** Add `assert(message != null || items != null)` to each named constructor's initializer list.
 
-**Status:** Deferred — pre-existing, no active callers trigger this. Low priority safety guard.
+**Status:** Done — assert added to all four named constructors. Commit 49f4989.
 
 ---
 
@@ -826,7 +826,7 @@ The primary constructor `DocCallout()` has `assert(message != null || items != n
 
 Six `DocBulletList` call sites pass only const-compatible params (`items: const [...]`, `bulletColor: AppColors.success`) but omit the outer `const` keyword. `DocBulletList` has a const constructor and all arguments are compile-time constants. Inconsistent with the #94 `DocCallout` const cleanup.
 
-**Status:** Deferred — optional, same pattern as #94 but for `DocBulletList`.
+**Status:** Done — `const` added to all 6 call sites. Commit c534a9a.
 
 ---
 
@@ -839,7 +839,7 @@ Six `DocBulletList` call sites pass only const-compatible params (`items: const 
 
 `_TimelineItem` class declaration at line 569 follows the closing brace of the previous class at line 568 with no blank line separator. Pre-existing style inconsistency — not introduced by #94.
 
-**Status:** Deferred — cosmetic, pre-existing.
+**Status:** Done — blank line added. Commit a1f6ed1.
 
 ---
 
@@ -854,7 +854,7 @@ The `sed -i ''` command in the header warning uses macOS-specific syntax. On GNU
 
 **Fix:** Add platform note: `# macOS sed syntax; on Linux use: sed -i 's/...'`
 
-**Status:** Deferred — documentation-only, low priority.
+**Status:** Done — macOS and Linux variants both documented. Commit 876a21d.
 
 ---
 
