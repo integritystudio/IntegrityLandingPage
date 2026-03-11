@@ -981,6 +981,53 @@ After #121 + follow-up commit 1de8419, known non-const sites in `docs_tracing_pa
 
 ---
 
+## Feature: Resume Upload on Careers Contact Form (#132)
+
+### #132: Add File Upload to /contact?ref=careers
+
+**Priority**: P2 | **Source**: session 2026-03-11
+
+Add a file upload button (resume PDF/DOCX) to the contact form when `ref=careers`. Recommended architecture:
+
+```
+Browser (file_picker) → multipart POST → CF Worker → R2 bucket → Resend (path: r2_url)
+```
+
+This keeps CPU usage minimal and avoids the Cloudflare Workers free plan 10ms CPU limit. For a typical resume PDF (100KB–2MB), direct base64 encoding in the Worker might also work but is less reliable on the free tier.
+
+**Key constraints:**
+- `file_picker` package recommended for Flutter web file selection
+- Resend supports attachments via `attachments[].path` (public URL) or `attachments[].content` (base64)
+- Resend limit: 40MB per email (~30MB raw after base64 overhead)
+- CF Workers free plan: 10ms CPU limit — base64 encoding large files can exceed this
+- R2 approach avoids CPU-bound encoding; Resend fetches from the R2 URL server-side
+- Blocked file types (Resend): `.exe`, `.bat`, `.js`, `.ps1`, etc. PDFs/DOCX are fine
+
+**Implementation steps:**
+1. Add `file_picker` dependency, show upload widget on `/contact?ref=careers`
+2. Create R2 bucket for resume uploads
+3. Update CF Worker to accept multipart POST, write file to R2, pass R2 URL to Resend
+4. Add file type/size validation (client + server)
+
+**Status:** Deferred — requires R2 bucket provisioning and Worker update.
+
+---
+
+### #133: Revert Careers CTA to "Submit Your Resume" After File Upload
+
+**Priority**: P3 | **Source**: session 2026-03-11
+
+Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
+- Button text: "Keep in Touch" → "Submit Your Resume"
+- Description: restore "Send us your resume and a brief introduction..." (add "resume" back)
+- Analytics button name: "Keep in Touch" → "Submit Resume"
+
+**File:** `lib/pages/careers_page.dart`
+
+**Status:** Blocked on #132.
+
+---
+
 *Last updated: 2026-03-11 (#104 /docs/tracing static HTML root cause + CI workaround + #104-#108 contentloader refactoring deferred; 59 e2e tests generated (#109-#119 gaps identified); 4 new spec files: seo-meta, auth-flows, redirect-rules, mobile-nav; #120-#125 code review findings from backlog sprint)*
 *Migrated items: 32 total → docs/changelog/1.0/CHANGELOG.md:*
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit (2026-02-13)*

@@ -244,16 +244,16 @@ class _SubmitResumeSection extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Send us your resume and a brief introduction. We\'ll keep you in mind for future opportunities that match your skills and interests.',
+                'Send us a brief introduction. We\'ll keep you in mind for future opportunities that match your skills and interests.',
                 style: AppTypography.bodyLG.copyWith(color: AppColors.gray400),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.xl),
               GradientButton(
-                text: 'Submit Your Resume',
+                text: 'Keep in Touch',
                 onPressed: () {
                   AnalyticsService.trackCTAClick(
-                    buttonName: 'Submit Resume',
+                    buttonName: 'Keep in Touch',
                     location: 'careers_page',
                   );
                   context.go('/contact?ref=careers');

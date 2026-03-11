@@ -57,8 +57,6 @@ void main() {
         monthlyLabel: 'Monthly',
         annualLabel: 'Annual',
         annualBadge: 'Save 20%',
-        enterpriseNote: 'Need more?',
-        enterpriseLink: 'Contact us',
         tiers: [],
       );
       expect(pricing.tiers, isEmpty);

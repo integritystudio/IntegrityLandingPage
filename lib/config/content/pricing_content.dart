@@ -14,8 +14,6 @@ abstract final class PricingContentVariants {
     monthlyLabel: PricingConstants.monthlyLabel,
     annualLabel: PricingConstants.annualLabel,
     annualBadge: PricingConstants.annualDiscount,
-    enterpriseNote: PricingConstants.enterpriseNote,
-    enterpriseLink: PricingConstants.enterpriseLink,
     tiers: _currentTiers,
   );
 
@@ -26,8 +24,6 @@ abstract final class PricingContentVariants {
     monthlyLabel: PricingConstants.monthlyLabel,
     annualLabel: PricingConstants.annualLabel,
     annualBadge: PricingConstants.annualDiscount,
-    enterpriseNote: PricingConstants.enterpriseNote,
-    enterpriseLink: PricingConstants.enterpriseLink,
     tiers: _legacyTiers,
   );
 

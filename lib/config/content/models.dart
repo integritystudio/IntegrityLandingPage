@@ -66,8 +66,6 @@ class PricingContent {
   final String monthlyLabel;
   final String annualLabel;
   final String annualBadge;
-  final String enterpriseNote;
-  final String enterpriseLink;
   final List<PricingTierContent> tiers;
 
   const PricingContent({
@@ -76,8 +74,6 @@ class PricingContent {
     required this.monthlyLabel,
     required this.annualLabel,
     required this.annualBadge,
-    required this.enterpriseNote,
-    required this.enterpriseLink,
     required this.tiers,
   });
 }
