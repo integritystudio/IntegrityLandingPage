@@ -84,6 +84,8 @@ cta_text:
     back_to_home: "Back to Home"
     view_all: "View All"
     view_docs: "View Documentation"
+  careers:
+    keep_in_touch: "Keep in Touch"
   form:
     send_message: "Send Message"
     download_now: "Download Now"

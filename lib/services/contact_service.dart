@@ -20,6 +20,7 @@ class ContactFormData {
   final String? message;
   final String? companySize;
   final String? useCase;
+  final String? ref;
 
   const ContactFormData({
     required this.name,
@@ -28,6 +29,7 @@ class ContactFormData {
     this.message,
     this.companySize,
     this.useCase,
+    this.ref,
   });
 
   Map<String, dynamic> toJson() => {
@@ -37,6 +39,7 @@ class ContactFormData {
         if (message != null) 'message': message,
         if (companySize != null) 'companySize': companySize,
         if (useCase != null) 'useCase': useCase,
+        if (ref != null) 'ref': ref,
       };
 }
 

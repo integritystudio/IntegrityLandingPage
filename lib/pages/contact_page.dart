@@ -21,11 +21,13 @@ import '../widgets/sections/footer_section.dart';
 class ContactPage extends StatefulWidget {
   final VoidCallback? onBack;
   final VoidCallback? onShowCookieSettings;
+  final String? ref;
 
   const ContactPage({
     super.key,
     this.onBack,
     this.onShowCookieSettings,
+    this.ref,
   });
 
   @override
@@ -38,7 +40,7 @@ class _ContactPageState extends State<ContactPage> {
   @override
   void initState() {
     super.initState();
-    AnalyticsService.trackPageView('contact');
+    AnalyticsService.trackPageView('contact', ref: widget.ref);
   }
 
   @override
@@ -58,7 +60,7 @@ class _ContactPageState extends State<ContactPage> {
             SharedAppBar.subPage(onBack: widget.onBack),
             const SliverToBoxAdapter(child: _ContactHeroSection()),
             const SliverToBoxAdapter(child: _QuickContactSection()),
-            const SliverToBoxAdapter(child: ContactSection()),
+            SliverToBoxAdapter(child: ContactSection(ref: widget.ref)),
             const SliverToBoxAdapter(child: _SupportInfoSection()),
             SliverToBoxAdapter(
               child: FooterSection(
