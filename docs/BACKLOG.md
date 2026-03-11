@@ -632,7 +632,7 @@ Pricing page loads ✓, but no interaction testing:
 - Responsive layout on mobile/tablet
 - Tier selection state persistence
 
-**Status:** Deferred — low priority user flow (not critical path). Schedule after #109.
+**Status:** Done — mobile/tablet viewport load + scroll stability tests added to `e2e/tests/mobile-nav.spec.ts` (pricing mobile + pricing tablet). Interaction tests (hover, plan selection) blocked by Flutter canvas.
 
 ---
 
@@ -650,10 +650,7 @@ Doc pages load ✓, but content is rendered to CanvasKit (canvas), making conten
 - Section navigation (jump links, scroll anchors)
 - Hero section images and gradients
 
-**Status:** Deferred — Flutter web canvas rendering limitation. Cannot inspect rendered content without adding debug endpoints. Consider:
-1. Add `?debug=true` query param to export page content as JSON
-2. Use Flutter's accessibility tree (limited to text content)
-3. Add screenshot comparison tests (visual regression)
+**Status:** Deferred — Flutter web canvas rendering limitation (confirmed). Cannot inspect rendered content from Playwright. Future options: debug endpoint, accessibility tree, or visual regression.
 
 ---
 
@@ -671,7 +668,7 @@ Tracking initialization is tested (#76), but actual event payloads are not valid
 - Scroll depth tracking
 - Custom event attributes (referrer, UTM params)
 
-**Status:** Deferred — requires network listener to capture GTM dataLayer and GA4 event stream. Playwright can intercept via `page.on('console')` for logged events, but GTM payload validation is P3.
+**Status:** Done — `e2e/tests/analytics-events.spec.ts` added with dataLayer structure validation, GTM injection after consent, pre-consent request blocking, and dataLayer growth on route change.
 
 ---
 
@@ -689,7 +686,7 @@ Keyboard navigation tested on home page only. Gaps:
 - Keyboard shortcuts (if any)
 - Skip-to-main link (if present)
 
-**Status:** Deferred — low priority a11y improvement. Requires per-page tab order audit in Flutter.
+**Status:** Done — keyboard Tab stability tests added to `e2e/tests/accessibility.spec.ts` for /docs, /contact, /signup, /pricing. DOM focus inspection blocked by Flutter canvas; tests verify page remains functional after Tab presses.
 
 ---
 
@@ -706,7 +703,7 @@ Unknown routes render home page (errorBuilder) ✓, but error display is unteste
 - Is error reported to Sentry?
 - Mobile 404 behavior
 
-**Status:** Deferred — low priority error path. Requires adding explicit error page or 404 messaging.
+**Status:** Deferred — error page content is rendered to Flutter canvas; cannot inspect for "404" text or links. Unknown route rendering is already covered by redirect-rules.spec.ts unknown route tests.
 
 ---
 
@@ -723,7 +720,7 @@ Simple redirects tested, but complex chains are not:
 - `/reports/foo` → `/docs` → docs page
 - Verify no redirect loops
 
-**Status:** Deferred — low priority infrastructure test. Useful for regression detection but not customer-facing.
+**Status:** Done — redirect chain tests added to `e2e/tests/redirect-rules.spec.ts`: /reports/foo→/docs chain, /docs/security/audit-trails→/docs/tracing no-loop, trailing slash on /pricing/ and /docs/ no-loop.
 
 ---
 
@@ -740,7 +737,7 @@ Meta tags tested for home page only. Gaps:
 - Hreflang tags for i18n (if deployed)
 - Page-specific JSON-LD (e.g., `Product` schema for /pricing)
 
-**Status:** Deferred — requires building per-route meta tag strategy and updating Cloudflare/Flutter HTML shell. P3 SEO enhancement.
+**Status:** Deferred — Flutter SPA serves the same index.html for all routes; per-route meta requires Cloudflare Workers or edge-side rendering to inject dynamic tags. P3 SEO enhancement.
 
 ---
 
@@ -758,9 +755,7 @@ Mobile pages load ✓, but mobile-specific interactions are untested:
 - Touch scroll vs pointer scroll
 - iOS safe area / notch handling
 
-**Status:** Deferred — Flutter web canvas limitation. Hamburger menu is rendered to canvas, no DOM selector available. Would require:
-1. Add tap detection to canvas and emit custom events
-2. Or refactor navigation to HTML (out of scope)
+**Status:** Deferred — confirmed Flutter canvas limitation. Mobile nav renders to canvas; no DOM selector available for hamburger tap detection without refactoring navigation to HTML.
 
 ---
 
@@ -777,7 +772,7 @@ Docs pages load, but if search is available, it's untested:
 - Search results rendering
 - No results state
 
-**Status:** Deferred — verify if search exists before implementing. Low priority docs feature.
+**Status:** N/A — no search feature exists in the app (confirmed by codebase audit). Docs navigation is via GoRouter routes, not a search index.
 
 ---
 
@@ -794,7 +789,7 @@ Deep links to routes work ✓, but jump-to-section within docs pages is untested
 - Scroll position restored on back navigation
 - Section highlighting (if implemented)
 
-**Status:** Deferred — requires adding `#anchor` support to Flutter routing or detecting scroll events. Low priority UX improvement.
+**Status:** Done — anchor navigation tests added to `e2e/tests/spa-navigation.spec.ts`: /docs/quickstart#installation, /api#endpoints, /docs#getting-started load without error; hash preserved in URL; back button works after anchor nav.
 
 ---
 
