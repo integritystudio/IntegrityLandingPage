@@ -20,6 +20,10 @@ class OAuthCallbackPage extends StatefulWidget {
   final String? error;
   final String? errorDescription;
 
+  /// True only when the backend has confirmed successful token exchange.
+  /// Receiving a [code] alone does NOT constitute successful authentication.
+  final bool success;
+
   const OAuthCallbackPage({
     super.key,
     this.onBack,
@@ -28,6 +32,7 @@ class OAuthCallbackPage extends StatefulWidget {
     this.state,
     this.error,
     this.errorDescription,
+    this.success = false,
   });
 
   @override
@@ -98,6 +103,7 @@ class _OAuthCallbackPageState extends State<OAuthCallbackPage> {
                 state: widget.state,
                 error: widget.error,
                 errorDescription: widget.errorDescription,
+                success: widget.success,
               ),
             ),
             SliverToBoxAdapter(
@@ -118,20 +124,20 @@ class _OAuthCallbackContent extends StatelessWidget {
   final String? error;
   final String? errorDescription;
 
+  /// True only when the backend has confirmed successful token exchange.
+  final bool success;
+
   const _OAuthCallbackContent({
     this.code,
     this.state,
     this.error,
     this.errorDescription,
+    this.success = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final isMobile = ResponsiveUtils.isMobile(context);
-
-    // Determine status based on query parameters
-    final hasError = error != null;
-    final hasCode = code != null;
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -144,14 +150,18 @@ class _OAuthCallbackContent extends StatelessWidget {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child: hasError
-              ? _buildErrorState(context, isMobile)
-              : hasCode
-                  ? _buildSuccessState(context, isMobile)
-                  : _buildProcessingState(context, isMobile),
+          child: _buildBody(context, isMobile),
         ),
       ),
     );
+  }
+
+  Widget _buildBody(BuildContext context, bool isMobile) {
+    if (error != null) return _buildErrorState(context, isMobile);
+    if (success) return _buildSuccessState(context, isMobile);
+    // Auth code received but token exchange not yet confirmed — do not show success.
+    if (code != null) return _buildPendingExchangeState(context, isMobile);
+    return _buildProcessingState(context, isMobile);
   }
 
   Widget _buildSuccessState(BuildContext context, bool isMobile) {
@@ -194,6 +204,33 @@ class _OAuthCallbackContent extends StatelessWidget {
               onPressed: () => context.go('/'),
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  /// Shows when auth code is received but token exchange is not yet confirmed.
+  ///
+  /// Receiving an authorization code is the *first* step of OAuth — the code
+  /// must still be exchanged for tokens by the backend before authentication
+  /// is complete. Do not display success UI until [success] is true.
+  Widget _buildPendingExchangeState(BuildContext context, bool isMobile) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const StatusIcon.processing(),
+        const SizedBox(height: AppSpacing.xl),
+        Text(
+          'Completing Sign-In',
+          style: (isMobile ? AppTypography.headingLG : AppTypography.headingXL)
+              .copyWith(color: Colors.white),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Authorization code received. Completing sign-in with our servers — this will only take a moment.',
+          style: AppTypography.bodyLG.copyWith(color: AppColors.gray300),
+          textAlign: TextAlign.center,
         ),
       ],
     );

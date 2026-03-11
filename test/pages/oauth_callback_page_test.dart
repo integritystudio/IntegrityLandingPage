@@ -19,6 +19,7 @@ void main() {
     String? state,
     String? error,
     String? errorDescription,
+    bool success = false,
     bool mobile = false,
   }) async {
     clearOverflowExceptions(tester);
@@ -38,6 +39,7 @@ void main() {
           state: state,
           error: error,
           errorDescription: errorDescription,
+          success: success,
         ),
       ),
     );
@@ -76,20 +78,20 @@ void main() {
     });
 
     group('success state', () {
-      testWidgets('renders success icon when code is provided', (tester) async {
-        await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
+      testWidgets('renders success icon when success=true', (tester) async {
+        await pumpOAuthCallbackPage(tester, success: true);
 
         expect(find.byIcon(LucideIcons.checkCircle2), findsOneWidget);
       });
 
       testWidgets('renders Authentication Successful heading', (tester) async {
-        await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
+        await pumpOAuthCallbackPage(tester, success: true);
 
         expect(find.text('Authentication Successful'), findsOneWidget);
       });
 
       testWidgets('renders success message', (tester) async {
-        await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
+        await pumpOAuthCallbackPage(tester, success: true);
 
         expect(
           find.textContaining('Google account has been connected'),
@@ -98,15 +100,41 @@ void main() {
       });
 
       testWidgets('renders Back to Home button', (tester) async {
-        await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
+        await pumpOAuthCallbackPage(tester, success: true);
 
         expect(find.text(CTAText.backToHome), findsOneWidget);
       });
 
       testWidgets('renders Continue button', (tester) async {
-        await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
+        await pumpOAuthCallbackPage(tester, success: true);
 
         expect(find.text('Continue'), findsOneWidget);
+      });
+    });
+
+    group('pending exchange state', () {
+      testWidgets('code alone shows Completing Sign-In, not success',
+          (tester) async {
+        await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
+
+        expect(find.text('Authentication Successful'), findsNothing);
+        expect(find.text('Completing Sign-In'), findsOneWidget);
+      });
+
+      testWidgets('renders processing icon for pending exchange state',
+          (tester) async {
+        await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
+
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      });
+
+      testWidgets('renders pending exchange message', (tester) async {
+        await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
+
+        expect(
+          find.textContaining('Authorization code received'),
+          findsOneWidget,
+        );
       });
     });
 

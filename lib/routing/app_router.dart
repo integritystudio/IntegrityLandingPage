@@ -142,6 +142,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
             state: params['state'],
             error: params['error'],
             errorDescription: params['error_description'],
+            success: params['success'] == 'true',
           );
         },
       ),
