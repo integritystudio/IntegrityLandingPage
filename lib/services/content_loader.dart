@@ -61,6 +61,8 @@ class ContentLoader {
   static void reset() {
     _content = null;
     _isLoaded = false;
+    _mapCache.clear();
+    _listCache.clear();
   }
 
   /// Get the raw YAML content.
@@ -318,6 +320,11 @@ class ContentLoader {
   static const _scheduleDemoLabel = 'Schedule a Demo';
   static const _scheduleDemoFallback = 'Book a 15-minute call';
 
+  // Cache for converted maps/lists — avoids repeated YamlMap deep-copy on
+  // every property access (e.g. during Flutter build cycles).
+  static final Map<String, Map<String, dynamic>> _mapCache = {};
+  static final Map<String, List<Map<String, dynamic>>> _listCache = {};
+
   /// Get a value by dot-notation path.
   dynamic _getValue(String path) {
     assert(!path.contains('..'), 'Invalid content path: "$path" (double dot)');
@@ -349,14 +356,12 @@ class ContentLoader {
 
   /// Get a map by path.
   Map<String, dynamic> _getMap(String path) {
-    final value = _getValue(path);
-    if (value is YamlMap) {
-      return _yamlMapToMap(value);
-    }
-    if (value is Map) {
-      return Map<String, dynamic>.from(value);
-    }
-    return {};
+    return _mapCache.putIfAbsent(path, () {
+      final value = _getValue(path);
+      if (value is YamlMap) return _yamlMapToMap(value);
+      if (value is Map) return Map<String, dynamic>.from(value);
+      return {};
+    });
   }
 
   /// Get a list of strings by path.
@@ -373,22 +378,18 @@ class ContentLoader {
 
   /// Get a list of maps by path.
   List<Map<String, dynamic>> _getMapList(String path) {
-    final value = _getValue(path);
-    if (value is YamlList) {
-      return value.map((e) {
+    return _listCache.putIfAbsent(path, () {
+      final value = _getValue(path);
+      List<dynamic>? list;
+      if (value is YamlList) list = value;
+      if (value is List) list = value;
+      if (list == null) return [];
+      return list.map((e) {
         if (e is YamlMap) return _yamlMapToMap(e);
         if (e is Map) return Map<String, dynamic>.from(e);
         return <String, dynamic>{};
       }).toList();
-    }
-    if (value is List) {
-      return value.map((e) {
-        if (e is YamlMap) return _yamlMapToMap(e);
-        if (e is Map) return Map<String, dynamic>.from(e);
-        return <String, dynamic>{};
-      }).toList();
-    }
-    return [];
+    });
   }
 
   /// Convert YamlMap to Map recursively.
