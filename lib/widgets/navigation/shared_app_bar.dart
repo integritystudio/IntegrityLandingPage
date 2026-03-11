@@ -84,6 +84,9 @@ class SharedAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMobile = ResponsiveUtils.isMobile(context);
+    // Use desktop breakpoint for inline nav — 7 nav items + CTA overflows
+    // the actions row at tablet widths (768-1023px).
+    final useCompactNav = !ResponsiveUtils.isDesktop(context);
 
     return SliverAppBar(
       backgroundColor: AppColors.gray900.withValues(alpha: 0.95),
@@ -99,7 +102,7 @@ class SharedAppBar extends StatelessWidget {
             )
           : null,
       title: _buildTitle(context, isMobile),
-      actions: isMobile
+      actions: useCompactNav
           ? _buildMobileActions(context)
           : _buildDesktopActions(context),
     );
@@ -216,11 +219,10 @@ class SharedAppBar extends StatelessWidget {
         NavItem(text: 'Contact', sectionId: 'contact'),
       ];
     } else {
-      // Sub-page: route-based nav
+      // Sub-page: route-based nav (Team omitted — About scrolls nearby)
       return const [
         NavItem(text: 'Features', route: '/?section=features'),
         NavItem(text: 'About', route: '/?section=about'),
-        NavItem(text: 'Team', route: '/?section=team'),
         NavItem(text: 'Pricing', route: '/pricing'),
         NavItem(text: 'Docs', route: Routes.docs),
         NavItem(text: 'Contact', route: '/contact'),
@@ -295,7 +297,7 @@ class _NavLinkState extends State<NavLink> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             child: Text(
               widget.text,
               style: AppTypography.bodySM.copyWith(
