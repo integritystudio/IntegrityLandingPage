@@ -22,8 +22,9 @@ import { test, expect } from '@playwright/test';
  * Configured via CONTACT_API_URL dart-define in contact_service.dart.
  */
 
-const WORKER_URL = 'https://integrity-studio-contact.alyshia-b38.workers.dev';
-const ALLOWED_ORIGIN = 'https://integritystudio.ai';
+const WORKER_URL = process.env['CONTACT_WORKER_URL']
+  ?? 'https://integrity-studio-contact.alyshia-b38.workers.dev';
+const ALLOWED_ORIGIN = process.env['BASE_URL'] ?? 'https://integritystudio.ai';
 
 test.describe('Contact Form Worker API (#109)', () => {
   // -------------------------------------------------------------------------
@@ -49,10 +50,7 @@ test.describe('Contact Form Worker API (#109)', () => {
         headers: { 'Origin': ALLOWED_ORIGIN },
       });
       const headers = response.headers();
-      expect(
-        headers['access-control-allow-origin'] === ALLOWED_ORIGIN ||
-        headers['access-control-allow-origin'] === '*'
-      ).toBe(true);
+      expect(headers['access-control-allow-origin']).toBe(ALLOWED_ORIGIN);
     });
 
     test('OPTIONS response includes allowed methods', async ({ request }) => {
