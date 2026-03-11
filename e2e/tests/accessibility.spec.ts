@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { waitForFlutter } from './helpers';
+import { waitForFlutter, assertFlutterRendering } from './helpers';
+import { KEY_SETTLE_MS } from './constants';
 
 /**
  * E2E accessibility (a11y) tests.
@@ -100,16 +101,9 @@ test.describe('Accessibility', () => {
         for (let i = 0; i < 3; i++) {
           await page.keyboard.press('Tab');
         }
-        await page.waitForLoadState('domcontentloaded');
+        await page.waitForTimeout(KEY_SETTLE_MS);
 
-        const hasFlutter = await page.evaluate(() => {
-          return !!(
-            document.querySelector('flt-glass-pane') ||
-            document.querySelector('flutter-view') ||
-            document.querySelector('canvas')
-          );
-        });
-        expect(hasFlutter).toBe(true);
+        await assertFlutterRendering(page);
       });
     }
   });
