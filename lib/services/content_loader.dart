@@ -44,6 +44,9 @@ class ContentLoader {
   /// This allows tests to inject content without requiring asset loading.
   @visibleForTesting
   void loadFromString(String yamlString) {
+    _mapCache.clear();
+    _listCache.clear();
+    _stringListCache.clear();
     final parsed = loadYaml(yamlString);
     if (parsed is! YamlMap) {
       throw FormatException(
@@ -63,6 +66,7 @@ class ContentLoader {
     _isLoaded = false;
     _mapCache.clear();
     _listCache.clear();
+    _stringListCache.clear();
   }
 
   /// Get the raw YAML content.
@@ -324,6 +328,7 @@ class ContentLoader {
   // every property access (e.g. during Flutter build cycles).
   static final Map<String, Map<String, dynamic>> _mapCache = {};
   static final Map<String, List<Map<String, dynamic>>> _listCache = {};
+  static final Map<String, List<String>> _stringListCache = {};
 
   /// Get a value by dot-notation path.
   dynamic _getValue(String path) {
@@ -366,14 +371,12 @@ class ContentLoader {
 
   /// Get a list of strings by path.
   List<String> _getStringList(String path) {
-    final value = _getValue(path);
-    if (value is YamlList) {
-      return value.map((e) => e.toString()).toList();
-    }
-    if (value is List) {
-      return value.map((e) => e.toString()).toList();
-    }
-    return [];
+    return _stringListCache.putIfAbsent(path, () {
+      final value = _getValue(path);
+      if (value is YamlList) return value.map((e) => e.toString()).toList();
+      if (value is List) return value.map((e) => e.toString()).toList();
+      return [];
+    });
   }
 
   /// Get a list of maps by path.
