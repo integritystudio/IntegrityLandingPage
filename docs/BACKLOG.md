@@ -1030,13 +1030,57 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 ---
 
+## Open: Test Coverage Gaps (Session 2026-03-11, #10 + nav implementation)
+
+### #134: AboutPage Column Overflow at about_page.dart:356
+
+**Severity:** LOW
+**Category:** Layout / Code Quality
+**File:** `lib/pages/about_page.dart:356`
+**Source:** CI failure 2026-03-11 (router test + about_page_test tablet viewport)
+
+The "Observability Stack" diagram Column in AboutPage overflows by 34px vertically at 1920x1080 and 51px at tablet (768x1024). The overflow is suppressed in tests via `setUpOverflowErrorSuppression` but indicates real content clipping in production. The Column uses `mainAxisSize: MainAxisSize.min` inside a fixed-height Stack.
+
+**Fix:** Wrap the Column in a `FittedBox` or `SingleChildScrollView`, or reduce spacing/font sizes for the layer rows to fit within the parent constraint.
+
+**Status:** Open — suppressed in tests, visual-only in production (striped overflow indicator not visible on dark background).
+
+---
+
+### #135: OAuth Analytics Event Name Consistency Audit
+
+**Severity:** LOW
+**Category:** Analytics / Code Quality
+**File:** `lib/pages/oauth_callback_page.dart:53-82`
+**Source:** LLM-as-Judge quality review 2026-03-11
+
+The `_logOAuthCallback` method was split into `oauth_callback_success`, `oauth_callback_code_received`, and `oauth_callback_error` events. Verify downstream analytics dashboards and any Sentry alert rules reference the new event name `oauth_callback_code_received` (previously all code callbacks fired `oauth_callback_success`).
+
+**Status:** Deferred — no known downstream consumers yet (landing page placeholder OAuth).
+
+---
+
+### #136: SharedAppBar Nav Item Count Scalability
+
+**Severity:** LOW
+**Category:** Layout / UX
+**File:** `lib/widgets/navigation/shared_app_bar.dart`
+**Source:** SliverAppBar overflow fix 2026-03-11
+
+The inline desktop nav (7 items + CTA) required reducing NavLink padding from `md` to `sm` and using the desktop breakpoint (>=1024px) instead of tablet (>=768px) for the compact/inline nav switch. Adding further nav items will re-introduce overflow. Consider `OverflowBar` or a "More..." dropdown for future scalability.
+
+**Status:** Deferred — current layout fits at desktop widths after padding reduction.
+
+---
+
 *Last updated: 2026-03-11 (#104 /docs/tracing static HTML root cause + CI workaround + #104-#108 contentloader refactoring deferred; 59 e2e tests generated (#109-#119 gaps identified); 4 new spec files: seo-meta, auth-flows, redirect-rules, mobile-nav; #120-#125 code review findings from backlog sprint)*
 *Migrated items: 32 total → docs/changelog/1.0/CHANGELOG.md:*
   *- 9 items (3 HIGH, 6 MEDIUM) from Flutter expert audit (2026-02-13)*
   *- 13 items (all LOW) from backlog implementation sprint (2026-02-13)*
   *- 2 items (all LOW) from code review test coverage findings (2026-02-13)*
   *- 8 items (1 MEDIUM, 7 LOW) from test quality & code quality session (2026-03-09)*
-*Remaining open: 0 open + 1 blocked (#77) + 3 deferred (OAuth #8-#10) + 0 deferred test coverage (closed #75, #76 via Playwright 2026-03-09) + 1 deferred (#78 intermittent timeout)*
+*Appended session (2026-03-11 continued): #134 (AboutPage Column overflow), #135 (OAuth analytics event audit), #136 (SharedAppBar nav scalability)*
+*Remaining open: 0 open + 1 blocked (#77) + 2 deferred (OAuth #8-#9, #10 done) + 0 deferred test coverage (closed #75, #76 via Playwright 2026-03-09) + 1 deferred (#78 intermittent timeout)*
 *Migrated this session (2026-03-09): #79 (anchor nav), #80 (shader format), #81 (analytics spy), #82 (test constants), #83 (backlog numbering), #84 (15-min call), #85 (Austin TX), #86 (privacy email), #87 (5-min setup)*
 *Appended this session (2026-03-09): #89 (DocsPageScaffold), #90 (hero templates), #91 (button/badge/shell), #92 (_WarningCallout variants), #93 (DocBulletList bulletColor doc), #94 (const optimization), #95 (api_toolkit_page migration), #96 (shared _StatCard), #97 (security_page _SecurityCard)*
 *Appended this session continued (2026-03-09): #98 (scrollUntilVisible loop), #99 (didChangeDependencies comment), #100 (animation reset on toggle), #101 (inactive file warning)*
