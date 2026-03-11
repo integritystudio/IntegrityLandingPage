@@ -61,7 +61,7 @@ void main() {
       expect(find.byType(PricingSection), findsOneWidget);
     });
 
-    testWidgets('renders on mobile viewport with enterprise TextButton', (tester) async {
+    testWidgets('renders on mobile viewport', (tester) async {
       // Suppress overflow errors for mobile test
       final oldHandler = FlutterError.onError;
       FlutterError.onError = (details) {
@@ -74,13 +74,6 @@ void main() {
       await tester.pumpWidget(buildPricingSection());
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byType(PricingSection), findsOneWidget);
-      expect(find.byType(TextButton), findsWidgets);
-
-      // Enterprise TextButton is tappable (may be off-screen on mobile)
-      final textButtons = find.byType(TextButton);
-      await tester.tap(textButtons.first, warnIfMissed: false);
-      await tester.pump();
       expect(find.byType(PricingSection), findsOneWidget);
 
       FlutterError.onError = oldHandler;
@@ -96,8 +89,6 @@ void main() {
         monthlyLabel: 'Per Month',
         annualLabel: 'Per Year',
         annualBadge: '2 months free',
-        enterpriseNote: 'Enterprise?',
-        enterpriseLink: 'Talk to us',
         tiers: [
           PricingTierContent(
             name: 'Basic',
@@ -131,8 +122,6 @@ void main() {
         monthlyLabel: 'Monthly',
         annualLabel: 'Annual',
         annualBadge: 'Save',
-        enterpriseNote: 'Note',
-        enterpriseLink: 'Link',
         tiers: [],
       );
 
@@ -216,8 +205,6 @@ void main() {
         monthlyLabel: 'Monthly',
         annualLabel: 'Annual',
         annualBadge: 'Save 20%',
-        enterpriseNote: 'Need more?',
-        enterpriseLink: 'Contact us',
         tiers: [],
       );
 
@@ -226,8 +213,6 @@ void main() {
       expect(content.monthlyLabel, equals('Monthly'));
       expect(content.annualLabel, equals('Annual'));
       expect(content.annualBadge, equals('Save 20%'));
-      expect(content.enterpriseNote, equals('Need more?'));
-      expect(content.enterpriseLink, equals('Contact us'));
       expect(content.tiers, isEmpty);
     });
   });

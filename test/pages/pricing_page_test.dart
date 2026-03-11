@@ -212,19 +212,6 @@ void main() {
         );
       });
 
-      testWidgets('renders enterprise note with contact link', (tester) async {
-        await pumpPricingPage(tester);
-
-        final section = find.byKey(const Key('pricing-tiers-section'));
-        expect(
-          find.descendant(of: section, matching: find.text('Need custom solutions? ')),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: section, matching: find.text('Contact our sales team')),
-          findsOneWidget,
-        );
-      });
     });
 
     group('feature lists', () {

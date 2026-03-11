@@ -1,6 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../config/content.dart';
 import '../../theme/theme.dart';
 import '../../services/analytics.dart';
@@ -36,8 +34,6 @@ class PricingSection extends StatefulWidget {
       monthlyLabel: 'Monthly',
       annualLabel: 'Annual',
       annualBadge: 'Save 20%',
-      enterpriseNote: 'Need custom solutions? ',
-      enterpriseLink: 'Contact our sales team',
       tiers: [],
     ),
     this.onSelectTier,
@@ -81,10 +77,6 @@ class _PricingSectionState extends State<PricingSection> {
           else
             _buildDesktopPricing(),
 
-          const SizedBox(height: AppSpacing.xl),
-
-          // Enterprise note
-          _buildEnterpriseNote(),
         ],
       ),
     );
@@ -168,47 +160,6 @@ class _PricingSectionState extends State<PricingSection> {
     );
   }
 
-  Widget _buildEnterpriseNote() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: AppDecorations.card(
-        backgroundColor: AppColors.gray800.withValues(alpha: 0.5),
-        borderColor: AppColors.gray700,
-        radius: AppSpacing.radiusLG,
-      ),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Text(
-            _content.enterpriseNote,
-            style: AppTypography.bodyMD,
-          ),
-          TextButton(
-            onPressed: () async {
-              AnalyticsService.trackCTAClick(
-                buttonName: 'Contact Sales',
-                location: 'pricing',
-                ctaType: 'text',
-              );
-              final uri = Uri.parse('mailto:${CompanyInfo.email}?subject=Enterprise%20Inquiry');
-              const mode = kIsWeb
-                  ? LaunchMode.platformDefault
-                  : LaunchMode.externalApplication;
-              await launchUrl(uri, mode: mode);
-            },
-            child: Text(
-              _content.enterpriseLink,
-              style: AppTypography.bodyMD.copyWith(
-                color: AppColors.textLink,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _BillingOption extends StatelessWidget {

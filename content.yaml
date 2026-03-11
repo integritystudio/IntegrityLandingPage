@@ -122,8 +122,6 @@ pricing_constants:
   annual_discount: "Save 20%"
   monthly_label: "Monthly"
   annual_label: "Annual"
-  enterprise_note: "Need custom solutions? "
-  enterprise_link: "Contact our sales team"
   tiers:
     free:
       traces_limit: "50K traces/month"

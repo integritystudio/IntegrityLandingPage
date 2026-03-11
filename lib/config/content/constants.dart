@@ -181,8 +181,6 @@ abstract final class PricingConstants {
   static const String annualDiscount = 'Save 20%';
   static const String monthlyLabel = 'Monthly';
   static const String annualLabel = 'Annual';
-  static const String enterpriseNote = 'Need custom solutions? ';
-  static const String enterpriseLink = 'Contact our sales team';
 
   // Free tier limits
   static const String freeTracesLimit = '50K traces/month';

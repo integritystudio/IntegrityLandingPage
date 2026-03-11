@@ -98,8 +98,6 @@ abstract final class AppContent {
         monthlyLabel: 'Monthly',
         annualLabel: 'Annual',
         annualBadge: Content.pricingAnnualDiscount,
-        enterpriseNote: 'Need custom solutions? ',
-        enterpriseLink: 'Contact our sales team',
         tiers: Content.pricingTiers.map((tier) {
           return PricingTierContent(
             name: tier['name'] as String? ?? '',

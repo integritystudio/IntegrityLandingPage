@@ -51,12 +51,6 @@ void main() {
         }
       });
 
-      test('has enterprise note', () {
-        final pricing = AppContent.pricing;
-
-        expect(pricing.enterpriseNote, isNotEmpty);
-        expect(pricing.enterpriseLink, isNotEmpty);
-      });
     });
 
     group('features', () {
