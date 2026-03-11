@@ -566,6 +566,7 @@ class _FeatureGrid extends StatelessWidget {
     );
   }
 }
+
 class _TimelineItem {
   final String date;
   final String title;
