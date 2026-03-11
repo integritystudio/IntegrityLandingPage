@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/theme/colors.dart';
+import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/services/content_loader.dart';
 import 'test_constants.dart';
 import 'test_content.dart';
@@ -364,15 +365,16 @@ void testBackButtonCallback(PagePumpFunction pumpPage) {
 /// ```
 void testBackButtonCallbacks(
   PagePumpFunction pumpPage, {
-  String backButtonText = 'Back to Home',
+  String? backButtonText,
 }) {
   testBackButtonCallback(pumpPage);
 
-  testWidgets('$backButtonText button triggers onBack callback', (tester) async {
+  final resolvedText = backButtonText ?? CTAText.backToHome;
+  testWidgets('$resolvedText button triggers onBack callback', (tester) async {
     bool backCalled = false;
     await pumpPage(tester, onBack: () => backCalled = true, mobile: false);
 
-    await tester.tap(find.text(backButtonText));
+    await tester.tap(find.text(resolvedText));
     await tester.pump();
 
     expect(backCalled, isTrue);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/docs_index_page.dart';
 import 'package:integrity_studio_ai/pages/docs_quickstart_page.dart';
 import 'package:integrity_studio_ai/pages/docs_tracing_page.dart';
@@ -125,7 +126,7 @@ void main() {
       await pumpFrames(tester, frames: 20);
 
       // Find and tap "Back to Home"
-      final backLink = find.text('Back to Home');
+      final backLink = find.text(CTAText.backToHome);
       if (backLink.evaluate().isNotEmpty) {
         await tester.tap(backLink);
         await pumpFrames(tester, frames: 5);

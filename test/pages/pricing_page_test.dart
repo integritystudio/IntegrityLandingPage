@@ -62,7 +62,7 @@ void main() {
         await pumpPricingPage(tester, mobile: false);
 
         // Get Started appears in app bar on desktop
-        expect(find.text('Get Started'), findsWidgets);
+        expect(find.text(CTAText.getStarted), findsWidgets);
       });
 
       testWidgets('renders navigation links on desktop', (tester) async {
@@ -199,15 +199,15 @@ void main() {
 
         final section = find.byKey(const Key('pricing-tiers-section'));
         expect(
-          find.descendant(of: section, matching: find.text('Start Free Trial')),
+          find.descendant(of: section, matching: find.text(CTAText.startFreeTrial)),
           findsWidgets,
         );
         expect(
-          find.descendant(of: section, matching: find.text('Get Started')),
+          find.descendant(of: section, matching: find.text(CTAText.getStarted)),
           findsOneWidget,
         );
         expect(
-          find.descendant(of: section, matching: find.text('Contact Sales')),
+          find.descendant(of: section, matching: find.text(CTAText.contactSales)),
           findsWidgets,
         );
       });
@@ -409,7 +409,7 @@ void main() {
         await tester.pump();
 
         // GradientButton with "Contact Sales" text
-        expect(find.text('Contact Sales'), findsWidgets);
+        expect(find.text(CTAText.contactSales), findsWidgets);
       });
     });
 

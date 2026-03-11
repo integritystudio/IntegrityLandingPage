@@ -377,7 +377,7 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        await tester.tap(find.text('Back to Home'));
+        await tester.tap(find.text(CTAText.backToHome));
         await tester.pump();
 
         expect(backCalled, isTrue);

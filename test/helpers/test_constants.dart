@@ -29,6 +29,26 @@ const kMaxScrollIterations = 50;
 /// Device pixel ratio used in setScreenSize() for deterministic layout.
 const kTestDevicePixelRatio = 1.0;
 
+// ---------------------------------------------------------------------------
+// Careers page scroll offsets (logical pixels)
+// ---------------------------------------------------------------------------
+
+/// Scroll offset to reach the No Open Positions section on the careers page.
+const kCareersScrollToNoOpenings = 300.0;
+
+/// Scroll offset to reach mid-page content sections on the careers page.
+const kCareersScrollToMidContent = 400.0;
+
+/// Scroll offset to reach the Keep in Touch CTA section on the careers page.
+const kCareersScrollToKeepInTouch = 500.0;
+
+/// Scroll offset per step to reach the footer on the careers page (applied twice).
+const kCareersScrollToFooterStep = 800.0;
+
+// ---------------------------------------------------------------------------
+// Full-page scroll offsets
+// ---------------------------------------------------------------------------
+
 /// Scroll offset to reach the Pricing section in a full-page scroll view.
 const kScrollToPricingOffset = Offset(0, -5000);
 

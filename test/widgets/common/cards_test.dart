@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import 'package:integrity_studio_ai/widgets/common/cards.dart';
+import 'package:integrity_studio_ai/config/content.dart';
 import '../../helpers/test_helpers.dart';
 
 void main() {
@@ -153,7 +154,7 @@ void main() {
       expect(find.text('Advanced analytics'), findsOneWidget);
       expect(find.text('Priority support'), findsOneWidget);
       expect(find.byIcon(LucideIcons.checkCircle), findsNWidgets(3));
-      expect(find.text('Start Free Trial'), findsOneWidget);
+      expect(find.text(CTAText.startFreeTrial), findsOneWidget);
     });
 
     testWidgets(

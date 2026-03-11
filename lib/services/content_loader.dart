@@ -113,7 +113,12 @@ class ContentLoader {
   String get ctaRequestDemo => _getString('cta_text.primary.request_demo');
   String get ctaContactSales => _getString('cta_text.primary.contact_sales');
   String get ctaLearnMore => _getString('cta_text.primary.learn_more');
+  String get ctaBackToHome => _getString('cta_text.navigation.back_to_home');
+  String get ctaViewAll => _getString('cta_text.navigation.view_all');
+  String get ctaViewDocs => _getString('cta_text.navigation.view_docs');
   String get ctaSendMessage => _getString('cta_text.form.send_message');
+  String get ctaDownloadNow => _getString('cta_text.form.download_now');
+  String get ctaCalculateSavings => _getString('cta_text.form.calculate_savings');
   String get ctaKeepInTouch => _getString('cta_text.careers.keep_in_touch');
 
   // ===========================================================================
@@ -490,7 +495,12 @@ class Content {
   static String get ctaRequestDemo => _loader.ctaRequestDemo;
   static String get ctaContactSales => _loader.ctaContactSales;
   static String get ctaLearnMore => _loader.ctaLearnMore;
+  static String get ctaBackToHome => _loader.ctaBackToHome;
+  static String get ctaViewAll => _loader.ctaViewAll;
+  static String get ctaViewDocs => _loader.ctaViewDocs;
   static String get ctaSendMessage => _loader.ctaSendMessage;
+  static String get ctaDownloadNow => _loader.ctaDownloadNow;
+  static String get ctaCalculateSavings => _loader.ctaCalculateSavings;
   static String get ctaKeepInTouch => _loader.ctaKeepInTouch;
 
   // Trust Indicators

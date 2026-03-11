@@ -4,6 +4,7 @@ import 'package:integrity_studio_ai/pages/careers_page.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../helpers/test_constants.dart';
 import '../helpers/test_helpers.dart';
 
 void main() {
@@ -78,7 +79,7 @@ void main() {
       testWidgets('renders Get Started button on desktop', (tester) async {
         await pumpCareersPage(tester, mobile: false);
 
-        expect(find.text('Get Started'), findsOneWidget);
+        expect(find.text(CTAText.getStarted), findsOneWidget);
       });
 
       testWidgets('hides navigation links on mobile', (tester) async {
@@ -92,7 +93,7 @@ void main() {
       testWidgets('hides Get Started button on mobile', (tester) async {
         await pumpCareersPage(tester, mobile: true);
 
-        expect(find.text('Get Started'), findsNothing);
+        expect(find.text(CTAText.getStarted), findsNothing);
       });
     });
 
@@ -106,7 +107,7 @@ void main() {
       testWidgets('renders page title', (tester) async {
         await pumpCareersPage(tester);
 
-        expect(find.text('Careers at Integrity Studio'), findsOneWidget);
+        expect(find.text('Careers at ${CompanyInfo.name}'), findsOneWidget);
       });
 
       testWidgets('renders subtitle description', (tester) async {
@@ -125,7 +126,7 @@ void main() {
       testWidgets('renders No Open Positions heading', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 300);
+        await scrollDown(tester, kCareersScrollToNoOpenings);
 
         expect(find.text('No Open Positions'), findsOneWidget);
       });
@@ -139,7 +140,7 @@ void main() {
       testWidgets('renders explanation text', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 300);
+        await scrollDown(tester, kCareersScrollToNoOpenings);
 
         expect(
           find.textContaining('We don\'t have any open roles at the moment'),
@@ -152,7 +153,7 @@ void main() {
       testWidgets('renders Stay on Our Radar heading', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 500);
+        await scrollDown(tester, kCareersScrollToKeepInTouch);
 
         expect(find.text('Stay on Our Radar'), findsOneWidget);
       });
@@ -160,7 +161,7 @@ void main() {
       testWidgets('renders mail plus icon', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 500);
+        await scrollDown(tester, kCareersScrollToKeepInTouch);
 
         expect(find.byIcon(LucideIcons.mailPlus), findsOneWidget);
       });
@@ -168,7 +169,7 @@ void main() {
       testWidgets('renders resume submission description', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 500);
+        await scrollDown(tester, kCareersScrollToKeepInTouch);
 
         expect(
           find.textContaining('Send us a brief introduction'),
@@ -179,15 +180,15 @@ void main() {
       testWidgets('renders Keep in Touch button', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 500);
+        await scrollDown(tester, kCareersScrollToKeepInTouch);
 
-        expect(find.text('Keep in Touch'), findsOneWidget);
+        expect(find.text(CTAText.keepInTouch), findsOneWidget);
       });
 
       testWidgets('renders response time info', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 500);
+        await scrollDown(tester, kCareersScrollToKeepInTouch);
 
         expect(
           find.text('We typically respond within 5 business days'),
@@ -198,7 +199,7 @@ void main() {
       testWidgets('renders info icon', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 500);
+        await scrollDown(tester, kCareersScrollToKeepInTouch);
 
         expect(find.byIcon(LucideIcons.info), findsOneWidget);
       });
@@ -208,9 +209,9 @@ void main() {
       testWidgets('Keep in Touch button is tappable', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 500);
+        await scrollDown(tester, kCareersScrollToKeepInTouch);
 
-        final button = find.text('Keep in Touch');
+        final button = find.text(CTAText.keepInTouch);
         expect(button, findsOneWidget);
 
         // Verify it's within a tappable widget hierarchy
@@ -224,7 +225,7 @@ void main() {
       testWidgets('Get Started button is tappable on desktop', (tester) async {
         await pumpCareersPage(tester, mobile: false);
 
-        final button = find.text('Get Started');
+        final button = find.text(CTAText.getStarted);
         expect(button, findsOneWidget);
 
         // Verify it's within a TextButton
@@ -239,7 +240,7 @@ void main() {
     group('responsive layout', () {
       testResponsiveLayout<CareersPage>(
         pumpCareersPage,
-        expectedTitle: 'Careers at Integrity Studio',
+        expectedTitle: 'Careers at ${CompanyInfo.name}',
       );
 
       testWidgets('desktop shows navigation actions', (tester) async {
@@ -247,7 +248,7 @@ void main() {
 
         // Desktop should show nav links and Get Started button
         expect(find.text('Features'), findsOneWidget);
-        expect(find.text('Get Started'), findsOneWidget);
+        expect(find.text(CTAText.getStarted), findsOneWidget);
       });
 
       testWidgets('mobile hides navigation actions', (tester) async {
@@ -255,7 +256,7 @@ void main() {
 
         // Mobile should hide nav links and Get Started button
         expect(find.text('Features'), findsNothing);
-        expect(find.text('Get Started'), findsNothing);
+        expect(find.text(CTAText.getStarted), findsNothing);
       });
 
       testWidgets('tablet viewport renders correctly', (tester) async {
@@ -280,8 +281,8 @@ void main() {
         await pumpCareersPage(tester);
 
         // Scroll to the bottom to make footer visible
-        await scrollDown(tester, 800);
-        await scrollDown(tester, 800);
+        await scrollDown(tester, kCareersScrollToFooterStep);
+        await scrollDown(tester, kCareersScrollToFooterStep);
 
         // FooterSection is added to the sliver list
         expect(find.byType(FooterSection), findsOneWidget);
@@ -302,23 +303,23 @@ void main() {
 
         // Hero section
         expect(find.text('Join Our Team'), findsOneWidget);
-        expect(find.text('Careers at Integrity Studio'), findsOneWidget);
+        expect(find.text('Careers at ${CompanyInfo.name}'), findsOneWidget);
       });
 
       testWidgets('sections render in correct order', (tester) async {
         await pumpCareersPage(tester);
 
         // Get positions of key elements to verify order
-        final heroFinder = find.text('Careers at Integrity Studio');
+        final heroFinder = find.text('Careers at ${CompanyInfo.name}');
         expect(heroFinder, findsOneWidget);
 
         // Scroll to see more content
-        await scrollDown(tester, 400);
+        await scrollDown(tester, kCareersScrollToMidContent);
 
         final noOpeningsFinder = find.text('No Open Positions');
         expect(noOpeningsFinder, findsOneWidget);
 
-        await scrollDown(tester, 400);
+        await scrollDown(tester, kCareersScrollToMidContent);
 
         final submitFinder = find.text('Stay on Our Radar');
         expect(submitFinder, findsOneWidget);
@@ -343,7 +344,7 @@ void main() {
       testWidgets('renders mail plus icon in submit section', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 500);
+        await scrollDown(tester, kCareersScrollToKeepInTouch);
 
         expect(find.byIcon(LucideIcons.mailPlus), findsOneWidget);
       });
@@ -351,7 +352,7 @@ void main() {
       testWidgets('renders info icon in submit section', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 500);
+        await scrollDown(tester, kCareersScrollToKeepInTouch);
 
         expect(find.byIcon(LucideIcons.info), findsOneWidget);
       });
@@ -376,7 +377,7 @@ void main() {
       testWidgets('submit section renders correctly', (tester) async {
         await pumpCareersPage(tester);
 
-        await scrollDown(tester, 500);
+        await scrollDown(tester, kCareersScrollToKeepInTouch);
 
         expect(find.text('Stay on Our Radar'), findsOneWidget);
       });

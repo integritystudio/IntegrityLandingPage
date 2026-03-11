@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/signup_page.dart';
 import 'package:integrity_studio_ai/pages/pricing_page.dart';
 // test_helpers imported via integration_test_helpers.dart
@@ -70,7 +71,7 @@ void main() {
       expect(find.textContaining('Privacy Policy'), findsOneWidget);
 
       // Verify submit button
-      expect(find.text('Start Free Trial'), findsOneWidget);
+      expect(find.text(CTAText.startFreeTrial), findsOneWidget);
     });
 
     testWidgets('signup form validates empty name', (tester) async {
@@ -87,7 +88,7 @@ void main() {
       await pumpFrames(tester, frames: 20);
 
       // Tap submit without filling name
-      await tester.tap(find.text('Start Free Trial'));
+      await tester.tap(find.text(CTAText.startFreeTrial));
       await pumpFrames(tester, frames: 10);
 
       // Should show validation error
@@ -121,7 +122,7 @@ void main() {
       await pumpFrames(tester, frames: 2);
 
       // Tap submit
-      await tester.tap(find.text('Start Free Trial'));
+      await tester.tap(find.text(CTAText.startFreeTrial));
       await pumpFrames(tester, frames: 10);
 
       // Should show email validation error
@@ -151,7 +152,7 @@ void main() {
       await pumpFrames(tester, frames: 2);
 
       // Tap submit without checking terms
-      await tester.tap(find.text('Start Free Trial'));
+      await tester.tap(find.text(CTAText.startFreeTrial));
       await pumpFrames(tester, frames: 10);
 
       // Should show terms error
