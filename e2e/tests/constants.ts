@@ -96,6 +96,21 @@ export const SCREENSHOT_BEFORE_SCROLL = 'screenshots/06-before-scroll.png';
 export const SCREENSHOT_AFTER_SCROLL = 'screenshots/06-after-scroll.png';
 
 // ---------------------------------------------------------------------------
+// Site identity (env-overridable to support staging/dev runs)
+// ---------------------------------------------------------------------------
+
+/**
+ * Canonical production site URL.
+ *
+ * Override via BASE_URL env var when running against staging/dev so that
+ * SEO canonical/og:url assertions reflect the correct origin.
+ */
+export const SITE_URL = process.env['BASE_URL'] ?? 'https://integritystudio.ai';
+
+/** Human-readable site name used in og:site_name and author meta. */
+export const SITE_NAME = process.env['SITE_NAME'] ?? 'Integrity Studio';
+
+// ---------------------------------------------------------------------------
 // Consent / Tracking (must match Dart-side values)
 // ---------------------------------------------------------------------------
 

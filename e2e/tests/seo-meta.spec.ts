@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { SITE_URL, SITE_NAME } from './constants';
 
 /**
  * E2E tests for SEO meta tags, Open Graph, X/Twitter cards, canonical URL,
@@ -12,13 +13,18 @@ import { test, expect } from '@playwright/test';
 // Constants (must match web/index.html values)
 // ---------------------------------------------------------------------------
 
-const SITE_URL = 'https://integritystudio.ai';
-const SITE_NAME = 'Integrity Studio';
 const OG_IMAGE_PATH = '/images/og-image.png';
 
 test.describe('SEO Meta Tags', () => {
   let html: string;
 
+  /**
+   * `beforeAll` fetches the home page HTML once and shares it across all tests
+   * in this describe block. This saves one HTTP round-trip per test (~10 tests).
+   * Trade-off: tests depend on shared mutable state and a fixed fetch order.
+   * Risk is low because this spec is the only consumer of `html`, and Playwright
+   * does not reorder tests within a describe block.
+   */
   test.beforeAll(async ({ request }) => {
     const response = await request.get('/');
     html = await response.text();
@@ -32,10 +38,10 @@ test.describe('SEO Meta Tags', () => {
     test('has meta description with meaningful content', async () => {
       const match = html.match(/<meta\s+name="description"\s+content="([^"]+)"/);
       expect(match).not.toBeNull();
-      // Description should be 50-160 chars for optimal SEO
+      // 50-160 chars is the optimal SEO range; Google truncates beyond 160.
       const description = match![1];
       expect(description.length).toBeGreaterThanOrEqual(50);
-      expect(description.length).toBeLessThanOrEqual(200);
+      expect(description.length).toBeLessThanOrEqual(160);
     });
 
     test('has meta keywords', async () => {
