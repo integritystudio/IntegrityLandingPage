@@ -6,31 +6,23 @@ import '../helpers/test_content.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('ContentLoader singleton', () {
-    test('returns the same instance', () {
-      final instance1 = ContentLoader.instance;
-      final instance2 = ContentLoader.instance;
-      expect(identical(instance1, instance2), isTrue);
-    });
-  });
-
   group('ContentLoader error handling', () {
     setUp(() => Content.reset());
     tearDown(() => Content.reset());
 
     test('throws StateError when accessing content before load', () {
-      expect(() => ContentLoader.instance.companyName, throwsA(isA<StateError>()));
+      expect(() => ContentLoader.companyName, throwsA(isA<StateError>()));
     });
 
     test('StateError message indicates load() must be called', () {
       expect(
-        () => ContentLoader.instance.companyName,
+        () => ContentLoader.companyName,
         throwsA(predicate<StateError>((e) => e.message.contains('load()'))),
       );
     });
 
     test('rawContent returns null when not loaded', () {
-      expect(ContentLoader.instance.rawContent, isNull);
+      expect(ContentLoader.rawContent, isNull);
     });
   });
 
@@ -39,59 +31,57 @@ void main() {
     tearDown(tearDownContentLoaderTest);
 
     test('all getters are accessible when loaded', () {
-      final loader = ContentLoader.instance;
-
       // Company
-      expect(loader.companyName, isNotEmpty);
+      expect(ContentLoader.companyName, isNotEmpty);
       expect(Content.companyName, isNotEmpty);
 
       // URLs
-      expect(loader.calendlyUrl, startsWith('http'));
+      expect(ContentLoader.calendlyUrl, startsWith('http'));
       expect(Content.calendlyUrl, startsWith('http'));
 
       // CTAs
-      expect(loader.ctaStartFreeTrial, isNotEmpty);
+      expect(ContentLoader.ctaStartFreeTrial, isNotEmpty);
       expect(Content.ctaStartFreeTrial, isNotEmpty);
 
       // Trust/Metrics
-      expect(loader.trustIndicators, isNotEmpty);
+      expect(ContentLoader.trustIndicators, isNotEmpty);
       expect(Content.trustIndicators, isNotEmpty);
 
       // Pricing
-      expect(loader.pricingTiers, isNotEmpty);
+      expect(ContentLoader.pricingTiers, isNotEmpty);
       expect(Content.pricingTiers, isNotEmpty);
 
       // Hero
-      expect(loader.heroBadge, isNotEmpty);
+      expect(ContentLoader.heroBadge, isNotEmpty);
       expect(Content.heroBadge, isNotEmpty);
 
       // Features/Services
-      expect(loader.featuresItems, isNotEmpty);
+      expect(ContentLoader.featuresItems, isNotEmpty);
       expect(Content.servicesItems, isNotEmpty);
 
       // About
-      expect(loader.aboutTitle, isNotEmpty);
+      expect(ContentLoader.aboutTitle, isNotEmpty);
       expect(Content.aboutTeam, isNotEmpty);
 
       // Contact
-      expect(loader.contactFormFields, isNotEmpty);
+      expect(ContentLoader.contactFormFields, isNotEmpty);
       expect(Content.contactMethods, isNotEmpty);
 
       // Footer/Status
-      expect(loader.footerLinkGroups, isNotEmpty);
+      expect(ContentLoader.footerLinkGroups, isNotEmpty);
       expect(Content.statusServices, isNotEmpty);
 
       // Resources
-      expect(loader.resourcesDocumentation, isNotEmpty);
+      expect(ContentLoader.resourcesDocumentation, isNotEmpty);
       expect(Content.resourcesFeaturedPosts, isNotEmpty);
 
       // Social/Disclaimers
-      expect(loader.socialProofTestimonials, isNotEmpty);
+      expect(ContentLoader.socialProofTestimonials, isNotEmpty);
       expect(Content.disclaimerEuAiAct, isNotEmpty);
     });
 
     test('getHeroVariant methods work', () {
-      expect(ContentLoader.instance.getHeroVariant('current'), isNotEmpty);
+      expect(ContentLoader.getHeroVariant('current'), isNotEmpty);
       expect(Content.getHeroVariant('current'), isNotEmpty);
     });
 
@@ -104,68 +94,68 @@ void main() {
     // Table-driven string value tests
     group('string values', () {
       final stringValues = <String, (String Function(), String)>{
-        'companyName': (() => ContentLoader.instance.companyName, 'Test Company'),
-        'companyTagline': (() => ContentLoader.instance.companyTagline, 'Test Tagline'),
-        'companyCopyright': (() => ContentLoader.instance.companyCopyright, '© 2024 Test'),
-        'companyEmail': (() => ContentLoader.instance.companyEmail, 'test@example.com'),
-        'companyPhone': (() => ContentLoader.instance.companyPhone, '555-1234'),
-        'companyCity': (() => ContentLoader.instance.companyCity, 'Austin'),
-        'companyRegion': (() => ContentLoader.instance.companyRegion, 'Texas'),
-        'companyFoundedYear': (() => ContentLoader.instance.companyFoundedYear, '2024'),
-        'calendlyUrl': (() => ContentLoader.instance.calendlyUrl, 'https://calendly.com/test'),
-        'statusPageUrl': (() => ContentLoader.instance.statusPageUrl, 'https://status.test.com'),
-        'linkedInUrl': (() => ContentLoader.instance.linkedInUrl, 'https://linkedin.com/test'),
-        'githubUrl': (() => ContentLoader.instance.githubUrl, 'https://github.com/test'),
-        'founderLinkedInUrl': (() => ContentLoader.instance.founderLinkedInUrl, 'https://linkedin.com/in/founder'),
-        'ctaStartFreeTrial': (() => ContentLoader.instance.ctaStartFreeTrial, 'Start Free Trial'),
-        'ctaGetStarted': (() => ContentLoader.instance.ctaGetStarted, 'Get Started'),
-        'ctaScheduleDemo': (() => ContentLoader.instance.ctaScheduleDemo, 'Schedule Demo'),
-        'ctaRequestDemo': (() => ContentLoader.instance.ctaRequestDemo, 'Request Demo'),
-        'ctaContactSales': (() => ContentLoader.instance.ctaContactSales, 'Contact Sales'),
-        'ctaLearnMore': (() => ContentLoader.instance.ctaLearnMore, 'Learn More'),
-        'ctaSendMessage': (() => ContentLoader.instance.ctaSendMessage, 'Send Message'),
-        'metricsUptime': (() => ContentLoader.instance.metricsUptime, '99.9%'),
-        'metricsTracesProcessed': (() => ContentLoader.instance.metricsTracesProcessed, '10M+'),
-        'metricsAiTeams': (() => ContentLoader.instance.metricsAiTeams, '500+'),
-        'metricsSetupTime': (() => ContentLoader.instance.metricsSetupTime, '5 min'),
-        'pricingTitle': (() => ContentLoader.instance.pricingTitle, 'Test Pricing'),
-        'pricingSubtitle': (() => ContentLoader.instance.pricingSubtitle, 'Test pricing subtitle'),
-        'pricingAnnualDiscount': (() => ContentLoader.instance.pricingAnnualDiscount, 'Save 20%'),
-        'heroBadge': (() => ContentLoader.instance.heroBadge, 'Test Badge'),
-        'heroHeadline': (() => ContentLoader.instance.heroHeadline, 'Test Headline'),
-        'heroSubheadline': (() => ContentLoader.instance.heroSubheadline, 'Test Subheadline'),
-        'heroPrimaryCta': (() => ContentLoader.instance.heroPrimaryCta, 'Primary CTA'),
-        'heroSecondaryCta': (() => ContentLoader.instance.heroSecondaryCta, 'Secondary CTA'),
-        'featuresTitle': (() => ContentLoader.instance.featuresTitle, 'Features Title'),
-        'featuresSubtitle': (() => ContentLoader.instance.featuresSubtitle, 'Features Subtitle'),
-        'servicesTitle': (() => ContentLoader.instance.servicesTitle, 'Services Title'),
-        'servicesSubtitle': (() => ContentLoader.instance.servicesSubtitle, 'Services Subtitle'),
-        'servicesDescription': (() => ContentLoader.instance.servicesDescription, 'Services Description'),
-        'ctaSectionHeadline': (() => ContentLoader.instance.ctaSectionHeadline, 'CTA Headline'),
-        'ctaSectionSubheadline': (() => ContentLoader.instance.ctaSectionSubheadline, 'CTA Subheadline'),
-        'aboutTitle': (() => ContentLoader.instance.aboutTitle, 'About Title'),
-        'aboutSubtitle': (() => ContentLoader.instance.aboutSubtitle, 'About Subtitle'),
-        'aboutMission': (() => ContentLoader.instance.aboutMission, 'Our mission'),
-        'aboutVision': (() => ContentLoader.instance.aboutVision, 'Our vision'),
-        'aboutStory': (() => ContentLoader.instance.aboutStory, 'Our story'),
-        'contactTitle': (() => ContentLoader.instance.contactTitle, 'Contact Title'),
-        'contactSubtitle': (() => ContentLoader.instance.contactSubtitle, 'Contact Subtitle'),
-        'contactDescription': (() => ContentLoader.instance.contactDescription, 'Contact Description'),
-        'contactSuccessMessage': (() => ContentLoader.instance.contactSuccessMessage, 'Success!'),
-        'contactErrorMessage': (() => ContentLoader.instance.contactErrorMessage, 'Error!'),
-        'footerPrivacyLink': (() => ContentLoader.instance.footerPrivacyLink, '/privacy'),
-        'footerTermsLink': (() => ContentLoader.instance.footerTermsLink, '/terms'),
-        'footerCookiesLink': (() => ContentLoader.instance.footerCookiesLink, '/cookies'),
-        'statusTitle': (() => ContentLoader.instance.statusTitle, 'Status Title'),
-        'statusSubtitle': (() => ContentLoader.instance.statusSubtitle, 'Status Subtitle'),
-        'statusBadge': (() => ContentLoader.instance.statusBadge, 'All Operational'),
-        'resourcesTitle': (() => ContentLoader.instance.resourcesTitle, 'Resources Title'),
-        'resourcesSubtitle': (() => ContentLoader.instance.resourcesSubtitle, 'Resources Subtitle'),
-        'socialProofTitle': (() => ContentLoader.instance.socialProofTitle, 'Social Proof Title'),
-        'disclaimerEuAiAct': (() => ContentLoader.instance.disclaimerEuAiAct, 'EU AI Act disclaimer'),
-        'disclaimerEuAiActShort': (() => ContentLoader.instance.disclaimerEuAiActShort, 'Short disclaimer'),
-        'disclaimerSecurity': (() => ContentLoader.instance.disclaimerSecurity, 'Security disclaimer'),
-        'disclaimerGeneral': (() => ContentLoader.instance.disclaimerGeneral, 'General disclaimer'),
+        'companyName': (() => ContentLoader.companyName, 'Test Company'),
+        'companyTagline': (() => ContentLoader.companyTagline, 'Test Tagline'),
+        'companyCopyright': (() => ContentLoader.companyCopyright, '© 2024 Test'),
+        'companyEmail': (() => ContentLoader.companyEmail, 'test@example.com'),
+        'companyPhone': (() => ContentLoader.companyPhone, '555-1234'),
+        'companyCity': (() => ContentLoader.companyCity, 'Austin'),
+        'companyRegion': (() => ContentLoader.companyRegion, 'Texas'),
+        'companyFoundedYear': (() => ContentLoader.companyFoundedYear, '2024'),
+        'calendlyUrl': (() => ContentLoader.calendlyUrl, 'https://calendly.com/test'),
+        'statusPageUrl': (() => ContentLoader.statusPageUrl, 'https://status.test.com'),
+        'linkedInUrl': (() => ContentLoader.linkedInUrl, 'https://linkedin.com/test'),
+        'githubUrl': (() => ContentLoader.githubUrl, 'https://github.com/test'),
+        'founderLinkedInUrl': (() => ContentLoader.founderLinkedInUrl, 'https://linkedin.com/in/founder'),
+        'ctaStartFreeTrial': (() => ContentLoader.ctaStartFreeTrial, 'Start Free Trial'),
+        'ctaGetStarted': (() => ContentLoader.ctaGetStarted, 'Get Started'),
+        'ctaScheduleDemo': (() => ContentLoader.ctaScheduleDemo, 'Schedule Demo'),
+        'ctaRequestDemo': (() => ContentLoader.ctaRequestDemo, 'Request Demo'),
+        'ctaContactSales': (() => ContentLoader.ctaContactSales, 'Contact Sales'),
+        'ctaLearnMore': (() => ContentLoader.ctaLearnMore, 'Learn More'),
+        'ctaSendMessage': (() => ContentLoader.ctaSendMessage, 'Send Message'),
+        'metricsUptime': (() => ContentLoader.metricsUptime, '99.9%'),
+        'metricsTracesProcessed': (() => ContentLoader.metricsTracesProcessed, '10M+'),
+        'metricsAiTeams': (() => ContentLoader.metricsAiTeams, '500+'),
+        'metricsSetupTime': (() => ContentLoader.metricsSetupTime, '5 min'),
+        'pricingTitle': (() => ContentLoader.pricingTitle, 'Test Pricing'),
+        'pricingSubtitle': (() => ContentLoader.pricingSubtitle, 'Test pricing subtitle'),
+        'pricingAnnualDiscount': (() => ContentLoader.pricingAnnualDiscount, 'Save 20%'),
+        'heroBadge': (() => ContentLoader.heroBadge, 'Test Badge'),
+        'heroHeadline': (() => ContentLoader.heroHeadline, 'Test Headline'),
+        'heroSubheadline': (() => ContentLoader.heroSubheadline, 'Test Subheadline'),
+        'heroPrimaryCta': (() => ContentLoader.heroPrimaryCta, 'Primary CTA'),
+        'heroSecondaryCta': (() => ContentLoader.heroSecondaryCta, 'Secondary CTA'),
+        'featuresTitle': (() => ContentLoader.featuresTitle, 'Features Title'),
+        'featuresSubtitle': (() => ContentLoader.featuresSubtitle, 'Features Subtitle'),
+        'servicesTitle': (() => ContentLoader.servicesTitle, 'Services Title'),
+        'servicesSubtitle': (() => ContentLoader.servicesSubtitle, 'Services Subtitle'),
+        'servicesDescription': (() => ContentLoader.servicesDescription, 'Services Description'),
+        'ctaSectionHeadline': (() => ContentLoader.ctaSectionHeadline, 'CTA Headline'),
+        'ctaSectionSubheadline': (() => ContentLoader.ctaSectionSubheadline, 'CTA Subheadline'),
+        'aboutTitle': (() => ContentLoader.aboutTitle, 'About Title'),
+        'aboutSubtitle': (() => ContentLoader.aboutSubtitle, 'About Subtitle'),
+        'aboutMission': (() => ContentLoader.aboutMission, 'Our mission'),
+        'aboutVision': (() => ContentLoader.aboutVision, 'Our vision'),
+        'aboutStory': (() => ContentLoader.aboutStory, 'Our story'),
+        'contactTitle': (() => ContentLoader.contactTitle, 'Contact Title'),
+        'contactSubtitle': (() => ContentLoader.contactSubtitle, 'Contact Subtitle'),
+        'contactDescription': (() => ContentLoader.contactDescription, 'Contact Description'),
+        'contactSuccessMessage': (() => ContentLoader.contactSuccessMessage, 'Success!'),
+        'contactErrorMessage': (() => ContentLoader.contactErrorMessage, 'Error!'),
+        'footerPrivacyLink': (() => ContentLoader.footerPrivacyLink, '/privacy'),
+        'footerTermsLink': (() => ContentLoader.footerTermsLink, '/terms'),
+        'footerCookiesLink': (() => ContentLoader.footerCookiesLink, '/cookies'),
+        'statusTitle': (() => ContentLoader.statusTitle, 'Status Title'),
+        'statusSubtitle': (() => ContentLoader.statusSubtitle, 'Status Subtitle'),
+        'statusBadge': (() => ContentLoader.statusBadge, 'All Operational'),
+        'resourcesTitle': (() => ContentLoader.resourcesTitle, 'Resources Title'),
+        'resourcesSubtitle': (() => ContentLoader.resourcesSubtitle, 'Resources Subtitle'),
+        'socialProofTitle': (() => ContentLoader.socialProofTitle, 'Social Proof Title'),
+        'disclaimerEuAiAct': (() => ContentLoader.disclaimerEuAiAct, 'EU AI Act disclaimer'),
+        'disclaimerEuAiActShort': (() => ContentLoader.disclaimerEuAiActShort, 'Short disclaimer'),
+        'disclaimerSecurity': (() => ContentLoader.disclaimerSecurity, 'Security disclaimer'),
+        'disclaimerGeneral': (() => ContentLoader.disclaimerGeneral, 'General disclaimer'),
       };
 
       for (final entry in stringValues.entries) {
@@ -177,18 +167,18 @@ void main() {
 
     group('list getters', () {
       test('trustIndicators returns correct values', () {
-        final indicators = ContentLoader.instance.trustIndicators;
+        final indicators = ContentLoader.trustIndicators;
         expect(indicators, isA<List<String>>());
         expect(indicators, containsAll(['Feature A', 'Feature B', 'Feature C']));
       });
 
       test('legacyTrustIndicators returns correct values', () {
-        final indicators = ContentLoader.instance.legacyTrustIndicators;
+        final indicators = ContentLoader.legacyTrustIndicators;
         expect(indicators, containsAll(['Old Feature 1', 'Old Feature 2']));
       });
 
       test('pricingTiers returns correct structure', () {
-        final tiers = ContentLoader.instance.pricingTiers;
+        final tiers = ContentLoader.pricingTiers;
         expect(tiers, isA<List<Map<String, dynamic>>>());
         expect(tiers.length, equals(2));
         expect(tiers[0]['name'], equals('Free'));
@@ -196,78 +186,78 @@ void main() {
       });
 
       test('featuresItems returns correct structure', () {
-        final items = ContentLoader.instance.featuresItems;
+        final items = ContentLoader.featuresItems;
         expect(items.length, equals(2));
         expect(items[0]['title'], equals('Feature 1'));
         expect((items[0]['bullets'] as List).length, equals(2));
       });
 
       test('servicesItems returns correct structure', () {
-        final items = ContentLoader.instance.servicesItems;
+        final items = ContentLoader.servicesItems;
         expect(items[0]['title'], equals('Service 1'));
       });
 
       test('aboutValues returns correct structure', () {
-        final values = ContentLoader.instance.aboutValues;
+        final values = ContentLoader.aboutValues;
         expect(values[0]['title'], equals('Transparency'));
       });
 
       test('aboutTeam returns correct structure', () {
-        final team = ContentLoader.instance.aboutTeam;
+        final team = ContentLoader.aboutTeam;
         expect(team[0]['name'], equals('John Doe'));
         expect(team[0]['role'], equals('CEO'));
       });
 
       test('contactFormFields returns correct structure', () {
-        final fields = ContentLoader.instance.contactFormFields;
+        final fields = ContentLoader.contactFormFields;
         expect(fields[0]['name'], equals('email'));
         expect(fields[0]['required'], isTrue);
       });
 
       test('contactMethods returns correct structure', () {
-        final methods = ContentLoader.instance.contactMethods;
+        final methods = ContentLoader.contactMethods;
         expect(methods[0]['label'], equals('Email'));
         expect(methods[0]['is_primary'], isTrue);
       });
 
       test('footerLinkGroups returns correct structure', () {
-        final groups = ContentLoader.instance.footerLinkGroups;
+        final groups = ContentLoader.footerLinkGroups;
         expect(groups[0]['title'], equals('Product'));
         expect(groups[0]['links'], isA<List>());
       });
 
       test('statusMetrics returns correct structure', () {
-        final metrics = ContentLoader.instance.statusMetrics;
+        final metrics = ContentLoader.statusMetrics;
         expect(metrics[0]['label'], equals('Uptime'));
         expect(metrics[0]['value'], equals('99.9%'));
       });
 
       test('statusServices returns correct structure', () {
-        final services = ContentLoader.instance.statusServices;
+        final services = ContentLoader.statusServices;
         expect(services[0]['name'], equals('API'));
         expect(services[0]['status'], equals('Operational'));
       });
 
       test('resourcesDocumentation returns correct structure', () {
-        final docs = ContentLoader.instance.resourcesDocumentation;
+        final docs = ContentLoader.resourcesDocumentation;
         expect(docs[0]['title'], equals('Getting Started'));
         expect(docs[0]['popular_topics'], isA<List>());
       });
 
       test('resourcesFeaturedPosts returns correct structure', () {
-        final posts = ContentLoader.instance.resourcesFeaturedPosts;
+        final posts = ContentLoader.resourcesFeaturedPosts;
         expect(posts[0]['title'], equals('Test Post'));
         expect(posts[0]['slug'], equals('test-post'));
       });
 
       test('resourcesLeadMagnets returns correct structure', () {
-        final magnets = ContentLoader.instance.resourcesLeadMagnets;
+        final magnets = ContentLoader.resourcesLeadMagnets;
         expect(magnets[0]['title'], equals('Test Guide'));
         expect(magnets[0]['requires_email'], isTrue);
       });
 
       test('socialProofTestimonials returns correct structure', () {
-        final testimonials = ContentLoader.instance.socialProofTestimonials;
+        final testimonials = ContentLoader.socialProofTestimonials;
         expect(testimonials[0]['quote'], equals('Great product!'));
         expect(testimonials[0]['author'], equals('Jane Doe'));
       });
@@ -275,19 +265,19 @@ void main() {
 
     group('map getters', () {
       test('company returns all company data', () {
-        final company = ContentLoader.instance.company;
+        final company = ContentLoader.company;
         expect(company['name'], equals('Test Company'));
         expect(company['tagline'], equals('Test Tagline'));
       });
 
       test('heroCurrent returns current hero data', () {
-        final hero = ContentLoader.instance.heroCurrent;
+        final hero = ContentLoader.heroCurrent;
         expect(hero['badge'], equals('Test Badge'));
         expect(hero['headline'], equals('Test Headline'));
       });
 
       test('socialProofStats returns stats map', () {
-        final stats = ContentLoader.instance.socialProofStats;
+        final stats = ContentLoader.socialProofStats;
         expect(stats, isA<Map<String, String>>());
         expect(stats['uptime'], equals('99.9%'));
         expect(stats['traces'], equals('10M+'));
@@ -296,12 +286,12 @@ void main() {
 
     group('hero variants', () {
       test('getHeroVariant returns current variant', () {
-        final hero = ContentLoader.instance.getHeroVariant('current');
+        final hero = ContentLoader.getHeroVariant('current');
         expect(hero['badge'], equals('Test Badge'));
       });
 
       test('getHeroVariant returns alternate variant', () {
-        final hero = ContentLoader.instance.getHeroVariant('alternate');
+        final hero = ContentLoader.getHeroVariant('alternate');
         expect(hero['badge'], equals('Alt Badge'));
         expect(hero['headline'], equals('Alt Headline'));
       });
@@ -309,11 +299,11 @@ void main() {
 
     group('state verification', () {
       test('rawContent is not null after loading', () {
-        expect(ContentLoader.instance.rawContent, isNotNull);
+        expect(ContentLoader.rawContent, isNotNull);
       });
 
       test('isLoaded returns true after loading', () {
-        expect(ContentLoader.instance.isLoaded, isTrue);
+        expect(ContentLoader.isLoaded, isTrue);
       });
     });
   });
@@ -351,36 +341,36 @@ void main() {
       // _getMap fires an assertion in debug mode for missing keys.
       // In release mode it falls back to empty map.
       expect(
-        () => ContentLoader.instance.heroCurrent,
+        () => ContentLoader.heroCurrent,
         throwsA(isA<AssertionError>()),
       );
     });
 
     test('_getStringList returns empty list for non-existent path', () {
       Content.loadFromString('company:\n  name: "Test"\n');
-      final result = ContentLoader.instance.trustIndicators;
+      final result = ContentLoader.trustIndicators;
       expect(result, isA<List<String>>());
       expect(result, isEmpty);
     });
 
     test('_getMapList returns empty list for non-existent path', () {
       Content.loadFromString('company:\n  name: "Test"\n');
-      final result = ContentLoader.instance.pricingTiers;
+      final result = ContentLoader.pricingTiers;
       expect(result, isA<List<Map<String, dynamic>>>());
       expect(result, isEmpty);
     });
 
     test('loadFromString overwrites previous content', () {
       Content.loadFromString('company:\n  name: "First"\n');
-      expect(ContentLoader.instance.companyName, equals('First'));
+      expect(ContentLoader.companyName, equals('First'));
 
       Content.loadFromString('company:\n  name: "Second"\n');
-      expect(ContentLoader.instance.companyName, equals('Second'));
+      expect(ContentLoader.companyName, equals('Second'));
     });
 
     test('deeply nested YAML is handled correctly', () {
       Content.loadFromString('company:\n  contact:\n    email: "deep@nested.com"\n');
-      expect(ContentLoader.instance.companyEmail, equals('deep@nested.com'));
+      expect(ContentLoader.companyEmail, equals('deep@nested.com'));
     });
   });
 }
