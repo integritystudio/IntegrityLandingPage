@@ -1054,7 +1054,7 @@ The "Observability Stack" diagram Column in AboutPage overflows by 34px vertical
 
 The `_logOAuthCallback` method was split into `oauth_callback_success`, `oauth_callback_code_received`, and `oauth_callback_error` events. Verify downstream analytics dashboards and any Sentry alert rules reference the new event name `oauth_callback_code_received` (previously all code callbacks fired `oauth_callback_success`).
 
-**Status:** Deferred — no known downstream consumers yet (landing page placeholder OAuth).
+**Status:** Done — audit 2026-03-12: three distinct event names confirmed in `oauth_callback_page.dart` (lines 69, 77, 85). No other codebase references, no Sentry alert rules, no analytics dashboard configs using the old name. No downstream updates required.
 
 ---
 
