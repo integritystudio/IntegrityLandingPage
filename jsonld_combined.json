@@ -287,7 +287,24 @@
       "keywords": "AI observability market analysis, AI platform strategy, AI regulatory compliance, EU AI Act, MLOps, AI governance, product-led growth",
       "isPartOf": {
         "@id": "https://integritystudio.ai#website"
-      }
+      },
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/assets/og-ai-observability-strategy.png",
+        "width": 1200,
+        "height": 630
+      },
+      "thumbnailUrl": "https://integritystudio.ai/assets/og-ai-observability-strategy.png",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://integritystudio.ai/blog/ai-observability-platform-strategy/"
+      },
+      "copyrightYear": 2025,
+      "copyrightHolder": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "dateCreated": "2025-12-08T00:00:00Z",
+      "license": "https://creativecommons.org/licenses/by-nc-nd/4.0/"
     },
     {
       "@context": "https://schema.org",
@@ -536,7 +553,20 @@
         {
           "@id": "https://integritystudio.ai/services/agent-observability#service"
         }
-      ]
+      ],
+      "copyrightYear": 2025,
+      "copyrightHolder": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "dateCreated": "2025-12-08T00:00:00Z",
+      "genre": "Technology",
+      "accessibilityFeature": [
+        "structuredNavigation",
+        "alternativeText",
+        "readingOrder"
+      ],
+      "accessibilitySummary": "Structured article with code examples, headings, and alternative text for images",
+      "abstract": "Comprehensive market size validation, enterprise budget allocation trends, and growth projections for AI observability and governance platforms."
     },
     {
       "@context": "https://schema.org",
@@ -807,7 +837,20 @@
       ],
       "isPartOf": {
         "@id": "https://integritystudio.ai#website"
-      }
+      },
+      "copyrightYear": 2025,
+      "copyrightHolder": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "dateCreated": "2025-12-08T00:00:00Z",
+      "genre": "Technology",
+      "accessibilityFeature": [
+        "structuredNavigation",
+        "alternativeText",
+        "readingOrder"
+      ],
+      "accessibilitySummary": "Structured article with code examples, headings, and alternative text for images",
+      "abstract": "AI observability strategy with competitive landscape analysis, EU AI Act compliance, and market positioning. Enterprise AI platform roadmap with regulatory drivers and trust framework."
     },
     {
       "@context": "https://schema.org",
@@ -1065,7 +1108,21 @@
       ],
       "isPartOf": {
         "@id": "https://integritystudio.ai#website"
-      }
+      },
+      "copyrightYear": 2025,
+      "copyrightHolder": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "dateCreated": "2025-12-01T00:00:00Z",
+      "genre": "Technology",
+      "accessibilityFeature": [
+        "structuredNavigation",
+        "alternativeText",
+        "readingOrder"
+      ],
+      "accessibilitySummary": "Structured article with code examples, headings, and alternative text for images",
+      "thumbnailUrl": "https://integritystudio.ai/images/llm-monitoring-tools-2025.png",
+      "abstract": "Compare 11 LLM monitoring tools in 2025. Expert analysis of Langfuse vs LangSmith, Phoenix, Helicone, and more AI observability platforms with pricing, features, and use cases."
     },
     {
       "@context": "https://schema.org",
@@ -1276,7 +1333,9 @@
             "operatingSystem": "Cross-platform"
           }
         }
-      ]
+      ],
+      "numberOfItems": 11,
+      "itemListOrder": "https://schema.org/ItemListOrderDescending"
     },
     {
       "@context": "https://schema.org",
@@ -1312,7 +1371,7 @@
           "name": "What LLM monitoring tools support EU AI Act compliance?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "For EU AI Act compliance, Fiddler AI, Arize AI, and Langtrace offer explicit support. They provide immutable audit trails, transparency logging (Articles 50-56), bias detection, hallucination tracking, and human-in-the-loop tracking. The EU AI Act penalties are up to \u20ac35 million or 7% of global annual turnover, making compliant monitoring critical for regulated industries."
+            "text": "For EU AI Act compliance, Fiddler AI, Arize AI, and Langtrace offer explicit support. They provide immutable audit trails, transparency logging (Articles 50-56), bias detection, hallucination tracking, and human-in-the-loop tracking. The EU AI Act penalties are up to €35 million or 7% of global annual turnover, making compliant monitoring critical for regulated industries."
           }
         },
         {
@@ -1336,7 +1395,21 @@
         {
           "@id": "https://integritystudio.ai/docs/quickstart#howto"
         }
-      ]
+      ],
+      "speakable": {
+        "@type": "SpeakableSpecification",
+        "cssSelector": [
+          ".faq-question",
+          ".faq-answer"
+        ]
+      },
+      "lastReviewed": "2026-01-15",
+      "reviewedBy": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "breadcrumb": {
+        "@id": "https://integritystudio.ai/blog/best-llm-monitoring-tools-2025#breadcrumblist"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -1665,7 +1738,21 @@
       ],
       "isPartOf": {
         "@id": "https://integritystudio.ai#website"
-      }
+      },
+      "copyrightYear": 2025,
+      "copyrightHolder": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "dateCreated": "2025-12-24T00:00:00Z",
+      "genre": "Technology",
+      "accessibilityFeature": [
+        "structuredNavigation",
+        "alternativeText",
+        "readingOrder"
+      ],
+      "accessibilitySummary": "Structured article with code examples, headings, and alternative text for images",
+      "thumbnailUrl": "https://integritystudio.ai/assets/og-agentic-observability.png",
+      "abstract": "A practical guide to the 6-stage agentic observability lifecycle: Compress, Build, Launch, Monitor, Optimize, and Automate. Learn how to ship reliable AI agents without losing your mind or your compliance standing."
     },
     {
       "@context": "https://schema.org",
@@ -1974,7 +2061,21 @@
       ],
       "isPartOf": {
         "@id": "https://integritystudio.ai#website"
-      }
+      },
+      "copyrightYear": 2025,
+      "copyrightHolder": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "dateCreated": "2025-12-26T00:00:00Z",
+      "genre": "Technology",
+      "accessibilityFeature": [
+        "structuredNavigation",
+        "alternativeText",
+        "readingOrder"
+      ],
+      "accessibilitySummary": "Structured article with code examples, headings, and alternative text for images",
+      "thumbnailUrl": "https://integritystudio.ai/images/eu-ai-act-compliance-logging.png",
+      "abstract": "Complete technical guide to implementing EU AI Act Article 12 compliant logging for LLM systems. Includes Python and TypeScript code examples, JSON schemas, hash chains, storage architecture, and testing patterns for high-risk AI compliance."
     },
     {
       "@context": "https://schema.org",
@@ -2202,7 +2303,20 @@
       "mainEntityOfPage": {
         "@type": "WebPage",
         "url": "https://integritystudio.ai/blog/eu-ai-act-compliance-logging-setup"
-      }
+      },
+      "inLanguage": "en-US",
+      "author": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "datePublished": "2024-12-01",
+      "dateModified": "2025-01-01",
+      "keywords": [
+        "EU AI Act",
+        "compliance",
+        "audit trail",
+        "risk classification"
+      ],
+      "yield": "A fully configured EU AI Act compliance monitoring setup"
     },
     {
       "@context": "https://schema.org",
@@ -2282,7 +2396,21 @@
         {
           "@id": "https://integritystudio.ai/docs/compliance#howto"
         }
-      ]
+      ],
+      "speakable": {
+        "@type": "SpeakableSpecification",
+        "cssSelector": [
+          ".faq-question",
+          ".faq-answer"
+        ]
+      },
+      "lastReviewed": "2026-01-15",
+      "reviewedBy": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "breadcrumb": {
+        "@id": "https://integritystudio.ai/blog/llm-cost-optimization-guide#breadcrumblist"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -2361,7 +2489,30 @@
         {
           "@id": "https://integritystudio.ai/resources/whylabs-migration-guide#article"
         }
-      ]
+      ],
+      "author": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "datePublished": "2024-06-01",
+      "dateModified": "2025-01-10",
+      "copyrightYear": 2024,
+      "copyrightHolder": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "isAccessibleForFree": true,
+      "keywords": [
+        "AI observability",
+        "LLM monitoring",
+        "AI trust platform",
+        "EU AI Act compliance",
+        "agent observability",
+        "OpenTelemetry"
+      ],
+      "about": {
+        "@type": "Thing",
+        "name": "AI Observability",
+        "description": "Monitoring, tracing, and compliance for AI and LLM applications"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -2668,7 +2819,10 @@
         {
           "@id": "https://integritystudio.ai/integrations/grafana#webapi"
         }
-      ]
+      ],
+      "releaseNotes": "https://integritystudio.ai/changelog",
+      "permissions": "Internet access required",
+      "runtimePlatform": "Web Browser"
     },
     {
       "@context": "https://schema.org",
@@ -2889,6 +3043,34 @@
       },
       "event": {
         "@id": "https://integritystudio.ai/#demo-event"
+      },
+      "email": "hello@integritystudio.ai",
+      "foundingLocation": {
+        "@type": "Place",
+        "name": "Austin, TX",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Austin",
+          "addressRegion": "TX",
+          "addressCountry": "US"
+        }
+      },
+      "keywords": [
+        "AI observability",
+        "LLM monitoring",
+        "AI compliance",
+        "enterprise AI",
+        "OpenTelemetry",
+        "agent observability"
+      ],
+      "knowsLanguage": [
+        "en"
+      ],
+      "ethicsPolicy": "https://integritystudio.ai/ethics",
+      "publishingPrinciples": "https://integritystudio.ai/editorial-policy",
+      "location": {
+        "@type": "Place",
+        "name": "Austin, TX"
       }
     },
     {
@@ -3123,7 +3305,52 @@
       ],
       "isPartOf": {
         "@id": "https://integritystudio.ai#website"
-      }
+      },
+      "about": [
+        {
+          "@type": "Thing",
+          "name": "WhyLabs Migration",
+          "description": "Migrating AI monitoring from WhyLabs to Integrity Studio"
+        },
+        {
+          "@type": "Thing",
+          "name": "AI Monitoring",
+          "description": "Monitoring AI and ML model performance"
+        }
+      ],
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/resources/whylabs-migration-hero.png",
+        "width": 1200,
+        "height": 630
+      },
+      "inLanguage": "en-US",
+      "wordCount": 3500,
+      "timeRequired": "PT15M",
+      "speakable": {
+        "@type": "SpeakableSpecification",
+        "cssSelector": [
+          "h1",
+          ".article-summary",
+          ".step-title"
+        ]
+      },
+      "articleSection": "Migration Guides",
+      "isAccessibleForFree": true,
+      "alternativeHeadline": "WhyLabs to Integrity Studio: Complete Migration Guide",
+      "abstract": "Complete guide for migrating from WhyLabs to Integrity Studio. Feature mapping, code examples, and step-by-step migration instructions for teams affected by the WhyLabs shutdown.",
+      "copyrightYear": 2025,
+      "copyrightHolder": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "thumbnailUrl": "https://integritystudio.ai/images/resources/whylabs-migration-hero.png",
+      "citation": [
+        {
+          "@type": "CreativeWork",
+          "name": "WhyLabs Shutdown Announcement",
+          "url": "https://whylabs.ai/blog/shutdown"
+        }
+      ]
     },
     {
       "@context": "https://schema.org",
@@ -3205,7 +3432,20 @@
       "mainEntityOfPage": {
         "@type": "WebPage",
         "url": "https://integritystudio.ai/resources/whylabs-migration-guide"
-      }
+      },
+      "inLanguage": "en-US",
+      "author": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "datePublished": "2025-01-01",
+      "dateModified": "2025-01-10",
+      "keywords": [
+        "WhyLabs migration",
+        "AI monitoring",
+        "platform migration",
+        "observability"
+      ],
+      "yield": "Complete migration from WhyLabs to Integrity Studio"
     },
     {
       "@context": "https://schema.org",
@@ -3260,7 +3500,40 @@
         {
           "@id": "https://integritystudio.ai/docs/quickstart#howto"
         }
-      ]
+      ],
+      "speakable": {
+        "@type": "SpeakableSpecification",
+        "cssSelector": [
+          ".faq-question",
+          ".faq-answer"
+        ]
+      },
+      "lastReviewed": "2026-01-15",
+      "reviewedBy": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://integritystudio.ai/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Resources",
+            "item": "https://integritystudio.ai/resources/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "WhyLabs Migration Guide"
+          }
+        ]
+      }
     },
     {
       "@type": "Person",
@@ -3356,6 +3629,11 @@
       },
       "sameAs": [
         "https://www.linkedin.com/in/johnskelton-ai-policy"
+      ],
+      "skills": [
+        "Software Engineering",
+        "AI Systems",
+        "Backend Development"
       ]
     },
     {
@@ -3513,6 +3791,15 @@
       },
       "sameAs": [
         "https://www.linkedin.com/in/isabel-budenz/"
+      ],
+      "homeLocation": {
+        "@type": "Place",
+        "name": "Austin, TX"
+      },
+      "skills": [
+        "Content Strategy",
+        "Marketing",
+        "Communications"
       ]
     },
     {
@@ -3545,7 +3832,11 @@
         "description": "Chase Hoffman, Co-Founder and President of Integrity Studio",
         "width": 400,
         "height": 400
-      }
+      },
+      "skills": [
+        "Software Engineering",
+        "Full-Stack Development"
+      ]
     },
     {
       "@type": "LocalBusiness",
@@ -3634,7 +3925,59 @@
             "http://schema.org/MobileWebPlatform"
           ]
         }
-      }
+      },
+      "aggregateRating": {
+        "@id": "https://integritystudio.ai/#aggregate-rating"
+      },
+      "brand": {
+        "@type": "Brand",
+        "name": "Integrity Studio",
+        "logo": "https://integritystudio.ai/images/logo.png"
+      },
+      "founder": {
+        "@type": "Person",
+        "@id": "https://integritystudio.ai/team/alyshia-ledlie#person",
+        "name": "Alyshia Ledlie"
+      },
+      "legalName": "Integrity Studio LLC",
+      "slogan": "AI Observability That Proves Compliance",
+      "knowsAbout": [
+        "AI Observability",
+        "LLM Monitoring",
+        "AI Compliance",
+        "EU AI Act",
+        "Agent Observability",
+        "OpenTelemetry"
+      ],
+      "keywords": [
+        "AI observability",
+        "LLM monitoring",
+        "AI compliance platform",
+        "enterprise AI",
+        "Austin TX AI company"
+      ],
+      "naics": "511210",
+      "numberOfEmployees": {
+        "@type": "QuantitativeValue",
+        "minValue": 2,
+        "maxValue": 10
+      },
+      "makesOffer": [
+        {
+          "@id": "https://integritystudio.ai/pricing#starter"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#team"
+        },
+        {
+          "@id": "https://integritystudio.ai/pricing#enterprise"
+        }
+      ],
+      "review": [
+        {
+          "@id": "https://integritystudio.ai/#review-dotfun"
+        }
+      ]
     },
     {
       "@type": "Service",
@@ -3707,6 +4050,53 @@
         },
         {
           "@id": "https://integritystudio.ai/services/analytics-dashboards#service"
+        }
+      ],
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/logo.png"
+      },
+      "aggregateRating": {
+        "@id": "https://integritystudio.ai/#aggregate-rating"
+      },
+      "review": [
+        {
+          "@id": "https://integritystudio.ai/#review-dotfun"
+        }
+      ],
+      "hoursAvailable": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday"
+        ],
+        "opens": "00:00",
+        "closes": "23:59"
+      },
+      "availableChannel": {
+        "@type": "ServiceChannel",
+        "serviceUrl": "https://integritystudio.ai/docs/tracing",
+        "serviceSmsNumber": "",
+        "servicePhone": {
+          "@type": "ContactPoint",
+          "telephone": "(512) 829-1644"
+        }
+      },
+      "isSimilarTo": [
+        {
+          "@type": "Service",
+          "name": "Langfuse",
+          "url": "https://langfuse.com"
+        },
+        {
+          "@type": "Service",
+          "name": "LangSmith",
+          "url": "https://smith.langchain.com"
         }
       ]
     },
@@ -3782,6 +4172,53 @@
         {
           "@id": "https://integritystudio.ai/services/alerting-incident-management#service"
         }
+      ],
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/logo.png"
+      },
+      "aggregateRating": {
+        "@id": "https://integritystudio.ai/#aggregate-rating"
+      },
+      "review": [
+        {
+          "@id": "https://integritystudio.ai/#review-dotfun"
+        }
+      ],
+      "hoursAvailable": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday"
+        ],
+        "opens": "00:00",
+        "closes": "23:59"
+      },
+      "availableChannel": {
+        "@type": "ServiceChannel",
+        "serviceUrl": "https://integritystudio.ai/docs/agents",
+        "serviceSmsNumber": "",
+        "servicePhone": {
+          "@type": "ContactPoint",
+          "telephone": "(512) 829-1644"
+        }
+      },
+      "isSimilarTo": [
+        {
+          "@type": "Service",
+          "name": "Arize AI",
+          "url": "https://arize.com"
+        },
+        {
+          "@type": "Service",
+          "name": "Phoenix",
+          "url": "https://phoenix.arize.com"
+        }
       ]
     },
     {
@@ -3856,6 +4293,48 @@
         {
           "@id": "https://integritystudio.ai/services/analytics-dashboards#service"
         }
+      ],
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/logo.png"
+      },
+      "aggregateRating": {
+        "@id": "https://integritystudio.ai/#aggregate-rating"
+      },
+      "review": [
+        {
+          "@id": "https://integritystudio.ai/#review-dotfun"
+        }
+      ],
+      "hoursAvailable": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday"
+        ],
+        "opens": "00:00",
+        "closes": "23:59"
+      },
+      "availableChannel": {
+        "@type": "ServiceChannel",
+        "serviceUrl": "https://integritystudio.ai/eu-ai-act",
+        "serviceSmsNumber": "",
+        "servicePhone": {
+          "@type": "ContactPoint",
+          "telephone": "(512) 829-1644"
+        }
+      },
+      "isSimilarTo": [
+        {
+          "@type": "Service",
+          "name": "Fiddler AI",
+          "url": "https://fiddler.ai"
+        }
       ]
     },
     {
@@ -3929,6 +4408,53 @@
         },
         {
           "@id": "https://integritystudio.ai/services/compliance-governance#service"
+        }
+      ],
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/logo.png"
+      },
+      "aggregateRating": {
+        "@id": "https://integritystudio.ai/#aggregate-rating"
+      },
+      "review": [
+        {
+          "@id": "https://integritystudio.ai/#review-dotfun"
+        }
+      ],
+      "hoursAvailable": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday"
+        ],
+        "opens": "00:00",
+        "closes": "23:59"
+      },
+      "availableChannel": {
+        "@type": "ServiceChannel",
+        "serviceUrl": "https://integritystudio.ai/#demo",
+        "serviceSmsNumber": "",
+        "servicePhone": {
+          "@type": "ContactPoint",
+          "telephone": "(512) 829-1644"
+        }
+      },
+      "isSimilarTo": [
+        {
+          "@type": "Service",
+          "name": "Grafana",
+          "url": "https://grafana.com"
+        },
+        {
+          "@type": "Service",
+          "name": "Datadog",
+          "url": "https://datadoghq.com"
         }
       ]
     },
@@ -4042,6 +4568,48 @@
         {
           "@id": "https://integritystudio.ai/services/llm-monitoring#service"
         }
+      ],
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/logo.png"
+      },
+      "aggregateRating": {
+        "@id": "https://integritystudio.ai/#aggregate-rating"
+      },
+      "review": [
+        {
+          "@id": "https://integritystudio.ai/#review-dotfun"
+        }
+      ],
+      "hoursAvailable": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday"
+        ],
+        "opens": "00:00",
+        "closes": "23:59"
+      },
+      "availableChannel": {
+        "@type": "ServiceChannel",
+        "serviceUrl": "https://integritystudio.ai/docs/alerts",
+        "serviceSmsNumber": "",
+        "servicePhone": {
+          "@type": "ContactPoint",
+          "telephone": "(512) 829-1644"
+        }
+      },
+      "isSimilarTo": [
+        {
+          "@type": "Service",
+          "name": "PagerDuty",
+          "url": "https://pagerduty.com"
+        }
       ]
     },
     {
@@ -4116,7 +4684,42 @@
         {
           "@id": "https://integritystudio.ai/services/agent-observability#service"
         }
-      ]
+      ],
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/logo.png"
+      },
+      "aggregateRating": {
+        "@id": "https://integritystudio.ai/#aggregate-rating"
+      },
+      "review": [
+        {
+          "@id": "https://integritystudio.ai/#review-dotfun"
+        }
+      ],
+      "hoursAvailable": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday"
+        ],
+        "opens": "00:00",
+        "closes": "23:59"
+      },
+      "availableChannel": {
+        "@type": "ServiceChannel",
+        "serviceUrl": "https://integritystudio.ai/docs/quickstart",
+        "serviceSmsNumber": "",
+        "servicePhone": {
+          "@type": "ContactPoint",
+          "telephone": "(512) 829-1644"
+        }
+      }
     },
     {
       "@type": "Person",
@@ -4149,7 +4752,19 @@
         "https://linkedin.com/in/aledlie",
         "https://www.aledlie.com/",
         "https://github.com/integritystudio"
-      ]
+      ],
+      "homeLocation": {
+        "@type": "Place",
+        "name": "Austin, TX"
+      },
+      "skills": [
+        "Python",
+        "TypeScript",
+        "AI/ML",
+        "Cloud Architecture",
+        "Technical Writing"
+      ],
+      "honorificPrefix": "Ms."
     },
     {
       "@type": "Review",
@@ -4175,7 +4790,34 @@
         "@type": "SoftwareApplication",
         "@id": "https://integritystudio.ai#softwareapplication"
       },
-      "datePublished": "2024-12-01"
+      "datePublished": "2024-12-01",
+      "name": "Integrity Studio Review",
+      "headline": "AI Observability Platform Review",
+      "reviewAspect": "AI Observability and Compliance",
+      "positiveNotes": {
+        "@type": "ItemList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Comprehensive compliance reports"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Fast time-to-value for AI observability"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Production visibility and confidence"
+          }
+        ]
+      },
+      "inLanguage": "en-US",
+      "publisher": {
+        "@id": "https://integritystudio.ai/#organization"
+      }
     },
     {
       "@type": "Event",
@@ -4224,7 +4866,38 @@
       },
       "duration": "PT30M",
       "isAccessibleForFree": true,
-      "inLanguage": "en-US"
+      "inLanguage": "en-US",
+      "url": "https://calendly.com/integritystudio/demo",
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/demo-event.png",
+        "width": 1200,
+        "height": 630
+      },
+      "about": [
+        {
+          "@type": "Thing",
+          "name": "AI Observability",
+          "description": "LLM monitoring and AI trust platform demonstration"
+        },
+        {
+          "@type": "Thing",
+          "name": "EU AI Act Compliance",
+          "description": "Compliance reporting and audit trail capabilities"
+        }
+      ],
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "AI/ML Engineers, Engineering Managers, CTOs, Compliance Officers"
+      },
+      "maximumVirtualAttendeeCapacity": 5,
+      "keywords": [
+        "product demo",
+        "AI observability",
+        "LLM monitoring",
+        "free demo"
+      ],
+      "typicalAgeRange": "25-65"
     },
     {
       "@type": "CreativeWork",
@@ -4279,7 +4952,53 @@
       },
       "isPartOf": {
         "@id": "https://integritystudio.ai#website"
-      }
+      },
+      "abstract": "A comprehensive checklist covering all EU AI Act requirements for high-risk AI systems. Includes Article 12 traceability, documentation templates, and timeline milestones.",
+      "alternativeHeadline": "Complete EU AI Act Compliance Checklist for Engineering Teams",
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "AI Engineers, Compliance Officers, CTOs"
+      },
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/resources/eu-ai-act-checklist.png",
+        "width": 1200,
+        "height": 630
+      },
+      "thumbnailUrl": "https://integritystudio.ai/images/resources/eu-ai-act-checklist.png",
+      "mainEntity": [
+        {
+          "@type": "Thing",
+          "name": "EU AI Act",
+          "description": "European Union regulation on artificial intelligence"
+        },
+        {
+          "@type": "Thing",
+          "name": "High-Risk AI Systems",
+          "description": "AI systems requiring enhanced compliance measures"
+        }
+      ],
+      "mentions": [
+        {
+          "@type": "Legislation",
+          "name": "EU AI Act",
+          "legislationIdentifier": "Regulation (EU) 2024/1689"
+        }
+      ],
+      "copyrightYear": 2024,
+      "copyrightHolder": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "dateCreated": "2024-12-01",
+      "timeRequired": "PT45M",
+      "wordCount": 2500,
+      "citation": [
+        {
+          "@type": "Legislation",
+          "name": "EU AI Act",
+          "url": "https://eur-lex.europa.eu/eli/reg/2024/1689"
+        }
+      ]
     },
     {
       "@type": "WebApplication",
@@ -4326,6 +5045,25 @@
         "@type": "Thing",
         "name": "LLM API Pricing",
         "description": "Cost comparison for large language model API services"
+      },
+      "browserRequirements": "Requires JavaScript. Works in Chrome, Firefox, Safari, Edge.",
+      "softwareVersion": "1.0",
+      "dateModified": "2025-01-28",
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/blog/llm-cost-calculator-screenshot.png",
+        "width": 1200,
+        "height": 630
+      },
+      "screenshot": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/blog/llm-cost-calculator-screenshot.png",
+        "width": 1200,
+        "height": 630,
+        "caption": "LLM Cost Calculator comparing GPT-4, Claude, Gemini, and DeepSeek pricing"
+      },
+      "aggregateRating": {
+        "@id": "https://integritystudio.ai/#aggregate-rating"
       }
     },
     {
@@ -4383,7 +5121,46 @@
       },
       "isBasedOn": {
         "@id": "https://integritystudio.ai/#industry-data"
-      }
+      },
+      "reportNumber": "IS-2025-001",
+      "speakable": {
+        "@type": "SpeakableSpecification",
+        "cssSelector": [
+          "h1",
+          ".report-abstract",
+          ".key-findings"
+        ]
+      },
+      "wordCount": 8000,
+      "dateModified": "2025-01-15",
+      "image": {
+        "@type": "ImageObject",
+        "url": "https://integritystudio.ai/images/reports/state-of-ai-observability-2025.png",
+        "width": 1200,
+        "height": 630
+      },
+      "copyrightYear": 2025,
+      "articleSection": "Industry Research",
+      "citation": [
+        {
+          "@type": "Dataset",
+          "name": "AI Observability Market Size",
+          "creator": {
+            "@type": "Organization",
+            "name": "Grand View Research"
+          }
+        },
+        {
+          "@type": "Dataset",
+          "name": "Enterprise AI Budget Trends",
+          "creator": {
+            "@type": "Organization",
+            "name": "Gartner"
+          }
+        }
+      ],
+      "pageStart": "1",
+      "pageEnd": "32"
     },
     {
       "@type": "Offer",
@@ -4435,7 +5212,24 @@
           "name": "Feature",
           "value": "Community access"
         }
-      ]
+      ],
+      "offeredBy": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "seller": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "areaServed": {
+        "@type": "Place",
+        "name": "Global"
+      },
+      "category": "SaaS",
+      "validFrom": "2024-06-01",
+      "validThrough": "2025-12-31",
+      "eligibleRegion": {
+        "@type": "Place",
+        "name": "Global"
+      }
     },
     {
       "@type": "Offer",
@@ -4498,7 +5292,24 @@
           "name": "Feature",
           "value": "EU AI Act reports"
         }
-      ]
+      ],
+      "offeredBy": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "seller": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "areaServed": {
+        "@type": "Place",
+        "name": "Global"
+      },
+      "category": "SaaS",
+      "validFrom": "2024-06-01",
+      "validThrough": "2025-12-31",
+      "eligibleRegion": {
+        "@type": "Place",
+        "name": "Global"
+      }
     },
     {
       "@type": "Offer",
@@ -4567,7 +5378,24 @@
           "name": "Feature",
           "value": "Compliance dashboard"
         }
-      ]
+      ],
+      "offeredBy": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "seller": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "areaServed": {
+        "@type": "Place",
+        "name": "Global"
+      },
+      "category": "SaaS",
+      "validFrom": "2024-06-01",
+      "validThrough": "2025-12-31",
+      "eligibleRegion": {
+        "@type": "Place",
+        "name": "Global"
+      }
     },
     {
       "@type": "HowTo",
@@ -4657,7 +5485,17 @@
       "mainEntityOfPage": {
         "@type": "WebPage",
         "url": "https://integritystudio.ai/docs/quickstart"
-      }
+      },
+      "inLanguage": "en-US",
+      "datePublished": "2024-06-01",
+      "dateModified": "2025-01-10",
+      "keywords": [
+        "quickstart",
+        "SDK setup",
+        "AI observability",
+        "getting started"
+      ],
+      "yield": "A working Integrity Studio integration with first traces flowing"
     },
     {
       "@type": "HowTo",
@@ -4734,7 +5572,17 @@
       "mainEntityOfPage": {
         "@type": "WebPage",
         "url": "https://integritystudio.ai/docs/compliance"
-      }
+      },
+      "inLanguage": "en-US",
+      "datePublished": "2024-12-01",
+      "dateModified": "2025-01-01",
+      "keywords": [
+        "EU AI Act",
+        "compliance",
+        "audit trail",
+        "risk classification"
+      ],
+      "yield": "A fully configured EU AI Act compliance monitoring setup"
     },
     {
       "@type": "HowTo",
@@ -4800,7 +5648,17 @@
       "mainEntityOfPage": {
         "@type": "WebPage",
         "url": "https://integritystudio.ai/docs/integrations/slack"
-      }
+      },
+      "inLanguage": "en-US",
+      "datePublished": "2024-06-01",
+      "dateModified": "2025-01-01",
+      "keywords": [
+        "Slack integration",
+        "alerts",
+        "notifications",
+        "observability"
+      ],
+      "yield": "Real-time AI observability alerts delivered to a Slack channel"
     },
     {
       "@type": "WebAPI",
@@ -5007,7 +5865,26 @@
         "LLM monitoring trends",
         "enterprise AI adoption",
         "AI market research"
-      ]
+      ],
+      "author": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "datePublished": "2024-01-01",
+      "dateModified": "2025-01-15",
+      "inLanguage": "en-US",
+      "license": "https://integritystudio.ai/data-license",
+      "isAccessibleForFree": false,
+      "about": {
+        "@type": "Thing",
+        "name": "AI Observability Market",
+        "description": "Market data and benchmarks for AI observability and LLM monitoring"
+      },
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "AI Engineers, Data Scientists, Product Managers"
+      },
+      "measurementMethod": "Survey, API benchmarking, public data aggregation",
+      "measurementTechnique": "Automated data collection and manual research verification"
     },
     {
       "@type": "AggregateRating",
@@ -5039,7 +5916,37 @@
       "datePublished": "2025-01-15T00:00:00Z",
       "dateModified": "2025-01-28T00:00:00Z",
       "author": {
-        "@id": "https://www.aledlie.com#person"
+        "@type": "Person",
+        "@id": "https://www.aledlie.com#person",
+        "name": "Alyshia Ledlie",
+        "alternateName": [
+          "Alyshia"
+        ],
+        "url": "https://www.aledlie.com/",
+        "image": {
+          "@type": "ImageObject",
+          "url": "https://www.aledlie.com/images/profile.jpg",
+          "width": 400,
+          "height": 400
+        },
+        "description": "I write code, make aggressively mediocre jokes, and scale companies.",
+        "email": "alyshia@integritystudio.ai",
+        "jobTitle": [
+          "Software Developer",
+          "Technology Consultant",
+          "Writer"
+        ],
+        "worksFor": [
+          {
+            "@id": "https://integritystudio.ai/#organization"
+          }
+        ],
+        "sameAs": [
+          "mailto:alyshia@integritystudio.ai",
+          "https://github.com/integritystudio",
+          "https://integritystudio.ai",
+          "https://amazing-froyo-8f05e0.netlify.app/"
+        ]
       },
       "publisher": {
         "@id": "https://integritystudio.ai/#organization"
@@ -5111,7 +6018,21 @@
           "name": "Google Gemini",
           "url": "https://deepmind.google/technologies/gemini/"
         }
-      ]
+      ],
+      "copyrightYear": 2025,
+      "copyrightHolder": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "dateCreated": "2025-01-15T00:00:00Z",
+      "genre": "Technology",
+      "accessibilityFeature": [
+        "structuredNavigation",
+        "alternativeText",
+        "readingOrder"
+      ],
+      "accessibilitySummary": "Structured article with code examples, headings, and alternative text for images",
+      "thumbnailUrl": "https://integritystudio.ai/images/blog/llm-cost-optimization-guide-hero.png",
+      "abstract": "Comprehensive guide to optimizing LLM costs with interactive calculator, token optimization strategies, model selection frameworks, and real-world cost reduction case studies."
     }
   ]
 }
