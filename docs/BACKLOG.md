@@ -614,7 +614,7 @@ Contact form page loads and navigates ✓, but form submission flow is untested.
 - Error message display on failed submission
 - Backend mock or live endpoint for test environment
 
-**Status:** Deferred — requires backend integration or service worker mock. Consider using Playwright network intercept to mock contact-form worker response.
+**Status:** Done — HTTP-layer submission flow tests added to `contact-worker.spec.ts`: POST with valid fields + no CSRF token (skips on CSRF_SECRET misconfiguration), POST with valid fields + invalid CSRF token (same), and JSON content-type check. Flutter canvas blocks UI-level form fill/submit (#111 limitation). Commits 9dd26d9 + 8c1c113.
 
 ---
 
@@ -971,7 +971,7 @@ Test "GET with valid origin and 200 returns valid CSRF token format" wraps all a
 
 **Fix:** Either split into "endpoint reachability (200|503)" and "token format (200-only)" tests, or use `test.fail()` on consistent 503 to signal expected failure.
 
-**Status:** Deferred — token generation fallback (503) is documented; current pattern is pragmatic but could be stricter.
+**Status:** Done — replaced `if (response.status() === 200)` guard with `test.skip(response.status() !== 200, ...)` so 503 appears as skipped in CI rather than silently passing. Commit e912b39.
 
 After #121 + follow-up commit 1de8419, known non-const sites in `docs_tracing_page`, `docs_quickstart_page`, `docs_alerts_page`, `docs_api_page`, and `api_toolkit_page` are fixed. Run a full sweep to confirm no remaining non-const `DocBulletList` call sites exist in other pages (e.g., `docs_observability_page`, `security_page`, `eu_ai_act_page`).
 
