@@ -110,6 +110,16 @@ export const SITE_URL = process.env['BASE_URL'] ?? 'https://integritystudio.ai';
 /** Human-readable site name used in og:site_name and author meta. */
 export const SITE_NAME = process.env['SITE_NAME'] ?? 'Integrity Studio';
 
+/**
+ * Contact form Cloudflare Worker URL.
+ *
+ * Override via CONTACT_WORKER_URL env var in CI or local runs that target
+ * a staging worker instead of the production endpoint.
+ */
+export const CONTACT_WORKER_URL =
+  process.env['CONTACT_WORKER_URL'] ??
+  'https://integrity-studio-contact.alyshia-b38.workers.dev';
+
 // ---------------------------------------------------------------------------
 // Consent / Tracking (must match Dart-side values)
 // ---------------------------------------------------------------------------

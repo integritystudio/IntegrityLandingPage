@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { CONTACT_WORKER_URL, SITE_URL } from './constants';
 
 /**
  * E2E tests for the Cloudflare Worker contact form API.
@@ -22,9 +23,8 @@ import { test, expect } from '@playwright/test';
  * Configured via CONTACT_API_URL dart-define in contact_service.dart.
  */
 
-const WORKER_URL = process.env['CONTACT_WORKER_URL']
-  ?? 'https://integrity-studio-contact.alyshia-b38.workers.dev';
-const ALLOWED_ORIGIN = process.env['BASE_URL'] ?? 'https://integritystudio.ai';
+const WORKER_URL = CONTACT_WORKER_URL;
+const ALLOWED_ORIGIN = SITE_URL;
 
 test.describe('Contact Form Worker API (#109)', () => {
   // -------------------------------------------------------------------------
