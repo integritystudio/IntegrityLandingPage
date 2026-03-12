@@ -373,4 +373,50 @@ void main() {
       expect(ContentLoader.companyEmail, equals('deep@nested.com'));
     });
   });
+
+  group('ContentLoadException', () {
+    setUp(() => Content.reset());
+    tearDown(() => Content.reset());
+
+    test('toString without cause omits caused-by clause', () {
+      const ex = ContentLoadException('something failed');
+      expect(ex.toString(), equals('ContentLoadException: something failed'));
+    });
+
+    test('toString with cause includes caused-by clause', () {
+      const ex = ContentLoadException(
+        'something failed',
+        cause: 'root error',
+      );
+      expect(
+        ex.toString(),
+        equals('ContentLoadException: something failed (caused by: root error)'),
+      );
+    });
+
+    test('loadFromString throws ContentLoadException on bare string YAML', () {
+      expect(
+        () => ContentLoader.loadFromString('just a string'),
+        throwsA(isA<ContentLoadException>()),
+      );
+    });
+
+    test('loadFromString throws ContentLoadException on YAML list', () {
+      expect(
+        () => ContentLoader.loadFromString('- item1\n- item2\n'),
+        throwsA(isA<ContentLoadException>()),
+      );
+    });
+
+    test('loadFromString ContentLoadException message describes type', () {
+      expect(
+        () => ContentLoader.loadFromString('just a string'),
+        throwsA(
+          predicate<ContentLoadException>(
+            (e) => e.message.contains('map at root level'),
+          ),
+        ),
+      );
+    });
+  });
 }
