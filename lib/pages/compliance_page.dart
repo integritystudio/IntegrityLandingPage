@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
+import '../widgets/sections/page_hero_section.dart';
 
 /// General compliance and governance overview page.
 ///
@@ -56,7 +57,15 @@ class CompliancePage extends StatelessWidget {
 
           // Hero Section
           SliverToBoxAdapter(
-            child: _HeroSection(isMobile: isMobile),
+            child: PageHeroSection(
+              isMobile: isMobile,
+              accentColor: AppColors.purple400,
+              badgeIcon: LucideIcons.shieldCheck,
+              badgeText: 'Enterprise Compliance',
+              headline: 'Compliance & Governance',
+              subheadline:
+                  'Meet regulatory requirements with confidence. Integrity Studio is designed for enterprise compliance across SOC 2, GDPR, and the EU AI Act.',
+            ),
           ),
 
           // Content
@@ -98,93 +107,6 @@ class CompliancePage extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HeroSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _HeroSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.gray900,
-            AppColors.gray800.withValues(alpha: 0.5),
-            AppColors.gray900,
-          ],
-        ),
-      ),
-      child: SectionContainer(
-        padding: EdgeInsets.symmetric(
-          vertical: isMobile ? AppSpacing.xxl : AppSpacing.xxxl,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Badge
-            Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.purple500.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                border: Border.all(
-                  color: AppColors.purple500.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    LucideIcons.shieldCheck,
-                    size: 16,
-                    color: AppColors.purple400,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Enterprise Compliance',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.purple400,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Headline
-            Text(
-              'Compliance & Governance',
-              style: isMobile
-                  ? AppTypography.headingLG.copyWith(fontSize: 28)
-                  : AppTypography.headingXL,
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Subheadline
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 700),
-              child: Text(
-                'Meet regulatory requirements with confidence. Integrity Studio is designed for enterprise compliance across SOC 2, GDPR, and the EU AI Act.',
-                style: AppTypography.bodyLG,
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
