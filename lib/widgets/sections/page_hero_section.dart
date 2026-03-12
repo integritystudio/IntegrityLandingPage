@@ -28,6 +28,7 @@ class PageHeroSection extends StatelessWidget {
     required this.headline,
     required this.subheadline,
     this.subheadlineMaxWidth = 700,
+    this.mobileHeadlineFontSize = 28,
     this.extraContent,
   });
 
@@ -44,6 +45,10 @@ class PageHeroSection extends StatelessWidget {
 
   /// Max width constraint on the subheadline text. Defaults to 700.
   final double subheadlineMaxWidth;
+
+  /// Font size applied to the headline on mobile. Defaults to 28. Pass a
+  /// different value when a page's design calls for a larger mobile headline.
+  final double mobileHeadlineFontSize;
 
   /// Optional widget rendered below the subheadline (e.g. stat cards, chips).
   /// When provided, an [AppSpacing.xl] gap is inserted above it.
@@ -102,7 +107,7 @@ class PageHeroSection extends StatelessWidget {
             Text(
               headline,
               style: isMobile
-                  ? AppTypography.headingLG.copyWith(fontSize: 28)
+                  ? AppTypography.headingLG.copyWith(fontSize: mobileHeadlineFontSize)
                   : AppTypography.headingXL,
               textAlign: TextAlign.center,
             ),

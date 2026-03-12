@@ -63,6 +63,7 @@ class SecurityPage extends StatelessWidget {
               headline: SecurityContent.pageTitle,
               subheadline: SecurityContent.subtitle,
               subheadlineMaxWidth: 600,
+              mobileHeadlineFontSize: 32,
             ),
           ),
 
