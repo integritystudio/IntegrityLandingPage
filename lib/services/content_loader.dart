@@ -3,6 +3,8 @@
 /// Loads content from content.yaml at runtime and provides typed access.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
@@ -31,49 +33,63 @@ class ContentLoader {
 
   static YamlMap? _content;
   static bool _isLoaded = false;
+  static Completer<void>? _loadCompleter;
 
   /// Whether content has been loaded.
   static bool get isLoaded => _isLoaded;
 
   /// Load content from YAML file.
   ///
+  /// Concurrent callers await the same load operation — only one
+  /// rootBundle fetch is issued even if called from multiple init paths.
+  ///
   /// Throws [ContentLoadException] if the asset cannot be read or parsed.
   static Future<void> load() async {
     if (_isLoaded) return;
+    if (_loadCompleter != null) return _loadCompleter!.future;
+    _loadCompleter = Completer<void>();
     _mapCache.clear();
     _listCache.clear();
     _stringListCache.clear();
     _stringMapCache.clear();
 
-    final String yamlString;
     try {
-      yamlString = await rootBundle.loadString('content.yaml');
-    } on Object catch (e, st) {
-      throw ContentLoadException(
-        'Failed to load content.yaml asset',
-        cause: e,
-        stackTrace: st,
-      );
-    }
+      final String yamlString;
+      try {
+        yamlString = await rootBundle.loadString('content.yaml');
+      } on Object catch (e, st) {
+        throw ContentLoadException(
+          'Failed to load content.yaml asset',
+          cause: e,
+          stackTrace: st,
+        );
+      }
 
-    final Object? parsed;
-    try {
-      parsed = loadYaml(yamlString);
-    } on Object catch (e, st) {
-      throw ContentLoadException(
-        'Failed to parse content.yaml',
-        cause: e,
-        stackTrace: st,
-      );
-    }
+      final Object? parsed;
+      try {
+        parsed = loadYaml(yamlString);
+      } on Object catch (e, st) {
+        throw ContentLoadException(
+          'Failed to parse content.yaml',
+          cause: e,
+          stackTrace: st,
+        );
+      }
 
-    if (parsed is! YamlMap) {
-      throw ContentLoadException(
-        'content.yaml must be a YAML map at root level, got ${parsed.runtimeType}',
-      );
+      if (parsed is! YamlMap) {
+        throw ContentLoadException(
+          'content.yaml must be a YAML map at root level, got ${parsed.runtimeType}',
+        );
+      }
+      _content = parsed;
+      _isLoaded = true;
+      _loadCompleter!.complete();
+    } on Object catch (e) {
+      final completer = _loadCompleter!;
+      _loadCompleter = null;
+      completer.completeError(e);
+      rethrow;
     }
-    _content = parsed;
-    _isLoaded = true;
   }
 
   /// Load content from a YAML string (for testing).
@@ -102,6 +118,7 @@ class ContentLoader {
   static void reset() {
     _content = null;
     _isLoaded = false;
+    _loadCompleter = null;
     _mapCache.clear();
     _listCache.clear();
     _stringListCache.clear();
