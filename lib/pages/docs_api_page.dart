@@ -175,7 +175,7 @@ X-API-Key: <your-api-key>''',
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              _WarningCallout(
+              const DocInlineWarning(
                 message:
                     'Never expose API keys in client-side code. Use environment variables or a secrets manager.',
               ),
@@ -673,35 +673,3 @@ class _EndpointCard extends StatelessWidget {
   }
 }
 
-class _WarningCallout extends StatelessWidget {
-  final String message;
-
-  const _WarningCallout({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border(
-          left: BorderSide(color: AppColors.warning, width: 3),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(LucideIcons.alertTriangle, color: AppColors.warning, size: 18),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              message,
-              style: AppTypography.bodyMD.copyWith(color: AppColors.warning),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
