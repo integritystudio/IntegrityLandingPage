@@ -77,7 +77,17 @@ Future<void> main() async {
   }
 
   // Load content from YAML before app starts
-  await Content.load();
+  try {
+    await Content.load();
+  } on ContentLoadException catch (e, stackTrace) {
+    FlutterError.reportError(FlutterErrorDetails(
+      exception: e,
+      stack: stackTrace,
+      library: 'content_loader',
+      context: ErrorDescription('loading content.yaml at app startup'),
+    ));
+    rethrow;
+  }
 
   // Initialize GTM Consent Mode with default denied state (GDPR requirement)
   // This MUST happen before GTM loads to ensure proper consent handling
