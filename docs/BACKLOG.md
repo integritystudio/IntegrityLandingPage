@@ -48,9 +48,7 @@ CSP report-uri/report-to endpoints shared across staging/production. Staging is 
 ---
 
 
-
-
-## Blocked: Chrome Platform Tests (#77)
+## Deferred: Chrome Platform Tests (#77)
 
 **Severity:** CRITICAL
 **Category:** Test Infrastructure
@@ -277,7 +275,7 @@ Phases 2-4 of #88 Widget Duplication Consolidation were deferred after Phase 1 c
 
 All 7 docs pages share similar page structure: hero section, navigation, content area, footer. Extracting `DocsPageScaffold(title, description, child, accentColor)` would eliminate ~21 duplicate pairs. Requires parameterizing hero color and content area height.
 
-**Status:** Deferred — Phase 1 consolidation complete. Schedule Phase 2 after other medium-priority items.
+**Status:** Done — `DocsPageScaffold` extracted to `doc_page_scaffold.dart` with `title`, `heroBuilder(bool isMobile)`, `content`, and `onBack` params. All 7 docs pages reduced from ~35-line build() to 6-line delegation. ~21 duplicate pairs eliminated. Commit b4bb064.
 
 ---
 
@@ -290,7 +288,7 @@ All 7 docs pages share similar page structure: hero section, navigation, content
 
 Hero sections, feature grids, and step templates repeat across multiple pages. Creating `PageHeroSection(title, icon, description, color)` and consolidating grid/step layouts would eliminate ~30 duplicate pairs. Requires careful parameterization of conditional content (e.g., cards vs steps vs metrics).
 
-**Status:** Deferred — Phase 1 consolidation complete.
+**Status:** Done — `PageHeroSection` added to `lib/widgets/sections/page_hero_section.dart` with `accentColor`, `badgeIcon`, `badgeText`, `headline`, `subheadline`, `subheadlineMaxWidth`, `mobileHeadlineFontSize`, and `extraContent` params. Removed private `_HeroSection` from compliance, security, eu_ai_act, and api_toolkit pages (~80 lines each). ~30 duplicate pairs eliminated. Commits fabb49d, 1274382.
 
 ---
 
@@ -325,7 +323,7 @@ Three visually distinct warning callout styles exist post-#88:
 
 The api_page and quickstart_page variants cannot be directly replaced with `DocCallout.warning` because they use different layouts (Row vs Column, full border vs left border). Decision: keep as-is per reviewer PASS, but this is a missed consolidation opportunity and creates visual/API inconsistency.
 
-**Status:** Deferred — Pre-existing architectural inconsistency, lower priority than Phase 2 extraction.
+**Status:** Done — Added `DocInlineWarning(message, fullBorder=false)` to `doc_components.dart` (Row layout, left/full border, static const border fields). Replaced `_WarningCallout` in docs_api_page and `_WarningAlert` in docs_quickstart_page. Icon normalized to 18px. Commits 0b72c63, 8ec27fa.
 
 ---
 
@@ -534,7 +532,7 @@ Code review findings from content_loader.dart audit (session 2026-03-11). High-p
 
 **Fix:** Wrap the load pipeline in try/catch and re-throw a domain-specific exception (e.g., `ContentLoadException`) so the app's error boundary can surface it clearly. Consider using Sentry for error tracking on failure.
 
-**Status:** Deferred — guard in place (HIGH), error recovery path (P2) deferred for post-MVP refinement.
+**Status:** Done — `ContentLoadException` added; `load()` wraps both `rootBundle.loadString()` and `loadYaml()` in try/catch with cause+stackTrace. `loadFromString()` also updated to throw `ContentLoadException` for consistency. App startup in `main.dart` reports via `FlutterError.reportError` before rethrowing. Commits 1762a27, ebf476c.
 
 ---
 
@@ -549,7 +547,7 @@ Code review findings from content_loader.dart audit (session 2026-03-11). High-p
 
 **Fix:** Remove `_instance` and the instance getter; convert all methods to static. This aligns with siblings and eliminates confusion about which pattern owns the state.
 
-**Status:** Deferred — Low-priority refactoring. Impacts public API of `ContentLoader.instance`, but `Content` facade (which wraps it) is the primary consumer and can stay static.
+**Status:** Done — All instance members converted to static; `ContentLoader._()` private constructor retained. `Content` facade updated to call `ContentLoader` directly (removed `_loader` field). Test file migrated from `ContentLoader.instance.xxx` to `ContentLoader.xxx`. Commit a0a686e.
 
 ---
 
