@@ -1083,3 +1083,116 @@ The inline desktop nav (7 items + CTA) required reducing NavLink padding from `m
 *Appended this session (2026-03-09): #89 (DocsPageScaffold), #90 (hero templates), #91 (button/badge/shell), #92 (_WarningCallout variants), #93 (DocBulletList bulletColor doc), #94 (const optimization), #95 (api_toolkit_page migration), #96 (shared _StatCard), #97 (security_page _SecurityCard)*
 *Appended this session continued (2026-03-09): #98 (scrollUntilVisible loop), #99 (didChangeDependencies comment), #100 (animation reset on toggle), #101 (inactive file warning)*
 *Appended session (2026-03-11): #104-#108 (contentloader service refactoring — HIGH load() error recovery, MEDIUM static-only collapse + facade removal, LOW missing-key assertion + socialProofStats cache)*
+*Appended session (2026-03-12 continued): #137-#141 (backlog sprint post-merge review findings — 2 MEDIUM concurrency/cache issues in load(), 1 MEDIUM test coverage gap for ContentLoadException, 2 LOW widget test gaps for DocsPageScaffold/PageHeroSection)*
+
+---
+
+## Code Review Findings - Session 2026-03-12 (Backlog Sprint #104-#105 Post-Merge Review)
+
+**Source:** Full-stack review after backlog implementation sprint.
+**Related:** #104, #105 (ContentLoadException + static-only collapse)
+
+### #137: Add Cache Flush to load() Method
+
+**Severity:** MEDIUM
+**Category:** Error Handling (Race/State Management)
+**File:** `lib/services/content_loader.dart:41-72`
+**Source:** Code review (session 2026-03-12, commit a0a686e review)
+
+`load()` sets `_isLoaded = true` only on success, but if a previous call threw `ContentLoadException` mid-parse, all four caches remain populated from prior `loadFromString` call (in tests or hypothetical hot-reload). On subsequent successful `load()`, stale cache entries are never evicted because `load()` has no cache flush, unlike `loadFromString()` and `reset()`.
+
+In production this is unreachable (failed load ends the app), but asymmetry is a latent bug that could surface in tests if `load()` is exercised after `loadFromString()`.
+
+**Fix:** Mirror `loadFromString()`'s cache flush at top of `load()`:
+```dart
+_mapCache.clear();
+_listCache.clear();
+_stringListCache.clear();
+_stringMapCache.clear();
+```
+
+**Status:** Deferred — low risk in production (failed load is terminal), but test harness should be monitored.
+
+---
+
+### #138: Add Concurrent-Call Guard to load() Method
+
+**Severity:** MEDIUM
+**Category:** Concurrency (Race Condition)
+**File:** `lib/services/content_loader.dart:41-72`
+**Source:** Code review (session 2026-03-12, commit a0a686e review)
+
+`load()` is `async`. The `if (_isLoaded) return` guard is insufficient: two concurrent callers reaching the guard before either sets `_isLoaded = true` will both proceed through `await rootBundle.loadString(...)` and both assign to `_content`. Dart is single-threaded but `await` yields, so this is a real race on app startup if `load()` is called from two widget init paths simultaneously.
+
+**Fix:** Use `Completer` to coalesce concurrent callers:
+```dart
+static Completer<void>? _loadCompleter;
+
+static Future<void> load() async {
+  if (_isLoaded) return;
+  if (_loadCompleter != null) return _loadCompleter!.future;
+  _loadCompleter = Completer<void>();
+  try {
+    // ... parse logic ...
+    _isLoaded = true;
+    _loadCompleter!.complete();
+  } on Object catch (e, st) {
+    _loadCompleter = null;
+    rethrow;
+  }
+}
+```
+
+**Status:** Deferred — production apps typically call `load()` once at startup in a single `main()` path. Test scenario unlikely but worth guarding against.
+
+---
+
+### #139: Add Unit Tests for ContentLoadException
+
+**Severity:** MEDIUM
+**Category:** Test Coverage
+**File:** `test/services/content_loader_test.dart`
+**Source:** Full-stack review (session 2026-03-12)
+
+`ContentLoadException` is the primary deliverable of #104 but is never directly tested. Missing coverage:
+- `toString()` with and without `cause`
+- `loadFromString()` throwing `ContentLoadException` on non-map YAML (e.g., bare string or list)
+- `load()` throwing `ContentLoadException` on parse error (mocked `rootBundle`)
+
+**Status:** Deferred — error handling is production-correct (confirmed by FlutterError.reportError in main.dart), but type's own behavior lacks direct test coverage.
+
+---
+
+### #140: Add Widget Tests for DocsPageScaffold
+
+**Severity:** LOW
+**Category:** Test Coverage (Widget Tests)
+**File:** `lib/widgets/navigation/doc_page_scaffold.dart`
+**Source:** Full-stack review (session 2026-03-12)
+
+`DocsPageScaffold` is the core reusable scaffold for 7 docs pages (#89 refactor) but has no widget test. Missing coverage:
+- Basic scaffold structure (CustomScrollView + SliverAppBar + content + footer)
+- `heroBuilder` callback receives correct `isMobile` value
+- Content is wrapped in 900px `ConstrainedBox`
+- Responsive behavior at mobile/desktop widths
+
+**Status:** Deferred — low risk (scaffold behavior is straightforward), but golden test would prevent silent layout regressions.
+
+---
+
+### #141: Add Widget Tests for PageHeroSection
+
+**Severity:** LOW
+**Category:** Test Coverage (Widget Tests)
+**File:** `lib/widgets/sections/page_hero_section.dart`
+**Source:** Full-stack review (session 2026-03-12)
+
+`PageHeroSection` is the core reusable hero widget for 4+ content pages (#90 refactor) but has no widget test. Missing coverage:
+- Hero rendering with all parameter variations (`accentColor`, `badgeIcon`, `badgeText`, `headline`, `subheadline`, `extraContent`)
+- Mobile vs desktop headline sizing (`mobileHeadlineFontSize` parameter)
+- Gradient background rendering
+- Optional `extraContent` widget display
+
+**Status:** Deferred — low risk (behavior is straightforward), but would prevent regressions when extraContent changes.
+
+---
