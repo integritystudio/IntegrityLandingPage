@@ -19,37 +19,11 @@ class DocsObservabilityPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = ResponsiveUtils.isMobile(context);
-
-    return Scaffold(
-      backgroundColor: AppColors.gray900,
-      body: CustomScrollView(
-        slivers: [
-          // App bar
-          DocPageAppBar(title: 'Observability Guide', onBack: onBack),
-
-          // Hero Section
-          SliverToBoxAdapter(
-            child: _HeroSection(isMobile: isMobile),
-          ),
-
-          // Content
-          SliverToBoxAdapter(
-            child: SectionContainer(
-              padding: EdgeInsets.symmetric(
-                vertical: isMobile ? AppSpacing.xl : AppSpacing.xxl,
-              ),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 900),
-                child: const _DocsContent(),
-              ),
-            ),
-          ),
-
-          // Footer
-          const SliverToBoxAdapter(child: DocPageFooter()),
-        ],
-      ),
+    return DocsPageScaffold(
+      title: 'Observability Guide',
+      onBack: onBack,
+      heroBuilder: (isMobile) => _HeroSection(isMobile: isMobile),
+      content: const _DocsContent(),
     );
   }
 }
