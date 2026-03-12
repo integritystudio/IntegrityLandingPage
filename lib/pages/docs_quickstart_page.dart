@@ -203,7 +203,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.md),
-              const DocBulletList(bulletColor: AppColors.success, items: const [
+              const DocBulletList(bulletColor: AppColors.success, items: [
                 'An Integrity Studio account (free tier available)',
                 'Python 3.8+, Node.js 18+, or Go 1.20+',
                 'An LLM application to instrument',
@@ -731,7 +731,7 @@ curl https://api.integritystudio.ai/v1/health \\
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const DocBulletList(bulletColor: AppColors.success, items: const [
+              const DocBulletList(bulletColor: AppColors.success, items: [
                 'Set up alerts \u2014 /docs/alerts',
                 'Configure integrations \u2014 /docs/integrations',
                 'Explore the API \u2014 /docs/api',

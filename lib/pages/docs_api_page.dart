@@ -581,7 +581,7 @@ span.SetAttribute("gen_ai.request.model", "claude-3-opus")''',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const DocBulletList(bulletColor: const Color(0xFF22D3EE), items: const [
+              const DocBulletList(bulletColor: const Color(0xFF22D3EE), items: [
                 'Getting Started Guide \u2014 /docs/quickstart',
                 'Integrations \u2014 /docs/integrations',
                 'Distributed Tracing \u2014 /docs/tracing',

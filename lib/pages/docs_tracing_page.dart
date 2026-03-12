@@ -190,7 +190,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const DocBulletList(items: const [
+              const DocBulletList(items: [
                 'Providers \u2014 Organizations developing or placing AI systems on the market',
                 'Deployers \u2014 Organizations using AI systems in their operations',
                 'Importers \u2014 Entities bringing AI systems into the EU market',
@@ -238,7 +238,7 @@ class _DocsContent extends StatelessWidget {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const DocBulletList(items: const [
+              const DocBulletList(items: [
                 'Period of use \u2014 When the system was active and processing',
                 'Reference databases \u2014 Which data sources were consulted',
                 'Input data \u2014 What data was processed (with appropriate redaction)',
@@ -480,7 +480,7 @@ const redactPII = (text) => {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const DocBulletList(items: const [
+              const DocBulletList(items: [
                 'EU AI Act - Shaping Europe\'s Digital Future',
                 'Article 12: Record-Keeping Requirements',
                 'Article 26: Obligations of Deployers',
@@ -492,7 +492,7 @@ const redactPII = (text) => {
                 style: AppTypography.headingSM.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppSpacing.md),
-              const DocBulletList(items: const [
+              const DocBulletList(items: [
                 'OpenTelemetry Documentation',
                 'SigNoz Documentation',
                 'Full Observability Framework Guide',

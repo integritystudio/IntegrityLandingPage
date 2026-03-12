@@ -654,7 +654,7 @@ export SIGNOZ_QUERY_URL=https://us.signoz.cloud/api/v3''',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const DocBulletList(bulletColor: AppColors.purple500, items: const [
+              const DocBulletList(bulletColor: AppColors.purple500, items: [
                 'LRU Query Caching \u2014 Configurable TTL with hit/miss tracking',
                 'File Indexing \u2014 .idx sidecar files for fast lookups without full scans',
                 'Gzip Compression \u2014 Transparent handling of .gz telemetry files',
@@ -674,7 +674,7 @@ export SIGNOZ_QUERY_URL=https://us.signoz.cloud/api/v3''',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const DocBulletList(bulletColor: AppColors.purple500, items: const [
+              const DocBulletList(bulletColor: AppColors.purple500, items: [
                 'Platform API Reference \u2014 /api',
                 'LLM Observability Guide \u2014 /docs/llm-observability',
                 'Distributed Tracing \u2014 /docs/tracing',
