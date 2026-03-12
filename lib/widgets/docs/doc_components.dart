@@ -518,3 +518,47 @@ class DocCallout extends StatelessWidget {
     );
   }
 }
+
+/// Inline warning banner — icon + message in a single Row, no title.
+///
+/// Use [DocCallout.warning] when a titled callout (Column layout) is needed.
+/// Use [DocInlineWarning] for compact, titleless warning lines.
+///
+/// [fullBorder] renders a full border instead of a left-border accent.
+class DocInlineWarning extends StatelessWidget {
+  const DocInlineWarning({
+    super.key,
+    required this.message,
+    this.fullBorder = false,
+  });
+
+  final String message;
+  final bool fullBorder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+        border: fullBorder
+            ? Border.all(color: AppColors.warning)
+            : Border(left: BorderSide(color: AppColors.warning, width: 3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.alertTriangle, color: AppColors.warning, size: 18),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTypography.bodyMD.copyWith(color: AppColors.warning),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

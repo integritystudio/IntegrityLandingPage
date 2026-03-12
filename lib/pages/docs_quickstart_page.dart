@@ -257,8 +257,9 @@ export INTEGRITY_API_KEY="your-api-key-here"
 INTEGRITY_API_KEY=your-api-key-here''',
               ),
               const SizedBox(height: AppSpacing.lg),
-              _WarningAlert(
+              DocInlineWarning(
                 message: SecurityContent.secretsWarning,
+                fullBorder: true,
               ),
             ],
           ),
@@ -1072,36 +1073,4 @@ class _HealthMetricCard extends StatelessWidget {
   }
 }
 
-class _WarningAlert extends StatelessWidget {
-  final String message;
-
-  const _WarningAlert({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.warning),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(LucideIcons.alertTriangle, color: AppColors.warning, size: 20),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              message,
-              style: AppTypography.bodyMD.copyWith(
-                color: AppColors.warning,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
