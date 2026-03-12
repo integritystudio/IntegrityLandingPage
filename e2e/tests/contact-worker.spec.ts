@@ -212,12 +212,11 @@ test.describe('Contact Form Worker API (#109)', () => {
         },
         data: VALID_SUBMISSION,
       });
-      // 403 CSRF required / 429 rate-limited; 200 only if CSRF_SECRET not configured
-      expect([200, 403, 429]).toContain(response.status());
+      // Skip (not silently pass) when CSRF_SECRET is not configured and worker returns 200
+      test.skip(response.status() === 200, 'CSRF_SECRET not configured — skipping CSRF guard assertion');
+      expect([403, 429]).toContain(response.status());
       const body = await response.json();
-      if (response.status() === 403) {
-        expect(body.error).toBeDefined();
-      }
+      expect(body.error).toBeDefined();
     });
 
     test('POST with valid fields and invalid CSRF token returns 403', async ({ request }) => {
@@ -229,11 +228,12 @@ test.describe('Contact Form Worker API (#109)', () => {
         },
         data: VALID_SUBMISSION,
       });
-      // 403 CSRF invalid / 429 rate-limited; 200 if CSRF_SECRET not configured
-      expect([200, 403, 429]).toContain(response.status());
+      // Skip (not silently pass) when CSRF_SECRET is not configured and worker returns 200
+      test.skip(response.status() === 200, 'CSRF_SECRET not configured — skipping CSRF guard assertion');
+      expect([403, 429]).toContain(response.status());
     });
 
-    test('POST with valid fields returns JSON response', async ({ request }) => {
+    test('POST with valid complete fields returns JSON error response', async ({ request }) => {
       const response = await request.post(WORKER_URL, {
         headers: {
           'Content-Type': 'application/json',
@@ -241,6 +241,9 @@ test.describe('Contact Form Worker API (#109)', () => {
         },
         data: VALID_SUBMISSION,
       });
+      // Valid fields bypass field-validation errors; response is still an error (CSRF/rate-limit)
+      // unless CSRF_SECRET is not configured (200 success path)
+      expect([200, 403, 429]).toContain(response.status());
       const ct = response.headers()['content-type'] ?? '';
       expect(ct).toContain('application/json');
     });
