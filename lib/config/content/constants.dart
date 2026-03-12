@@ -374,6 +374,6 @@ abstract final class AppStatistics {
 abstract final class ContentVariants {
   static const String current = 'current';
   static const String legacy = 'legacy';
-  static const String agentFirst = 'agent-first';
-  static const String costFocused = 'cost-focused';
+  static const String agentFirst = 'agent_first';
+  static const String costFocused = 'cost_focused';
 }
