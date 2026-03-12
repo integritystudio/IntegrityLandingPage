@@ -9,10 +9,11 @@ import 'package:yaml/yaml.dart';
 
 /// Thrown when content.yaml cannot be loaded or parsed.
 class ContentLoadException implements Exception {
-  const ContentLoadException(this.message, {this.cause});
+  const ContentLoadException(this.message, {this.cause, this.stackTrace});
 
   final String message;
   final Object? cause;
+  final StackTrace? stackTrace;
 
   @override
   String toString() => cause != null
@@ -46,18 +47,23 @@ class ContentLoader {
     final String yamlString;
     try {
       yamlString = await rootBundle.loadString('content.yaml');
-    } on Object catch (e) {
+    } on Object catch (e, st) {
       throw ContentLoadException(
         'Failed to load content.yaml asset',
         cause: e,
+        stackTrace: st,
       );
     }
 
     final Object? parsed;
     try {
       parsed = loadYaml(yamlString);
-    } on Object catch (e) {
-      throw ContentLoadException('Failed to parse content.yaml', cause: e);
+    } on Object catch (e, st) {
+      throw ContentLoadException(
+        'Failed to parse content.yaml',
+        cause: e,
+        stackTrace: st,
+      );
     }
 
     if (parsed is! YamlMap) {
@@ -80,7 +86,7 @@ class ContentLoader {
     _stringMapCache.clear();
     final parsed = loadYaml(yamlString);
     if (parsed is! YamlMap) {
-      throw FormatException(
+      throw ContentLoadException(
         'YAML content must be a map at root level, got ${parsed.runtimeType}',
       );
     }
