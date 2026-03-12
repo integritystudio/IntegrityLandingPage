@@ -7,6 +7,19 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
 
+/// Thrown when content.yaml cannot be loaded or parsed.
+class ContentLoadException implements Exception {
+  const ContentLoadException(this.message, {this.cause});
+
+  final String message;
+  final Object? cause;
+
+  @override
+  String toString() => cause != null
+      ? 'ContentLoadException: $message (caused by: $cause)'
+      : 'ContentLoadException: $message';
+}
+
 /// Service for loading and accessing content from content.yaml.
 class ContentLoader {
   static ContentLoader? _instance;
@@ -25,13 +38,30 @@ class ContentLoader {
   bool get isLoaded => _isLoaded;
 
   /// Load content from YAML file.
+  ///
+  /// Throws [ContentLoadException] if the asset cannot be read or parsed.
   Future<void> load() async {
     if (_isLoaded) return;
 
-    final yamlString = await rootBundle.loadString('content.yaml');
-    final parsed = loadYaml(yamlString);
+    final String yamlString;
+    try {
+      yamlString = await rootBundle.loadString('content.yaml');
+    } on Object catch (e) {
+      throw ContentLoadException(
+        'Failed to load content.yaml asset',
+        cause: e,
+      );
+    }
+
+    final Object? parsed;
+    try {
+      parsed = loadYaml(yamlString);
+    } on Object catch (e) {
+      throw ContentLoadException('Failed to parse content.yaml', cause: e);
+    }
+
     if (parsed is! YamlMap) {
-      throw FormatException(
+      throw ContentLoadException(
         'content.yaml must be a YAML map at root level, got ${parsed.runtimeType}',
       );
     }
