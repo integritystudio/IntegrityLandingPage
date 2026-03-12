@@ -347,44 +347,43 @@ class _AboutHeroSection extends StatelessWidget {
             ),
           ),
 
-          // Layered content
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildLayerRow(
-                  icon: LucideIcons.users,
-                  title: 'Application Layer',
-                  subtitle: 'User feedback & interactions',
-                  color: AppColors.purple500,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _buildLayerRow(
-                  icon: LucideIcons.gitBranch,
-                  title: 'Orchestration Layer',
-                  subtitle: 'Chain performance & guardrails',
-                  color: AppColors.indigo500,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _buildLayerRow(
-                  icon: LucideIcons.bot,
-                  title: 'Agentic Layer',
-                  subtitle: 'Tool calls & reasoning chains',
-                  color: AppColors.blue500,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _buildLayerRow(
-                  icon: LucideIcons.activity,
-                  title: 'Model / LLM Layer',
-                  subtitle: 'Token usage, latency & costs',
-                  color: AppColors.success,
-                ),
-              ],
+          // Layered content — Positioned.fill gives bounded constraints so
+          // Column can distribute items without overflowing the fixed container.
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildLayerRow(
+                    icon: LucideIcons.users,
+                    title: 'Application Layer',
+                    subtitle: 'User feedback & interactions',
+                    color: AppColors.purple500,
+                  ),
+                  _buildLayerRow(
+                    icon: LucideIcons.gitBranch,
+                    title: 'Orchestration Layer',
+                    subtitle: 'Chain performance & guardrails',
+                    color: AppColors.indigo500,
+                  ),
+                  _buildLayerRow(
+                    icon: LucideIcons.bot,
+                    title: 'Agentic Layer',
+                    subtitle: 'Tool calls & reasoning chains',
+                    color: AppColors.blue500,
+                  ),
+                  _buildLayerRow(
+                    icon: LucideIcons.activity,
+                    title: 'Model / LLM Layer',
+                    subtitle: 'Token usage, latency & costs',
+                    color: AppColors.success,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
