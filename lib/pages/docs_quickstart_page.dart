@@ -257,7 +257,7 @@ export INTEGRITY_API_KEY="your-api-key-here"
 INTEGRITY_API_KEY=your-api-key-here''',
               ),
               const SizedBox(height: AppSpacing.lg),
-              DocInlineWarning(
+              const DocInlineWarning(
                 message: SecurityContent.secretsWarning,
                 fullBorder: true,
               ),
