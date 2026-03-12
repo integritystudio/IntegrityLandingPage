@@ -40,6 +40,10 @@ class ContentLoader {
   /// Throws [ContentLoadException] if the asset cannot be read or parsed.
   static Future<void> load() async {
     if (_isLoaded) return;
+    _mapCache.clear();
+    _listCache.clear();
+    _stringListCache.clear();
+    _stringMapCache.clear();
 
     final String yamlString;
     try {
