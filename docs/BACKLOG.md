@@ -866,7 +866,7 @@ After adding outer `const` to `DocBulletList(...)` call sites, the inner `items:
 
 **Fix:** Remove inner `const` from `items:` parameter at these 6 sites.
 
-**Status:** Deferred — cosmetic style cleanup. No behavioral impact.
+**Status:** Done — inner `const` removed from all 12 `items:` params across 5 pages (docs_tracing, docs_quickstart, docs_alerts, docs_api, api_toolkit). Commit d7d217d.
 
 ---
 
@@ -879,7 +879,7 @@ After adding outer `const` to `DocBulletList(...)` call sites, the inner `items:
 
 Sweep `lib/pages/*.dart` to verify no remaining `DocBulletList()` call sites are missing the outer `const` keyword after #121 const-ification.
 
-**Status:** Deferred — low priority style cleanup.
+**Status:** Done — sweep confirmed no remaining non-const DocBulletList call sites after #121 + d7d217d. Commit d7d217d.
 
 ---
 
@@ -896,7 +896,7 @@ Sweep `lib/pages/*.dart` to verify no remaining `DocBulletList()` call sites are
 
 **Fix:** Add env fallback for `SITE_URL` and `SITE_NAME` to `constants.ts` or inline with pattern.
 
-**Status:** Deferred — affects staging/dev test environments only.
+**Status:** Done — `SITE_URL` and `SITE_NAME` moved to `constants.ts` with `process.env` fallbacks. Commit b79b5fe.
 
 ---
 
@@ -911,7 +911,7 @@ Sweep `lib/pages/*.dart` to verify no remaining `DocBulletList()` call sites are
 
 **Fix:** Add JSDoc or inline comment explaining beforeAll cost/benefit trade-off.
 
-**Status:** Deferred — documentation-only, functional but should be explicit.
+**Status:** Done — JSDoc comment added explaining beforeAll cost/benefit. Commit b79b5fe.
 
 ---
 
@@ -926,7 +926,7 @@ Assertion uses 200-char upper bound, but comment says "50-160 chars for optimal 
 
 **Fix:** Align assertion and comment — either tighten to 160 or update comment.
 
-**Status:** Deferred — low priority documentation accuracy.
+**Status:** Done — assertion tightened to 160 chars (matches "50-160 chars for optimal SEO" comment). Actual description is 150 chars. Commit b79b5fe.
 
 ---
 
@@ -941,7 +941,7 @@ Production URLs hardcoded in multiple specs: `CONTACT_WORKER_URL`, `BASE_URL`, `
 
 **Fix:** Define `CONTACT_WORKER_URL` and `SITE_URL` in `constants.ts` with env fallbacks.
 
-**Status:** Deferred — refactoring for consistency, not a functional issue.
+**Status:** Done — `CONTACT_WORKER_URL` and `SITE_URL` centralized in `constants.ts` with env fallbacks. `contact-worker.spec.ts` updated to import from constants. Commit 7c46a15.
 
 ---
 
@@ -956,7 +956,7 @@ Redirect chain tests imply "no loop" by relying on timeout. Test completes withi
 
 **Fix:** Add `{ maxRedirects: 5 }` to redirect chain requests and assert on response code.
 
-**Status:** Deferred — low priority; current test is semantically correct but could be tighter.
+**Status:** Done — `{ maxRedirects: 5 }` added to all 3 no-loop redirect chain tests. Commit e2f5dc1.
 
 ---
 
@@ -1041,7 +1041,7 @@ The "Observability Stack" diagram Column in AboutPage overflows by 34px vertical
 
 **Fix:** Wrap the Column in a `FittedBox` or `SingleChildScrollView`, or reduce spacing/font sizes for the layer rows to fit within the parent constraint.
 
-**Status:** Open — suppressed in tests, visual-only in production (striped overflow indicator not visible on dark background).
+**Status:** Done — Replaced non-positioned Padding+Column(mainAxisSize.min) with Positioned.fill + Column(mainAxisAlignment.spaceEvenly). Eliminates overflow in both mobile (280px) and desktop (380px) containers. Commit 76a0ae0.
 
 ---
 
@@ -1111,7 +1111,7 @@ _stringListCache.clear();
 _stringMapCache.clear();
 ```
 
-**Status:** Deferred — low risk in production (failed load is terminal), but test harness should be monitored.
+**Status:** Done — cache flush added at top of `load()`, mirroring `loadFromString()`. Commit 8b3cc4f. `reset()` also updated to complete in-flight Completer before nulling (prevents leaked Futures in test teardown). Commit f30f4dc.
 
 ---
 
@@ -1143,7 +1143,7 @@ static Future<void> load() async {
 }
 ```
 
-**Status:** Deferred — production apps typically call `load()` once at startup in a single `main()` path. Test scenario unlikely but worth guarding against.
+**Status:** Done — `Completer<void>? _loadCompleter` added; concurrent callers await the same future. Error path nulls the completer so retries work. Commit a1b8bed.
 
 ---
 
@@ -1159,7 +1159,7 @@ static Future<void> load() async {
 - `loadFromString()` throwing `ContentLoadException` on non-map YAML (e.g., bare string or list)
 - `load()` throwing `ContentLoadException` on parse error (mocked `rootBundle`)
 
-**Status:** Deferred — error handling is production-correct (confirmed by FlutterError.reportError in main.dart), but type's own behavior lacks direct test coverage.
+**Status:** Done — 5 tests added: toString with/without cause, loadFromString throwing on bare string and list YAML, message content assertion. Commit 7382f81.
 
 ---
 
@@ -1176,7 +1176,7 @@ static Future<void> load() async {
 - Content is wrapped in 900px `ConstrainedBox`
 - Responsive behavior at mobile/desktop widths
 
-**Status:** Deferred — low risk (scaffold behavior is straightforward), but golden test would prevent silent layout regressions.
+**Status:** Done — 9 widget tests added to `test/widgets/navigation/doc_page_scaffold_test.dart` covering title, content, Back to Home, 900px ConstrainedBox, DocPageFooter, heroBuilder isMobile callback, onBack arrow+text callbacks, gray900 background. Commit 68af3bc.
 
 ---
 
@@ -1193,6 +1193,6 @@ static Future<void> load() async {
 - Gradient background rendering
 - Optional `extraContent` widget display
 
-**Status:** Deferred — low risk (behavior is straightforward), but would prevent regressions when extraContent changes.
+**Status:** Done — 10 widget tests added to `test/widgets/sections/page_hero_section_test.dart` covering badge text/icon, headline, subheadline, extraContent presence/absence, subheadlineMaxWidth ConstrainedBox, mobileHeadlineFontSize, gradient background. Commit a2c0c0f.
 
 ---
