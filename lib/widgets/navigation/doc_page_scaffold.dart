@@ -2,6 +2,57 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../theme/theme.dart';
+import '../common/containers.dart';
+
+/// Full-page scaffold shared by all documentation pages.
+///
+/// Provides: dark background, [DocPageAppBar], hero section, constrained
+/// content area (max 900 px), and [DocPageFooter]. Pages supply the
+/// page-specific hero and content widgets via [heroBuilder] and [content].
+class DocsPageScaffold extends StatelessWidget {
+  const DocsPageScaffold({
+    super.key,
+    required this.title,
+    required this.heroBuilder,
+    required this.content,
+    this.onBack,
+  });
+
+  final String title;
+
+  /// Builder called with the current [isMobile] value so the hero section can
+  /// adapt its layout without computing the breakpoint itself.
+  final Widget Function(bool isMobile) heroBuilder;
+
+  final Widget content;
+  final VoidCallback? onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = ResponsiveUtils.isMobile(context);
+    return Scaffold(
+      backgroundColor: AppColors.gray900,
+      body: CustomScrollView(
+        slivers: [
+          DocPageAppBar(title: title, onBack: onBack),
+          SliverToBoxAdapter(child: heroBuilder(isMobile)),
+          SliverToBoxAdapter(
+            child: SectionContainer(
+              padding: EdgeInsets.symmetric(
+                vertical: isMobile ? AppSpacing.xl : AppSpacing.xxl,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: content,
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(child: DocPageFooter()),
+        ],
+      ),
+    );
+  }
+}
 
 /// Shared AppBar for documentation pages.
 ///
