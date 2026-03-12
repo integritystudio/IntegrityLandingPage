@@ -2,8 +2,8 @@
 # Wrapper: generates token tree + compressed repomix output
 set -euo pipefail
 
-# Optional input directory (defaults to repo root)
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Resolve repo root (two levels up from scripts/repomix/)
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # repomix compression variant names
 TREE_FILE="token-tree"
@@ -11,7 +11,6 @@ COMPRESSED_FILE="repo-compressed"
 LOSSLESS_FILE="repomix"
 DOCS_ONLY_FILE="repomix-docs"
 GIT_RANKED_FILE="repomix-git-ranked"
-GIT_TOP_20="git-top-20"
 
 # absolute filepaths - output
 OUTPUT_PATH="docs/repomix"
@@ -30,24 +29,15 @@ LOSSLESS_FILE_NAME="$OUTPUT_PATH/$LOSSLESS_FILE.xml"
 DOCS_ONLY_FILE_NAME="$OUTPUT_PATH/$DOCS_ONLY_FILE.xml"
 GIT_RANKED_FILE_NAME="$OUTPUT_PATH/$GIT_RANKED_FILE.xml"
 GITLOG_TOP_FILE_NAME="$OUTPUT_PATH/gitlog-top20.txt"
-INPUT_DIR="$ROOT/scripts"
+SCRIPT_DIR="$ROOT/scripts/repomix"
 
-script_builder() {
-    name = P{:1}
-    ext = .sh
-    echo "$INPUT_DIR/$name/$ext"
-}
-
-# input file paths - input
-
-script_builder
-
-$TREE_FILE_NAME"
-COMPRESS_SCRIPT="$COMPRESSED_FILE.sh"
-LOSSLESS_SCRIPT="$INPUT_DIR/$LOSSLESS_FILE.sh"
-DOCS_ONLY_SCRIPT="$INPUT_DIR/$DOCS_ONLY_FILE.sh"
-GIT_RANKED_SCRIPT="$INPUT_DIR/$GIT_RANKED_FILE.sh"
-GITLOG_TOP_SCRIPT="$ROOT/$GIT_TOP_20.sh"
+# input script paths
+TOKEN_TREE_SCRIPT="$SCRIPT_DIR/token-tree.sh"
+COMPRESS_SCRIPT="$SCRIPT_DIR/repo-compressed.sh"
+LOSSLESS_SCRIPT="$SCRIPT_DIR/repomix.sh"
+DOCS_ONLY_SCRIPT="$SCRIPT_DIR/generate-repomix-docs.sh"
+GIT_RANKED_SCRIPT="$SCRIPT_DIR/generate-repomix-git-ranked.sh"
+GITLOG_TOP_SCRIPT="$SCRIPT_DIR/generate-sidequest-gitlog.sh"
 GIT_RANKED_INCLUDE_LOGS_COUNT="${REPOMIX_GIT_RANKED_INCLUDE_LOGS_COUNT:-200}"
 
 echo "File set up..."
@@ -93,10 +83,7 @@ echo "Success!"
 echo
 
 echo "Generating top-file git history at $GITLOG_TOP_FILE_NAME"
-(
-  cd "$ROOT"
-  bash "$GITLOG_TOP_SCRIPT"
-)
+bash "$GITLOG_TOP_SCRIPT" 200 "$GITLOG_TOP_FILE"
 echo "Success!"
 echo
 
