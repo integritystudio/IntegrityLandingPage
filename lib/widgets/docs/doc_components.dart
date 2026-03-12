@@ -535,6 +535,13 @@ class DocInlineWarning extends StatelessWidget {
   final String message;
   final bool fullBorder;
 
+  static const _leftBorder = Border(
+    left: BorderSide(color: AppColors.warning, width: 3),
+  );
+  static const _fullBorder = Border.fromBorderSide(
+    BorderSide(color: AppColors.warning),
+  );
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -542,9 +549,7 @@ class DocInlineWarning extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.warning.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: fullBorder
-            ? Border.all(color: AppColors.warning)
-            : Border(left: BorderSide(color: AppColors.warning, width: 3)),
+        border: fullBorder ? _fullBorder : _leftBorder,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
