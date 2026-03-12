@@ -123,17 +123,17 @@ test.describe('Contact Form Worker API (#109)', () => {
       expect(response.headers()['content-type']).toContain('application/json');
     });
 
-    test('GET with valid origin and 200 returns valid CSRF token format', async ({ request }) => {
+    test('GET with valid origin returns CSRF token format on 200', async ({ request }) => {
       const response = await request.get(WORKER_URL, {
         headers: { 'Origin': ALLOWED_ORIGIN },
       });
-      if (response.status() === 200) {
-        const body = await response.json();
-        expect(body.csrfToken).toBeDefined();
-        expect(typeof body.csrfToken).toBe('string');
-        // Token format: {timestamp}.{base64url-signature}
-        expect(body.csrfToken).toMatch(/^\d+\.[A-Za-z0-9_-]+$/);
-      }
+      // Skip (not silently pass) when CSRF_SECRET is not configured and worker returns 503
+      test.skip(response.status() !== 200, `Worker returned ${response.status()} — CSRF_SECRET not configured`);
+      const body = await response.json();
+      expect(body.csrfToken).toBeDefined();
+      expect(typeof body.csrfToken).toBe('string');
+      // Token format: {timestamp}.{base64url-signature}
+      expect(body.csrfToken).toMatch(/^\d+\.[A-Za-z0-9_-]+$/);
     });
   });
 
