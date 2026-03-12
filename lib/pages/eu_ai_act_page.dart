@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
+import '../widgets/sections/page_hero_section.dart';
 
 /// EU AI Act Compliance documentation page.
 ///
@@ -56,7 +57,25 @@ class EuAiActPage extends StatelessWidget {
 
           // Hero Section
           SliverToBoxAdapter(
-            child: _HeroSection(isMobile: isMobile),
+            child: PageHeroSection(
+              isMobile: isMobile,
+              accentColor: AppColors.purple400,
+              badgeIcon: LucideIcons.scale,
+              badgeText: 'EU Regulation 2024/1689',
+              headline: 'EU AI Act Observability Requirements',
+              subheadline:
+                  'Comprehensive guide to logging, documentation, and observability requirements for LLM and GenAI systems under the EU AI Act.',
+              extraContent: Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.md,
+                alignment: WrapAlignment.center,
+                children: const [
+                  _TimelineCard(date: 'Aug 2024', label: 'Act in Force'),
+                  _TimelineCard(date: 'Aug 2025', label: 'GPAI Obligations'),
+                  _TimelineCard(date: 'Aug 2026', label: 'High-Risk Requirements'),
+                ],
+              ),
+            ),
           ),
 
           // Content
@@ -98,107 +117,6 @@ class EuAiActPage extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HeroSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _HeroSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.gray900,
-            AppColors.gray800.withValues(alpha: 0.5),
-            AppColors.gray900,
-          ],
-        ),
-      ),
-      child: SectionContainer(
-        padding: EdgeInsets.symmetric(
-          vertical: isMobile ? AppSpacing.xxl : AppSpacing.xxxl,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Badge
-            Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.purple500.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                border: Border.all(
-                  color: AppColors.purple500.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    LucideIcons.scale,
-                    size: 16,
-                    color: AppColors.purple400,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'EU Regulation 2024/1689',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.purple400,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Headline
-            Text(
-              'EU AI Act Observability Requirements',
-              style: isMobile
-                  ? AppTypography.headingLG.copyWith(fontSize: 28)
-                  : AppTypography.headingXL,
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Subheadline
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 700),
-              child: Text(
-                'Comprehensive guide to logging, documentation, and observability requirements for LLM and GenAI systems under the EU AI Act.',
-                style: AppTypography.bodyLG,
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-            const SizedBox(height: AppSpacing.xl),
-
-            // Timeline Preview
-            Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
-              alignment: WrapAlignment.center,
-              children: const [
-                _TimelineCard(date: 'Aug 2024', label: 'Act in Force'),
-                _TimelineCard(date: 'Aug 2025', label: 'GPAI Obligations'),
-                _TimelineCard(date: 'Aug 2026', label: 'High-Risk Requirements'),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

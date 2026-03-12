@@ -5,6 +5,7 @@ import '../config/content.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
+import '../widgets/sections/page_hero_section.dart';
 
 /// Security page displaying security practices and commitments.
 class SecurityPage extends StatelessWidget {
@@ -54,7 +55,15 @@ class SecurityPage extends StatelessWidget {
 
           // Hero Section
           SliverToBoxAdapter(
-            child: _HeroSection(isMobile: isMobile),
+            child: PageHeroSection(
+              isMobile: isMobile,
+              accentColor: AppColors.blue400,
+              badgeIcon: LucideIcons.shieldCheck,
+              badgeText: SecurityContent.badge,
+              headline: SecurityContent.pageTitle,
+              subheadline: SecurityContent.subtitle,
+              subheadlineMaxWidth: 600,
+            ),
           ),
 
           // Content
@@ -96,93 +105,6 @@ class SecurityPage extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HeroSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _HeroSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.gray900,
-            AppColors.gray800.withValues(alpha: 0.5),
-            AppColors.gray900,
-          ],
-        ),
-      ),
-      child: SectionContainer(
-        padding: EdgeInsets.symmetric(
-          vertical: isMobile ? AppSpacing.xxl : AppSpacing.xxxl,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Badge
-            Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.blue500.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                border: Border.all(
-                  color: AppColors.blue500.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    LucideIcons.shieldCheck,
-                    size: 16,
-                    color: AppColors.blue400,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    SecurityContent.badge,
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.blue400,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Headline
-            Text(
-              SecurityContent.pageTitle,
-              style: isMobile
-                  ? AppTypography.headingLG.copyWith(fontSize: 32)
-                  : AppTypography.headingXL,
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Subheadline
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Text(
-                SecurityContent.subtitle,
-                style: AppTypography.bodyLG,
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
