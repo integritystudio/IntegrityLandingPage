@@ -116,6 +116,12 @@ class ContentLoader {
   /// Clears loaded content so it can be reloaded.
   @visibleForTesting
   static void reset() {
+    // Complete any in-flight load with an error so awaiting callers don't leak.
+    if (_loadCompleter != null && !_loadCompleter!.isCompleted) {
+      _loadCompleter!.completeError(
+        StateError('ContentLoader.reset() called while load() was in progress'),
+      );
+    }
     _content = null;
     _isLoaded = false;
     _loadCompleter = null;
