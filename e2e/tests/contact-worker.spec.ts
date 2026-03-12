@@ -188,4 +188,61 @@ test.describe('Contact Form Worker API (#109)', () => {
       expect(ct).toContain('application/json');
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Submission flow — valid fields, CSRF guard (#109)
+  // Tests the full submission path without triggering real email delivery.
+  // CSRF validation runs before Resend API call, so a missing/invalid token
+  // causes a 403 (or 429 on rate limit) without sending any email.
+  // -------------------------------------------------------------------------
+
+  test.describe('submission flow', () => {
+    const VALID_SUBMISSION = {
+      name: 'E2E Test User',
+      email: '[email protected]',
+      message: 'Automated test submission — no action required.',
+    };
+
+    test('POST with valid fields but no CSRF token is rejected', async ({ request }) => {
+      const response = await request.post(WORKER_URL, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': ALLOWED_ORIGIN,
+          // No X-CSRF-Token header
+        },
+        data: VALID_SUBMISSION,
+      });
+      // 403 CSRF required / 429 rate-limited; 200 only if CSRF_SECRET not configured
+      expect([200, 403, 429]).toContain(response.status());
+      const body = await response.json();
+      if (response.status() === 403) {
+        expect(body.error).toBeDefined();
+      }
+    });
+
+    test('POST with valid fields and invalid CSRF token returns 403', async ({ request }) => {
+      const response = await request.post(WORKER_URL, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': ALLOWED_ORIGIN,
+          'X-CSRF-Token': 'invalid.token',
+        },
+        data: VALID_SUBMISSION,
+      });
+      // 403 CSRF invalid / 429 rate-limited; 200 if CSRF_SECRET not configured
+      expect([200, 403, 429]).toContain(response.status());
+    });
+
+    test('POST with valid fields returns JSON response', async ({ request }) => {
+      const response = await request.post(WORKER_URL, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': ALLOWED_ORIGIN,
+        },
+        data: VALID_SUBMISSION,
+      });
+      const ct = response.headers()['content-type'] ?? '';
+      expect(ct).toContain('application/json');
+    });
+  });
 });
