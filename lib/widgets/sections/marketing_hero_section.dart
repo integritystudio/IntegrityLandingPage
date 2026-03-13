@@ -42,7 +42,7 @@ class MarketingHeroSection extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: AppSpacing.containerPadding(context),
-        vertical: isMobile ? 48 : 80,
+        vertical: isMobile ? AppSpacing.sectionVerticalMobile : AppSpacing.sectionVertical,
       ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
