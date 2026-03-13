@@ -387,4 +387,81 @@ Line 26 defines `const WORKER_URL = CONTACT_WORKER_URL;` as a no-op alias withou
 
 ---
 
-*Last updated: 2026-03-12 (migrated 44 Done items to docs/changelog/1.0/CHANGELOG.md; appended #142-#145 code review findings from #109/#131 sprint; appended #146-#148 follow-up gaps from full-stack review; marked #146-#148 Done; appended #149-#152 pre-existing gaps from full-stack review; marked #149-#152 Done after test reliability sprint)*
+## Code Review Findings — Session 2026-03-12 (Widget Deduplication Sprint)
+
+**Source:** Code reviewer (full-stack review of P3.1/P3.2 widget extractions)
+
+### #153: Consolidation of `_StatCard` and `DocStatCard` Blocked by Visual Regressions
+
+**Severity:** LOW
+**Category:** Code Quality (DRY)
+**Files:** `lib/pages/security_page.dart`, `lib/widgets/docs/doc_components.dart`
+**Source:** Session 2026-03-12, duplicate-findings report assessment (P3.3 skipped)
+
+`_StatCard` in security_page and `DocStatCard` in doc_components have 81% structural similarity but differ in visual style:
+- Background: `gray700` vs `gray800`
+- Border radius: `radiusSM` vs `radiusMD`
+- Border color: `gray600` vs `gray700`
+- Text style: `headingMD.copyWith(color: blue400)` vs parameterized color
+
+The duplicate-findings report recommends consolidation but notes "Low priority. Structurally similar but semantically different." Merging without visual regression would require significant parameterization of `DocStatCard` or creation of a separate shared widget. Decision: document as blocked and deferred until design consolidation is addressed separately.
+
+**Status:** Deferred — visual style differences block safe consolidation.
+
+---
+
+### #154: Add Optional `IconData icon` Parameter to `_AlertBanner`
+
+**Severity:** LOW
+**Category:** Code Quality (Extensibility)
+**File:** `lib/pages/security_page.dart:535`
+**Source:** Full-stack review (session 2026-03-12, commit c73067f)
+
+`_AlertBanner` hardcodes `LucideIcons.alertTriangle` for all severity levels. Current callers use `AppColors.warning` and `AppColors.error`, both rendering the same icon. Adding an optional `IconData icon = LucideIcons.alertTriangle` parameter would enable future use cases without breaking changes. Marked as low priority — no current regressions, improves extensibility only.
+
+**Status:** Deferred — low-priority enhancement for future flexibility.
+
+---
+
+### #155: Extract Badge Pill Widget from `_HeroSection` (Features & Status Pages)
+
+**Severity:** LOW
+**Category:** Code Quality (DRY)
+**Files:** `lib/pages/features_page.dart:74-103`, `lib/pages/status_page.dart:115-139`
+**Source:** Full-stack review (session 2026-03-12, commits 2c8c646, f4a6c97)
+
+After extracting `MarketingHeroSection`, the remaining `_HeroSection._badge` (rounded pill `Container` with icon + label `Row`) is still duplicated between both pages. Both use identical structure (`BorderRadius.circular(100)`, same padding, `Row(mainAxisSize: MainAxisSize.min)`). Only differences: color and icon. Extracting a shared `_HeroBadge(icon:, label:, color:)` or similar widget would eliminate ~20-30 lines of duplicate code.
+
+Was in scope for this sprint but deferred to keep the session focused on `MarketingHeroSection` extraction. Low priority cosmetic cleanup.
+
+**Status:** Deferred — leftover from widget extraction sprint. Consider bundling with future badge/button refactors (#91).
+
+---
+
+### #156: Replace Hardcoded 'Key Metrics' String in `_MetricsSection`
+
+**Severity:** LOW
+**Category:** Code Quality (Content Consistency)
+**File:** `lib/pages/status_page.dart:159`
+**Source:** Full-stack review (session 2026-03-12, commits 2c8c646, f4a6c97)
+
+`_MetricsSection` hardcodes the string `'Key Metrics'` rather than using a content constant (all other section titles in the file use `content.*` accessors or `StatusContent` fields). Inconsistent with the file's own pattern. Low impact but reduces maintainability.
+
+**Status:** Deferred — low priority, style consistency improvement.
+
+---
+
+### #157: Replace Raw String `'Operational'` Comparison in `_ServiceRow`
+
+**Severity:** LOW
+**Category:** Code Quality (Magic Strings)
+**File:** `lib/pages/status_page.dart:1072`
+**Source:** Full-stack review (session 2026-03-12, commits 2c8c646, f4a6c97)
+
+Status color logic uses `final isOperational = service.status == 'Operational'` instead of a named constant. If `StatusServiceContent.status` field or content changes, the magic string can drift silently. Define a local or content-sourced constant.
+
+**Status:** Deferred — low priority, similar to CLAUDE.md guidance on constants.
+
+---
+
+*Last updated: 2026-03-12 (migrated 44 Done items to docs/changelog/1.0/CHANGELOG.md; appended #142-#145 code review findings from #109/#131 sprint; appended #146-#148 follow-up gaps from full-stack review; marked #146-#148 Done; appended #149-#152 pre-existing gaps from full-stack review; marked #149-#152 Done after test reliability sprint; appended #153-#157 from widget deduplication sprint P3.1/P3.2, marked as Deferred)*
