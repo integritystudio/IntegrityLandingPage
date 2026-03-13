@@ -81,7 +81,6 @@ void main() {
         const service = StatusServiceContent(
           name: 'API',
           status: 'Operational',
-          isOperational: true,
         );
 
         expect(service.name, equals('API'));
@@ -93,7 +92,6 @@ void main() {
         const service = StatusServiceContent(
           name: 'Database',
           status: 'Degraded',
-          isOperational: false,
         );
 
         expect(service.isOperational, isFalse);

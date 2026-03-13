@@ -215,13 +215,13 @@ class StatusMetricContent {
 class StatusServiceContent {
   final String name;
   final String status;
-  final bool isOperational;
 
   const StatusServiceContent({
     required this.name,
     required this.status,
-    this.isOperational = true,
   });
+
+  bool get isOperational => status == 'Operational';
 }
 
 /// Status section content.
@@ -231,6 +231,7 @@ class StatusContent {
   final String subtitle;
   final String statusBadge;
   final bool allOperational;
+  final String metricsTitle;
   final List<StatusMetricContent> metrics;
   final List<StatusServiceContent> services;
   final String statusPageUrl;
@@ -241,6 +242,7 @@ class StatusContent {
     required this.subtitle,
     required this.statusBadge,
     required this.allOperational,
+    this.metricsTitle = 'Key Metrics',
     required this.metrics,
     required this.services,
     required this.statusPageUrl,
