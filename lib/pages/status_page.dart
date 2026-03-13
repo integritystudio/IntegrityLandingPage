@@ -7,6 +7,7 @@ import '../services/analytics.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/sections/footer_section.dart';
+import '../widgets/sections/marketing_hero_section.dart';
 
 /// Status page displaying platform operational health and internal observability.
 ///
@@ -107,62 +108,34 @@ class _HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: AppSpacing.containerPadding(context),
-        vertical: isMobile ? 48 : 80,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppColors.gray800, AppColors.gray900],
+    return MarketingHeroSection(
+      isMobile: isMobile,
+      headline: content.title,
+      subheadline: content.subtitle,
+      badge: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
         ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.sm,
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.checkCircle, size: 18, color: AppColors.success),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              content.statusBadge,
+              style: AppTypography.bodyMD.copyWith(
+                color: AppColors.success,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            decoration: BoxDecoration(
-              color: AppColors.success.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(color: AppColors.success.withValues(alpha: 0.5)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(LucideIcons.checkCircle, size: 18, color: AppColors.success),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  content.statusBadge,
-                  style: AppTypography.bodyMD.copyWith(
-                    color: AppColors.success,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            content.title,
-            style: (isMobile ? AppTypography.headingLG : AppTypography.headingXL)
-                .copyWith(color: Colors.white),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Text(
-              content.subtitle,
-              style: AppTypography.bodyLG.copyWith(color: AppColors.gray400),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
