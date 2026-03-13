@@ -1069,7 +1069,7 @@ class _ServiceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOperational = service.status == 'Operational';
+    final isOperational = service.isOperational;
     final statusColor = isOperational ? AppColors.success : AppColors.warning;
 
     return Container(
