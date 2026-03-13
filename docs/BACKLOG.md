@@ -251,11 +251,7 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 **File:** `e2e/tests/contact-worker.spec.ts`
 **Source:** Full-stack review (session 2026-03-12, commits e912b39 + 9dd26d9 + 8c1c113)
 
-The `origin gating` describe block (line 70) only tests `POST` from an unauthorized origin. There is no test for `GET` (CSRF token endpoint) from an unauthorized origin. If the worker enforces origin on GET, this path is untested.
-
-**Fix:** Add test: `GET from unauthorized origin is rejected (403 or 429)` with `Origin: 'https://malicious.example.com'`.
-
-**Status:** Deferred — low risk (GET endpoint returns a CSRF token, not sensitive data), but inconsistent with POST origin test.
+**Status:** Done — commit f21e366 (2026-03-12)
 
 ---
 
@@ -266,11 +262,7 @@ The `origin gating` describe block (line 70) only tests `POST` from an unauthori
 **File:** `e2e/tests/contact-worker.spec.ts:144-189`
 **Source:** Full-stack review (session 2026-03-12)
 
-Form-validation tests (`POST with missing name`, `POST with invalid email`, `POST with empty body`) accept `429` as a valid status alongside `400`/`403`/`422`. When Cloudflare edge returns 429 (rate-limited), the tests pass without exercising field validation at all. In CI hitting the live worker repeatedly, this is a realistic scenario that makes tests non-deterministic.
-
-**Fix:** Either add retry-with-backoff on 429 before asserting, or use `test.skip()` on 429 with a message like `'Rate-limited by CF edge — validation not exercised'`, consistent with the #131 skip pattern.
-
-**Status:** Deferred — pragmatic for now; failure mode is false-green, not false-red.
+**Status:** Done — commit 6249a97 (2026-03-12)
 
 ---
 
@@ -281,11 +273,7 @@ Form-validation tests (`POST with missing name`, `POST with invalid email`, `POS
 **File:** `e2e/tests/contact-worker.spec.ts:117-124`
 **Source:** Per-item review of #131 (session 2026-03-12)
 
-Test "GET with valid origin returns JSON" (line 117) asserts `content-type` contains `application/json` unconditionally, regardless of whether status is 200 or 503. If the worker returns a 503 with a Cloudflare HTML error page, this assertion fails with a misleading error about headers rather than a clear "worker not configured" message.
-
-**Fix:** Add `test.skip(response.status() === 503, ...)` before the content-type assertion, or split into reachability (status) and format (content-type on 200) tests.
-
-**Status:** Deferred — pre-existing, not introduced by #131. Low impact since 503 is rare in production.
+**Status:** Done — commit 279e477 (2026-03-12)
 
 ---
 
