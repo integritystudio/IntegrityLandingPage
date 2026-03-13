@@ -71,15 +71,24 @@ Navigator.pushNamed(context, '/pricing');
 
 | Route | Page Widget | Has Cookie Settings |
 |-------|-------------|---------------------|
-| `/` | `LandingPage` | Yes |
+| `/` | `LandingPage` | Yes (accepts `?section=` query param) |
 | `/about` | `AboutPage` | Yes |
 | `/features` | `FeaturesPage` | Yes |
 | `/pricing` | `PricingPage` | Yes |
-| `/contact` | `ContactPage` | Yes |
+| `/contact` | `ContactPage` | Yes (accepts `?ref=` query param) |
 | `/demo` | `DemoPage` | No |
 | `/careers` | `CareersPage` | Yes |
-| `/support` | `HelpCenterPage` | No |
 | `/status` | `StatusPage` | Yes |
+
+### Auth & Result Pages
+
+| Route | Page Widget | Has Cookie Settings |
+|-------|-------------|---------------------|
+| `/signup` | `SignupPage` | No (accepts `?tier=` query param, default `starter`) |
+| `/request_success` | `RequestSuccessPage` | Yes |
+| `/request_failure` | `RequestFailurePage` | Yes |
+| `/oauth/callback` | `OAuthCallbackPage` | No (accepts `?code=`, `?state=`, `?error=`, `?error_description=`, `?success=`) |
+| `/support` | `HelpCenterPage` | No |
 
 ### Blog & Content
 
@@ -90,15 +99,7 @@ Navigator.pushNamed(context, '/pricing');
 | `/whylabs-alternative` | `ComparisonPage.whylabs()` |
 | `/compare/arize-ai-alternative` | `ComparisonPage.arize()` |
 
-### Signup
-
-| Route | Page Widget | Notes |
-|-------|-------------|-------|
-| `/signup` | `SignupPage` | Accepts `?tier=` query param |
-
-Example: `/signup?tier=professional`
-
-### Legal
+### Legal & Security
 
 | Route | Page Widget |
 |-------|-------------|
@@ -106,6 +107,7 @@ Example: `/signup?tier=professional`
 | `/terms` | `LegalPage.terms()` |
 | `/cookies` | `LegalPage.cookies()` |
 | `/accessibility` | `LegalPage.accessibility()` |
+| `/security` | `SecurityPage` |
 
 ### Documentation
 
@@ -119,15 +121,14 @@ Example: `/signup?tier=professional`
 | `/docs/alerts` | `DocsAlertsPage` |
 | `/docs/agents` | `DocsAgentsPage` |
 | `/api` | `DocsApiPage` |
-| `/api/toolkit` | `ApiToolkitPage` |
+| `/api/toolkit` | `ApiToolkitPage` (back goes to `/docs`) |
 
-### Compliance & Security
+### Compliance
 
 | Route | Page Widget |
 |-------|-------------|
 | `/compliance` | `CompliancePage` |
 | `/eu-ai-act` | `EuAiActPage` |
-| `/security` | `SecurityPage` |
 
 ## Redirects
 
@@ -154,19 +155,8 @@ Deep linking is enabled via:
 
 1. Create page widget in `lib/pages/`
 2. Import in `lib/routing/app_router.dart`
-3. Add `GoRoute` inside the `ShellRoute.routes` list:
-
-```dart
-GoRoute(
-  path: '/new-page',
-  builder: (context, state) => NewPage(
-    onBack: () => context.go('/'),
-    // Add onShowCookieSettings if page has footer
-  ),
-),
-```
-
-4. Update this document and README.md
+3. Add `GoRoute` inside the appropriate route group function
+4. Update this document
 
 ## Testing
 
