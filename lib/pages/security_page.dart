@@ -195,8 +195,9 @@ class _SecurityContent extends StatelessWidget {
                 items: SecurityContent.databaseSecurityItems,
               ),
               const SizedBox(height: AppSpacing.lg),
-              _WarningAlert(
+              _AlertBanner(
                 message: SecurityContent.secretsWarning,
+                color: AppColors.warning,
               ),
             ],
           ),
@@ -354,8 +355,9 @@ class _SecurityContent extends StatelessWidget {
                 style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
               ),
               const SizedBox(height: AppSpacing.lg),
-              _DangerAlert(
+              _AlertBanner(
                 message: SecurityContent.vulnerabilityWarning,
+                color: AppColors.error,
               ),
               const SizedBox(height: AppSpacing.lg),
               _ContactBox(),
@@ -512,64 +514,30 @@ class _SubSection extends StatelessWidget {
   }
 }
 
-class _WarningAlert extends StatelessWidget {
+class _AlertBanner extends StatelessWidget {
   final String message;
+  final Color color;
 
-  const _WarningAlert({required this.message});
+  const _AlertBanner({required this.message, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.warning),
+        border: Border.all(color: color),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(LucideIcons.alertTriangle, color: AppColors.warning, size: 20),
+          Icon(LucideIcons.alertTriangle, color: color, size: 20),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
               message,
-              style: AppTypography.bodyMD.copyWith(
-                color: AppColors.warning,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DangerAlert extends StatelessWidget {
-  final String message;
-
-  const _DangerAlert({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.error),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(LucideIcons.alertTriangle, color: AppColors.error, size: 20),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              message,
-              style: AppTypography.bodyMD.copyWith(
-                color: AppColors.error,
-              ),
+              style: AppTypography.bodyMD.copyWith(color: color),
             ),
           ),
         ],
