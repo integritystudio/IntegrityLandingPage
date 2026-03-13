@@ -19,11 +19,10 @@ import { CONTACT_WORKER_URL, SITE_URL } from './constants';
  * NOTE: x-request-id response header is not forwarded by Cloudflare
  * edge; only the worker-set headers that CF passes through are tested.
  *
- * Worker URL: https://integrity-studio-contact.alyshia-b38.workers.dev
+ * Worker URL: see CONTACT_WORKER_URL in e2e/tests/constants.ts
  * Configured via CONTACT_API_URL dart-define in contact_service.dart.
  */
 
-const WORKER_URL = CONTACT_WORKER_URL;
 const ALLOWED_ORIGIN = SITE_URL;
 
 test.describe('Contact Form Worker API (#109)', () => {
@@ -33,7 +32,7 @@ test.describe('Contact Form Worker API (#109)', () => {
 
   test.describe('CORS preflight', () => {
     test('OPTIONS returns 200 for allowed origin', async ({ request }) => {
-      const response = await request.fetch(WORKER_URL, {
+      const response = await request.fetch(CONTACT_WORKER_URL, {
         method: 'OPTIONS',
         headers: {
           'Origin': ALLOWED_ORIGIN,
@@ -45,7 +44,7 @@ test.describe('Contact Form Worker API (#109)', () => {
     });
 
     test('OPTIONS response includes Access-Control-Allow-Origin', async ({ request }) => {
-      const response = await request.fetch(WORKER_URL, {
+      const response = await request.fetch(CONTACT_WORKER_URL, {
         method: 'OPTIONS',
         headers: { 'Origin': ALLOWED_ORIGIN },
       });
@@ -54,7 +53,7 @@ test.describe('Contact Form Worker API (#109)', () => {
     });
 
     test('OPTIONS response includes allowed methods', async ({ request }) => {
-      const response = await request.fetch(WORKER_URL, {
+      const response = await request.fetch(CONTACT_WORKER_URL, {
         method: 'OPTIONS',
         headers: { 'Origin': ALLOWED_ORIGIN },
       });
@@ -69,7 +68,7 @@ test.describe('Contact Form Worker API (#109)', () => {
 
   test.describe('origin gating', () => {
     test('POST from unauthorized origin is rejected (403 or 429)', async ({ request }) => {
-      const response = await request.post(WORKER_URL, {
+      const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
           'Content-Type': 'application/json',
           'Origin': 'https://malicious.example.com',
@@ -85,7 +84,7 @@ test.describe('Contact Form Worker API (#109)', () => {
     });
 
     test('GET from unauthorized origin is rejected (403 or 429)', async ({ request }) => {
-      const response = await request.get(WORKER_URL, {
+      const response = await request.get(CONTACT_WORKER_URL, {
         headers: { 'Origin': 'https://malicious.example.com' },
       });
       // Worker enforces origin on GET (CSRF token endpoint); CF edge may return 429 if rate-limited
@@ -103,7 +102,7 @@ test.describe('Contact Form Worker API (#109)', () => {
 
   test.describe('method gating', () => {
     test('PUT returns 405', async ({ request }) => {
-      const response = await request.fetch(WORKER_URL, {
+      const response = await request.fetch(CONTACT_WORKER_URL, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -117,7 +116,7 @@ test.describe('Contact Form Worker API (#109)', () => {
     });
 
     test('DELETE returns 405', async ({ request }) => {
-      const response = await request.fetch(WORKER_URL, {
+      const response = await request.fetch(CONTACT_WORKER_URL, {
         method: 'DELETE',
         headers: { 'Origin': ALLOWED_ORIGIN },
       });
@@ -131,7 +130,7 @@ test.describe('Contact Form Worker API (#109)', () => {
 
   test.describe('CSRF token endpoint', () => {
     test('GET with valid origin returns JSON', async ({ request }) => {
-      const response = await request.get(WORKER_URL, {
+      const response = await request.get(CONTACT_WORKER_URL, {
         headers: { 'Origin': ALLOWED_ORIGIN },
       });
       // 200 if CSRF_SECRET configured, 503 if not
@@ -146,7 +145,7 @@ test.describe('Contact Form Worker API (#109)', () => {
     });
 
     test('GET with valid origin returns CSRF token format on 200', async ({ request }) => {
-      const response = await request.get(WORKER_URL, {
+      const response = await request.get(CONTACT_WORKER_URL, {
         headers: { 'Origin': ALLOWED_ORIGIN },
       });
       // Skip (not silently pass) when CSRF_SECRET is not configured and worker returns 503
@@ -168,7 +167,7 @@ test.describe('Contact Form Worker API (#109)', () => {
 
   test.describe('form validation', () => {
     test('POST with missing name returns client error', async ({ request }) => {
-      const response = await request.post(WORKER_URL, {
+      const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
           'Content-Type': 'application/json',
           'Origin': ALLOWED_ORIGIN,
@@ -185,7 +184,7 @@ test.describe('Contact Form Worker API (#109)', () => {
     });
 
     test('POST with invalid email returns client error', async ({ request }) => {
-      const response = await request.post(WORKER_URL, {
+      const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
           'Content-Type': 'application/json',
           'Origin': ALLOWED_ORIGIN,
@@ -200,7 +199,7 @@ test.describe('Contact Form Worker API (#109)', () => {
     });
 
     test('POST with empty body returns client error', async ({ request }) => {
-      const response = await request.post(WORKER_URL, {
+      const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
           'Content-Type': 'application/json',
           'Origin': ALLOWED_ORIGIN,
@@ -215,7 +214,7 @@ test.describe('Contact Form Worker API (#109)', () => {
     });
 
     test('POST response is JSON', async ({ request }) => {
-      const response = await request.post(WORKER_URL, {
+      const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
           'Content-Type': 'application/json',
           'Origin': ALLOWED_ORIGIN,
@@ -247,7 +246,7 @@ test.describe('Contact Form Worker API (#109)', () => {
     };
 
     test('POST with valid fields but no CSRF token is rejected', async ({ request }) => {
-      const response = await request.post(WORKER_URL, {
+      const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
           'Content-Type': 'application/json',
           'Origin': ALLOWED_ORIGIN,
@@ -269,7 +268,7 @@ test.describe('Contact Form Worker API (#109)', () => {
     });
 
     test('POST with valid fields and invalid CSRF token returns 403', async ({ request }) => {
-      const response = await request.post(WORKER_URL, {
+      const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
           'Content-Type': 'application/json',
           'Origin': ALLOWED_ORIGIN,
@@ -286,7 +285,7 @@ test.describe('Contact Form Worker API (#109)', () => {
     });
 
     test('POST with valid complete fields returns JSON error response', async ({ request }) => {
-      const response = await request.post(WORKER_URL, {
+      const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
           'Content-Type': 'application/json',
           'Origin': ALLOWED_ORIGIN,
