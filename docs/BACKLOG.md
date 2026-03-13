@@ -419,7 +419,7 @@ The duplicate-findings report recommends consolidation but notes "Low priority. 
 
 `_AlertBanner` hardcodes `LucideIcons.alertTriangle` for all severity levels. Current callers use `AppColors.warning` and `AppColors.error`, both rendering the same icon. Adding an optional `IconData icon = LucideIcons.alertTriangle` parameter would enable future use cases without breaking changes. Marked as low priority — no current regressions, improves extensibility only.
 
-**Status:** Deferred — low-priority enhancement for future flexibility.
+**Status:** Done — commit 20d52bf (2026-03-13)
 
 ---
 
@@ -434,7 +434,7 @@ After extracting `MarketingHeroSection`, the remaining `_HeroSection._badge` (ro
 
 Was in scope for this sprint but deferred to keep the session focused on `MarketingHeroSection` extraction. Low priority cosmetic cleanup.
 
-**Status:** Deferred — leftover from widget extraction sprint. Consider bundling with future badge/button refactors (#91).
+**Status:** Done — commit 20d52bf (2026-03-13). Extracted `_HeroBadge` widgets in both page files.
 
 ---
 
@@ -447,7 +447,7 @@ Was in scope for this sprint but deferred to keep the session focused on `Market
 
 `_MetricsSection` hardcodes the string `'Key Metrics'` rather than using a content constant (all other section titles in the file use `content.*` accessors or `StatusContent` fields). Inconsistent with the file's own pattern. Low impact but reduces maintainability.
 
-**Status:** Deferred — low priority, style consistency improvement.
+**Status:** Done — commit 20d52bf (2026-03-13). Added `metricsTitle` field to `StatusContent` (default 'Key Metrics').
 
 ---
 
@@ -460,8 +460,8 @@ Was in scope for this sprint but deferred to keep the session focused on `Market
 
 Status color logic uses `final isOperational = service.status == 'Operational'` instead of a named constant. If `StatusServiceContent.status` field or content changes, the magic string can drift silently. Define a local or content-sourced constant.
 
-**Status:** Deferred — low priority, similar to CLAUDE.md guidance on constants.
+**Status:** Done — commit 1a3c2cc + 20d52bf (2026-03-13). `_ServiceRow` uses `service.isOperational` (computed getter from `status == 'Operational'`); removed stored bool field.
 
 ---
 
-*Last updated: 2026-03-12 (migrated 44 Done items to docs/changelog/1.0/CHANGELOG.md; appended #142-#145 code review findings from #109/#131 sprint; appended #146-#148 follow-up gaps from full-stack review; marked #146-#148 Done; appended #149-#152 pre-existing gaps from full-stack review; marked #149-#152 Done after test reliability sprint; appended #153-#157 from widget deduplication sprint P3.1/P3.2, marked as Deferred)*
+*Last updated: 2026-03-13 (marked #154, #155, #156, #157 Done — commits 1a3c2cc + 20d52bf from backlog-implementer sprint)*
