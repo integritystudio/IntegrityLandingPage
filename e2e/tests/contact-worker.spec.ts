@@ -79,6 +79,14 @@ test.describe('Contact Form Worker API (#109)', () => {
       // Worker returns 403 for bad origin; CF edge may return 429 if rate-limited
       expect([403, 429]).toContain(response.status());
     });
+
+    test('GET from unauthorized origin is rejected (403 or 429)', async ({ request }) => {
+      const response = await request.get(WORKER_URL, {
+        headers: { 'Origin': 'https://malicious.example.com' },
+      });
+      // Worker enforces origin on GET (CSRF token endpoint); CF edge may return 429 if rate-limited
+      expect([403, 429]).toContain(response.status());
+    });
   });
 
   // -------------------------------------------------------------------------
