@@ -93,9 +93,10 @@ void main() {
       });
 
       test('setContentVariant changes content', () {
+        final defaultHeadline = controller.heroContent.headline;
         controller.setContentVariant(ContentVariants.agentFirst);
-        // After setting variant, heroContent should reflect the variant
-        expect(controller.heroContent, isNotNull);
+        expect(controller.heroContent.headline,
+            isNot(equals(defaultHeadline)));
       });
 
       test('setContentVariant notifies listeners', () {
