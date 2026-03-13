@@ -158,8 +158,10 @@ test.describe('Contact Form Worker API (#109)', () => {
         },
         data: { email: '[email protected]' }, // missing name
       });
-      // 400 validation / 403 CSRF / 422 / 429 rate limit
-      expect([400, 403, 422, 429]).toContain(response.status());
+      // Skip (not silently pass) when CF edge rate-limits before validation runs
+      test.skip(response.status() === 429, 'Rate-limited by CF edge — validation not exercised');
+      // 400 validation / 403 CSRF / 422
+      expect([400, 403, 422]).toContain(response.status());
     });
 
     test('POST with invalid email returns client error', async ({ request }) => {
@@ -170,7 +172,8 @@ test.describe('Contact Form Worker API (#109)', () => {
         },
         data: { name: 'Test User', email: 'not-an-email' },
       });
-      expect([400, 403, 422, 429]).toContain(response.status());
+      test.skip(response.status() === 429, 'Rate-limited by CF edge — validation not exercised');
+      expect([400, 403, 422]).toContain(response.status());
     });
 
     test('POST with empty body returns client error', async ({ request }) => {
@@ -181,7 +184,8 @@ test.describe('Contact Form Worker API (#109)', () => {
         },
         data: {},
       });
-      expect([400, 403, 422, 429]).toContain(response.status());
+      test.skip(response.status() === 429, 'Rate-limited by CF edge — validation not exercised');
+      expect([400, 403, 422]).toContain(response.status());
     });
 
     test('POST response is JSON', async ({ request }) => {
