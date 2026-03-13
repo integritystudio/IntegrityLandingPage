@@ -1,0 +1,165 @@
+# Top 20 most-changed files (last 200 commits)
+# commits  file
+  51 docs/BACKLOG.md
+  18 lib/services/content_loader.dart
+  13 test/controllers/landing_controller_test.dart
+  11 lib/config/content/constants.dart
+  11 e2e/tests/contact-worker.spec.ts
+  10 test/widgets/sections/contact_section_test.dart
+  10 lib/pages/landing_page.dart
+   9 test/widgets/sections/footer_section_test.dart
+   9 lib/widgets/sections/footer_section.dart
+   9 lib/pages/docs_quickstart_page.dart
+   8 lib/widgets/sections/contact_section.dart
+   8 e2e/tests/constants.ts
+   8 docs/changelog/1.0/CHANGELOG.md
+   7 test/pages/landing_page_test.dart
+   7 test/helpers/test_helpers.dart
+   7 lib/widgets/docs/doc_components.dart
+   7 content.yaml
+   6 lib/pages/docs_tracing_page.dart
+   6 lib/pages/docs_api_page.dart
+   5 test/unit/content/content_test.dart
+
+# Recent commits touching these files
+
+## docs/BACKLOG.md
+  531a55d 2026-03-12 docs(backlog): mark #146-#148 Done after e2e reliability sprint
+  15a5a3e 2026-03-12 docs(backlog): append #146-#148 follow-up gaps from full-stack review
+  3a55edb 2026-03-12 docs(backlog): mark #142-#144 Done after test coverage sprint
+  d6f884a 2026-03-12 docs(backlog): append #142-#145 test coverage gaps from #109/#131 review
+  5d69cd7 2026-03-12 docs: migrate 44 Done items from BACKLOG.md to CHANGELOG.md
+
+## lib/services/content_loader.dart
+  f30f4dc 2026-03-12 fix(content-loader): complete in-flight Completer before reset() to prevent leaked Futures
+  a1b8bed 2026-03-12 fix(content-loader): coalesce concurrent load() calls via Completer
+  8b3cc4f 2026-03-12 fix(content-loader): flush caches at start of load() to mirror loadFromString()
+  a0a686e 2026-03-12 refactor(content): collapse ContentLoader to static-only pattern (#105)
+  ebf476c 2026-03-11 fix(content): address review findings on ContentLoadException (#104)
+
+## test/controllers/landing_controller_test.dart
+  4e1f5cb 2026-03-12 test(content): strengthen variant assertions and fix legacy magic string
+  9418148 2026-03-12 refactor(content): remove dead getVariant, use ContentVariants constants in tests
+  195b7e2 2026-03-11 refactor(constants,test): source all CTAText from YAML and use constants in tests
+  9897dd6 2026-03-11 fix(test): use underscore variant keys to match content.yaml
+  702dcee 2026-03-09 fix(tests): add missing test_helpers import for pumpAndSettleWithTimeout
+
+## lib/config/content/constants.dart
+  2c575c0 2026-03-12 fix(content): align ContentVariants keys with content.yaml underscore format
+  195b7e2 2026-03-11 refactor(constants,test): source all CTAText from YAML and use constants in tests
+  d9c1863 2026-03-11 fix(careers,contact): wire ref query param, source CTAText from YAML, fix stale tests
+  aa58467 2026-03-11 feat(careers,pricing): remove enterprise note and update careers CTA copy
+  ff68a7f 2026-03-09 fix(content): preserve Austin, TX format with locationRegionAbbrev constant
+
+## e2e/tests/contact-worker.spec.ts
+  5a3831d 2026-03-12 test(e2e): fix test reliability gaps from #146/#147/#148 backlog review
+  279e477 2026-03-12 fix(e2e): use conditional guard to skip content-type assertion on 503 (#144)
+  ff5c226 2026-03-12 test(e2e): skip content-type assertion on 503 for CSRF token endpoint (#144)
+  6249a97 2026-03-12 test(e2e): skip on 429 in form validation tests to prevent false-green (#143)
+  f21e366 2026-03-12 test(e2e): add GET from unauthorized origin test to origin gating (#142)
+
+## test/widgets/sections/contact_section_test.dart
+  d61fbea 2026-03-09 fix(tests): prevent test timeouts from repeating animations
+  ab86be1 2026-03-01 fix(icons): replace remaining Material Icons with LucideIcons across widgets
+  8f31e0b 2026-03-01 fix(widgets): resolve 8 bugs across widget review and harden quality
+  54b34cf 2026-02-26 test(typography,contact): fix 19 skipped tests and slow retry tests
+  cb18b35 2026-02-26 fix(test): address final-review high-severity findings
+
+## lib/pages/landing_page.dart
+  a9afe93 2026-03-11 fix(nav): move Docs link after Contact in all header nav lists
+  107828e 2026-03-11 fix(nav): add Team and Docs links to landing page header
+  7cdd7c1 2026-03-11 feat(nav): add Team, Docs, About links and team scroll key to header
+  09f2cf0 2026-03-08 fix(landing): apply code review findings from dca9cad
+  dca9cad 2026-03-08 fix(landing): move tier navigation out of controller into widget
+
+## test/widgets/sections/footer_section_test.dart
+  d61fbea 2026-03-09 fix(tests): prevent test timeouts from repeating animations
+  602a189 2026-03-06 test(footer): add mobile bottom bar label coverage (#74)
+  bfbe55f 2026-03-06 test(footer): replace tautological constants test with widget-driven assertions (#73)
+  0da3759 2026-03-06 fix(test): remove tautological assertions, fix _socialPlatforms mismatch
+  17a0ff8 2026-03-06 refactor(test): extract shared label constants to file scope
+
+## lib/widgets/sections/footer_section.dart
+  82058bf 2026-03-08 refactor(config): centralize all external URLs and platform metrics in content.yaml
+  e21b05b 2026-03-06 fix(footer): route Help Center link to /support instead of /contact
+  39e314b 2026-03-06 refactor(footer): replace magic numbers with named constants (#51)
+  b4bee5d 2026-03-06 refactor(constants): remove duplicate Routes.support and Routes.docsApi aliases (#59)
+  96ce36a 2026-03-06 refactor(footer): remove dead iconWidget field from _SocialLink (#54)
+
+## lib/pages/docs_quickstart_page.dart
+  d7d217d 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
+  8ec27fa 2026-03-12 fix(doc-components): const borders and callsite for DocInlineWarning (#92)
+  0b72c63 2026-03-12 refactor(docs): add DocInlineWarning, consolidate _WarningCallout/_WarningAlert (#92)
+  b4bb064 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
+  c534a9a 2026-03-11 perf(pages): add const to DocBulletList call sites (#121)
+
+## lib/widgets/sections/contact_section.dart
+  d9c1863 2026-03-11 fix(careers,contact): wire ref query param, source CTAText from YAML, fix stale tests
+  bb539a2 2026-03-06 refactor(contact): extract _onFieldChanged to eliminate duplicated closures (#68)
+  d089927 2026-03-06 refactor(#52,#53,#60,#62,#64,#67): resolve all MEDIUM backlog items
+  fcfac8e 2026-03-01 fix(contact): CSRF retry, validateStatus, launchUrl error handling
+  ab86be1 2026-03-01 fix(icons): replace remaining Material Icons with LucideIcons across widgets
+
+## e2e/tests/constants.ts
+  7c46a15 2026-03-12 refactor(e2e): centralize CONTACT_WORKER_URL and SITE_URL in constants.ts
+  b79b5fe 2026-03-12 fix(e2e): seo-meta env fallback, beforeAll rationale, and description bound
+  3866be3 2026-03-09 refactor(e2e): migrate playwright.config magic numbers to named constants
+  13f5a05 2026-03-09 fix(e2e): increase Flutter init and test timeouts for production (#78)
+  a902ef5 2026-03-09 test(e2e): add web-platform Playwright tests for kIsWeb coverage (#75, #76)
+
+## docs/changelog/1.0/CHANGELOG.md
+  5d69cd7 2026-03-12 docs: migrate 44 Done items from BACKLOG.md to CHANGELOG.md
+  a3086b5 2026-03-09 docs(changelog): migrate TEST_GAPS.md into changelog and delete file
+  2f25d2e 2026-03-06 docs: migrate 2 test coverage items (#69, #70) to changelog
+  5efa55d 2026-03-06 fix(routing): propagate /features route fix to content.yaml and test fixtures
+  136d206 2026-03-06 chore(changelog): migrate 13 backlog items to version 2.0 (#51,#54,#57-#59,#61,#65-#66,#68,#71-#74)
+
+## test/pages/landing_page_test.dart
+  195b7e2 2026-03-11 refactor(constants,test): source all CTAText from YAML and use constants in tests
+  d00205b 2026-03-09 refactor(test): extract shared test constants to test_constants.dart
+  ebc0cd4 2026-03-08 fix(test): apply code review findings from 5bb2cc1
+  5bb2cc1 2026-03-08 refactor(test): replace magic numbers with named constants
+  09f2cf0 2026-03-08 fix(landing): apply code review findings from dca9cad
+
+## test/helpers/test_helpers.dart
+  bb50016 2026-03-11 fix(constants,test): fix const context errors from CTAText getter conversion
+  195b7e2 2026-03-11 refactor(constants,test): source all CTAText from YAML and use constants in tests
+  b53dd07 2026-03-09 test(api_toolkit_page): add page-level smoke test (#103)
+  96346ff 2026-03-09 refactor(test-helpers): migrate magic numbers/strings to named constants
+  a8fe6f6 2026-03-09 fix(test-helpers): prevent scrollUntilVisible unbounded pumpAndSettle hang (#98)
+
+## lib/widgets/docs/doc_components.dart
+  8ec27fa 2026-03-12 fix(doc-components): const borders and callsite for DocInlineWarning (#92)
+  0b72c63 2026-03-12 refactor(docs): add DocInlineWarning, consolidate _WarningCallout/_WarningAlert (#92)
+  1de8419 2026-03-11 fix(doc_components): add assert message strings; const DocBulletList in 3 more pages
+  49f4989 2026-03-11 fix(doc_components): propagate assert to DocCallout named constructors (#120)
+  e9d5310 2026-03-11 docs(doc_components): clarify bulletColor ignored when checked=true (#93)
+
+## content.yaml
+  d9c1863 2026-03-11 fix(careers,contact): wire ref query param, source CTAText from YAML, fix stale tests
+  aa58467 2026-03-11 feat(careers,pricing): remove enterprise note and update careers CTA copy
+  7d423b6 2026-03-11 feat(signup): submit to contact worker and redirect to result pages
+  82058bf 2026-03-08 refactor(config): centralize all external URLs and platform metrics in content.yaml
+  72e6e73 2026-03-07 fix(worker,content): rate limit accuracy and demo URL
+
+## lib/pages/docs_tracing_page.dart
+  d7d217d 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
+  b4bb064 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
+  a1f6ed1 2026-03-11 style(docs_tracing_page): add blank line before _TimelineItem class (#122)
+  c534a9a 2026-03-11 perf(pages): add const to DocBulletList call sites (#121)
+  0214c69 2026-03-11 perf(pages): add const to DocCallout call sites in quickstart and tracing pages (#94)
+
+## lib/pages/docs_api_page.dart
+  d7d217d 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
+  0b72c63 2026-03-12 refactor(docs): add DocInlineWarning, consolidate _WarningCallout/_WarningAlert (#92)
+  b4bb064 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
+  1de8419 2026-03-11 fix(doc_components): add assert message strings; const DocBulletList in 3 more pages
+  b4bd612 2026-03-09 refactor(docs-widgets): migrate private widgets to shared doc_components (#95, #96)
+
+## test/unit/content/content_test.dart
+  4e1f5cb 2026-03-12 test(content): strengthen variant assertions and fix legacy magic string
+  9418148 2026-03-12 refactor(content): remove dead getVariant, use ContentVariants constants in tests
+  aa58467 2026-03-11 feat(careers,pricing): remove enterprise note and update careers CTA copy
+  82058bf 2026-03-08 refactor(config): centralize all external URLs and platform metrics in content.yaml
+  ae5c2d8 2026-03-01 fix(content): correct Calendly duration labels from 30 to 15 minutes
+

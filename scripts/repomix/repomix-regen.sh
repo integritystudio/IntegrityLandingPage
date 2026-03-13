@@ -37,7 +37,7 @@ COMPRESS_SCRIPT="$SCRIPT_DIR/repo-compressed.sh"
 LOSSLESS_SCRIPT="$SCRIPT_DIR/repomix.sh"
 DOCS_ONLY_SCRIPT="$SCRIPT_DIR/generate-repomix-docs.sh"
 GIT_RANKED_SCRIPT="$SCRIPT_DIR/generate-repomix-git-ranked.sh"
-GITLOG_TOP_SCRIPT="$SCRIPT_DIR/generate-sidequest-gitlog.sh"
+GITLOG_TOP_SCRIPT="$SCRIPT_DIR/generate-gitlog-top20.sh"
 GIT_RANKED_INCLUDE_LOGS_COUNT="${REPOMIX_GIT_RANKED_INCLUDE_LOGS_COUNT:-200}"
 
 echo "File set up..."
