@@ -128,6 +128,9 @@ test.describe('Contact Form Worker API (#109)', () => {
       });
       // 200 if CSRF_SECRET configured, 503 if not
       expect([200, 503]).toContain(response.status());
+      // Skip content-type assertion on 503: CF may return an HTML error page,
+      // making the application/json assertion misleading rather than meaningful
+      test.skip(response.status() === 503, `Worker returned 503 — CSRF_SECRET not configured`);
       expect(response.headers()['content-type']).toContain('application/json');
     });
 
