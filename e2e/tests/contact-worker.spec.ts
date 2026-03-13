@@ -1,5 +1,24 @@
 import { test, expect } from '@playwright/test';
-import { CONTACT_WORKER_URL, SITE_URL } from './constants';
+import {
+  CONTACT_WORKER_URL,
+  SITE_URL,
+  HTTP_OK,
+  HTTP_BAD_REQUEST,
+  HTTP_FORBIDDEN,
+  HTTP_METHOD_NOT_ALLOWED,
+  HTTP_UNPROCESSABLE_ENTITY,
+  HTTP_TOO_MANY_REQUESTS,
+  HTTP_SERVICE_UNAVAILABLE,
+  CONTENT_TYPE_JSON,
+  HEADER_CONTENT_TYPE,
+  HEADER_ORIGIN,
+  HEADER_ALLOW_ORIGIN,
+  HEADER_ALLOW_METHODS,
+  HEADER_REQUEST_METHOD,
+  HEADER_REQUEST_HEADERS,
+  HEADER_CSRF_TOKEN,
+  MALICIOUS_ORIGIN,
+} from './constants';
 
 /**
  * E2E tests for the Cloudflare Worker contact form API.
@@ -35,29 +54,29 @@ test.describe('Contact Form Worker API (#109)', () => {
       const response = await request.fetch(CONTACT_WORKER_URL, {
         method: 'OPTIONS',
         headers: {
-          'Origin': ALLOWED_ORIGIN,
-          'Access-Control-Request-Method': 'POST',
-          'Access-Control-Request-Headers': 'Content-Type',
+          [HEADER_ORIGIN]: ALLOWED_ORIGIN,
+          [HEADER_REQUEST_METHOD]: 'POST',
+          [HEADER_REQUEST_HEADERS]: HEADER_CONTENT_TYPE,
         },
       });
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
     });
 
     test('OPTIONS response includes Access-Control-Allow-Origin', async ({ request }) => {
       const response = await request.fetch(CONTACT_WORKER_URL, {
         method: 'OPTIONS',
-        headers: { 'Origin': ALLOWED_ORIGIN },
+        headers: { [HEADER_ORIGIN]: ALLOWED_ORIGIN },
       });
       const headers = response.headers();
-      expect(headers['access-control-allow-origin']).toBe(ALLOWED_ORIGIN);
+      expect(headers[HEADER_ALLOW_ORIGIN]).toBe(ALLOWED_ORIGIN);
     });
 
     test('OPTIONS response includes allowed methods', async ({ request }) => {
       const response = await request.fetch(CONTACT_WORKER_URL, {
         method: 'OPTIONS',
-        headers: { 'Origin': ALLOWED_ORIGIN },
+        headers: { [HEADER_ORIGIN]: ALLOWED_ORIGIN },
       });
-      const allowMethods = response.headers()['access-control-allow-methods'] ?? '';
+      const allowMethods = response.headers()[HEADER_ALLOW_METHODS] ?? '';
       expect(allowMethods).toContain('POST');
     });
   });
@@ -70,14 +89,14 @@ test.describe('Contact Form Worker API (#109)', () => {
     test('POST from unauthorized origin is rejected (403 or 429)', async ({ request }) => {
       const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
-          'Content-Type': 'application/json',
-          'Origin': 'https://malicious.example.com',
+          [HEADER_CONTENT_TYPE]: CONTENT_TYPE_JSON,
+          [HEADER_ORIGIN]: MALICIOUS_ORIGIN,
         },
         data: { name: 'Test', email: '[email protected]' },
       });
       // Worker returns 403 for bad origin; CF edge may return 429 if rate-limited
-      expect([403, 429]).toContain(response.status());
-      if (response.status() === 403) {
+      expect([HTTP_FORBIDDEN, HTTP_TOO_MANY_REQUESTS]).toContain(response.status());
+      if (response.status() === HTTP_FORBIDDEN) {
         const body = await response.json();
         expect(body.error).toBeDefined();
       }
@@ -85,11 +104,11 @@ test.describe('Contact Form Worker API (#109)', () => {
 
     test('GET from unauthorized origin is rejected (403 or 429)', async ({ request }) => {
       const response = await request.get(CONTACT_WORKER_URL, {
-        headers: { 'Origin': 'https://malicious.example.com' },
+        headers: { [HEADER_ORIGIN]: MALICIOUS_ORIGIN },
       });
       // Worker enforces origin on GET (CSRF token endpoint); CF edge may return 429 if rate-limited
-      expect([403, 429]).toContain(response.status());
-      if (response.status() === 403) {
+      expect([HTTP_FORBIDDEN, HTTP_TOO_MANY_REQUESTS]).toContain(response.status());
+      if (response.status() === HTTP_FORBIDDEN) {
         const body = await response.json();
         expect(body.error).toBeDefined();
       }
@@ -105,12 +124,12 @@ test.describe('Contact Form Worker API (#109)', () => {
       const response = await request.fetch(CONTACT_WORKER_URL, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Origin': ALLOWED_ORIGIN,
+          [HEADER_CONTENT_TYPE]: CONTENT_TYPE_JSON,
+          [HEADER_ORIGIN]: ALLOWED_ORIGIN,
         },
         data: '{}',
       });
-      expect(response.status()).toBe(405);
+      expect(response.status()).toBe(HTTP_METHOD_NOT_ALLOWED);
       const body = await response.json();
       expect(body.error).toBe('Method not allowed');
     });
@@ -118,9 +137,9 @@ test.describe('Contact Form Worker API (#109)', () => {
     test('DELETE returns 405', async ({ request }) => {
       const response = await request.fetch(CONTACT_WORKER_URL, {
         method: 'DELETE',
-        headers: { 'Origin': ALLOWED_ORIGIN },
+        headers: { [HEADER_ORIGIN]: ALLOWED_ORIGIN },
       });
-      expect(response.status()).toBe(405);
+      expect(response.status()).toBe(HTTP_METHOD_NOT_ALLOWED);
     });
   });
 
@@ -131,25 +150,25 @@ test.describe('Contact Form Worker API (#109)', () => {
   test.describe('CSRF token endpoint', () => {
     test('GET with valid origin returns JSON', async ({ request }) => {
       const response = await request.get(CONTACT_WORKER_URL, {
-        headers: { 'Origin': ALLOWED_ORIGIN },
+        headers: { [HEADER_ORIGIN]: ALLOWED_ORIGIN },
       });
       // 200 if CSRF_SECRET configured, 503 if not
-      expect([200, 503]).toContain(response.status());
+      expect([HTTP_OK, HTTP_SERVICE_UNAVAILABLE]).toContain(response.status());
       // Guard content-type assertion: CF may return an HTML error page on 503,
       // making the application/json assertion misleading rather than meaningful
-      if (response.status() === 503) {
+      if (response.status() === HTTP_SERVICE_UNAVAILABLE) {
         test.skip(); // halts execution; no content-type assertion on 503
         return;
       }
-      expect(response.headers()['content-type']).toContain('application/json');
+      expect(response.headers()[HEADER_CONTENT_TYPE]).toContain(CONTENT_TYPE_JSON);
     });
 
     test('GET with valid origin returns CSRF token format on 200', async ({ request }) => {
       const response = await request.get(CONTACT_WORKER_URL, {
-        headers: { 'Origin': ALLOWED_ORIGIN },
+        headers: { [HEADER_ORIGIN]: ALLOWED_ORIGIN },
       });
       // Skip (not silently pass) when CSRF_SECRET is not configured and worker returns 503
-      if (response.status() !== 200) {
+      if (response.status() !== HTTP_OK) {
         test.skip();
         return;
       }
@@ -169,65 +188,65 @@ test.describe('Contact Form Worker API (#109)', () => {
     test('POST with missing name returns client error', async ({ request }) => {
       const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
-          'Content-Type': 'application/json',
-          'Origin': ALLOWED_ORIGIN,
+          [HEADER_CONTENT_TYPE]: CONTENT_TYPE_JSON,
+          [HEADER_ORIGIN]: ALLOWED_ORIGIN,
         },
         data: { email: '[email protected]' }, // missing name
       });
       // Skip (not silently pass) when CF edge rate-limits before validation runs
-      if (response.status() === 429) {
+      if (response.status() === HTTP_TOO_MANY_REQUESTS) {
         test.skip();
         return;
       }
       // 400 validation / 403 CSRF / 422
-      expect([400, 403, 422]).toContain(response.status());
+      expect([HTTP_BAD_REQUEST, HTTP_FORBIDDEN, HTTP_UNPROCESSABLE_ENTITY]).toContain(response.status());
     });
 
     test('POST with invalid email returns client error', async ({ request }) => {
       const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
-          'Content-Type': 'application/json',
-          'Origin': ALLOWED_ORIGIN,
+          [HEADER_CONTENT_TYPE]: CONTENT_TYPE_JSON,
+          [HEADER_ORIGIN]: ALLOWED_ORIGIN,
         },
         data: { name: 'Test User', email: 'not-an-email' },
       });
-      if (response.status() === 429) {
+      if (response.status() === HTTP_TOO_MANY_REQUESTS) {
         test.skip();
         return;
       }
-      expect([400, 403, 422]).toContain(response.status());
+      expect([HTTP_BAD_REQUEST, HTTP_FORBIDDEN, HTTP_UNPROCESSABLE_ENTITY]).toContain(response.status());
     });
 
     test('POST with empty body returns client error', async ({ request }) => {
       const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
-          'Content-Type': 'application/json',
-          'Origin': ALLOWED_ORIGIN,
+          [HEADER_CONTENT_TYPE]: CONTENT_TYPE_JSON,
+          [HEADER_ORIGIN]: ALLOWED_ORIGIN,
         },
         data: {},
       });
-      if (response.status() === 429) {
+      if (response.status() === HTTP_TOO_MANY_REQUESTS) {
         test.skip();
         return;
       }
-      expect([400, 403, 422]).toContain(response.status());
+      expect([HTTP_BAD_REQUEST, HTTP_FORBIDDEN, HTTP_UNPROCESSABLE_ENTITY]).toContain(response.status());
     });
 
     test('POST response is JSON', async ({ request }) => {
       const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
-          'Content-Type': 'application/json',
-          'Origin': ALLOWED_ORIGIN,
+          [HEADER_CONTENT_TYPE]: CONTENT_TYPE_JSON,
+          [HEADER_ORIGIN]: ALLOWED_ORIGIN,
         },
         data: {},
       });
       // Skip when CF edge rate-limits before validation runs (HTML body, not JSON)
-      if (response.status() === 429) {
+      if (response.status() === HTTP_TOO_MANY_REQUESTS) {
         test.skip();
         return;
       }
-      const ct = response.headers()['content-type'] ?? '';
-      expect(ct).toContain('application/json');
+      const ct = response.headers()[HEADER_CONTENT_TYPE] ?? '';
+      expect(ct).toContain(CONTENT_TYPE_JSON);
     });
   });
 
@@ -248,20 +267,20 @@ test.describe('Contact Form Worker API (#109)', () => {
     test('POST with valid fields but no CSRF token is rejected', async ({ request }) => {
       const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
-          'Content-Type': 'application/json',
-          'Origin': ALLOWED_ORIGIN,
+          [HEADER_CONTENT_TYPE]: CONTENT_TYPE_JSON,
+          [HEADER_ORIGIN]: ALLOWED_ORIGIN,
           // No X-CSRF-Token header
         },
         data: VALID_SUBMISSION,
       });
       // Skip (not silently pass) when CSRF_SECRET is not configured and worker returns 200
-      if (response.status() === 200) {
+      if (response.status() === HTTP_OK) {
         test.skip();
         return;
       }
-      expect([403, 429]).toContain(response.status());
+      expect([HTTP_FORBIDDEN, HTTP_TOO_MANY_REQUESTS]).toContain(response.status());
       // Guard json() on 403 only — 429 may return HTML body from CF edge
-      if (response.status() === 403) {
+      if (response.status() === HTTP_FORBIDDEN) {
         const body = await response.json();
         expect(body.error).toBeDefined();
       }
@@ -270,33 +289,33 @@ test.describe('Contact Form Worker API (#109)', () => {
     test('POST with valid fields and invalid CSRF token returns 403', async ({ request }) => {
       const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
-          'Content-Type': 'application/json',
-          'Origin': ALLOWED_ORIGIN,
-          'X-CSRF-Token': 'invalid.token',
+          [HEADER_CONTENT_TYPE]: CONTENT_TYPE_JSON,
+          [HEADER_ORIGIN]: ALLOWED_ORIGIN,
+          [HEADER_CSRF_TOKEN]: 'invalid.token',
         },
         data: VALID_SUBMISSION,
       });
       // Skip (not silently pass) when CSRF_SECRET is not configured and worker returns 200
-      if (response.status() === 200) {
+      if (response.status() === HTTP_OK) {
         test.skip();
         return;
       }
-      expect([403, 429]).toContain(response.status());
+      expect([HTTP_FORBIDDEN, HTTP_TOO_MANY_REQUESTS]).toContain(response.status());
     });
 
     test('POST with valid complete fields returns JSON error response', async ({ request }) => {
       const response = await request.post(CONTACT_WORKER_URL, {
         headers: {
-          'Content-Type': 'application/json',
-          'Origin': ALLOWED_ORIGIN,
+          [HEADER_CONTENT_TYPE]: CONTENT_TYPE_JSON,
+          [HEADER_ORIGIN]: ALLOWED_ORIGIN,
         },
         data: VALID_SUBMISSION,
       });
       // Valid fields bypass field-validation errors; response is still an error (CSRF/rate-limit)
       // unless CSRF_SECRET is not configured (200 success path)
-      expect([200, 403, 429]).toContain(response.status());
-      const ct = response.headers()['content-type'] ?? '';
-      expect(ct).toContain('application/json');
+      expect([HTTP_OK, HTTP_FORBIDDEN, HTTP_TOO_MANY_REQUESTS]).toContain(response.status());
+      const ct = response.headers()[HEADER_CONTENT_TYPE] ?? '';
+      expect(ct).toContain(CONTENT_TYPE_JSON);
     });
   });
 });

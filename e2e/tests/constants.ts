@@ -135,3 +135,38 @@ export const FB_PIXEL_ID = '2038045626963282';
 
 /** Settle time for GTM script injection after consent-triggered reload. */
 export const GTM_INJECT_SETTLE_MS = 5_000;
+
+// ---------------------------------------------------------------------------
+// HTTP status codes
+// ---------------------------------------------------------------------------
+
+export const HTTP_OK = 200;
+export const HTTP_BAD_REQUEST = 400;
+export const HTTP_FORBIDDEN = 403;
+export const HTTP_METHOD_NOT_ALLOWED = 405;
+export const HTTP_UNPROCESSABLE_ENTITY = 422;
+export const HTTP_TOO_MANY_REQUESTS = 429;
+export const HTTP_SERVICE_UNAVAILABLE = 503;
+
+// ---------------------------------------------------------------------------
+// HTTP header names and content types
+// (lowercase — HTTP is case-insensitive; Playwright normalizes response headers)
+// ---------------------------------------------------------------------------
+
+/** MIME type for JSON request bodies and responses. */
+export const CONTENT_TYPE_JSON = 'application/json';
+
+export const HEADER_CONTENT_TYPE = 'content-type';
+export const HEADER_ORIGIN = 'origin';
+export const HEADER_ALLOW_ORIGIN = 'access-control-allow-origin';
+export const HEADER_ALLOW_METHODS = 'access-control-allow-methods';
+export const HEADER_REQUEST_METHOD = 'access-control-request-method';
+export const HEADER_REQUEST_HEADERS = 'access-control-request-headers';
+export const HEADER_CSRF_TOKEN = 'x-csrf-token';
+
+// ---------------------------------------------------------------------------
+// Origin gating test fixtures
+// ---------------------------------------------------------------------------
+
+/** Unauthorized origin used in origin-gating and CORS rejection tests. */
+export const MALICIOUS_ORIGIN = 'https://malicious.example.com';
