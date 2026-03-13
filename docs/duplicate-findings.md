@@ -50,24 +50,11 @@
 
 ---
 
-## Cluster 1: Docs Page Private Widgets (CRITICAL — highest impact)
+## All Findings by Similarity Score
 
-The docs pages each re-declare private versions of widgets that already exist in `lib/widgets/docs/doc_components.dart`. This is the single largest source of duplication in the codebase.
+### 100% — `_SimpleTable` identical across 6 files
 
-### Existing shared widgets in `doc_components.dart`
-
-| Shared Widget | Lines |
-|---------------|-------|
-| `DocSection` | 6-62 |
-| `DocFeatureCard` | 65-124 |
-| `DocCodeBlock` | 127-153 |
-| `DocTable` | 157-221 |
-| `DocBulletList` | 224-263 |
-| `DocNumberedList` | 266-324 |
-
-### 1a. `_SimpleTable` — 100% identical across 6 files
-
-All six copies are byte-for-byte identical (100% Jaccard similarity). This is pure copy-paste duplication.
+All six copies are byte-for-byte identical. Pure copy-paste duplication.
 
 | File | Widget | Lines |
 |------|--------|-------|
@@ -82,7 +69,9 @@ All six copies are byte-for-byte identical (100% Jaccard similarity). This is pu
 
 **Recommendation:** Replace all 6 private `_SimpleTable` with `DocTable`, or create a new shared widget if the API differs enough.
 
-### 1b. `_CodeBlock` — 100% identical across 4 files, 74-92% in 2 more
+---
+
+### 100% — `_CodeBlock` identical across 4 files, 74% in 2 more
 
 | File | Widget | Lines | Similarity to canonical |
 |------|--------|-------|------------------------|
@@ -97,72 +86,11 @@ All six copies are byte-for-byte identical (100% Jaccard similarity). This is pu
 
 **Recommendation:** Replace all with `DocCodeBlock`. The 74% variants (alerts, tracing) are shorter — may need a parameter to handle the difference.
 
-### 1c. `_BulletList` — 95% similar across 6 files
+---
 
-| File | Widget | Lines |
-|------|--------|-------|
-| `lib/pages/api_toolkit_page.dart` | `_BulletList` | 972-1007 |
-| `lib/pages/docs_agents_page.dart` | `_BulletList` | 681-716 |
-| `lib/pages/docs_alerts_page.dart` | `_BulletList` | 1242-1277 |
-| `lib/pages/docs_api_page.dart` | `_BulletList` | 890-925 |
-| `lib/pages/docs_quickstart_page.dart` | `_BulletList` | 1129-1164 |
-| `lib/pages/docs_tracing_page.dart` | `_BulletList` | 851-886 |
+### 100% — Callout widgets identical across 5 files
 
-**Shared equivalent:** `DocBulletList` (lines 224-263) at 85% similarity.
-
-**Related variants:**
-- `_CheckList` (docs_quickstart_page:1166-1201) — 77% similar to `_BulletList`, 92% to `_ChecklistSection`
-- `_ChecklistSection` (docs_tracing_page:888-923) — 77% similar to `_BulletList`
-
-**Recommendation:** Replace all `_BulletList` with `DocBulletList`. Merge `_CheckList`/`_ChecklistSection` into a `DocBulletList` variant with a `checked` parameter.
-
-### 1d. `_DocSection` — 91-97% similar across 7 files
-
-| File | Widget | Lines | Similarity to agents canonical |
-|------|--------|-------|-------------------------------|
-| `lib/pages/api_toolkit_page.dart` | `_DocSection` | 817-869 | 97% |
-| `lib/pages/docs_agents_page.dart` | `_DocSection` | 541-593 | canonical |
-| `lib/pages/docs_alerts_page.dart` | `_DocSection` | 683-740 | 91% |
-| `lib/pages/docs_api_page.dart` | `_DocSection` | 659-711 | 97% |
-| `lib/pages/docs_quickstart_page.dart` | `_DocSection` | 760-816 | 94% |
-| `lib/pages/docs_tracing_page.dart` | `_DocSection` | 535-587 | 97% |
-| `lib/pages/security_page.dart` | `_SecurityCard` | 446-498 | 94% |
-
-**Shared equivalent:** `DocSection` (lines 6-62) at 86-88% similarity.
-
-**Recommendation:** Replace all with `DocSection`. The `_SecurityCard` in security_page is structurally the same widget with a different name.
-
-### 1e. `_FeatureCard` — 91-97% similar across 4 files
-
-| File | Widget | Lines | Similarity to agents canonical |
-|------|--------|-------|-------------------------------|
-| `lib/pages/docs_agents_page.dart` | `_FeatureCard` | 629-679 | canonical |
-| `lib/pages/docs_alerts_page.dart` | `_FeatureCard` | 776-826 | 97% |
-| `lib/pages/docs_quickstart_page.dart` | `_FeatureCard` | 852-902 | 97% |
-| `lib/pages/docs_tracing_page.dart` | `_FeatureCard` | 623-678 | 94% |
-
-**Shared equivalent:** `DocFeatureCard` (lines 65-124) at 86-92% similarity.
-
-**Recommendation:** Replace all with `DocFeatureCard`.
-
-### 1f. `_StatCard` — 97% similar across 3 files
-
-| File | Widget | Lines |
-|------|--------|-------|
-| `lib/pages/api_toolkit_page.dart` | `_StatCard` | 207-247 |
-| `lib/pages/docs_api_page.dart` | `_StatCard` | 158-198 |
-| `lib/pages/docs_observability_page.dart` | `_StatCard` | 159-199 |
-
-**Related variants:**
-- `_StatBadge` (docs_agents_page:192-228) — 71% similar
-- `_StatCard` (security_page:500-539) — 81% similar
-- `_TimelineCard` (eu_ai_act_page:207-247) — 85% similar
-
-**Recommendation:** Extract a shared `DocStatCard` widget to `doc_components.dart`.
-
-### 1g. Callout widgets — `_InfoCallout`, `_WarningCallout`, `_SuccessCallout`
-
-These are structurally identical widgets (89-100% similar to each other) differing only by icon and color. They are duplicated across 4 docs pages.
+`_InfoCallout`, `_WarningCallout`, `_SuccessCallout` are structurally identical widgets (89-100% similar to each other) differing only by icon and color.
 
 | File | Widgets | Lines |
 |------|---------|-------|
@@ -181,20 +109,80 @@ These are structurally identical widgets (89-100% similar to each other) differi
 
 **Recommendation:** Create a single `DocCallout` widget with a `CalloutType` enum (`info`, `warning`, `success`, `danger`). Eliminates ~50 duplicate pairs in one refactor.
 
-### 1h. `_NumberedList` — 89% similar to shared component
+---
 
-| File | Widget | Lines | vs DocNumberedList |
-|------|--------|-------|--------------------|
-| `lib/pages/docs_alerts_page.dart` | `_NumberedList` | 1103-1155 | 89% |
-| `lib/pages/docs_tracing_page.dart` | `_Timeline` | 692-764 | 73% |
+### 97% — `_StatCard` similar across 3 files
 
-**Shared equivalent:** `DocNumberedList` (lines 266-324).
+| File | Widget | Lines |
+|------|--------|-------|
+| `lib/pages/api_toolkit_page.dart` | `_StatCard` | 207-247 |
+| `lib/pages/docs_api_page.dart` | `_StatCard` | 158-198 |
+| `lib/pages/docs_observability_page.dart` | `_StatCard` | 159-199 |
 
-**Recommendation:** Replace `_NumberedList` with `DocNumberedList`. `_Timeline` may need its own shared widget.
+**Related variants:**
+- `_StatBadge` (docs_agents_page:192-228) — 71% similar
+- `_StatCard` (security_page:500-539) — 81% similar
+- `_TimelineCard` (eu_ai_act_page:207-247) — 85% similar
+
+**Recommendation:** Extract a shared `DocStatCard` widget to `doc_components.dart`.
 
 ---
 
-## Cluster 2: Docs Page Top-Level Scaffolds (89-93% similar)
+### 97% — `_DocSection` similar across 7 files
+
+| File | Widget | Lines | Similarity to agents canonical |
+|------|--------|-------|-------------------------------|
+| `lib/pages/api_toolkit_page.dart` | `_DocSection` | 817-869 | 97% |
+| `lib/pages/docs_agents_page.dart` | `_DocSection` | 541-593 | canonical |
+| `lib/pages/docs_alerts_page.dart` | `_DocSection` | 683-740 | 91% |
+| `lib/pages/docs_api_page.dart` | `_DocSection` | 659-711 | 97% |
+| `lib/pages/docs_quickstart_page.dart` | `_DocSection` | 760-816 | 94% |
+| `lib/pages/docs_tracing_page.dart` | `_DocSection` | 535-587 | 97% |
+| `lib/pages/security_page.dart` | `_SecurityCard` | 446-498 | 94% |
+
+**Shared equivalent:** `DocSection` (lines 6-62) at 86-88% similarity.
+
+**Recommendation:** Replace all with `DocSection`. The `_SecurityCard` in security_page is structurally the same widget with a different name.
+
+---
+
+### 97% — `_FeatureCard` similar across 4 files
+
+| File | Widget | Lines | Similarity to agents canonical |
+|------|--------|-------|-------------------------------|
+| `lib/pages/docs_agents_page.dart` | `_FeatureCard` | 629-679 | canonical |
+| `lib/pages/docs_alerts_page.dart` | `_FeatureCard` | 776-826 | 97% |
+| `lib/pages/docs_quickstart_page.dart` | `_FeatureCard` | 852-902 | 97% |
+| `lib/pages/docs_tracing_page.dart` | `_FeatureCard` | 623-678 | 94% |
+
+**Shared equivalent:** `DocFeatureCard` (lines 65-124) at 86-92% similarity.
+
+**Recommendation:** Replace all with `DocFeatureCard`.
+
+---
+
+### 95% — `_BulletList` similar across 6 files
+
+| File | Widget | Lines |
+|------|--------|-------|
+| `lib/pages/api_toolkit_page.dart` | `_BulletList` | 972-1007 |
+| `lib/pages/docs_agents_page.dart` | `_BulletList` | 681-716 |
+| `lib/pages/docs_alerts_page.dart` | `_BulletList` | 1242-1277 |
+| `lib/pages/docs_api_page.dart` | `_BulletList` | 890-925 |
+| `lib/pages/docs_quickstart_page.dart` | `_BulletList` | 1129-1164 |
+| `lib/pages/docs_tracing_page.dart` | `_BulletList` | 851-886 |
+
+**Shared equivalent:** `DocBulletList` (lines 224-263) at 85% similarity.
+
+**Related variants:**
+- `_CheckList` (docs_quickstart_page:1166-1201) — 77% similar to `_BulletList`, 92% to `_ChecklistSection`
+- `_ChecklistSection` (docs_tracing_page:888-923) — 77% similar to `_BulletList`
+
+**Recommendation:** Replace all `_BulletList` with `DocBulletList`. Merge `_CheckList`/`_ChecklistSection` into a `DocBulletList` variant with a `checked` parameter.
+
+---
+
+### 93% — Docs page scaffolds similar across 7 files
 
 All 7 docs pages share a nearly identical top-level page widget structure (Scaffold + AppBar + body layout).
 
@@ -216,7 +204,83 @@ All 7 docs pages share a nearly identical top-level page widget structure (Scaff
 
 ---
 
-## Cluster 3: Generic Page Shells (78% similar)
+### 89% — `_NumberedList` similar to shared component
+
+| File | Widget | Lines | vs DocNumberedList |
+|------|--------|-------|--------------------|
+| `lib/pages/docs_alerts_page.dart` | `_NumberedList` | 1103-1155 | 89% |
+| `lib/pages/docs_tracing_page.dart` | `_Timeline` | 692-764 | 73% |
+
+**Shared equivalent:** `DocNumberedList` (lines 266-324).
+
+**Recommendation:** Replace `_NumberedList` with `DocNumberedList`. `_Timeline` may need its own shared widget.
+
+---
+
+### 86% — Feature/content page structures
+
+Larger page widgets with similar layout patterns:
+
+| Pair | Similarity |
+|------|-----------|
+| `ApiToolkitPage` ~ `EuAiActPage` | 86% |
+| `CompliancePage` ~ `EuAiActPage` | 86% |
+| `ApiToolkitPage` ~ `CompliancePage` | 83% |
+| `CompliancePage` ~ `SecurityPage` | 83% |
+| `EuAiActPage` ~ `SecurityPage` | 79% |
+| `ApiToolkitPage` ~ `SecurityPage` | 78% |
+| Various ~ `HelpCenterPage` | 70-74% |
+
+**Recommendation:** Medium priority. These pages share section layout patterns (hero + stat cards + content sections + CTA). A shared page template could reduce duplication but requires careful design to maintain per-page customization.
+
+---
+
+### 85% — Button variants
+
+| Pair | Similarity |
+|------|-----------|
+| `AnimatedGradientBorderButton` ~ `GradientButton` | 85% |
+| `AnimatedGradientBorderButton` ~ `OutlineButton` | 85% |
+| `GradientButton` ~ `OutlineButton` | 85% |
+| `AnimatedGradientBorderButton` ~ `AppTextButton` | 75% |
+| `GradientButton` ~ `AppTextButton` | 75% |
+| `OutlineButton` ~ `AppTextButton` | 75% |
+
+All in `lib/widgets/common/buttons.dart`. These share build method structure but differ in decoration and interaction.
+
+**Recommendation:** Low priority. Buttons intentionally differ in visual behavior. Could extract a shared `_ButtonBase` with a decoration callback, but the current code is readable.
+
+---
+
+### 80% — Hero sections
+
+| Pair | Similarity |
+|------|-----------|
+| `features :: _HeroSection` ~ `status :: _HeroSection` | 80% |
+| `compliance :: _HeroSection` ~ `tracing :: _HeroSection` | 76% |
+| `compliance :: _HeroSection` ~ `security :: _HeroSection` | 74% |
+| `sources :: _HeroSection` ~ `security :: _HeroSection` | 73% |
+| `interop :: _HeroSection` ~ `tracing :: _HeroSection` | 72% |
+| `interop :: _HeroSection` ~ `security :: _HeroSection` | 72% |
+| `careers :: _CareersHeroSection` ~ `contact :: _ContactHeroSection` | 71% |
+| `compliance :: _HeroSection` ~ `interop :: _HeroSection` | 71% |
+| `features :: _HeroSection` ~ `security :: _HeroSection` | 71% |
+
+**Recommendation:** Medium priority. Many hero sections follow gradient background + title + subtitle + stat badges pattern. A shared `PageHeroSection` widget with configurable gradient/stats/content slots could consolidate these.
+
+---
+
+### 80% — Trust/social proof widgets
+
+| Pair | Similarity |
+|------|-----------|
+| `hero_section :: _TrustIndicator` ~ `social_proof_section :: _TrustBadge` | 80% |
+
+**Recommendation:** Low priority. Only one pair, but if trust badges proliferate, extract a shared `TrustBadge` widget.
+
+---
+
+### 78% — Generic page shells
 
 8 pages share an identical Scaffold + SingleChildScrollView + Column pattern.
 
@@ -237,84 +301,20 @@ All pairs are 78% similar. This is a boilerplate pattern — low priority since 
 
 ---
 
-## Cluster 4: Feature/Content Page Structures (83-86%)
-
-Larger page widgets with similar layout patterns:
-
-| Pair | Similarity |
-|------|-----------|
-| `ApiToolkitPage` ~ `CompliancePage` | 83% |
-| `ApiToolkitPage` ~ `EuAiActPage` | 86% |
-| `CompliancePage` ~ `EuAiActPage` | 86% |
-| `ApiToolkitPage` ~ `SecurityPage` | 78% |
-| `CompliancePage` ~ `SecurityPage` | 83% |
-| `EuAiActPage` ~ `SecurityPage` | 79% |
-| Various ~ `HelpCenterPage` | 70-74% |
-
-**Recommendation:** Medium priority. These pages share section layout patterns (hero + stat cards + content sections + CTA). A shared page template could reduce duplication but requires careful design to maintain per-page customization.
-
----
-
-## Cluster 5: Hero Sections (71-80%)
-
-| Pair | Similarity |
-|------|-----------|
-| `careers :: _CareersHeroSection` ~ `contact :: _ContactHeroSection` | 71% |
-| `compliance :: _HeroSection` ~ `interop :: _HeroSection` | 71% |
-| `compliance :: _HeroSection` ~ `tracing :: _HeroSection` | 76% |
-| `compliance :: _HeroSection` ~ `security :: _HeroSection` | 74% |
-| `interop :: _HeroSection` ~ `tracing :: _HeroSection` | 72% |
-| `interop :: _HeroSection` ~ `security :: _HeroSection` | 72% |
-| `tracing :: _HeroSection` ~ `security :: _HeroSection` | 75% |
-| `features :: _HeroSection` ~ `security :: _HeroSection` | 71% |
-| `features :: _HeroSection` ~ `status :: _HeroSection` | 80% |
-| `security :: _HeroSection` ~ `sources :: _HeroSection` | 73% |
-
-**Recommendation:** Medium priority. Many hero sections follow gradient background + title + subtitle + stat badges pattern. A shared `PageHeroSection` widget with configurable gradient/stats/content slots could consolidate these.
-
----
-
-## Cluster 6: Button Variants (75-85%)
-
-| Pair | Similarity |
-|------|-----------|
-| `AnimatedGradientBorderButton` ~ `GradientButton` | 85% |
-| `AnimatedGradientBorderButton` ~ `OutlineButton` | 85% |
-| `GradientButton` ~ `OutlineButton` | 85% |
-| `AnimatedGradientBorderButton` ~ `AppTextButton` | 75% |
-| `GradientButton` ~ `AppTextButton` | 75% |
-| `OutlineButton` ~ `AppTextButton` | 75% |
-
-All in `lib/widgets/common/buttons.dart`. These share build method structure but differ in decoration and interaction.
-
-**Recommendation:** Low priority. Buttons intentionally differ in visual behavior. Could extract a shared `_ButtonBase` with a decoration callback, but the current code is readable.
-
----
-
-## Cluster 7: Trust/Social Proof Widgets (80%)
-
-| Pair | Similarity |
-|------|-----------|
-| `hero_section :: _TrustIndicator` ~ `social_proof_section :: _TrustBadge` | 80% |
-
-**Recommendation:** Low priority. Only one pair, but if trust badges proliferate, extract a shared `TrustBadge` widget.
-
----
-
-## Cluster 8: Cross-Page Card Widgets (70-78%)
+### 78% — Cross-page card widgets
 
 Various card-style widgets across different pages share structural similarity:
 
 | Widget A | Widget B | Similarity |
 |----------|----------|-----------|
-| `comparison :: _DifferentiatorCard` | `status :: _HealthComponentChip` | 72% |
-| `comparison :: _ChoiceCard` | `features :: _QueryCard` | 70% |
-| `eu_ai_act :: _ChecklistItem` | `features :: _QueryCard` | 70% |
-| `features :: _FeatureItem` | `sources :: _MethodologyCard` | 72% |
-| `sources :: _MethodologyCard` | `status :: _TechSection` | 78% |
-| `sources :: _MethodologyCard` | `status :: _StatusChip` | 71% |
-| `compliance :: _ResourceLink` | `sources :: _MethodologyCard` | 73% |
-| `compliance :: _ResourceLink` | `status :: _TechSection` | 73% |
+| `sources :: _MethodologyCard` ~ `status :: _TechSection` | | 78% |
+| `compliance :: _ResourceLink` ~ `status :: _TechSection` | | 73% |
+| `compliance :: _ResourceLink` ~ `sources :: _MethodologyCard` | | 73% |
+| `comparison :: _DifferentiatorCard` ~ `status :: _HealthComponentChip` | | 72% |
+| `features :: _FeatureItem` ~ `sources :: _MethodologyCard` | | 72% |
+| `sources :: _MethodologyCard` ~ `status :: _StatusChip` | | 71% |
+| `comparison :: _ChoiceCard` ~ `features :: _QueryCard` | | 70% |
+| `eu_ai_act :: _ChecklistItem` ~ `features :: _QueryCard` | | 70% |
 
 **Recommendation:** Low priority. These are semantically different widgets that happen to share Container + Column + Text patterns. Consolidation would reduce clarity.
 
@@ -326,12 +326,12 @@ Various card-style widgets across different pages share structural similarity:
 
 1. **Replace all `_SimpleTable` with `DocTable`** — 6 files, 100% identical, zero-risk
 2. **Replace all `_CodeBlock` with `DocCodeBlock`** — 6 files, add parameter for short variant
-3. **Replace all `_BulletList` with `DocBulletList`** — 6 files, add `checked` parameter for checklist variants
-4. **Create `DocCallout` with type enum** — replaces `_InfoCallout`, `_WarningCallout`, `_SuccessCallout`, `_WarningAlert`, `_DangerAlert` across 5 files
+3. **Create `DocCallout` with type enum** — replaces `_InfoCallout`, `_WarningCallout`, `_SuccessCallout`, `_WarningAlert`, `_DangerAlert` across 5 files
+4. **Replace all `_BulletList` with `DocBulletList`** — 6 files, add `checked` parameter for checklist variants
 5. **Replace all `_DocSection` with `DocSection`** — 7 files including security_page `_SecurityCard`
 6. **Replace all `_FeatureCard` with `DocFeatureCard`** — 4 files
-7. **Replace `_NumberedList` with `DocNumberedList`** — 1 file
-8. **Extract `DocStatCard`** — new shared widget, replaces `_StatCard` in 3-4 files
+7. **Extract `DocStatCard`** — new shared widget, replaces `_StatCard` in 3-4 files
+8. **Replace `_NumberedList` with `DocNumberedList`** — 1 file
 
 ### Phase 2: Docs page scaffold (eliminates ~21 pairs)
 
