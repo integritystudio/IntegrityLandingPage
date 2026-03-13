@@ -244,10 +244,16 @@ test.describe('Contact Form Worker API (#109)', () => {
         data: VALID_SUBMISSION,
       });
       // Skip (not silently pass) when CSRF_SECRET is not configured and worker returns 200
-      test.skip(response.status() === 200, 'CSRF_SECRET not configured — skipping CSRF guard assertion');
+      if (response.status() === 200) {
+        test.skip();
+        return;
+      }
       expect([403, 429]).toContain(response.status());
-      const body = await response.json();
-      expect(body.error).toBeDefined();
+      // Guard json() on 403 only — 429 may return HTML body from CF edge
+      if (response.status() === 403) {
+        const body = await response.json();
+        expect(body.error).toBeDefined();
+      }
     });
 
     test('POST with valid fields and invalid CSRF token returns 403', async ({ request }) => {
@@ -260,7 +266,10 @@ test.describe('Contact Form Worker API (#109)', () => {
         data: VALID_SUBMISSION,
       });
       // Skip (not silently pass) when CSRF_SECRET is not configured and worker returns 200
-      test.skip(response.status() === 200, 'CSRF_SECRET not configured — skipping CSRF guard assertion');
+      if (response.status() === 200) {
+        test.skip();
+        return;
+      }
       expect([403, 429]).toContain(response.status());
     });
 
