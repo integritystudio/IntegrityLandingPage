@@ -6,6 +6,7 @@ import '../services/analytics.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/navigation/shared_app_bar.dart';
 import '../widgets/sections/footer_section.dart';
+import '../widgets/sections/marketing_hero_section.dart';
 
 /// Features page displaying detailed platform capabilities.
 ///
@@ -66,67 +67,39 @@ class _HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: AppSpacing.containerPadding(context),
-        vertical: isMobile ? 48 : 80,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppColors.gray800, AppColors.gray900],
+    return MarketingHeroSection(
+      isMobile: isMobile,
+      headline: FeaturesContentVariants.pageTitle,
+      subheadline: FeaturesContentVariants.pageSubtitle,
+      badge: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
         ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.blue500.withValues(alpha: 0.2),
-                  AppColors.purple500.withValues(alpha: 0.2),
-                ],
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.blue500.withValues(alpha: 0.2),
+              AppColors.purple500.withValues(alpha: 0.2),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.checkCircle, size: 16, color: AppColors.success),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              FeaturesContentVariants.complianceBadge,
+              style: AppTypography.bodySM.copyWith(
+                color: AppColors.blue400,
+                fontWeight: FontWeight.w500,
               ),
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(LucideIcons.checkCircle, size: 16, color: AppColors.success),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  FeaturesContentVariants.complianceBadge,
-                  style: AppTypography.bodySM.copyWith(
-                    color: AppColors.blue400,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            FeaturesContentVariants.pageTitle,
-            style: (isMobile ? AppTypography.headingLG : AppTypography.headingXL)
-                .copyWith(color: Colors.white),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Text(
-              FeaturesContentVariants.pageSubtitle,
-              style: AppTypography.bodyLG.copyWith(color: AppColors.gray400),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
