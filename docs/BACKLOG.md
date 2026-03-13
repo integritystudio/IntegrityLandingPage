@@ -344,7 +344,7 @@ The `submission flow` tests at lines 247 and 263 still use `test.skip(condition,
 
 **Fix:** Replace with `if (status === 200) { test.skip(); return; }` pattern established in #147, and guard `response.json()` calls on 403 responses only (429 may return HTML).
 
-**Status:** Deferred — identical root cause to #147; currently produces unhandled parse errors on rate-limited runs.
+**Status:** Done — commit 49d4ab5 (2026-03-12)
 
 ---
 
@@ -357,7 +357,7 @@ The `submission flow` tests at lines 247 and 263 still use `test.skip(condition,
 
 The three form validation tests use `test.skip(condition, msg)` with a message argument. This is the "soft" variant — it does not throw or halt execution; it marks the test skipped and continues to the next line. Assertions at lines 181, 193, 205, 219 execute even when skipped. Currently not harmful (broad assertions fail on 429), but intent is unclear and pattern is inconsistent with the `if-guard + test.skip() + return` pattern established in #147.
 
-**Status:** Deferred — low risk (assertions will fail rather than pass on 429), but consistency gap.
+**Status:** Done — commit 953ecfa (2026-03-12)
 
 ---
 
@@ -370,7 +370,7 @@ The three form validation tests use `test.skip(condition, msg)` with a message a
 
 JSDoc comment hardcodes `Worker URL: https://integrity-studio-contact.alyshia-b38.workers.dev` while the actual worker URL is driven by the `CONTACT_WORKER_URL` constant (line 2). The comment will silently drift if the constant is updated.
 
-**Status:** Deferred — low impact (comment is informational only).
+**Status:** Done — commit 95c0310 (2026-03-12)
 
 ---
 
@@ -383,8 +383,8 @@ JSDoc comment hardcodes `Worker URL: https://integrity-studio-contact.alyshia-b3
 
 Line 26 defines `const WORKER_URL = CONTACT_WORKER_URL;` as a no-op alias without adding value. Use `CONTACT_WORKER_URL` directly or rename at the import site to clarify intent.
 
-**Status:** Deferred — trivial refactoring.
+**Status:** Done — commit 95c0310 (2026-03-12)
 
 ---
 
-*Last updated: 2026-03-12 (migrated 44 Done items to docs/changelog/1.0/CHANGELOG.md; appended #142-#145 code review findings from #109/#131 sprint; appended #146-#148 follow-up gaps from full-stack review; marked #146-#148 Done; appended #149-#152 pre-existing gaps from full-stack review)*
+*Last updated: 2026-03-12 (migrated 44 Done items to docs/changelog/1.0/CHANGELOG.md; appended #142-#145 code review findings from #109/#131 sprint; appended #146-#148 follow-up gaps from full-stack review; marked #146-#148 Done; appended #149-#152 pre-existing gaps from full-stack review; marked #149-#152 Done after test reliability sprint)*
