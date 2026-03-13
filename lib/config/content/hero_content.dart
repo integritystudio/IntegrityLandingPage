@@ -62,18 +62,4 @@ abstract final class HeroContentVariants {
     secondaryCTA: CTAText.requestDemo,
     trustIndicators: TrustIndicators.legacy,
   );
-
-  /// Get content variant by name
-  static HeroContent getVariant(String variant) {
-    switch (variant) {
-      case ContentVariants.agentFirst:
-        return agentFirst;
-      case ContentVariants.costFocused:
-        return costFocused;
-      case ContentVariants.legacy:
-        return legacy;
-      default:
-        return current;
-    }
-  }
 }

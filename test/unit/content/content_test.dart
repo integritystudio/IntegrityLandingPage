@@ -369,17 +369,22 @@ void main() {
       });
 
       test('returns agentFirst variant when requested', () {
-        final variant = AppContent.getHeroVariant('agentFirst');
+        final variant =
+            AppContent.getHeroVariant(ContentVariants.agentFirst);
+        final defaultHero = AppContent.hero;
 
-        // Should return a valid hero content
         expect(variant.headline, isNotEmpty);
         expect(variant.primaryCTA, isNotEmpty);
+        expect(variant.headline, isNot(equals(defaultHero.headline)));
       });
 
       test('returns costFocused variant when requested', () {
-        final variant = AppContent.getHeroVariant('costFocused');
+        final variant =
+            AppContent.getHeroVariant(ContentVariants.costFocused);
+        final defaultHero = AppContent.hero;
 
         expect(variant.headline, isNotEmpty);
+        expect(variant.headline, isNot(equals(defaultHero.headline)));
       });
 
       test('returns legacy variant when requested', () {
