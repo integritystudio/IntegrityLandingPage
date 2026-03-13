@@ -303,7 +303,7 @@ No test fetches a valid CSRF token via GET and replays it on a POST submission. 
 
 Test hits the same worker endpoint without a 429 skip guard, unlike the three adjacent form validation tests fixed in #143. A 429 from CF edge may return an HTML body, causing the `content-type: application/json` assertion to fail with a confusing error. Identical gap to #143 but not addressed in that commit.
 
-**Status:** Deferred — consistency gap; identical root cause to #143 but lower impact (POST response format vs. field validation).
+**Status:** Done — commit 5a3831d (2026-03-12)
 
 ---
 
@@ -316,7 +316,7 @@ Test hits the same worker endpoint without a 429 skip guard, unlike the three ad
 
 Line 145 still uses `test.skip(response.status() !== 200, ...)` mid-test (called after `await`), while #144 (commit 279e477) established the correct `if (condition) { test.skip(); return; }` pattern to halt execution. The conditional version doesn't guarantee execution stops, causing the `response.json()` call to risk throwing on a non-200 HTML body.
 
-**Status:** Deferred — lower risk than #144 because the skip condition covers all non-200 statuses; but inconsistent with the pattern now established in this test file.
+**Status:** Done — commit 5a3831d (2026-03-12)
 
 ---
 
@@ -329,8 +329,8 @@ Line 145 still uses `test.skip(response.status() !== 200, ...)` mid-test (called
 
 Both POST and GET unauthorized-origin tests assert only the status code (`[403, 429]`), not whether the response contains an error message. Tests at line 237 assert `body.error` is defined. For a security boundary, asserting that rejection includes an error payload strengthens the signal and prevents silent failures.
 
-**Status:** Deferred — low risk (status code alone is sufficient for CORS rejection), but would improve test signal quality at security boundaries.
+**Status:** Done — commit 5a3831d (2026-03-12)
 
 ---
 
-*Last updated: 2026-03-12 (migrated 44 Done items to docs/changelog/1.0/CHANGELOG.md; appended #142-#145 code review findings from #109/#131 sprint; appended #146-#148 follow-up gaps from full-stack review)*
+*Last updated: 2026-03-12 (migrated 44 Done items to docs/changelog/1.0/CHANGELOG.md; appended #142-#145 code review findings from #109/#131 sprint; appended #146-#148 follow-up gaps from full-stack review; marked #146-#148 Done)*
