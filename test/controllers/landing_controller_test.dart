@@ -93,7 +93,7 @@ void main() {
       });
 
       test('setContentVariant changes content', () {
-        controller.setContentVariant('agent_first');
+        controller.setContentVariant(ContentVariants.agentFirst);
         // After setting variant, heroContent should reflect the variant
         expect(controller.heroContent, isNotNull);
       });
@@ -102,20 +102,21 @@ void main() {
         var notified = false;
         controller.addListener(() => notified = true);
 
-        controller.setContentVariant('cost_focused');
+        controller.setContentVariant(ContentVariants.costFocused);
         expect(notified, isTrue);
       });
 
       test('heroContent returns variant content when variant is set', () {
-        controller.setContentVariant('agent_first');
-        final variantContent = AppContent.getHeroVariant('agent_first');
+        controller.setContentVariant(ContentVariants.agentFirst);
+        final variantContent =
+            AppContent.getHeroVariant(ContentVariants.agentFirst);
         expect(controller.heroContent.headline, equals(variantContent.headline));
       });
 
       test('heroContent returns different content for different variants', () {
         final defaultContent = controller.heroContent;
 
-        controller.setContentVariant('cost_focused');
+        controller.setContentVariant(ContentVariants.costFocused);
         final costFocusedContent = controller.heroContent;
 
         // Verify variant system is working (content may differ)
