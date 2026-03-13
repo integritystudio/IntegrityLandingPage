@@ -333,4 +333,58 @@ Both POST and GET unauthorized-origin tests assert only the status code (`[403, 
 
 ---
 
-*Last updated: 2026-03-12 (migrated 44 Done items to docs/changelog/1.0/CHANGELOG.md; appended #142-#145 code review findings from #109/#131 sprint; appended #146-#148 follow-up gaps from full-stack review; marked #146-#148 Done)*
+### #149: Submission Flow Tests — Post-Await Skip Pattern Inconsistency
+
+**Severity:** MEDIUM
+**Category:** E2E Test Reliability (Skip Pattern)
+**File:** `e2e/tests/contact-worker.spec.ts:247-251, 263-264`
+**Source:** Full-stack review (session 2026-03-12, code-reviewer agent)
+
+The `submission flow` tests at lines 247 and 263 still use `test.skip(condition, msg)` after an `await`. This is the same pattern that was fixed in #147 for the CSRF token format test. When a 429 is returned with an HTML body, `response.json()` on line 250 will run unconditionally and throw a JSON parse error, surfacing as test infrastructure failure rather than a clean skip.
+
+**Fix:** Replace with `if (status === 200) { test.skip(); return; }` pattern established in #147, and guard `response.json()` calls on 403 responses only (429 may return HTML).
+
+**Status:** Deferred — identical root cause to #147; currently produces unhandled parse errors on rate-limited runs.
+
+---
+
+### #150: Form Validation Tests — Soft Skip Pattern Doesn't Halt
+
+**Severity:** MEDIUM
+**Category:** E2E Test Reliability (Skip Pattern Consistency)
+**File:** `e2e/tests/contact-worker.spec.ts:179, 192, 204, 217`
+**Source:** Full-stack review (session 2026-03-12, code-reviewer agent)
+
+The three form validation tests use `test.skip(condition, msg)` with a message argument. This is the "soft" variant — it does not throw or halt execution; it marks the test skipped and continues to the next line. Assertions at lines 181, 193, 205, 219 execute even when skipped. Currently not harmful (broad assertions fail on 429), but intent is unclear and pattern is inconsistent with the `if-guard + test.skip() + return` pattern established in #147.
+
+**Status:** Deferred — low risk (assertions will fail rather than pass on 429), but consistency gap.
+
+---
+
+### #151: JSDoc Worker URL Comment Hardcoded
+
+**Severity:** LOW
+**Category:** Code Quality (Documentation Drift)
+**File:** `e2e/tests/contact-worker.spec.ts:22`
+**Source:** Full-stack review (session 2026-03-12, code-reviewer agent)
+
+JSDoc comment hardcodes `Worker URL: https://integrity-studio-contact.alyshia-b38.workers.dev` while the actual worker URL is driven by the `CONTACT_WORKER_URL` constant (line 2). The comment will silently drift if the constant is updated.
+
+**Status:** Deferred — low impact (comment is informational only).
+
+---
+
+### #152: Redundant WORKER_URL Constant Alias
+
+**Severity:** LOW
+**Category:** Code Quality (Dead Code)
+**File:** `e2e/tests/contact-worker.spec.ts:26`
+**Source:** Full-stack review (session 2026-03-12, code-reviewer agent)
+
+Line 26 defines `const WORKER_URL = CONTACT_WORKER_URL;` as a no-op alias without adding value. Use `CONTACT_WORKER_URL` directly or rename at the import site to clarify intent.
+
+**Status:** Deferred — trivial refactoring.
+
+---
+
+*Last updated: 2026-03-12 (migrated 44 Done items to docs/changelog/1.0/CHANGELOG.md; appended #142-#145 code review findings from #109/#131 sprint; appended #146-#148 follow-up gaps from full-stack review; marked #146-#148 Done; appended #149-#152 pre-existing gaps from full-stack review)*
