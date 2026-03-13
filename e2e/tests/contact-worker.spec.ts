@@ -176,7 +176,10 @@ test.describe('Contact Form Worker API (#109)', () => {
         data: { email: '[email protected]' }, // missing name
       });
       // Skip (not silently pass) when CF edge rate-limits before validation runs
-      test.skip(response.status() === 429, 'Rate-limited by CF edge — validation not exercised');
+      if (response.status() === 429) {
+        test.skip();
+        return;
+      }
       // 400 validation / 403 CSRF / 422
       expect([400, 403, 422]).toContain(response.status());
     });
@@ -189,7 +192,10 @@ test.describe('Contact Form Worker API (#109)', () => {
         },
         data: { name: 'Test User', email: 'not-an-email' },
       });
-      test.skip(response.status() === 429, 'Rate-limited by CF edge — validation not exercised');
+      if (response.status() === 429) {
+        test.skip();
+        return;
+      }
       expect([400, 403, 422]).toContain(response.status());
     });
 
@@ -201,7 +207,10 @@ test.describe('Contact Form Worker API (#109)', () => {
         },
         data: {},
       });
-      test.skip(response.status() === 429, 'Rate-limited by CF edge — validation not exercised');
+      if (response.status() === 429) {
+        test.skip();
+        return;
+      }
       expect([400, 403, 422]).toContain(response.status());
     });
 
@@ -214,7 +223,10 @@ test.describe('Contact Form Worker API (#109)', () => {
         data: {},
       });
       // Skip when CF edge rate-limits before validation runs (HTML body, not JSON)
-      test.skip(response.status() === 429, 'Rate-limited by CF edge — JSON content-type not guaranteed');
+      if (response.status() === 429) {
+        test.skip();
+        return;
+      }
       const ct = response.headers()['content-type'] ?? '';
       expect(ct).toContain('application/json');
     });
