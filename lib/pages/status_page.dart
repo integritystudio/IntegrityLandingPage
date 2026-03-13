@@ -112,30 +112,51 @@ class _HeroSection extends StatelessWidget {
       isMobile: isMobile,
       headline: content.title,
       subheadline: content.subtitle,
-      badge: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.success.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: AppColors.success.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.checkCircle, size: 18, color: AppColors.success),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              content.statusBadge,
-              style: AppTypography.bodyMD.copyWith(
-                color: AppColors.success,
-                fontWeight: FontWeight.w600,
-              ),
+      badge: _HeroBadge(
+        icon: LucideIcons.checkCircle,
+        label: content.statusBadge,
+        color: AppColors.success,
+      ),
+    );
+  }
+}
+
+class _HeroBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _HeroBadge({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            label,
+            style: AppTypography.bodyMD.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -156,7 +177,7 @@ class _MetricsSection extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Key Metrics',
+            content.metricsTitle,
             style: AppTypography.headingMD.copyWith(color: Colors.white),
           ),
           const SizedBox(height: AppSpacing.xl),

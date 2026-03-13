@@ -358,6 +358,7 @@ class _SecurityContent extends StatelessWidget {
               _AlertBanner(
                 message: SecurityContent.vulnerabilityWarning,
                 color: AppColors.error,
+                icon: LucideIcons.alertCircle,
               ),
               const SizedBox(height: AppSpacing.lg),
               _ContactBox(),
@@ -517,8 +518,13 @@ class _SubSection extends StatelessWidget {
 class _AlertBanner extends StatelessWidget {
   final String message;
   final Color color;
+  final IconData icon;
 
-  const _AlertBanner({required this.message, required this.color});
+  const _AlertBanner({
+    required this.message,
+    required this.color,
+    this.icon = LucideIcons.alertTriangle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -532,7 +538,7 @@ class _AlertBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(LucideIcons.alertTriangle, color: color, size: 20),
+          Icon(icon, color: color, size: 20),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(

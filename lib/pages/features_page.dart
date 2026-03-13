@@ -71,35 +71,46 @@ class _HeroSection extends StatelessWidget {
       isMobile: isMobile,
       headline: FeaturesContentVariants.pageTitle,
       subheadline: FeaturesContentVariants.pageSubtitle,
-      badge: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.blue500.withValues(alpha: 0.2),
-              AppColors.purple500.withValues(alpha: 0.2),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.checkCircle, size: 16, color: AppColors.success),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              FeaturesContentVariants.complianceBadge,
-              style: AppTypography.bodySM.copyWith(
-                color: AppColors.blue400,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+      badge: _HeroBadge(label: FeaturesContentVariants.complianceBadge),
+    );
+  }
+}
+
+class _HeroBadge extends StatelessWidget {
+  final String label;
+
+  const _HeroBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.blue500.withValues(alpha: 0.2),
+            AppColors.purple500.withValues(alpha: 0.2),
           ],
         ),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.checkCircle, size: 16, color: AppColors.success),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            label,
+            style: AppTypography.bodySM.copyWith(
+              color: AppColors.blue400,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
