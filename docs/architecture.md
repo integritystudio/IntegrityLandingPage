@@ -14,69 +14,64 @@ Enterprise AI Observability Platform landing page built with Flutter Web, deploy
 | Backend | Cloudflare Workers |
 | Hosting | Cloudflare Pages |
 | Domain | integritystudio.ai |
+| Icons | Lucide Icons |
 
 ## Directory Structure
 
 ```
 lib/
 ├── config/           # Content configuration
-│   └── content/      # Static content definitions
+│   └── content/      # Static content definitions (16 files)
 ├── controllers/      # Business logic controllers
-├── models/           # Data models
-├── pages/            # Page widgets (26 pages)
-├── providers/        # Provider setup
+├── models/           # Data models (consent preferences)
+├── pages/            # Page widgets (29 pages)
 ├── routing/          # GoRouter configuration
+│   ├── app_router.dart   # Route definitions, redirects
+│   └── cookie_shell.dart # Cookie consent ShellRoute wrapper
 ├── services/         # External service integrations
 ├── theme/            # Design system
+├── utils/            # Security utilities
 ├── widgets/          # Reusable components
-│   ├── common/       # Shared widgets
-│   ├── consent/      # Cookie consent UI
-│   ├── decorative/   # Visual elements
-│   ├── docs/         # Documentation components
-│   ├── modals/       # Dialog components
-│   └── sections/     # Page sections
+│   ├── common/       # Shared widgets (alert, buttons, cards, containers, form_fields, hover_text_link, status_icon)
+│   ├── consent/      # Cookie consent banner
+│   ├── decorative/   # Animated orb
+│   ├── docs/         # Documentation components (DocCallout, DocBulletList, DocInlineWarning, etc.)
+│   ├── modals/       # Demo modal
+│   ├── navigation/   # SharedAppBar, DocsPageScaffold
+│   └── sections/     # Page sections (13 section widgets)
 ├── app.dart          # App widget
 └── main.dart         # Entry point
 ```
 
 ## Core Patterns
 
-### Routing
-
-All navigation uses GoRouter via `context.go()`:
-
-```dart
-// lib/routing/app_router.dart - Central route configuration
-// lib/routing/cookie_shell.dart - Consent state via ValueNotifier
-```
-
-Key routes:
-- `/` - Landing page
-- `/demo` - Demo request (all CTAs route here)
-- `/pricing` - Pricing page
-- `/docs/*` - Documentation pages
-- `/blog/*` - Blog posts
-
 ### Content Loading
 
 ```dart
 // lib/services/content_loader.dart
-// Loads from content.yaml with 1-hour cache
+// Static-only pattern: ContentLoader.load() / ContentLoader.loadFromString()
+// Coalesces concurrent calls via Completer, 1-hour cache
 ```
 
-Site content is defined in `content.yaml` at project root, covering:
-- Hero section
-- Features
-- Pricing tiers
-- Testimonials
-- FAQ
+All site content is defined in `content.yaml` at project root. Content constants live in `lib/config/content/constants.dart` (routes, CTA text sourced from YAML, variants, external URLs).
+
+### Routing
+
+All navigation uses GoRouter via `context.go()`. Routes are organized into groups:
+- `_homeRoute` / `_mainPageRoutes` — primary pages with cookie settings
+- `_authRoutes` — signup, request result pages, OAuth callback, help center
+- `_blogRoutes` — blog, comparisons, sources
+- `_legalRoutes` — privacy, terms, cookies, accessibility, security
+- `_docsRoutes` — documentation, API, compliance
+
+See [routes.md](routes.md) for the full route table.
 
 ### State Management
 
 | Pattern | Use Case |
 |---------|----------|
 | Provider | Controllers, app-wide state |
-| ValueNotifier | Cookie consent banner |
+| ValueNotifier | Cookie consent banner visibility |
 
 ### Theme System
 
@@ -89,42 +84,51 @@ lib/theme/
 └── typography.dart   # Text styles
 ```
 
+### Documentation Pages
+
+Documentation pages use `DocsPageScaffold` (extracted shared scaffold) with reusable components from `lib/widgets/docs/doc_components.dart`:
+- `DocCallout` (info, warning, tip named constructors)
+- `DocBulletList` (with optional checkmarks)
+- `DocInlineWarning`
+
 ## Services
 
 | Service | Purpose |
 |---------|---------|
-| `content_loader.dart` | YAML content loading with cache |
+| `content_loader.dart` | Static YAML content loading with Completer-based coalescing |
 | `consent_manager.dart` | Cookie preference storage |
-| `contact_service.dart` | Form submission to Workers |
+| `contact_service.dart` | Form submission to Workers with CSRF |
 | `analytics.dart` | Analytics integration |
-| `tracking.dart` | Platform-conditional tracking |
+| `tracking.dart` | Platform-conditional tracking (web/none) |
+| `http_status.dart` | HTTP status code constants |
+| `security_utils.dart` | Input sanitization, CSP nonce |
 
 ## Backend (Cloudflare Workers)
 
 ```
 workers/contact-form/
-├── src/              # Worker source
 ├── wrangler.toml     # Cloudflare config
-└── vitest.config.ts  # Worker tests
+├── package.json      # Dependencies
+└── tsconfig.json     # TypeScript config
 ```
 
-Handles contact form submissions with email delivery.
+Handles contact form submissions with email delivery, CSRF protection, and rate limiting.
 
 ## Testing Structure
 
 ```
 test/
-├── unit/             # Fast unit tests (~5-11s)
-├── services/         # Service tests (~5s)
-├── controllers/      # Controller tests (~4s)
-├── widgets/          # Widget tests (~40s)
-├── pages/            # Page tests (~51s)
-├── routing/          # Router tests (~26s)
-├── integration/      # Flow tests (~28s)
-└── helpers/          # Test utilities
+├── unit/             # Content, models, services, theme tests
+├── services/         # Service integration tests
+├── controllers/      # Controller tests
+├── widgets/          # Widget tests (common, consent, decorative, docs, modals, navigation, sections)
+├── pages/            # Page render tests (20 page test files)
+├── routing/          # Router tests
+├── integration/      # Multi-page flow tests (9 flow tests)
+├── config/           # Constants and models tests
+├── utils/            # Security utils tests
+└── helpers/          # Test utilities, content fixtures, constants
 ```
-
-**Stats**: 1978+ passing tests, ~94% coverage
 
 ## Static Assets
 

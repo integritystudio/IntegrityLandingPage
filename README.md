@@ -12,7 +12,7 @@ Enterprise AI Observability Platform landing page built with Flutter Web.
 ```bash
 flutter pub get          # Install dependencies
 flutter run -d chrome    # Development server
-flutter test             # Run tests (1978+ passing)
+flutter test             # Run tests (2173+ passing)
 flutter build web        # Production build
 ```
 
@@ -21,11 +21,10 @@ flutter build web        # Production build
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/architecture.md) | Tech stack, patterns, directory structure |
-| [Routes](docs/routes.md) | GoRouter configuration, 27 routes |
-| [Changelog](docs/CHANGELOG.md) | Version history, recent changes |
+| [Routes](docs/routes.md) | GoRouter configuration, 33 routes |
+| [Changelog](docs/changelog/1.0/CHANGELOG.md) | Version history, recent changes |
 | [BACKLOG](docs/BACKLOG.md) | Open, deferred, and blocked items |
 | [Token Count Tree](docs/repomix/token-count-tree.txt) | File tree with token counts |
-| [SOC 2 Type II Compliance](docs/SOC2-COMPLIANCE-REPORT.md) | Compliance documentation |
 
 ## Project Structure
 
@@ -35,8 +34,7 @@ lib/
 │   └── content/      # Static content definitions
 ├── controllers/      # Business logic controllers
 ├── models/           # Data models
-├── pages/            # Page widgets (26 pages)
-├── providers/        # Provider setup
+├── pages/            # Page widgets (29 pages)
 ├── routing/          # GoRouter configuration
 ├── services/         # External service integrations (analytics, consent, contact)
 ├── theme/            # Design system (colors, decorations, spacing, typography)
