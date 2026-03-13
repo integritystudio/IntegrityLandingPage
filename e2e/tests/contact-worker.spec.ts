@@ -78,6 +78,10 @@ test.describe('Contact Form Worker API (#109)', () => {
       });
       // Worker returns 403 for bad origin; CF edge may return 429 if rate-limited
       expect([403, 429]).toContain(response.status());
+      if (response.status() === 403) {
+        const body = await response.json();
+        expect(body.error).toBeDefined();
+      }
     });
 
     test('GET from unauthorized origin is rejected (403 or 429)', async ({ request }) => {
@@ -86,6 +90,10 @@ test.describe('Contact Form Worker API (#109)', () => {
       });
       // Worker enforces origin on GET (CSRF token endpoint); CF edge may return 429 if rate-limited
       expect([403, 429]).toContain(response.status());
+      if (response.status() === 403) {
+        const body = await response.json();
+        expect(body.error).toBeDefined();
+      }
     });
   });
 
@@ -142,7 +150,10 @@ test.describe('Contact Form Worker API (#109)', () => {
         headers: { 'Origin': ALLOWED_ORIGIN },
       });
       // Skip (not silently pass) when CSRF_SECRET is not configured and worker returns 503
-      test.skip(response.status() !== 200, `Worker returned ${response.status()} — CSRF_SECRET not configured`);
+      if (response.status() !== 200) {
+        test.skip();
+        return;
+      }
       const body = await response.json();
       expect(body.csrfToken).toBeDefined();
       expect(typeof body.csrfToken).toBe('string');
@@ -202,6 +213,8 @@ test.describe('Contact Form Worker API (#109)', () => {
         },
         data: {},
       });
+      // Skip when CF edge rate-limits before validation runs (HTML body, not JSON)
+      test.skip(response.status() === 429, 'Rate-limited by CF edge — JSON content-type not guaranteed');
       const ct = response.headers()['content-type'] ?? '';
       expect(ct).toContain('application/json');
     });
