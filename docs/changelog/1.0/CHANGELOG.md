@@ -952,3 +952,213 @@ All regression tests pass (50+/50+).
 - `FLUTTER_LANDING_PAGE_PLAN.md` - Original implementation plan
 - `FLUTTER_ARCHITECTURE_GUIDELINES.md` - Architecture patterns
 - `CONTENT_STRATEGY.md` - Marketing and content strategy
+
+---
+
+## [2026-03-12] - E2E Test Coverage, Widget Extraction, and ContentLoader Refactoring
+
+### OAuth & Auth
+
+**#10: Auth Code Validation**
+- `OAuthCallbackPage` now requires explicit `success: true` param (set by backend after token exchange) to show "Authentication Successful" UI
+- Receiving `code` alone shows "Completing Sign-In" pending state; router wires `params['success'] == 'true'`
+
+### E2E Test Infrastructure & Coverage
+
+**#75: `_launchUrl` Web Platform Error Handling (E2E)**
+- Test coverage via Playwright e2e (`e2e/tests/web-platform.spec.ts`)
+- Happy path and environment smoke tests passing
+
+**#76: `_initializeTracking` Error Handling (E2E)**
+- Test coverage via Playwright e2e (`e2e/tests/web-platform.spec.ts`)
+- Verifies consent persistence, corrupted data resilience, GTM injection, no unhandled errors
+
+**#78: E2E Test Timeout — Flutter Init & Scroll**
+- Increased `FLUTTER_INIT_TIMEOUT_MS` from 90s to 120s
+- Increased global test timeout from 120s to 180s
+- Commit: `13f5a05`
+
+**#109: Contact Form Submission Flow E2E**
+- Added HTTP-layer submission tests to `contact-worker.spec.ts`
+- Tests: POST with valid fields + no CSRF token (skips on misconfiguration), invalid CSRF token, JSON response structure
+- Commits: `9dd26d9`, `8c1c113`
+
+**#110: Pricing Page Plan Selection and CTA**
+- Mobile/tablet viewport load + scroll stability tests added to `e2e/tests/mobile-nav.spec.ts`
+
+**#113: Keyboard Navigation Audit Per Page**
+- Keyboard Tab stability tests added to `e2e/tests/accessibility.spec.ts` for /docs, /contact, /signup, /pricing
+
+**#114: 404 Error Recovery UI Validation**
+- Redirect chain tests added to `e2e/tests/redirect-rules.spec.ts`
+
+**#116: Page-Specific Meta Tags Per Route**
+- Anchor navigation tests added to `e2e/tests/spa-navigation.spec.ts`
+
+**#126: Move Env Constants to constants.ts**
+- `SITE_URL` and `SITE_NAME` moved to `constants.ts` with `process.env` fallbacks
+- Commit: `b79b5fe`
+
+**#127: Document beforeAll pattern rationale**
+- JSDoc comment added to `seo-meta.spec.ts` explaining beforeAll cost/benefit trade-off
+- Commit: `b79b5fe`
+
+**#128: Fix meta-description length assertion/comment mismatch**
+- Assertion tightened to 160 chars (matches "50-160 chars for optimal SEO" comment)
+- Commit: `b79b5fe`
+
+**#129: Move shared test env constants to constants.ts**
+- `CONTACT_WORKER_URL` and `SITE_URL` centralized with env fallbacks
+- Commit: `7c46a15`
+
+**#130: Improve no-loop verification with maxRedirects guard**
+- Added `{ maxRedirects: 5 }` to all 3 no-loop redirect chain tests in `redirect-rules.spec.ts`
+- Commit: `e2f5dc1`
+
+**#131: CSRF Token Test — Fix Vacuous Pass on 503**
+- Replaced `if (response.status() === 200)` guard with `test.skip(response.status() !== 200, ...)`
+- Now 503 appears as skipped in CI rather than silently passing
+- Commit: `e912b39`
+
+### Widget Extraction & DRY Consolidation
+
+**#88: Replace Private Docs Widgets with Shared doc_components.dart**
+- ~200 duplicate pairs eliminated across 5 docs pages (agents, tracing, api, alerts, quickstart)
+- Commits: `3aae289`, `a51ccfb`, `088d9a0`, `c1e167f`, `969e8e1`, `41bd76c`
+
+**#89: Extract DocsPageScaffold for 7 Docs Pages**
+- `DocsPageScaffold` extracted with `title`, `heroBuilder(bool isMobile)`, `content`, `onBack` params
+- ~21 duplicate pairs eliminated
+- Commit: `b4bb064`
+
+**#90: Extract Shared Page Hero and Template Components**
+- `PageHeroSection` added with 8 params: `accentColor`, `badgeIcon`, `badgeText`, `headline`, `subheadline`, `extraContent`, etc.
+- ~30 duplicate pairs eliminated
+- Commits: `fabb49d`, `1274382`
+
+**#91: Extract Button Base, Trust Badge, and Page Shell Primitives**
+- Added `DocInlineWarning(message, fullBorder=false)` to `doc_components.dart`
+- Commits: `0b72c63`, `8ec27fa`
+
+**#93: Document DocBulletList bulletColor Behavior When checked=true**
+- Doc comment added to `DocBulletList`
+- Commit: `e9d5310`
+
+**#94: Add const Optimization to DocCallout Call Sites**
+- `const` added to all literal-param `DocCallout` calls in `docs_quickstart_page.dart` (5 sites) and `docs_tracing_page.dart` (3 sites)
+- Commit: `0214c69`
+
+**#96: Extract Shared _StatCard Widget Across 3 Pages**
+- `DocStatCard` extracted to `doc_components.dart`
+- Private `_StatCard` removed from all 3 pages
+
+**#97: security_page _SecurityCard Duplicates DocSection**
+- Replaced with shared `DocSection` from `doc_components.dart`
+- All 11 call sites updated
+- Commit: `c16f227`
+
+**#120: Add assert to DocCallout Named Constructors**
+- Assert added to all four named constructors (`.success`, `.info`, `.warning`, `.danger`)
+- Commit: `49f4989`
+
+**#121: Add const to DocBulletList Call Sites**
+- `const` added to all 6 call sites in `docs_tracing_page.dart` and `docs_quickstart_page.dart`
+- Commit: `c534a9a`
+
+**#124: Remove Redundant Inner const from DocBulletList**
+- Inner `const` removed from all 12 `items:` params across 5 pages
+- Commit: `d7d217d`
+
+**#125: DocBulletList const Sweep — Verify No Remaining Sites**
+- Sweep confirmed no remaining non-const `DocBulletList` call sites after #121 + d7d217d
+- Commit: `d7d217d`
+
+### Test Coverage & Quality Hardening
+
+**#95: Add Widget Tests for DocStatCard**
+- 4 tests added to `doc_components_test.dart`: value/label render, default/custom accentColor, const constructor
+- Commit: `9420f48`
+
+**#98: Replace pumpAndSettle with pump in Test Loop**
+- Replaced `pumpAndSettleWithTimeout()` with `pump(const Duration(milliseconds: 100))`
+- Added post-loop assertion
+- Commit: `a8fe6f6`
+
+**#99: Add Clarifying Comment to didChangeDependencies Re-entry Guard**
+- Comment added to both `buttons.dart` and `animated_orb.dart`
+- Commit: `2685c60`
+
+**#100: Consider Animation Reset Pattern for disableAnimations Toggle**
+- Header warning added to `social_proof_section_test.dart`
+- Commit: `76622db`
+
+**#103: Add Page-Level Test for api_toolkit_page**
+- `test/pages/api_toolkit_page_test.dart` created with 10 tests
+- Covers page structure, title, navigation callbacks, responsive layout
+- Commit: `b53dd07`
+
+**#139: Add Unit Tests for ContentLoadException**
+- 5 tests added: toString with/without cause, loadFromString throwing on various YAML inputs
+- File: `test/services/content_loader_test.dart`
+- Commit: `7382f81`
+
+**#140: Add Widget Tests for DocsPageScaffold**
+- 9 widget tests added to `test/widgets/navigation/doc_page_scaffold_test.dart`
+- Covers scaffold structure, heroBuilder isMobile callback, ConstrainedBox, footer, responsive behavior
+- Commit: `68af3bc`
+
+**#141: Add Widget Tests for PageHeroSection**
+- 10 widget tests added to `test/widgets/sections/page_hero_section_test.dart`
+- Covers all parameter variations, mobile/desktop headline sizing, gradient, optional extraContent
+- Commit: `a2c0c0f`
+
+**#122: Add Blank Line Before _TimelineItem in docs_tracing_page**
+- Blank line added before `_TimelineItem` class declaration
+- Commit: `a1f6ed1`
+
+**#123: Make Inactive Test sed Command Cross-Platform**
+- macOS and Linux variants both documented
+- Commit: `876a21d`
+
+**#134: AboutPage "Observability Stack" Diagram Overflow**
+- Replaced non-positioned Padding+Column with Positioned.fill + Column(mainAxisAlignment.spaceEvenly)
+- Eliminates overflow in both mobile (280px) and desktop (380px) containers
+- Commit: `76a0ae0`
+
+### ContentLoader Service Refactoring
+
+**#104: Wrap ContentLoader Asset Load in Exception Handler**
+- `ContentLoadException` added; `load()` wraps both `rootBundle.loadString()` and `loadYaml()` in try/catch
+- Commits: `1762a27`, `ebf476c`
+
+**#105: Collapse ContentLoader to Static-Only Pattern**
+- All instance members converted to static
+- `ContentLoader._()` private constructor retained
+- Commit: `a0a686e`
+
+**#106: Add Debug-Mode Assertion to _getMap**
+- Assert added to `_getMap`; `content_loader_test.dart` updated to expect `AssertionError` for missing paths
+- Commit: `0bf5597`
+
+**#108: Optimize socialProofStats Cache**
+- `_stringMapCache` added; `socialProofStats` uses `putIfAbsent` to avoid repeated `.map()` allocations
+- Commit: `04c3c67`
+
+**#137: Cache Consolidation and Re-initialization in ContentLoader**
+- Cache flush added at top of `load()`, mirroring `loadFromString()`
+- `reset()` updated to complete in-flight Completer before nulling (prevents leaked Futures)
+- Commits: `8b3cc4f`, `f30f4dc`
+
+**#138: Add Concurrent-Call Guard to load() Method**
+- `Completer<void>? _loadCompleter` added; concurrent callers await the same future
+- Error path nulls completer so retries work
+- Commit: `a1b8bed`
+
+### Analytics & Code Quality
+
+**#135: OAuth Analytics Event Name Consistency Audit**
+- Three distinct event names confirmed in `oauth_callback_page.dart`: `oauth_callback_error`, `oauth_callback_success`, `oauth_callback_code_received`
+- No downstream updates required (landing page placeholder OAuth)
+
+---
+
