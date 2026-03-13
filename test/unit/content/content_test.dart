@@ -388,9 +388,12 @@ void main() {
       });
 
       test('returns legacy variant when requested', () {
-        final variant = AppContent.getHeroVariant('legacy');
+        final variant =
+            AppContent.getHeroVariant(ContentVariants.legacy);
+        final defaultHero = AppContent.hero;
 
         expect(variant.headline, isNotEmpty);
+        expect(variant.headline, isNot(equals(defaultHero.headline)));
       });
     });
 
