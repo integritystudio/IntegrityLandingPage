@@ -99,7 +99,7 @@ void main() {
           matching: find.byType(Container).first,
         ),
       );
-      expect(container.constraints?.maxWidth, 200);
+      expect(container.constraints?.maxWidth, kDocFeatureCardWidth);
 
       // Custom accent color works
       await tester.pumpWidget(testableWidget(
@@ -145,7 +145,7 @@ function example() {
 
       // Uses monospace font
       final text = tester.widget<SelectableText>(find.byType(SelectableText));
-      expect(text.style?.fontFamily, 'JetBrains Mono');
+      expect(text.style?.fontFamily, kDocCodeFontFamily);
 
       // Has full width
       final container = tester.widget<Container>(
@@ -235,7 +235,7 @@ function example() {
       expect(find.text('Item 3'), findsOneWidget);
 
       // Bullet characters
-      expect(find.textContaining('•'), findsNWidgets(3));
+      expect(find.textContaining(kDocBulletChar), findsNWidgets(3));
 
       // Correct alignment
       final column = tester.widget<Column>(
