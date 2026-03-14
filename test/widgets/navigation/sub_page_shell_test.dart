@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/navigation/sub_page_shell.dart';
+import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import '../../helpers/test_helpers.dart';
 
 void main() {
@@ -66,6 +67,11 @@ void main() {
           ],
         );
         expect(find.text('content-sliver'), findsOneWidget);
+      });
+
+      testWidgets('renders FooterSection', (tester) async {
+        await pumpShell(tester);
+        expect(find.byType(FooterSection), findsOneWidget);
       });
     });
 
