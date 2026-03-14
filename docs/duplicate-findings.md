@@ -40,7 +40,7 @@
 | 100% identical | 27 | 0 | 0 | -27 |
 | 90%+ pairs | 86 | 1 | 0 | -86 |
 
-Phase 1 (docs component consolidation) complete. Phase 3 item — `_WarningAlert`/`_DangerAlert` merge (92% pair) — also resolved since last scan.
+Phase 1 (docs component consolidation) complete. Phase 3 items resolved: `_WarningAlert`/`_DangerAlert` merge (92% pair), and Phase 3a hero consolidation (`_CareersHeroSection`, `_ContactHeroSection`, `features :: _HeroBadge` eliminated via `GradientPillBadge` + `MarketingHeroSection`).
 
 ---
 
@@ -192,7 +192,7 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 
 | Pair | Similarity |
 |------|-----------|
-| `careers :: _CareersHeroSection` ~ `contact :: _ContactHeroSection` | 71% |
+| ~~`careers :: _CareersHeroSection` ~ `contact :: _ContactHeroSection`~~ | ~~71%~~ | **Resolved** — Phase 3a (`GradientPillBadge` + `MarketingHeroSection`) |
 | `docs_alerts :: _AlertTypeCard` ~ `docs_alerts :: _ChannelCard` | 71% |
 | `docs_alerts :: _AlertTypePreview` ~ `status :: _HealthComponentChip` | 71% |
 | `docs_quickstart :: _HealthMetricCard` ~ `features :: _FeatureItem` | 71% |
@@ -216,7 +216,7 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 | `contact :: ContactPage` ~ `status :: StatusPage` | 70% |
 | `docs_quickstart :: _HealthMetricCard` ~ `sources :: _MethodologyCard` | 70% |
 | `eu_ai_act :: _ChecklistItem` ~ `features :: _QueryCard` | 70% |
-| `features :: _HeroBadge` ~ `status :: _HealthComponentChip` | 70% |
+| ~~`features :: _HeroBadge`~~ ~ `status :: _HealthComponentChip` | ~~70%~~ | **Partially resolved** — `features :: _HeroBadge` replaced by `GradientPillBadge` (Phase 3a) |
 | `sources :: _MethodologyCard` ~ `doc_components :: DocFeatureCard` | 70% |
 
 ---
@@ -230,7 +230,7 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 ### Phase 3: Cross-page patterns (eliminates ~5 pairs)
 
 2. ~~**Merge `_WarningAlert` / `_DangerAlert`** in security_page~~ — DONE (eliminated 92% pair)
-3. **Extract `PageHeroSection`** — shared hero for features/status and other pages
+3. ~~**Extract `PageHeroSection`** — shared hero for features/status and other pages~~ — DONE (Phase 3a: `GradientPillBadge` extracted, `_CareersHeroSection`/`_ContactHeroSection`/`_HeroBadge` eliminated)
 4. **Consolidate `_StatCard` / `_StatBadge` variants** with `DocStatCard`
 
 ### Phase 4: Low priority (cosmetic)

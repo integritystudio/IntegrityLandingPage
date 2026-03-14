@@ -31,6 +31,14 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Eliminates ~20-30 lines of duplicate code (identical structure, different colors/icons)
 - Commit: `20d52bf`
 
+**Phase 3a: Extract GradientPillBadge, Consolidate Hero Sections**
+- Extracted shared `GradientPillBadge` to `lib/widgets/common/gradient_pill_badge.dart` (optional icon + label, blue-purple gradient pill)
+- Replaced `_CareersHeroSection` (careers_page) with `MarketingHeroSection` + `GradientPillBadge`
+- Replaced `_ContactHeroSection` (contact_page) with `MarketingHeroSection` + `GradientPillBadge`
+- Replaced `_HeroBadge` (features_page) with `GradientPillBadge`
+- 3 private classes removed, ~185 lines eliminated, 7 widget tests added
+- Commit: `1de0043`
+
 **#156: Replace Hardcoded 'Key Metrics' String in `_MetricsSection`**
 - Added `metricsTitle` field to `StatusContent` (default 'Key Metrics')
 - Replaced hardcoded string with content-driven constant
