@@ -142,9 +142,12 @@ class _SecurityContent extends StatelessWidget {
                     children: SecurityContent.stats
                         .map((stat) => SizedBox(
                               width: cardWidth.clamp(140, double.infinity),
-                              child: _StatCard(
+                              child: DocStatCard(
                                 value: stat.value,
                                 label: stat.label,
+                                backgroundColor: AppColors.gray700,
+                                borderColor: AppColors.gray600,
+                                borderRadius: AppSpacing.radiusSM,
                               ),
                             ))
                         .toList(),
@@ -366,47 +369,6 @@ class _SecurityContent extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String value;
-  final String label;
-
-  const _StatCard({required this.value, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.gray700,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray600),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: AppTypography.headingMD.copyWith(
-              color: AppColors.blue400,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            label,
-            style: AppTypography.bodySM.copyWith(
-              color: AppColors.gray400,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
     );
   }
 }

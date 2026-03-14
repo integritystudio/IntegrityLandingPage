@@ -323,12 +323,18 @@ class DocStatCard extends StatelessWidget {
   final String value;
   final String label;
   final Color? accentColor;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final double? borderRadius;
 
   const DocStatCard({
     super.key,
     required this.value,
     required this.label,
     this.accentColor,
+    this.backgroundColor,
+    this.borderColor,
+    this.borderRadius,
   });
 
   @override
@@ -339,31 +345,31 @@ class DocStatCard extends StatelessWidget {
       container: true,
       child: Container(
         constraints: const BoxConstraints(minWidth: 140, maxWidth: 160),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        decoration: BoxDecoration(
+          color: backgroundColor ?? AppColors.gray800,
+          borderRadius: BorderRadius.circular(borderRadius ?? AppSpacing.radiusMD),
+          border: Border.all(color: borderColor ?? AppColors.gray700),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: AppTypography.headingMD.copyWith(color: color),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              label,
+              style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: AppTypography.headingMD.copyWith(color: color),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            label,
-            style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    ),
     );
   }
 }
