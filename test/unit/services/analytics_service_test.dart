@@ -154,12 +154,6 @@ void main() {
         );
       });
 
-      test('trackFormSubmit simplified wrapper does not throw', () {
-        expect(
-          () => AnalyticsService.trackFormSubmit('demo_request'),
-          returnsNormally,
-        );
-      });
     });
 
     group('custom event tracking', () {

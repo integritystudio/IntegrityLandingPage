@@ -203,13 +203,6 @@ void main() {
         );
       });
 
-      test('trackFormSubmit simplified method works', () {
-        expect(
-          () => AnalyticsService.trackFormSubmit('newsletter'),
-          returnsNormally,
-        );
-      });
-
       test('trackEvent accepts custom event', () {
         expect(
           () => AnalyticsService.trackEvent(
@@ -344,12 +337,6 @@ void main() {
         );
       });
 
-      test('trackFormSubmit does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackFormSubmit('newsletter'),
-          returnsNormally,
-        );
-      });
     });
 
     group('scroll depth validation', () {
