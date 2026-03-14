@@ -2,6 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../theme/theme.dart';
 
+// ---------------------------------------------------------------------------
+// Doc component constants
+// ---------------------------------------------------------------------------
+
+/// Fixed width for [DocFeatureCard].
+const double kDocFeatureCardWidth = 200;
+
+/// Monospace font family used in [DocCodeBlock].
+const String kDocCodeFontFamily = 'JetBrains Mono';
+
+/// Bullet character used in [DocBulletList] and [DocCallout] item lists.
+const String kDocBulletChar = '\u2022';
+
 /// Reusable documentation section with icon and title.
 class DocSection extends StatelessWidget {
   final IconData icon;
@@ -86,7 +99,7 @@ class DocFeatureCard extends StatelessWidget {
       label: '$title: $description',
       container: true,
       child: Container(
-        width: 200,
+        width: kDocFeatureCardWidth,
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: AppColors.gray700,
@@ -154,7 +167,7 @@ class DocCodeBlock extends StatelessWidget {
         child: SelectableText(
           code,
           style: const TextStyle(
-            fontFamily: 'JetBrains Mono',
+            fontFamily: kDocCodeFontFamily,
             fontSize: 13,
             color: AppColors.gray300,
             height: 1.5,
@@ -297,7 +310,7 @@ class DocBulletList extends StatelessWidget {
                       )
                     else
                       Text(
-                        '\u2022 ',
+                        '$kDocBulletChar ',
                         style: AppTypography.bodyMD.copyWith(color: color),
                       ),
                     Expanded(
@@ -548,7 +561,7 @@ class DocCallout extends StatelessWidget {
               ...items!.map((item) => Padding(
                     padding: const EdgeInsets.only(left: AppSpacing.lg, bottom: 4),
                     child: Text(
-                      '\u2022 $item',
+                      '$kDocBulletChar $item',
                       style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
                     ),
                   )),
