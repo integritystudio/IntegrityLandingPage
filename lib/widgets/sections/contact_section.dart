@@ -491,7 +491,7 @@ class _ContactSectionState extends State<ContactSection> {
       _errorMessage = null;
     });
 
-    AnalyticsService.trackFormSubmit('contact_form');
+    AnalyticsService.trackFormSubmission(formType: 'contact_form', success: true);
 
     try {
       if (widget.onFormSubmit != null) {

@@ -2,16 +2,15 @@
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 
+/// Maximum time (ms) to wait for consent update before firing tags.
+const int consentWaitForUpdateMs = 500;
+
 /// GTM Container ID from Doppler (integrity-studio/prd)
 /// Updated to new container (integritystudio.ai-v2) on 2025-12-28
 const String gtmContainerId = 'GTM-NLLQ5ZM3';
 
 /// GA4 Measurement ID from Doppler (integrity-studio/prd)
 const String ga4MeasurementId = 'G-J7TL7PQH7S';
-
-/// Facebook Pixel ID from Doppler (integrity-studio/prd)
-/// Note: Pixel is loaded externally via web/js/meta-pixel.js
-const String fbPixelId = '2038045626963282';
 
 // =============================================================================
 // JS Interop Bindings
@@ -72,7 +71,7 @@ class TrackingWeb {
         'functionality_storage': 'granted', // Essential cookies
         'personalization_storage': 'denied',
         'security_storage': 'granted', // Essential for security
-        'wait_for_update': 500, // Wait 500ms for consent update
+        'wait_for_update': consentWaitForUpdateMs,
       }.jsify(),
     );
   }

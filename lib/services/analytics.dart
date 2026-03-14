@@ -186,14 +186,6 @@ class AnalyticsService {
     });
   }
 
-  /// Track form submit (simplified wrapper).
-  static void trackFormSubmit(String formType) {
-    _track(AnalyticsEvent.formSubmission, {
-      'form_type': formType,
-      'success': true,
-    });
-  }
-
   /// Track custom event (for A/B testing and custom analytics).
   static void trackEvent({
     required String eventName,

@@ -373,7 +373,7 @@ class _SignupPageState extends State<SignupPage> {
     setState(() => _isSubmitting = true);
 
     // Track signup
-    AnalyticsService.trackFormSubmit('signup_form');
+    AnalyticsService.trackFormSubmission(formType: 'signup_form', success: true);
     FacebookPixelService.trackLead(email: _emailController.text);
 
     try {
