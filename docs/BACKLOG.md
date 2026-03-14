@@ -1,6 +1,6 @@
-# Security & Infrastructure Backlog
+# Backlog
 
-Open and deferred items only. Completed items are documented in `docs/changelog/1.0/CHANGELOG.md` and `docs/changelog/1.1/CHANGELOG.md`.
+Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md` and `docs/changelog/1.1/CHANGELOG.md`.
 
 ---
 
@@ -311,35 +311,21 @@ Lines 155, 165, 173 reference hardcoded article slugs (`best-llm-monitoring-tool
 
 ## Refactor: Widget Duplication Reduction
 
-### Phase 2: Extract DocsPageScaffold
-
-**Priority:** P2 | **Source:** duplication analysis 2026-03-14
-
-Extract a shared `DocsPageScaffold` widget for all 7 docs pages (`DocsAgentsPage`, `DocsAlertsPage`, `DocsApiPage`, `DocsInteroperabilityPage`, `DocsObservabilityPage`, `DocsQuickstartPage`, `DocsTracingPage`). These pages share 74-86% similar top-level scaffold structure.
-
-**Impact:** Eliminates ~18 duplicate pairs (23% of current 79 total).
-
-**Reference:** [`docs/duplicate-findings.md`](duplicate-findings.md) — see "86% — Docs page scaffolds" and "Prioritized Action Plan > Phase 2"
-
-**Status:** Done — `DocsHeroSection` extracted to `doc_page_scaffold.dart` (commit 5990843, 2026-03-14). All 7 `_HeroSection` classes removed; -468 net lines.
-
----
-
-### Phase 3a: Extract PageHeroSection
+### Phase 3b: Consolidate StatCard / StatBadge Variants
 
 **Priority:** P3 | **Source:** duplication analysis 2026-03-14
 
-Extract a shared `PageHeroSection` widget for pages using the gradient + title + subtitle + stats hero pattern (`features_page`, `status_page`, and others). Currently 71-80% similar across hero section variants.
+Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the existing `DocStatCard` in `doc_components.dart`. These share 73-76% structural similarity but differ in decoration.
 
 **Impact:** Eliminates ~3 duplicate pairs.
 
-**Reference:** [`docs/duplicate-findings.md`](duplicate-findings.md) — see "72% — Misc structural similarity" (`docs_interop :: _HeroSection` ~ `docs_tracing :: _HeroSection`) and "71% — Lower similarity pairs" (`careers :: _CareersHeroSection` ~ `contact :: _ContactHeroSection`)
+**Reference:** [`docs/duplicate-findings.md`](duplicate-findings.md) — see "76% — `_TimelineCard` ~ `DocStatCard`" and "73% — Cross-page card patterns"
 
-**Status:** Done — Extracted `GradientPillBadge` to `lib/widgets/common/gradient_pill_badge.dart`. Replaced `_CareersHeroSection`, `_ContactHeroSection` with `MarketingHeroSection` + `GradientPillBadge`; replaced `features_page._HeroBadge` with `GradientPillBadge`. 3 private classes removed, 3 pages consolidated (2026-03-14).
+**Status:** Open.
 
 ---
 
-## Phase 3a: Code Quality Findings (code-reviewer results)
+## Code Quality Findings from Phase 3a (code-reviewer results)
 
 ### M05: Remove unnecessary Builder wrapper in careers/contact hero sections
 
@@ -374,20 +360,6 @@ No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a r
 **Files:** `test/pages/contact_page_test.dart` (missing), `test/pages/features_page_test.dart` (missing)
 
 **Status:** Deferred — test coverage gap.
-
----
-
-### Phase 3b: Consolidate StatCard / StatBadge Variants
-
-**Priority:** P3 | **Source:** duplication analysis 2026-03-14
-
-Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the existing `DocStatCard` in `doc_components.dart`. These share 73-76% structural similarity but differ in decoration.
-
-**Impact:** Eliminates ~3 duplicate pairs.
-
-**Reference:** [`docs/duplicate-findings.md`](duplicate-findings.md) — see "76% — `_TimelineCard` ~ `DocStatCard`" and "73% — Cross-page card patterns"
-
-**Status:** Open.
 
 ---
 
