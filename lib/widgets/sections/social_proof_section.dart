@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../config/content.dart';
 import '../../theme/theme.dart';
 import '../common/containers.dart';
+import '../common/trust_badge.dart';
 
 /// Social proof section with quantified metrics (AiSDR-inspired)
 ///
@@ -131,10 +132,10 @@ class SocialProofSection extends StatelessWidget {
           spacing: AppSpacing.xl,
           runSpacing: AppSpacing.md,
           children: [
-            _TrustBadge(label: 'Enterprise Security', icon: LucideIcons.shieldCheck),
-            _TrustBadge(label: 'GDPR Ready', icon: LucideIcons.lock),
-            _TrustBadge(label: 'EU AI Act Ready', icon: LucideIcons.fileCheck),
-            _TrustBadge(label: 'OpenTelemetry Native', icon: LucideIcons.radio),
+            TrustBadge(label: 'Enterprise Security', icon: LucideIcons.shieldCheck),
+            TrustBadge(label: 'GDPR Ready', icon: LucideIcons.lock),
+            TrustBadge(label: 'EU AI Act Ready', icon: LucideIcons.fileCheck),
+            TrustBadge(label: 'OpenTelemetry Native', icon: LucideIcons.radio),
           ],
         ),
       ],
@@ -382,33 +383,3 @@ class _TestimonialCardState extends State<_TestimonialCard> {
   }
 }
 
-class _TrustBadge extends StatelessWidget {
-  final String label;
-  final IconData icon;
-
-  const _TrustBadge({
-    required this.label,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: AppColors.success,
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Text(
-          label,
-          style: AppTypography.bodySM.copyWith(
-            color: AppColors.gray300,
-          ),
-        ),
-      ],
-    );
-  }
-}
