@@ -77,7 +77,7 @@ Sentry `ingest.sentry.io` endpoint shared across staging and prod. CSP allows on
 
 Recurring patterns across pages (button wrappers, trust badges, AppShell + Footer scaffolding). Low impact on current backlog but benefits future page additions.
 
-**Status:** Done — commits 33ded94 + 91b186d + 6f9da15 (2026-03-13). Extracted `TrustBadge` to `lib/widgets/common/trust_badge.dart`; added `SubPageShell` to `lib/widgets/navigation/sub_page_shell.dart`; migrated `features_page.dart` to `SubPageShell` as working example. Button primitives skipped — `HoverableButtonMixin` already serves as the base and reorganizing `buttons.dart` would break all imports with no net gain.
+**Status:** Done — commits 33ded94 + 91b186d + 6f9da15 + 09a4b58 (2026-03-13). Extracted `TrustBadge` to `lib/widgets/common/trust_badge.dart`; added `SubPageShell` to `lib/widgets/navigation/sub_page_shell.dart`; migrated `features_page.dart` to `SubPageShell` as working example; replaced magic `100` with `AppSpacing.radiusFull` in features_page. Button primitives skipped — `HoverableButtonMixin` already serves as the base and reorganizing `buttons.dart` would break all imports with no net gain.
 
 ---
 
@@ -121,7 +121,7 @@ In test teardown with `disableAnimations=true`, animations are disabled AFTER `i
 
 The inline desktop nav (7 items + CTA) required reducing NavLink padding from `md` to `sm` and using the desktop breakpoint (>=1024px) instead of tablet (>=768px) for the compact/inline nav switch. Adding further nav items will re-introduce overflow. Consider `OverflowBar` or a "More..." dropdown for future scalability.
 
-**Status:** Deferred — current layout fits at desktop widths after padding reduction.
+**Status:** Done — commit 691376e (2026-03-13). Added `kMaxInlineNavItems = 7` constant; both mobile and desktop popup menus migrated to `PopupMenuButton<int>` with index keys and `_handleNavItem` per item, eliminating value-collision and open-redirect risks. 5 widget tests added including boundary case at 8 items.
 
 ---
 
@@ -464,4 +464,4 @@ Status color logic uses `final isOperational = service.status == 'Operational'` 
 
 ---
 
-*Last updated: 2026-03-13 (marked #91 Done — commits 33ded94 + 91b186d + 6f9da15 from backlog-implementer sprint)*
+*Last updated: 2026-03-13 (marked #136 Done — commit 691376e, nav overflow protection)*
