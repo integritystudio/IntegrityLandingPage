@@ -3,6 +3,7 @@ enum HttpStatus {
   ok(200),
   forbidden(403),
   tooManyRequests(429),
+  internalServerError(500),
   gatewayTimeout(504);
 
   const HttpStatus(this.code);

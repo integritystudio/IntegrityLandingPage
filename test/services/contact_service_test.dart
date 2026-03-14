@@ -247,6 +247,12 @@ void main() {
   });
 
   group('Form Submission', () {
+    const validData = ContactFormData(
+      name: 'John Doe',
+      email: 'john@example.com',
+      message: 'This is a valid test message.',
+    );
+
     test('returns validation error for invalid form', () async {
       const invalidData = ContactFormData(
         name: '',
@@ -274,12 +280,6 @@ void main() {
         'submissionId': 'sub_abc123',
       });
 
-      const validData = ContactFormData(
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'This is a valid test message.',
-      );
-
       final payload = ContactFormPayload(formData: validData);
       final response = await ContactService.submitForm(payload);
 
@@ -296,12 +296,6 @@ void main() {
         statusCode: 200,
       );
 
-      const validData = ContactFormData(
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'This is a valid test message.',
-      );
-
       final payload = ContactFormPayload(formData: validData);
       final response = await ContactService.submitForm(payload);
 
@@ -311,12 +305,6 @@ void main() {
     test('handles network timeout', () async {
       mockDio.mockGetResponse({'csrfToken': 'test_token'});
       mockDio.mockPostError(DioExceptionType.connectionTimeout);
-
-      const validData = ContactFormData(
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'This is a valid test message.',
-      );
 
       final payload = ContactFormPayload(formData: validData);
       final response = await ContactService.submitForm(payload);
@@ -329,12 +317,6 @@ void main() {
     test('handles receive timeout', () async {
       mockDio.mockGetResponse({'csrfToken': 'test_token'});
       mockDio.mockPostError(DioExceptionType.receiveTimeout);
-
-      const validData = ContactFormData(
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'This is a valid test message.',
-      );
 
       final payload = ContactFormPayload(formData: validData);
       final response = await ContactService.submitForm(payload);
@@ -350,12 +332,6 @@ void main() {
         {'error': 'Too many requests', 'retryAfter': 45},
         statusCode: 429,
         headers: {'retry-after': ['45']},
-      );
-
-      const validData = ContactFormData(
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'This is a valid test message.',
       );
 
       final payload = ContactFormPayload(formData: validData);
@@ -374,12 +350,6 @@ void main() {
         statusCode: 429,
       );
 
-      const validData = ContactFormData(
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'This is a valid test message.',
-      );
-
       final payload = ContactFormPayload(formData: validData);
       final response = await ContactService.submitForm(payload);
 
@@ -396,12 +366,6 @@ void main() {
         statusCode: 504,
       );
 
-      const validData = ContactFormData(
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'This is a valid test message.',
-      );
-
       final payload = ContactFormPayload(formData: validData);
       final response = await ContactService.submitForm(payload);
 
@@ -410,15 +374,39 @@ void main() {
       expect(error.error.toLowerCase(), contains('timeout'));
     });
 
+    test('handles 500 internal server error with retries', () async {
+      mockDio.mockGetResponse({'csrfToken': 'test_token'});
+      mockDio.mockPostResponse(
+        {'error': 'Internal server error'},
+        statusCode: 500,
+      );
+
+      final payload = ContactFormPayload(formData: validData);
+      final response = await ContactService.submitForm(payload);
+
+      expect(response, isA<ContactFormError>());
+      final error = response as ContactFormError;
+      expect(error.error, 'Internal server error');
+    });
+
+    test('handles unexpected status codes gracefully', () async {
+      mockDio.mockGetResponse({'csrfToken': 'test_token'});
+      mockDio.mockPostResponse(
+        {'error': 'Validation failed'},
+        statusCode: 422,
+      );
+
+      final payload = ContactFormPayload(formData: validData);
+      final response = await ContactService.submitForm(payload);
+
+      expect(response, isA<ContactFormError>());
+      final error = response as ContactFormError;
+      expect(error.error, 'Validation failed');
+    });
+
     test('handles generic network error', () async {
       mockDio.mockGetResponse({'csrfToken': 'test_token'});
       mockDio.mockPostError(DioExceptionType.unknown);
-
-      const validData = ContactFormData(
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'This is a valid test message.',
-      );
 
       final payload = ContactFormPayload(formData: validData);
       final response = await ContactService.submitForm(payload);
@@ -435,12 +423,6 @@ void main() {
         'message': 'Success',
         'submissionId': 'sub_123',
       });
-
-      const validData = ContactFormData(
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'This is a valid test message.',
-      );
 
       // First submission
       final payload1 = ContactFormPayload(formData: validData);
