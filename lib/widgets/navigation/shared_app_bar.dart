@@ -155,21 +155,29 @@ class SharedAppBar extends StatelessWidget {
     final items = _getNavItems(context);
 
     return [
-      PopupMenuButton<int>(
-        icon: const Icon(LucideIcons.menu, color: Colors.white),
-        color: AppColors.gray800,
-        itemBuilder: (context) => items
-            .asMap()
-            .entries
-            .map((entry) => PopupMenuItem<int>(
-                  value: entry.key,
-                  onTap: () => _handleNavItem(context, entry.value),
-                  child: Text(
-                    entry.value.text,
-                    style: AppTypography.bodySM.copyWith(color: Colors.white),
-                  ),
-                ))
-            .toList(),
+      Semantics(
+        label: 'Navigation menu',
+        button: true,
+        child: PopupMenuButton<int>(
+          icon: const Icon(LucideIcons.menu, color: Colors.white),
+          color: AppColors.gray800,
+          itemBuilder: (context) => items
+              .asMap()
+              .entries
+              .map((entry) => PopupMenuItem<int>(
+                    value: entry.key,
+                    onTap: () => _handleNavItem(context, entry.value),
+                    child: Semantics(
+                      label: 'Navigate to ${entry.value.text}',
+                      button: true,
+                      child: Text(
+                        entry.value.text,
+                        style: AppTypography.bodySM.copyWith(color: Colors.white),
+                      ),
+                    ),
+                  ))
+              .toList(),
+        ),
       ),
     ];
   }

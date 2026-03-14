@@ -88,4 +88,36 @@ void main() {
       expect(find.text('Item${kMaxInlineNavItems + 1}'), findsOneWidget);
     });
   });
+
+  group('SharedAppBar mobile nav semantics', () {
+    testWidgets('hamburger menu has Navigation menu semantics label at mobile viewport',
+        (tester) async {
+      setMobileSize(tester);
+      await tester.pumpWidget(_makeApp(SharedAppBar(navItems: _items(3))));
+      await tester.pump();
+
+      expect(
+        find.bySemanticsLabel('Navigation menu'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('popup menu items have Navigate to semantics labels when menu opened',
+        (tester) async {
+      setMobileSize(tester);
+      final navItems = [
+        NavItem(text: 'Features', onTap: () {}),
+        NavItem(text: 'Docs', onTap: () {}),
+      ];
+      await tester.pumpWidget(_makeApp(SharedAppBar(navItems: navItems)));
+      await tester.pump();
+
+      // Open the popup menu
+      await tester.tap(find.byType(PopupMenuButton<int>));
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel(RegExp('Navigate to Features')), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Navigate to Docs')), findsOneWidget);
+    });
+  });
 }
