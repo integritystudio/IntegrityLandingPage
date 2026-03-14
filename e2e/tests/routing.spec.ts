@@ -234,6 +234,12 @@ test.describe('Routing and Redirects', () => {
   });
 
   test.describe('404 Handling', () => {
+    // Note: GoRouter errorBuilder renders LandingPage at the original unknown
+    // URL — no dedicated 404 page exists. Canvas-level assertions (e.g. "404"
+    // text, recovery links) are not feasible due to Flutter canvas rendering
+    // (#114). Sentry error reporting is also not testable here since the
+    // errorBuilder renders the home page without an error event.
+
     test('Unknown routes serve SPA (soft 404)', async ({ page, browserName }) => {
       test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
       // Cloudflare serves 200 with SPA, Flutter handles 404 display
@@ -259,6 +265,38 @@ test.describe('Routing and Redirects', () => {
       // Wait for Flutter to load and verify it renders
       await waitForFlutter(page);
       await assertFlutterRendering(page);
+    });
+
+    test('Unknown route URL is preserved (no redirect to /)', async ({ page, browserName }) => {
+      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
+      // GoRouter errorBuilder renders LandingPage at the original URL without
+      // redirecting. Verify the path is preserved as a regression guard.
+      const unknownPath = '/nonexistent-page-url-guard-abc';
+      await page.goto(unknownPath, { waitUntil: 'domcontentloaded' });
+      await waitForFlutter(page);
+      expect(page.url()).toContain(unknownPath);
+    });
+
+    test('Unknown route loads Flutter on mobile viewport', async ({ page, browserName }) => {
+      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
+      await page.setViewportSize({ width: 375, height: 667 });
+      const response = await page.goto('/nonexistent-mobile-route-xyz', {
+        waitUntil: 'domcontentloaded',
+      });
+      expect(response?.status()).toBe(200);
+      const content = await page.content();
+      expect(content).toContain('flutter_bootstrap.js');
+      await waitForFlutter(page);
+      await assertFlutterRendering(page);
+    });
+
+    test('Unknown route HTTP response is 200 with SPA content', async ({ request }) => {
+      // Verifies Cloudflare Pages SPA fallback at the HTTP level.
+      // No browser required — validates CDN behaviour on all platforms.
+      const response = await request.get('/nonexistent-route-http-level-xyz');
+      expect(response.status()).toBe(200);
+      const html = await response.text();
+      expect(html).toContain('flutter_bootstrap.js');
     });
   });
 
