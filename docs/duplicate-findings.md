@@ -1,6 +1,6 @@
 # Widget Duplication Analysis
 
-**Date:** 2026-03-12
+**Date:** 2026-03-14
 **Tool:** `scripts/find_duplication.sh`
 **Parameters:** construct=widget, min_similarity=0.7, min_lines=5
 
@@ -8,55 +8,43 @@
 
 | Metric | Value |
 |--------|-------|
-| Total widgets scanned | 249 |
-| Duplicate pairs found | 86 |
-| 90%+ similar pairs | 1 |
-| 80-89% similar pairs | 7 |
-| 70-79% similar pairs | 78 |
+| Total widgets scanned | 251 |
+| Duplicate pairs found | 79 |
+| 90%+ similar pairs | 0 |
+| 80-89% similar pairs | 10 |
+| 70-79% similar pairs | 69 |
 
 ### Similarity Distribution
 
 ```
-92% █  1
-86% ██  2
+86% ████  4
 85% ███  3
-81% █  1
-80% █  1
-79% ██  2
-78% ██████████████████████████████████████████  42
-75% ███  3
+80% ███  3
+79% ███████████  11
+78% ██████████████████████  22
+76% █  1
+75% ████  4
 74% ████  4
-73% ██████  6
-72% ████  4
-71% █████  5
+73% ███  3
+72% █████  5
+71% ███████  7
 70% ████████████  12
 ```
 
-### Progress Since Last Analysis (2026-03-09)
+### Progress History
 
-| Metric | 2026-03-09 | 2026-03-12 | Change |
-|--------|-----------|-----------|--------|
-| Widgets scanned | 294 | 249 | -45 |
-| Duplicate pairs | 358 | 86 | -272 (76% reduction) |
-| 100% identical | 27 | 0 | -27 |
-| 90%+ pairs | 86 | 1 | -85 |
+| Metric | 2026-03-09 | 2026-03-12 | 2026-03-14 | Change (total) |
+|--------|-----------|-----------|-----------|----------------|
+| Widgets scanned | 294 | 249 | 251 | -43 |
+| Duplicate pairs | 358 | 86 | 79 | -279 (78% reduction) |
+| 100% identical | 27 | 0 | 0 | -27 |
+| 90%+ pairs | 86 | 1 | 0 | -86 |
 
-Phase 1 (docs component consolidation) is effectively complete — all 100% identical pairs and nearly all 90%+ pairs have been eliminated.
+Phase 1 (docs component consolidation) complete. Phase 3 item — `_WarningAlert`/`_DangerAlert` merge (92% pair) — also resolved since last scan.
 
 ---
 
 ## All Findings by Similarity Score
-
-### 92% — `_WarningAlert` / `_DangerAlert` in security_page
-
-| File | Widget | Lines |
-|------|--------|-------|
-| `lib/pages/security_page.dart` | `_WarningAlert` | 515-546 |
-| `lib/pages/security_page.dart` | `_DangerAlert` | 548-579 |
-
-**Recommendation:** Replace both with a shared `DocCallout` or parameterized alert widget differing only by color/icon.
-
----
 
 ### 86% — Docs page scaffolds
 
@@ -64,6 +52,7 @@ Phase 1 (docs component consolidation) is effectively complete — all 100% iden
 |------|-----------|
 | `DocsAgentsPage` ~ `DocsObservabilityPage` | 86% |
 | `DocsInteroperabilityPage` ~ `DocsObservabilityPage` | 86% |
+| `DocsInteroperabilityPage` ~ `DocsTracingPage` | 86% |
 | `DocsObservabilityPage` ~ `DocsTracingPage` | 86% |
 
 All docs pages share a nearly identical top-level scaffold structure.
@@ -86,25 +75,15 @@ All in `lib/widgets/common/buttons.dart`. These share build method structure but
 
 ---
 
-### 81% — `DocStatCard` ~ `_TimelineCard`
-
-| File | Widget | Lines |
-|------|--------|-------|
-| `lib/pages/eu_ai_act_page.dart` | `_TimelineCard` | 125-165 |
-| `lib/widgets/docs/doc_components.dart` | `DocStatCard` | 300-343 |
-
-**Recommendation:** Low priority. Structurally similar card layout but semantically different.
-
----
-
-### 80% — Hero sections and trust badges
+### 80% — Docs page scaffold (alerts variant)
 
 | Pair | Similarity |
 |------|-----------|
-| `features :: _HeroSection` ~ `status :: _HeroSection` | 80% |
-| `hero_section :: _TrustIndicator` ~ `social_proof_section :: _TrustBadge` | 80% |
+| `DocsAlertsPage` ~ `DocsInteroperabilityPage` | 80% |
+| `DocsAlertsPage` ~ `DocsObservabilityPage` | 80% |
+| `DocsAlertsPage` ~ `DocsTracingPage` | 80% |
 
-**Recommendation:** Medium priority. Hero sections follow gradient + title + subtitle + stats pattern. A shared `PageHeroSection` could consolidate these.
+Part of the same docs page scaffold pattern as the 86% pairs above.
 
 ---
 
@@ -124,61 +103,74 @@ All in `lib/widgets/common/buttons.dart`. These share build method structure but
 | `DocsObservabilityPage` ~ `DocsQuickstartPage` | 79% |
 | `DocsQuickstartPage` ~ `DocsTracingPage` | 79% |
 
-Part of the same docs page scaffold pattern as the 86% pairs above.
+Part of the same docs page scaffold pattern.
 
 ---
 
-### 78% — Generic page shells
+### 78% — Generic page shells + card patterns
 
-8 pages share an identical Scaffold + SingleChildScrollView + Column pattern:
+8 pages share an identical Scaffold + SingleChildScrollView + Column pattern (21 pairwise combos):
 
 | File | Widget | Lines |
 |------|--------|-------|
 | `lib/pages/about_page.dart` | `AboutPage` | 28-40 |
 | `lib/pages/careers_page.dart` | `CareersPage` | 12-24 |
-| `lib/pages/contact_page.dart` | `ContactPage` | 21-35 |
 | `lib/pages/features_page.dart` | `FeaturesPage` | 13-25 |
 | `lib/pages/pricing_page.dart` | `PricingPage` | 18-30 |
 | `lib/pages/request_failure_page.dart` | `RequestFailurePage` | 13-25 |
 | `lib/pages/request_success_page.dart` | `RequestSuccessPage` | 12-24 |
-| `lib/pages/status_page.dart` | `StatusPage` | 15-27 |
+| `lib/pages/status_page.dart` | `StatusPage` | 16-28 |
 
-All 28 pairwise combinations are 78% similar. This is boilerplate — low priority since each page is only 12-13 lines and the structure is Flutter-idiomatic.
+Plus 1 cross-page card pair:
+
+| Pair | Similarity |
+|------|-----------|
+| `sources :: _MethodologyCard` ~ `status :: _TechSection` | 78% |
+
+Boilerplate — low priority since each page shell is only 12-13 lines.
 
 ---
 
-### 75% — Button / text button variants
+### 76% — `_TimelineCard` ~ `DocStatCard`
+
+| File | Widget | Lines |
+|------|--------|-------|
+| `lib/pages/eu_ai_act_page.dart` | `_TimelineCard` | 125-165 |
+| `lib/widgets/docs/doc_components.dart` | `DocStatCard` | 335-388 |
+
+**Recommendation:** Low priority. Structurally similar card layout but semantically different.
+
+---
+
+### 75% — Button / text button + trust badge variants
 
 | Pair | Similarity |
 |------|-----------|
 | `AnimatedGradientBorderButton` ~ `AppTextButton` | 75% |
 | `GradientButton` ~ `AppTextButton` | 75% |
 | `OutlineButton` ~ `AppTextButton` | 75% |
-
-Same button family as the 85% pairs above.
+| `TrustBadge` ~ `_TrustIndicator` | 75% |
 
 ---
 
-### 74% — Docs page scaffold lower pairs
+### 74% — Docs page scaffold lower pairs + feature cards
 
 | Pair | Similarity |
 |------|-----------|
 | `DocsAgentsPage` ~ `DocsAlertsPage` | 74% |
 | `DocsAlertsPage` ~ `DocsApiPage` | 74% |
 | `DocsAlertsPage` ~ `DocsQuickstartPage` | 74% |
+| `features :: _FeatureItem` ~ `status :: _TechSection` | 74% |
 
 ---
 
-### 73% — Cross-page card and component patterns
+### 73% — Cross-page card patterns
 
 | Pair | Similarity |
 |------|-----------|
 | `compliance :: _ResourceLink` ~ `sources :: _MethodologyCard` | 73% |
 | `compliance :: _ResourceLink` ~ `status :: _TechSection` | 73% |
-| `docs_agents :: _StatBadge` ~ `security :: _StatCard` | 73% |
-| `docs_tracing :: _Timeline` ~ `doc_components :: DocNumberedList` | 73% |
-| `eu_ai_act :: _TimelineCard` ~ `security :: _StatCard` | 73% |
-| `sources :: _MethodologyCard` ~ `doc_components :: DocFeatureCard` | 73% |
+| `docs_alerts :: _AlertTypePreview` ~ `status :: _HeroBadge` | 73% |
 
 Semantically different widgets sharing Container + Column + Text patterns. Low priority.
 
@@ -192,6 +184,7 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 | `docs_interop :: _HeroSection` ~ `docs_tracing :: _HeroSection` | 72% |
 | `docs_alerts :: _ChannelCard` ~ `sources :: _MethodologyCard` | 72% |
 | `docs_alerts :: _AlertTypePreview` ~ `docs_quickstart :: _StepPreview` | 72% |
+| `features :: _FeatureItem` ~ `sources :: _MethodologyCard` | 72% |
 
 ---
 
@@ -203,7 +196,9 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 | `docs_alerts :: _AlertTypeCard` ~ `docs_alerts :: _ChannelCard` | 71% |
 | `docs_alerts :: _AlertTypePreview` ~ `status :: _HealthComponentChip` | 71% |
 | `docs_quickstart :: _HealthMetricCard` ~ `features :: _FeatureItem` | 71% |
+| `docs_tracing :: _Timeline` ~ `doc_components :: DocNumberedList` | 71% |
 | `sources :: _MethodologyCard` ~ `status :: _StatusChip` | 71% |
+| `status :: _StatusChip` ~ `status :: _TechSection` | 71% |
 
 ---
 
@@ -219,32 +214,22 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 | `contact :: ContactPage` ~ `request_failure :: RequestFailurePage` | 70% |
 | `contact :: ContactPage` ~ `request_success :: RequestSuccessPage` | 70% |
 | `contact :: ContactPage` ~ `status :: StatusPage` | 70% |
-| `docs_alerts :: DocsAlertsPage` ~ `DocsInteroperabilityPage` | 80% |
-| `docs_alerts :: DocsAlertsPage` ~ `DocsObservabilityPage` | 80% |
-| `docs_alerts :: DocsAlertsPage` ~ `DocsTracingPage` | 80% |
-| `docs_alerts :: _ChannelCard` ~ `doc_components :: DocCodeBlock` | 73% |
 | `docs_quickstart :: _HealthMetricCard` ~ `sources :: _MethodologyCard` | 70% |
 | `eu_ai_act :: _ChecklistItem` ~ `features :: _QueryCard` | 70% |
-| `features :: _FeatureItem` ~ `sources :: _MethodologyCard` | 72% |
-| `features :: _FeatureItem` ~ `status :: _TechSection` | 74% |
-| `security :: _DangerAlert` ~ `doc_components :: DocInlineWarning` | 74% |
-| `security :: _StatCard` ~ `doc_components :: DocStatCard` | 78% |
-| `security :: _WarningAlert` ~ `doc_components :: DocInlineWarning` | 77% |
-| `sources :: _MethodologyCard` ~ `status :: _TechSection` | 78% |
-| `status :: _StatusChip` ~ `status :: _TechSection` | 71% |
-| `status :: _TechSection` ~ `doc_components :: DocFeatureCard` | 73% |
+| `features :: _HeroBadge` ~ `status :: _HealthComponentChip` | 70% |
+| `sources :: _MethodologyCard` ~ `doc_components :: DocFeatureCard` | 70% |
 
 ---
 
 ## Prioritized Action Plan
 
-### Phase 2: Docs page scaffold (next priority — eliminates ~15 pairs)
+### Phase 2: Docs page scaffold (next priority — eliminates ~18 pairs)
 
 1. **Extract `DocsPageScaffold`** — shared scaffold for all 7 docs pages (74-86% similar pairs)
 
 ### Phase 3: Cross-page patterns (eliminates ~5 pairs)
 
-2. **Merge `_WarningAlert` / `_DangerAlert`** in security_page — 92% similar, single-file refactor
+2. ~~**Merge `_WarningAlert` / `_DangerAlert`** in security_page~~ — DONE (eliminated 92% pair)
 3. **Extract `PageHeroSection`** — shared hero for features/status and other pages
 4. **Consolidate `_StatCard` / `_StatBadge` variants** with `DocStatCard`
 
@@ -252,7 +237,7 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 
 5. **Button base extraction** — optional refactor of `buttons.dart`
 6. **Trust badge consolidation** — merge `_TrustIndicator` and `_TrustBadge`
-7. **Page shell extraction** — optional for 8 generic page scaffolds
+7. **Page shell extraction** — optional for 7 generic page scaffolds
 
 ---
 
@@ -260,10 +245,10 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 
 | Phase | Pairs Eliminated | Files Modified | Risk |
 |-------|-----------------|----------------|------|
-| Phase 2 | ~15 | 7 docs pages + 1 new scaffold | Medium (new abstraction) |
+| Phase 2 | ~18 | 7 docs pages + 1 new scaffold | Medium (new abstraction) |
 | Phase 3 | ~5 | ~4 pages | Low (targeted refactors) |
 | Phase 4 | ~10 | ~4 files | Low (cosmetic) |
-| **Total** | **~30 of 86** | | |
+| **Total** | **~33 of 79** | | |
 
 ---
 
@@ -271,22 +256,21 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 
 | File | Pairs Involved |
 |------|---------------|
-| `lib/pages/docs_quickstart_page.dart` | 16 |
-| `lib/pages/docs_agents_page.dart` | 14 |
-| `lib/pages/docs_tracing_page.dart` | 14 |
-| `lib/pages/docs_api_page.dart` | 13 |
-| `lib/pages/docs_alerts_page.dart` | 13 |
+| `lib/pages/docs_quickstart_page.dart` | 14 |
+| `lib/pages/docs_agents_page.dart` | 12 |
+| `lib/pages/docs_tracing_page.dart` | 13 |
+| `lib/pages/docs_api_page.dart` | 11 |
+| `lib/pages/docs_alerts_page.dart` | 14 |
 | `lib/pages/docs_observability_page.dart` | 10 |
 | `lib/pages/docs_interoperability_page.dart` | 10 |
-| `lib/pages/status_page.dart` | 10 |
-| `lib/pages/security_page.dart` | 8 |
-| `lib/pages/features_page.dart` | 8 |
-| `lib/pages/contact_page.dart` | 8 |
+| `lib/pages/status_page.dart` | 12 |
+| `lib/pages/features_page.dart` | 10 |
 | `lib/pages/sources_page.dart` | 7 |
+| `lib/pages/contact_page.dart` | 8 |
 | `lib/widgets/common/buttons.dart` | 6 |
-| `lib/widgets/docs/doc_components.dart` | 6 |
-| `lib/pages/eu_ai_act_page.dart` | 4 |
-| `lib/pages/compliance_page.dart` | 3 |
+| `lib/widgets/docs/doc_components.dart` | 3 |
+| `lib/pages/eu_ai_act_page.dart` | 3 |
+| `lib/pages/compliance_page.dart` | 2 |
 | `lib/pages/comparison_page.dart` | 2 |
 | `lib/pages/careers_page.dart` | 2 |
 | Other pages (generic shells) | 1-2 each |
