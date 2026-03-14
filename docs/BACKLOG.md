@@ -145,4 +145,68 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 ---
 
 
+---
+
+## E2E Test Quality: Low-Priority Assertions (code-reviewer findings)
+
+### L01: Tighten manifest.json assertions in routing.spec.ts
+
+**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
+
+Replace `toBeDefined()` with `toBeTruthy()` on `manifest.json` name and short_name (lines 76–77). `toBeDefined()` passes for `null`, `false`, or `''`; a more meaningful assertion is needed.
+
+**File:** `e2e/tests/routing.spec.ts:76–77`
+
+**Status:** Deferred — low-priority assertion tightening, not a functional gap.
+
+---
+
+### L02: Add robots.txt Disallow assertion in routing.spec.ts
+
+**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
+
+Line 85 checks only for `'User-agent'`. A `robots.txt` with only that header is vacuous. Add assertion for `Disallow` or `Sitemap` to make the test more meaningful.
+
+**File:** `e2e/tests/routing.spec.ts:85`
+
+**Status:** Deferred — low-priority assertion strengthening.
+
+---
+
+### L03: Document service worker availability policy in routing.spec.ts
+
+**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
+
+Lines 121–124 intentionally allow `[HTTP_OK, HTTP_NOT_FOUND]` for `flutter_service_worker.js`. Document whether this is permanent policy or expected to tighten (known gap).
+
+**File:** `e2e/tests/routing.spec.ts:121–124`
+
+**Status:** Deferred — clarification-only; add inline comment explaining the loose assertion rationale.
+
+---
+
+### L04: Extract blog route constants in routing.spec.ts
+
+**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
+
+Lines 199–248 use `/blog` and `/internship` as inline strings in redirect tests. Add named constants (e.g., `SPA_ROUTE_BLOG`, `SPA_ROUTE_INTERNSHIP`) to align with `spaRoutes` array pattern.
+
+**File:** `e2e/tests/routing.spec.ts:199–248`
+
+**Status:** Deferred — low-priority constant extraction for consistency.
+
+---
+
+### L05: Use static test fixture for blog article assertions in routing.spec.ts
+
+**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
+
+Lines 155, 165, 173 reference hardcoded article slugs (`best-llm-monitoring-tools-2025.html`, `ai-observability-platform-strategy/index.html`, `ai-observability-platform-strategy.html`). If articles are removed or renamed, tests fail for wrong reasons. Consider asserting on a static fixture article committed to the repo, or document this external dependency explicitly.
+
+**File:** `e2e/tests/routing.spec.ts:155, 165, 173`
+
+**Status:** Deferred — low-priority risk mitigation; requires creating a test fixture article or updating test patterns.
+
+---
+
 *Last updated: 2026-03-14 (migrated #91–#158 to docs/changelog/1.1/CHANGELOG.md)*

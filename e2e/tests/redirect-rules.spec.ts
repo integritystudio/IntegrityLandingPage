@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { waitForFlutter, assertFlutterRendering, waitForRoute } from './helpers';
+import {
+  HTTP_OK,
+  VALID_REDIRECT_STATUSES,
+} from './constants';
 
 /**
  * E2E tests for GoRouter redirect rules and Cloudflare _redirects.
@@ -26,7 +30,7 @@ test.describe('Redirect Rules', () => {
       const response = await page.goto('/docs/security/audit-trails', {
         waitUntil: 'domcontentloaded',
       });
-      expect(response?.status()).toBe(200);
+      expect(response?.status()).toBe(HTTP_OK);
       // GoRouter redirect is client-side; wait for URL change or check content
       // Since /docs/tracing may be static HTML (#104), we verify the response
       // content contains either Flutter SPA or the tracing page content.
@@ -105,18 +109,18 @@ test.describe('Redirect Rules', () => {
       // maxRedirects: 5 fails fast if a redirect loop is present rather than
       // relying on the test timeout to surface it.
       const response = await request.get('/docs/security/audit-trails', { maxRedirects: 5 });
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
     });
 
     test('trailing slash on /pricing/ does not loop', async ({ request }) => {
       const response = await request.get('/pricing/', { maxRedirects: 5 });
       // Cloudflare may redirect /pricing/ → /pricing or serve 200 directly
-      expect([200, 301, 308]).toContain(response.status());
+      expect([HTTP_OK, ...VALID_REDIRECT_STATUSES]).toContain(response.status());
     });
 
     test('trailing slash on /docs/ does not loop', async ({ request }) => {
       const response = await request.get('/docs/', { maxRedirects: 5 });
-      expect([200, 301, 308]).toContain(response.status());
+      expect([HTTP_OK, ...VALID_REDIRECT_STATUSES]).toContain(response.status());
     });
   });
 });
