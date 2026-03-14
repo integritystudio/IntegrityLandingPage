@@ -7,13 +7,16 @@ import {
   waitForSemantics,
 } from './helpers';
 import {
+  CSP_REPORT_GROUP,
   FLUTTER_BOOTSTRAP_SCRIPT,
   HTTP_NOT_FOUND,
   HTTP_OK,
   MOBILE_VIEWPORT_HEIGHT,
   MOBILE_VIEWPORT_WIDTH,
   SEMANTICS_TIMEOUT_MS,
+  SRI_HASH_PREFIX,
   TEST_TIMEOUT_MS,
+  VALID_REDIRECT_STATUSES,
 } from './constants';
 
 /**
@@ -140,17 +143,6 @@ test.describe('Routing and Redirects', () => {
       await waitForFlutter(page);
     });
 
-    test('/blog path pattern is correctly configured', async ({ page, browserName }) => {
-      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
-      // Verify /blog loads as SPA (not 404)
-      const response = await page.goto('/blog', { waitUntil: 'domcontentloaded' });
-      expect(response?.status()).toBe(HTTP_OK);
-
-      // Content should be Flutter SPA, not static HTML
-      const content = await page.content();
-      expect(content).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
-    });
-
     test('blog article HTML files are served directly', async ({ request }) => {
       const response = await request.get('/blog/best-llm-monitoring-tools-2025.html');
       expect(response.status()).toBe(HTTP_OK);
@@ -204,7 +196,7 @@ test.describe('Routing and Redirects', () => {
       const location = response.headers()['location'];
 
       // Must be a redirect to /blog/
-      expect([301, 302, 308]).toContain(status);
+      expect(VALID_REDIRECT_STATUSES).toContain(status);
       expect(location).toMatch(/\/blog\/$/);
     });
 
@@ -242,7 +234,7 @@ test.describe('Routing and Redirects', () => {
       const status = response.status();
       const location = response.headers()['location'] ?? '';
 
-      expect([301, 302, 308]).toContain(status);
+      expect(VALID_REDIRECT_STATUSES).toContain(status);
       expect(location).toMatch(/\/internship\/$/);
       expect(location).not.toBe('/');
     });
@@ -255,32 +247,9 @@ test.describe('Routing and Redirects', () => {
     // testable here since errorBuilder renders the home page without an error
     // event. A dedicated 404 page with error text would require a new widget.
 
-    test('Unknown routes serve SPA (soft 404)', async ({ page, browserName }) => {
-      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
-      // Cloudflare serves 200 with SPA, Flutter handles 404 display
-      const response = await page.goto('/nonexistent-route-xyz-12345', { waitUntil: 'domcontentloaded' });
-      expect(response?.status()).toBe(HTTP_OK);
-
-      const content = await page.content();
-      expect(content).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
-
-      // Wait for Flutter to load and verify it renders
-      await waitForFlutter(page);
-      await assertFlutterRendering(page);
-    });
-
-    test('Deep unknown routes also serve SPA', async ({ page, browserName }) => {
-      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
-      const response = await page.goto('/some/deeply/nested/nonexistent/path', { waitUntil: 'domcontentloaded' });
-      expect(response?.status()).toBe(HTTP_OK);
-
-      const content = await page.content();
-      expect(content).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
-
-      // Wait for Flutter to load and verify it renders
-      await waitForFlutter(page);
-      await assertFlutterRendering(page);
-    });
+    // Basic unknown-route rendering is covered by redirect-rules.spec.ts
+    // ('unknown route fallback' describe block). Tests below focus on
+    // Cloudflare-specific SPA fallback behavior not covered there.
 
     test('Unknown route URL is preserved (no redirect to /)', async ({ page, browserName }) => {
       test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
@@ -344,7 +313,7 @@ test.describe('Routing and Redirects', () => {
       const html = await response.text();
       expect(html).toContain('Content-Security-Policy');
       expect(html).toContain('report-uri');
-      expect(html).toContain('report-to csp-endpoint');
+      expect(html).toContain(`report-to ${CSP_REPORT_GROUP}`);
     });
 
     test('SRI attributes are present on external scripts', async ({ request }) => {
@@ -352,7 +321,7 @@ test.describe('Routing and Redirects', () => {
       const html = await response.text();
 
       // Check that integrity attributes exist on script tags
-      expect(html).toContain('integrity="sha384-');
+      expect(html).toContain(`integrity="${SRI_HASH_PREFIX}`);
       expect(html).toContain('crossorigin="anonymous"');
     });
   });

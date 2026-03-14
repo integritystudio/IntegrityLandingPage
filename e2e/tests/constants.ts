@@ -63,6 +63,9 @@ export const SCROLL_SETTLE_MS = 2_000;
 /** Maximum time for Flutter semantics tree to attach after enablement. */
 export const SEMANTICS_TIMEOUT_MS = 30_000;
 
+/** Timeout for clicking the Flutter semantics placeholder to activate the tree. */
+export const SEMANTICS_CLICK_TIMEOUT_MS = 5_000;
+
 // ---------------------------------------------------------------------------
 // Navigation bar pixel coordinates
 // (desktop 1280×720 viewport, Flutter CanvasKit rendering)
@@ -100,6 +103,16 @@ export const MOBILE_VIEWPORT_HEIGHT = 667;
 
 /** Bootstrap script present in all Flutter web SPA responses. */
 export const FLUTTER_BOOTSTRAP_SCRIPT = 'flutter_bootstrap.js';
+
+// ---------------------------------------------------------------------------
+// Security header assertions
+// ---------------------------------------------------------------------------
+
+/** CSP report-to group name configured in index.html meta tag. */
+export const CSP_REPORT_GROUP = 'csp-endpoint';
+
+/** SRI hash algorithm prefix expected on external script integrity attributes. */
+export const SRI_HASH_PREFIX = 'sha384-';
 
 // ---------------------------------------------------------------------------
 // Screenshot output paths
@@ -161,13 +174,23 @@ export const GTM_INJECT_SETTLE_MS = 5_000;
 // ---------------------------------------------------------------------------
 
 export const HTTP_OK = 200;
-export const HTTP_NOT_FOUND = 404;
+export const HTTP_MOVED_PERMANENTLY = 301;
+export const HTTP_FOUND = 302;
+export const HTTP_PERMANENT_REDIRECT = 308;
 export const HTTP_BAD_REQUEST = 400;
 export const HTTP_FORBIDDEN = 403;
+export const HTTP_NOT_FOUND = 404;
 export const HTTP_METHOD_NOT_ALLOWED = 405;
 export const HTTP_UNPROCESSABLE_ENTITY = 422;
 export const HTTP_TOO_MANY_REQUESTS = 429;
 export const HTTP_SERVICE_UNAVAILABLE = 503;
+
+/** Valid HTTP redirect status codes for Cloudflare routing. */
+export const VALID_REDIRECT_STATUSES = [
+  HTTP_MOVED_PERMANENTLY,
+  HTTP_FOUND,
+  HTTP_PERMANENT_REDIRECT,
+] as const;
 
 // ---------------------------------------------------------------------------
 // HTTP header names and content types

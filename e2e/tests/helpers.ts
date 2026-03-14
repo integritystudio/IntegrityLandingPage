@@ -3,6 +3,7 @@ import {
   FLUTTER_INIT_TIMEOUT_MS,
   ROUTE_CHANGE_TIMEOUT_MS,
   ROUTE_RENDER_TIMEOUT_MS,
+  SEMANTICS_CLICK_TIMEOUT_MS,
   SEMANTICS_TIMEOUT_MS,
 } from './constants';
 
@@ -106,7 +107,7 @@ export async function navigateAndWaitForFlutter(
 export async function enableFlutterSemantics(page: Page): Promise<void> {
   const placeholder = page.locator('flt-semantics-placeholder');
   if (await placeholder.count() > 0) {
-    await placeholder.first().click({ force: true, timeout: 5_000 }).catch(() => {
+    await placeholder.first().click({ force: true, timeout: SEMANTICS_CLICK_TIMEOUT_MS }).catch(() => {
       // Placeholder may not exist if semantics already active
     });
   }
