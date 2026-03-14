@@ -19,6 +19,10 @@ class NavItem {
   });
 }
 
+/// Maximum nav items shown inline in the desktop actions row.
+/// Items beyond this limit overflow into a "More…" dropdown.
+const int kMaxInlineNavItems = 7;
+
 /// Shared app bar for all pages
 ///
 /// Supports two modes:
@@ -151,15 +155,17 @@ class SharedAppBar extends StatelessWidget {
     final items = _getNavItems(context);
 
     return [
-      PopupMenuButton<String>(
+      PopupMenuButton<int>(
         icon: const Icon(LucideIcons.menu, color: Colors.white),
         color: AppColors.gray800,
-        onSelected: (value) => _handleNavSelection(context, value),
         itemBuilder: (context) => items
-            .map((item) => PopupMenuItem<String>(
-                  value: item.sectionId ?? item.route ?? item.text,
+            .asMap()
+            .entries
+            .map((entry) => PopupMenuItem<int>(
+                  value: entry.key,
+                  onTap: () => _handleNavItem(context, entry.value),
                   child: Text(
-                    item.text,
+                    entry.value.text,
                     style: AppTypography.bodySM.copyWith(color: Colors.white),
                   ),
                 ))
@@ -170,12 +176,46 @@ class SharedAppBar extends StatelessWidget {
 
   List<Widget> _buildDesktopActions(BuildContext context) {
     final items = _getNavItems(context);
+    final inlineItems = items.take(kMaxInlineNavItems).toList();
+    final overflowItems = items.skip(kMaxInlineNavItems).toList();
 
     return [
-      ...items.map((item) => NavLink(
+      ...inlineItems.map((item) => NavLink(
             text: item.text,
             onTap: () => _handleNavItem(context, item),
           )),
+      if (overflowItems.isNotEmpty)
+        PopupMenuButton<int>(
+          tooltip: 'More navigation options',
+          color: AppColors.gray800,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'More',
+                  style: AppTypography.bodySM
+                      .copyWith(color: AppColors.gray300, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                const Icon(LucideIcons.chevronDown, color: AppColors.gray300, size: 14),
+              ],
+            ),
+          ),
+          itemBuilder: (context) => overflowItems
+              .asMap()
+              .entries
+              .map((entry) => PopupMenuItem<int>(
+                    value: entry.key,
+                    onTap: () => _handleNavItem(context, entry.value),
+                    child: Text(
+                      entry.value.text,
+                      style: AppTypography.bodySM.copyWith(color: Colors.white),
+                    ),
+                  ))
+              .toList(),
+        ),
       const SizedBox(width: AppSpacing.md),
       Padding(
         padding: const EdgeInsets.only(right: AppSpacing.md),
