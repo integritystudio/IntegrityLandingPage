@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
-import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
@@ -23,110 +22,30 @@ class DocsQuickstartPage extends StatelessWidget {
     return DocsPageScaffold(
       title: 'Quick Start',
       onBack: onBack,
-      heroBuilder: (isMobile) => _HeroSection(isMobile: isMobile),
+      heroBuilder: (isMobile) => DocsHeroSection(
+        badgeIcon: LucideIcons.rocket,
+        badgeColor: AppColors.success,
+        badgeLabel: '${PlatformMetrics.setupTime} Setup',
+        headline: 'Get Started with Integrity Studio',
+        subheadline:
+            'Start monitoring your LLM applications in under ${PlatformMetrics.setupTime}. Install the SDK, add a few lines of code, and see your first traces.',
+        isMobile: isMobile,
+        children: const [
+          SizedBox(height: AppSpacing.xl),
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.md,
+            alignment: WrapAlignment.center,
+            children: [
+              _StepPreview(number: '1', label: 'Create Account'),
+              _StepPreview(number: '2', label: 'Install SDK'),
+              _StepPreview(number: '3', label: 'Add Code'),
+              _StepPreview(number: '4', label: 'View Traces'),
+            ],
+          ),
+        ],
+      ),
       content: const _DocsContent(),
-    );
-  }
-}
-
-class _HeroSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _HeroSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.gray900,
-            AppColors.gray800.withValues(alpha: 0.5),
-            AppColors.gray900,
-          ],
-        ),
-      ),
-      child: SectionContainer(
-        padding: EdgeInsets.symmetric(
-          vertical: isMobile ? AppSpacing.xxl : AppSpacing.xxxl,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Badge
-            Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.success.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                border: Border.all(
-                  color: AppColors.success.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    LucideIcons.rocket,
-                    size: 16,
-                    color: AppColors.success,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    '${PlatformMetrics.setupTime} Setup',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.success,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Headline
-            Text(
-              'Get Started with Integrity Studio',
-              style: isMobile
-                  ? AppTypography.headingLG.copyWith(fontSize: 28)
-                  : AppTypography.headingXL,
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Subheadline
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 700),
-              child: Text(
-                'Start monitoring your LLM applications in under ${PlatformMetrics.setupTime}. Install the SDK, add a few lines of code, and see your first traces.',
-                style: AppTypography.bodyLG,
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-            const SizedBox(height: AppSpacing.xl),
-
-            // Steps Preview
-            Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
-              alignment: WrapAlignment.center,
-              children: const [
-                _StepPreview(number: '1', label: 'Create Account'),
-                _StepPreview(number: '2', label: 'Install SDK'),
-                _StepPreview(number: '3', label: 'Add Code'),
-                _StepPreview(number: '4', label: 'View Traces'),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
-import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
@@ -22,110 +21,31 @@ class DocsObservabilityPage extends StatelessWidget {
     return DocsPageScaffold(
       title: 'Observability Guide',
       onBack: onBack,
-      heroBuilder: (isMobile) => _HeroSection(isMobile: isMobile),
+      heroBuilder: (isMobile) => DocsHeroSection(
+        badgeIcon: LucideIcons.layers,
+        badgeColor: AppColors.blue500,
+        badgeContentColor: AppColors.blue400,
+        badgeLabel: 'Production-Ready Framework',
+        headline: 'Claude Code Observability & Context Management',
+        subheadline:
+            'Complete guide to token optimization, distributed tracing, and cost efficiency for Claude Code using OpenTelemetry and SigNoz.',
+        isMobile: isMobile,
+        children: const [
+          SizedBox(height: AppSpacing.xl),
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.md,
+            alignment: WrapAlignment.center,
+            children: [
+              DocStatCard(value: '81%', label: 'Cost Reduction'),
+              DocStatCard(value: '12', label: 'Instrumented Hooks'),
+              DocStatCard(value: '8', label: 'Dashboards'),
+              DocStatCard(value: '85%', label: 'MCP Token Savings'),
+            ],
+          ),
+        ],
+      ),
       content: const _DocsContent(),
-    );
-  }
-}
-
-class _HeroSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _HeroSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.gray900,
-            AppColors.gray800.withValues(alpha: 0.5),
-            AppColors.gray900,
-          ],
-        ),
-      ),
-      child: SectionContainer(
-        padding: EdgeInsets.symmetric(
-          vertical: isMobile ? AppSpacing.xxl : AppSpacing.xxxl,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Badge
-            Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.blue500.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                border: Border.all(
-                  color: AppColors.blue500.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    LucideIcons.layers,
-                    size: 16,
-                    color: AppColors.blue400,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Production-Ready Framework',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.blue400,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Headline
-            Text(
-              'Claude Code Observability & Context Management',
-              style: isMobile
-                  ? AppTypography.headingLG.copyWith(fontSize: 28)
-                  : AppTypography.headingXL,
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Subheadline
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 700),
-              child: Text(
-                'Complete guide to token optimization, distributed tracing, and cost efficiency for Claude Code using OpenTelemetry and SigNoz.',
-                style: AppTypography.bodyLG,
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-            const SizedBox(height: AppSpacing.xl),
-
-            // Stats Grid
-            Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
-              alignment: WrapAlignment.center,
-              children: const [
-                DocStatCard(value: '81%', label: 'Cost Reduction'),
-                DocStatCard(value: '12', label: 'Instrumented Hooks'),
-                DocStatCard(value: '8', label: 'Dashboards'),
-                DocStatCard(value: '85%', label: 'MCP Token Savings'),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

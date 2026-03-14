@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
-import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
@@ -22,110 +21,31 @@ class DocsApiPage extends StatelessWidget {
     return DocsPageScaffold(
       title: 'API Reference',
       onBack: onBack,
-      heroBuilder: (isMobile) => _HeroSection(isMobile: isMobile),
+      heroBuilder: (isMobile) => DocsHeroSection(
+        badgeIcon: LucideIcons.code2,
+        badgeColor: const Color(0xFF06B6D4),
+        badgeContentColor: const Color(0xFF22D3EE),
+        badgeLabel: 'REST & OTLP APIs',
+        headline: 'API Reference',
+        subheadline:
+            'Complete API documentation for trace ingestion, querying, alerts, and SDK integration. OpenTelemetry-native with REST fallback.',
+        isMobile: isMobile,
+        children: const [
+          SizedBox(height: AppSpacing.xl),
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.md,
+            alignment: WrapAlignment.center,
+            children: [
+              DocStatCard(value: 'OTLP', label: 'Native Protocol', accentColor: Color(0xFF22D3EE)),
+              DocStatCard(value: 'REST', label: 'Fallback API', accentColor: Color(0xFF22D3EE)),
+              DocStatCard(value: '3', label: 'SDK Languages', accentColor: Color(0xFF22D3EE)),
+              DocStatCard(value: '<100ms', label: 'Avg Latency', accentColor: Color(0xFF22D3EE)),
+            ],
+          ),
+        ],
+      ),
       content: const _DocsContent(),
-    );
-  }
-}
-
-class _HeroSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _HeroSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.gray900,
-            AppColors.gray800.withValues(alpha: 0.5),
-            AppColors.gray900,
-          ],
-        ),
-      ),
-      child: SectionContainer(
-        padding: EdgeInsets.symmetric(
-          vertical: isMobile ? AppSpacing.xxl : AppSpacing.xxxl,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Badge
-            Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFF06B6D4).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                border: Border.all(
-                  color: const Color(0xFF06B6D4).withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    LucideIcons.code2,
-                    size: 16,
-                    color: Color(0xFF22D3EE),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'REST & OTLP APIs',
-                    style: AppTypography.bodySM.copyWith(
-                      color: const Color(0xFF22D3EE),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Headline
-            Text(
-              'API Reference',
-              style: isMobile
-                  ? AppTypography.headingLG.copyWith(fontSize: 28)
-                  : AppTypography.headingXL,
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Subheadline
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 700),
-              child: Text(
-                'Complete API documentation for trace ingestion, querying, alerts, and SDK integration. OpenTelemetry-native with REST fallback.',
-                style: AppTypography.bodyLG,
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-            const SizedBox(height: AppSpacing.xl),
-
-            // API Stats
-            Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
-              alignment: WrapAlignment.center,
-              children: const [
-                DocStatCard(value: 'OTLP', label: 'Native Protocol', accentColor: Color(0xFF22D3EE)),
-                DocStatCard(value: 'REST', label: 'Fallback API', accentColor: Color(0xFF22D3EE)),
-                DocStatCard(value: '3', label: 'SDK Languages', accentColor: Color(0xFF22D3EE)),
-                DocStatCard(value: '<100ms', label: 'Avg Latency', accentColor: Color(0xFF22D3EE)),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -581,7 +501,7 @@ span.SetAttribute("gen_ai.request.model", "claude-3-opus")''',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const DocBulletList(bulletColor: const Color(0xFF22D3EE), items: [
+              const DocBulletList(bulletColor: Color(0xFF22D3EE), items: [
                 'Getting Started Guide \u2014 /docs/quickstart',
                 'Integrations \u2014 /docs/integrations',
                 'Distributed Tracing \u2014 /docs/tracing',

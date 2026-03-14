@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
-import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
@@ -22,144 +21,55 @@ class DocsAgentsPage extends StatelessWidget {
     return DocsPageScaffold(
       title: 'Agent Observability',
       onBack: onBack,
-      heroBuilder: (isMobile) => _HeroSection(isMobile: isMobile),
-      content: const _DocsContent(),
-    );
-  }
-}
-
-class _HeroSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _HeroSection({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.gray900,
-            AppColors.gray800.withValues(alpha: 0.5),
-            AppColors.gray900,
-          ],
-        ),
-      ),
-      child: SectionContainer(
-        padding: EdgeInsets.symmetric(
-          vertical: isMobile ? AppSpacing.xxl : AppSpacing.xxxl,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Badge
-            Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.purple500.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                border: Border.all(
-                  color: AppColors.purple500.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    LucideIcons.bot,
-                    size: 16,
-                    color: AppColors.purple500,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Multi-Agent Ready',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.purple500,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+      heroBuilder: (isMobile) => DocsHeroSection(
+        badgeIcon: LucideIcons.bot,
+        badgeColor: AppColors.purple500,
+        badgeLabel: 'Multi-Agent Ready',
+        headline: 'Agent Observability',
+        subheadline:
+            'Monitor multi-step AI agents, tool calls, and reasoning chains. Debug complex autonomous workflows with full execution traces and decision visualization.',
+        isMobile: isMobile,
+        children: [
+          const SizedBox(height: AppSpacing.lg),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
             ),
-
-            // Headline
-            Text(
-              'Agent Observability',
-              style: isMobile
-                  ? AppTypography.headingLG.copyWith(fontSize: 28)
-                  : AppTypography.headingXL,
-              textAlign: TextAlign.center,
+            decoration: BoxDecoration(
+              color: AppColors.blue500.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
             ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Subheadline
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 700),
-              child: Text(
-                'Monitor multi-step AI agents, tool calls, and reasoning chains. Debug complex autonomous workflows with full execution traces and decision visualization.',
-                style: AppTypography.bodyLG,
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Version Note
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.blue500.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                border: Border.all(
-                  color: AppColors.blue500.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    LucideIcons.calendar,
-                    size: 16,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(LucideIcons.calendar, size: 16, color: AppColors.blue400),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Available in v1.9 \u2022 February 1st, 2026',
+                  style: AppTypography.bodySM.copyWith(
                     color: AppColors.blue400,
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Available in v1.9 \u2022 February 1st, 2026',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.blue400,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: AppSpacing.xl),
-
-            // Key Stats
-            Wrap(
-              spacing: AppSpacing.lg,
-              runSpacing: AppSpacing.md,
-              alignment: WrapAlignment.center,
-              children: const [
-                _StatBadge(label: 'Tool Calls', value: 'Tracked'),
-                _StatBadge(label: 'Reasoning Chains', value: 'Visualized'),
-                _StatBadge(label: 'Multi-Agent', value: 'Supported'),
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          const Wrap(
+            spacing: AppSpacing.lg,
+            runSpacing: AppSpacing.md,
+            alignment: WrapAlignment.center,
+            children: [
+              _StatBadge(label: 'Tool Calls', value: 'Tracked'),
+              _StatBadge(label: 'Reasoning Chains', value: 'Visualized'),
+              _StatBadge(label: 'Multi-Agent', value: 'Supported'),
+            ],
+          ),
+        ],
       ),
+      content: const _DocsContent(),
     );
   }
 }

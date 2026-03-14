@@ -102,6 +102,109 @@ class DocPageAppBar extends StatelessWidget {
   }
 }
 
+/// Shared gradient hero section for documentation pages.
+///
+/// Renders the gradient background, badge pill, headline, and subheadline.
+/// Pass page-specific widgets (stats, step previews, version notes) via
+/// [children]; they are appended to the column as-is so callers control
+/// spacing before the first child.
+class DocsHeroSection extends StatelessWidget {
+  const DocsHeroSection({
+    super.key,
+    required this.badgeIcon,
+    required this.badgeColor,
+    this.badgeContentColor,
+    required this.badgeLabel,
+    required this.headline,
+    required this.subheadline,
+    required this.isMobile,
+    this.children = const [],
+  });
+
+  final IconData badgeIcon;
+  final Color badgeColor;
+
+  /// Overrides icon and text color when it differs from [badgeColor].
+  /// Defaults to [badgeColor] when null.
+  final Color? badgeContentColor;
+  final String badgeLabel;
+  final String headline;
+  final String subheadline;
+  final bool isMobile;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final contentColor = badgeContentColor ?? badgeColor;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.gray900,
+            AppColors.gray800.withValues(alpha: 0.5),
+            AppColors.gray900,
+          ],
+        ),
+      ),
+      child: SectionContainer(
+        padding: EdgeInsets.symmetric(
+          vertical: isMobile ? AppSpacing.xxl : AppSpacing.xxxl,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              decoration: BoxDecoration(
+                color: badgeColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(badgeIcon, size: 16, color: contentColor),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    badgeLabel,
+                    style: AppTypography.bodySM.copyWith(
+                      color: contentColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              headline,
+              style: isMobile
+                  ? AppTypography.headingLG.copyWith(fontSize: 28)
+                  : AppTypography.headingXL,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 700),
+              child: Text(
+                subheadline,
+                style: AppTypography.bodyLG,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Shared footer for documentation pages.
 ///
 /// Displays "Built with OpenTelemetry and SigNoz" and copyright.
