@@ -23,8 +23,8 @@ class DocsApiPage extends StatelessWidget {
       onBack: onBack,
       heroBuilder: (isMobile) => DocsHeroSection(
         badgeIcon: LucideIcons.code2,
-        badgeColor: const Color(0xFF06B6D4),
-        badgeContentColor: const Color(0xFF22D3EE),
+        badgeColor: AppColors.cyan500,
+        badgeContentColor: AppColors.cyan400,
         badgeLabel: 'REST & OTLP APIs',
         headline: 'API Reference',
         subheadline:
@@ -37,10 +37,10 @@ class DocsApiPage extends StatelessWidget {
             runSpacing: AppSpacing.md,
             alignment: WrapAlignment.center,
             children: [
-              DocStatCard(value: 'OTLP', label: 'Native Protocol', accentColor: Color(0xFF22D3EE)),
-              DocStatCard(value: 'REST', label: 'Fallback API', accentColor: Color(0xFF22D3EE)),
-              DocStatCard(value: '3', label: 'SDK Languages', accentColor: Color(0xFF22D3EE)),
-              DocStatCard(value: '<100ms', label: 'Avg Latency', accentColor: Color(0xFF22D3EE)),
+              DocStatCard(value: 'OTLP', label: 'Native Protocol', accentColor: AppColors.cyan400),
+              DocStatCard(value: 'REST', label: 'Fallback API', accentColor: AppColors.cyan400),
+              DocStatCard(value: '3', label: 'SDK Languages', accentColor: AppColors.cyan400),
+              DocStatCard(value: '<100ms', label: 'Avg Latency', accentColor: AppColors.cyan400),
             ],
           ),
         ],
@@ -62,7 +62,7 @@ class _DocsContent extends StatelessWidget {
         DocSection(
           icon: LucideIcons.key,
           title: 'Authentication',
-          accentColor: const Color(0xFF06B6D4),
+          accentColor: AppColors.cyan500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -107,7 +107,7 @@ X-API-Key: <your-api-key>''',
         DocSection(
           icon: LucideIcons.globe,
           title: 'Base URLs',
-          accentColor: const Color(0xFF06B6D4),
+          accentColor: AppColors.cyan500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -133,7 +133,7 @@ X-API-Key: <your-api-key>''',
         DocSection(
           icon: LucideIcons.upload,
           title: 'Trace Ingestion API',
-          accentColor: const Color(0xFF06B6D4),
+          accentColor: AppColors.cyan500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -212,7 +212,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
         DocSection(
           icon: LucideIcons.search,
           title: 'Query API',
-          accentColor: const Color(0xFF06B6D4),
+          accentColor: AppColors.cyan500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -293,7 +293,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
         DocSection(
           icon: LucideIcons.bell,
           title: 'Alerts API',
-          accentColor: const Color(0xFF06B6D4),
+          accentColor: AppColors.cyan500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -367,7 +367,7 @@ export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"''',
         DocSection(
           icon: LucideIcons.package,
           title: 'SDKs & Libraries',
-          accentColor: const Color(0xFF06B6D4),
+          accentColor: AppColors.cyan500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -449,7 +449,7 @@ span.SetAttribute("gen_ai.request.model", "claude-3-opus")''',
         DocSection(
           icon: LucideIcons.alertCircle,
           title: 'Error Handling',
-          accentColor: const Color(0xFF06B6D4),
+          accentColor: AppColors.cyan500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -497,11 +497,11 @@ span.SetAttribute("gen_ai.request.model", "claude-3-opus")''',
         DocSection(
           icon: LucideIcons.bookOpen,
           title: 'Related Documentation',
-          accentColor: const Color(0xFF06B6D4),
+          accentColor: AppColors.cyan500,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const DocBulletList(bulletColor: Color(0xFF22D3EE), items: [
+              const DocBulletList(bulletColor: AppColors.cyan400, items: [
                 'Getting Started Guide \u2014 /docs/quickstart',
                 'Integrations \u2014 /docs/integrations',
                 'Distributed Tracing \u2014 /docs/tracing',
