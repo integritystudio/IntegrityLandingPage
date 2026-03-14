@@ -77,7 +77,7 @@ Sentry `ingest.sentry.io` endpoint shared across staging and prod. CSP allows on
 
 Recurring patterns across pages (button wrappers, trust badges, AppShell + Footer scaffolding). Low impact on current backlog but benefits future page additions.
 
-**Status:** Deferred — Low priority, schedule after critical items.
+**Status:** Done — commits 33ded94 + 91b186d + 6f9da15 (2026-03-13). Extracted `TrustBadge` to `lib/widgets/common/trust_badge.dart`; added `SubPageShell` to `lib/widgets/navigation/sub_page_shell.dart`; migrated `features_page.dart` to `SubPageShell` as working example. Button primitives skipped — `HoverableButtonMixin` already serves as the base and reorganizing `buttons.dart` would break all imports with no net gain.
 
 ---
 
@@ -464,4 +464,4 @@ Status color logic uses `final isOperational = service.status == 'Operational'` 
 
 ---
 
-*Last updated: 2026-03-13 (marked #154, #155, #156, #157 Done — commits 1a3c2cc + 20d52bf from backlog-implementer sprint)*
+*Last updated: 2026-03-13 (marked #91 Done — commits 33ded94 + 91b186d + 6f9da15 from backlog-implementer sprint)*
