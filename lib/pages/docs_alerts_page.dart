@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
-import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
@@ -22,111 +21,31 @@ class DocsAlertsPage extends StatelessWidget {
     return DocsPageScaffold(
       title: 'Alerts Guide',
       onBack: onBack,
-      heroBuilder: (isMobile) =>
-          _HeroSection(key: const Key('hero-section'), isMobile: isMobile),
+      heroBuilder: (isMobile) => DocsHeroSection(
+        key: const Key('hero-section'),
+        badgeIcon: LucideIcons.bell,
+        badgeColor: AppColors.warning,
+        badgeLabel: 'Proactive Monitoring',
+        headline: 'Alerts & Incident Management',
+        subheadline:
+            'Get notified before problems become incidents. Configure budget alerts, anomaly detection, and performance thresholds with intelligent routing.',
+        isMobile: isMobile,
+        children: const [
+          SizedBox(height: AppSpacing.xl),
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.md,
+            alignment: WrapAlignment.center,
+            children: [
+              _AlertTypePreview(icon: LucideIcons.dollarSign, label: 'Budget'),
+              _AlertTypePreview(icon: LucideIcons.activity, label: 'Anomaly'),
+              _AlertTypePreview(icon: LucideIcons.gauge, label: 'Latency'),
+              _AlertTypePreview(icon: LucideIcons.alertTriangle, label: 'Error Rate'),
+            ],
+          ),
+        ],
+      ),
       content: const _DocsContent(),
-    );
-  }
-}
-
-class _HeroSection extends StatelessWidget {
-  final bool isMobile;
-
-  const _HeroSection({super.key, required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.gray900,
-            AppColors.gray800.withValues(alpha: 0.5),
-            AppColors.gray900,
-          ],
-        ),
-      ),
-      child: SectionContainer(
-        padding: EdgeInsets.symmetric(
-          vertical: isMobile ? AppSpacing.xxl : AppSpacing.xxxl,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Badge
-            Container(
-              margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                border: Border.all(
-                  color: AppColors.warning.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    LucideIcons.bell,
-                    size: 16,
-                    color: AppColors.warning,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Proactive Monitoring',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.warning,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Headline
-            Text(
-              'Alerts & Incident Management',
-              style: isMobile
-                  ? AppTypography.headingLG.copyWith(fontSize: 28)
-                  : AppTypography.headingXL,
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Subheadline
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 700),
-              child: Text(
-                'Get notified before problems become incidents. Configure budget alerts, anomaly detection, and performance thresholds with intelligent routing.',
-                style: AppTypography.bodyLG,
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-            const SizedBox(height: AppSpacing.xl),
-
-            // Alert Types Preview
-            Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
-              alignment: WrapAlignment.center,
-              children: const [
-                _AlertTypePreview(icon: LucideIcons.dollarSign, label: 'Budget'),
-                _AlertTypePreview(icon: LucideIcons.activity, label: 'Anomaly'),
-                _AlertTypePreview(icon: LucideIcons.gauge, label: 'Latency'),
-                _AlertTypePreview(icon: LucideIcons.alertTriangle, label: 'Error Rate'),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
