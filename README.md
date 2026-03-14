@@ -16,56 +16,39 @@ flutter test             # Run tests (2173+ passing)
 flutter build web        # Production build
 ```
 
+### Contact Form Worker
+
+```bash
+cd workers/contact-form
+npm install && npx wrangler dev   # Local dev
+npx vitest run                    # Tests
+npx wrangler deploy               # Deploy
+```
+
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Architecture](docs/architecture.md) | Tech stack, patterns, directory structure |
-| [Routes](docs/routes.md) | GoRouter configuration, 33 routes |
-| [Changelog](docs/changelog/1.0/CHANGELOG.md) | Version history, recent changes |
-| [BACKLOG](docs/BACKLOG.md) | Open, deferred, and blocked items |
-| [Token Count Tree](docs/repomix/token-count-tree.txt) | File tree with token counts |
-
-## Project Structure
-
-```
-lib/
-├── config/           # Content configuration
-│   └── content/      # Static content definitions
-├── controllers/      # Business logic controllers
-├── models/           # Data models
-├── pages/            # Page widgets (29 pages)
-├── routing/          # GoRouter configuration
-├── services/         # External service integrations (analytics, consent, contact)
-├── theme/            # Design system (colors, decorations, spacing, typography)
-├── widgets/          # Reusable components
-│   ├── common/       # Shared widgets
-│   ├── consent/      # Cookie consent UI
-│   ├── decorative/   # Visual elements
-│   ├── docs/         # Documentation components
-│   ├── modals/       # Dialog components
-│   └── sections/     # Page sections
-├── app.dart          # Main App widget
-└── main.dart         # Application entry point
-```
+- [Architecture](docs/architecture.md) — tech stack, patterns, directory structure
+- [Routes](docs/routes.md) — GoRouter configuration, 33 routes
+- [Changelog](docs/changelog/1.0/CHANGELOG.md) — version history
+- [BACKLOG](docs/BACKLOG.md) — open, deferred, blocked items
+- [Token Count Tree](docs/repomix/token-count-tree.txt) — file tree with token counts
 
 ## Testing
 
 ```bash
 flutter test                           # All tests
-flutter test --coverage                # With coverage
+flutter test --coverage                # With coverage (~94%)
 flutter test test/pages/               # Page tests only
+cd workers/contact-form && npx vitest run  # Worker tests
 ```
 
-**[View Coverage Report](https://aledlie.github.io/IntegrityLandingPage/)** (~94% coverage)
+**[Coverage Report](https://aledlie.github.io/IntegrityLandingPage/)**
 
 ### Platform-Limited Test Gaps
 
-These items have test coverage gaps that require `flutter test --platform chrome` (web-only):
-
 | Item | File | Reason |
 |------|------|--------|
-| #75 `_launchUrl` error handling | `lib/widgets/sections/footer_section.dart` | `url_launcher` failures cannot be triggered in widget tests |
-| #76 `_initializeTracking` error handling | `lib/app.dart` | `kIsWeb` is a compile-time constant; tracking branches require web platform |
+| #75 `_launchUrl` error handling | `lib/widgets/sections/footer_section.dart` | `url_launcher` failures untestable in widget tests |
+| #76 `_initializeTracking` error handling | `lib/app.dart` | `kIsWeb` compile-time constant; requires web platform |
 
-See `test/app_test.dart:690-701` for details on native test ceiling (~50% for `app.dart`).
+See `test/app_test.dart:690-701` for native test ceiling details.

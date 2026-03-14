@@ -1,34 +1,34 @@
 # Top 20 most-changed files (last 200 commits)
 # commits  file
-  51 docs/BACKLOG.md
+  53 docs/BACKLOG.md
   18 lib/services/content_loader.dart
+  15 e2e/tests/contact-worker.spec.ts
   13 test/controllers/landing_controller_test.dart
   11 lib/config/content/constants.dart
-  11 e2e/tests/contact-worker.spec.ts
-  10 test/widgets/sections/contact_section_test.dart
   10 lib/pages/landing_page.dart
    9 test/widgets/sections/footer_section_test.dart
    9 lib/widgets/sections/footer_section.dart
    9 lib/pages/docs_quickstart_page.dart
-   8 lib/widgets/sections/contact_section.dart
-   8 e2e/tests/constants.ts
+   9 e2e/tests/constants.ts
    8 docs/changelog/1.0/CHANGELOG.md
    7 test/pages/landing_page_test.dart
    7 test/helpers/test_helpers.dart
+   7 lib/widgets/sections/contact_section.dart
    7 lib/widgets/docs/doc_components.dart
    7 content.yaml
    6 lib/pages/docs_tracing_page.dart
    6 lib/pages/docs_api_page.dart
    5 test/unit/content/content_test.dart
+   5 test/services/content_loader_test.dart
 
 # Recent commits touching these files
 
 ## docs/BACKLOG.md
+  9c3ad83 2026-03-12 docs(backlog): append items #153-#157 from widget deduplication sprint
+  548f741 2026-03-12 docs(backlog): mark #149-#152 Done after test reliability sprint
+  a411e6b 2026-03-12 docs(backlog): append #149-#152 pre-existing test reliability gaps
   531a55d 2026-03-12 docs(backlog): mark #146-#148 Done after e2e reliability sprint
   15a5a3e 2026-03-12 docs(backlog): append #146-#148 follow-up gaps from full-stack review
-  3a55edb 2026-03-12 docs(backlog): mark #142-#144 Done after test coverage sprint
-  d6f884a 2026-03-12 docs(backlog): append #142-#145 test coverage gaps from #109/#131 review
-  5d69cd7 2026-03-12 docs: migrate 44 Done items from BACKLOG.md to CHANGELOG.md
 
 ## lib/services/content_loader.dart
   f30f4dc 2026-03-12 fix(content-loader): complete in-flight Completer before reset() to prevent leaked Futures
@@ -36,6 +36,13 @@
   8b3cc4f 2026-03-12 fix(content-loader): flush caches at start of load() to mirror loadFromString()
   a0a686e 2026-03-12 refactor(content): collapse ContentLoader to static-only pattern (#105)
   ebf476c 2026-03-11 fix(content): address review findings on ContentLoadException (#104)
+
+## e2e/tests/contact-worker.spec.ts
+  6da2487 2026-03-12 refactor(e2e): replace magic HTTP values with named constants
+  95c0310 2026-03-12 refactor(e2e): remove WORKER_URL alias and fix hardcoded JSDoc URL (#151, #152)
+  953ecfa 2026-03-12 test(e2e): fix soft skip pattern in form validation tests (#150)
+  49d4ab5 2026-03-12 test(e2e): fix post-await skip pattern in submission flow tests (#149)
+  5a3831d 2026-03-12 test(e2e): fix test reliability gaps from #146/#147/#148 backlog review
 
 ## test/controllers/landing_controller_test.dart
   4e1f5cb 2026-03-12 test(content): strengthen variant assertions and fix legacy magic string
@@ -50,20 +57,6 @@
   d9c1863 2026-03-11 fix(careers,contact): wire ref query param, source CTAText from YAML, fix stale tests
   aa58467 2026-03-11 feat(careers,pricing): remove enterprise note and update careers CTA copy
   ff68a7f 2026-03-09 fix(content): preserve Austin, TX format with locationRegionAbbrev constant
-
-## e2e/tests/contact-worker.spec.ts
-  5a3831d 2026-03-12 test(e2e): fix test reliability gaps from #146/#147/#148 backlog review
-  279e477 2026-03-12 fix(e2e): use conditional guard to skip content-type assertion on 503 (#144)
-  ff5c226 2026-03-12 test(e2e): skip content-type assertion on 503 for CSRF token endpoint (#144)
-  6249a97 2026-03-12 test(e2e): skip on 429 in form validation tests to prevent false-green (#143)
-  f21e366 2026-03-12 test(e2e): add GET from unauthorized origin test to origin gating (#142)
-
-## test/widgets/sections/contact_section_test.dart
-  d61fbea 2026-03-09 fix(tests): prevent test timeouts from repeating animations
-  ab86be1 2026-03-01 fix(icons): replace remaining Material Icons with LucideIcons across widgets
-  8f31e0b 2026-03-01 fix(widgets): resolve 8 bugs across widget review and harden quality
-  54b34cf 2026-02-26 test(typography,contact): fix 19 skipped tests and slow retry tests
-  cb18b35 2026-02-26 fix(test): address final-review high-severity findings
 
 ## lib/pages/landing_page.dart
   a9afe93 2026-03-11 fix(nav): move Docs link after Contact in all header nav lists
@@ -93,19 +86,12 @@
   b4bb064 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
   c534a9a 2026-03-11 perf(pages): add const to DocBulletList call sites (#121)
 
-## lib/widgets/sections/contact_section.dart
-  d9c1863 2026-03-11 fix(careers,contact): wire ref query param, source CTAText from YAML, fix stale tests
-  bb539a2 2026-03-06 refactor(contact): extract _onFieldChanged to eliminate duplicated closures (#68)
-  d089927 2026-03-06 refactor(#52,#53,#60,#62,#64,#67): resolve all MEDIUM backlog items
-  fcfac8e 2026-03-01 fix(contact): CSRF retry, validateStatus, launchUrl error handling
-  ab86be1 2026-03-01 fix(icons): replace remaining Material Icons with LucideIcons across widgets
-
 ## e2e/tests/constants.ts
+  6da2487 2026-03-12 refactor(e2e): replace magic HTTP values with named constants
   7c46a15 2026-03-12 refactor(e2e): centralize CONTACT_WORKER_URL and SITE_URL in constants.ts
   b79b5fe 2026-03-12 fix(e2e): seo-meta env fallback, beforeAll rationale, and description bound
   3866be3 2026-03-09 refactor(e2e): migrate playwright.config magic numbers to named constants
   13f5a05 2026-03-09 fix(e2e): increase Flutter init and test timeouts for production (#78)
-  a902ef5 2026-03-09 test(e2e): add web-platform Playwright tests for kIsWeb coverage (#75, #76)
 
 ## docs/changelog/1.0/CHANGELOG.md
   5d69cd7 2026-03-12 docs: migrate 44 Done items from BACKLOG.md to CHANGELOG.md
@@ -127,6 +113,13 @@
   b53dd07 2026-03-09 test(api_toolkit_page): add page-level smoke test (#103)
   96346ff 2026-03-09 refactor(test-helpers): migrate magic numbers/strings to named constants
   a8fe6f6 2026-03-09 fix(test-helpers): prevent scrollUntilVisible unbounded pumpAndSettle hang (#98)
+
+## lib/widgets/sections/contact_section.dart
+  d9c1863 2026-03-11 fix(careers,contact): wire ref query param, source CTAText from YAML, fix stale tests
+  bb539a2 2026-03-06 refactor(contact): extract _onFieldChanged to eliminate duplicated closures (#68)
+  d089927 2026-03-06 refactor(#52,#53,#60,#62,#64,#67): resolve all MEDIUM backlog items
+  fcfac8e 2026-03-01 fix(contact): CSRF retry, validateStatus, launchUrl error handling
+  ab86be1 2026-03-01 fix(icons): replace remaining Material Icons with LucideIcons across widgets
 
 ## lib/widgets/docs/doc_components.dart
   8ec27fa 2026-03-12 fix(doc-components): const borders and callsite for DocInlineWarning (#92)
@@ -160,6 +153,13 @@
   4e1f5cb 2026-03-12 test(content): strengthen variant assertions and fix legacy magic string
   9418148 2026-03-12 refactor(content): remove dead getVariant, use ContentVariants constants in tests
   aa58467 2026-03-11 feat(careers,pricing): remove enterprise note and update careers CTA copy
+  82058bf 2026-03-08 refactor(config): centralize all external URLs and platform metrics in content.yaml
+  ae5c2d8 2026-03-01 fix(content): correct Calendly duration labels from 30 to 15 minutes
+
+## test/services/content_loader_test.dart
+  7382f81 2026-03-12 test(content-loader): add direct coverage for ContentLoadException type
+  a0a686e 2026-03-12 refactor(content): collapse ContentLoader to static-only pattern (#105)
+  0bf5597 2026-03-11 fix(content_loader): assert on missing _getMap key in debug mode (#107)
   82058bf 2026-03-08 refactor(config): centralize all external URLs and platform metrics in content.yaml
   ae5c2d8 2026-03-01 fix(content): correct Calendly duration labels from 30 to 15 minutes
 
