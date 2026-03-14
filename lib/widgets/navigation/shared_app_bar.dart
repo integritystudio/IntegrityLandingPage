@@ -280,22 +280,6 @@ class SharedAppBar extends StatelessWidget {
     }
   }
 
-  void _handleNavSelection(BuildContext context, String value) {
-    // Check if it's a section ID or route
-    if (sectionKeys?.containsKey(value) == true) {
-      _scrollToSection(value);
-    } else if (value.startsWith('/')) {
-      context.go(value);
-    } else {
-      // Try as section, fallback to route
-      if (scrollController != null && sectionKeys?.containsKey(value) == true) {
-        _scrollToSection(value);
-      } else {
-        context.go('/$value');
-      }
-    }
-  }
-
   void _scrollToSection(String sectionId) {
     final key = sectionKeys?[sectionId];
     if (key?.currentContext != null) {
