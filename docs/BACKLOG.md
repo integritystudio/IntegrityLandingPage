@@ -464,4 +464,17 @@ Status color logic uses `final isOperational = service.status == 'Operational'` 
 
 ---
 
-*Last updated: 2026-03-13 (marked #136 Done — commit 691376e, nav overflow protection)*
+### #158: Remove Dead Code `_handleNavSelection` from SharedAppBar
+
+**Severity:** LOW
+**Category:** Code Quality (Dead Code)
+**File:** `lib/widgets/navigation/shared_app_bar.dart:283-295`
+**Source:** Code review (session 2026-03-13, commit 691376e, #136 review)
+
+`_handleNavSelection` is no longer called after migrating both mobile and desktop popup menus to use `PopupMenuButton<int>` with `onTap`-based item handlers. The method remains in the class but unreferenced. Removing it eliminates confusion and reduces cognitive load.
+
+**Status:** Deferred — Low priority cleanup, can be combined with other SharedAppBar improvements.
+
+---
+
+*Last updated: 2026-03-13 (appended #158 — dead code cleanup from #136 review)*
