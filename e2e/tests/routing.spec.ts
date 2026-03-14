@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { waitForFlutter, assertFlutterRendering } from './helpers';
+import {
+  FLUTTER_BOOTSTRAP_SCRIPT,
+  HTTP_OK,
+  MOBILE_VIEWPORT_HEIGHT,
+  MOBILE_VIEWPORT_WIDTH,
+} from './constants';
 
 /**
  * E2E tests for routing and redirect rules.
@@ -273,20 +279,20 @@ test.describe('Routing and Redirects', () => {
       // redirecting. Verify the path is preserved as a regression guard.
       const unknownPath = '/nonexistent-page-url-guard-abc';
       const response = await page.goto(unknownPath, { waitUntil: 'domcontentloaded' });
-      expect(response?.status()).toBe(200);
+      expect(response?.status()).toBe(HTTP_OK);
       await waitForFlutter(page);
       expect(page.url()).toContain(unknownPath);
     });
 
     test('Unknown route loads Flutter on mobile viewport', async ({ page, browserName }) => {
       test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
-      await page.setViewportSize({ width: 375, height: 667 });
+      await page.setViewportSize({ width: MOBILE_VIEWPORT_WIDTH, height: MOBILE_VIEWPORT_HEIGHT });
       const response = await page.goto('/nonexistent-mobile-route-xyz', {
         waitUntil: 'domcontentloaded',
       });
-      expect(response?.status()).toBe(200);
+      expect(response?.status()).toBe(HTTP_OK);
       const content = await page.content();
-      expect(content).toContain('flutter_bootstrap.js');
+      expect(content).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
       await waitForFlutter(page);
       await assertFlutterRendering(page);
     });
@@ -295,9 +301,9 @@ test.describe('Routing and Redirects', () => {
       // Verifies Cloudflare Pages SPA fallback at the HTTP level.
       // No browser required — validates CDN behaviour on all platforms.
       const response = await request.get('/nonexistent-route-http-level-xyz');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
       const html = await response.text();
-      expect(html).toContain('flutter_bootstrap.js');
+      expect(html).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
     });
   });
 

@@ -85,6 +85,20 @@ export const NAV_CTA_X = 610;
 export const SCROLL_DELTA_PX = 500;
 
 // ---------------------------------------------------------------------------
+// Mobile viewport dimensions (iPhone SE / small mobile baseline)
+// ---------------------------------------------------------------------------
+
+export const MOBILE_VIEWPORT_WIDTH = 375;
+export const MOBILE_VIEWPORT_HEIGHT = 667;
+
+// ---------------------------------------------------------------------------
+// Flutter SPA identifiers
+// ---------------------------------------------------------------------------
+
+/** Bootstrap script present in all Flutter web SPA responses. */
+export const FLUTTER_BOOTSTRAP_SCRIPT = 'flutter_bootstrap.js';
+
+// ---------------------------------------------------------------------------
 // Screenshot output paths
 // ---------------------------------------------------------------------------
 
