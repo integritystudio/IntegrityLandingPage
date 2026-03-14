@@ -28,6 +28,9 @@ scripts/              # Build/dev tooling, repomix generation
 docs/                 # Architecture, routes, changelog, backlog
 test/                 # Unit + widget tests (2173+ passing, ~94% coverage)
 ```
+## Guidlelines
+No magic numbers or string
+Use DRY principles
 
 ## Workers
 
