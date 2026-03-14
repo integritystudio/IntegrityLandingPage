@@ -146,7 +146,7 @@ Unknown routes render home page (errorBuilder) ✓, but error display is unteste
 - Is error reported to Sentry?
 - Mobile 404 behavior
 
-**Status:** Deferred — error page content is rendered to Flutter canvas; cannot inspect for "404" text or links. Unknown route rendering is already covered by redirect-rules.spec.ts unknown route tests.
+**Status:** Done — commits 892aed0 + cb26c67 (2026-03-14). Added 3 tests to `routing.spec.ts` `404 Handling` block: (1) URL preservation — unknown route not redirected to `/`; (2) mobile viewport — unknown route renders Flutter at 375×667; (3) HTTP-level — CDN returns 200 + SPA HTML without a browser. Canvas-level assertions ("404" text, recovery links) remain infeasible due to Flutter canvas rendering; Sentry error reporting untestable since errorBuilder renders LandingPage without an error event. Both constraints documented in block comment.
 
 ---
 
@@ -465,4 +465,4 @@ Status color logic uses `final isOperational = service.status == 'Operational'` 
 
 ---
 
-*Last updated: 2026-03-14 (marked #153 Done — consolidated _StatCard into DocStatCard)*
+*Last updated: 2026-03-14 (marked #114 Done — 404 error recovery UI validation tests)*
