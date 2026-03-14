@@ -22,6 +22,8 @@ class AppColors {
   static const Color indigo600 = Color(0xFF4F46E5);
 
   // Accent Colors
+  static const Color cyan400 = Color(0xFF22D3EE);
+  static const Color cyan500 = Color(0xFF06B6D4);
   static const Color purple400 = Color(0xFFC084FC);
   static const Color purple500 = Color(0xFFA855F7);
   static const Color purple600 = Color(0xFF9333EA);
