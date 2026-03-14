@@ -47,7 +47,7 @@ class GradientPillBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 16, color: AppColors.success),
+            Icon(icon, size: AppSpacing.iconSM, color: AppColors.success),
             const SizedBox(width: AppSpacing.sm),
           ],
           Text(

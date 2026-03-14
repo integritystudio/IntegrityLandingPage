@@ -209,6 +209,106 @@ Lines 155, 165, 173 reference hardcoded article slugs (`best-llm-monitoring-tool
 
 ---
 
+## Services Layer Quality Issues (code-reviewer findings)
+
+### M01: Remove duplicate trackFormSubmit method
+
+**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer
+
+`analytics.dart:190` — `trackFormSubmit` duplicates `trackFormSubmission` with hardcoded `success: true`, hiding the `errorMessage` parameter. Remove `trackFormSubmit` and migrate 2 call sites (`contact_section.dart:494`, `signup_page.dart:376`) to `trackFormSubmission(formType: ..., success: true)`.
+
+**File:** `lib/services/analytics.dart:190`
+
+**Status:** Deferred — code quality refactoring.
+
+---
+
+### M02: Extract magic number for consent update wait time
+
+**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer
+
+`tracking_web.dart:75` — magic number `500` for `wait_for_update` consent delay. Extract to named constant per project rules.
+
+**File:** `lib/services/tracking_web.dart:75`
+
+**Status:** Deferred — minor constant extraction.
+
+---
+
+### M03: Gate debugPrint on kDebugMode in consent_manager
+
+**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer
+
+`consent_manager.dart:231` — bare `debugPrint('Marketing tracking initialized with consent')` not gated on `kDebugMode`, inconsistent with other services. Wrap in `if (kDebugMode)` or remove.
+
+**File:** `lib/services/consent_manager.dart:231`
+
+**Status:** Deferred — debug output cleanup.
+
+---
+
+### M04: Validate retry-after header and synthetic submissionId
+
+**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer
+
+`contact_service.dart:362–377` — two issues:
+1. `retry-after` parsing (line 362) does not validate integer is positive; could show "try again in 0 seconds"
+2. Synthetic fallback `submissionId` (line 376) looks like a real ID and could confuse deduplication logic
+
+**File:** `lib/services/contact_service.dart:362–377`
+
+**Status:** Deferred — edge case validation.
+
+---
+
+### L06: Report analytics initialization exceptions to Sentry
+
+**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer
+
+`analytics.dart:65–71` and `facebook_pixel_service.dart:540–545` — init exceptions swallowed without Sentry reporting. Add `ErrorTrackingService.captureException(e, context: 'AnalyticsService.initialize')` in catch blocks.
+
+**File:** `lib/services/analytics.dart:65–71`, `lib/services/facebook_pixel_service.dart:540–545`
+
+**Status:** Deferred — observability gap.
+
+---
+
+### L07: Reset _loadCompleter in ContentLoader.loadFromString
+
+**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer
+
+`content_loader.dart:104` — `loadFromString` in test helper does not reset `_loadCompleter`. If a test calls `load()` then `loadFromString` without `reset()`, subsequent `load()` will await stale completer indefinitely.
+
+**File:** `lib/services/content_loader.dart:104`
+
+**Status:** Deferred — test harness robustness.
+
+---
+
+### L08: Add @visibleForTesting to _dio field
+
+**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
+
+`contact_service.dart:132` — `_dio` mutable static has test setter but field itself lacks `@visibleForTesting` annotation. Add annotation to field (line 132) to clarify test-only access.
+
+**File:** `lib/services/contact_service.dart:132`
+
+**Status:** Deferred — annotation clarity.
+
+---
+
+### L09: Remove unused fbPixelId constant
+
+**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
+
+`tracking_web.dart:14` — `const fbPixelId` declared but never used (pixel loaded via `web/js/meta-pixel.js`). Remove unused constant.
+
+**File:** `lib/services/tracking_web.dart:14`
+
+**Status:** Deferred — dead code cleanup.
+
+---
+
 ## Refactor: Widget Duplication Reduction
 
 ### Phase 2: Extract DocsPageScaffold
@@ -239,6 +339,44 @@ Extract a shared `PageHeroSection` widget for pages using the gradient + title +
 
 ---
 
+## Phase 3a: Code Quality Findings (code-reviewer results)
+
+### M05: Remove unnecessary Builder wrapper in careers/contact hero sections
+
+**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer (commit 1de0043)
+
+`careers_page.dart:53–59` and `contact_page.dart:64–70` — `Builder` wrapper around `MarketingHeroSection` is unnecessary since `BuildContext` is already available from the enclosing `SliverToBoxAdapter` build context. Simplify to direct construction without extra widget node, matching the pattern used by `status_page` and `features_page`.
+
+**Files:** `lib/pages/careers_page.dart:53–59`, `lib/pages/contact_page.dart:64–70`
+
+**Status:** Deferred — code cleanup, low risk.
+
+---
+
+### L10: GradientPillBadge icon color hardcoded to AppColors.success
+
+**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer (commit 1de0043)
+
+`gradient_pill_badge.dart:50` — icon color is hardcoded to `AppColors.success` (green). This is semantically correct for `LucideIcons.checkCircle` on features_page, but the widget is general-purpose (accepts any `IconData?`). A caller passing a non-check icon (bell, star, info) will render green, which is misleading. Add optional `iconColor` parameter defaulting to `AppColors.blue400` (matching label text color).
+
+**File:** `lib/widgets/common/gradient_pill_badge.dart:50`
+
+**Status:** Deferred — API extensibility.
+
+---
+
+### L11: Missing page-level tests for contact_page and features_page heroes
+
+**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer (commit 1de0043)
+
+No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a refactor, hero sections for contact (`"We're Here to Help"`, `"Get in Touch"`) and features (`FeaturesContentVariants.complianceBadge`, pageTitle) have no page-level smoke tests. If future edits break the wiring (wrong string, missing badge), there is no fast feedback.
+
+**Files:** `test/pages/contact_page_test.dart` (missing), `test/pages/features_page_test.dart` (missing)
+
+**Status:** Deferred — test coverage gap.
+
+---
+
 ### Phase 3b: Consolidate StatCard / StatBadge Variants
 
 **Priority:** P3 | **Source:** duplication analysis 2026-03-14
@@ -253,4 +391,4 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 ---
 
-*Last updated: 2026-03-14*
+*Last updated: 2026-03-14 (Phase 3a code-reviewer findings appended; magic number `size: 16` → `AppSpacing.iconSM` fixed)*

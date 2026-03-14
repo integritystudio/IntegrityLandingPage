@@ -44,6 +44,11 @@ class AppSpacing {
   static const double footerMobileLinkColumnWidth = 150;
   static const double footerBrandColumnMaxWidth = 280;
 
+  // Icon sizes
+  static const double iconSM = 16;
+  static const double iconMD = 20;
+  static const double iconLG = 24;
+
   // Border radius
   static const double radiusSM = 4;
   static const double radiusMD = 8;
