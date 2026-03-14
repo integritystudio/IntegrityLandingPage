@@ -7,5 +7,8 @@
   },
   "dependencies": {
     "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "repomix": "bash scripts/repomix/repomix-regen.sh"
   }
 }
