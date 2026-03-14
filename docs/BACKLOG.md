@@ -394,7 +394,7 @@ Line 26 defines `const WORKER_URL = CONTACT_WORKER_URL;` as a no-op alias withou
 
 The duplicate-findings report recommends consolidation but notes "Low priority. Structurally similar but semantically different." Merging without visual regression would require significant parameterization of `DocStatCard` or creation of a separate shared widget. Decision: document as blocked and deferred until design consolidation is addressed separately.
 
-**Status:** Deferred — visual style differences block safe consolidation.
+**Status:** Done — commit 0403a5f (2026-03-14). Added `backgroundColor`, `borderColor`, and `borderRadius` optional params to `DocStatCard` (defaults preserve existing doc-page visuals). `_StatCard` in security_page replaced with `DocStatCard(backgroundColor: gray700, borderColor: gray600, borderRadius: radiusSM)` to match original visual exactly. Widget tests added for default and override behavior.
 
 ---
 
@@ -465,4 +465,4 @@ Status color logic uses `final isOperational = service.status == 'Operational'` 
 
 ---
 
-*Last updated: 2026-03-13 (marked #158 Done — removed dead _handleNavSelection)*
+*Last updated: 2026-03-14 (marked #153 Done — consolidated _StatCard into DocStatCard)*
