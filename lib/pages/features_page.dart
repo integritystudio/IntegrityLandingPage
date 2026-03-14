@@ -4,8 +4,7 @@ import '../config/content.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
 import '../widgets/common/containers.dart';
-import '../widgets/navigation/shared_app_bar.dart';
-import '../widgets/sections/footer_section.dart';
+import '../widgets/navigation/sub_page_shell.dart';
 import '../widgets/sections/marketing_hero_section.dart';
 
 /// Features page displaying detailed platform capabilities.
@@ -36,26 +35,19 @@ class _FeaturesPageState extends State<FeaturesPage> {
   Widget build(BuildContext context) {
     final isMobile = ResponsiveUtils.isMobile(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.gray900,
-      body: SelectionArea(
-        child: CustomScrollView(
-          slivers: [
-            SharedAppBar.subPage(onBack: widget.onBack),
-            SliverToBoxAdapter(child: _HeroSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _ScoresSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _TracingSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _LogsSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _MetricsSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _QuerySection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _ScalabilitySection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _IntegrationsSection(isMobile: isMobile)),
-            SliverToBoxAdapter(
-              child: FooterSection(onCookieSettings: widget.onShowCookieSettings),
-            ),
-          ],
-        ),
-      ),
+    return SubPageShell(
+      onBack: widget.onBack,
+      onShowCookieSettings: widget.onShowCookieSettings,
+      slivers: [
+        SliverToBoxAdapter(child: _HeroSection(isMobile: isMobile)),
+        SliverToBoxAdapter(child: _ScoresSection(isMobile: isMobile)),
+        SliverToBoxAdapter(child: _TracingSection(isMobile: isMobile)),
+        SliverToBoxAdapter(child: _LogsSection(isMobile: isMobile)),
+        SliverToBoxAdapter(child: _MetricsSection(isMobile: isMobile)),
+        SliverToBoxAdapter(child: _QuerySection(isMobile: isMobile)),
+        SliverToBoxAdapter(child: _ScalabilitySection(isMobile: isMobile)),
+        SliverToBoxAdapter(child: _IntegrationsSection(isMobile: isMobile)),
+      ],
     );
   }
 }
