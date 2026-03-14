@@ -272,7 +272,8 @@ test.describe('Routing and Redirects', () => {
       // GoRouter errorBuilder renders LandingPage at the original URL without
       // redirecting. Verify the path is preserved as a regression guard.
       const unknownPath = '/nonexistent-page-url-guard-abc';
-      await page.goto(unknownPath, { waitUntil: 'domcontentloaded' });
+      const response = await page.goto(unknownPath, { waitUntil: 'domcontentloaded' });
+      expect(response?.status()).toBe(200);
       await waitForFlutter(page);
       expect(page.url()).toContain(unknownPath);
     });
