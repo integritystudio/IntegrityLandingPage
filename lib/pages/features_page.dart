@@ -4,6 +4,7 @@ import '../config/content.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/common/gradient_pill_badge.dart';
 import '../widgets/navigation/sub_page_shell.dart';
 import '../widgets/sections/marketing_hero_section.dart';
 
@@ -63,46 +64,9 @@ class _HeroSection extends StatelessWidget {
       isMobile: isMobile,
       headline: FeaturesContentVariants.pageTitle,
       subheadline: FeaturesContentVariants.pageSubtitle,
-      badge: _HeroBadge(label: FeaturesContentVariants.complianceBadge),
-    );
-  }
-}
-
-class _HeroBadge extends StatelessWidget {
-  final String label;
-
-  const _HeroBadge({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.blue500.withValues(alpha: 0.2),
-            AppColors.purple500.withValues(alpha: 0.2),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-        border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(LucideIcons.checkCircle, size: 16, color: AppColors.success),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            label,
-            style: AppTypography.bodySM.copyWith(
-              color: AppColors.blue400,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+      badge: GradientPillBadge(
+        icon: LucideIcons.checkCircle,
+        label: FeaturesContentVariants.complianceBadge,
       ),
     );
   }

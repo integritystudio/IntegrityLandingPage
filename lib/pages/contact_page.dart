@@ -7,9 +7,11 @@ import '../services/analytics.dart';
 import '../services/content_loader.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
+import '../widgets/common/gradient_pill_badge.dart';
 import '../widgets/navigation/shared_app_bar.dart';
 import '../widgets/sections/contact_section.dart';
 import '../widgets/sections/footer_section.dart';
+import '../widgets/sections/marketing_hero_section.dart';
 
 /// Standalone contact page with multiple contact options.
 ///
@@ -58,7 +60,18 @@ class _ContactPageState extends State<ContactPage> {
           controller: _scrollController,
           slivers: [
             SharedAppBar.subPage(onBack: widget.onBack),
-            const SliverToBoxAdapter(child: _ContactHeroSection()),
+            SliverToBoxAdapter(
+              child: Builder(builder: (context) {
+                final isMobile = ResponsiveUtils.isMobile(context);
+                return MarketingHeroSection(
+                  isMobile: isMobile,
+                  badge: const GradientPillBadge(label: "We're Here to Help"),
+                  headline: 'Get in Touch',
+                  subheadline:
+                      'Have questions about AI observability? Need help with integration? Our team is ready to assist you.',
+                );
+              }),
+            ),
             const SliverToBoxAdapter(child: _QuickContactSection()),
             SliverToBoxAdapter(child: ContactSection(ref: widget.ref)),
             const SliverToBoxAdapter(child: _SupportInfoSection()),
@@ -69,80 +82,6 @@ class _ContactPageState extends State<ContactPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ContactHeroSection extends StatelessWidget {
-  const _ContactHeroSection();
-
-  @override
-  Widget build(BuildContext context) {
-    final isMobile = ResponsiveUtils.isMobile(context);
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: AppSpacing.containerPadding(context),
-        vertical: isMobile ? 48 : 80,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.gray800,
-            AppColors.gray900,
-          ],
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.blue500.withValues(alpha: 0.2),
-                  AppColors.purple500.withValues(alpha: 0.2),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(
-                color: AppColors.blue500.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Text(
-              'We\'re Here to Help',
-              style: AppTypography.bodySM.copyWith(
-                color: AppColors.blue400,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Get in Touch',
-            style: (isMobile ? AppTypography.headingLG : AppTypography.headingXL).copyWith(
-              color: Colors.white,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Text(
-              'Have questions about AI observability? Need help with integration? Our team is ready to assist you.',
-              style: AppTypography.bodyLG.copyWith(
-                color: AppColors.gray400,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
       ),
     );
   }
