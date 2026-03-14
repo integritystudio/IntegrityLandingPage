@@ -235,7 +235,7 @@ Extract a shared `PageHeroSection` widget for pages using the gradient + title +
 
 **Reference:** [`docs/duplicate-findings.md`](duplicate-findings.md) — see "72% — Misc structural similarity" (`docs_interop :: _HeroSection` ~ `docs_tracing :: _HeroSection`) and "71% — Lower similarity pairs" (`careers :: _CareersHeroSection` ~ `contact :: _ContactHeroSection`)
 
-**Status:** Open.
+**Status:** Done — Extracted `GradientPillBadge` to `lib/widgets/common/gradient_pill_badge.dart`. Replaced `_CareersHeroSection`, `_ContactHeroSection` with `MarketingHeroSection` + `GradientPillBadge`; replaced `features_page._HeroBadge` with `GradientPillBadge`. 3 private classes removed, 3 pages consolidated (2026-03-14).
 
 ---
 

@@ -5,8 +5,10 @@ import '../config/content/constants.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
+import '../widgets/common/gradient_pill_badge.dart';
 import '../widgets/navigation/shared_app_bar.dart';
 import '../widgets/sections/footer_section.dart';
+import '../widgets/sections/marketing_hero_section.dart';
 
 /// Careers page - displays open positions and recruitment info.
 class CareersPage extends StatefulWidget {
@@ -47,7 +49,18 @@ class _CareersPageState extends State<CareersPage> {
           controller: _scrollController,
           slivers: [
             SharedAppBar.subPage(onBack: widget.onBack),
-            const SliverToBoxAdapter(child: _CareersHeroSection()),
+            SliverToBoxAdapter(
+              child: Builder(builder: (context) {
+                final isMobile = ResponsiveUtils.isMobile(context);
+                return MarketingHeroSection(
+                  isMobile: isMobile,
+                  badge: const GradientPillBadge(label: 'Join Our Team'),
+                  headline: 'Careers at Integrity Studio',
+                  subheadline:
+                      'Help us build the future of AI observability and empower teams to ship reliable AI applications.',
+                );
+              }),
+            ),
             const SliverToBoxAdapter(child: _NoOpeningsSection()),
             const SliverToBoxAdapter(child: _KeepInTouchSection()),
             SliverToBoxAdapter(
@@ -57,80 +70,6 @@ class _CareersPageState extends State<CareersPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CareersHeroSection extends StatelessWidget {
-  const _CareersHeroSection();
-
-  @override
-  Widget build(BuildContext context) {
-    final isMobile = ResponsiveUtils.isMobile(context);
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: AppSpacing.containerPadding(context),
-        vertical: isMobile ? 48 : 80,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.gray800,
-            AppColors.gray900,
-          ],
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.blue500.withValues(alpha: 0.2),
-                  AppColors.purple500.withValues(alpha: 0.2),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(100),
-              border: Border.all(
-                color: AppColors.blue500.withValues(alpha: 0.3),
-              ),
-            ),
-            child: Text(
-              'Join Our Team',
-              style: AppTypography.bodySM.copyWith(
-                color: AppColors.blue400,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Careers at Integrity Studio',
-            style: (isMobile ? AppTypography.headingLG : AppTypography.headingXL).copyWith(
-              color: Colors.white,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Text(
-              'Help us build the future of AI observability and empower teams to ship reliable AI applications.',
-              style: AppTypography.bodyLG.copyWith(
-                color: AppColors.gray400,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
       ),
     );
   }
