@@ -129,6 +129,20 @@ class ContactFormErrors {
 class ContactService {
   ContactService._();
 
+  // Error message constants (per project rule: no magic strings)
+  static const String _errorSecurityToken =
+      'Security token expired. Please try again.';
+  static const String _errorServerError = 'Server error. Please try again.';
+  static const String _errorTimeout =
+      'Connection timed out. Please check your internet and try again.';
+  static const String _errorNetwork =
+      'Network error: Unable to submit form. Please try again.';
+  static const String _errorUnexpected =
+      'An unexpected error occurred. Please try again.';
+  static const String _errorUnableToSubmit = 'Unable to submit form';
+  static const String _errorFormValidation =
+      'Please fix the errors in the form';
+
   static Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
@@ -300,7 +314,7 @@ class ContactService {
     final errors = validateForm(payload.formData);
     if (errors.hasErrors) {
       return ContactFormError(
-        error: 'Please fix the errors in the form',
+        error: _errorFormValidation,
         fieldErrors: errors.toMap(),
       );
     }
@@ -325,35 +339,36 @@ class ContactService {
               'X-Idempotency-Key': idempotencyKey,
               'X-Request-ID': requestId,
             },
-            // Accept only status codes we explicitly handle
-            validateStatus: (status) =>
-                status != null &&
-                (status == HttpStatus.ok.code ||
-                    status == HttpStatus.forbidden.code ||
-                    status == HttpStatus.tooManyRequests.code ||
-                    status == HttpStatus.gatewayTimeout.code),
+            // Accept all non-null status codes — HTTP errors are handled in
+            // the explicit dispatch below so Dio must not throw on 4xx/5xx.
+            validateStatus: (status) => status != null,
           ),
         );
 
         // CSRF token rejected — refresh and retry
         if (response.statusCode == HttpStatus.forbidden.code) {
-          csrfToken = await _fetchCsrfToken();
-          if (attempt < _maxRetries) continue;
+          if (attempt < _maxRetries) {
+            csrfToken = await _fetchCsrfToken();
+            continue;
+          }
           return const ContactFormError(
-            error: 'Security token expired. Please try again.',
+            error: _errorSecurityToken,
           );
         }
 
-        final data = response.data as Map<String, dynamic>;
+        final data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : const <String, dynamic>{};
 
-        if (response.statusCode == HttpStatus.gatewayTimeout.code) {
-          // Worker's Resend API call timed out - retryable
+        // Retryable server errors (500, 504)
+        if (response.statusCode == HttpStatus.internalServerError.code ||
+            response.statusCode == HttpStatus.gatewayTimeout.code) {
           if (attempt < _maxRetries) {
             await retryDelay(Duration(seconds: 1 << attempt));
             continue;
           }
-          return const ContactFormError(
-            error: 'Email service timeout. Please try again.',
+          return ContactFormError(
+            error: data['error'] as String? ?? _errorServerError,
           );
         }
 
@@ -377,9 +392,9 @@ class ContactService {
                 'sub_${DateTime.now().millisecondsSinceEpoch}',
           );
         } else {
-          // Non-retryable: server returned a client error
+          // Non-retryable: client error or unexpected status
           return ContactFormError(
-            error: data['error'] as String? ?? 'Unable to submit form',
+            error: data['error'] as String? ?? _errorUnableToSubmit,
           );
         }
       } on DioException catch (e) {
@@ -410,24 +425,24 @@ class ContactService {
         if (e.type == DioExceptionType.connectionTimeout ||
             e.type == DioExceptionType.receiveTimeout) {
           return const ContactFormError(
-            error: 'Connection timed out. Please check your internet and try again.',
+            error: _errorTimeout,
           );
         }
         return const ContactFormError(
-          error: 'Network error: Unable to submit form. Please try again.',
+          error: _errorNetwork,
         );
       } catch (e, stackTrace) {
         // Non-retryable unexpected errors
         ErrorTrackingService.captureException(e, stackTrace: stackTrace);
         return const ContactFormError(
-          error: 'An unexpected error occurred. Please try again.',
+          error: _errorUnexpected,
         );
       }
     }
 
     // Unreachable, but satisfies the return type
     return const ContactFormError(
-      error: 'An unexpected error occurred. Please try again.',
+      error: _errorUnexpected,
     );
   }
 }
