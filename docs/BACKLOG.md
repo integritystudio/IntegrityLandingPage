@@ -473,8 +473,8 @@ Status color logic uses `final isOperational = service.status == 'Operational'` 
 
 `_handleNavSelection` is no longer called after migrating both mobile and desktop popup menus to use `PopupMenuButton<int>` with `onTap`-based item handlers. The method remains in the class but unreferenced. Removing it eliminates confusion and reduces cognitive load.
 
-**Status:** Deferred — Low priority cleanup, can be combined with other SharedAppBar improvements.
+**Status:** Done — commit 3abae95 (2026-03-13). Removed `_handleNavSelection`; method was fully unreferenced after #136 migrated popup menus to `PopupMenuButton<int>` with `onTap`-based handlers.
 
 ---
 
-*Last updated: 2026-03-13 (appended #158 — dead code cleanup from #136 review)*
+*Last updated: 2026-03-13 (marked #158 Done — removed dead _handleNavSelection)*
