@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -74,6 +75,11 @@ Future<void> main() async {
     }
   } else {
     WidgetsFlutterBinding.ensureInitialized();
+  }
+
+  // Enable semantics tree for accessibility and E2E testing
+  if (kIsWeb) {
+    SemanticsBinding.instance.ensureSemantics();
   }
 
   // Load content from YAML before app starts

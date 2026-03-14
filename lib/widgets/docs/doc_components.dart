@@ -82,45 +82,49 @@ class DocFeatureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = accentColor ?? AppColors.blue500;
-    return Container(
-      width: 200,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray700,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray600),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  color.withValues(alpha: 0.2),
-                  AppColors.purple500.withValues(alpha: 0.2),
-                ],
+    return Semantics(
+      label: '$title: $description',
+      container: true,
+      child: Container(
+        width: 200,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.gray700,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+          border: Border.all(color: AppColors.gray600),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    color.withValues(alpha: 0.2),
+                    AppColors.purple500.withValues(alpha: 0.2),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+              child: Icon(icon, color: color.withValues(alpha: 0.9), size: 18),
             ),
-            child: Icon(icon, color: color.withValues(alpha: 0.9), size: 18),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            title,
-            style: AppTypography.bodyMD.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              title,
+              style: AppTypography.bodyMD.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            description,
-            style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
-          ),
-        ],
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              description,
+              style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -135,38 +139,48 @@ class DocCodeBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final codeWidget = Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray900,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: SelectableText(
-        code,
-        style: const TextStyle(
-          fontFamily: 'JetBrains Mono',
-          fontSize: 13,
-          color: AppColors.gray300,
-          height: 1.5,
+    final codeWidget = Semantics(
+      label: title ?? 'Code block',
+      container: true,
+      readOnly: true,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.gray900,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+          border: Border.all(color: AppColors.gray700),
+        ),
+        child: SelectableText(
+          code,
+          style: const TextStyle(
+            fontFamily: 'JetBrains Mono',
+            fontSize: 13,
+            color: AppColors.gray300,
+            height: 1.5,
+          ),
         ),
       ),
     );
     if (title == null) return codeWidget;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title!,
-          style: AppTypography.bodySM.copyWith(
-            color: AppColors.gray400,
-            fontWeight: FontWeight.w600,
+    return Semantics(
+      label: title!,
+      container: true,
+      readOnly: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title!,
+            style: AppTypography.bodySM.copyWith(
+              color: AppColors.gray400,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        codeWidget,
-      ],
+          const SizedBox(height: AppSpacing.sm),
+          codeWidget,
+        ],
+      ),
     );
   }
 }
@@ -185,7 +199,10 @@ class DocTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return Semantics(
+      label: 'Table: ${headers.join(', ')}',
+      container: true,
+      child: SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Container(
         constraints: const BoxConstraints(minWidth: 300),
@@ -235,6 +252,7 @@ class DocTable extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -257,7 +275,10 @@ class DocBulletList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = bulletColor ?? AppColors.blue400;
-    return Column(
+    return Semantics(
+      label: 'List: ${items.length} items',
+      container: true,
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: items
           .map((item) => Padding(
@@ -291,6 +312,7 @@ class DocBulletList extends StatelessWidget {
                 ),
               ))
           .toList(),
+    ),
     );
   }
 }
@@ -312,8 +334,11 @@ class DocStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = accentColor ?? AppColors.blue400;
-    return Container(
-      constraints: const BoxConstraints(minWidth: 140, maxWidth: 160),
+    return Semantics(
+      label: '$value $label',
+      container: true,
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 140, maxWidth: 160),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.md,
@@ -338,6 +363,7 @@ class DocStatCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
@@ -356,9 +382,12 @@ class DocNumberedList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = accentColor ?? AppColors.blue500;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: items.asMap().entries.map((entry) {
+    return Semantics(
+      label: 'Steps: ${items.length} items',
+      container: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: items.asMap().entries.map((entry) {
         final index = entry.key + 1;
         final item = entry.value;
         return Padding(
@@ -399,6 +428,7 @@ class DocNumberedList extends StatelessWidget {
           ),
         );
       }).toList(),
+    ),
     );
   }
 }
@@ -469,51 +499,55 @@ class DocCallout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: _color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border(
-          left: BorderSide(color: _color, width: 3),
+    return Semantics(
+      label: '${variant.name} callout: $title',
+      container: true,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: _color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+          border: Border(
+            left: BorderSide(color: _color, width: 3),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(_icon, color: _color, size: 18),
-              const SizedBox(width: AppSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(_icon, color: _color, size: 18),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  title,
+                  style: AppTypography.bodyMD.copyWith(
+                    color: _color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            if (message != null)
               Text(
-                title,
+                message!,
                 style: AppTypography.bodyMD.copyWith(
-                  color: _color,
-                  fontWeight: FontWeight.w600,
+                  color: variant == DocCalloutVariant.warning ||
+                          variant == DocCalloutVariant.danger
+                      ? _color
+                      : AppColors.gray300,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          if (message != null)
-            Text(
-              message!,
-              style: AppTypography.bodyMD.copyWith(
-                color: variant == DocCalloutVariant.warning ||
-                        variant == DocCalloutVariant.danger
-                    ? _color
-                    : AppColors.gray300,
-              ),
-            ),
-          if (items != null)
-            ...items!.map((item) => Padding(
-                  padding: const EdgeInsets.only(left: AppSpacing.lg, bottom: 4),
-                  child: Text(
-                    '\u2022 $item',
-                    style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
-                  ),
-                )),
-        ],
+            if (items != null)
+              ...items!.map((item) => Padding(
+                    padding: const EdgeInsets.only(left: AppSpacing.lg, bottom: 4),
+                    child: Text(
+                      '\u2022 $item',
+                      style: AppTypography.bodyMD.copyWith(color: AppColors.gray300),
+                    ),
+                  )),
+          ],
+        ),
       ),
     );
   }
@@ -544,25 +578,29 @@ class DocInlineWarning extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: fullBorder ? _fullBorder : _leftBorder,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(LucideIcons.alertTriangle, color: AppColors.warning, size: 18),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              message,
-              style: AppTypography.bodyMD.copyWith(color: AppColors.warning),
+    return Semantics(
+      label: 'Warning: $message',
+      container: true,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+          border: fullBorder ? _fullBorder : _leftBorder,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(LucideIcons.alertTriangle, color: AppColors.warning, size: 18),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                message,
+                style: AppTypography.bodyMD.copyWith(color: AppColors.warning),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

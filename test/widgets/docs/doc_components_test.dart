@@ -5,6 +5,10 @@ import 'package:integrity_studio_ai/widgets/docs/doc_components.dart';
 import 'package:integrity_studio_ai/theme/theme.dart';
 import '../../helpers/test_helpers.dart';
 
+/// Finds a [Semantics] widget whose label exactly matches [label].
+Finder findSemanticsLabel(String label) =>
+    find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label);
+
 void main() {
   // ==========================================================================
   // UNIT TESTS
@@ -59,6 +63,18 @@ void main() {
       ));
       expect(find.text('Custom Color'), findsOneWidget);
     });
+
+    testWidgets('has semantics label', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        DocSection(
+          icon: LucideIcons.activity,
+          title: 'Semantics Test',
+          child: const Text('Content'),
+        ),
+      ));
+
+      expect(findSemanticsLabel('Semantics Test'), findsOneWidget);
+    });
   });
 
   group('DocFeatureCard', () {
@@ -96,6 +112,18 @@ void main() {
       ));
       expect(find.text('Database'), findsOneWidget);
     });
+
+    testWidgets('has semantics label', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocFeatureCard(
+          icon: LucideIcons.zap,
+          title: 'Speed',
+          description: 'Very fast',
+        ),
+      ));
+
+      expect(findSemanticsLabel('Speed: Very fast'), findsOneWidget);
+    });
   });
 
   group('DocCodeBlock', () {
@@ -127,6 +155,20 @@ function example() {
         ),
       );
       expect(container.constraints?.minWidth, double.infinity);
+    });
+
+    testWidgets('has semantics label for both branches', (tester) async {
+      // Without title
+      await tester.pumpWidget(testableWidget(
+        const DocCodeBlock(code: 'x = 1'),
+      ));
+      expect(findSemanticsLabel('Code block'), findsOneWidget);
+
+      // With title — outer Semantics + inner codeWidget Semantics
+      await tester.pumpWidget(testableWidget(
+        const DocCodeBlock(code: 'x = 1', title: 'Example'),
+      ));
+      expect(findSemanticsLabel('Example'), findsWidgets);
     });
   });
 
@@ -165,6 +207,17 @@ function example() {
       ));
       expect(find.text('Header'), findsOneWidget);
       expect(find.byType(Table), findsOneWidget);
+    });
+
+    testWidgets('has semantics label', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocTable(
+          headers: ['Col A', 'Col B'],
+          rows: [['1', '2']],
+        ),
+      ));
+
+      expect(findSemanticsLabel('Table: Col A, Col B'), findsOneWidget);
     });
   });
 
@@ -207,6 +260,14 @@ function example() {
         const DocBulletList(items: []),
       ));
       expect(find.byType(DocBulletList), findsOneWidget);
+    });
+
+    testWidgets('has semantics label', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocBulletList(items: ['A', 'B']),
+      ));
+
+      expect(findSemanticsLabel('List: 2 items'), findsOneWidget);
     });
   });
 
@@ -260,6 +321,14 @@ function example() {
         ),
       ));
       expect(find.text('10'), findsOneWidget);
+    });
+
+    testWidgets('has semantics label', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocNumberedList(items: ['Step 1', 'Step 2', 'Step 3']),
+      ));
+
+      expect(findSemanticsLabel('Steps: 3 items'), findsOneWidget);
     });
   });
 
@@ -338,6 +407,17 @@ function example() {
       ));
       expect(find.byIcon(LucideIcons.lightbulb), findsOneWidget);
     });
+
+    testWidgets('has semantics label with variant', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocCallout.warning(
+          title: 'Caution',
+          message: 'Be careful',
+        ),
+      ));
+
+      expect(findSemanticsLabel('warning callout: Caution'), findsOneWidget);
+    });
   });
 
   group('DocStatCard', () {
@@ -378,6 +458,49 @@ function example() {
 
       expect(find.text('v1.0'), findsOneWidget);
       expect(find.text('Version'), findsOneWidget);
+    });
+
+    testWidgets('has semantics label', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocStatCard(value: '99.9%', label: 'Uptime'),
+      ));
+
+      expect(findSemanticsLabel('99.9% Uptime'), findsOneWidget);
+    });
+  });
+
+  group('DocInlineWarning', () {
+    testWidgets('renders message and warning icon', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocInlineWarning(message: 'This is a warning'),
+      ));
+
+      expect(find.text('This is a warning'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.alertTriangle), findsOneWidget);
+    });
+
+    testWidgets('renders with fullBorder variant', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocInlineWarning(message: 'Full border', fullBorder: true),
+      ));
+
+      expect(find.text('Full border'), findsOneWidget);
+      final container = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(DocInlineWarning),
+          matching: find.byType(Container).first,
+        ),
+      );
+      final decoration = container.decoration as BoxDecoration?;
+      expect(decoration?.border, isNotNull);
+    });
+
+    testWidgets('has semantics label', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocInlineWarning(message: 'Careful now'),
+      ));
+
+      expect(findSemanticsLabel('Warning: Careful now'), findsOneWidget);
     });
   });
 }

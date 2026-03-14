@@ -127,21 +127,9 @@ The inline desktop nav (7 items + CTA) required reducing NavLink padding from `m
 
 ## Deferred: E2E Test Coverage Limitations (Flutter Canvas)
 
-### #111: Documentation Page Content Rendering
+### #111: Documentation Page Content Rendering — Done
 
-**Severity:** MEDIUM
-**Category:** E2E Test Coverage (Flutter Canvas Limitation)
-**Files:** `e2e/tests/`, `lib/pages/docs_*.dart`
-**Source:** Coverage gap analysis 2026-03-11
-
-Doc pages load ✓, but content is rendered to CanvasKit (canvas), making content verification impossible from Playwright:
-- Table rendering (headers, rows, alignment)
-- Code block syntax highlighting
-- Callout variants (warning, info, success colors)
-- Section navigation (jump links, scroll anchors)
-- Hero section images and gradients
-
-**Status:** Deferred — Flutter web canvas rendering limitation (confirmed). Cannot inspect rendered content from Playwright. Future options: debug endpoint, accessibility tree, or visual regression.
+**Status:** Done — Resolved via Flutter semantics tree. `SemanticsBinding.instance.ensureSemantics()` enables ARIA labels in CanvasKit; `Semantics` wrappers on 8 doc components expose content to Playwright via `page.getByLabel()`. E2E spec `docs-content.spec.ts` tests 3 representative pages with graceful skip on Flutter #151929.
 
 ---
 

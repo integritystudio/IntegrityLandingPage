@@ -3,6 +3,7 @@ import {
   FLUTTER_INIT_TIMEOUT_MS,
   ROUTE_CHANGE_TIMEOUT_MS,
   ROUTE_RENDER_TIMEOUT_MS,
+  SEMANTICS_TIMEOUT_MS,
 } from './constants';
 
 /**
@@ -91,4 +92,37 @@ export async function navigateAndWaitForFlutter(
 ): Promise<void> {
   await page.goto(path, { waitUntil: 'domcontentloaded' });
   await waitForFlutter(page);
+}
+
+/**
+ * Click the Flutter semantics placeholder to ensure the semantics tree is enabled.
+ *
+ * Belt-and-suspenders: `SemanticsBinding.instance.ensureSemantics()` in main.dart
+ * enables the tree at startup, but on some browsers the placeholder click is
+ * needed to fully materialise ARIA nodes in the DOM shadow tree.
+ *
+ * @param page - Playwright page object
+ */
+export async function enableFlutterSemantics(page: Page): Promise<void> {
+  const placeholder = page.locator('flt-semantics-placeholder');
+  if (await placeholder.count() > 0) {
+    await placeholder.first().click({ force: true, timeout: 5_000 }).catch(() => {
+      // Placeholder may not exist if semantics already active
+    });
+  }
+}
+
+/**
+ * Wait for a Flutter semantics label to be attached to the accessibility tree.
+ *
+ * @param page - Playwright page object
+ * @param label - Accessibility label to search for
+ * @param timeout - Maximum time to wait (default: SEMANTICS_TIMEOUT_MS)
+ */
+export async function waitForSemantics(
+  page: Page,
+  label: string | RegExp,
+  timeout = SEMANTICS_TIMEOUT_MS
+): Promise<void> {
+  await page.getByLabel(label).first().waitFor({ state: 'attached', timeout });
 }

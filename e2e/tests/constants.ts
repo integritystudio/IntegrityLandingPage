@@ -60,6 +60,9 @@ export const KEY_SETTLE_MS = 500;
 /** Settle time after a scroll action before taking assertions. */
 export const SCROLL_SETTLE_MS = 2_000;
 
+/** Maximum time for Flutter semantics tree to attach after enablement. */
+export const SEMANTICS_TIMEOUT_MS = 30_000;
+
 // ---------------------------------------------------------------------------
 // Navigation bar pixel coordinates
 // (desktop 1280×720 viewport, Flutter CanvasKit rendering)
