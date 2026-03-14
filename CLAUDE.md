@@ -26,7 +26,7 @@ lib/
 workers/contact-form/ # Cloudflare Worker (Resend email, KV rate limiting, CSRF)
 scripts/              # Build/dev tooling, repomix generation
 docs/                 # Architecture, routes, changelog, backlog
-test/                 # Unit + widget tests (2173+ passing, ~94% coverage)
+test/                 # Unit + widget tests (2398+ passing, ~94% coverage)
 ```
 ## Guidelines
 No magic numbers or string
@@ -46,6 +46,6 @@ Flutter Web renders to `<canvas>` via CanvasKit — DOM selectors cannot reach w
 
 Choose the appropriate file based on the task:
 
-- [token-count-tree.txt](docs/repomix/token-count-tree.txt) — file tree with token counts; use for navigation, finding files, estimating scope
-- [docs-compressed.xml](docs/repomix/docs-compressed.xml) — compressed source (~77K tokens); use for broad understanding, search, and most READ tasks
+- [token-tree.txt](docs/repomix/token-tree.txt) — file tree with token counts; use for navigation, finding files, estimating scope
+- [docs-compressed.xml](docs/repomix/docs-compressed.xml) — compressed docs, CLAUDE.md, README (~11K tokens); use for broad docs understanding and search
 - [repomix.xml](docs/repomix/repomix.xml) — full lossless source; use only when exact code detail is needed (e.g. line-level edits, debugging)
