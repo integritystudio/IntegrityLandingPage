@@ -209,4 +209,48 @@ Lines 155, 165, 173 reference hardcoded article slugs (`best-llm-monitoring-tool
 
 ---
 
-*Last updated: 2026-03-14 (migrated #91–#158 to docs/changelog/1.1/CHANGELOG.md)*
+## Refactor: Widget Duplication Reduction
+
+### Phase 2: Extract DocsPageScaffold
+
+**Priority:** P2 | **Source:** duplication analysis 2026-03-14
+
+Extract a shared `DocsPageScaffold` widget for all 7 docs pages (`DocsAgentsPage`, `DocsAlertsPage`, `DocsApiPage`, `DocsInteroperabilityPage`, `DocsObservabilityPage`, `DocsQuickstartPage`, `DocsTracingPage`). These pages share 74-86% similar top-level scaffold structure.
+
+**Impact:** Eliminates ~18 duplicate pairs (23% of current 79 total).
+
+**Reference:** [`docs/duplicate-findings.md`](duplicate-findings.md) — see "86% — Docs page scaffolds" and "Prioritized Action Plan > Phase 2"
+
+**Status:** Done — `DocsHeroSection` extracted to `doc_page_scaffold.dart` (commit 5990843, 2026-03-14). All 7 `_HeroSection` classes removed; -468 net lines.
+
+---
+
+### Phase 3a: Extract PageHeroSection
+
+**Priority:** P3 | **Source:** duplication analysis 2026-03-14
+
+Extract a shared `PageHeroSection` widget for pages using the gradient + title + subtitle + stats hero pattern (`features_page`, `status_page`, and others). Currently 71-80% similar across hero section variants.
+
+**Impact:** Eliminates ~3 duplicate pairs.
+
+**Reference:** [`docs/duplicate-findings.md`](duplicate-findings.md) — see "72% — Misc structural similarity" (`docs_interop :: _HeroSection` ~ `docs_tracing :: _HeroSection`) and "71% — Lower similarity pairs" (`careers :: _CareersHeroSection` ~ `contact :: _ContactHeroSection`)
+
+**Status:** Open.
+
+---
+
+### Phase 3b: Consolidate StatCard / StatBadge Variants
+
+**Priority:** P3 | **Source:** duplication analysis 2026-03-14
+
+Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the existing `DocStatCard` in `doc_components.dart`. These share 73-76% structural similarity but differ in decoration.
+
+**Impact:** Eliminates ~3 duplicate pairs.
+
+**Reference:** [`docs/duplicate-findings.md`](duplicate-findings.md) — see "76% — `_TimelineCard` ~ `DocStatCard`" and "73% — Cross-page card patterns"
+
+**Status:** Open.
+
+---
+
+*Last updated: 2026-03-14*
