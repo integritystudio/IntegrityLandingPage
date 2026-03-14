@@ -87,7 +87,7 @@ class _HeroBadge extends StatelessWidget {
             AppColors.purple500.withValues(alpha: 0.2),
           ],
         ),
-        borderRadius: BorderRadius.circular(100),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
         border: Border.all(color: AppColors.blue500.withValues(alpha: 0.3)),
       ),
       child: Row(
