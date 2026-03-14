@@ -467,6 +467,52 @@ function example() {
 
       expect(findSemanticsLabel('99.9% Uptime'), findsOneWidget);
     });
+
+    testWidgets('defaults backgroundColor, borderColor, borderRadius', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocStatCard(value: '1', label: 'Test'),
+      ));
+
+      final container = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(DocStatCard),
+          matching: find.byType(Container).first,
+        ),
+      );
+      final decoration = container.decoration as BoxDecoration;
+      expect(decoration.color, AppColors.gray800);
+      expect(decoration.border, Border.all(color: AppColors.gray700));
+      expect(
+        decoration.borderRadius,
+        BorderRadius.circular(AppSpacing.radiusMD),
+      );
+    });
+
+    testWidgets('applies custom backgroundColor, borderColor, borderRadius', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        DocStatCard(
+          value: '99%',
+          label: 'SLA',
+          backgroundColor: AppColors.gray700,
+          borderColor: AppColors.gray600,
+          borderRadius: AppSpacing.radiusSM,
+        ),
+      ));
+
+      final container = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(DocStatCard),
+          matching: find.byType(Container).first,
+        ),
+      );
+      final decoration = container.decoration as BoxDecoration;
+      expect(decoration.color, AppColors.gray700);
+      expect(decoration.border, Border.all(color: AppColors.gray600));
+      expect(
+        decoration.borderRadius,
+        BorderRadius.circular(AppSpacing.radiusSM),
+      );
+    });
   });
 
   group('DocInlineWarning', () {
