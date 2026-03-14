@@ -1,10 +1,19 @@
 import { test, expect } from '@playwright/test';
-import { waitForFlutter, assertFlutterRendering } from './helpers';
+import {
+  assertFlutterRendering,
+  enableFlutterSemantics,
+  navigateAndWaitForFlutter,
+  waitForFlutter,
+  waitForSemantics,
+} from './helpers';
 import {
   FLUTTER_BOOTSTRAP_SCRIPT,
+  HTTP_NOT_FOUND,
   HTTP_OK,
   MOBILE_VIEWPORT_HEIGHT,
   MOBILE_VIEWPORT_WIDTH,
+  SEMANTICS_TIMEOUT_MS,
+  TEST_TIMEOUT_MS,
 } from './constants';
 
 /**
@@ -43,11 +52,11 @@ test.describe('Routing and Redirects', () => {
         });
 
         // Should return 200
-        expect(response?.status()).toBe(200);
+        expect(response?.status()).toBe(HTTP_OK);
 
         // Should contain Flutter bootstrap script
         const content = await page.content();
-        expect(content).toContain('flutter_bootstrap.js');
+        expect(content).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
 
         // Wait for Flutter to fully initialize (deterministic, no race conditions)
         await waitForFlutter(page);
@@ -61,7 +70,7 @@ test.describe('Routing and Redirects', () => {
   test.describe('Static Assets', () => {
     test('manifest.json is accessible', async ({ request }) => {
       const response = await request.get('/manifest.json');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
 
       const json = await response.json();
       expect(json.name).toBeDefined();
@@ -70,7 +79,7 @@ test.describe('Routing and Redirects', () => {
 
     test('robots.txt is accessible', async ({ request }) => {
       const response = await request.get('/robots.txt');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
 
       const text = await response.text();
       expect(text).toContain('User-agent');
@@ -78,7 +87,7 @@ test.describe('Routing and Redirects', () => {
 
     test('favicon is accessible', async ({ request }) => {
       const response = await request.get('/icons/favicon-32x32.png');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
 
       const contentType = response.headers()['content-type'];
       expect(contentType).toContain('image/png');
@@ -86,7 +95,7 @@ test.describe('Routing and Redirects', () => {
 
     test('apple-touch-icon is accessible', async ({ request }) => {
       const response = await request.get('/icons/apple-touch-icon.png');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
 
       const contentType = response.headers()['content-type'];
       expect(contentType).toContain('image/png');
@@ -94,7 +103,7 @@ test.describe('Routing and Redirects', () => {
 
     test('Meta Pixel JS is accessible with correct content', async ({ request }) => {
       const response = await request.get('/js/meta-pixel.js');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
 
       const text = await response.text();
       expect(text).toContain('fbq');
@@ -102,7 +111,7 @@ test.describe('Routing and Redirects', () => {
 
     test('GTM Init JS is accessible with correct content', async ({ request }) => {
       const response = await request.get('/js/gtm-init.js');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
 
       const text = await response.text();
       expect(text).toContain('dataLayer');
@@ -111,7 +120,7 @@ test.describe('Routing and Redirects', () => {
     test('Flutter service worker is accessible', async ({ request }) => {
       const response = await request.get('/flutter_service_worker.js');
       // Service worker may or may not exist depending on build
-      expect([200, 404]).toContain(response.status());
+      expect([HTTP_OK, HTTP_NOT_FOUND]).toContain(response.status());
     });
   });
 
@@ -122,10 +131,10 @@ test.describe('Routing and Redirects', () => {
         waitUntil: 'domcontentloaded',
       });
 
-      expect(response?.status()).toBe(200);
+      expect(response?.status()).toBe(HTTP_OK);
 
       const content = await page.content();
-      expect(content).toContain('flutter_bootstrap.js');
+      expect(content).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
 
       // Wait for Flutter to load using deterministic wait
       await waitForFlutter(page);
@@ -135,26 +144,26 @@ test.describe('Routing and Redirects', () => {
       test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
       // Verify /blog loads as SPA (not 404)
       const response = await page.goto('/blog', { waitUntil: 'domcontentloaded' });
-      expect(response?.status()).toBe(200);
+      expect(response?.status()).toBe(HTTP_OK);
 
       // Content should be Flutter SPA, not static HTML
       const content = await page.content();
-      expect(content).toContain('flutter_bootstrap.js');
+      expect(content).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
     });
 
     test('blog article HTML files are served directly', async ({ request }) => {
       const response = await request.get('/blog/best-llm-monitoring-tools-2025.html');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
 
       const html = await response.text();
       // Should be static HTML, not Flutter SPA
       expect(html).toContain('<html');
-      expect(html).not.toContain('flutter_bootstrap.js');
+      expect(html).not.toContain(FLUTTER_BOOTSTRAP_SCRIPT);
     });
 
     test('nested blog article HTML files are served directly', async ({ request }) => {
       const response = await request.get('/blog/ai-observability-platform-strategy/index.html');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
 
       const html = await response.text();
       expect(html).toContain('<html');
@@ -162,7 +171,7 @@ test.describe('Routing and Redirects', () => {
 
     test('blog articles return HTML content type', async ({ request }) => {
       const response = await request.get('/blog/ai-observability-platform-strategy.html');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
 
       const contentType = response.headers()['content-type'];
       expect(contentType).toContain('text/html');
@@ -172,12 +181,12 @@ test.describe('Routing and Redirects', () => {
       const response = await request.get('/blog/nonexistent-article-xyz.html');
       // Cloudflare may serve 200 with SPA fallback or 404
       const status = response.status();
-      expect([200, 404]).toContain(status);
+      expect([HTTP_OK, HTTP_NOT_FOUND]).toContain(status);
 
-      if (status === 200) {
+      if (status === HTTP_OK) {
         const html = await response.text();
         // If served, it should be the SPA fallback
-        expect(html).toContain('flutter_bootstrap.js');
+        expect(html).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
       }
     });
   });
@@ -213,17 +222,17 @@ test.describe('Routing and Redirects', () => {
     test('/blog redirect chain lands on blog page (200)', async ({ request }) => {
       // Follow redirects — final response must be 200 with SPA content
       const response = await request.get('/blog');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
 
       const html = await response.text();
-      expect(html).toContain('flutter_bootstrap.js');
+      expect(html).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
     });
 
     test('/blog/ serves 200 directly (no redirect)', async ({ request }) => {
       const response = await request.get('/blog/', {
         maxRedirects: 0,
       });
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
     });
 
     test('/internship redirects to /internship/ (not /)', async ({ request }) => {
@@ -241,19 +250,19 @@ test.describe('Routing and Redirects', () => {
 
   test.describe('404 Handling', () => {
     // Note: GoRouter errorBuilder renders LandingPage at the original unknown
-    // URL — no dedicated 404 page exists. Canvas-level assertions (e.g. "404"
-    // text, recovery links) are not feasible due to Flutter canvas rendering
-    // (#114). Sentry error reporting is also not testable here since the
-    // errorBuilder renders the home page without an error event.
+    // URL — no dedicated 404 page exists. LandingPage rendering is verified via
+    // Flutter semantics tree (#111 workaround). Sentry error reporting is not
+    // testable here since errorBuilder renders the home page without an error
+    // event. A dedicated 404 page with error text would require a new widget.
 
     test('Unknown routes serve SPA (soft 404)', async ({ page, browserName }) => {
       test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
       // Cloudflare serves 200 with SPA, Flutter handles 404 display
       const response = await page.goto('/nonexistent-route-xyz-12345', { waitUntil: 'domcontentloaded' });
-      expect(response?.status()).toBe(200);
+      expect(response?.status()).toBe(HTTP_OK);
 
       const content = await page.content();
-      expect(content).toContain('flutter_bootstrap.js');
+      expect(content).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
 
       // Wait for Flutter to load and verify it renders
       await waitForFlutter(page);
@@ -263,10 +272,10 @@ test.describe('Routing and Redirects', () => {
     test('Deep unknown routes also serve SPA', async ({ page, browserName }) => {
       test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
       const response = await page.goto('/some/deeply/nested/nonexistent/path', { waitUntil: 'domcontentloaded' });
-      expect(response?.status()).toBe(200);
+      expect(response?.status()).toBe(HTTP_OK);
 
       const content = await page.content();
-      expect(content).toContain('flutter_bootstrap.js');
+      expect(content).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
 
       // Wait for Flutter to load and verify it renders
       await waitForFlutter(page);
@@ -305,12 +314,31 @@ test.describe('Routing and Redirects', () => {
       const html = await response.text();
       expect(html).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
     });
+
+    test('Unknown route renders LandingPage with accessible nav (semantics)', async ({ page, browserName }) => {
+      test.setTimeout(TEST_TIMEOUT_MS);
+      test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
+
+      await navigateAndWaitForFlutter(page, '/nonexistent-semantics-test-xyz');
+      await enableFlutterSemantics(page);
+
+      try {
+        await waitForSemantics(page, /navigate to home/i, SEMANTICS_TIMEOUT_MS);
+      } catch {
+        test.skip(true, 'Flutter semantics tree not available (Flutter #151929)');
+        return;
+      }
+
+      // errorBuilder renders LandingPage — verify via semantics
+      await expect(page.getByLabel(/navigate to home/i).first()).toBeAttached();
+      await expect(page.getByLabel(/navigation menu/i).first()).toBeAttached();
+    });
   });
 
   test.describe('Security Headers', () => {
     test('CSP header is present with reporting directives', async ({ request }) => {
       const response = await request.get('/');
-      expect(response.status()).toBe(200);
+      expect(response.status()).toBe(HTTP_OK);
 
       // CSP is set via meta tag in index.html
       const html = await response.text();

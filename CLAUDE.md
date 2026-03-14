@@ -28,13 +28,19 @@ scripts/              # Build/dev tooling, repomix generation
 docs/                 # Architecture, routes, changelog, backlog
 test/                 # Unit + widget tests (2173+ passing, ~94% coverage)
 ```
-## Guidlelines
+## Guidelines
 No magic numbers or string
 Use DRY principles
 
 ## Workers
 
 - [workers/contact-form/](workers/contact-form/) — Cloudflare Worker handling contact form submissions (Resend email, KV rate limiting, CSRF, idempotency)
+
+## Flutter Canvas Limitations (E2E Testing)
+
+Flutter Web renders to `<canvas>` via CanvasKit — DOM selectors cannot reach widget content. Workaround: wrap widgets with `Semantics(label: '...', button: true)` to expose ARIA labels, then use `page.getByLabel()` in Playwright. `SemanticsBinding.instance.ensureSemantics()` in `main.dart` enables the tree at startup. E2e tests must call `enableFlutterSemantics()` and gracefully skip on Flutter [#151929](https://github.com/flutter/flutter/issues/151929) when the tree fails to materialise. See `e2e/tests/docs-content.spec.ts` for the reference pattern.
+
+**Applied in:** #111 (doc components), #114 (404 recovery), #117 (mobile hamburger menu)
 
 ## Repomix Context (docs/repomix/)
 
