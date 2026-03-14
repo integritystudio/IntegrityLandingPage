@@ -108,7 +108,7 @@ After #105 collapses `ContentLoader` to static-only, the `Content` facade become
 
 In test teardown with `disableAnimations=true`, animations are disabled AFTER `initState` but ongoing animations were already scheduled. The guard `if (controller.isAnimating)` prevents spurious rebuilds but an explicit `reset()` (jump-to-end + reset controller) would be cleaner. Lower priority.
 
-**Status:** Deferred — edge case, lower priority. Requires decision on whether jump-to-start is acceptable (skips animation visually but completes all frame callbacks).
+**Status:** Done — commit 6e22745 (2026-03-13). Added `_controller.reset()` after `_controller.stop()` in both `buttons.dart` and `animated_orb.dart`. Jump-to-start accepted: completes frame callbacks cleanly and renders the 0.0 initial state consistently.
 
 ---
 
