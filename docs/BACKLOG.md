@@ -363,4 +363,54 @@ No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a r
 
 ---
 
+### M06: Add retry delay comment for CSRF token flow
+
+**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer (commit 2fce62a)
+
+`contact_service.dart:349–357` — CSRF 403 branch retries up to `_maxRetries` times without consuming a delay between attempts (calls `continue` directly). This is correct for token refresh but differs from the 500/504 retry branch which enforces exponential backoff. Add a comment explaining why CSRF token refresh has no delay to prevent future confusion.
+
+**File:** `lib/services/contact_service.dart:349–357`
+
+**Status:** Deferred — documentation/clarity issue.
+
+---
+
+### M07: Add retry count assertion to 500 retry test
+
+**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer (commit 2fce62a)
+
+`contact_service_test.dart:377–390` — Test named `'handles 500 internal server error with retries'` only asserts the final error message; it does not verify that the retry loop actually ran `_maxRetries` times. `_MockDio` lacks a `postCallCount` field. Add counter to `_MockDio` and assert `postCallCount == 3` (1 initial + 2 retries).
+
+**File:** `test/services/contact_service_test.dart:377–390`
+
+**Status:** Deferred — test coverage gap.
+
+---
+
+### M08: Apply safe-cast pattern to _fetchCsrfToken GET response
+
+**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer (commit 2fce62a)
+
+`contact_service.dart:266` — `_fetchCsrfToken` uses unsafe cast `response.data as Map<String, dynamic>` on GET response. If the worker returns 2xx with a non-map body (e.g., HTML error page during maintenance), this throws `TypeError` instead of `DioException`. POST branch uses safe pattern `response.data is Map`. Apply the same pattern to the GET branch for consistency.
+
+**File:** `lib/services/contact_service.dart:266`
+
+**Status:** Deferred — type safety improvement.
+
+---
+
+### L12: Resolve validData shadowing in contact_service_test
+
+**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer (commit 2fce62a)
+
+`contact_service_test.dart` — `const validData` at group scope (line 250) is shadowed by a local `const validData` in the `isFormValid` test (line 214). Not a bug (different scopes), but confusing if tests are reorganized. Consider renaming the group-level fixture to `validFormData` or `baseFormData`.
+
+**File:** `test/services/contact_service_test.dart:214, 250`
+
+**Status:** Deferred — naming clarity.
+
+---
+
 *Last updated: 2026-03-14 (Phase 3a code-reviewer findings appended; magic number `size: 16` → `AppSpacing.iconSM` fixed)*
+
+*Updated 2026-03-14 (commit 2fce62a code-reviewer findings: M06–M08, L12 appended)*

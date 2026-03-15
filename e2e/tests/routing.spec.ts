@@ -7,6 +7,9 @@ import {
   waitForSemantics,
 } from './helpers';
 import {
+  BLOG_ARTICLE_FLAT_SLUG,
+  BLOG_ARTICLE_NESTED_SLUG,
+  BLOG_ARTICLE_SLUG,
   CSP_REPORT_GROUP,
   FLUTTER_BOOTSTRAP_SCRIPT,
   HTTP_NOT_FOUND,
@@ -76,8 +79,8 @@ test.describe('Routing and Redirects', () => {
       expect(response.status()).toBe(HTTP_OK);
 
       const json = await response.json();
-      expect(json.name).toBeDefined();
-      expect(json.short_name).toBeDefined();
+      expect(json.name).toBeTruthy();
+      expect(json.short_name).toBeTruthy();
     });
 
     test('robots.txt is accessible', async ({ request }) => {
@@ -122,7 +125,10 @@ test.describe('Routing and Redirects', () => {
 
     test('Flutter service worker is accessible', async ({ request }) => {
       const response = await request.get('/flutter_service_worker.js');
-      // Service worker may or may not exist depending on build
+      // Service worker may not exist: Flutter only generates it for release
+      // builds with --pwa-strategy=offline-first (default). Dev/preview deploys
+      // and builds with --pwa-strategy=none omit the file entirely, so 404 is
+      // a valid response. This loose assertion is intentional permanent policy.
       expect([HTTP_OK, HTTP_NOT_FOUND]).toContain(response.status());
     });
   });
@@ -144,7 +150,7 @@ test.describe('Routing and Redirects', () => {
     });
 
     test('blog article HTML files are served directly', async ({ request }) => {
-      const response = await request.get('/blog/best-llm-monitoring-tools-2025.html');
+      const response = await request.get(`/blog/${BLOG_ARTICLE_SLUG}`);
       expect(response.status()).toBe(HTTP_OK);
 
       const html = await response.text();
@@ -154,7 +160,7 @@ test.describe('Routing and Redirects', () => {
     });
 
     test('nested blog article HTML files are served directly', async ({ request }) => {
-      const response = await request.get('/blog/ai-observability-platform-strategy/index.html');
+      const response = await request.get(`/blog/${BLOG_ARTICLE_NESTED_SLUG}`);
       expect(response.status()).toBe(HTTP_OK);
 
       const html = await response.text();
@@ -162,7 +168,7 @@ test.describe('Routing and Redirects', () => {
     });
 
     test('blog articles return HTML content type', async ({ request }) => {
-      const response = await request.get('/blog/ai-observability-platform-strategy.html');
+      const response = await request.get(`/blog/${BLOG_ARTICLE_FLAT_SLUG}`);
       expect(response.status()).toBe(HTTP_OK);
 
       const contentType = response.headers()['content-type'];
