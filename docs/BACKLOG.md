@@ -63,19 +63,15 @@ Sentry `ingest.sentry.io` endpoint shared across staging and prod. CSP allows on
 
 ---
 
-## Deferred: ContentLoader Static Facade (#106)
+## Done: ContentLoader Static Facade (#106)
 
 ### #106: Remove Content Static Facade (190-line delegation)
 
 **Severity:** LOW
 **Category:** Code Quality (Dead Code)
-**File:** `lib/config/content/content.dart`
+**File:** `lib/services/content_loader.dart`
 
-After #105 collapses `ContentLoader` to static-only, the `Content` facade becomes a simple forwarding wrapper. Removing it eliminates 190 lines of trivial delegation, but production code depends on `Content.*` static getters for public API stability.
-
-**Status:** Deferred — Conditional on #105 (completed 2026-03-12). Blocked by API stability concerns (production code depends on `Content.*` static getters).
-
----
+**Status:** Done 2026-03-14 — Removed `Content` facade class (~210 lines). All 12 consumer files migrated to `ContentLoader.*`. 2395 tests pass.
 
 
 ## Deferred: E2E Test Coverage Limitations (Flutter Canvas)
@@ -201,11 +197,7 @@ Lines 199–248 use `/blog` and `/internship` as inline strings in redirect test
 
 **Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
 
-Lines 155, 165, 173 reference hardcoded article slugs (`best-llm-monitoring-tools-2025.html`, `ai-observability-platform-strategy/index.html`, `ai-observability-platform-strategy.html`). If articles are removed or renamed, tests fail for wrong reasons. Consider asserting on a static fixture article committed to the repo, or document this external dependency explicitly.
-
-**File:** `e2e/tests/routing.spec.ts:155, 165, 173`
-
-**Status:** Deferred — low-priority risk mitigation; requires creating a test fixture article or updating test patterns.
+**Status:** Done 2026-03-14 — Extracted blog article slugs to named constants (`BLOG_ARTICLE_SLUG`, `BLOG_ARTICLE_NESTED_SLUG`, `BLOG_ARTICLE_FLAT_SLUG`) in `e2e/tests/constants.ts`. External dependency documented in JSDoc comment.
 
 ---
 
