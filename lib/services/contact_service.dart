@@ -279,6 +279,7 @@ class ContactService {
   static Future<String?> _fetchCsrfToken() async {
     try {
       final response = await _dio.get(_contactApiUrl);
+      if (response.data is! Map<String, dynamic>) return null;
       final data = response.data as Map<String, dynamic>;
       return data['csrfToken'] as String?;
     } catch (e) {
