@@ -447,7 +447,7 @@ export default {
       const token = await generateCsrfToken(env.CSRF_SECRET);
       return new Response(
         JSON.stringify({ csrfToken: token }),
-        { status: 200, headers: responseHeaders }
+        { status: 200, headers: { ...responseHeaders, 'Cache-Control': 'no-store' } }
       );
     }
 

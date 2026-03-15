@@ -6,11 +6,11 @@ import 'package:integrity_studio_ai/theme/theme.dart';
 import '../../helpers/test_helpers.dart';
 
 void main() {
-  const _kAccentColor = AppColors.purple500;
+  const kAccentColor = AppColors.purple500;
 
   Widget buildHero({
     bool isMobile = false,
-    Color accentColor = _kAccentColor,
+    Color accentColor = kAccentColor,
     String badgeText = 'Test Badge',
     String headline = 'Test Headline',
     String subheadline = 'Test subheadline text.',

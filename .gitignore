@@ -61,9 +61,14 @@ docs/repomix/*.xml
 e2e/screenshots/
 .ralph-prompt.md
 
-# TypeScript / JavaScript
+# TypeScript / JavaScript (blanket ignore; Flutter web output generates TS/JS)
 *.ts
 *.js
 *.d.ts
 *.js.map
 dist/
+
+# Allow functions/ CF Pages middleware source
+!functions/**/*.ts
+!functions/package.json
+!functions/vitest.config.ts
