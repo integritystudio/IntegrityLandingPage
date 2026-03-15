@@ -157,7 +157,7 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 **Reference:** [`docs/duplicate-findings.md`](duplicate-findings.md) — see "76% — `_TimelineCard` ~ `DocStatCard`" and "73% — Cross-page card patterns"
 
-**Status:** Open.
+**Status:** Done (commit 18864e3, 2026-03-15) — `_TimelineCard` and `_StatBadge` consolidated into `DocStatCard` via new `valueStyle` and `constraints` params. `about_page::_StatCard` and `social_proof_section::_StatCard` not consolidated (structurally too different).
 
 ---
 
@@ -211,7 +211,7 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 ---
 
-*Last updated: 2026-03-15 (migrated #106, M04, M08, L06, L07, L10, L11 to docs/changelog/1.1/CHANGELOG.md)*
+*Last updated: 2026-03-15 (Phase 3b done — _TimelineCard, _StatBadge consolidated into DocStatCard)*
 
 *Updated 2026-03-15 (L15 appended from L10 code-reviewer findings)*
 
