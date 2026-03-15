@@ -214,3 +214,16 @@ export const HEADER_CSRF_TOKEN = 'x-csrf-token';
 
 /** Unauthorized origin used in origin-gating and CORS rejection tests. */
 export const MALICIOUS_ORIGIN = 'https://malicious.example.com';
+
+// ---------------------------------------------------------------------------
+// Blog article test fixtures (external dependency on deployed articles)
+// ---------------------------------------------------------------------------
+
+/**
+ * Blog article slugs used in routing tests. These reference real deployed
+ * articles. If an article is renamed or removed, update these constants
+ * rather than hunting through test files.
+ */
+export const BLOG_ARTICLE_SLUG = 'best-llm-monitoring-tools-2025.html';
+export const BLOG_ARTICLE_NESTED_SLUG = 'ai-observability-platform-strategy/index.html';
+export const BLOG_ARTICLE_FLAT_SLUG = 'ai-observability-platform-strategy.html';
