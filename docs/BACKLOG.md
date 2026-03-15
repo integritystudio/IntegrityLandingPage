@@ -207,7 +207,7 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 **File:** `test/widgets/common/gradient_pill_badge_test.dart:9-13, 73-84`
 
-**Status:** Open.
+**Status:** Done (2026-03-15) — added `iconColor` param to `buildBadge` helper, updated test to use it.
 
 ---
 
