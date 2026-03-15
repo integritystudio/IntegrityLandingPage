@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:integrity_studio_ai/config/content/contact_content.dart';
 import 'package:integrity_studio_ai/pages/contact_page.dart';
 import 'package:integrity_studio_ai/widgets/common/gradient_pill_badge.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
@@ -39,14 +40,6 @@ void main() {
     clearOverflowExceptions(tester);
   }
 
-  // PagePumpFunction-compatible wrapper (drops onShowCookieSettings).
-  Future<void> pumpContactPageBase(
-    WidgetTester tester, {
-    VoidCallback? onBack,
-    bool mobile = false,
-  }) =>
-      pumpContactPage(tester, onBack: onBack, mobile: mobile);
-
   group('ContactPage', () {
     group('constructor', () {
       testWidgets('creates with default parameters', (tester) async {
@@ -66,7 +59,7 @@ void main() {
     });
 
     group('layout', () {
-      testPageStructure(pumpContactPageBase);
+      testPageStructure(pumpContactPage);
 
       testWidgets('renders SelectionArea for text selection', (tester) async {
         await pumpContactPage(tester);
@@ -75,27 +68,25 @@ void main() {
     });
 
     group('navigation', () {
-      testBackButtonCallback(pumpContactPageBase);
+      testBackButtonCallback(pumpContactPage);
     });
 
     group('hero section', () {
       testWidgets('displays badge with We\'re Here to Help label', (tester) async {
         await pumpContactPage(tester);
         expect(find.byType(GradientPillBadge), findsOneWidget);
-        expect(find.text("We're Here to Help"), findsOneWidget);
+        expect(find.text(ContactContentVariants.heroBadge), findsOneWidget);
       });
 
       testWidgets('displays headline Get in Touch', (tester) async {
         await pumpContactPage(tester);
-        expect(find.text('Get in Touch'), findsWidgets);
+        expect(find.text(ContactContentVariants.heroHeadline), findsWidgets);
       });
 
       testWidgets('displays subheadline about AI observability', (tester) async {
         await pumpContactPage(tester);
         expect(
-          find.text(
-            'Have questions about AI observability? Need help with integration? Our team is ready to assist you.',
-          ),
+          find.text(ContactContentVariants.heroSubheadline),
           findsOneWidget,
         );
       });
@@ -151,7 +142,7 @@ void main() {
     });
 
     group('responsive layout', () {
-      testResponsiveLayout<ContactPage>(pumpContactPageBase, includeTablet: true);
+      testResponsiveLayout<ContactPage>(pumpContactPage, includeTablet: true);
     });
   });
 }
