@@ -30,7 +30,7 @@ final ThemeData testTheme = ThemeData(
 ///
 /// This is called automatically by testableWidget/testableSection.
 void _ensureContentLoaded() {
-  if (!Content.isLoaded) {
+  if (!ContentLoader.isLoaded) {
     initializeTestContent();
   }
 }

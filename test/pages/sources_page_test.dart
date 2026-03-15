@@ -284,9 +284,9 @@ void main() {
         await tester.pump();
 
         // Check for market size statistic (values come from content.yaml)
-        expect(find.text(Content.statisticsMarketSizeValue), findsOneWidget);
-        expect(find.text(Content.statisticsMarketGrowthValue), findsOneWidget);
-        expect(find.text(Content.statisticsEnterpriseBudgetsValue), findsOneWidget);
+        expect(find.text(ContentLoader.statisticsMarketSizeValue), findsOneWidget);
+        expect(find.text(ContentLoader.statisticsMarketGrowthValue), findsOneWidget);
+        expect(find.text(ContentLoader.statisticsEnterpriseBudgetsValue), findsOneWidget);
       });
 
       testWidgets('renders customer statistic values', (tester) async {

@@ -9,7 +9,7 @@ void loadRealContent() {
     );
   }
   final yamlString = file.readAsStringSync();
-  Content.loadFromString(yamlString);
+  ContentLoader.loadFromString(yamlString);
 }
 
 Future<void> loadRealContentAsync() async {

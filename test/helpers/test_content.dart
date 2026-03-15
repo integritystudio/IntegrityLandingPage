@@ -436,7 +436,7 @@ statistics:
 /// Initialize test content before running widget tests.
 ///
 /// Loads from the real content.yaml file to ensure tests use actual values.
-/// Call this in setUpAll or setUp for test files that use Content.
+/// Call this in setUpAll or setUp for test files that use ContentLoader.
 void initializeTestContent() {
   loadRealContent();
 }
@@ -451,7 +451,7 @@ Future<void> initializeTestContentAsync() async {
 ///
 /// Call this in tearDownAll or tearDown if needed.
 void resetTestContent() {
-  Content.reset();
+  ContentLoader.reset();
 }
 
 /// Load the real content.yaml file for unit tests.
@@ -467,7 +467,7 @@ void loadRealContent() {
 /// Use this when you need deterministic test values that don't depend on
 /// the real content.yaml file.
 void initializeMinimalTestContent() {
-  Content.loadFromString(testContentYaml);
+  ContentLoader.loadFromString(testContentYaml);
 }
 
 // ---------------------------------------------------------------------------
@@ -709,11 +709,11 @@ disclaimers:
 ///
 /// Resets the loader and loads contentLoaderTestYaml.
 void setUpContentLoaderTest() {
-  Content.reset();
-  Content.loadFromString(contentLoaderTestYaml);
+  ContentLoader.reset();
+  ContentLoader.loadFromString(contentLoaderTestYaml);
 }
 
 /// Tear down content loader after tests.
 void tearDownContentLoaderTest() {
-  Content.reset();
+  ContentLoader.reset();
 }

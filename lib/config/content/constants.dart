@@ -39,17 +39,17 @@ abstract final class CTAText {
   static const String learnMore = 'Learn More';
 
   // Navigation CTAs
-  static String get backToHome => Content.ctaBackToHome;
-  static String get viewAll => Content.ctaViewAll;
-  static String get viewDocs => Content.ctaViewDocs;
+  static String get backToHome => ContentLoader.ctaBackToHome;
+  static String get viewAll => ContentLoader.ctaViewAll;
+  static String get viewDocs => ContentLoader.ctaViewDocs;
 
   // Careers CTAs
-  static String get keepInTouch => Content.ctaKeepInTouch;
+  static String get keepInTouch => ContentLoader.ctaKeepInTouch;
 
   // Form CTAs
-  static String get sendMessage => Content.ctaSendMessage;
-  static String get downloadNow => Content.ctaDownloadNow;
-  static String get calculateSavings => Content.ctaCalculateSavings;
+  static String get sendMessage => ContentLoader.ctaSendMessage;
+  static String get downloadNow => ContentLoader.ctaDownloadNow;
+  static String get calculateSavings => ContentLoader.ctaCalculateSavings;
 }
 
 // =============================================================================
@@ -57,31 +57,31 @@ abstract final class CTAText {
 // =============================================================================
 
 /// External URLs and links used throughout the application.
-/// Values with content.yaml equivalents are loaded via [Content];
+/// Values with content.yaml equivalents are loaded via [ContentLoader];
 /// the rest are defined as constants here.
 abstract final class ExternalUrls {
   // Calendly (from content.yaml: urls.external.calendly_demo / calendly_intro)
-  static String get calendlyDemo => Content.calendlyUrl;
-  static String get calendlyIntro => Content.calendlyIntroUrl;
+  static String get calendlyDemo => ContentLoader.calendlyUrl;
+  static String get calendlyIntro => ContentLoader.calendlyIntroUrl;
 
   // Status page (from content.yaml: urls.external.status_page)
-  static String get statusPage => Content.statusPageUrl;
+  static String get statusPage => ContentLoader.statusPageUrl;
 
   // Documentation
   static const String euAiAct = 'https://integritystudio.ai/docs/tracing#eu-ai-act';
 
   // Social media (from content.yaml: urls.external.linkedin / github)
-  static String get linkedIn => Content.linkedInUrl;
-  static String get github => Content.githubUrl;
+  static String get linkedIn => ContentLoader.linkedInUrl;
+  static String get github => ContentLoader.githubUrl;
 
   // Personal (from content.yaml: urls.external.founder_linkedin)
-  static String get founderLinkedIn => Content.founderLinkedInUrl;
+  static String get founderLinkedIn => ContentLoader.founderLinkedInUrl;
 
   // Calendly deep dive (from content.yaml: urls.external.deep_dive)
-  static String get calendlyDeepDive => Content.deepDiveUrl;
+  static String get calendlyDeepDive => ContentLoader.deepDiveUrl;
 
   // Location (from content.yaml: urls.external.address)
-  static String get googleMaps => Content.addressUrl;
+  static String get googleMaps => ContentLoader.addressUrl;
 }
 
 // =============================================================================
@@ -166,13 +166,13 @@ abstract final class TrustIndicators {
 /// Platform performance and scale metrics.
 /// Values loaded from content.yaml: platform_metrics.*
 abstract final class PlatformMetrics {
-  static String get uptime => Content.metricsUptime;
-  static String get uptimeSla => Content.metricsUptimeSla;
-  static String get tracesProcessed => Content.metricsTracesProcessed;
-  static String get tracesProcessedPeriod => Content.metricsTracesProcessedPeriod;
-  static String get aiTeams => Content.metricsAiTeams;
-  static String get setupTime => Content.metricsSetupTime;
-  static String get setupTimeLabel => Content.metricsSetupTimeLabel;
+  static String get uptime => ContentLoader.metricsUptime;
+  static String get uptimeSla => ContentLoader.metricsUptimeSla;
+  static String get tracesProcessed => ContentLoader.metricsTracesProcessed;
+  static String get tracesProcessedPeriod => ContentLoader.metricsTracesProcessedPeriod;
+  static String get aiTeams => ContentLoader.metricsAiTeams;
+  static String get setupTime => ContentLoader.metricsSetupTime;
+  static String get setupTimeLabel => ContentLoader.metricsSetupTimeLabel;
 }
 
 // =============================================================================
@@ -288,69 +288,69 @@ class CitedStatistic {
 abstract final class AppStatistics {
   // Market Statistics (Industry Reports) - loaded from content.yaml
   static CitedStatistic get marketSize => CitedStatistic(
-    value: Content.statisticsMarketSizeValue,
-    label: Content.statisticsMarketSizeLabel,
-    source: Content.statisticsMarketSizeSource,
-    sourceUrl: Content.statisticsMarketSizeSourceUrl,
+    value: ContentLoader.statisticsMarketSizeValue,
+    label: ContentLoader.statisticsMarketSizeLabel,
+    source: ContentLoader.statisticsMarketSizeSource,
+    sourceUrl: ContentLoader.statisticsMarketSizeSourceUrl,
     type: StatisticType.industry,
   );
 
   static CitedStatistic get marketGrowth => CitedStatistic(
-    value: Content.statisticsMarketGrowthValue,
-    label: Content.statisticsMarketGrowthLabel,
-    source: Content.statisticsMarketGrowthSource,
-    sourceUrl: Content.statisticsMarketGrowthSourceUrl,
+    value: ContentLoader.statisticsMarketGrowthValue,
+    label: ContentLoader.statisticsMarketGrowthLabel,
+    source: ContentLoader.statisticsMarketGrowthSource,
+    sourceUrl: ContentLoader.statisticsMarketGrowthSourceUrl,
     type: StatisticType.industry,
   );
 
   static CitedStatistic get enterpriseBudgets => CitedStatistic(
-    value: Content.statisticsEnterpriseBudgetsValue,
-    label: Content.statisticsEnterpriseBudgetsLabel,
-    source: Content.statisticsEnterpriseBudgetsSource,
-    sourceUrl: Content.statisticsEnterpriseBudgetsSourceUrl,
+    value: ContentLoader.statisticsEnterpriseBudgetsValue,
+    label: ContentLoader.statisticsEnterpriseBudgetsLabel,
+    source: ContentLoader.statisticsEnterpriseBudgetsSource,
+    sourceUrl: ContentLoader.statisticsEnterpriseBudgetsSourceUrl,
     type: StatisticType.industry,
   );
 
   // Customer Results (Aggregated Internal Data) - loaded from content.yaml
   static CitedStatistic get debuggingImprovement => CitedStatistic(
-    value: Content.statisticsDebuggingValue,
-    label: Content.statisticsDebuggingLabel,
-    source: Content.statisticsDebuggingSource,
+    value: ContentLoader.statisticsDebuggingValue,
+    label: ContentLoader.statisticsDebuggingLabel,
+    source: ContentLoader.statisticsDebuggingSource,
     type: StatisticType.customerData,
   );
 
   static CitedStatistic get costReduction => CitedStatistic(
-    value: Content.statisticsCostReductionValue,
-    label: Content.statisticsCostReductionLabel,
-    source: Content.statisticsCostReductionSource,
+    value: ContentLoader.statisticsCostReductionValue,
+    label: ContentLoader.statisticsCostReductionLabel,
+    source: ContentLoader.statisticsCostReductionSource,
     type: StatisticType.customerData,
   );
 
   // Platform Metrics - loaded from content.yaml
   static CitedStatistic get tracesProcessed => CitedStatistic(
-    value: Content.statisticsTracesValue,
-    label: Content.statisticsTracesLabel,
-    source: Content.statisticsTracesSource,
+    value: ContentLoader.statisticsTracesValue,
+    label: ContentLoader.statisticsTracesLabel,
+    source: ContentLoader.statisticsTracesSource,
     type: StatisticType.platformMetric,
   );
 
   static CitedStatistic get setupTime => CitedStatistic(
-    value: Content.statisticsSetupTimeValue,
-    label: Content.statisticsSetupTimeLabel,
-    source: Content.statisticsSetupTimeSource,
+    value: ContentLoader.statisticsSetupTimeValue,
+    label: ContentLoader.statisticsSetupTimeLabel,
+    source: ContentLoader.statisticsSetupTimeSource,
     type: StatisticType.platformMetric,
   );
 
   // SLA Targets - loaded from content.yaml
   static CitedStatistic get uptimeTarget => CitedStatistic(
-    value: Content.statisticsUptimeValue,
-    label: Content.statisticsUptimeLabel,
-    source: Content.statisticsUptimeSource,
+    value: ContentLoader.statisticsUptimeValue,
+    label: ContentLoader.statisticsUptimeLabel,
+    source: ContentLoader.statisticsUptimeSource,
     type: StatisticType.slaTarget,
   );
 
   /// Footer disclaimer for statistics - loaded from content.yaml.
-  static String get sourceDisclaimer => Content.statisticsSourceDisclaimer;
+  static String get sourceDisclaimer => ContentLoader.statisticsSourceDisclaimer;
 
   /// Get all industry statistics.
   static List<CitedStatistic> get industryStats => [

@@ -82,17 +82,17 @@ class SeriesArticle {
 
 /// Blog content provider.
 ///
-/// Loads blog posts from content.yaml via the Content service.
+/// Loads blog posts from content.yaml via [ContentLoader].
 abstract final class BlogContent {
   /// Page title from YAML.
-  static String get pageTitle => Content.blogPageTitle;
+  static String get pageTitle => ContentLoader.blogPageTitle;
 
   /// Page subtitle from YAML.
-  static String get pageSubtitle => Content.blogPageSubtitle;
+  static String get pageSubtitle => ContentLoader.blogPageSubtitle;
 
   /// All blog posts, ordered by date (newest first).
   ///
   /// Loaded from content.yaml at runtime.
   static List<BlogPost> get posts =>
-      Content.blogPosts.map((map) => BlogPost.fromMap(map)).toList();
+      ContentLoader.blogPosts.map((map) => BlogPost.fromMap(map)).toList();
 }

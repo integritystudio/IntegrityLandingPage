@@ -7,8 +7,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('ContentLoader error handling', () {
-    setUp(() => Content.reset());
-    tearDown(() => Content.reset());
+    setUp(() => ContentLoader.reset());
+    tearDown(() => ContentLoader.reset());
 
     test('throws StateError when accessing content before load', () {
       expect(() => ContentLoader.companyName, throwsA(isA<StateError>()));
@@ -33,56 +33,56 @@ void main() {
     test('all getters are accessible when loaded', () {
       // Company
       expect(ContentLoader.companyName, isNotEmpty);
-      expect(Content.companyName, isNotEmpty);
+      expect(ContentLoader.companyName, isNotEmpty);
 
       // URLs
       expect(ContentLoader.calendlyUrl, startsWith('http'));
-      expect(Content.calendlyUrl, startsWith('http'));
+      expect(ContentLoader.calendlyUrl, startsWith('http'));
 
       // CTAs
       expect(ContentLoader.ctaStartFreeTrial, isNotEmpty);
-      expect(Content.ctaStartFreeTrial, isNotEmpty);
+      expect(ContentLoader.ctaStartFreeTrial, isNotEmpty);
 
       // Trust/Metrics
       expect(ContentLoader.trustIndicators, isNotEmpty);
-      expect(Content.trustIndicators, isNotEmpty);
+      expect(ContentLoader.trustIndicators, isNotEmpty);
 
       // Pricing
       expect(ContentLoader.pricingTiers, isNotEmpty);
-      expect(Content.pricingTiers, isNotEmpty);
+      expect(ContentLoader.pricingTiers, isNotEmpty);
 
       // Hero
       expect(ContentLoader.heroBadge, isNotEmpty);
-      expect(Content.heroBadge, isNotEmpty);
+      expect(ContentLoader.heroBadge, isNotEmpty);
 
       // Features/Services
       expect(ContentLoader.featuresItems, isNotEmpty);
-      expect(Content.servicesItems, isNotEmpty);
+      expect(ContentLoader.servicesItems, isNotEmpty);
 
       // About
       expect(ContentLoader.aboutTitle, isNotEmpty);
-      expect(Content.aboutTeam, isNotEmpty);
+      expect(ContentLoader.aboutTeam, isNotEmpty);
 
       // Contact
       expect(ContentLoader.contactFormFields, isNotEmpty);
-      expect(Content.contactMethods, isNotEmpty);
+      expect(ContentLoader.contactMethods, isNotEmpty);
 
       // Footer/Status
       expect(ContentLoader.footerLinkGroups, isNotEmpty);
-      expect(Content.statusServices, isNotEmpty);
+      expect(ContentLoader.statusServices, isNotEmpty);
 
       // Resources
       expect(ContentLoader.resourcesDocumentation, isNotEmpty);
-      expect(Content.resourcesFeaturedPosts, isNotEmpty);
+      expect(ContentLoader.resourcesFeaturedPosts, isNotEmpty);
 
       // Social/Disclaimers
       expect(ContentLoader.socialProofTestimonials, isNotEmpty);
-      expect(Content.disclaimerEuAiAct, isNotEmpty);
+      expect(ContentLoader.disclaimerEuAiAct, isNotEmpty);
     });
 
     test('getHeroVariant methods work', () {
       expect(ContentLoader.getHeroVariant('current'), isNotEmpty);
-      expect(Content.getHeroVariant('current'), isNotEmpty);
+      expect(ContentLoader.getHeroVariant('current'), isNotEmpty);
     });
 
   });
@@ -312,32 +312,32 @@ void main() {
     setUp(setUpContentLoaderTest);
     tearDown(tearDownContentLoaderTest);
 
-    test('Content.isLoaded returns true after loading', () {
-      expect(Content.isLoaded, isTrue);
+    test('ContentLoader.isLoaded returns true after loading', () {
+      expect(ContentLoader.isLoaded, isTrue);
     });
 
-    test('Content.reset clears loaded state', () {
-      Content.reset();
-      expect(Content.isLoaded, isFalse);
+    test('ContentLoader.reset clears loaded state', () {
+      ContentLoader.reset();
+      expect(ContentLoader.isLoaded, isFalse);
     });
 
     test('Content static getters delegate correctly', () {
-      expect(Content.companyName, equals('Test Company'));
-      expect(Content.trustIndicators, contains('Feature A'));
+      expect(ContentLoader.companyName, equals('Test Company'));
+      expect(ContentLoader.trustIndicators, contains('Feature A'));
     });
 
-    test('Content.getHeroVariant returns correct variant', () {
-      final hero = Content.getHeroVariant('alternate');
+    test('ContentLoader.getHeroVariant returns correct variant', () {
+      final hero = ContentLoader.getHeroVariant('alternate');
       expect(hero['badge'], equals('Alt Badge'));
     });
   });
 
   group('ContentLoader edge cases', () {
-    setUp(() => Content.reset());
-    tearDown(() => Content.reset());
+    setUp(() => ContentLoader.reset());
+    tearDown(() => ContentLoader.reset());
 
     test('_getMap asserts on missing key in debug mode', () {
-      Content.loadFromString('company:\n  name: "Test"\n');
+      ContentLoader.loadFromString('company:\n  name: "Test"\n');
       // _getMap fires an assertion in debug mode for missing keys.
       // In release mode it falls back to empty map.
       expect(
@@ -347,36 +347,36 @@ void main() {
     });
 
     test('_getStringList returns empty list for non-existent path', () {
-      Content.loadFromString('company:\n  name: "Test"\n');
+      ContentLoader.loadFromString('company:\n  name: "Test"\n');
       final result = ContentLoader.trustIndicators;
       expect(result, isA<List<String>>());
       expect(result, isEmpty);
     });
 
     test('_getMapList returns empty list for non-existent path', () {
-      Content.loadFromString('company:\n  name: "Test"\n');
+      ContentLoader.loadFromString('company:\n  name: "Test"\n');
       final result = ContentLoader.pricingTiers;
       expect(result, isA<List<Map<String, dynamic>>>());
       expect(result, isEmpty);
     });
 
     test('loadFromString overwrites previous content', () {
-      Content.loadFromString('company:\n  name: "First"\n');
+      ContentLoader.loadFromString('company:\n  name: "First"\n');
       expect(ContentLoader.companyName, equals('First'));
 
-      Content.loadFromString('company:\n  name: "Second"\n');
+      ContentLoader.loadFromString('company:\n  name: "Second"\n');
       expect(ContentLoader.companyName, equals('Second'));
     });
 
     test('deeply nested YAML is handled correctly', () {
-      Content.loadFromString('company:\n  contact:\n    email: "deep@nested.com"\n');
+      ContentLoader.loadFromString('company:\n  contact:\n    email: "deep@nested.com"\n');
       expect(ContentLoader.companyEmail, equals('deep@nested.com'));
     });
   });
 
   group('ContentLoadException', () {
-    setUp(() => Content.reset());
-    tearDown(() => Content.reset());
+    setUp(() => ContentLoader.reset());
+    tearDown(() => ContentLoader.reset());
 
     test('toString without cause omits caused-by clause', () {
       const ex = ContentLoadException('something failed');
