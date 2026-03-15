@@ -251,3 +251,34 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Commit: `2bccbb6`
 
 ---
+
+## [2026-03-15] - Phase 3b Completion & Code Quality Fixes
+
+### Widget Consolidation
+
+**Phase 3b: Consolidate StatCard / StatBadge Variants**
+- Consolidated `_TimelineCard` (eu_ai_act_page) and `_StatBadge` (docs_tracing_page) into `DocStatCard` via new `valueStyle` and `constraints` params
+- `about_page::_StatCard` and `social_proof_section::_StatCard` not consolidated (structurally too different)
+- Commit: `f10c523`
+
+### Code Quality Fixes
+
+**L13: Use findsNWidgets in page hero assertions**
+- Replaced `findsWidgets` with `findsNWidgets(2)` in contact_page_test (both texts appear in desktop+mobile responsive variants)
+- careers_page_test.dart:104 already uses `findsOneWidget`
+- Commit: `8faa05b`
+
+**L14: Dead hover color branch in _QuickContactCard**
+- Removed dead ternary `_isHovered ? AppColors.gray800 : AppColors.gray800` — both branches identical
+- Using `AppColors.gray800` directly
+- Commit: `48f8853`
+
+**L15: Update buildBadge helper to accept iconColor parameter**
+- Added `iconColor` param to `buildBadge` helper in gradient_pill_badge_test
+- Updated test to use helper consistently
+- Commit: `b74863d`
+
+**L08: Closed — @visibleForTesting on _dio field**
+- Invalid: `_dio` is private; `@visibleForTesting` only applies to public members. Test-only access already gated via public `setDioForTesting()`.
+
+---

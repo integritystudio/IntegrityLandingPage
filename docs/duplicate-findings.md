@@ -131,14 +131,14 @@ Boilerplate — low priority since each page shell is only 12-13 lines.
 
 ---
 
-### 76% — `_TimelineCard` ~ `DocStatCard`
+### ~~76% — `_TimelineCard` ~ `DocStatCard`~~ — RESOLVED (Phase 3b)
 
 | File | Widget | Lines |
 |------|--------|-------|
-| `lib/pages/eu_ai_act_page.dart` | `_TimelineCard` | 125-165 |
+| ~~`lib/pages/eu_ai_act_page.dart`~~ | ~~`_TimelineCard`~~ | ~~125-165~~ |
 | `lib/widgets/docs/doc_components.dart` | `DocStatCard` | 335-388 |
 
-**Recommendation:** Low priority. Structurally similar card layout but semantically different.
+**Status:** Resolved — `_TimelineCard` consolidated into `DocStatCard` via `valueStyle` and `constraints` params (commit `f10c523`, 2026-03-15).
 
 ---
 
@@ -181,7 +181,7 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 | Pair | Similarity |
 |------|-----------|
 | `comparison :: _DifferentiatorCard` ~ `status :: _HealthComponentChip` | 72% |
-| `docs_interop :: _HeroSection` ~ `docs_tracing :: _HeroSection` | 72% |
+| ~~`docs_interop :: _HeroSection` ~ `docs_tracing :: _HeroSection`~~ | ~~72%~~ | **Resolved** — Phase 2 (`DocsHeroSection` extraction) |
 | `docs_alerts :: _ChannelCard` ~ `sources :: _MethodologyCard` | 72% |
 | `docs_alerts :: _AlertTypePreview` ~ `docs_quickstart :: _StepPreview` | 72% |
 | `features :: _FeatureItem` ~ `sources :: _MethodologyCard` | 72% |
@@ -223,15 +223,16 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 
 ## Prioritized Action Plan
 
-### Phase 2: Docs page scaffold (next priority — eliminates ~18 pairs)
+### ~~Phase 2: Docs page scaffold (eliminates ~18 pairs)~~ — DONE
 
-1. **Extract `DocsPageScaffold`** — shared scaffold for all 7 docs pages (74-86% similar pairs)
+1. ~~**Extract `DocsPageScaffold`**~~ — DONE (commit `93c1099`). Shared scaffold for all 7 docs pages
+2. ~~**Extract `DocsHeroSection`**~~ — DONE (commit `8879e7d`). Removed 7 duplicate `_HeroSection` classes
 
-### Phase 3: Cross-page patterns (eliminates ~5 pairs)
+### ~~Phase 3: Cross-page patterns (eliminates ~5 pairs)~~ — DONE
 
-2. ~~**Merge `_WarningAlert` / `_DangerAlert`** in security_page~~ — DONE (eliminated 92% pair)
-3. ~~**Extract `PageHeroSection`** — shared hero for features/status and other pages~~ — DONE (Phase 3a: `GradientPillBadge` extracted, `_CareersHeroSection`/`_ContactHeroSection`/`_HeroBadge` eliminated)
-4. **Consolidate `_StatCard` / `_StatBadge` variants** with `DocStatCard`
+3. ~~**Merge `_WarningAlert` / `_DangerAlert`** in security_page~~ — DONE (eliminated 92% pair)
+4. ~~**Extract `PageHeroSection`** — shared hero for features/status and other pages~~ — DONE (Phase 3a: `GradientPillBadge` extracted, `_CareersHeroSection`/`_ContactHeroSection`/`_HeroBadge` eliminated)
+5. ~~**Consolidate `_StatCard` / `_StatBadge` variants** with `DocStatCard`~~ — DONE (Phase 3b, commit `f10c523`). `_TimelineCard` and `_StatBadge` consolidated; `about_page::_StatCard` and `social_proof_section::_StatCard` kept (structurally too different)
 
 ### Phase 4: Low priority (cosmetic)
 
@@ -243,12 +244,12 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 
 ## Estimated Impact
 
-| Phase | Pairs Eliminated | Files Modified | Risk |
-|-------|-----------------|----------------|------|
-| Phase 2 | ~18 | 7 docs pages + 1 new scaffold | Medium (new abstraction) |
-| Phase 3 | ~5 | ~4 pages | Low (targeted refactors) |
-| Phase 4 | ~10 | ~4 files | Low (cosmetic) |
-| **Total** | **~33 of 79** | | |
+| Phase | Pairs Eliminated | Files Modified | Risk | Status |
+|-------|-----------------|----------------|------|--------|
+| Phase 2 | ~18 | 7 docs pages + 2 new widgets | Medium | **DONE** |
+| Phase 3 | ~5 | ~4 pages | Low | **DONE** |
+| Phase 4 | ~10 | ~4 files | Low (cosmetic) | Open |
+| **Total done** | **~23 of 79** | | | |
 
 ---
 

@@ -26,7 +26,7 @@ lib/
 workers/contact-form/ # Cloudflare Worker (Resend email, KV rate limiting, CSRF)
 scripts/              # Build/dev tooling, repomix generation
 docs/                 # Architecture, routes, changelog, backlog
-test/                 # Unit + widget tests (2398+ passing, ~94% coverage)
+test/                 # Unit + widget tests (2440+ passing, ~94% coverage)
 ```
 ## Guidelines
 No magic numbers or string

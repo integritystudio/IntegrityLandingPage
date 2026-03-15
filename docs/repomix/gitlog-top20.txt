@@ -2,164 +2,164 @@
 # commits  file
   18 lib/services/content_loader.dart
   15 e2e/tests/contact-worker.spec.ts
-  13 test/controllers/landing_controller_test.dart
-  10 lib/widgets/docs/doc_components.dart
-  10 lib/pages/docs_quickstart_page.dart
-  10 e2e/tests/constants.ts
+  11 lib/widgets/docs/doc_components.dart
+  11 e2e/tests/constants.ts
+   8 test/helpers/test_helpers.dart
+   8 lib/pages/docs_quickstart_page.dart
    8 lib/pages/docs_api_page.dart
-   8 lib/config/content/constants.dart
-   7 test/pages/landing_page_test.dart
-   7 test/helpers/test_helpers.dart
    7 lib/widgets/navigation/shared_app_bar.dart
+   7 lib/services/contact_service.dart
    7 lib/pages/docs_tracing_page.dart
+   7 e2e/tests/routing.spec.ts
+   6 test/controllers/landing_controller_test.dart
    6 lib/pages/security_page.dart
-   6 lib/pages/landing_page.dart
-   6 content.yaml
-   5 test/helpers/test_content.dart
+   6 lib/pages/features_page.dart
+   6 lib/pages/contact_page.dart
+   6 CLAUDE.md
+   5 test/widgets/docs/doc_components_test.dart
    5 README.md
-   5 lib/pages/features_page.dart
    5 lib/pages/docs_alerts_page.dart
-   5 e2e/tests/routing.spec.ts
+   5 lib/pages/careers_page.dart
 
 # Recent commits touching these files
 
 ## lib/services/content_loader.dart
-  f30f4dc 2026-03-12 fix(content-loader): complete in-flight Completer before reset() to prevent leaked Futures
-  a1b8bed 2026-03-12 fix(content-loader): coalesce concurrent load() calls via Completer
-  8b3cc4f 2026-03-12 fix(content-loader): flush caches at start of load() to mirror loadFromString()
-  a0a686e 2026-03-12 refactor(content): collapse ContentLoader to static-only pattern (#105)
-  ebf476c 2026-03-11 fix(content): address review findings on ContentLoadException (#104)
+  7d66da9 2026-03-14 fix(content): reset _loadCompleter in loadFromString (L07)
+  33547c7 2026-03-14 refactor(content): remove Content static facade, migrate to ContentLoader (#106)
+  c47d8e5 2026-03-12 fix(content-loader): complete in-flight Completer before reset() to prevent leaked Futures
+  f1f0ecf 2026-03-12 fix(content-loader): coalesce concurrent load() calls via Completer
+  3d719c1 2026-03-12 fix(content-loader): flush caches at start of load() to mirror loadFromString()
 
 ## e2e/tests/contact-worker.spec.ts
-  6da2487 2026-03-12 refactor(e2e): replace magic HTTP values with named constants
-  95c0310 2026-03-12 refactor(e2e): remove WORKER_URL alias and fix hardcoded JSDoc URL (#151, #152)
-  953ecfa 2026-03-12 test(e2e): fix soft skip pattern in form validation tests (#150)
-  49d4ab5 2026-03-12 test(e2e): fix post-await skip pattern in submission flow tests (#149)
-  5a3831d 2026-03-12 test(e2e): fix test reliability gaps from #146/#147/#148 backlog review
+  19cf008 2026-03-12 refactor(e2e): replace magic HTTP values with named constants
+  ef55524 2026-03-12 refactor(e2e): remove WORKER_URL alias and fix hardcoded JSDoc URL (#151, #152)
+  ee3908c 2026-03-12 test(e2e): fix soft skip pattern in form validation tests (#150)
+  dbd13e3 2026-03-12 test(e2e): fix post-await skip pattern in submission flow tests (#149)
+  0aef2a7 2026-03-12 test(e2e): fix test reliability gaps from #146/#147/#148 backlog review
+
+## lib/widgets/docs/doc_components.dart
+  f10c523 2026-03-15 refactor(widgets): consolidate _TimelineCard and _StatBadge into DocStatCard (Phase 3b)
+  6cc9569 2026-03-14 refactor(test): extract doc component constants (feature card width, code font, bullet char)
+  c180d28 2026-03-14 refactor(docs): consolidate _StatCard into DocStatCard (#153)
+  2c41651 2026-03-13 feat(docs): enable Flutter semantics + E2E doc content tests (#111)
+  aa98b7e 2026-03-12 fix(doc-components): const borders and callsite for DocInlineWarning (#92)
+
+## e2e/tests/constants.ts
+  6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
+  27a0285 2026-03-14 refactor(e2e): extract blog article slugs to constants (L05)
+  ece4d5d 2026-03-14 refactor(e2e): extract magic values to constants, remove duplicate tests
+  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
+  162cd6e 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
+
+## test/helpers/test_helpers.dart
+  76d8d6c 2026-03-14 refactor(test): extract contact hero constants, widen PagePumpFunction
+  33547c7 2026-03-14 refactor(content): remove Content static facade, migrate to ContentLoader (#106)
+  bb50016 2026-03-11 fix(constants,test): fix const context errors from CTAText getter conversion
+  195b7e2 2026-03-11 refactor(constants,test): source all CTAText from YAML and use constants in tests
+  b53dd07 2026-03-09 test(api_toolkit_page): add page-level smoke test (#103)
+
+## lib/pages/docs_quickstart_page.dart
+  8879e7d 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
+  bb15418 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
+  aa98b7e 2026-03-12 fix(doc-components): const borders and callsite for DocInlineWarning (#92)
+  eb78ece 2026-03-12 refactor(docs): add DocInlineWarning, consolidate _WarningCallout/_WarningAlert (#92)
+  93c1099 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
+
+## lib/pages/docs_api_page.dart
+  9452499 2026-03-14 refactor(theme): replace bare hex Color literals with AppColors.cyan400/cyan500
+  8879e7d 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
+  bb15418 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
+  eb78ece 2026-03-12 refactor(docs): add DocInlineWarning, consolidate _WarningCallout/_WarningAlert (#92)
+  93c1099 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
+
+## lib/widgets/navigation/shared_app_bar.dart
+  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
+  0b66384 2026-03-13 refactor(nav): remove dead _handleNavSelection from SharedAppBar (#158)
+  68b2301 2026-03-13 feat(nav): add overflow protection for SharedAppBar desktop nav (#136)
+  732ed05 2026-03-11 fix(nav): move Docs link after Contact in all header nav lists
+  4ffe301 2026-03-11 fix(nav,test): resolve SliverAppBar overflow and router test failures
+
+## lib/services/contact_service.dart
+  9ba68db 2026-03-14 fix(contact): await ErrorTrackingService.captureException calls
+  487115b 2026-03-14 fix(contact): safe-cast pattern for _fetchCsrfToken GET response (M08)
+  1d7e336 2026-03-14 fix(contact): also validate body retryAfter for zero/negative values (M04)
+  c4bbe29 2026-03-14 fix(contact): validate retry-after header and prefix synthetic submissionId (M04)
+  022c8cf 2026-03-14 fix(services): sanitize server error strings, guard debugPrint with kDebugMode
+
+## lib/pages/docs_tracing_page.dart
+  8879e7d 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
+  bb15418 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
+  93c1099 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
+  a1f6ed1 2026-03-11 style(docs_tracing_page): add blank line before _TimelineItem class (#122)
+  c534a9a 2026-03-11 perf(pages): add const to DocBulletList call sites (#121)
+
+## e2e/tests/routing.spec.ts
+  6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
+  96765db 2026-03-14 docs: append code-reviewer findings to backlog, improve e2e comments and assertions
+  ece4d5d 2026-03-14 refactor(e2e): extract magic values to constants, remove duplicate tests
+  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
+  162cd6e 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
 
 ## test/controllers/landing_controller_test.dart
-  4e1f5cb 2026-03-12 test(content): strengthen variant assertions and fix legacy magic string
-  9418148 2026-03-12 refactor(content): remove dead getVariant, use ContentVariants constants in tests
+  028acbe 2026-03-12 test(content): strengthen variant assertions and fix legacy magic string
+  3adc413 2026-03-12 refactor(content): remove dead getVariant, use ContentVariants constants in tests
   195b7e2 2026-03-11 refactor(constants,test): source all CTAText from YAML and use constants in tests
   9897dd6 2026-03-11 fix(test): use underscore variant keys to match content.yaml
   702dcee 2026-03-09 fix(tests): add missing test_helpers import for pumpAndSettleWithTimeout
 
-## lib/widgets/docs/doc_components.dart
-  b11bd01 2026-03-14 refactor(test): extract doc component constants (feature card width, code font, bullet char)
-  0403a5f 2026-03-14 refactor(docs): consolidate _StatCard into DocStatCard (#153)
-  f99cc8b 2026-03-13 feat(docs): enable Flutter semantics + E2E doc content tests (#111)
-  8ec27fa 2026-03-12 fix(doc-components): const borders and callsite for DocInlineWarning (#92)
-  0b72c63 2026-03-12 refactor(docs): add DocInlineWarning, consolidate _WarningCallout/_WarningAlert (#92)
-
-## lib/pages/docs_quickstart_page.dart
-  5990843 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
-  d7d217d 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
-  8ec27fa 2026-03-12 fix(doc-components): const borders and callsite for DocInlineWarning (#92)
-  0b72c63 2026-03-12 refactor(docs): add DocInlineWarning, consolidate _WarningCallout/_WarningAlert (#92)
-  b4bb064 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
-
-## e2e/tests/constants.ts
-  7b61a5e 2026-03-14 refactor(e2e): extract magic values to constants, remove duplicate tests
-  6543e00 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
-  0b93196 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
-  f99cc8b 2026-03-13 feat(docs): enable Flutter semantics + E2E doc content tests (#111)
-  6da2487 2026-03-12 refactor(e2e): replace magic HTTP values with named constants
-
-## lib/pages/docs_api_page.dart
-  b171167 2026-03-14 refactor(theme): replace bare hex Color literals with AppColors.cyan400/cyan500
-  5990843 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
-  d7d217d 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
-  0b72c63 2026-03-12 refactor(docs): add DocInlineWarning, consolidate _WarningCallout/_WarningAlert (#92)
-  b4bb064 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
-
-## lib/config/content/constants.dart
-  2c575c0 2026-03-12 fix(content): align ContentVariants keys with content.yaml underscore format
-  195b7e2 2026-03-11 refactor(constants,test): source all CTAText from YAML and use constants in tests
-  d9c1863 2026-03-11 fix(careers,contact): wire ref query param, source CTAText from YAML, fix stale tests
-  aa58467 2026-03-11 feat(careers,pricing): remove enterprise note and update careers CTA copy
-  ff68a7f 2026-03-09 fix(content): preserve Austin, TX format with locationRegionAbbrev constant
-
-## test/pages/landing_page_test.dart
-  195b7e2 2026-03-11 refactor(constants,test): source all CTAText from YAML and use constants in tests
-  d00205b 2026-03-09 refactor(test): extract shared test constants to test_constants.dart
-  ebc0cd4 2026-03-08 fix(test): apply code review findings from 5bb2cc1
-  5bb2cc1 2026-03-08 refactor(test): replace magic numbers with named constants
-  09f2cf0 2026-03-08 fix(landing): apply code review findings from dca9cad
-
-## test/helpers/test_helpers.dart
-  bb50016 2026-03-11 fix(constants,test): fix const context errors from CTAText getter conversion
-  195b7e2 2026-03-11 refactor(constants,test): source all CTAText from YAML and use constants in tests
-  b53dd07 2026-03-09 test(api_toolkit_page): add page-level smoke test (#103)
-  96346ff 2026-03-09 refactor(test-helpers): migrate magic numbers/strings to named constants
-  a8fe6f6 2026-03-09 fix(test-helpers): prevent scrollUntilVisible unbounded pumpAndSettle hang (#98)
-
-## lib/widgets/navigation/shared_app_bar.dart
-  6543e00 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
-  3abae95 2026-03-13 refactor(nav): remove dead _handleNavSelection from SharedAppBar (#158)
-  691376e 2026-03-13 feat(nav): add overflow protection for SharedAppBar desktop nav (#136)
-  a9afe93 2026-03-11 fix(nav): move Docs link after Contact in all header nav lists
-  4ffe301 2026-03-11 fix(nav,test): resolve SliverAppBar overflow and router test failures
-
-## lib/pages/docs_tracing_page.dart
-  5990843 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
-  d7d217d 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
-  b4bb064 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
-  a1f6ed1 2026-03-11 style(docs_tracing_page): add blank line before _TimelineItem class (#122)
-  c534a9a 2026-03-11 perf(pages): add const to DocBulletList call sites (#121)
-
 ## lib/pages/security_page.dart
-  0403a5f 2026-03-14 refactor(docs): consolidate _StatCard into DocStatCard (#153)
-  20d52bf 2026-03-13 refactor: backlog items #154 #155 #156 #157 code quality improvements
-  c73067f 2026-03-12 refactor(security): merge _WarningAlert/_DangerAlert into _AlertBanner
-  1274382 2026-03-12 fix(page-hero): restore security_page mobile headline size via mobileHeadlineFontSize param (#90)
-  fabb49d 2026-03-12 refactor(pages): extract PageHeroSection, consolidate 4 page hero sections (#90)
-
-## lib/pages/landing_page.dart
-  a9afe93 2026-03-11 fix(nav): move Docs link after Contact in all header nav lists
-  107828e 2026-03-11 fix(nav): add Team and Docs links to landing page header
-  7cdd7c1 2026-03-11 feat(nav): add Team, Docs, About links and team scroll key to header
-  09f2cf0 2026-03-08 fix(landing): apply code review findings from dca9cad
-  dca9cad 2026-03-08 fix(landing): move tier navigation out of controller into widget
-
-## content.yaml
-  d9c1863 2026-03-11 fix(careers,contact): wire ref query param, source CTAText from YAML, fix stale tests
-  aa58467 2026-03-11 feat(careers,pricing): remove enterprise note and update careers CTA copy
-  7d423b6 2026-03-11 feat(signup): submit to contact worker and redirect to result pages
-  82058bf 2026-03-08 refactor(config): centralize all external URLs and platform metrics in content.yaml
-  72e6e73 2026-03-07 fix(worker,content): rate limit accuracy and demo URL
-
-## test/helpers/test_content.dart
-  7d423b6 2026-03-11 feat(signup): submit to contact worker and redirect to result pages
-  eca800a 2026-03-09 fix(test,docs): update stale 5-minute references in doc comment and test stub
-  82058bf 2026-03-08 refactor(config): centralize all external URLs and platform metrics in content.yaml
-  6f4818d 2026-03-06 test: add coverage for #22/#25/#64 and fix web platform test infra
-  5efa55d 2026-03-06 fix(routing): propagate /features route fix to content.yaml and test fixtures
-
-## README.md
-  6543e00 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
-  8037bac 2026-03-13 chore(docs): update CLAUDE.md structure, refresh repomix snapshots, relocate replace-magic.sh
-  80a177e 2026-03-12 docs: purge stale docs and update architecture/routes/README
-  3677ee1 2026-03-09 docs(readme): fix stale backlog item IDs and improve description
-  6f4818d 2026-03-06 test: add coverage for #22/#25/#64 and fix web platform test infra
+  c180d28 2026-03-14 refactor(docs): consolidate _StatCard into DocStatCard (#153)
+  9d43c5d 2026-03-13 refactor: backlog items #154 #155 #156 #157 code quality improvements
+  6cd1f14 2026-03-12 refactor(security): merge _WarningAlert/_DangerAlert into _AlertBanner
+  cb6229a 2026-03-12 fix(page-hero): restore security_page mobile headline size via mobileHeadlineFontSize param (#90)
+  abb69c0 2026-03-12 refactor(pages): extract PageHeroSection, consolidate 4 page hero sections (#90)
 
 ## lib/pages/features_page.dart
-  1de0043 2026-03-14 refactor(widgets): extract GradientPillBadge, consolidate 3 hero sections (#Phase3a)
-  09a4b58 2026-03-13 fix(features-page): replace magic 100 with AppSpacing.radiusFull (#91)
-  91b186d 2026-03-13 feat(widgets): add SubPageShell scaffold primitive (#91)
-  20d52bf 2026-03-13 refactor: backlog items #154 #155 #156 #157 code quality improvements
-  2c8c646 2026-03-12 refactor: extract MarketingHeroSection for features/status pages
+  c9d30fa 2026-03-14 refactor(widgets): add iconColor param to GradientPillBadge (L10)
+  671cf0a 2026-03-14 refactor(widgets): extract GradientPillBadge, consolidate 3 hero sections (#Phase3a)
+  40a5698 2026-03-13 fix(features-page): replace magic 100 with AppSpacing.radiusFull (#91)
+  202738d 2026-03-13 feat(widgets): add SubPageShell scaffold primitive (#91)
+  9d43c5d 2026-03-13 refactor: backlog items #154 #155 #156 #157 code quality improvements
+
+## lib/pages/contact_page.dart
+  48f8853 2026-03-15 fix(contact): remove dead hover color ternary in _QuickContactCard (L14)
+  76d8d6c 2026-03-14 refactor(test): extract contact hero constants, widen PagePumpFunction
+  6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
+  33547c7 2026-03-14 refactor(content): remove Content static facade, migrate to ContentLoader (#106)
+  671cf0a 2026-03-14 refactor(widgets): extract GradientPillBadge, consolidate 3 hero sections (#Phase3a)
+
+## CLAUDE.md
+  8f6615b 2026-03-14 docs: fix stale references in CLAUDE.md and README.md
+  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
+  2c044fe 2026-03-14 docs(claude): add guidelines for no magic numbers and DRY principles
+  b5ff4c0 2026-03-13 chore(docs): update CLAUDE.md structure, refresh repomix snapshots, relocate replace-magic.sh
+  5f2ffcc 2026-03-12 docs: purge stale docs and update architecture/routes/README
+
+## test/widgets/docs/doc_components_test.dart
+  f10c523 2026-03-15 refactor(widgets): consolidate _TimelineCard and _StatBadge into DocStatCard (Phase 3b)
+  6cc9569 2026-03-14 refactor(test): extract doc component constants (feature card width, code font, bullet char)
+  cc1b5b7 2026-03-14 test(docs): add DocStatCard style override tests; mark #153 Done
+  2c41651 2026-03-13 feat(docs): enable Flutter semantics + E2E doc content tests (#111)
+  9420f48 2026-03-09 test(doc_components): add DocStatCard unit tests (#102)
+
+## README.md
+  8f6615b 2026-03-14 docs: fix stale references in CLAUDE.md and README.md
+  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
+  b5ff4c0 2026-03-13 chore(docs): update CLAUDE.md structure, refresh repomix snapshots, relocate replace-magic.sh
+  5f2ffcc 2026-03-12 docs: purge stale docs and update architecture/routes/README
+  3677ee1 2026-03-09 docs(readme): fix stale backlog item IDs and improve description
 
 ## lib/pages/docs_alerts_page.dart
-  5990843 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
-  d7d217d 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
-  b4bb064 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
+  8879e7d 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
+  bb15418 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
+  93c1099 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
   1de8419 2026-03-11 fix(doc_components): add assert message strings; const DocBulletList in 3 more pages
   969e8e1 2026-03-09 refactor(widgets): replace private widgets with shared components in docs_alerts_page (#88)
 
-## e2e/tests/routing.spec.ts
-  7b61a5e 2026-03-14 refactor(e2e): extract magic values to constants, remove duplicate tests
-  6543e00 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
-  0b93196 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
-  cb26c67 2026-03-14 fix(e2e): assert HTTP 200 before waitForFlutter in URL preservation test
-  892aed0 2026-03-14 test(e2e): add 404 error recovery UI validation tests (#114)
+## lib/pages/careers_page.dart
+  6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
+  671cf0a 2026-03-14 refactor(widgets): extract GradientPillBadge, consolidate 3 hero sections (#Phase3a)
+  d9c1863 2026-03-11 fix(careers,contact): wire ref query param, source CTAText from YAML, fix stale tests
+  aa58467 2026-03-11 feat(careers,pricing): remove enterprise note and update careers CTA copy
+  5cc7999 2026-03-11 fix(careers): route Submit Resume to contact page instead of broken mailto
 

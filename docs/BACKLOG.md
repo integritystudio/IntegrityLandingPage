@@ -132,36 +132,7 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 ---
 
-
-### L08: Add @visibleForTesting to _dio field
-
-**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
-
-`contact_service.dart:132` — `_dio` mutable static has test setter but field itself lacks `@visibleForTesting` annotation. Add annotation to field (line 132) to clarify test-only access.
-
-**File:** `lib/services/contact_service.dart:132`
-
-**Status:** Closed 2026-03-14 — Invalid. `_dio` is private; `@visibleForTesting` only applies to public members (dart analyzer rejects it). Test-only access is already gated via public `setDioForTesting()` which has the annotation.
-
----
-
-## Refactor: Widget Duplication Reduction
-
-### Phase 3b: Consolidate StatCard / StatBadge Variants
-
-**Priority:** P3 | **Source:** duplication analysis 2026-03-14
-
-Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the existing `DocStatCard` in `doc_components.dart`. These share 73-76% structural similarity but differ in decoration.
-
-**Impact:** Eliminates ~3 duplicate pairs.
-
-**Reference:** [`docs/duplicate-findings.md`](duplicate-findings.md) — see "76% — `_TimelineCard` ~ `DocStatCard`" and "73% — Cross-page card patterns"
-
-**Status:** Done (commit 18864e3, 2026-03-15) — `_TimelineCard` and `_StatBadge` consolidated into `DocStatCard` via new `valueStyle` and `constraints` params. `about_page::_StatCard` and `social_proof_section::_StatCard` not consolidated (structurally too different).
-
----
-
-## Code Quality Findings from Phase 3a (code-reviewer results)
+## Code Quality Findings (code-reviewer results)
 
 ### M07: Add retry count assertion to 500 retry test
 
@@ -175,52 +146,8 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 ---
 
-### L13: Use findsOneWidget instead of findsWidgets in page hero assertions
+*Last updated: 2026-03-15 (migrated L08 closed, L13, L14, L15, Phase 3b done to changelog)*
 
-**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer (commit 2bccbb6)
+*Previous: 2026-03-15 (Phase 3b done, L15 appended)*
 
-`contact_page_test.dart:90` and `:112` use `findsWidgets` (any count >= 1) for `'Get in Touch'` headline and `'Schedule a Demo'` card title. If a layout bug renders duplicates, the test still passes. Replace with `findsOneWidget` or `findsNWidgets(n)` with the expected count. Audit same pattern across other page tests (`careers_page_test.dart:104`).
-
-**Files:** `test/pages/contact_page_test.dart`, `test/pages/careers_page_test.dart`
-
-**Status:** Done (2026-03-15) — replaced `findsWidgets` with `findsNWidgets(2)` in contact_page_test (both texts appear in desktop+mobile responsive variants). careers_page_test.dart:104 already uses `findsOneWidget`.
-
----
-
-### L14: Dead hover color branch in _QuickContactCard
-
-**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer (commit 2bccbb6)
-
-`contact_page.dart:165` — `color: _isHovered ? AppColors.gray800 : AppColors.gray800` — both branches identical. The conditional is dead code. Remove the ternary and use `AppColors.gray800` directly.
-
-**File:** `lib/pages/contact_page.dart:165`
-
-**Status:** Done (2026-03-15) — removed dead ternary, using `AppColors.gray800` directly.
-
----
-
-### L15: Update buildBadge helper to accept iconColor parameter
-
-**Priority:** P4 | **Source:** session 2026-03-15, code-reviewer (commit d6f9142)
-
-`gradient_pill_badge_test.dart:73-81` — The new "icon uses custom color when provided" test uses inline `testableWidget()` instead of the `buildBadge()` helper. Update the helper to accept an optional `iconColor` parameter so both tests can use it consistently.
-
-**File:** `test/widgets/common/gradient_pill_badge_test.dart:9-13, 73-84`
-
-**Status:** Done (2026-03-15) — added `iconColor` param to `buildBadge` helper, updated test to use it.
-
----
-
-*Last updated: 2026-03-15 (L13, L14, L15 done — findsNWidgets fix, dead ternary removal, buildBadge helper update)*
-
-*Updated 2026-03-15 (L15 appended from L10 code-reviewer findings)*
-
-*Previous: 2026-03-14 (Phase 3a code-reviewer findings appended; magic number `size: 16` → `AppSpacing.iconSM` fixed)*
-
-*Updated 2026-03-14 (commit 2fce62a code-reviewer findings: M06–M08, L12 appended)*
-
-*Updated 2026-03-14 (L02, L04, L12, M05 done; L08 closed as invalid)*
-
-*Updated 2026-03-14 (migrated 12 Done items to docs/changelog/1.1/CHANGELOG.md): L01–L05, M01–M03, L09, M05, M06, L12*
-
-*Updated 2026-03-14 (code-reviewer commit 2bccbb6: L13, L14 added; L11 updated with follow-up refactor f241d00)*
+*Previous: 2026-03-14 (migrated 12 Done items to changelog): L01–L05, M01–M03, L09, M05, M06, L12*

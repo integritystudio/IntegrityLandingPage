@@ -32,13 +32,13 @@ lib/
 ├── theme/            # Design system
 ├── utils/            # Security utilities
 ├── widgets/          # Reusable components
-│   ├── common/       # Shared widgets (alert, buttons, cards, containers, form_fields, hover_text_link, status_icon)
+│   ├── common/       # Shared widgets (alert, buttons, cards, containers, form_fields, gradient_pill_badge, hover_text_link, status_icon, trust_badge)
 │   ├── consent/      # Cookie consent banner
 │   ├── decorative/   # Animated orb
-│   ├── docs/         # Documentation components (DocCallout, DocBulletList, DocInlineWarning, etc.)
+│   ├── docs/         # Documentation components (DocCallout, DocBulletList, DocInlineWarning, DocStatCard, DocFeatureCard, DocNumberedList)
 │   ├── modals/       # Demo modal
-│   ├── navigation/   # SharedAppBar, DocsPageScaffold
-│   └── sections/     # Page sections (13 section widgets)
+│   ├── navigation/   # SharedAppBar, DocsPageScaffold, SubPageShell
+│   └── sections/     # Page sections (14 section widgets)
 ├── app.dart          # App widget
 └── main.dart         # Entry point
 ```
@@ -86,10 +86,12 @@ lib/theme/
 
 ### Documentation Pages
 
-Documentation pages use `DocsPageScaffold` (extracted shared scaffold) with reusable components from `lib/widgets/docs/doc_components.dart`:
+Documentation pages use `DocsPageScaffold` (extracted shared scaffold) with `DocsHeroSection` and reusable components from `lib/widgets/docs/doc_components.dart`:
 - `DocCallout` (info, warning, tip named constructors)
 - `DocBulletList` (with optional checkmarks)
 - `DocInlineWarning`
+- `DocStatCard` (stat display with optional `valueStyle` and `constraints`)
+- `DocFeatureCard`, `DocNumberedList`
 
 ## Services
 
@@ -122,7 +124,7 @@ test/
 ├── services/         # Service integration tests
 ├── controllers/      # Controller tests
 ├── widgets/          # Widget tests (common, consent, decorative, docs, modals, navigation, sections)
-├── pages/            # Page render tests (20 page test files)
+├── pages/            # Page render tests (22 page test files)
 ├── routing/          # Router tests
 ├── integration/      # Multi-page flow tests (9 flow tests)
 ├── config/           # Constants and models tests

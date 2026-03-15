@@ -12,7 +12,7 @@ Enterprise AI Observability Platform landing page built with Flutter Web.
 ```bash
 flutter pub get          # Install dependencies
 flutter run -d chrome    # Development server
-flutter test             # Run tests (2398+ passing)
+flutter test             # Run tests (2440+ passing)
 flutter build web        # Production build
 ```
 
