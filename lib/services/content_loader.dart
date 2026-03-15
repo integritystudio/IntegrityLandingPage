@@ -108,6 +108,7 @@ class ContentLoader {
     }
     _content = parsed;
     _isLoaded = true;
+    _loadCompleter = null;
   }
 
   /// Reset content state (for testing).
