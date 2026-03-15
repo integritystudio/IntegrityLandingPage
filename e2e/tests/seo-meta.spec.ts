@@ -172,3 +172,99 @@ test.describe('SEO Meta Tags', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Per-Route SEO Meta Tags (#116)
+// Validates CF Pages Function middleware injects route-specific meta tags.
+// ---------------------------------------------------------------------------
+
+/** Extract meta content attribute value by property or name. */
+const extractMeta = (html: string, attr: string, value: string): string | null => {
+  const re = new RegExp(`${attr}="${value}"\\s+content="([^"]+)"`);
+  const match = html.match(re);
+  return match?.[1] ?? null;
+};
+
+/** Extract canonical href. */
+const extractCanonical = (html: string): string | null => {
+  const match = html.match(/rel="canonical"\s+href="([^"]+)"/);
+  return match?.[1] ?? null;
+};
+
+/** Extract <title> text. */
+const extractTitle = (html: string): string | null => {
+  const match = html.match(/<title>([^<]+)<\/title>/);
+  return match?.[1] ?? null;
+};
+
+test.describe('per-route SEO meta tags (#116)', () => {
+  /** Fetch raw HTML for a route (no JS execution). */
+  const fetchHtml = async (
+    request: ReturnType<Parameters<Parameters<typeof test>[2]>[0]['request']['get']> extends Promise<infer R> ? { get: (url: string) => Promise<R> } : never,
+    path: string,
+  ) => {
+    const response = await request.get(path);
+    return response.text();
+  };
+
+  // Store homepage description for comparison
+  let homepageDescription: string | null;
+
+  test.beforeAll(async ({ request }) => {
+    const html = await (await request.get('/')).text();
+    homepageDescription = extractMeta(html, 'name', 'description');
+  });
+
+  const ROUTE_TESTS = [
+    { path: '/about', keyword: 'About' },
+    { path: '/pricing', keyword: 'Pricing' },
+    { path: '/features', keyword: 'Features' },
+    { path: '/docs', keyword: 'Documentation' },
+    { path: '/contact', keyword: 'Contact' },
+  ] as const;
+
+  for (const { path, keyword } of ROUTE_TESTS) {
+    test.describe(path, () => {
+      let routeHtml: string;
+
+      test.beforeAll(async ({ request }) => {
+        routeHtml = await (await request.get(path)).text();
+      });
+
+      test(`title contains "${keyword}"`, async () => {
+        const title = extractTitle(routeHtml);
+        expect(title).not.toBeNull();
+        expect(title).toContain(keyword);
+      });
+
+      test('og:url includes route path without trailing slash', async () => {
+        const ogUrl = extractMeta(routeHtml, 'property', 'og:url');
+        expect(ogUrl).not.toBeNull();
+        expect(ogUrl).toContain(path);
+        expect(ogUrl).not.toMatch(/\/$/);
+      });
+
+      test('canonical href includes route path', async () => {
+        const canonical = extractCanonical(routeHtml);
+        expect(canonical).not.toBeNull();
+        expect(canonical).toContain(path);
+        expect(canonical).not.toMatch(/\/$/);
+      });
+
+      test('description differs from homepage', async () => {
+        const desc = extractMeta(routeHtml, 'name', 'description');
+        expect(desc).not.toBeNull();
+        expect(desc).not.toBe(homepageDescription);
+      });
+    });
+  }
+
+  test('unknown route falls back to homepage meta', async ({ request }) => {
+    const html = await (await request.get('/some-unknown-route-xyz')).text();
+    const title = extractTitle(html);
+    expect(title).toContain('Integrity Studio');
+    // Should match homepage title (unchanged by middleware)
+    const homepageHtml = await (await request.get('/')).text();
+    expect(title).toBe(extractTitle(homepageHtml));
+  });
+});
