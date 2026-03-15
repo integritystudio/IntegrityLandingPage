@@ -66,8 +66,13 @@ class AnalyticsService {
       TrackingWeb.injectGTM();
       _initialized = true;
       _log('Analytics initialized - GTM injected');
-    } catch (e) {
+    } catch (e, stackTrace) {
       _log('Failed to initialize analytics: $e');
+      ErrorTrackingService.captureException(
+        e,
+        stackTrace: stackTrace,
+        context: 'AnalyticsService.initialize',
+      );
     }
   }
 
@@ -532,8 +537,13 @@ class FacebookPixelService {
       TrackingWeb.injectFacebookPixel();
       _initialized = true;
       _log('Facebook Pixel initialized');
-    } catch (e) {
+    } catch (e, stackTrace) {
       _log('Failed to initialize Facebook Pixel: $e');
+      ErrorTrackingService.captureException(
+        e,
+        stackTrace: stackTrace,
+        context: 'FacebookPixelService.initialize',
+      );
     }
   }
 
