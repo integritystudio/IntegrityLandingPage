@@ -6,9 +6,19 @@ import 'package:integrity_studio_ai/theme/theme.dart';
 import '../../helpers/test_helpers.dart';
 
 void main() {
-  Widget buildBadge({String label = 'Test Badge', IconData? icon}) {
+  Widget buildBadge({
+    String label = 'Test Badge',
+    IconData? icon,
+    Color? iconColor,
+  }) {
     return testableWidget(
-      Center(child: GradientPillBadge(label: label, icon: icon)),
+      Center(
+        child: GradientPillBadge(
+          label: label,
+          icon: icon,
+          iconColor: iconColor ?? AppColors.blue400,
+        ),
+      ),
     );
   }
 
@@ -70,14 +80,10 @@ void main() {
       });
 
       testWidgets('icon uses custom color when provided', (tester) async {
-        await tester.pumpWidget(testableWidget(
-          Center(
-            child: GradientPillBadge(
-              label: 'Test',
-              icon: LucideIcons.checkCircle,
-              iconColor: AppColors.success,
-            ),
-          ),
+        await tester.pumpWidget(buildBadge(
+          label: 'Test',
+          icon: LucideIcons.checkCircle,
+          iconColor: AppColors.success,
         ));
         final icon = tester.widget<Icon>(find.byIcon(LucideIcons.checkCircle));
         expect(icon.color, equals(AppColors.success));
