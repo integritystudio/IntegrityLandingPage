@@ -143,101 +143,6 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 ---
 
-## E2E Test Quality: Low-Priority Assertions (code-reviewer findings)
-
-### L01: Tighten manifest.json assertions in routing.spec.ts
-
-**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
-
-Replace `toBeDefined()` with `toBeTruthy()` on `manifest.json` name and short_name (lines 76–77). `toBeDefined()` passes for `null`, `false`, or `''`; a more meaningful assertion is needed.
-
-**File:** `e2e/tests/routing.spec.ts:76–77`
-
-**Status:** Deferred — low-priority assertion tightening, not a functional gap.
-
----
-
-### L02: Add robots.txt Disallow assertion in routing.spec.ts
-
-**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
-
-Line 85 checks only for `'User-agent'`. A `robots.txt` with only that header is vacuous. Add assertion for `Disallow` or `Sitemap` to make the test more meaningful.
-
-**File:** `e2e/tests/routing.spec.ts:85`
-
-**Status:** Deferred — low-priority assertion strengthening.
-
----
-
-### L03: Document service worker availability policy in routing.spec.ts
-
-**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
-
-Lines 121–124 intentionally allow `[HTTP_OK, HTTP_NOT_FOUND]` for `flutter_service_worker.js`. Document whether this is permanent policy or expected to tighten (known gap).
-
-**File:** `e2e/tests/routing.spec.ts:121–124`
-
-**Status:** Deferred — clarification-only; add inline comment explaining the loose assertion rationale.
-
----
-
-### L04: Extract blog route constants in routing.spec.ts
-
-**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
-
-Lines 199–248 use `/blog` and `/internship` as inline strings in redirect tests. Add named constants (e.g., `SPA_ROUTE_BLOG`, `SPA_ROUTE_INTERNSHIP`) to align with `spaRoutes` array pattern.
-
-**File:** `e2e/tests/routing.spec.ts:199–248`
-
-**Status:** Deferred — low-priority constant extraction for consistency.
-
----
-
-### L05: Use static test fixture for blog article assertions in routing.spec.ts
-
-**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
-
-**Status:** Done 2026-03-14 — Extracted blog article slugs to named constants (`BLOG_ARTICLE_SLUG`, `BLOG_ARTICLE_NESTED_SLUG`, `BLOG_ARTICLE_FLAT_SLUG`) in `e2e/tests/constants.ts`. External dependency documented in JSDoc comment.
-
----
-
-## Services Layer Quality Issues (code-reviewer findings)
-
-### M01: Remove duplicate trackFormSubmit method
-
-**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer
-
-`analytics.dart:190` — `trackFormSubmit` duplicates `trackFormSubmission` with hardcoded `success: true`, hiding the `errorMessage` parameter. Remove `trackFormSubmit` and migrate 2 call sites (`contact_section.dart:494`, `signup_page.dart:376`) to `trackFormSubmission(formType: ..., success: true)`.
-
-**File:** `lib/services/analytics.dart:190`
-
-**Status:** Deferred — code quality refactoring.
-
----
-
-### M02: Extract magic number for consent update wait time
-
-**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer
-
-`tracking_web.dart:75` — magic number `500` for `wait_for_update` consent delay. Extract to named constant per project rules.
-
-**File:** `lib/services/tracking_web.dart:75`
-
-**Status:** Deferred — minor constant extraction.
-
----
-
-### M03: Gate debugPrint on kDebugMode in consent_manager
-
-**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer
-
-`consent_manager.dart:231` — bare `debugPrint('Marketing tracking initialized with consent')` not gated on `kDebugMode`, inconsistent with other services. Wrap in `if (kDebugMode)` or remove.
-
-**File:** `lib/services/consent_manager.dart:231`
-
-**Status:** Deferred — debug output cleanup.
-
----
 
 ### M04: Validate retry-after header and synthetic submissionId
 
@@ -285,19 +190,7 @@ Lines 199–248 use `/blog` and `/internship` as inline strings in redirect test
 
 **File:** `lib/services/contact_service.dart:132`
 
-**Status:** Deferred — annotation clarity.
-
----
-
-### L09: Remove unused fbPixelId constant
-
-**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
-
-`tracking_web.dart:14` — `const fbPixelId` declared but never used (pixel loaded via `web/js/meta-pixel.js`). Remove unused constant.
-
-**File:** `lib/services/tracking_web.dart:14`
-
-**Status:** Deferred — dead code cleanup.
+**Status:** Closed 2026-03-14 — Invalid. `_dio` is private; `@visibleForTesting` only applies to public members (dart analyzer rejects it). Test-only access is already gated via public `setDioForTesting()` which has the annotation.
 
 ---
 
@@ -319,18 +212,6 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 ## Code Quality Findings from Phase 3a (code-reviewer results)
 
-### M05: Remove unnecessary Builder wrapper in careers/contact hero sections
-
-**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer (commit 1de0043)
-
-`careers_page.dart:53–59` and `contact_page.dart:64–70` — `Builder` wrapper around `MarketingHeroSection` is unnecessary since `BuildContext` is already available from the enclosing `SliverToBoxAdapter` build context. Simplify to direct construction without extra widget node, matching the pattern used by `status_page` and `features_page`.
-
-**Files:** `lib/pages/careers_page.dart:53–59`, `lib/pages/contact_page.dart:64–70`
-
-**Status:** Deferred — code cleanup, low risk.
-
----
-
 ### L10: GradientPillBadge icon color hardcoded to AppColors.success
 
 **Priority:** P3 | **Source:** session 2026-03-14, code-reviewer (commit 1de0043)
@@ -349,21 +230,9 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a refactor, hero sections for contact (`"We're Here to Help"`, `"Get in Touch"`) and features (`FeaturesContentVariants.complianceBadge`, pageTitle) have no page-level smoke tests. If future edits break the wiring (wrong string, missing badge), there is no fast feedback.
 
-**Files:** `test/pages/contact_page_test.dart` (missing), `test/pages/features_page_test.dart` (missing)
+**Files:** `test/pages/contact_page_test.dart`, `test/pages/features_page_test.dart`
 
-**Status:** Deferred — test coverage gap.
-
----
-
-### M06: Add retry delay comment for CSRF token flow
-
-**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer (commit 2fce62a)
-
-`contact_service.dart:349–357` — CSRF 403 branch retries up to `_maxRetries` times without consuming a delay between attempts (calls `continue` directly). This is correct for token refresh but differs from the 500/504 retry branch which enforces exponential backoff. Add a comment explaining why CSRF token refresh has no delay to prevent future confusion.
-
-**File:** `lib/services/contact_service.dart:349–357`
-
-**Status:** Deferred — documentation/clarity issue.
+**Status:** Done 2026-03-14 — Added 37 page-level smoke tests (20 contact, 17 features) covering hero badge/headline/subheadline, quick contact cards, support info, footer, responsive layout, and back button callback. Also fixed case-sensitive assertion bug in `contact_service_test.dart:960` (`'Gateway Timeout'` vs `'timeout'`).
 
 ---
 
@@ -391,18 +260,10 @@ No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a r
 
 ---
 
-### L12: Resolve validData shadowing in contact_service_test
-
-**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer (commit 2fce62a)
-
-`contact_service_test.dart` — `const validData` at group scope (line 250) is shadowed by a local `const validData` in the `isFormValid` test (line 214). Not a bug (different scopes), but confusing if tests are reorganized. Consider renaming the group-level fixture to `validFormData` or `baseFormData`.
-
-**File:** `test/services/contact_service_test.dart:214, 250`
-
-**Status:** Deferred — naming clarity.
-
----
-
 *Last updated: 2026-03-14 (Phase 3a code-reviewer findings appended; magic number `size: 16` → `AppSpacing.iconSM` fixed)*
 
 *Updated 2026-03-14 (commit 2fce62a code-reviewer findings: M06–M08, L12 appended)*
+
+*Updated 2026-03-14 (L02, L04, L12, M05 done; L08 closed as invalid)*
+
+*Updated 2026-03-14 (migrated 12 Done items to docs/changelog/1.1/CHANGELOG.md): L01–L05, M01–M03, L09, M05, M06, L12*

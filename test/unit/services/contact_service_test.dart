@@ -957,7 +957,7 @@ void main() {
 
         expect(response, isA<ContactFormError>());
         final error = response as ContactFormError;
-        expect(error.error, contains('timeout'));
+        expect(error.error.toLowerCase(), contains('timeout'));
         // 3 total attempts: 1 initial + 2 retries
         verify(mockDio.post(
           any,
