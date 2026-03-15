@@ -284,7 +284,7 @@ class ContactService {
       return data['csrfToken'] as String?;
     } catch (e) {
       // Log CSRF fetch failures to Sentry for monitoring
-      ErrorTrackingService.captureException(
+      await ErrorTrackingService.captureException(
         e,
         context: 'ContactService._fetchCsrfToken',
         extra: {
@@ -438,7 +438,7 @@ class ContactService {
         }
 
         // Log to Sentry on final attempt
-        ErrorTrackingService.captureException(
+        await ErrorTrackingService.captureException(
           e,
           stackTrace: e.stackTrace,
           context: 'ContactService.submitForm',
@@ -461,7 +461,7 @@ class ContactService {
         );
       } catch (e, stackTrace) {
         // Non-retryable unexpected errors
-        ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+        await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
         return const ContactFormError(
           error: _errorUnexpected,
         );
