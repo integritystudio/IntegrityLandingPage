@@ -16,6 +16,7 @@ class GradientPillBadge extends StatelessWidget {
     super.key,
     required this.label,
     this.icon,
+    this.iconColor = AppColors.blue400,
   });
 
   final String label;
@@ -23,6 +24,9 @@ class GradientPillBadge extends StatelessWidget {
   /// Optional leading icon. When provided, renders before the label
   /// with [AppSpacing.sm] gap.
   final IconData? icon;
+
+  /// Icon color. Defaults to [AppColors.blue400] to match the label text.
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +51,7 @@ class GradientPillBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: AppSpacing.iconSM, color: AppColors.success),
+            Icon(icon, size: AppSpacing.iconSM, color: iconColor),
             const SizedBox(width: AppSpacing.sm),
           ],
           Text(

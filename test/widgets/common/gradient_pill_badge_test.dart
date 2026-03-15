@@ -61,10 +61,24 @@ void main() {
         expect(text.style?.color, equals(AppColors.blue400));
       });
 
-      testWidgets('icon uses success color', (tester) async {
+      testWidgets('icon uses default blue400 color', (tester) async {
         await tester.pumpWidget(
           buildBadge(icon: LucideIcons.checkCircle),
         );
+        final icon = tester.widget<Icon>(find.byIcon(LucideIcons.checkCircle));
+        expect(icon.color, equals(AppColors.blue400));
+      });
+
+      testWidgets('icon uses custom color when provided', (tester) async {
+        await tester.pumpWidget(testableWidget(
+          Center(
+            child: GradientPillBadge(
+              label: 'Test',
+              icon: LucideIcons.checkCircle,
+              iconColor: AppColors.success,
+            ),
+          ),
+        ));
         final icon = tester.widget<Icon>(find.byIcon(LucideIcons.checkCircle));
         expect(icon.color, equals(AppColors.success));
       });
