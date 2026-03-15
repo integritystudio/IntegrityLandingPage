@@ -210,4 +210,44 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Eliminates shadowing of group-scope `validData` fixture (line 250)
 - Improves test clarity if tests are reorganized
 
+**#106: Remove Content Static Facade**
+- Removed `Content` facade class (~210 lines of delegation)
+- Migrated all 12 consumer files to `ContentLoader.*` directly
+- Commit: `be964f2`
+
+**M04: Validate retry-after header and synthetic submissionId**
+- Added validation to reject zero/negative retry-after values (header + body)
+- Prefixed synthetic fallback submissionId with `local_` to distinguish from server-issued IDs
+- Added 3 edge-case tests for retry-after validation
+- Commits: `747b40a`, `e0e71b7`
+
+**M08: Apply safe-cast pattern to _fetchCsrfToken GET response**
+- Added `is! Map<String, dynamic>` guard before unsafe cast
+- Returns `null` gracefully instead of throwing `TypeError` on non-map responses (e.g., HTML error pages)
+- Commit: `1ca1d0b`
+
+**L06: Report analytics initialization exceptions to Sentry**
+- Added `await ErrorTrackingService.captureException()` to `AnalyticsService.initialize()` and `FacebookPixelService.initialize()`
+- Ensures initialization exceptions are captured and reported to error tracking
+- Commits: `fd558ca`, `177a115`
+
+**L07: Reset _loadCompleter in ContentLoader.loadFromString**
+- Added `_loadCompleter = null` after loading from string in test helper
+- Prevents stale completers from blocking subsequent `load()` calls in tests that chain `loadFromString` without explicit `reset()`
+- Commit: `f40f119`
+
+**L10: GradientPillBadge icon color parameterization**
+- Added optional `iconColor` parameter (defaults to `AppColors.blue400` to match label text)
+- Features page explicitly passes `AppColors.success` for checkCircle icon
+- Added test coverage for custom color parameter
+- Commit: `d6f9142`
+
+**L11: Add page-level tests for contact_page and features_page heroes**
+- Added 37 smoke tests: 20 for contact page, 17 for features page
+- Coverage: hero badge/headline/subheadline, quick contact cards, support info, footer, responsive layout, back button
+- Fixed case-sensitive assertion bug in `contact_service_test.dart:960` (`'Gateway Timeout'` vs `'timeout'`)
+- Extracted hero magic strings to `ContactContentVariants` constants
+- Widened `PagePumpFunction` to accept `onShowCookieSettings` (removed adapter wrappers)
+- Commit: `2bccbb6`
+
 ---

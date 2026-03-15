@@ -63,17 +63,6 @@ Sentry `ingest.sentry.io` endpoint shared across staging and prod. CSP allows on
 
 ---
 
-## Done: ContentLoader Static Facade (#106)
-
-### #106: Remove Content Static Facade (190-line delegation)
-
-**Severity:** LOW
-**Category:** Code Quality (Dead Code)
-**File:** `lib/services/content_loader.dart`
-
-**Status:** Done 2026-03-14 — Removed `Content` facade class (~210 lines). All 12 consumer files migrated to `ContentLoader.*`. 2395 tests pass.
-
-
 ## Deferred: E2E Test Coverage Limitations (Flutter Canvas)
 
 ---
@@ -144,44 +133,6 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 ---
 
 
-### M04: Validate retry-after header and synthetic submissionId
-
-**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer
-
-`contact_service.dart:362–377` — two issues:
-1. `retry-after` parsing (line 362) does not validate integer is positive; could show "try again in 0 seconds"
-2. Synthetic fallback `submissionId` (line 376) looks like a real ID and could confuse deduplication logic
-
-**File:** `lib/services/contact_service.dart:362–377`
-
-**Status:** Done 2026-03-14 — Validated retry-after (header + body) rejects zero/negative; synthetic submissionId prefixed `local_`. 3 new tests added.
-
----
-
-### L06: Report analytics initialization exceptions to Sentry
-
-**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer
-
-`analytics.dart:65–71` and `facebook_pixel_service.dart:540–545` — init exceptions swallowed without Sentry reporting. Add `ErrorTrackingService.captureException(e, context: 'AnalyticsService.initialize')` in catch blocks.
-
-**File:** `lib/services/analytics.dart:65–71`, `lib/services/facebook_pixel_service.dart:540–545`
-
-**Status:** Done 2026-03-14 — Both init catch blocks now `await ErrorTrackingService.captureException()`. facebook_pixel_service.dart was merged into analytics.dart.
-
----
-
-### L07: Reset _loadCompleter in ContentLoader.loadFromString
-
-**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer
-
-`content_loader.dart:104` — `loadFromString` in test helper does not reset `_loadCompleter`. If a test calls `load()` then `loadFromString` without `reset()`, subsequent `load()` will await stale completer indefinitely.
-
-**File:** `lib/services/content_loader.dart:104`
-
-**Status:** Done 2026-03-14 — Added `_loadCompleter = null` after `_isLoaded = true` in `loadFromString`. 2436 tests pass.
-
----
-
 ### L08: Add @visibleForTesting to _dio field
 
 **Priority:** P4 | **Source:** session 2026-03-14, code-reviewer
@@ -212,30 +163,6 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 ## Code Quality Findings from Phase 3a (code-reviewer results)
 
-### L10: GradientPillBadge icon color hardcoded to AppColors.success
-
-**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer (commit 1de0043)
-
-`gradient_pill_badge.dart:50` — icon color is hardcoded to `AppColors.success` (green). This is semantically correct for `LucideIcons.checkCircle` on features_page, but the widget is general-purpose (accepts any `IconData?`). A caller passing a non-check icon (bell, star, info) will render green, which is misleading. Add optional `iconColor` parameter defaulting to `AppColors.blue400` (matching label text color).
-
-**File:** `lib/widgets/common/gradient_pill_badge.dart:50`
-
-**Status:** Done 2026-03-14 — Added `iconColor` param (default `AppColors.blue400`). Features page passes `AppColors.success` explicitly. 2 new tests.
-
----
-
-### L11: Missing page-level tests for contact_page and features_page heroes
-
-**Priority:** P3 | **Source:** session 2026-03-14, code-reviewer (commit 1de0043)
-
-No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a refactor, hero sections for contact (`"We're Here to Help"`, `"Get in Touch"`) and features (`FeaturesContentVariants.complianceBadge`, pageTitle) have no page-level smoke tests. If future edits break the wiring (wrong string, missing badge), there is no fast feedback.
-
-**Files:** `test/pages/contact_page_test.dart`, `test/pages/features_page_test.dart`
-
-**Status:** Done 2026-03-14 — Added 37 page-level smoke tests (20 contact, 17 features) covering hero badge/headline/subheadline, quick contact cards, support info, footer, responsive layout, and back button callback. Also fixed case-sensitive assertion bug in `contact_service_test.dart:960` (`'Gateway Timeout'` vs `'timeout'`). Follow-up refactor (f241d00): extracted hero magic strings to `ContactContentVariants` constants, widened `PagePumpFunction` to accept `onShowCookieSettings` (removing adapter wrappers), added missing `initializeTestContent()` in `features_page_test.dart`.
-
----
-
 ### M07: Add retry count assertion to 500 retry test
 
 **Priority:** P2 | **Source:** session 2026-03-14, code-reviewer (commit 2fce62a)
@@ -245,18 +172,6 @@ No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a r
 **File:** `test/services/contact_service_test.dart:377–390`
 
 **Status:** Deferred — test coverage gap.
-
----
-
-### M08: Apply safe-cast pattern to _fetchCsrfToken GET response
-
-**Priority:** P2 | **Source:** session 2026-03-14, code-reviewer (commit 2fce62a)
-
-`contact_service.dart:266` — `_fetchCsrfToken` uses unsafe cast `response.data as Map<String, dynamic>` on GET response. If the worker returns 2xx with a non-map body (e.g., HTML error page during maintenance), this throws `TypeError` instead of `DioException`. POST branch uses safe pattern `response.data is Map`. Apply the same pattern to the GET branch for consistency.
-
-**File:** `lib/services/contact_service.dart:266`
-
-**Status:** Done 2026-03-14 — Added `is! Map` guard before cast; returns null gracefully instead of TypeError.
 
 ---
 
@@ -284,7 +199,23 @@ No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a r
 
 ---
 
-*Last updated: 2026-03-14 (Phase 3a code-reviewer findings appended; magic number `size: 16` → `AppSpacing.iconSM` fixed)*
+### L15: Update buildBadge helper to accept iconColor parameter
+
+**Priority:** P4 | **Source:** session 2026-03-15, code-reviewer (commit d6f9142)
+
+`gradient_pill_badge_test.dart:73-81` — The new "icon uses custom color when provided" test uses inline `testableWidget()` instead of the `buildBadge()` helper. Update the helper to accept an optional `iconColor` parameter so both tests can use it consistently.
+
+**File:** `test/widgets/common/gradient_pill_badge_test.dart:9-13, 73-84`
+
+**Status:** Open.
+
+---
+
+*Last updated: 2026-03-15 (migrated #106, M04, M08, L06, L07, L10, L11 to docs/changelog/1.1/CHANGELOG.md)*
+
+*Updated 2026-03-15 (L15 appended from L10 code-reviewer findings)*
+
+*Previous: 2026-03-14 (Phase 3a code-reviewer findings appended; magic number `size: 16` → `AppSpacing.iconSM` fixed)*
 
 *Updated 2026-03-14 (commit 2fce62a code-reviewer findings: M06–M08, L12 appended)*
 
