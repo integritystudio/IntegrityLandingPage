@@ -68,7 +68,7 @@ class AnalyticsService {
       _log('Analytics initialized - GTM injected');
     } catch (e, stackTrace) {
       _log('Failed to initialize analytics: $e');
-      ErrorTrackingService.captureException(
+      await ErrorTrackingService.captureException(
         e,
         stackTrace: stackTrace,
         context: 'AnalyticsService.initialize',
@@ -539,7 +539,7 @@ class FacebookPixelService {
       _log('Facebook Pixel initialized');
     } catch (e, stackTrace) {
       _log('Failed to initialize Facebook Pixel: $e');
-      ErrorTrackingService.captureException(
+      await ErrorTrackingService.captureException(
         e,
         stackTrace: stackTrace,
         context: 'FacebookPixelService.initialize',
