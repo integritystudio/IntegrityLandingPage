@@ -228,6 +228,8 @@ class ConsentManager {
     // Inject Facebook Pixel script
     _tracking.injectFacebookPixel();
     _tracking.sendFBPageView();
-    debugPrint('Marketing tracking initialized with consent');
+    if (kDebugMode) {
+      debugPrint('Marketing tracking initialized with consent');
+    }
   }
 }
