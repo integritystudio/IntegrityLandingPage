@@ -17,6 +17,8 @@ import {
   MOBILE_VIEWPORT_HEIGHT,
   MOBILE_VIEWPORT_WIDTH,
   SEMANTICS_TIMEOUT_MS,
+  SPA_ROUTE_BLOG,
+  SPA_ROUTE_INTERNSHIP,
   SRI_HASH_PREFIX,
   TEST_TIMEOUT_MS,
   VALID_REDIRECT_STATUSES,
@@ -89,6 +91,7 @@ test.describe('Routing and Redirects', () => {
 
       const text = await response.text();
       expect(text).toContain('User-agent');
+      expect(text).toContain('Sitemap');
     });
 
     test('favicon is accessible', async ({ request }) => {
@@ -195,7 +198,7 @@ test.describe('Routing and Redirects', () => {
     // normalization to 308 redirect to / instead of serving the blog page.
 
     test('/blog redirects to /blog/ (not /)', async ({ request }) => {
-      const response = await request.get('/blog', {
+      const response = await request.get(SPA_ROUTE_BLOG, {
         maxRedirects: 0,
       });
       const status = response.status();
@@ -207,7 +210,7 @@ test.describe('Routing and Redirects', () => {
     });
 
     test('/blog does NOT redirect to /', async ({ request }) => {
-      const response = await request.get('/blog', {
+      const response = await request.get(SPA_ROUTE_BLOG, {
         maxRedirects: 0,
       });
       const location = response.headers()['location'] ?? '';
@@ -219,7 +222,7 @@ test.describe('Routing and Redirects', () => {
 
     test('/blog redirect chain lands on blog page (200)', async ({ request }) => {
       // Follow redirects — final response must be 200 with SPA content
-      const response = await request.get('/blog');
+      const response = await request.get(SPA_ROUTE_BLOG);
       expect(response.status()).toBe(HTTP_OK);
 
       const html = await response.text();
@@ -227,14 +230,14 @@ test.describe('Routing and Redirects', () => {
     });
 
     test('/blog/ serves 200 directly (no redirect)', async ({ request }) => {
-      const response = await request.get('/blog/', {
+      const response = await request.get(`${SPA_ROUTE_BLOG}/`, {
         maxRedirects: 0,
       });
       expect(response.status()).toBe(HTTP_OK);
     });
 
     test('/internship redirects to /internship/ (not /)', async ({ request }) => {
-      const response = await request.get('/internship', {
+      const response = await request.get(SPA_ROUTE_INTERNSHIP, {
         maxRedirects: 0,
       });
       const status = response.status();

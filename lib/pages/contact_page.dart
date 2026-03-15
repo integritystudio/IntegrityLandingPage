@@ -61,16 +61,13 @@ class _ContactPageState extends State<ContactPage> {
           slivers: [
             SharedAppBar.subPage(onBack: widget.onBack),
             SliverToBoxAdapter(
-              child: Builder(builder: (context) {
-                final isMobile = ResponsiveUtils.isMobile(context);
-                return MarketingHeroSection(
-                  isMobile: isMobile,
-                  badge: const GradientPillBadge(label: "We're Here to Help"),
-                  headline: 'Get in Touch',
-                  subheadline:
-                      'Have questions about AI observability? Need help with integration? Our team is ready to assist you.',
-                );
-              }),
+              child: MarketingHeroSection(
+                isMobile: ResponsiveUtils.isMobile(context),
+                badge: const GradientPillBadge(label: "We're Here to Help"),
+                headline: 'Get in Touch',
+                subheadline:
+                    'Have questions about AI observability? Need help with integration? Our team is ready to assist you.',
+              ),
             ),
             const SliverToBoxAdapter(child: _QuickContactSection()),
             SliverToBoxAdapter(child: ContactSection(ref: widget.ref)),

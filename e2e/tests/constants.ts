@@ -216,6 +216,16 @@ export const HEADER_CSRF_TOKEN = 'x-csrf-token';
 export const MALICIOUS_ORIGIN = 'https://malicious.example.com';
 
 // ---------------------------------------------------------------------------
+// SPA route paths (used in redirect / routing tests)
+// ---------------------------------------------------------------------------
+
+/** Blog listing SPA route. */
+export const SPA_ROUTE_BLOG = '/blog';
+
+/** Internship SPA route. */
+export const SPA_ROUTE_INTERNSHIP = '/internship';
+
+// ---------------------------------------------------------------------------
 // Blog article test fixtures (external dependency on deployed articles)
 // ---------------------------------------------------------------------------
 

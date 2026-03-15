@@ -50,16 +50,13 @@ class _CareersPageState extends State<CareersPage> {
           slivers: [
             SharedAppBar.subPage(onBack: widget.onBack),
             SliverToBoxAdapter(
-              child: Builder(builder: (context) {
-                final isMobile = ResponsiveUtils.isMobile(context);
-                return MarketingHeroSection(
-                  isMobile: isMobile,
-                  badge: const GradientPillBadge(label: 'Join Our Team'),
-                  headline: 'Careers at Integrity Studio',
-                  subheadline:
-                      'Help us build the future of AI observability and empower teams to ship reliable AI applications.',
-                );
-              }),
+              child: MarketingHeroSection(
+                isMobile: ResponsiveUtils.isMobile(context),
+                badge: const GradientPillBadge(label: 'Join Our Team'),
+                headline: 'Careers at Integrity Studio',
+                subheadline:
+                    'Help us build the future of AI observability and empower teams to ship reliable AI applications.',
+              ),
             ),
             const SliverToBoxAdapter(child: _NoOpeningsSection()),
             const SliverToBoxAdapter(child: _KeepInTouchSection()),

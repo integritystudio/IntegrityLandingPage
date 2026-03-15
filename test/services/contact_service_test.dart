@@ -211,7 +211,7 @@ void main() {
     });
 
     test('isFormValid returns correct boolean', () {
-      const validData = ContactFormData(
+      const validFormData = ContactFormData(
         name: 'John Doe',
         email: 'john@example.com',
         message: 'Valid message content here.',
@@ -223,7 +223,7 @@ void main() {
         message: '',
       );
 
-      expect(ContactService.isFormValid(validData), true);
+      expect(ContactService.isFormValid(validFormData), true);
       expect(ContactService.isFormValid(invalidData), false);
     });
   });

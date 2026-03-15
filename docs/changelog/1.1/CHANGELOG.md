@@ -148,4 +148,66 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Use `CONTACT_WORKER_URL` directly
 - Commit: `95c0310`
 
+### Code Quality & Testing Improvements (code-reviewer findings)
+
+**L01: Tighten manifest.json assertions in routing.spec.ts**
+- Replaced `toBeDefined()` with `toBeTruthy()` on manifest.json `name` and `short_name`
+- `toBeDefined()` passes for falsy values (`null`, `false`, `''`); `toBeTruthy()` is more meaningful
+- Commit: `809bbdb`
+
+**L02: Add robots.txt Disallow assertion in routing.spec.ts**
+- Added `Sitemap` assertion to `robots.txt` test
+- Prevents vacuous tests that only check for presence of a header
+- Test now validates both `User-agent` and `Sitemap` directives
+
+**L03: Document service worker availability policy in routing.spec.ts**
+- Added JSDoc comment explaining why `flutter_service_worker.js` accepts both `[HTTP_OK, HTTP_NOT_FOUND]`
+- Documents this is intentional permanent policy (Flutter only generates file for release builds with `--pwa-strategy=offline-first`)
+- Commit: `809bbdb`
+
+**L04: Extract blog route constants in routing.spec.ts**
+- Extracted `SPA_ROUTE_BLOG` and `SPA_ROUTE_INTERNSHIP` constants to `e2e/tests/constants.ts`
+- Updated redirect tests (lines 197–246) to use named constants instead of inline strings
+- Improves maintainability and consistency with `spaRoutes` array pattern
+
+**L05: Use static test fixture for blog article assertions in routing.spec.ts**
+- Blog article slugs already extracted in prior session (`BLOG_ARTICLE_SLUG`, `BLOG_ARTICLE_NESTED_SLUG`, `BLOG_ARTICLE_FLAT_SLUG`)
+- Documented external dependency on deployed articles with JSDoc comment
+
+**M01: Remove duplicate trackFormSubmit method**
+- Removed `trackFormSubmit()` method from `analytics.dart:190` that duplicated `trackFormSubmission` with hardcoded `success: true`
+- Migrated 2 call sites to `trackFormSubmission(formType:, success: true)`
+- Eliminates parameter hiding and improves API clarity
+- Commit: `8b6321e`
+
+**M02: Extract magic number for consent update wait time**
+- Extracted magic number `500` to named constant `consentWaitForUpdateMs` in `tracking_web.dart:6`
+- Aligns with project rule: no magic numbers or strings
+- Commit: `8b6321e`
+
+**M03: Gate debugPrint on kDebugMode in consent_manager**
+- Wrapped bare `debugPrint('Marketing tracking initialized with consent')` with `if (kDebugMode)` guard
+- Matches pattern in other services; prevents debug output in release builds
+- Commit: `5226961`
+
+**L09: Remove unused fbPixelId constant**
+- Removed unused `const fbPixelId` from `tracking_web.dart:14`
+- Pixel is loaded via `web/js/meta-pixel.js`; constant was redundant
+- Commit: `8b6321e`
+
+**M05: Remove unnecessary Builder wrapper in careers/contact hero sections**
+- Removed `Builder` widget wrapper from `careers_page.dart:53–59` and `contact_page.dart:64–70`
+- `BuildContext` is already available from enclosing `build()` method for `ResponsiveUtils.isMobile()` call
+- Reduces widget hierarchy depth; matches pattern in `status_page` and `features_page`
+
+**M06: Add retry delay comment for CSRF token flow**
+- Added JSDoc comment explaining why CSRF 403 retry branch skips exponential backoff
+- Correct optimization (token refresh doesn't require delay), but differs from 500/504 retry logic; comment prevents future confusion
+- Commit: `5226961`
+
+**L12: Resolve validData shadowing in contact_service_test**
+- Renamed local `const validData` to `const validFormData` in `isFormValid` test (line 214)
+- Eliminates shadowing of group-scope `validData` fixture (line 250)
+- Improves test clarity if tests are reorganized
+
 ---
