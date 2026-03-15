@@ -397,7 +397,11 @@ class ContactService {
               int.tryParse(response.headers.value('retry-after') ?? '');
           final retryAfter =
               retryAfterRaw != null && retryAfterRaw > 0 ? retryAfterRaw : null;
-          final seconds = retryAfter ?? (data['retryAfter'] as int?);
+          final bodyRetryAfter = data['retryAfter'] as int?;
+          final seconds = retryAfter ??
+              (bodyRetryAfter != null && bodyRetryAfter > 0
+                  ? bodyRetryAfter
+                  : null);
           return ContactFormError(
             error: seconds != null
                 ? 'Too many requests. Please try again in $seconds seconds.'
