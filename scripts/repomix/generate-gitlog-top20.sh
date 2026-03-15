@@ -16,6 +16,7 @@ trap 'rm -f "$TMP_OUT"' EXIT
 top_files=$(
   git -C "$REPO_ROOT" log -n "$COMMITS" --name-only --pretty=format: \
     | grep -v '^$' \
+    | grep -v '^docs/' \
     | sort \
     | uniq -c \
     | sort -rn \
