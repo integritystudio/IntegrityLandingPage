@@ -139,9 +139,25 @@ class ContactService {
       'Network error: Unable to submit form. Please try again.';
   static const String _errorUnexpected =
       'An unexpected error occurred. Please try again.';
-  static const String _errorUnableToSubmit = 'Unable to submit form';
+  static const String _errorUnableToSubmit =
+      'Unable to submit form. Please try again.';
+  static const String _errorTooManyRequests =
+      'Too many requests. Please try again later.';
   static const String _errorFormValidation =
       'Please fix the errors in the form';
+
+  static const int _maxServerErrorLength = 200;
+
+  /// Sanitise server-supplied error strings before displaying in UI.
+  /// Guards against reflected content and malformed responses.
+  static String _sanitiseServerError(String? raw, String fallback) {
+    if (raw == null ||
+        raw.trim().isEmpty ||
+        raw.length > _maxServerErrorLength) {
+      return fallback;
+    }
+    return raw;
+  }
 
   static Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 10),
@@ -345,7 +361,10 @@ class ContactService {
           ),
         );
 
-        // CSRF token rejected — refresh and retry
+        // CSRF token rejected — refresh and retry immediately (no backoff).
+        // Unlike transient 500/504 errors, a 403 means the token is stale,
+        // not that the server is overloaded, so a fresh token fetch is the
+        // correct recovery and delay would only hurt UX.
         if (response.statusCode == HttpStatus.forbidden.code) {
           if (attempt < _maxRetries) {
             csrfToken = await _fetchCsrfToken();
@@ -368,7 +387,8 @@ class ContactService {
             continue;
           }
           return ContactFormError(
-            error: data['error'] as String? ?? _errorServerError,
+            error: _sanitiseServerError(
+                data['error'] as String?, _errorServerError),
           );
         }
 
@@ -379,22 +399,23 @@ class ContactService {
           return ContactFormError(
             error: seconds != null
                 ? 'Too many requests. Please try again in $seconds seconds.'
-                : 'Too many requests. Please try again later.',
+                : _errorTooManyRequests,
             retryAfterSeconds: seconds,
           );
         }
 
         if (response.statusCode == HttpStatus.ok.code && data['success'] == true) {
           return ContactFormSuccess(
-            message: data['message'] as String? ??
-                "Thank you for your message! We'll respond within 24 hours.",
+            message: _sanitiseServerError(data['message'] as String?,
+                "Thank you for your message! We'll respond within 24 hours."),
             submissionId: data['submissionId'] as String? ??
                 'sub_${DateTime.now().millisecondsSinceEpoch}',
           );
         } else {
           // Non-retryable: client error or unexpected status
           return ContactFormError(
-            error: data['error'] as String? ?? _errorUnableToSubmit,
+            error: _sanitiseServerError(
+                data['error'] as String?, _errorUnableToSubmit),
           );
         }
       } on DioException catch (e) {
