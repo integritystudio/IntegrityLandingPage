@@ -80,7 +80,7 @@ Future<void> pumpAppWithRoute(
   required String initialLocation,
   Size screenSize = shared.TestScreenSizes.desktop,
 }) async {
-  if (!Content.isLoaded) {
+  if (!ContentLoader.isLoaded) {
     initializeTestContent();
   }
 

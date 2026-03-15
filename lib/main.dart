@@ -84,7 +84,7 @@ Future<void> main() async {
 
   // Load content from YAML before app starts
   try {
-    await Content.load();
+    await ContentLoader.load();
   } on ContentLoadException catch (e, stackTrace) {
     FlutterError.reportError(FlutterErrorDetails(
       exception: e,
