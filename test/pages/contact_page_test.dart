@@ -80,7 +80,7 @@ void main() {
 
       testWidgets('displays headline Get in Touch', (tester) async {
         await pumpContactPage(tester);
-        expect(find.text(ContactContentVariants.heroHeadline), findsWidgets);
+        expect(find.text(ContactContentVariants.heroHeadline), findsNWidgets(2));
       });
 
       testWidgets('displays subheadline about AI observability', (tester) async {
@@ -100,7 +100,7 @@ void main() {
 
       testWidgets('displays Schedule a Demo card', (tester) async {
         await pumpContactPage(tester);
-        expect(find.text('Schedule a Demo'), findsWidgets);
+        expect(find.text('Schedule a Demo'), findsNWidgets(2));
       });
     });
 

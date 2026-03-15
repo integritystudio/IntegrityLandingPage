@@ -183,7 +183,7 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 **Files:** `test/pages/contact_page_test.dart`, `test/pages/careers_page_test.dart`
 
-**Status:** Open.
+**Status:** Done (2026-03-15) — replaced `findsWidgets` with `findsNWidgets(2)` in contact_page_test (both texts appear in desktop+mobile responsive variants). careers_page_test.dart:104 already uses `findsOneWidget`.
 
 ---
 
