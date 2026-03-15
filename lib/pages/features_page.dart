@@ -66,6 +66,7 @@ class _HeroSection extends StatelessWidget {
       subheadline: FeaturesContentVariants.pageSubtitle,
       badge: GradientPillBadge(
         icon: LucideIcons.checkCircle,
+        iconColor: AppColors.success,
         label: FeaturesContentVariants.complianceBadge,
       ),
     );
