@@ -13,6 +13,7 @@ void main() {
   Future<void> pumpDocsAlertsPage(
     WidgetTester tester, {
     VoidCallback? onBack,
+    VoidCallback? onShowCookieSettings,
     bool mobile = false,
   }) async {
     if (mobile) {
