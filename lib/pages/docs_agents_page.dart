@@ -57,57 +57,37 @@ class DocsAgentsPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-          const Wrap(
+          Wrap(
             spacing: AppSpacing.lg,
             runSpacing: AppSpacing.md,
             alignment: WrapAlignment.center,
             children: [
-              _StatBadge(label: 'Tool Calls', value: 'Tracked'),
-              _StatBadge(label: 'Reasoning Chains', value: 'Visualized'),
-              _StatBadge(label: 'Multi-Agent', value: 'Supported'),
+              DocStatCard(
+                value: 'Tracked',
+                label: 'Tool Calls',
+                accentColor: AppColors.purple500,
+                valueStyle: AppTypography.bodyMD.copyWith(color: AppColors.purple500, fontWeight: FontWeight.w600),
+                constraints: const BoxConstraints(),
+              ),
+              DocStatCard(
+                value: 'Visualized',
+                label: 'Reasoning Chains',
+                accentColor: AppColors.purple500,
+                valueStyle: AppTypography.bodyMD.copyWith(color: AppColors.purple500, fontWeight: FontWeight.w600),
+                constraints: const BoxConstraints(),
+              ),
+              DocStatCard(
+                value: 'Supported',
+                label: 'Multi-Agent',
+                accentColor: AppColors.purple500,
+                valueStyle: AppTypography.bodyMD.copyWith(color: AppColors.purple500, fontWeight: FontWeight.w600),
+                constraints: const BoxConstraints(),
+              ),
             ],
           ),
         ],
       ),
       content: const _DocsContent(),
-    );
-  }
-}
-
-class _StatBadge extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _StatBadge({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: AppTypography.bodyMD.copyWith(
-              color: AppColors.purple500,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
-          ),
-        ],
-      ),
     );
   }
 }

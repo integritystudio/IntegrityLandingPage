@@ -513,6 +513,53 @@ function example() {
         BorderRadius.circular(AppSpacing.radiusSM),
       );
     });
+
+    testWidgets('applies custom valueStyle to value text', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        DocStatCard(
+          value: '87%',
+          label: 'Coverage',
+          valueStyle:
+              AppTypography.headingSM.copyWith(color: AppColors.purple400),
+        ),
+      ));
+
+      final valueText = tester.widget<Text>(find.text('87%'));
+      expect(valueText.style?.fontSize, 24); // headingSM fontSize
+      expect(valueText.style?.color, AppColors.purple400);
+    });
+
+    testWidgets('applies custom constraints to container', (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocStatCard(
+          value: '50',
+          label: 'Metrics',
+          constraints: BoxConstraints(minWidth: 140, maxWidth: 180),
+        ),
+      ));
+
+      final container = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(DocStatCard),
+          matching: find.byType(Container).first,
+        ),
+      );
+      expect(
+        container.constraints,
+        const BoxConstraints(minWidth: 140, maxWidth: 180),
+      );
+    });
+
+    testWidgets('valueStyle defaults to headingMD with accentColor',
+        (tester) async {
+      await tester.pumpWidget(testableWidget(
+        const DocStatCard(value: '10', label: 'Default'),
+      ));
+
+      final valueText = tester.widget<Text>(find.text('10'));
+      expect(valueText.style?.fontSize, 36); // headingMD fontSize
+      expect(valueText.style?.color, AppColors.blue400);
+    });
   });
 
   group('DocInlineWarning', () {

@@ -69,10 +69,28 @@ class EuAiActPage extends StatelessWidget {
                 spacing: AppSpacing.md,
                 runSpacing: AppSpacing.md,
                 alignment: WrapAlignment.center,
-                children: const [
-                  _TimelineCard(date: 'Aug 2024', label: 'Act in Force'),
-                  _TimelineCard(date: 'Aug 2025', label: 'GPAI Obligations'),
-                  _TimelineCard(date: 'Aug 2026', label: 'High-Risk Requirements'),
+                children: [
+                  DocStatCard(
+                    value: 'Aug 2024',
+                    label: 'Act in Force',
+                    accentColor: AppColors.purple400,
+                    valueStyle: AppTypography.headingSM.copyWith(color: AppColors.purple400),
+                    constraints: const BoxConstraints(minWidth: 140, maxWidth: 180),
+                  ),
+                  DocStatCard(
+                    value: 'Aug 2025',
+                    label: 'GPAI Obligations',
+                    accentColor: AppColors.purple400,
+                    valueStyle: AppTypography.headingSM.copyWith(color: AppColors.purple400),
+                    constraints: const BoxConstraints(minWidth: 140, maxWidth: 180),
+                  ),
+                  DocStatCard(
+                    value: 'Aug 2026',
+                    label: 'High-Risk Requirements',
+                    accentColor: AppColors.purple400,
+                    valueStyle: AppTypography.headingSM.copyWith(color: AppColors.purple400),
+                    constraints: const BoxConstraints(minWidth: 140, maxWidth: 180),
+                  ),
                 ],
               ),
             ),
@@ -115,48 +133,6 @@ class EuAiActPage extends StatelessWidget {
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TimelineCard extends StatelessWidget {
-  final String date;
-  final String label;
-
-  const _TimelineCard({required this.date, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 140, maxWidth: 180),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            date,
-            style: AppTypography.headingSM.copyWith(
-              color: AppColors.purple400,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            label,
-            style: AppTypography.bodySM.copyWith(
-              color: AppColors.gray400,
-            ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
