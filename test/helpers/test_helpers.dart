@@ -297,6 +297,7 @@ void tearDownOverflowErrorSuppression() {
 typedef PagePumpFunction = Future<void> Function(
   WidgetTester tester, {
   VoidCallback? onBack,
+  VoidCallback? onShowCookieSettings,
   bool mobile,
 });
 

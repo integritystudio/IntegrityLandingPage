@@ -8,7 +8,10 @@ import '../helpers/test_constants.dart';
 import '../helpers/test_helpers.dart';
 
 void main() {
-  setUp(setUpOverflowErrorSuppression);
+  setUp(() {
+    setUpOverflowErrorSuppression();
+    initializeTestContent();
+  });
   tearDown(tearDownOverflowErrorSuppression);
 
   Future<void> pumpFeaturesPage(
@@ -37,14 +40,6 @@ void main() {
     clearOverflowExceptions(tester);
   }
 
-  // PagePumpFunction-compatible wrapper (drops onShowCookieSettings).
-  Future<void> pumpFeaturesPageBase(
-    WidgetTester tester, {
-    VoidCallback? onBack,
-    bool mobile = false,
-  }) =>
-      pumpFeaturesPage(tester, onBack: onBack, mobile: mobile);
-
   group('FeaturesPage', () {
     group('constructor', () {
       testWidgets('creates with default parameters', (tester) async {
@@ -64,7 +59,7 @@ void main() {
     });
 
     group('layout', () {
-      testPageStructure(pumpFeaturesPageBase);
+      testPageStructure(pumpFeaturesPage);
 
       testWidgets('renders SelectionArea for text selection', (tester) async {
         await pumpFeaturesPage(tester);
@@ -73,7 +68,7 @@ void main() {
     });
 
     group('navigation', () {
-      testBackButtonCallback(pumpFeaturesPageBase);
+      testBackButtonCallback(pumpFeaturesPage);
     });
 
     group('hero section', () {
@@ -119,7 +114,7 @@ void main() {
     });
 
     group('responsive layout', () {
-      testResponsiveLayout<FeaturesPage>(pumpFeaturesPageBase, includeTablet: true);
+      testResponsiveLayout<FeaturesPage>(pumpFeaturesPage, includeTablet: true);
     });
   });
 }

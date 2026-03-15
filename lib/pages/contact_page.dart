@@ -63,10 +63,9 @@ class _ContactPageState extends State<ContactPage> {
             SliverToBoxAdapter(
               child: MarketingHeroSection(
                 isMobile: ResponsiveUtils.isMobile(context),
-                badge: const GradientPillBadge(label: "We're Here to Help"),
-                headline: 'Get in Touch',
-                subheadline:
-                    'Have questions about AI observability? Need help with integration? Our team is ready to assist you.',
+                badge: const GradientPillBadge(label: ContactContentVariants.heroBadge),
+                headline: ContactContentVariants.heroHeadline,
+                subheadline: ContactContentVariants.heroSubheadline,
               ),
             ),
             const SliverToBoxAdapter(child: _QuickContactSection()),

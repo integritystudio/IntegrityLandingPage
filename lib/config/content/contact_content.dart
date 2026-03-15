@@ -7,6 +7,13 @@ import 'constants.dart';
 
 /// Contact section content.
 abstract final class ContactContentVariants {
+  // Contact page hero content
+  static const heroBadge = "We're Here to Help";
+  static const heroHeadline = 'Get in Touch';
+  static const heroSubheadline =
+      'Have questions about AI observability? Need help with integration? '
+      'Our team is ready to assist you.';
+
   /// Current production content
   static final current = ContactContent(
     sectionId: 'contact',
