@@ -232,7 +232,7 @@ No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a r
 
 **Files:** `test/pages/contact_page_test.dart`, `test/pages/features_page_test.dart`
 
-**Status:** Done 2026-03-14 — Added 37 page-level smoke tests (20 contact, 17 features) covering hero badge/headline/subheadline, quick contact cards, support info, footer, responsive layout, and back button callback. Also fixed case-sensitive assertion bug in `contact_service_test.dart:960` (`'Gateway Timeout'` vs `'timeout'`).
+**Status:** Done 2026-03-14 — Added 37 page-level smoke tests (20 contact, 17 features) covering hero badge/headline/subheadline, quick contact cards, support info, footer, responsive layout, and back button callback. Also fixed case-sensitive assertion bug in `contact_service_test.dart:960` (`'Gateway Timeout'` vs `'timeout'`). Follow-up refactor (f241d00): extracted hero magic strings to `ContactContentVariants` constants, widened `PagePumpFunction` to accept `onShowCookieSettings` (removing adapter wrappers), added missing `initializeTestContent()` in `features_page_test.dart`.
 
 ---
 
@@ -260,6 +260,30 @@ No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a r
 
 ---
 
+### L13: Use findsOneWidget instead of findsWidgets in page hero assertions
+
+**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer (commit 2bccbb6)
+
+`contact_page_test.dart:90` and `:112` use `findsWidgets` (any count >= 1) for `'Get in Touch'` headline and `'Schedule a Demo'` card title. If a layout bug renders duplicates, the test still passes. Replace with `findsOneWidget` or `findsNWidgets(n)` with the expected count. Audit same pattern across other page tests (`careers_page_test.dart:104`).
+
+**Files:** `test/pages/contact_page_test.dart`, `test/pages/careers_page_test.dart`
+
+**Status:** Open.
+
+---
+
+### L14: Dead hover color branch in _QuickContactCard
+
+**Priority:** P4 | **Source:** session 2026-03-14, code-reviewer (commit 2bccbb6)
+
+`contact_page.dart:165` — `color: _isHovered ? AppColors.gray800 : AppColors.gray800` — both branches identical. The conditional is dead code. Remove the ternary and use `AppColors.gray800` directly.
+
+**File:** `lib/pages/contact_page.dart:165`
+
+**Status:** Open.
+
+---
+
 *Last updated: 2026-03-14 (Phase 3a code-reviewer findings appended; magic number `size: 16` → `AppSpacing.iconSM` fixed)*
 
 *Updated 2026-03-14 (commit 2fce62a code-reviewer findings: M06–M08, L12 appended)*
@@ -267,3 +291,5 @@ No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a r
 *Updated 2026-03-14 (L02, L04, L12, M05 done; L08 closed as invalid)*
 
 *Updated 2026-03-14 (migrated 12 Done items to docs/changelog/1.1/CHANGELOG.md): L01–L05, M01–M03, L09, M05, M06, L12*
+
+*Updated 2026-03-14 (code-reviewer commit 2bccbb6: L13, L14 added; L11 updated with follow-up refactor f241d00)*
