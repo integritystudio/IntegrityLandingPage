@@ -211,7 +211,7 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 ---
 
-*Last updated: 2026-03-15 (Phase 3b done — _TimelineCard, _StatBadge consolidated into DocStatCard)*
+*Last updated: 2026-03-15 (L13, L14, L15 done — findsNWidgets fix, dead ternary removal, buildBadge helper update)*
 
 *Updated 2026-03-15 (L15 appended from L10 code-reviewer findings)*
 
