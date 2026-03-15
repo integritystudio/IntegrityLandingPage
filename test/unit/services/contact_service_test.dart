@@ -1139,6 +1139,11 @@ void main() {
 
       test('uses fallback defaults when success response has null fields',
           () async {
+        when(mockDio.get(any)).thenAnswer((_) async => Response(
+              requestOptions: RequestOptions(path: ''),
+              statusCode: HttpStatus.ok.code,
+              data: {'csrfToken': 'token_abc'},
+            ));
         when(mockDio.post(
           any,
           data: anyNamed('data'),
@@ -1165,7 +1170,7 @@ void main() {
         expect(response, isA<ContactFormSuccess>());
         final success = response as ContactFormSuccess;
         expect(success.message, contains('Thank you'));
-        expect(success.submissionId, startsWith('sub_'));
+        expect(success.submissionId, startsWith('local_'));
       });
 
       // ================================================================

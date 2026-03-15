@@ -12,6 +12,7 @@ void main() {
   Future<void> pumpEuAiActPage(
     WidgetTester tester, {
     VoidCallback? onBack,
+    VoidCallback? onShowCookieSettings,
     bool mobile = false,
   }) async {
     clearOverflowExceptions(tester);

@@ -11,6 +11,7 @@ void main() {
   Future<void> pumpApiToolkitPage(
     WidgetTester tester, {
     VoidCallback? onBack,
+    VoidCallback? onShowCookieSettings,
     bool mobile = false,
   }) async {
     if (mobile) {
