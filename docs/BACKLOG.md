@@ -154,7 +154,7 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 **File:** `lib/services/contact_service.dart:362–377`
 
-**Status:** Deferred — edge case validation.
+**Status:** Done 2026-03-14 — Validated retry-after (header + body) rejects zero/negative; synthetic submissionId prefixed `local_`. 3 new tests added.
 
 ---
 
@@ -166,7 +166,7 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 **File:** `lib/services/analytics.dart:65–71`, `lib/services/facebook_pixel_service.dart:540–545`
 
-**Status:** Deferred — observability gap.
+**Status:** Done 2026-03-14 — Both init catch blocks now `await ErrorTrackingService.captureException()`. facebook_pixel_service.dart was merged into analytics.dart.
 
 ---
 
@@ -178,7 +178,7 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 **File:** `lib/services/content_loader.dart:104`
 
-**Status:** Deferred — test harness robustness.
+**Status:** Done 2026-03-14 — Added `_loadCompleter = null` after `_isLoaded = true` in `loadFromString`. 2436 tests pass.
 
 ---
 
@@ -220,7 +220,7 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 **File:** `lib/widgets/common/gradient_pill_badge.dart:50`
 
-**Status:** Deferred — API extensibility.
+**Status:** Done 2026-03-14 — Added `iconColor` param (default `AppColors.blue400`). Features page passes `AppColors.success` explicitly. 2 new tests.
 
 ---
 
@@ -256,7 +256,7 @@ No `contact_page_test.dart` or `features_page_test.dart` exist. After Phase 3a r
 
 **File:** `lib/services/contact_service.dart:266`
 
-**Status:** Deferred — type safety improvement.
+**Status:** Done 2026-03-14 — Added `is! Map` guard before cast; returns null gracefully instead of TypeError.
 
 ---
 
