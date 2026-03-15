@@ -161,7 +161,7 @@ class _QuickContactCardState extends State<_QuickContactCard> {
             width: 280,
           padding: const EdgeInsets.all(AppSpacing.xl),
           decoration: BoxDecoration(
-            color: _isHovered ? AppColors.gray800 : AppColors.gray800,
+            color: AppColors.gray800,
             borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
             border: Border.all(
               color: _isHovered ? AppColors.blue500 : AppColors.gray700,

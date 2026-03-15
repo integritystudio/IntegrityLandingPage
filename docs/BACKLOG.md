@@ -195,7 +195,7 @@ Consolidate `_StatCard`, `_StatBadge`, and `_TimelineCard` variants with the exi
 
 **File:** `lib/pages/contact_page.dart:165`
 
-**Status:** Open.
+**Status:** Done (2026-03-15) — removed dead ternary, using `AppColors.gray800` directly.
 
 ---
 
