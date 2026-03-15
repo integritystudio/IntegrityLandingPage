@@ -393,8 +393,10 @@ class ContactService {
         }
 
         if (response.statusCode == HttpStatus.tooManyRequests.code) {
-          final retryAfter =
+          final retryAfterRaw =
               int.tryParse(response.headers.value('retry-after') ?? '');
+          final retryAfter =
+              retryAfterRaw != null && retryAfterRaw > 0 ? retryAfterRaw : null;
           final seconds = retryAfter ?? (data['retryAfter'] as int?);
           return ContactFormError(
             error: seconds != null
@@ -409,7 +411,7 @@ class ContactService {
             message: _sanitiseServerError(data['message'] as String?,
                 "Thank you for your message! We'll respond within 24 hours."),
             submissionId: data['submissionId'] as String? ??
-                'sub_${DateTime.now().millisecondsSinceEpoch}',
+                'local_${DateTime.now().millisecondsSinceEpoch}',
           );
         } else {
           // Non-retryable: client error or unexpected status

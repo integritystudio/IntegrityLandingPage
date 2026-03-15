@@ -359,6 +359,56 @@ void main() {
       expect(error.retryAfterSeconds, isNull);
     });
 
+    test('handles 429 with zero Retry-After header', () async {
+      mockDio.mockGetResponse({'csrfToken': 'test_token'});
+      mockDio.mockPostResponse(
+        {'error': 'Too many requests'},
+        statusCode: 429,
+        headers: {'retry-after': ['0']},
+      );
+
+      final payload = ContactFormPayload(formData: validData);
+      final response = await ContactService.submitForm(payload);
+
+      expect(response, isA<ContactFormError>());
+      final error = response as ContactFormError;
+      expect(error.error, contains('try again later'));
+      expect(error.retryAfterSeconds, isNull);
+    });
+
+    test('handles 429 with negative Retry-After header', () async {
+      mockDio.mockGetResponse({'csrfToken': 'test_token'});
+      mockDio.mockPostResponse(
+        {'error': 'Too many requests'},
+        statusCode: 429,
+        headers: {'retry-after': ['-5']},
+      );
+
+      final payload = ContactFormPayload(formData: validData);
+      final response = await ContactService.submitForm(payload);
+
+      expect(response, isA<ContactFormError>());
+      final error = response as ContactFormError;
+      expect(error.error, contains('try again later'));
+      expect(error.retryAfterSeconds, isNull);
+    });
+
+    test('generates local_ prefix for synthetic submissionId', () async {
+      mockDio.mockGetResponse({'csrfToken': 'test_token'});
+      mockDio.mockPostResponse({
+        'success': true,
+        'message': 'Thank you!',
+        // No submissionId in response — triggers fallback
+      });
+
+      final payload = ContactFormPayload(formData: validData);
+      final response = await ContactService.submitForm(payload);
+
+      expect(response, isA<ContactFormSuccess>());
+      final success = response as ContactFormSuccess;
+      expect(success.submissionId, startsWith('local_'));
+    });
+
     test('handles 504 gateway timeout from worker', () async {
       mockDio.mockGetResponse({'csrfToken': 'test_token'});
       mockDio.mockPostResponse(
