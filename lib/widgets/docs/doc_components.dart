@@ -339,6 +339,8 @@ class DocStatCard extends StatelessWidget {
   final Color? backgroundColor;
   final Color? borderColor;
   final double? borderRadius;
+  final TextStyle? valueStyle;
+  final BoxConstraints? constraints;
 
   const DocStatCard({
     super.key,
@@ -348,6 +350,8 @@ class DocStatCard extends StatelessWidget {
     this.backgroundColor,
     this.borderColor,
     this.borderRadius,
+    this.valueStyle,
+    this.constraints,
   });
 
   @override
@@ -357,7 +361,7 @@ class DocStatCard extends StatelessWidget {
       label: '$value $label',
       container: true,
       child: Container(
-        constraints: const BoxConstraints(minWidth: 140, maxWidth: 160),
+        constraints: constraints ?? const BoxConstraints(minWidth: 140, maxWidth: 160),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
           vertical: AppSpacing.md,
@@ -372,7 +376,7 @@ class DocStatCard extends StatelessWidget {
           children: [
             Text(
               value,
-              style: AppTypography.headingMD.copyWith(color: color),
+              style: valueStyle ?? AppTypography.headingMD.copyWith(color: color),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
