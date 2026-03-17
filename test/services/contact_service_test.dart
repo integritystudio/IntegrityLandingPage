@@ -437,6 +437,8 @@ void main() {
       expect(response, isA<ContactFormError>());
       final error = response as ContactFormError;
       expect(error.error, 'Internal server error');
+      // 1 initial attempt + 2 retries = 3 total POST calls
+      expect(mockDio.postCallCount, equals(3));
     });
 
     test('handles unexpected status codes gracefully', () async {
@@ -571,6 +573,7 @@ class _MockDio implements Dio {
   Map<String, List<String>> _mockPostHeaders = {};
   DioExceptionType? _mockPostError;
   int getCallCount = 0;
+  int postCallCount = 0;
 
   void mockGetResponse(Map<String, dynamic> data) {
     _mockGetResponseData = data;
@@ -618,6 +621,7 @@ class _MockDio implements Dio {
     ProgressCallback? onSendProgress,
     ProgressCallback? onReceiveProgress,
   }) async {
+    postCallCount++;
     if (_mockPostError != null) {
       throw DioException(
         type: _mockPostError!,
