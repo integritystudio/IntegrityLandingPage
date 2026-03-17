@@ -142,7 +142,7 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 **File:** `test/services/contact_service_test.dart:377–390`
 
-**Status:** Done — `f921d20` (2026-03-17). Added `postCallCount` to `_MockDio`, asserted `== 3`.
+**Status:** Done — `f921d20` (2026-03-17). Added `postCallCount` to `_MockDio`, asserted `== 3`. Extended in `44a2450` to cover 504, connectionTimeout, receiveTimeout retry paths.
 
 ---
 
@@ -208,7 +208,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-17 (completed #134, M07, #138)*
+*Last updated: 2026-03-17 (completed #134, M07, #138; review fixes in 44a2450)*
 
 *Previous: 2026-03-15 (Phase 3b done, L15 appended)*
 
