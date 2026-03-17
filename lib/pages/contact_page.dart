@@ -8,9 +8,8 @@ import '../services/content_loader.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/gradient_pill_badge.dart';
-import '../widgets/navigation/shared_app_bar.dart';
+import '../widgets/navigation/sub_page_shell.dart';
 import '../widgets/sections/contact_section.dart';
-import '../widgets/sections/footer_section.dart';
 import '../widgets/sections/marketing_hero_section.dart';
 
 /// Standalone contact page with multiple contact options.
@@ -37,48 +36,31 @@ class ContactPage extends StatefulWidget {
 }
 
 class _ContactPageState extends State<ContactPage> {
-  final ScrollController _scrollController = ScrollController();
-
   @override
   void initState() {
     super.initState();
+    // analyticsPageName not used — trackPageView requires ref: param for contact attribution
     AnalyticsService.trackPageView('contact', ref: widget.ref);
   }
 
   @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.gray900,
-      body: SelectionArea(
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            SharedAppBar.subPage(onBack: widget.onBack),
-            SliverToBoxAdapter(
-              child: MarketingHeroSection(
-                isMobile: ResponsiveUtils.isMobile(context),
-                badge: const GradientPillBadge(label: ContactContentVariants.heroBadge),
-                headline: ContactContentVariants.heroHeadline,
-                subheadline: ContactContentVariants.heroSubheadline,
-              ),
-            ),
-            const SliverToBoxAdapter(child: _QuickContactSection()),
-            SliverToBoxAdapter(child: ContactSection(ref: widget.ref)),
-            const SliverToBoxAdapter(child: _SupportInfoSection()),
-            SliverToBoxAdapter(
-              child: FooterSection(
-                onCookieSettings: widget.onShowCookieSettings,
-              ),
-            ),
-          ],
+    return SubPageShell(
+      onBack: widget.onBack,
+      onShowCookieSettings: widget.onShowCookieSettings,
+      slivers: [
+        SliverToBoxAdapter(
+          child: MarketingHeroSection(
+            isMobile: ResponsiveUtils.isMobile(context),
+            badge: const GradientPillBadge(label: ContactContentVariants.heroBadge),
+            headline: ContactContentVariants.heroHeadline,
+            subheadline: ContactContentVariants.heroSubheadline,
+          ),
         ),
-      ),
+        const SliverToBoxAdapter(child: _QuickContactSection()),
+        SliverToBoxAdapter(child: ContactSection(ref: widget.ref)),
+        const SliverToBoxAdapter(child: _SupportInfoSection()),
+      ],
     );
   }
 }

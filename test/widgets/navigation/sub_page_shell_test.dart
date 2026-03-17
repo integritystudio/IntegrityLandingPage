@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/navigation/sub_page_shell.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
+import 'package:integrity_studio_ai/services/analytics.dart';
 import '../../helpers/test_helpers.dart';
 
 void main() {
@@ -14,6 +15,7 @@ void main() {
     VoidCallback? onBack,
     List<Widget> slivers = const [],
     bool mobile = false,
+    String? analyticsPageName,
   }) async {
     if (mobile) {
       setMobileSize(tester);
@@ -26,6 +28,7 @@ void main() {
         home: SubPageShell(
           onBack: onBack,
           slivers: slivers,
+          analyticsPageName: analyticsPageName,
         ),
       ),
     );
@@ -96,6 +99,86 @@ void main() {
       testWidgets('renders on desktop viewport', (tester) async {
         await pumpShell(tester, mobile: false);
         expect(find.byType(SubPageShell), findsOneWidget);
+      });
+    });
+
+    group('analytics', () {
+      setUp(() {
+        AnalyticsService.enableCallLog();
+      });
+
+      tearDown(() {
+        AnalyticsService.resetForTesting();
+      });
+
+      testWidgets('tracks page view when analyticsPageName is provided',
+          (tester) async {
+        await pumpShell(tester, analyticsPageName: 'test_page');
+
+        expect(AnalyticsService.callLog, isNotNull);
+        expect(
+          AnalyticsService.callLog!.any(
+            (entry) =>
+                entry.event == AnalyticsEvent.pageView &&
+                entry.params['page_title'] == 'test_page',
+          ),
+          isTrue,
+        );
+      });
+
+      testWidgets('does not track page view when analyticsPageName is null',
+          (tester) async {
+        await pumpShell(tester);
+
+        expect(AnalyticsService.callLog, isEmpty);
+      });
+
+      testWidgets('tracks page view only once on rebuild', (tester) async {
+        await pumpShell(tester, analyticsPageName: 'test_page');
+
+        // Trigger a rebuild by pumping again (simulates resize / setState)
+        await tester.pump();
+
+        final pageViewCount = AnalyticsService.callLog!
+            .where((entry) => entry.event == AnalyticsEvent.pageView)
+            .length;
+
+        expect(pageViewCount, equals(1));
+      });
+
+      testWidgets('tracks new page view when analyticsPageName changes',
+          (tester) async {
+        setDesktopSize(tester);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: SubPageShell(
+              slivers: const [],
+              analyticsPageName: 'page_a',
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // Change analyticsPageName via rebuild
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: SubPageShell(
+              slivers: const [],
+              analyticsPageName: 'page_b',
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final pageViews = AnalyticsService.callLog!
+            .where((entry) => entry.event == AnalyticsEvent.pageView)
+            .toList();
+
+        expect(pageViews.length, equals(2));
+        expect(pageViews[0].params['page_title'], equals('page_a'));
+        expect(pageViews[1].params['page_title'], equals('page_b'));
       });
     });
   });

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
-import '../services/analytics.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/common/gradient_pill_badge.dart';
 import '../widgets/navigation/sub_page_shell.dart';
@@ -11,7 +10,7 @@ import '../widgets/sections/marketing_hero_section.dart';
 /// Features page displaying detailed platform capabilities.
 ///
 /// Content sourced from observability-toolkit audit documentation.
-class FeaturesPage extends StatefulWidget {
+class FeaturesPage extends StatelessWidget {
   final VoidCallback? onBack;
   final VoidCallback? onShowCookieSettings;
 
@@ -22,23 +21,13 @@ class FeaturesPage extends StatefulWidget {
   });
 
   @override
-  State<FeaturesPage> createState() => _FeaturesPageState();
-}
-
-class _FeaturesPageState extends State<FeaturesPage> {
-  @override
-  void initState() {
-    super.initState();
-    AnalyticsService.trackPageView('features');
-  }
-
-  @override
   Widget build(BuildContext context) {
     final isMobile = ResponsiveUtils.isMobile(context);
 
     return SubPageShell(
-      onBack: widget.onBack,
-      onShowCookieSettings: widget.onShowCookieSettings,
+      onBack: onBack,
+      onShowCookieSettings: onShowCookieSettings,
+      analyticsPageName: 'features',
       slivers: [
         SliverToBoxAdapter(child: _HeroSection(isMobile: isMobile)),
         SliverToBoxAdapter(child: _ScoresSection(isMobile: isMobile)),

@@ -4,13 +4,11 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
-import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/decorative/animated_orb.dart';
-import '../widgets/navigation/shared_app_bar.dart';
-import '../widgets/sections/footer_section.dart';
+import '../widgets/navigation/sub_page_shell.dart';
 
 /// Dedicated About page with visually engaging design.
 ///
@@ -25,7 +23,7 @@ import '../widgets/sections/footer_section.dart';
 ///
 /// Design inspired by enterprise SaaS aesthetics with dark theme,
 /// gradient accents, and split layouts.
-class AboutPage extends StatefulWidget {
+class AboutPage extends StatelessWidget {
   final VoidCallback? onBack;
   final VoidCallback? onShowCookieSettings;
 
@@ -36,83 +34,51 @@ class AboutPage extends StatefulWidget {
   });
 
   @override
-  State<AboutPage> createState() => _AboutPageState();
-}
-
-class _AboutPageState extends State<AboutPage> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    AnalyticsService.trackPageView('about');
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.gray900,
-      body: SelectionArea(
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            // App bar
-            SharedAppBar.subPage(onBack: widget.onBack),
-
-            // Hero Section
-            SliverToBoxAdapter(
-              child: _AboutHeroSection(
-                onGetStarted: () => context.go('/demo'),
-              ),
-            ),
-
-            // By the Numbers
-            const SliverToBoxAdapter(
-              child: _StatsSection(),
-            ),
-
-            // Mission & Vision
-            const SliverToBoxAdapter(
-              child: _MissionVisionSection(),
-            ),
-
-            // Our Story Timeline
-            const SliverToBoxAdapter(
-              child: _StoryTimelineSection(),
-            ),
-
-            // Our Values
-            const SliverToBoxAdapter(
-              child: _ValuesSection(),
-            ),
-
-            // Meet the Team
-            const SliverToBoxAdapter(
-              child: _TeamSection(),
-            ),
-
-            // CTA Section
-            SliverToBoxAdapter(
-              child: _AboutCTASection(
-                onScheduleDemo: () => context.go('/demo'),
-              ),
-            ),
-
-            // Footer
-            SliverToBoxAdapter(
-              child: FooterSection(
-                onCookieSettings: widget.onShowCookieSettings,
-              ),
-            ),
-          ],
+    return SubPageShell(
+      onBack: onBack,
+      onShowCookieSettings: onShowCookieSettings,
+      analyticsPageName: 'about',
+      slivers: [
+        // Hero Section
+        SliverToBoxAdapter(
+          child: _AboutHeroSection(
+            onGetStarted: () => context.go('/demo'),
+          ),
         ),
-      ),
+
+        // By the Numbers
+        const SliverToBoxAdapter(
+          child: _StatsSection(),
+        ),
+
+        // Mission & Vision
+        const SliverToBoxAdapter(
+          child: _MissionVisionSection(),
+        ),
+
+        // Our Story Timeline
+        const SliverToBoxAdapter(
+          child: _StoryTimelineSection(),
+        ),
+
+        // Our Values
+        const SliverToBoxAdapter(
+          child: _ValuesSection(),
+        ),
+
+        // Meet the Team
+        const SliverToBoxAdapter(
+          child: _TeamSection(),
+        ),
+
+        // CTA Section
+        SliverToBoxAdapter(
+          child: _AboutCTASection(
+            onScheduleDemo: () => context.go('/demo'),
+          ),
+        ),
+      ],
     );
   }
 }

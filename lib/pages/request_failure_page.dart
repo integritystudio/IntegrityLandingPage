@@ -3,14 +3,12 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
-import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/status_icon.dart';
-import '../widgets/navigation/shared_app_bar.dart';
-import '../widgets/sections/footer_section.dart';
+import '../widgets/navigation/sub_page_shell.dart';
 
 /// Failure page shown when a contact form submission fails.
-class RequestFailurePage extends StatefulWidget {
+class RequestFailurePage extends StatelessWidget {
   final VoidCallback? onBack;
   final VoidCallback? onShowCookieSettings;
 
@@ -21,42 +19,14 @@ class RequestFailurePage extends StatefulWidget {
   });
 
   @override
-  State<RequestFailurePage> createState() => _RequestFailurePageState();
-}
-
-class _RequestFailurePageState extends State<RequestFailurePage> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    AnalyticsService.trackPageView('request_failure');
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.gray900,
-      body: SelectionArea(
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            SharedAppBar.subPage(onBack: widget.onBack),
-            const SliverToBoxAdapter(child: _FailureHeroSection()),
-            SliverToBoxAdapter(
-              child: FooterSection(
-                onCookieSettings: widget.onShowCookieSettings,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return SubPageShell(
+      onBack: onBack,
+      onShowCookieSettings: onShowCookieSettings,
+      analyticsPageName: 'request_failure',
+      slivers: const [
+        SliverToBoxAdapter(child: _FailureHeroSection()),
+      ],
     );
   }
 }
@@ -71,7 +41,7 @@ class _FailureHeroSection extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: AppSpacing.containerPadding(context),
-        vertical: isMobile ? 48 : 80,
+        vertical: AppSpacing.sectionPadding(context),
       ),
       constraints: BoxConstraints(
         minHeight: MediaQuery.of(context).size.height * 0.6,

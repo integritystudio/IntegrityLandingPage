@@ -4,9 +4,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
-import '../widgets/navigation/shared_app_bar.dart';
+import '../widgets/navigation/sub_page_shell.dart';
 import '../widgets/sections/pricing_section.dart';
-import '../widgets/sections/footer_section.dart';
 
 /// Standalone pricing page with full pricing details.
 ///
@@ -15,7 +14,7 @@ import '../widgets/sections/footer_section.dart';
 /// - Full pricing tier comparison
 /// - FAQ section
 /// - CTA to contact sales
-class PricingPage extends StatefulWidget {
+class PricingPage extends StatelessWidget {
   final VoidCallback? onBack;
   final VoidCallback? onShowCookieSettings;
 
@@ -25,67 +24,38 @@ class PricingPage extends StatefulWidget {
     this.onShowCookieSettings,
   });
 
-  @override
-  State<PricingPage> createState() => _PricingPageState();
-}
-
-class _PricingPageState extends State<PricingPage> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    AnalyticsService.trackPageView('pricing');
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
+  void _handleSelectTier(BuildContext context, String tier) {
+    AnalyticsService.trackPricingView(tier);
+    context.go('/signup?tier=$tier');
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.gray900,
-      body: SelectionArea(
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            SharedAppBar.subPage(onBack: widget.onBack),
-            SliverToBoxAdapter(
-              key: const Key('pricing-hero-section'),
-              child: const _PricingHeroSection(),
-            ),
-            SliverToBoxAdapter(
-              key: const Key('pricing-tiers-section'),
-              child: PricingSection(
-                onSelectTier: (tier) => _handleSelectTier(context, tier),
-              ),
-            ),
-            SliverToBoxAdapter(
-              key: const Key('faq-section'),
-              child: const _FAQSection(),
-            ),
-            SliverToBoxAdapter(
-              key: const Key('pricing-cta-section'),
-              child: const _PricingCTASection(),
-            ),
-            SliverToBoxAdapter(
-              key: const Key('footer-section'),
-              child: FooterSection(
-                onCookieSettings: widget.onShowCookieSettings,
-              ),
-            ),
-          ],
+    return SubPageShell(
+      onBack: onBack,
+      onShowCookieSettings: onShowCookieSettings,
+      analyticsPageName: 'pricing',
+      slivers: [
+        SliverToBoxAdapter(
+          key: const Key('pricing-hero-section'),
+          child: const _PricingHeroSection(),
         ),
-      ),
+        SliverToBoxAdapter(
+          key: const Key('pricing-tiers-section'),
+          child: PricingSection(
+            onSelectTier: (tier) => _handleSelectTier(context, tier),
+          ),
+        ),
+        SliverToBoxAdapter(
+          key: const Key('faq-section'),
+          child: const _FAQSection(),
+        ),
+        SliverToBoxAdapter(
+          key: const Key('pricing-cta-section'),
+          child: const _PricingCTASection(),
+        ),
+      ],
     );
-  }
-
-  void _handleSelectTier(BuildContext context, String tier) {
-    AnalyticsService.trackPricingView(tier);
-    context.go('/signup?tier=$tier');
   }
 }
 
@@ -99,7 +69,7 @@ class _PricingHeroSection extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: AppSpacing.containerPadding(context),
-        vertical: isMobile ? 48 : 80,
+        vertical: AppSpacing.sectionPadding(context),
       ),
       decoration: BoxDecoration(
         gradient: LinearGradient(

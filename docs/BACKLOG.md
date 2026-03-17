@@ -146,7 +146,69 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 ---
 
-*Last updated: 2026-03-15 (migrated L08 closed, L13, L14, L15, Phase 3b done to changelog)*
+## Code Quality: UI Widget Duplication Investigation
+
+### #134: Investigate and Consolidate Duplicated Page Scaffold Pattern
+
+**Priority:** P2 | **Source:** `scripts/find_duplication.sh` run 2026-03-17 (54 similar pairs found)
+
+8 page widgets share a near-identical scaffold/build pattern (78% similar): `AboutPage`, `CareersPage`, `FeaturesPage`, `PricingPage`, `RequestFailurePage`, `RequestSuccessPage`, `StatusPage`, `ContactPage`. Extract a shared base page scaffold widget or mixin to eliminate boilerplate.
+
+**Files:** `lib/pages/{about,careers,features,pricing,request_failure,request_success,status,contact}_page.dart`
+**Impl doc:** `docs/duplication/134-page-scaffold.md`
+**Status:** Open
+
+---
+
+### #135: Investigate and Consolidate Duplicated Button Widget Constructors
+
+**Priority:** P2 | **Source:** `scripts/find_duplication.sh` run 2026-03-17
+
+4 button widgets in `buttons.dart` have 75–85% similar constructors: `AnimatedGradientBorderButton`, `GradientButton`, `OutlineButton`, `AppTextButton`. Evaluate extracting shared parameter handling or a common base class.
+
+**Files:** `lib/widgets/common/buttons.dart`
+**Impl doc:** `docs/duplication/135-button-constructors.md`
+**Status:** Open
+
+---
+
+### #136: Investigate and Consolidate Duplicated Info Card Patterns
+
+**Priority:** P3 | **Source:** `scripts/find_duplication.sh` run 2026-03-17
+
+Multiple card-style widgets share Container+decoration+Column layout (70–78% similar): `_MethodologyCard` (sources), `_TechSection` (status), `_FeatureItem` (features), `_ChannelCard` / `_AlertTypeCard` (docs_alerts), `_HealthMetricCard` (docs_quickstart), `DocFeatureCard` (doc_components), `_ResourceLink` (compliance). Evaluate a shared `InfoCard` or `ContentCard` widget.
+
+**Files:** `lib/pages/{sources,status,features,docs_alerts,docs_quickstart,compliance}_page.dart`, `lib/widgets/docs/doc_components.dart`
+**Impl doc:** `docs/duplication/136-info-card-pattern.md`
+**Status:** Open
+
+---
+
+### #137: Investigate and Consolidate Duplicated Chip/Badge Patterns
+
+**Priority:** P3 | **Source:** `scripts/find_duplication.sh` run 2026-03-17
+
+Badge and chip widgets share similar Container+Row+decoration layout (71–75% similar): `_HeroBadge` (status), `_AlertTypePreview` (docs_alerts), `_HealthComponentChip` (status), `_DifferentiatorCard` (comparison), `_StatusChip` (status), `TrustBadge` / `_TrustIndicator` (hero_section). Evaluate a shared badge/chip base widget.
+
+**Files:** `lib/pages/{status,docs_alerts,comparison}_page.dart`, `lib/widgets/common/trust_badge.dart`, `lib/widgets/sections/hero_section.dart`
+**Impl doc:** `docs/duplication/137-chip-badge-pattern.md`
+**Status:** Open
+
+---
+
+### #138: Investigate Timeline vs DocNumberedList Duplication
+
+**Priority:** P3 | **Source:** `scripts/find_duplication.sh` run 2026-03-17
+
+`_Timeline` (docs_tracing_page) and `DocNumberedList` (doc_components) are 71% similar — both render ordered vertical lists with numbered indicators. Evaluate whether `_Timeline` can be refactored to use `DocNumberedList` or a shared base.
+
+**Files:** `lib/pages/docs_tracing_page.dart`, `lib/widgets/docs/doc_components.dart`
+**Impl doc:** `docs/duplication/138-timeline-numbered-list.md`
+**Status:** Open
+
+---
+
+*Last updated: 2026-03-17 (added #134–#138 UI duplication investigation items)*
 
 *Previous: 2026-03-15 (Phase 3b done, L15 appended)*
 

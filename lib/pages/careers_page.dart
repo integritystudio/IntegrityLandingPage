@@ -6,12 +6,11 @@ import '../theme/theme.dart';
 import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/gradient_pill_badge.dart';
-import '../widgets/navigation/shared_app_bar.dart';
-import '../widgets/sections/footer_section.dart';
+import '../widgets/navigation/sub_page_shell.dart';
 import '../widgets/sections/marketing_hero_section.dart';
 
 /// Careers page - displays open positions and recruitment info.
-class CareersPage extends StatefulWidget {
+class CareersPage extends StatelessWidget {
   final VoidCallback? onBack;
   final VoidCallback? onShowCookieSettings;
 
@@ -22,52 +21,24 @@ class CareersPage extends StatefulWidget {
   });
 
   @override
-  State<CareersPage> createState() => _CareersPageState();
-}
-
-class _CareersPageState extends State<CareersPage> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    AnalyticsService.trackPageView('careers');
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.gray900,
-      body: SelectionArea(
-        child: CustomScrollView(
-          controller: _scrollController,
-          slivers: [
-            SharedAppBar.subPage(onBack: widget.onBack),
-            SliverToBoxAdapter(
-              child: MarketingHeroSection(
-                isMobile: ResponsiveUtils.isMobile(context),
-                badge: const GradientPillBadge(label: 'Join Our Team'),
-                headline: 'Careers at Integrity Studio',
-                subheadline:
-                    'Help us build the future of AI observability and empower teams to ship reliable AI applications.',
-              ),
-            ),
-            const SliverToBoxAdapter(child: _NoOpeningsSection()),
-            const SliverToBoxAdapter(child: _KeepInTouchSection()),
-            SliverToBoxAdapter(
-              child: FooterSection(
-                onCookieSettings: widget.onShowCookieSettings,
-              ),
-            ),
-          ],
+    return SubPageShell(
+      onBack: onBack,
+      onShowCookieSettings: onShowCookieSettings,
+      analyticsPageName: 'careers',
+      slivers: [
+        SliverToBoxAdapter(
+          child: MarketingHeroSection(
+            isMobile: ResponsiveUtils.isMobile(context),
+            badge: const GradientPillBadge(label: 'Join Our Team'),
+            headline: 'Careers at Integrity Studio',
+            subheadline:
+                'Help us build the future of AI observability and empower teams to ship reliable AI applications.',
+          ),
         ),
-      ),
+        const SliverToBoxAdapter(child: _NoOpeningsSection()),
+        const SliverToBoxAdapter(child: _KeepInTouchSection()),
+      ],
     );
   }
 }
