@@ -168,7 +168,7 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 **Files:** `lib/widgets/common/buttons.dart`
 **Impl doc:** `docs/duplication/135-button-constructors.md`
-**Status:** Open
+**Status:** Done — `f28cc6c` (2026-03-17). Extracted `BaseActionButton` abstract class, 3 buttons use super.* params. AppTextButton excluded (different fields). 21 new tests, 2492 pass.
 
 ---
 
@@ -208,7 +208,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-17 (completed #134, M07, #137, #138; review fixes in 44a2450)*
+*Last updated: 2026-03-17 (completed #134, #135, M07, #137, #138; review fixes in 44a2450)*
 
 *Previous: 2026-03-15 (Phase 3b done, L15 appended)*
 
