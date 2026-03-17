@@ -192,7 +192,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **Files:** `lib/pages/{status,docs_alerts,comparison}_page.dart`, `lib/widgets/common/trust_badge.dart`, `lib/widgets/sections/hero_section.dart`
 **Impl doc:** `docs/duplication/137-chip-badge-pattern.md`
-**Status:** Open
+**Status:** Done — `3c24e23` (2026-03-17). Extracted `ChipBadge`, replaced 4 widgets (_HeroBadge, _StatusChip, _HealthComponentChip, _AlertTypePreview). TrustBadge/TrustIndicator/DifferentiatorCard excluded (too different). -91 lines, 2471 tests pass.
 
 ---
 
@@ -208,7 +208,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-17 (completed #134, M07, #138; review fixes in 44a2450)*
+*Last updated: 2026-03-17 (completed #134, M07, #137, #138; review fixes in 44a2450)*
 
 *Previous: 2026-03-15 (Phase 3b done, L15 appended)*
 
