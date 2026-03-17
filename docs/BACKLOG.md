@@ -204,11 +204,11 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **Files:** `lib/pages/docs_tracing_page.dart`, `lib/widgets/docs/doc_components.dart`
 **Impl doc:** `docs/duplication/138-timeline-numbered-list.md`
-**Status:** Open
+**Status:** Done — `0d30da6` (2026-03-17). Extracted `VerticalIndicatorList`, refactored both widgets. -20 lines, 2456 tests pass.
 
 ---
 
-*Last updated: 2026-03-17 (completed #134, M07)*
+*Last updated: 2026-03-17 (completed #134, M07, #138)*
 
 *Previous: 2026-03-15 (Phase 3b done, L15 appended)*
 
