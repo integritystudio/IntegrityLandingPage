@@ -142,7 +142,7 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 **File:** `test/services/contact_service_test.dart:377–390`
 
-**Status:** Deferred — test coverage gap.
+**Status:** Done — `f921d20` (2026-03-17). Added `postCallCount` to `_MockDio`, asserted `== 3`.
 
 ---
 
@@ -156,7 +156,7 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 **Files:** `lib/pages/{about,careers,features,pricing,request_failure,request_success,status,contact}_page.dart`
 **Impl doc:** `docs/duplication/134-page-scaffold.md`
-**Status:** Open
+**Status:** Done — `bafeb87` (2026-03-17). Moved analytics into `SubPageShell`, refactored 7 pages. -155 lines, 2444 tests pass.
 
 ---
 
@@ -208,7 +208,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-17 (added #134–#138 UI duplication investigation items)*
+*Last updated: 2026-03-17 (completed #134, M07)*
 
 *Previous: 2026-03-15 (Phase 3b done, L15 appended)*
 
