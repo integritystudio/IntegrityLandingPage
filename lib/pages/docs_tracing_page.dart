@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
+import '../widgets/common/vertical_indicator_list.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
@@ -480,69 +481,62 @@ class _Timeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: items.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
+    return VerticalIndicatorList(
+      itemCount: items.length,
+      indicatorBuilder: (index) {
         final isLast = index == items.length - 1;
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        return Column(
           children: [
-            Column(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: AppColors.blue500,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                if (!isLast)
-                  Container(
-                    width: 2,
-                    height: 60,
-                    color: AppColors.blue500.withValues(alpha: 0.3),
-                  ),
-              ],
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.date,
-                      style: AppTypography.bodySM.copyWith(
-                        color: AppColors.blue400,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.title,
-                      style: AppTypography.bodyMD.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.description,
-                      style: AppTypography.bodySM.copyWith(
-                        color: AppColors.gray400,
-                      ),
-                    ),
-                  ],
-                ),
+            Container(
+              width: 12,
+              height: 12,
+              decoration: const BoxDecoration(
+                color: AppColors.blue500,
+                shape: BoxShape.circle,
               ),
             ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 60,
+                color: AppColors.blue500.withValues(alpha: 0.3),
+              ),
           ],
         );
-      }).toList(),
+      },
+      contentBuilder: (index, isLast) {
+        final item = items[index];
+        return Padding(
+          padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.date,
+                style: AppTypography.bodySM.copyWith(
+                  color: AppColors.blue400,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.title,
+                style: AppTypography.bodyMD.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.description,
+                style: AppTypography.bodySM.copyWith(
+                  color: AppColors.gray400,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

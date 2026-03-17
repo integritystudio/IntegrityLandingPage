@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../theme/theme.dart';
+import '../common/vertical_indicator_list.dart';
 
 // ---------------------------------------------------------------------------
 // Doc component constants
@@ -408,50 +409,35 @@ class DocNumberedList extends StatelessWidget {
     return Semantics(
       label: 'Steps: ${items.length} items',
       container: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: items.asMap().entries.map((entry) {
-        final index = entry.key + 1;
-        final item = entry.value;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    '$index',
-                    style: AppTypography.bodySM.copyWith(
-                      color: color.withValues(alpha: 0.9),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    item,
-                    style: AppTypography.bodyMD.copyWith(
-                      color: AppColors.gray300,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+      child: VerticalIndicatorList(
+        itemCount: items.length,
+        indicatorBuilder: (index) => Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.2),
+            shape: BoxShape.circle,
           ),
-        );
-      }).toList(),
-    ),
+          child: Center(
+            child: Text(
+              '${index + 1}',
+              style: AppTypography.bodySM.copyWith(
+                color: color.withValues(alpha: 0.9),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        contentBuilder: (index, isLast) => Padding(
+          padding: EdgeInsets.only(top: 2, bottom: isLast ? AppSpacing.md : 0),
+          child: Text(
+            items[index],
+            style: AppTypography.bodyMD.copyWith(
+              color: AppColors.gray300,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
