@@ -7,6 +7,7 @@ import '../services/analytics.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/sections/footer_section.dart';
+import '../widgets/common/chip_badge.dart';
 import '../widgets/sections/marketing_hero_section.dart';
 
 /// Status page displaying platform operational health and internal observability.
@@ -112,51 +113,10 @@ class _HeroSection extends StatelessWidget {
       isMobile: isMobile,
       headline: content.title,
       subheadline: content.subtitle,
-      badge: _HeroBadge(
+      badge: ChipBadge(
         icon: LucideIcons.checkCircle,
         label: content.statusBadge,
-        color: AppColors.success,
-      ),
-    );
-  }
-}
-
-class _HeroBadge extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  const _HeroBadge({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            label,
-            style: AppTypography.bodyMD.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+        accentColor: AppColors.success,
       ),
     );
   }
@@ -407,81 +367,41 @@ class _PerformanceSection extends StatelessWidget {
                 spacing: AppSpacing.md,
                 runSpacing: AppSpacing.md,
                 children: [
-                  _StatusChip(
+                  ChipBadge(
                     label: 'Normal',
                     description: 'Everything working',
-                    color: AppColors.success,
+                    accentColor: AppColors.success,
                     icon: LucideIcons.checkCircle,
+                    backgroundColor: AppColors.gray700,
+                    borderColor: AppColors.success.withValues(alpha: 0.5),
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    borderRadius: AppSpacing.radiusSM,
                   ),
-                  _StatusChip(
+                  ChipBadge(
                     label: 'Recovering',
                     description: 'Testing connection',
-                    color: AppColors.warning,
+                    accentColor: AppColors.warning,
                     icon: LucideIcons.alertCircle,
+                    backgroundColor: AppColors.gray700,
+                    borderColor: AppColors.warning.withValues(alpha: 0.5),
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    borderRadius: AppSpacing.radiusSM,
                   ),
-                  _StatusChip(
+                  ChipBadge(
                     label: 'Protected',
                     description: 'Waiting for resolution',
-                    color: AppColors.error,
+                    accentColor: AppColors.error,
                     icon: LucideIcons.shieldAlert,
+                    backgroundColor: AppColors.gray700,
+                    borderColor: AppColors.error.withValues(alpha: 0.5),
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    borderRadius: AppSpacing.radiusSM,
                   ),
                 ],
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  final String label;
-  final String description;
-  final Color color;
-  final IconData icon;
-
-  const _StatusChip({
-    required this.label,
-    required this.description,
-    required this.color,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray700,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: AppSpacing.sm),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: AppTypography.bodySM.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                description,
-                style: AppTypography.bodySM.copyWith(
-                  color: AppColors.gray400,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -522,7 +442,19 @@ class _HealthMonitoringSection extends StatelessWidget {
                 spacing: AppSpacing.md,
                 runSpacing: AppSpacing.md,
                 children: ObservabilityHealthContent.healthComponents.map((component) {
-                  return _HealthComponentChip(name: component);
+                  return ChipBadge(
+                    icon: LucideIcons.check,
+                    label: component,
+                    accentColor: AppColors.success,
+                    backgroundColor: AppColors.gray800,
+                    borderColor: AppColors.success.withValues(alpha: 0.3),
+                    iconSize: 16,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.md,
+                    ),
+                    borderRadius: AppSpacing.radiusMD,
+                  );
                 }).toList(),
               ),
             ],
@@ -1131,39 +1063,6 @@ class _ServiceRow extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-class _HealthComponentChip extends StatelessWidget {
-  final String name;
-
-  const _HealthComponentChip({required this.name});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(LucideIcons.check, size: 16, color: AppColors.success),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            name,
-            style: AppTypography.bodyMD.copyWith(color: Colors.white),
           ),
         ],
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
+import '../widgets/common/chip_badge.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
@@ -37,50 +38,59 @@ class DocsAlertsPage extends StatelessWidget {
             runSpacing: AppSpacing.md,
             alignment: WrapAlignment.center,
             children: [
-              _AlertTypePreview(icon: LucideIcons.dollarSign, label: 'Budget'),
-              _AlertTypePreview(icon: LucideIcons.activity, label: 'Anomaly'),
-              _AlertTypePreview(icon: LucideIcons.gauge, label: 'Latency'),
-              _AlertTypePreview(icon: LucideIcons.alertTriangle, label: 'Error Rate'),
+              ChipBadge(
+                icon: LucideIcons.dollarSign,
+                label: 'Budget',
+                accentColor: AppColors.warning,
+                backgroundColor: AppColors.gray800,
+                borderColor: AppColors.gray700,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                borderRadius: AppSpacing.radiusMD,
+              ),
+              ChipBadge(
+                icon: LucideIcons.activity,
+                label: 'Anomaly',
+                accentColor: AppColors.warning,
+                backgroundColor: AppColors.gray800,
+                borderColor: AppColors.gray700,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                borderRadius: AppSpacing.radiusMD,
+              ),
+              ChipBadge(
+                icon: LucideIcons.gauge,
+                label: 'Latency',
+                accentColor: AppColors.warning,
+                backgroundColor: AppColors.gray800,
+                borderColor: AppColors.gray700,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                borderRadius: AppSpacing.radiusMD,
+              ),
+              ChipBadge(
+                icon: LucideIcons.alertTriangle,
+                label: 'Error Rate',
+                accentColor: AppColors.warning,
+                backgroundColor: AppColors.gray800,
+                borderColor: AppColors.gray700,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                borderRadius: AppSpacing.radiusMD,
+              ),
             ],
           ),
         ],
       ),
       content: const _DocsContent(),
-    );
-  }
-}
-
-class _AlertTypePreview extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _AlertTypePreview({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: AppColors.warning),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            label,
-            style: AppTypography.bodySM.copyWith(
-              color: AppColors.gray300,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
