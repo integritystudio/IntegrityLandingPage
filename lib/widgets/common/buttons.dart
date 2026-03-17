@@ -171,6 +171,26 @@ Matrix4 hoverLiftTransform(bool isHovered, bool isDisabled) {
 // Button Implementations
 // =============================================================================
 
+/// Base class for action buttons (AnimatedGradientBorderButton, GradientButton, OutlineButton)
+abstract class BaseActionButton extends StatefulWidget {
+  final String text;
+  final VoidCallback? onPressed;
+  final IconData? icon;
+  final bool isLoading;
+  final String? semanticLabel;
+  final bool fullWidth;
+
+  const BaseActionButton({
+    super.key,
+    required this.text,
+    this.onPressed,
+    this.icon,
+    this.isLoading = false,
+    this.semanticLabel,
+    this.fullWidth = false,
+  });
+}
+
 /// Animated gradient border button (AiSDR-inspired design)
 ///
 /// Features:
@@ -186,22 +206,15 @@ Matrix4 hoverLiftTransform(bool isHovered, bool isDisabled) {
 ///   onPressed: () => startTrial(),
 /// )
 /// ```
-class AnimatedGradientBorderButton extends StatefulWidget {
-  final String text;
-  final VoidCallback? onPressed;
-  final IconData? icon;
-  final bool isLoading;
-  final String? semanticLabel;
-  final bool fullWidth;
-
+class AnimatedGradientBorderButton extends BaseActionButton {
   const AnimatedGradientBorderButton({
     super.key,
-    required this.text,
-    this.onPressed,
-    this.icon,
-    this.isLoading = false,
-    this.semanticLabel,
-    this.fullWidth = false,
+    required super.text,
+    super.onPressed,
+    super.icon,
+    super.isLoading,
+    super.semanticLabel,
+    super.fullWidth,
   });
 
   @override
@@ -376,22 +389,15 @@ class _GradientBorderPainter extends CustomPainter {
 ///   icon: LucideIcons.arrowRight,
 /// )
 /// ```
-class GradientButton extends StatefulWidget {
-  final String text;
-  final VoidCallback? onPressed;
-  final IconData? icon;
-  final bool isLoading;
-  final String? semanticLabel;
-  final bool fullWidth;
-
+class GradientButton extends BaseActionButton {
   const GradientButton({
     super.key,
-    required this.text,
-    this.onPressed,
-    this.icon,
-    this.isLoading = false,
-    this.semanticLabel,
-    this.fullWidth = false,
+    required super.text,
+    super.onPressed,
+    super.icon,
+    super.isLoading,
+    super.semanticLabel,
+    super.fullWidth,
   });
 
   @override
@@ -460,22 +466,15 @@ class _GradientButtonState extends State<GradientButton>
 ///   onPressed: () => openDemo(),
 /// )
 /// ```
-class OutlineButton extends StatefulWidget {
-  final String text;
-  final VoidCallback? onPressed;
-  final IconData? icon;
-  final bool isLoading;
-  final String? semanticLabel;
-  final bool fullWidth;
-
+class OutlineButton extends BaseActionButton {
   const OutlineButton({
     super.key,
-    required this.text,
-    this.onPressed,
-    this.icon,
-    this.isLoading = false,
-    this.semanticLabel,
-    this.fullWidth = false,
+    required super.text,
+    super.onPressed,
+    super.icon,
+    super.isLoading,
+    super.semanticLabel,
+    super.fullWidth,
   });
 
   @override
