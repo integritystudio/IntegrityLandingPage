@@ -411,7 +411,7 @@ class DocNumberedList extends StatelessWidget {
       container: true,
       child: VerticalIndicatorList(
         itemCount: items.length,
-        indicatorBuilder: (index) => Container(
+        indicatorBuilder: (index, isLast) => Container(
           width: 24,
           height: 24,
           decoration: BoxDecoration(
@@ -429,7 +429,7 @@ class DocNumberedList extends StatelessWidget {
           ),
         ),
         contentBuilder: (index, isLast) => Padding(
-          padding: EdgeInsets.only(top: 2, bottom: isLast ? AppSpacing.md : 0),
+          padding: const EdgeInsets.only(top: 2),
           child: Text(
             items[index],
             style: AppTypography.bodyMD.copyWith(

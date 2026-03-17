@@ -58,6 +58,9 @@ class _SubPageShellState extends State<SubPageShell> {
     }
   }
 
+  // GoRouter mounts a new SubPageShell per route, so this branch is not
+  // exercised during normal navigation. Retained for embedded/tab use cases
+  // where the same shell instance may receive a different analyticsPageName.
   @override
   void didUpdateWidget(SubPageShell oldWidget) {
     super.didUpdateWidget(oldWidget);

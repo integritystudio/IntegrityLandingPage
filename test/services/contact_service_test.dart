@@ -312,6 +312,8 @@ void main() {
       expect(response, isA<ContactFormError>());
       final error = response as ContactFormError;
       expect(error.error.toLowerCase(), contains('timed out'));
+      // 1 initial attempt + 2 retries = 3 total POST calls
+      expect(mockDio.postCallCount, equals(3));
     });
 
     test('handles receive timeout', () async {
@@ -324,6 +326,8 @@ void main() {
       expect(response, isA<ContactFormError>());
       final error = response as ContactFormError;
       expect(error.error.toLowerCase(), contains('timed out'));
+      // 1 initial attempt + 2 retries = 3 total POST calls
+      expect(mockDio.postCallCount, equals(3));
     });
 
     test('handles 429 with Retry-After header', () async {
@@ -422,6 +426,8 @@ void main() {
       expect(response, isA<ContactFormError>());
       final error = response as ContactFormError;
       expect(error.error.toLowerCase(), contains('timeout'));
+      // 1 initial attempt + 2 retries = 3 total POST calls
+      expect(mockDio.postCallCount, equals(3));
     });
 
     test('handles 500 internal server error with retries', () async {

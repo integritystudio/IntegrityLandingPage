@@ -11,7 +11,7 @@ class VerticalIndicatorList extends StatelessWidget {
   });
 
   final int itemCount;
-  final Widget Function(int index) indicatorBuilder;
+  final Widget Function(int index, bool isLast) indicatorBuilder;
   final Widget Function(int index, bool isLast) contentBuilder;
   final double spacing;
 
@@ -24,8 +24,8 @@ class VerticalIndicatorList extends StatelessWidget {
         final row = Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            indicatorBuilder(index),
-            SizedBox(width: AppSpacing.md),
+            indicatorBuilder(index, isLast),
+            const SizedBox(width: AppSpacing.md),
             Expanded(child: contentBuilder(index, isLast)),
           ],
         );

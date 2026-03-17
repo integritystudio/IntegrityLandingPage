@@ -16,7 +16,7 @@ void main() {
           home: Scaffold(
             body: VerticalIndicatorList(
               itemCount: 3,
-              indicatorBuilder: (index) {
+              indicatorBuilder: (index, isLast) {
                 builtIndicatorIndices.add(index);
                 return Text('indicator-$index');
               },
@@ -38,7 +38,7 @@ void main() {
           home: Scaffold(
             body: VerticalIndicatorList(
               itemCount: 5,
-              indicatorBuilder: (index) => Text('i-$index'),
+              indicatorBuilder: (index, isLast) => Text('i-$index'),
               contentBuilder: (index, isLast) => Text('c-$index'),
             ),
           ),
@@ -62,7 +62,7 @@ void main() {
           home: Scaffold(
             body: VerticalIndicatorList(
               itemCount: 4,
-              indicatorBuilder: (index) {
+              indicatorBuilder: (index, isLast) {
                 capturedIndices.add(index);
                 return Text('ind-$index');
               },
@@ -72,6 +72,24 @@ void main() {
         ));
 
         expect(capturedIndices, equals([0, 1, 2, 3]));
+      });
+
+      testWidgets('receives correct isLast value', (tester) async {
+        final capturedIsLast = <bool>[];
+        await tester.pumpWidget(MaterialApp(
+          home: Scaffold(
+            body: VerticalIndicatorList(
+              itemCount: 3,
+              indicatorBuilder: (index, isLast) {
+                capturedIsLast.add(isLast);
+                return Text('ind-$index');
+              },
+              contentBuilder: (index, isLast) => Text('cnt-$index'),
+            ),
+          ),
+        ));
+
+        expect(capturedIsLast, equals([false, false, true]));
       });
     });
 
@@ -87,7 +105,7 @@ void main() {
           home: Scaffold(
             body: VerticalIndicatorList(
               itemCount: 3,
-              indicatorBuilder: (index) => Text('i-$index'),
+              indicatorBuilder: (index, isLast) => Text('i-$index'),
               contentBuilder: (index, isLast) {
                 capturedIsLast.add(isLast);
                 return Text('c-$index');
@@ -108,7 +126,7 @@ void main() {
           home: Scaffold(
             body: VerticalIndicatorList(
               itemCount: 1,
-              indicatorBuilder: (index) => const Text('ind'),
+              indicatorBuilder: (index, isLast) => const Text('ind'),
               contentBuilder: (index, isLast) {
                 capturedIsLast = isLast;
                 return const Text('cnt');
@@ -132,7 +150,7 @@ void main() {
           home: Scaffold(
             body: VerticalIndicatorList(
               itemCount: 2,
-              indicatorBuilder: (index) => Text('i-$index'),
+              indicatorBuilder: (index, isLast) => Text('i-$index'),
               contentBuilder: (index, isLast) => Text('c-$index'),
             ),
           ),
@@ -155,7 +173,7 @@ void main() {
           home: Scaffold(
             body: VerticalIndicatorList(
               itemCount: 2,
-              indicatorBuilder: (index) => Text('i-$index'),
+              indicatorBuilder: (index, isLast) => Text('i-$index'),
               contentBuilder: (index, isLast) => Text('c-$index'),
               spacing: customSpacing,
             ),
@@ -177,7 +195,7 @@ void main() {
           home: Scaffold(
             body: VerticalIndicatorList(
               itemCount: 2,
-              indicatorBuilder: (index) => Text('i-$index'),
+              indicatorBuilder: (index, isLast) => Text('i-$index'),
               contentBuilder: (index, isLast) => Text('c-$index'),
             ),
           ),
@@ -212,7 +230,7 @@ void main() {
           home: Scaffold(
             body: VerticalIndicatorList(
               itemCount: 0,
-              indicatorBuilder: (index) => Text('i-$index'),
+              indicatorBuilder: (index, isLast) => Text('i-$index'),
               contentBuilder: (index, isLast) => Text('c-$index'),
             ),
           ),
@@ -238,7 +256,7 @@ void main() {
           home: Scaffold(
             body: VerticalIndicatorList(
               itemCount: 1,
-              indicatorBuilder: (index) => const Text('only-indicator'),
+              indicatorBuilder: (index, isLast) => const Text('only-indicator'),
               contentBuilder: (index, isLast) {
                 capturedIsLast = isLast;
                 return const Text('only-content');
@@ -258,7 +276,7 @@ void main() {
           home: Scaffold(
             body: VerticalIndicatorList(
               itemCount: 1,
-              indicatorBuilder: (index) => const Text('ind'),
+              indicatorBuilder: (index, isLast) => const Text('ind'),
               contentBuilder: (index, isLast) => const Text('cnt'),
             ),
           ),
@@ -286,7 +304,7 @@ void main() {
             body: VerticalIndicatorList(
               key: widgetKey,
               itemCount: 1,
-              indicatorBuilder: (index) => const Text('ind'),
+              indicatorBuilder: (index, isLast) => const Text('ind'),
               contentBuilder: (index, isLast) => const Text('cnt'),
             ),
           ),

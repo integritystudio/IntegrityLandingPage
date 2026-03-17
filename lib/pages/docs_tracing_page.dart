@@ -483,8 +483,7 @@ class _Timeline extends StatelessWidget {
   Widget build(BuildContext context) {
     return VerticalIndicatorList(
       itemCount: items.length,
-      indicatorBuilder: (index) {
-        final isLast = index == items.length - 1;
+      indicatorBuilder: (index, isLast) {
         return Column(
           children: [
             Container(
