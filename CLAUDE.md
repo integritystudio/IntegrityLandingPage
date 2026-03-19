@@ -35,6 +35,8 @@ Use DRY principles
 ## Workers
 
 - [workers/contact-form/](workers/contact-form/) — Cloudflare Worker handling contact form submissions (Resend email, KV rate limiting, CSRF, idempotency)
+- [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker that signs and forwards provisioning events to receiver-worker (HMAC-SHA256 inter-service auth, TDD-tested)
+- [workers/receiver-worker/](workers/receiver-worker/) — Cloudflare Worker that verifies signed requests and stores provisioning data (signature verification, replay protection)
 
 ## Flutter Canvas Limitations (E2E Testing)
 
