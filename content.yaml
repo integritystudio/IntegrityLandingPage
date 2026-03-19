@@ -1070,13 +1070,13 @@ llm_observability:
         |         Dual Export Pattern               |
         +-------------------------------------------+
         |  Local File Export    |   Remote OTLP     |
-        |  (FileSpanExporter)   |   (SigNoz Cloud)  |
+        |  (FileSpanExporter)   |   (obtool-api)  |
         |  JSONL Format         |   TLS + Auth      |
         |  ~/.claude/telemetry/ |   ingestion key   |
         +-------------------------------------------+
                 |                       |
                 v                       v
-           Local Cache           SigNoz Dashboard
+           Local Cache           Custom Dashboard
            (JSONL files)         (traces, metrics, logs)
       output_locations:
         title: "Output Locations"
@@ -1223,7 +1223,7 @@ llm_observability:
           - ["recordMetric(name, value, attrs)", "Record counter metric"]
           - ["recordGauge(name, value, attrs)", "Record gauge metric"]
           - ["logger.info/warn/error()", "Structured logging"]
-          - ["getTraceUrl()", "Get SigNoz trace link"]
+          - ["getTraceUrl()", "Get trace link"]
           - ["shutdown()", "Graceful cleanup"]
       pii_redaction:
         title: "Langtrace PII Redaction"
@@ -1277,7 +1277,7 @@ llm_observability:
           - ["session.starts", "Session start counter"]
 
     dashboards:
-      title: "SigNoz Dashboards"
+      title: "Integrity Studio Dashboards"
       headers: ["Dashboard", "Purpose"]
       rows:
         - ["Claude Code Hooks Observability", "Core hook performance"]
