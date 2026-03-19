@@ -16,6 +16,10 @@ const _senderWorkerUrl = String.fromEnvironment(
 class ProvisioningEvent {
   final String userId;
   final String action;
+
+  /// Timestamp when the event was sent.
+  /// Should be in UTC for consistency with toJson serialization.
+  /// If a local DateTime is provided, it will be converted to UTC during serialization.
   final DateTime sentAt;
 
   const ProvisioningEvent({
@@ -72,6 +76,7 @@ class ProvisioningService {
   static const String _errorUnexpected =
       'An unexpected error occurred.';
 
+  /// Max retry attempts (2 retries = 3 total attempts: initial + 2 retries)
   static const int _maxRetries = 2;
 
   static Dio _dio = Dio(BaseOptions(
@@ -197,21 +202,68 @@ class ProvisioningService {
   }
 
   /// Health check against the Receiver Worker (public endpoint).
+  ///
   /// Returns true if the service is healthy, false otherwise.
+  /// Retries transient errors (timeout, connection errors) with exponential backoff.
+  /// Validates the URL is https:// to prevent injection attacks.
   static Future<bool> checkHealth(String receiverUrl) async {
+    // URL validation: ensure it's a valid HTTPS URL
     try {
-      final response = await _dio.get('$receiverUrl/health');
-      final data = response.data is Map<String, dynamic>
-          ? response.data as Map<String, dynamic>
-          : const <String, dynamic>{};
-
-      return response.statusCode == HttpStatus.ok.code && data['ok'] == true;
-    } on DioException catch (e) {
+      final uri = Uri.parse(receiverUrl);
+      if (uri.scheme != 'https') {
+        await ErrorTrackingService.captureException(
+          ArgumentError('Health check URL must use https'),
+          context: 'ProvisioningService.checkHealth',
+          extra: {'receiverUrl': receiverUrl},
+        );
+        return false;
+      }
+    } on FormatException catch (e) {
       await ErrorTrackingService.captureException(
         e,
         context: 'ProvisioningService.checkHealth',
+        extra: {'receiverUrl': receiverUrl},
       );
       return false;
     }
+
+    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
+      try {
+        final response = await _dio.get('$receiverUrl/health');
+        final data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : const <String, dynamic>{};
+
+        return response.statusCode == HttpStatus.ok.code && data['ok'] == true;
+      } on DioException catch (e) {
+        final isRetryable =
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+
+        if (isRetryable && attempt < _maxRetries) {
+          await retryDelay(Duration(seconds: 1 << attempt));
+          continue;
+        }
+
+        // Log on final attempt
+        await ErrorTrackingService.captureException(
+          e,
+          stackTrace: e.stackTrace,
+          context: 'ProvisioningService.checkHealth',
+          extra: {
+            'endpoint': receiverUrl,
+            'attempt': attempt + 1,
+          },
+        );
+        return false;
+      } catch (e, stackTrace) {
+        await ErrorTrackingService.captureException(e,
+            stackTrace: stackTrace);
+        return false;
+      }
+    }
+
+    return false;
   }
 }

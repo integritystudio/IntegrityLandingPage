@@ -179,6 +179,30 @@ void main() {
         // Modal should still be visible
         expect(find.byType(ApiKeyModal), findsOneWidget);
       });
+
+      testWidgets('PopScope prevents back navigation', (tester) async {
+        setDesktopSize(tester);
+        await tester.pumpWidget(
+          testableWidget(
+            Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => ApiKeyModal.show(context, apiKey: testApiKey),
+                child: const Text('Open Modal'),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Open Modal'));
+        await tester.pumpAndSettleWithTimeout();
+
+        // Verify PopScope is present in the widget tree
+        expect(find.byType(PopScope), findsOneWidget);
+
+        // PopScope's canPop should be false
+        final popScope = find.byType(PopScope);
+        expect(popScope, findsOneWidget);
+      });
     });
 
     group('responsive layout', () {

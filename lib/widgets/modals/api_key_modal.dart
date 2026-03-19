@@ -37,31 +37,35 @@ class ApiKeyModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      key: const ValueKey('api-key-modal'),
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xl,
-        vertical: AppSpacing.xl,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
-        child: GlassCard(
-          tier: GlassCardTier.primary,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    Icon(
-                      LucideIcons.key,
-                      color: AppColors.blue400,
-                      size: AppSpacing.iconMD,
-                    ),
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        key: const ValueKey('api-key-modal'),
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xl,
+          vertical: AppSpacing.xl,
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: GlassCard(
+            tier: GlassCardTier.primary,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      ExcludeSemantics(
+                        child: Icon(
+                          LucideIcons.key,
+                          color: AppColors.blue400,
+                          size: AppSpacing.iconMD,
+                        ),
+                      ),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
                       'Your API Key',
@@ -100,6 +104,7 @@ class ApiKeyModal extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
