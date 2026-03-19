@@ -196,12 +196,10 @@ void main() {
         await tester.tap(find.text('Open Modal'));
         await tester.pumpAndSettleWithTimeout();
 
-        // Verify PopScope is present in the widget tree
+        // Verify PopScope with canPop: false prevents back navigation
         expect(find.byType(PopScope), findsOneWidget);
-
-        // PopScope's canPop should be false
-        final popScope = find.byType(PopScope);
-        expect(popScope, findsOneWidget);
+        final popScope = tester.widget<PopScope>(find.byType(PopScope).first);
+        expect(popScope.canPop, false);
       });
     });
 

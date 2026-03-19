@@ -37,6 +37,8 @@ class _CopyableCodeFieldState extends State<CopyableCodeField> {
     try {
       await Clipboard.setData(ClipboardData(text: widget.code));
       if (mounted) setState(() => _copied = true);
+      // Fire-and-forget: reset after feedback duration; mounted guard prevents
+      // setState on disposed widget
       Future.delayed(_copyResetDuration, () {
         if (mounted) setState(() => _copied = false);
       });
@@ -67,10 +69,13 @@ class _CopyableCodeFieldState extends State<CopyableCodeField> {
             child: Row(
               children: [
                 if (widget.label != null)
-                  Text(
-                    widget.label!,
-                    style: AppTypography.label
-                        .copyWith(color: AppColors.gray400),
+                  Flexible(
+                    child: Text(
+                      widget.label!,
+                      style: AppTypography.label
+                          .copyWith(color: AppColors.gray400),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 const Spacer(),
                 TextButton.icon(

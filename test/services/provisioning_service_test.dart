@@ -305,7 +305,7 @@ void main() {
       expect(mockDio.getCallCount, 0); // No HTTP call made
     });
 
-    test('retries on connectionTimeout and succeeds on retry', () async {
+    test('retries on receiveTimeout and succeeds on retry', () async {
       mockDio.mockGetError(DioExceptionType.receiveTimeout, attemptNumber: 0);
       mockDio.mockGetResponse({'ok': true}, attemptNumber: 1);
 
@@ -399,7 +399,8 @@ class MockProvisioningDio implements Dio {
     int attemptNumber = -1,
   }) {
     if (attemptNumber >= 0) {
-      // For per-attempt responses, keep existing data and just set this attempt's response
+      // For per-attempt responses, set the fallback response data
+      // (Note: multiple different per-attempt responses are not yet supported)
       _mockGetResponseData.clear();
       _mockGetResponseData.addAll(data);
       _mockGetStatusCode = statusCode;

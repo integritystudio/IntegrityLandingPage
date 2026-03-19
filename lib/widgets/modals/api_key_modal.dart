@@ -66,13 +66,16 @@ class ApiKeyModal extends StatelessWidget {
                           size: AppSpacing.iconMD,
                         ),
                       ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      'Your API Key',
-                      style: AppTypography.headingSM,
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Flexible(
+                        child: Text(
+                          'Your API Key',
+                          style: AppTypography.headingSM,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: AppSpacing.md),
                 // Warning — non-dismissible
                 Alert(

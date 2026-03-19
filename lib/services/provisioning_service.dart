@@ -208,19 +208,10 @@ class ProvisioningService {
   /// Validates the URL is https:// to prevent injection attacks.
   static Future<bool> checkHealth(String receiverUrl) async {
     // URL validation: ensure it's a valid HTTPS URL
-    try {
-      final uri = Uri.parse(receiverUrl);
-      if (uri.scheme != 'https') {
-        await ErrorTrackingService.captureException(
-          ArgumentError('Health check URL must use https'),
-          context: 'ProvisioningService.checkHealth',
-          extra: {'receiverUrl': receiverUrl},
-        );
-        return false;
-      }
-    } on FormatException catch (e) {
+    final uri = Uri.tryParse(receiverUrl);
+    if (uri == null || uri.scheme != 'https') {
       await ErrorTrackingService.captureException(
-        e,
+        ArgumentError('Health check URL must use https'),
         context: 'ProvisioningService.checkHealth',
         extra: {'receiverUrl': receiverUrl},
       );
@@ -229,7 +220,14 @@ class ProvisioningService {
 
     for (var attempt = 0; attempt <= _maxRetries; attempt++) {
       try {
-        final response = await _dio.get('$receiverUrl/health');
+        final response = await _dio.get(
+          '$receiverUrl/health',
+          options: Options(
+            // Accept all non-null status codes — HTTP errors are handled in
+            // the explicit dispatch below so Dio must not throw on 4xx/5xx.
+            validateStatus: (status) => status != null,
+          ),
+        );
         final data = response.data is Map<String, dynamic>
             ? response.data as Map<String, dynamic>
             : const <String, dynamic>{};
@@ -264,6 +262,7 @@ class ProvisioningService {
       }
     }
 
+    // Unreachable, but satisfies the return type
     return false;
   }
 }
