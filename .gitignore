@@ -72,3 +72,8 @@ dist/
 !functions/**/*.ts
 !functions/package.json
 !functions/vitest.config.ts
+
+# Allow workers/ CF Workers source
+!workers/**/*.ts
+!workers/**/package.json
+!workers/**/vitest.config.ts

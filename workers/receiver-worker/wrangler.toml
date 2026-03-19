@@ -1,0 +1,6 @@
+name = "receiver-worker"
+main = "src/index.ts"
+compatibility_date = "2026-03-19"
+
+# HMAC signing key (set via: wrangler secret put SHARED_SECRET)
+# Generate a secure random secret: openssl rand -base64 32
