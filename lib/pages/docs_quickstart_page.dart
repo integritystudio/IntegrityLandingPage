@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
+import '../widgets/common/info_card.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
@@ -952,41 +953,20 @@ class _HealthMetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isHealthy ? AppColors.success : AppColors.error;
 
-    return Container(
+    return InfoCard(
+      icon: icon,
+      title: title,
+      iconColor: color,
+      iconSize: 16,
       width: 160,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray700,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 16),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.bodySM.copyWith(
-                    color: AppColors.gray400,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            value,
-            style: AppTypography.bodyMD.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+      borderColor: color.withValues(alpha: 0.3),
+      titleStyle: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+      child: Text(
+        value,
+        style: AppTypography.bodyMD.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

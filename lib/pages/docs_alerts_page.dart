@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../widgets/common/chip_badge.dart';
+import '../widgets/common/info_card.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
 
@@ -638,59 +639,34 @@ class _AlertTypeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray700,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray600),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 20, color: AppColors.warning),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                title,
-                style: AppTypography.bodyMD.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            description,
-            style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.xs,
-            children: examples
-                .map((e) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.gray800,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                      ),
-                      child: Text(
-                        e,
-                        style: AppTypography.bodySM.copyWith(
-                          color: AppColors.gray400,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ))
-                .toList(),
-          ),
-        ],
+    return InfoCard(
+      icon: icon,
+      title: title,
+      description: description,
+      iconColor: AppColors.warning,
+      descriptionStyle: AppTypography.bodySM.copyWith(color: AppColors.gray300),
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.xs,
+        children: examples
+            .map((e) => Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.gray800,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                  ),
+                  child: Text(
+                    e,
+                    style: AppTypography.bodySM.copyWith(
+                      color: AppColors.gray400,
+                      fontSize: 12,
+                    ),
+                  ),
+                ))
+            .toList(),
       ),
     );
   }
@@ -711,52 +687,27 @@ class _ChannelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray700,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray600),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 20, color: AppColors.warning),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                title,
-                style: AppTypography.bodyMD.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+    return InfoCard(
+      icon: icon,
+      title: title,
+      description: description,
+      iconColor: AppColors.warning,
+      descriptionStyle: AppTypography.bodySM.copyWith(color: AppColors.gray300),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: AppColors.gray900,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+        ),
+        child: Text(
+          code,
+          style: const TextStyle(
+            fontFamily: kDocCodeFontFamily,
+            fontSize: 11,
+            color: AppColors.gray400,
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            description,
-            style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: AppColors.gray900,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-            ),
-            child: Text(
-              code,
-              style: TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: 11,
-                color: AppColors.gray400,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

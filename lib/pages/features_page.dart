@@ -4,6 +4,7 @@ import '../config/content.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/common/gradient_pill_badge.dart';
+import '../widgets/common/info_card.dart';
 import '../widgets/navigation/sub_page_shell.dart';
 import '../widgets/sections/marketing_hero_section.dart';
 
@@ -453,40 +454,14 @@ class _FeatureItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return InfoCard(
+      icon: LucideIcons.checkCircle,
+      title: name,
+      description: desc,
+      iconColor: AppColors.success,
+      iconSize: 18,
       width: 380,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray800.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(LucideIcons.checkCircle, size: 18, color: AppColors.success),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: AppTypography.bodyMD.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  desc,
-                  style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: AppColors.gray800.withValues(alpha: 0.5),
     );
   }
 }
