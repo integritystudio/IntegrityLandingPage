@@ -13,6 +13,8 @@ class ChipBadge extends StatelessWidget {
   final double iconSize;
   final EdgeInsetsGeometry? padding;
   final double borderRadius;
+  final TextStyle? labelStyle;
+  final TextStyle? descriptionStyle;
 
   const ChipBadge({
     super.key,
@@ -25,10 +27,26 @@ class ChipBadge extends StatelessWidget {
     this.iconSize = 18,
     this.padding,
     this.borderRadius = AppSpacing.radiusFull,
+    this.labelStyle,
+    this.descriptionStyle,
   });
 
   @override
   Widget build(BuildContext context) {
+    final defaultLabelStyle = description == null
+        ? AppTypography.caption.copyWith(
+            color: accentColor,
+            fontWeight: FontWeight.w600,
+          )
+        : AppTypography.bodyMD.copyWith(
+            color: accentColor,
+            fontWeight: FontWeight.w600,
+          );
+
+    final defaultDescriptionStyle = AppTypography.caption.copyWith(
+      color: AppColors.gray400,
+    );
+
     return Container(
       padding: padding ??
           const EdgeInsets.symmetric(
@@ -48,29 +66,15 @@ class ChipBadge extends StatelessWidget {
           Icon(icon, size: iconSize, color: accentColor),
           const SizedBox(width: AppSpacing.sm),
           if (description == null)
-            Text(
-              label,
-              style: AppTypography.caption.copyWith(
-                color: accentColor,
-                fontWeight: FontWeight.w600,
-              ),
-            )
+            Text(label, style: labelStyle ?? defaultLabelStyle)
           else
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: AppTypography.bodyMD.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                Text(label, style: labelStyle ?? defaultLabelStyle),
                 Text(
                   description!,
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.gray400,
-                  ),
+                  style: descriptionStyle ?? defaultDescriptionStyle,
                 ),
               ],
             ),
