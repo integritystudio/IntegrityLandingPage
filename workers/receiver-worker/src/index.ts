@@ -1,5 +1,4 @@
-const REPLAY_WINDOW_MS = 5 * 60 * 1000;
-const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
+import { JSON_CONTENT_TYPE, REPLAY_WINDOW_MS } from '../../constants';
 
 interface Env {
   SHARED_SECRET: string;
