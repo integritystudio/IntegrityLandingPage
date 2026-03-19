@@ -24,6 +24,7 @@ dependencies:
 
   # Networking
   dio: ^5.4.0
+  http: ^1.2.0
 
   # Utilities
   url_launcher: ^6.2.2
@@ -37,7 +38,7 @@ dependencies:
 
   # Web Interop (for GTM/Analytics)
   web: ^1.0.0
-  marionette_flutter: ^0.3.0
+  marionette_flutter: ^0.4.0
 
 dev_dependencies:
   flutter_test:
