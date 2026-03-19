@@ -1,0 +1,11 @@
+name = "sender-worker"
+main = "src/index.ts"
+compatibility_date = "2026-03-19"
+
+[vars]
+# Receiver Worker URL (set to receiver-worker deployment URL)
+RECEIVER_WORKER_URL = "https://receiver-worker.example.workers.dev"
+
+# HMAC signing key (set via: wrangler secret put SHARED_SECRET)
+# Must match SHARED_SECRET in receiver-worker
+# Generate a secure random secret: openssl rand -base64 32
