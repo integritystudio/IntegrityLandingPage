@@ -258,18 +258,17 @@ void main() {
   });
 
   group('checkHealth', () {
-    test('returns ProvisioningSuccess on 200 with ok:true', () async {
-      mockDio.mockGetResponse({'ok': true, 'received': 'health-check'});
+    test('returns true on 200 with ok:true', () async {
+      mockDio.mockGetResponse({'ok': true});
 
       final result =
           await ProvisioningService.checkHealth('https://receiver.example.com');
 
-      expect(result, isA<ProvisioningSuccess>());
-      expect((result as ProvisioningSuccess).received, 'health-check');
+      expect(result, true);
       expect(mockDio.getCallCount, 1);
     });
 
-    test('returns ProvisioningError on non-200', () async {
+    test('returns false on non-200', () async {
       mockDio.mockGetResponse(
         {'error': 'Service unavailable'},
         statusCode: 500,
@@ -278,17 +277,17 @@ void main() {
       final result =
           await ProvisioningService.checkHealth('https://receiver.example.com');
 
-      expect(result, isA<ProvisioningError>());
+      expect(result, false);
       expect(mockDio.getCallCount, 1);
     });
 
-    test('returns ProvisioningError on DioException', () async {
+    test('returns false on DioException', () async {
       mockDio.mockGetError(DioExceptionType.connectionError);
 
       final result =
           await ProvisioningService.checkHealth('https://receiver.example.com');
 
-      expect(result, isA<ProvisioningError>());
+      expect(result, false);
     });
   });
 }

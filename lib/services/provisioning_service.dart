@@ -140,8 +140,13 @@ class ProvisioningService {
 
         if (response.statusCode == HttpStatus.ok.code &&
             data['ok'] == true) {
+          final apiKey = data['apiKey'] as String?;
+          // Treat missing or empty apiKey as a data integrity error
+          if (apiKey == null || apiKey.isEmpty) {
+            return const ProvisioningError(error: _errorUnexpected);
+          }
           return ProvisioningSuccess(
-            apiKey: data['apiKey'] as String? ?? '',
+            apiKey: apiKey,
             received: data['received'] as String? ?? '',
           );
         }
@@ -192,29 +197,21 @@ class ProvisioningService {
   }
 
   /// Health check against the Receiver Worker (public endpoint).
-  static Future<ProvisioningResponse> checkHealth(
-    String receiverUrl,
-  ) async {
+  /// Returns true if the service is healthy, false otherwise.
+  static Future<bool> checkHealth(String receiverUrl) async {
     try {
       final response = await _dio.get('$receiverUrl/health');
       final data = response.data is Map<String, dynamic>
           ? response.data as Map<String, dynamic>
           : const <String, dynamic>{};
 
-      if (response.statusCode == HttpStatus.ok.code &&
-          data['ok'] == true) {
-        return ProvisioningSuccess(
-          apiKey: '',
-          received: data['received'] as String? ?? '',
-        );
-      }
-      return const ProvisioningError(error: _errorServer);
+      return response.statusCode == HttpStatus.ok.code && data['ok'] == true;
     } on DioException catch (e) {
       await ErrorTrackingService.captureException(
         e,
         context: 'ProvisioningService.checkHealth',
       );
-      return const ProvisioningError(error: _errorNetwork);
+      return false;
     }
   }
 }

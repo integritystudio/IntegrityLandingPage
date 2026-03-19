@@ -33,12 +33,17 @@ class _CopyableCodeFieldState extends State<CopyableCodeField> {
 
   static const _copyResetDuration = AppTimings.copyFeedback;
 
-  void _handleCopy() {
-    Clipboard.setData(ClipboardData(text: widget.code));
-    setState(() => _copied = true);
-    Future.delayed(_copyResetDuration, () {
-      if (mounted) setState(() => _copied = false);
-    });
+  Future<void> _handleCopy() async {
+    try {
+      await Clipboard.setData(ClipboardData(text: widget.code));
+      if (mounted) setState(() => _copied = true);
+      Future.delayed(_copyResetDuration, () {
+        if (mounted) setState(() => _copied = false);
+      });
+    } catch (_) {
+      // Clipboard write failed (e.g., document lost focus on web)
+      // Do not show success feedback
+    }
   }
 
   @override
@@ -54,41 +59,40 @@ class _CopyableCodeFieldState extends State<CopyableCodeField> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header with label and copy button
-          if (widget.label != null || true)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.md,
-              ),
-              child: Row(
-                children: [
-                  if (widget.label != null)
-                    Text(
-                      widget.label!,
-                      style: AppTypography.label
-                          .copyWith(color: AppColors.gray400),
-                    ),
-                  const Spacer(),
-                  TextButton.icon(
-                    key: const ValueKey('copy-button'),
-                    onPressed: _handleCopy,
-                    icon: Icon(
-                      _copied ? LucideIcons.check : LucideIcons.copy,
-                      size: AppSpacing.iconSM,
-                    ),
-                    label: Text(_copied ? 'Copied!' : 'Copy'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: _copied
-                          ? AppColors.success
-                          : AppColors.gray400,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                      ),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            child: Row(
+              children: [
+                if (widget.label != null)
+                  Text(
+                    widget.label!,
+                    style: AppTypography.label
+                        .copyWith(color: AppColors.gray400),
+                  ),
+                const Spacer(),
+                TextButton.icon(
+                  key: const ValueKey('copy-button'),
+                  onPressed: _handleCopy,
+                  icon: Icon(
+                    _copied ? LucideIcons.check : LucideIcons.copy,
+                    size: AppSpacing.iconSM,
+                  ),
+                  label: Text(_copied ? 'Copied!' : 'Copy'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _copied
+                        ? AppColors.success
+                        : AppColors.gray400,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
           // Divider
           const Divider(
             color: AppColors.borderDefault,
