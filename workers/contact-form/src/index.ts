@@ -6,6 +6,27 @@
  */
 
 import { Resend } from 'resend';
+import {
+  ALLOWED_ORIGINS,
+  CSRF_TOKEN_MAX_AGE_MS,
+  DEFAULT_RATE_LIMIT_MAX,
+  DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
+  IDEMPOTENCY_TTL_SECONDS,
+  IN_MEMORY_CLEANUP_THRESHOLD,
+  KV_CIRCUIT_BREAKER_THRESHOLD,
+  KV_CIRCUIT_RESET_COOLDOWN_MS,
+  KV_CIRCUIT_RESET_JITTER_MS,
+  MAX_COMPANY_SIZE_LENGTH,
+  MAX_EMAIL_LENGTH,
+  MAX_IN_MEMORY_ENTRIES,
+  MAX_MESSAGE_LENGTH,
+  MAX_NAME_LENGTH,
+  MAX_ORGANIZATION_LENGTH,
+  MAX_REQUEST_BODY_BYTES,
+  MAX_USE_CASE_LENGTH,
+  MIN_KV_TTL_SECONDS,
+  RESEND_API_TIMEOUT_MS,
+} from '../../constants';
 
 interface Env {
   RESEND_API_KEY: string;
@@ -17,16 +38,6 @@ interface Env {
   CSRF_SECRET?: string;
   ENVIRONMENT?: string; // 'production' | 'staging' | 'development'
 }
-
-// CSRF configuration
-const CSRF_TOKEN_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
-
-// API timeout configuration - 8s to leave headroom for client's 10s timeout
-const RESEND_API_TIMEOUT_MS = 8000;
-
-// Rate limiting configuration
-const DEFAULT_RATE_LIMIT_MAX = 5;
-const DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 60;
 
 interface RateLimitData {
   count: number;
@@ -44,23 +55,10 @@ interface RateLimitResult {
 // In-memory rate limit store (fallback when KV unavailable).
 // Uses Worker global scope - persists across requests within an isolate.
 const inMemoryRateLimit = new Map<string, RateLimitData>();
-const MAX_IN_MEMORY_ENTRIES = 10000;
-// Soft threshold: trigger expired-entry cleanup before eviction
-const IN_MEMORY_CLEANUP_THRESHOLD = 1000;
 
 // Circuit breaker: track consecutive KV failures
-// Threshold set to 10 to prevent single-attacker trips (see backlog #22)
 let kvFailureCount = 0;
-const KV_CIRCUIT_BREAKER_THRESHOLD = 10;
 let kvCircuitResetAt = 0;
-// Cooldown before retrying KV after circuit opens
-const KV_CIRCUIT_RESET_COOLDOWN_MS = 60_000;
-// Random jitter added to cooldown to avoid thundering herd on recovery
-const KV_CIRCUIT_RESET_JITTER_MS = 30_000;
-// Minimum KV TTL to prevent immediate expiry on short windows
-const MIN_KV_TTL_SECONDS = 60;
-// TTL for idempotency keys to prevent duplicate submission processing (5 min)
-const IDEMPOTENCY_TTL_SECONDS = 300;
 
 /**
  * In-memory rate limiting fallback.
@@ -289,12 +287,6 @@ interface ContactFormData {
   useCase?: string;
 }
 
-// CORS headers for Flutter web app - restricted to production domain
-const ALLOWED_ORIGINS = [
-  'https://integritystudio.ai',
-  'https://www.integritystudio.ai',
-];
-
 /**
  * Get CORS headers for a request.
  * Returns null if the origin is not allowed (for non-preflight requests).
@@ -342,17 +334,6 @@ function isValidEmail(email: string): boolean {
   if (!/^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(domain)) return false;
   return true;
 }
-
-// Maximum request body size (10KB - generous for a contact form)
-const MAX_REQUEST_BODY_BYTES = 10_240;
-
-// Field length limits for security (prevent memory exhaustion, DoS)
-const MAX_NAME_LENGTH = 100;
-const MAX_EMAIL_LENGTH = 254;
-const MAX_ORGANIZATION_LENGTH = 200;
-const MAX_COMPANY_SIZE_LENGTH = 100;
-const MAX_USE_CASE_LENGTH = 200;
-const MAX_MESSAGE_LENGTH = 5000;
 
 // Validate contact form data
 function validateForm(data: ContactFormData): string | null {

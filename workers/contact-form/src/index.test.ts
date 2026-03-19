@@ -33,6 +33,16 @@ import { Resend } from 'resend';
 
 // Import the worker handler and test utilities
 import worker, { _resetRateLimitState } from './index';
+import {
+  CSRF_TOKEN_MAX_AGE_MS,
+  KV_CIRCUIT_BREAKER_THRESHOLD,
+  KV_CIRCUIT_RESET_COOLDOWN_MS,
+  KV_CIRCUIT_RESET_JITTER_MS,
+  MAX_COMPANY_SIZE_LENGTH,
+  MAX_MESSAGE_LENGTH,
+  MAX_NAME_LENGTH,
+  MAX_USE_CASE_LENGTH,
+} from '../../constants';
 
 // Mock environment
 const mockEnv = {
@@ -262,7 +272,7 @@ describe('Contact Form Worker', () => {
 
     it('returns 400 for name exceeding max length', async () => {
       const request = createRequest('POST', {
-        name: 'A'.repeat(101),
+        name: 'A'.repeat(MAX_NAME_LENGTH + 1),
         email: 'test@example.com',
         message: 'This is a valid message.',
       });
@@ -279,7 +289,7 @@ describe('Contact Form Worker', () => {
         name: 'John Doe',
         email: 'test@example.com',
         message: 'This is a valid message.',
-        companySize: 'A'.repeat(101),
+        companySize: 'A'.repeat(MAX_COMPANY_SIZE_LENGTH + 1),
       });
 
       const response = await worker.fetch(request, mockEnv);
@@ -294,7 +304,7 @@ describe('Contact Form Worker', () => {
         name: 'John Doe',
         email: 'test@example.com',
         message: 'This is a valid message.',
-        useCase: 'A'.repeat(201),
+        useCase: 'A'.repeat(MAX_USE_CASE_LENGTH + 1),
       });
 
       const response = await worker.fetch(request, mockEnv);
@@ -308,7 +318,7 @@ describe('Contact Form Worker', () => {
       const request = createRequest('POST', {
         name: 'John Doe',
         email: 'test@example.com',
-        message: 'A'.repeat(5001),
+        message: 'A'.repeat(MAX_MESSAGE_LENGTH + 1),
       });
 
       const response = await worker.fetch(request, mockEnv);
@@ -1326,8 +1336,8 @@ describe('Contact Form Worker', () => {
         error: null,
       });
 
-      // Send 10 requests to trip circuit breaker (threshold = 10)
-      for (let i = 0; i < 10; i++) {
+      // Send requests to trip circuit breaker
+      for (let i = 0; i < KV_CIRCUIT_BREAKER_THRESHOLD; i++) {
         const request = new Request('https://worker.test/', {
           method: 'POST',
           headers: {
@@ -1386,8 +1396,8 @@ describe('Contact Form Worker', () => {
         error: null,
       });
 
-      // Trip the circuit breaker with 10 failures
-      for (let i = 0; i < 10; i++) {
+      // Trip the circuit breaker
+      for (let i = 0; i < KV_CIRCUIT_BREAKER_THRESHOLD; i++) {
         const request = new Request('https://worker.test/', {
           method: 'POST',
           headers: {
@@ -1405,9 +1415,9 @@ describe('Contact Form Worker', () => {
         await worker.fetch(request, envWithFailingKV);
       }
 
-      // Advance time past cooldown (60s + 30s max jitter = 90s max)
+      // Advance time past cooldown + max jitter
       vi.useFakeTimers();
-      vi.setSystemTime(Date.now() + 91_000);
+      vi.setSystemTime(Date.now() + KV_CIRCUIT_RESET_COOLDOWN_MS + KV_CIRCUIT_RESET_JITTER_MS + 1000);
 
       failingKV.get.mockClear();
 
@@ -1557,8 +1567,8 @@ describe('Contact Form Worker', () => {
     });
 
     it('rejects expired CSRF token', async () => {
-      // Create a token from 2 hours ago (beyond 1 hour max age)
-      const expiredTimestamp = Date.now() - 2 * 60 * 60 * 1000;
+      // Create a token from 2x max age ago (beyond max age)
+      const expiredTimestamp = Date.now() - 2 * CSRF_TOKEN_MAX_AGE_MS;
       const csrfToken = await generateTestCsrfToken(mockEnvWithCsrf.CSRF_SECRET, expiredTimestamp);
       const request = createRequest(
         'POST',
