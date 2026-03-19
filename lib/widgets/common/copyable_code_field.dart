@@ -31,7 +31,7 @@ class CopyableCodeField extends StatefulWidget {
 class _CopyableCodeFieldState extends State<CopyableCodeField> {
   bool _copied = false;
 
-  static const _copyResetDuration = Duration(seconds: 2);
+  static const _copyResetDuration = AppTimings.copyFeedback;
 
   void _handleCopy() {
     Clipboard.setData(ClipboardData(text: widget.code));

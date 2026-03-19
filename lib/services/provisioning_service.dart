@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import '../theme/timings.dart';
 import 'analytics.dart';
 import 'http_status.dart';
 
@@ -74,8 +75,8 @@ class ProvisioningService {
   static const int _maxRetries = 2;
 
   static Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
+    connectTimeout: AppTimings.httpConnectTimeout,
+    receiveTimeout: AppTimings.httpReceiveTimeout,
   ));
 
   /// Set a custom Dio instance for testing.
@@ -88,8 +89,8 @@ class ProvisioningService {
   @visibleForTesting
   static void resetDio() {
     _dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: AppTimings.httpConnectTimeout,
+      receiveTimeout: AppTimings.httpReceiveTimeout,
     ));
   }
 

@@ -3,6 +3,7 @@ export 'colors.dart';
 export 'decorations.dart';
 export 'typography.dart';
 export 'spacing.dart';
+export 'timings.dart';
 
 import 'package:flutter/material.dart';
 import 'colors.dart';
