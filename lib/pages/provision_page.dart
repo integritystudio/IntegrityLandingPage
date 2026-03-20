@@ -81,10 +81,10 @@ class _ProvisionPageState extends State<ProvisionPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: onBack != null
+        leading: widget.onBack != null
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: onBack,
+                onPressed: widget.onBack,
               )
             : null,
       ),
@@ -185,5 +185,4 @@ class _ProvisionPageState extends State<ProvisionPage> {
     );
   }
 
-  VoidCallback? get onBack => widget.onBack;
 }
