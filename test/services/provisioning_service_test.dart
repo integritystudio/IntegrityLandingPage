@@ -442,6 +442,8 @@ class MockProvisioningDio implements Dio {
   }) {
     if (attemptNumber >= 0) {
       _postErrorAttempts[attemptNumber] = type;
+      _retryableResponses = null;
+      _retryAttempt = 0;
     } else {
       _mockPostError = type;
       _mockPostStatusCode = 200;
@@ -573,19 +575,19 @@ class MockProvisioningDio implements Dio {
       );
     }
 
-    if (_mockGetError != null) {
-      throw DioException(
-        type: _mockGetError!,
-        requestOptions: RequestOptions(path: path),
-      );
-    }
-
     // Check for per-attempt response data
     if (_getResponseAttempts.containsKey(currentAttempt)) {
       return Response<T>(
         data: _getResponseAttempts[currentAttempt]! as T,
         statusCode: _getStatusAttempts[currentAttempt] ?? _mockGetStatusCode,
         headers: Headers.fromMap(_mockGetHeaders),
+        requestOptions: RequestOptions(path: path),
+      );
+    }
+
+    if (_mockGetError != null) {
+      throw DioException(
+        type: _mockGetError!,
         requestOptions: RequestOptions(path: path),
       );
     }

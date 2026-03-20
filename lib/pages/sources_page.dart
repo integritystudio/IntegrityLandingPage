@@ -447,7 +447,7 @@ class _MethodologySection extends StatelessWidget {
                   : AppTypography.headingLG.copyWith(fontSize: 32),
             ),
             const SizedBox(height: AppSpacing.xl),
-            const _MethodologyCard(
+            _methodologyCard(
               title: 'Customer Data Collection',
               description:
                   'Customer metrics are collected through platform telemetry with explicit consent. '
@@ -456,7 +456,7 @@ class _MethodologySection extends StatelessWidget {
               icon: LucideIcons.database,
             ),
             const SizedBox(height: AppSpacing.md),
-            const _MethodologyCard(
+            _methodologyCard(
               title: 'Industry Statistics',
               description:
                   'Market data is sourced from reputable third-party research firms. We cite the '
@@ -465,7 +465,7 @@ class _MethodologySection extends StatelessWidget {
               icon: LucideIcons.bookOpen,
             ),
             const SizedBox(height: AppSpacing.md),
-            const _MethodologyCard(
+            _methodologyCard(
               title: 'Platform Metrics',
               description:
                   'Platform metrics are calculated from our internal monitoring systems. Setup time '
@@ -474,7 +474,7 @@ class _MethodologySection extends StatelessWidget {
               icon: LucideIcons.lineChart,
             ),
             const SizedBox(height: AppSpacing.md),
-            const _MethodologyCard(
+            _methodologyCard(
               title: 'SLA Commitments',
               description:
                   'Service Level Agreement targets represent contractual commitments, not historical '
@@ -532,33 +532,24 @@ class _MethodologySection extends StatelessWidget {
   }
 }
 
-class _MethodologyCard extends StatelessWidget {
-  final String title;
-  final String description;
-  final IconData icon;
-
-  const _MethodologyCard({
-    required this.title,
-    required this.description,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InfoCard(
-      icon: icon,
-      title: title,
-      description: description,
-      iconColor: AppColors.blue400,
-      iconBackgroundColor: AppColors.blue500.withValues(alpha: 0.2),
-      iconContainerPadding: const EdgeInsets.all(AppSpacing.sm),
-      iconContainerBorderRadius: AppSpacing.radiusSM,
-      iconSpacing: AppSpacing.md,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      backgroundColor: AppColors.gray900,
-      borderColor: AppColors.gray700,
-      borderRadius: AppSpacing.radiusLG,
-      descriptionStyle: AppTypography.bodyMD.copyWith(color: AppColors.gray400),
-    );
-  }
+InfoCard _methodologyCard({
+  required String title,
+  required String description,
+  required IconData icon,
+}) {
+  return InfoCard(
+    icon: icon,
+    title: title,
+    description: description,
+    iconColor: AppColors.blue400,
+    iconBackgroundColor: AppColors.blue500.withValues(alpha: 0.2),
+    iconContainerPadding: const EdgeInsets.all(AppSpacing.sm),
+    iconContainerBorderRadius: AppSpacing.radiusSM,
+    iconSpacing: AppSpacing.md,
+    padding: const EdgeInsets.all(AppSpacing.lg),
+    backgroundColor: AppColors.gray900,
+    borderColor: AppColors.gray700,
+    borderRadius: AppSpacing.radiusLG,
+    descriptionStyle: AppTypography.bodyMD.copyWith(color: AppColors.gray400),
+  );
 }
