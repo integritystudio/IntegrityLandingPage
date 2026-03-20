@@ -88,4 +88,26 @@ void main() {
       expect(CTAText.calculateSavings, isNotEmpty);
     });
   });
+
+  group('PasswordPolicy (L21: shared constants)', () {
+    test('minLength is at least 8 characters', () {
+      expect(PasswordPolicy.minLength, greaterThanOrEqualTo(8));
+    });
+
+    test('maxLength is greater than minLength', () {
+      expect(PasswordPolicy.maxLength, greaterThan(PasswordPolicy.minLength));
+    });
+
+    test('maxLength is reasonable (< 256)', () {
+      expect(PasswordPolicy.maxLength, lessThan(256));
+    });
+
+    test('minLength is 8 for DOS protection', () {
+      expect(PasswordPolicy.minLength, equals(8));
+    });
+
+    test('maxLength is 128 to prevent password field DoS', () {
+      expect(PasswordPolicy.maxLength, equals(128));
+    });
+  });
 }
