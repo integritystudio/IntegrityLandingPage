@@ -7,6 +7,7 @@ import '../theme/theme.dart';
 import '../widgets/common/alert.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/common/copyable_code_field.dart';
 
 /// Provision API key page.
 ///
@@ -166,20 +167,9 @@ class _ProvisionPageState extends State<ProvisionPage> {
 
                 // API Key display
                 if (_apiKey != null) ...[
-                  Text(
-                    'Your API Key',
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.gray300,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  SelectableText(
-                    _apiKey!,
-                    style: AppTypography.bodyMD.copyWith(
-                      color: AppColors.blue400,
-                      fontFamily: 'monospace',
-                    ),
+                  CopyableCodeField(
+                    label: 'Your API Key',
+                    code: _apiKey!,
                   ),
                   const SizedBox(height: AppSpacing.lg),
                 ] else ...[
