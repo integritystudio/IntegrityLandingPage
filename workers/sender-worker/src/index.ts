@@ -1,4 +1,5 @@
-import { ALLOWED_ORIGINS, JSON_CONTENT_TYPE } from '../../constants';
+import { JSON_CONTENT_TYPE } from '../../constants';
+import { buildCorsHeaders, isOriginAllowed } from '../../cors-utils';
 
 interface Env {
   SHARED_SECRET: string;
@@ -19,13 +20,8 @@ function jsonResponse(body: unknown, status: number, extra: Record<string, strin
  */
 function getCorsHeaders(origin: string | null): Record<string, string> | null {
   if (!origin) return {};
-  if (!ALLOWED_ORIGINS.includes(origin)) return null;
-  return {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Vary': 'Origin',
-  };
+  if (!isOriginAllowed(origin)) return null;
+  return buildCorsHeaders(origin);
 }
 
 async function computeSignature(
@@ -107,7 +103,7 @@ export default {
 
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
-      const corsHeaders = origin && ALLOWED_ORIGINS.includes(origin)
+      const corsHeaders = isOriginAllowed(origin)
         ? getCorsHeaders(origin)!
         : {};
       return new Response(null, { status: 204, headers: corsHeaders });

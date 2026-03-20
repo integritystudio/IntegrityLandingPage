@@ -217,6 +217,30 @@ class ProvisioningService {
 }
 ```
 
+## Implementation Status
+
+✅ **Flutter Service** (`lib/services/provisioning_service.dart`)
+- ProvisioningEvent model with UTC timestamp serialization
+- ProvisioningSuccess/ProvisioningError sealed response types
+- Retry logic with exponential backoff (1s, 2s delays)
+- Health check with HTTPS URL validation
+- Sentry error tracking on final failure
+- Tests follow contact_service.dart patterns
+
+✅ **Sender Worker** (`workers/sender-worker/src/index.ts`)
+- POST /send endpoint with JSON validation
+- HMAC-SHA256 signature computation (timestamp + body)
+- Forwards signed request to Receiver Worker with x-timestamp and x-signature headers
+
+✅ **Receiver Worker** (`workers/receiver-worker/src/index.ts`)
+- GET /health public endpoint
+- POST /inbox with signature verification (constant-time comparison)
+- 5-minute replay protection window (REPLAY_WINDOW_MS)
+
+⚠️ **CORS & Origin Validation** — NOT YET IMPLEMENTED
+- Sender Worker must configure `Access-Control-Allow-Origin` header(s) for Flutter app origin(s)
+- See [CORS Note](#cors-and-origin-headers) below
+
 ## Configuration
 
 Worker URLs are injected at build time via `--dart-define`, matching the existing `CONTACT_API_URL` pattern:
@@ -275,6 +299,40 @@ Before shipping:
 - Nonce store if replay protection must be stricter than timestamp-only
 - CORS configuration on the Sender Worker for the Flutter app origin
 - Service bindings if both Workers are in the same Cloudflare account (avoids public network hop)
+
+## CORS and Origin Headers
+
+**Current Gap:** Sender Worker does not yet validate or set CORS headers for the Flutter app origin.
+
+### Required Setup
+
+The Sender Worker's `/send` endpoint must respond with `Access-Control-Allow-Origin` header(s) to allow browser-based Flutter Web requests:
+
+```typescript
+// In Sender Worker handleSend() or as a middleware
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://example.com', // Flutter app origin
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'content-type',
+};
+
+// Handle OPTIONS preflight
+if (request.method === 'OPTIONS') {
+  return new Response(null, { headers: corsHeaders, status: 204 });
+}
+
+// Add to POST response
+return new Response(body, { status, headers: { ...corsHeaders, 'content-type': ... } });
+```
+
+### Production Origins
+
+- **Staging:** `https://staging.example.com`
+- **Production:** `https://www.example.com`
+- **Development:** `http://localhost:8081` (for local flutter run -d chrome)
+
+> The `Access-Control-Allow-Origin` header is NOT a security boundary — it only controls browser CORS preflight.
+> The Sender Worker is the trust boundary; Flutter never sees the inter-service HMAC secret.
 
 ## References
 

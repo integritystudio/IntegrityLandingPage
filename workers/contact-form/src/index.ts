@@ -27,6 +27,7 @@ import {
   MIN_KV_TTL_SECONDS,
   RESEND_API_TIMEOUT_MS,
 } from '../../constants';
+import { buildCorsHeaders, isOriginAllowed } from '../../cors-utils';
 
 interface Env {
   RESEND_API_KEY: string;
@@ -293,10 +294,10 @@ interface ContactFormData {
  */
 function getCorsHeaders(request: Request): Record<string, string> | null {
   const origin = request.headers.get('Origin') || '';
-  const isAllowed = ALLOWED_ORIGINS.includes(origin);
+  const allowed = isOriginAllowed(origin);
 
   // For non-preflight requests from disallowed origins, return null to signal rejection
-  if (!isAllowed && request.method !== 'OPTIONS') {
+  if (!allowed && request.method !== 'OPTIONS') {
     console.warn(JSON.stringify({
       level: 'warn',
       event: 'cors_violation',
@@ -309,14 +310,13 @@ function getCorsHeaders(request: Request): Record<string, string> | null {
   }
 
   // For preflight, use first allowed origin if Origin doesn't match
-  const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0];
+  const allowedOrigin = allowed ? origin : ALLOWED_ORIGINS[0];
 
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token, X-Idempotency-Key, X-Request-ID',
-    'Vary': 'Origin',
-  };
+  return buildCorsHeaders(
+    allowedOrigin,
+    'GET, POST, OPTIONS',
+    'Content-Type, X-CSRF-Token, X-Idempotency-Key, X-Request-ID',
+  );
 }
 
 // Validate email format (RFC 5321 subset)
