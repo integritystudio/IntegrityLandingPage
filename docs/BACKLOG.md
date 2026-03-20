@@ -129,9 +129,6 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 ---
 
-
----
-
 ## Deferred: Server-Side Security Headers
 
 These issues require **server-side HTTP response header configuration** and cannot be fixed in the Flutter app.
