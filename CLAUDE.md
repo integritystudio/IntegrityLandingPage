@@ -8,11 +8,12 @@
 **Test Status**: ✅ All tests passing (2440+ tests, ~94% coverage)
 
 ### Recent Work (See [SESSION_HISTORY.md](docs/SESSION_HISTORY.md) for details)
-- Implemented AuthPage, ProvisionPage, SenderHealthPage
-- Added JWT authentication flow (signUp/signIn)
-- Fixed widget API incompatibilities
-- Fixed GoRouter query parameter handling
-- All changes committed and web build verified
+- ✅ Sender-Worker UI pages: AuthPage, ProvisionPage, SenderHealthPage with JWT flow
+- ✅ API Provisioning Workers: sender-worker (HMAC signing), receiver-worker (verification + replay protection)
+- ✅ Password Policy: Shared PasswordPolicy class (8-128 chars) with centralized validation
+- ✅ Zod Validation: Applied to contact-form worker submissions
+- ✅ CORS: Environment-aware sender-worker configuration
+- ✅ Code Review: Addressed 10+ findings across auth, provision, provisioning service
 
 ### Known Issues
 - Contact form CORS blocks localhost (by design, needs config update for dev testing)
@@ -55,9 +56,6 @@ scripts/              # Build/dev tooling, repomix generation
 docs/                 # Architecture, routes, changelog, backlog
 test/                 # Unit + widget tests (2440+ passing, ~94% coverage)
 ```
-## Guidelines
-No magic numbers or string
-Use DRY principles
 
 ## Workers
 

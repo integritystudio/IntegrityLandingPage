@@ -6,43 +6,50 @@
 Enterprise AI Observability Platform landing page built with Flutter Web.
 
 **Production**: https://integritystudio.ai
+**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning workers live, 2440+ tests passing
 
 ## Quick Start
 
 ```bash
 flutter pub get          # Install dependencies
-flutter run -d chrome    # Development server
-flutter test             # Run tests (2440+ passing)
+flutter run -d chrome    # Development server (localhost:8080)
+flutter test             # Run tests (2440+ passing, ~94% coverage)
 flutter build web        # Production build
 ```
 
-### Shared Worker Library
+### Workers
+
+**Shared Library** (`workers/lib/`)
+- HTTP utilities: CORS, request parsing, response factories, error handling
+- Validation: Zod-based with typed result unions
+- Tests: 79 passing, ~94% coverage
 
 ```bash
-cd workers/lib
-npm install && npm test           # Tests (79 passing, ~94% coverage)
+cd workers/lib && npm install && npm test
 ```
 
-Provides HTTP utilities (CORS, request parsing, response factories, error handling) and validation (Zod-based with typed result unions) shared across worker projects.
-
-### Contact Form Worker
+**Contact Form Worker** (`workers/contact-form/`)
+- Email submissions via Resend
+- KV-based rate limiting
+- CSRF protection, idempotency keys
 
 ```bash
 cd workers/contact-form
 npm install && npx wrangler dev   # Local dev
 npx vitest run                    # Tests
-npx wrangler deploy               # Deploy
 ```
 
-### API Provisioning Workers
+**API Provisioning Workers** (`workers/sender-worker/`, `workers/receiver-worker/`)
+- **Sender**: Signs requests with HMAC-SHA256, forwards to receiver
+- **Receiver**: Verifies signatures, stores provisioning data, replay protection
 
 ```bash
 cd workers/sender-worker
-npm install && npx wrangler dev   # Local dev (signs & forwards events)
+npm install && npx wrangler dev   # Local dev
 npx vitest run                    # Tests
 
 cd workers/receiver-worker
-npm install && npx wrangler dev   # Local dev (verifies & stores)
+npm install && npx wrangler dev   # Local dev
 npx vitest run                    # Tests
 
 # Manual E2E testing
