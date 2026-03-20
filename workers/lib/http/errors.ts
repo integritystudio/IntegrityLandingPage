@@ -12,14 +12,7 @@ export function errorResponse(
       ...(details !== undefined ? { details } : {}),
     },
   };
-  return json(body, {
-    ...init,
-    status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      ...(init.headers as Record<string, string> ?? {}),
-    },
-  });
+  return json(body, { ...init, status });
 }
 
 export function badRequest(message = 'Bad Request', details?: JsonValue): Response {
