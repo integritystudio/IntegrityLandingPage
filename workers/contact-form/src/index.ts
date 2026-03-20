@@ -7,7 +7,6 @@
 
 import { Resend } from 'resend';
 import {
-  ALLOWED_ORIGINS,
   CSRF_TOKEN_MAX_AGE_MS,
   DEFAULT_RATE_LIMIT_MAX,
   DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
@@ -27,6 +26,7 @@ import {
   MIN_KV_TTL_SECONDS,
   RESEND_API_TIMEOUT_MS,
 } from '../../constants';
+import { ALLOWED_ORIGINS } from '../../http-constants';
 import { buildCorsHeaders, isOriginAllowed } from '../../cors-utils';
 
 interface Env {

@@ -1,4 +1,5 @@
-import { JSON_CONTENT_TYPE, REPLAY_WINDOW_MS } from '../../constants';
+import { JSON_CONTENT_TYPE } from '../../http-constants';
+import { REPLAY_WINDOW_MS } from '../../constants';
 
 interface Env {
   SHARED_SECRET: string;

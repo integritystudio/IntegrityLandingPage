@@ -1,6 +1,3 @@
-// Shared response content type
-export const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
-
 // HMAC replay protection window (receiver-worker)
 export const REPLAY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -30,12 +27,6 @@ export const KV_CIRCUIT_RESET_JITTER_MS = 30_000;
 export const MIN_KV_TTL_SECONDS = 60;
 // TTL for idempotency keys to prevent duplicate submission processing (5 min)
 export const IDEMPOTENCY_TTL_SECONDS = 300;
-
-// CORS headers for Flutter web app - restricted to production domain
-export const ALLOWED_ORIGINS = [
-  'https://integritystudio.ai',
-  'https://www.integritystudio.ai',
-];
 
 // Maximum request body size (10KB - generous for a contact form)
 export const MAX_REQUEST_BODY_BYTES = 10_240;

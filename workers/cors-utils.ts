@@ -1,4 +1,4 @@
-import { ALLOWED_ORIGINS } from './constants';
+import { ALLOWED_ORIGINS } from './http-constants';
 
 /**
  * Build CORS response headers for a given origin.
