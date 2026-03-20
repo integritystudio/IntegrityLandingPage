@@ -39,7 +39,7 @@ create table public.plans (
   created_at timestamptz not null default now()
 );
 
--- Pre-populate with tier definitions
+-- Pre-populate with tier definitions (idempotent)
 insert into public.plans (key, display_name, monthly_units, requests_per_minute, concurrent_jobs, features)
 values
   (
@@ -66,7 +66,7 @@ values
     null,
     '{"usage_dashboard": true, "alerts": true, "compliance_summary": true, "api_keys_max": null, "premium_support": true}'::jsonb
   )
-on conflict do nothing;
+on conflict (key) do nothing;
 
 -- Subscriptions table (mirrors Stripe subscription state)
 create table public.subscriptions (
