@@ -282,3 +282,149 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Invalid: `_dio` is private; `@visibleForTesting` only applies to public members. Test-only access already gated via public `setDioForTesting()`.
 
 ---
+
+## [2026-03-17] - Widget Consolidation & Test Infrastructure
+
+### Code Quality & Testing
+
+**M07: Add Retry Count Assertion to 500 Retry Test**
+- Enhanced `'handles 500 internal server error with retries'` test in contact_service_test.dart
+- Added `postCallCount` field to `_MockDio` to verify retry loop executed exactly `_maxRetries` times
+- Extended coverage to verify 504, connectionTimeout, and receiveTimeout retry paths
+- Commits: `f921d20`, `44a2450`
+
+### Widget Consolidation (Code Duplication Analysis)
+
+**#134: Consolidate Duplicated Page Scaffold Pattern**
+- Identified 8 page widgets with 78% similar scaffold/build pattern
+- Moved analytics tracking into `SubPageShell` widget
+- Refactored 7 pages to use `SubPageShell`, eliminating boilerplate
+- Result: -155 lines, 2444 tests pass
+- Commit: `bafeb87`
+
+**#135: Consolidate Duplicated Button Widget Constructors**
+- Extracted 4 button widgets with 75–85% similar constructors
+- Created `BaseActionButton` abstract class for shared parameter handling
+- 3 buttons now use `super.*` params; `AppTextButton` excluded (different structure)
+- Result: 21 new tests, 2492 tests pass
+- Commit: `f28cc6c`
+
+**#137: Consolidate Duplicated Chip/Badge Patterns**
+- Extracted `ChipBadge` widget to replace 4 similar implementations
+- Replaced: `_HeroBadge` (status), `_StatusChip` (status), `_HealthComponentChip` (status), `_AlertTypePreview` (docs_alerts)
+- Excluded: `TrustBadge`, `_TrustIndicator`, `_DifferentiatorCard` (too different)
+- Result: -91 lines, 2471 tests pass
+- Commit: `3c24e23`
+
+**#138: Consolidate Timeline vs DocNumberedList Duplication**
+- Both widgets render ordered vertical lists with numbered indicators (71% similar)
+- Extracted `VerticalIndicatorList` base widget
+- Refactored both `_Timeline` (docs_tracing_page) and `DocNumberedList` (doc_components)
+- Result: -20 lines, 2456 tests pass
+- Commit: `0d30da6`
+
+### Infrastructure & Mocking (2026-03-20)
+
+**T01: Enhance Mock ProvisioningDio for Multiple Different Per-Attempt Responses**
+- Extended `MockProvisioningDio` to support different response data per retry attempt
+- Added `_postResponseAttempts` and `_getResponseAttempts` maps alongside error maps
+- Fixed `mockGetResponse` to use per-attempt storage (was falling back to global response data)
+- Standardized counter pattern across mock methods
+- Enables future tests requiring different responses on each attempt (e.g., 500 then 200+data)
+- Result: 3 new tests, 2568 tests pass
+- Commit: `5367b9e`
+
+**#136: Consolidate Duplicated Info Card Patterns**
+- Extended `InfoCard` with new optional parameters: `iconSpacing`, `iconContainerPadding`, `iconContainerBorderRadius`, `onTap`, `trailingWidget`
+- Refactored `_MethodologyCard` and `_ResourceLink` to use shared `InfoCard`
+- Result: -86 lines, 2565 tests pass
+- Commit: `e8da224`
+
+---
+
+## [2026-03-20] - Security Hardening & Code Quality Cleanup
+
+### Security Fixes (code-reviewer findings, commit 84fb4f2 + 4554f81)
+
+**M17: Pipe sanitizeServerError Through sanitizeUserInput**
+- HTML-escape short server error strings before UI display to prevent XSS
+- Short, single-line messages now run through `sanitizeUserInput` for HTML entity escaping
+- Closes vector where server-controlled payload like `<img src=x onerror=...>` could bypass length/newline checks
+- Commit: `4554f81`
+
+**L22: Narrow sanitizeServerError Stack-Trace Heuristic**
+- Replaced broad `' at '` substring check with `_stackTracePattern` regex
+- New pattern matches ` at ` followed by address/path/method-call (digit, `/\\(`, or `\w+\.`), or file:line refs (`.dart/.js/.ts/.cjs/.mjs/.wasm:N`)
+- Added `\r\n` carriage-return guard to catch Windows-style multi-line errors
+- Natural language like "Failed at validation step" no longer triggers generic fallback
+- Avoids false positives while maintaining security boundary
+- 11 new tests verify both fixes
+- Commits: `4554f81`, amended with CRLF + extension fixes
+
+### Code Quality: Refactoring & Constants (code-reviewer findings, commits 171c1fb – 6bc66ea)
+
+**M09: Remove Redundant `onBack` Getter in ProvisionPage**
+- Removed unnecessary indirection: `VoidCallback? get onBack => widget.onBack;`
+- Replace build() references with direct `widget.onBack` calls
+- Matches pattern in auth_page
+- Commit: `171c1fb`
+
+**M10: Extract Duplicated Spacing Ternaries in AuthPage**
+- Pattern `SizedBox(height: _mode == AuthMode.signUp ? AppSpacing.lg : AppSpacing.md)` appeared 3 times
+- Extracted to `spacingAfterSubtitle` and `spacingBetweenFields` locals in `build()`
+- Reduces widget allocations; improves readability
+- Commit: `9deac24`
+
+**M11: Reset `_isLoading` on Auth Success Path**
+- Added `setState(() => _isLoading = false)` before `context.go()` on success
+- Prevents button from remaining permanently disabled if navigation fails
+- Commit: `f72fb4a`
+
+**M12: Map Server Error Strings to User-Friendly Messages**
+- Extracted `_sanitizeError()` helper in auth_page and provision_page
+- Short, single-line errors pass through; verbose/stack-trace strings fall back to generic message
+- Prevents internal detail leakage (file paths, logic names) in error UI
+- Commit: `6bc66ea`
+
+**M13: Lowercase and Trim Email for `userId` in ProvisioningEvent**
+- Email normalized to lowercase and trimmed before setting as `userId`
+- Prevents case-variation duplicates (`user@example.com` vs `User@Example.Com`)
+- De-couples PII from user ID concept
+- Commit: `2876b46`
+
+**M14: Add Copy Button for API Key Display**
+- Replaced `SelectableText` with `CopyableCodeField` widget
+- Adds dedicated copy-to-clipboard button with visual confirmation
+- Improves UX for security-sensitive values
+- Commit: session 2026-03-20
+
+**M15: Add Maximum Password Length Validation**
+- Added `_maxPasswordLength = 128` constant to `_isPasswordValid`
+- Prevents DoS on auth endpoint via extremely long password submission
+- Commit: session 2026-03-20
+
+**M16: Move Analytics Tracking to `didChangeDependencies`**
+- Moved `AnalyticsService.trackPageView` from `initState` to `didChangeDependencies`
+- Defers tracking until after first frame, ensuring route transitions complete
+- Prevents skewed analytics when async redirects tear down pages before display
+- Commit: session 2026-03-20
+
+**L19: Add Comment About `_email` Preservation on Mode Toggle**
+- Documented intentional asymmetry: `_email` preserved on mode switch, password fields reset
+- Prevents future developers from treating it as accidental omission
+- Commit: session 2026-03-20
+
+**L20: Fix Alert Double-Spacing Issue**
+- Removed redundant `SizedBox(height: AppSpacing.md)` after `Alert.error` in auth_page and provision_page
+- Alert's own `AppSpacing.lg` bottom margin provides sufficient spacing
+- Commit: session 2026-03-20
+
+### Constants & DRY Refactoring (commit e8ab121)
+
+**L21: Move Password Length Constants to Shared PasswordPolicy**
+- Extracted `minLength = 8` and `maxLength = 128` to `PasswordPolicy` class in `lib/config/content/constants.dart`
+- Updated auth_page placeholder to interpolate from shared constants: `'${PasswordPolicy.minLength}–${PasswordPolicy.maxLength} characters'`
+- Enables UI and future server-side validation to reference same policy
+- Commit: `e8ab121`
+
+---

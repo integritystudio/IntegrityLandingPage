@@ -157,7 +157,7 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 ---
 
-## Code Quality Findings (code-reviewer results)
+## Open Items
 
 ### M07: Add retry count assertion to 500 retry test
 
@@ -436,16 +436,4 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-20 (completed M17, L21, L22: sanitizeServerError HTML-escaping + narrowed stack-trace regex + PasswordPolicy shared constants)*
-
-*Previous: 2026-03-20 (appended S01: frame-ancestors CSP header from code-reviewer ec1fc78; fixed CSP security findings)*
-
-*Previous: 2026-03-20 (appended M09–M16, L19–L20 from code-reviewer 84fb4f2: auth_page.dart + provision_page.dart review)*
-
-*Previous: 2026-03-20 (completed M08 e0b9858: CORS + OPTIONS for sender-worker; api-provisioning review: completed #136 e8da224, completed T01 5367b9e)*
-
-*Previous: 2026-03-17 (completed #134, #135, M07, #137, #138; review fixes in 44a2450)*
-
-*Previous: 2026-03-15 (Phase 3b done, L15 appended)*
-
-*Previous: 2026-03-14 (migrated 12 Done items to changelog): L01–L05, M01–M03, L09, M05, M06, L12*
+*Last updated: 2026-03-20 (migrated M07, #134–#138, T01, M08–M16, L19–L20, M17, L21, L22 to changelog/1.1; removed 23 Done items from backlog)*
