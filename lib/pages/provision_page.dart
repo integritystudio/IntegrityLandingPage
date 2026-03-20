@@ -160,10 +160,8 @@ class _ProvisionPageState extends State<ProvisionPage> {
                 const SizedBox(height: AppSpacing.lg),
 
                 // Error message
-                if (_errorMessage != null) ...[
+                if (_errorMessage != null)
                   Alert.error(message: _errorMessage!),
-                  const SizedBox(height: AppSpacing.md),
-                ],
 
                 // API Key display
                 if (_apiKey != null) ...[

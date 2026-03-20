@@ -44,14 +44,24 @@ class _AuthPageState extends State<AuthPage> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  bool _pageViewTracked = false;
+
   @override
   void initState() {
     super.initState();
     _mode = widget.mode;
     _toggleModeRecognizer = TapGestureRecognizer()..onTap = _toggleMode;
-    AnalyticsService.trackPageView(
-      _mode == AuthMode.signUp ? 'auth_signup' : 'auth_signin',
-    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_pageViewTracked) {
+      _pageViewTracked = true;
+      AnalyticsService.trackPageView(
+        _mode == AuthMode.signUp ? 'auth_signup' : 'auth_signin',
+      );
+    }
   }
 
   @override
@@ -112,6 +122,8 @@ class _AuthPageState extends State<AuthPage> {
       _confirmPassword = '';
       _showPassword = false;
       _showConfirmPassword = false;
+      // _email is intentionally preserved so the user does not have to re-type
+      // it after switching between sign-up and sign-in modes.
     });
   }
 
@@ -187,10 +199,8 @@ class _AuthPageState extends State<AuthPage> {
                 SizedBox(height: spacingAfterSubtitle),
 
                 // Error message
-                if (_errorMessage != null) ...[
+                if (_errorMessage != null)
                   Alert.error(message: _errorMessage!),
-                  const SizedBox(height: AppSpacing.md),
-                ],
 
                 // Email field
                 FormTextField(
