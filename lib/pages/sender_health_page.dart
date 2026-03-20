@@ -4,6 +4,7 @@ import '../services/analytics.dart';
 import '../services/provisioning_service.dart';
 import '../theme/theme.dart';
 import '../theme/timings.dart';
+import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
 
 /// Sender Worker health check page.
@@ -190,15 +191,8 @@ class _SenderHealthPageState extends State<SenderHealthPage> {
                           Expanded(
                             child: OutlineButton(
                               onPressed: _isLoading ? null : _checkHealth,
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.center,
-                                children: [
-                                  const Icon(LucideIcons.rotateCw, size: 16),
-                                  const SizedBox(width: AppSpacing.sm),
-                                  const Text('Refresh'),
-                                ],
-                              ),
+                              text: 'Refresh',
+                              icon: LucideIcons.rotateCw,
                             ),
                           ),
                         ],
