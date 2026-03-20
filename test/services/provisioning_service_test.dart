@@ -497,6 +497,7 @@ class MockProvisioningDio implements Dio {
     }
   }
 
+  @override
   Future<Response<T>> post<T>(
     String path, {
     Object? data,
@@ -556,6 +557,7 @@ class MockProvisioningDio implements Dio {
     );
   }
 
+  @override
   Future<Response<T>> get<T>(
     String path, {
     Object? data,
