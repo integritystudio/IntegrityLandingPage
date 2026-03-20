@@ -348,7 +348,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/pages/auth_page.dart:77`
 
-**Status:** Deferred — code-review finding, P3 security fix.
+**Status:** Done — (2026-03-20). Added `_minPasswordLength = 8` and `_maxPasswordLength = 128` constants; `_isPasswordValid` now enforces both bounds.
 
 ---
 
