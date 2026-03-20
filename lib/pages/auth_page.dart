@@ -112,6 +112,7 @@ class _AuthPageState extends State<AuthPage> {
 
     switch (response) {
       case AuthSuccess():
+        setState(() => _isLoading = false);
         context.go(Routes.provision, extra: response);
       case AuthError():
         setState(() {
