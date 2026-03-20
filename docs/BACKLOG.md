@@ -223,7 +223,27 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-20 (completed #136 info-card consolidation e8da224; completed T01 per-attempt mock 5367b9e)*
+## API Provisioning Integration
+
+### M08: Add CORS Headers and OPTIONS Handling to Sender Worker
+
+**Priority:** P2 | **Source:** session 2026-03-20, api-provisioning.md review
+
+`workers/sender-worker/src/index.ts` — Sender Worker `/send` endpoint does not set `Access-Control-Allow-Origin` headers or handle OPTIONS preflight requests. Browser-based Flutter Web deployments will fail with CORS rejection errors.
+
+**Required:**
+- Add `corsHeaders` with allowed origin(s) (staging, production, local dev)
+- Handle OPTIONS method with 204 No Content + CORS headers
+- Apply CORS headers to all POST responses
+- Suggested origins: `https://staging.example.com`, `https://www.example.com`, `http://localhost:8081` (dev)
+
+**Files:** `workers/sender-worker/src/index.ts`, `workers/sender-worker/src/index.test.ts` (add OPTIONS preflight test)
+
+**Status:** Done — `e0b9858` (2026-03-20). Added `getCorsHeaders` reusing `ALLOWED_ORIGINS` from `workers/constants.ts`. Non-browser requests (no Origin) pass through; disallowed origins return 403; OPTIONS returns 204. 4 new tests, 16 total passing.
+
+---
+
+*Last updated: 2026-03-20 (completed M08 e0b9858: CORS + OPTIONS for sender-worker; api-provisioning review: completed #136 e8da224, completed T01 5367b9e)*
 
 *Previous: 2026-03-17 (completed #134, #135, M07, #137, #138; review fixes in 44a2450)*
 
