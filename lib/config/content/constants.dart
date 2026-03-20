@@ -216,6 +216,16 @@ abstract final class FormMessages {
 }
 
 // =============================================================================
+// AUTHENTICATION CONSTRAINTS
+// =============================================================================
+
+/// Password validation constraints shared by client UI and auth logic.
+abstract final class PasswordPolicy {
+  static const int minLength = 8;
+  static const int maxLength = 128;
+}
+
+// =============================================================================
 // COMPLIANCE DISCLAIMERS
 // =============================================================================
 

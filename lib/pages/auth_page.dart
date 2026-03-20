@@ -85,13 +85,10 @@ class _AuthPageState extends State<AuthPage> {
           ? "Already have an account? Sign in"
           : "Don't have an account? Sign up";
 
-  static const _minPasswordLength = 8;
-  static const _maxPasswordLength = 128;
-
   bool get _isPasswordValid =>
       _password.isNotEmpty &&
-      _password.length >= _minPasswordLength &&
-      _password.length <= _maxPasswordLength;
+      _password.length >= PasswordPolicy.minLength &&
+      _password.length <= PasswordPolicy.maxLength;
 
   bool get _isFormValid {
     if (_email.isEmpty || !ContactService.isValidEmail(_email)) return false;
@@ -212,7 +209,7 @@ class _AuthPageState extends State<AuthPage> {
                     _password = value;
                     _errorMessage = null;
                   }),
-                  placeholder: '8\u2013128 characters',
+                  placeholder: '${PasswordPolicy.minLength}\u2013${PasswordPolicy.maxLength} characters',
                   enabled: !_isLoading,
                 ),
                 SizedBox(height: spacingBetweenFields),
