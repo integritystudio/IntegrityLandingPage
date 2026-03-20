@@ -1,0 +1,124 @@
+import type { SupabaseAdmin } from '../supabase';
+import type { BillingStatus, PlanKey, StripeEvent } from '../../../lib/types';
+
+/**
+ * Map Stripe price IDs to plan keys.
+ * This should match your pricing setup in Stripe.
+ */
+const PRICE_TO_PLAN: Record<string, PlanKey> = {
+  // Example: 'price_1Abc...': 'growth'
+};
+
+type HandlerResult = { ok: true } | { ok: false; error: string };
+
+function resolveBillingStatus(stripeStatus: string): BillingStatus {
+  if (stripeStatus === 'active') return 'active';
+  if (stripeStatus === 'past_due') return 'past_due';
+  return 'inactive';
+}
+
+/**
+ * Handle customer.subscription.updated event.
+ * Updates subscription status and may recompute entitlements.
+ */
+export async function handleSubscriptionUpdated(
+  event: StripeEvent,
+  db: SupabaseAdmin,
+): Promise<HandlerResult> {
+  const subscription = event.data.object as any;
+
+  if (!subscription.customer) {
+    return { ok: false, error: 'Subscription missing customer' };
+  }
+
+  const findResult = await db.findOrgByStripeCustomerId(subscription.customer);
+  if (!findResult.ok) {
+    return { ok: false, error: `Failed to find org: ${findResult.error}` };
+  }
+
+  if (!findResult.orgId) {
+    console.warn(`No org found for Stripe customer ${subscription.customer}`);
+    return { ok: true };
+  }
+
+  const firstItem = subscription.items?.data?.[0];
+  if (firstItem) {
+    const priceId: string = firstItem.price.id;
+    const upsertResult = await db.upsertSubscription(
+      findResult.orgId,
+      subscription.id,
+      priceId,
+      subscription.status,
+    );
+    if (!upsertResult.ok) {
+      return { ok: false, error: `Failed to upsert subscription: ${upsertResult.error}` };
+    }
+  }
+
+  const planKey = firstItem ? PRICE_TO_PLAN[firstItem.price.id] : undefined;
+  const billingStatus = resolveBillingStatus(subscription.status);
+
+  const updateResult = await db.updateOrgBillingStatus(
+    findResult.orgId,
+    billingStatus,
+    planKey,
+    true, // bump quota version to notify clients
+  );
+
+  if (!updateResult.ok) {
+    return { ok: false, error: `Failed to update org: ${updateResult.error}` };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Handle customer.subscription.deleted event.
+ * Downgrades org to free plan and cancels billing.
+ */
+export async function handleSubscriptionDeleted(
+  event: StripeEvent,
+  db: SupabaseAdmin,
+): Promise<HandlerResult> {
+  const subscription = event.data.object as any;
+
+  if (!subscription.customer) {
+    return { ok: false, error: 'Subscription missing customer' };
+  }
+
+  const findResult = await db.findOrgByStripeCustomerId(subscription.customer);
+  if (!findResult.ok) {
+    return { ok: false, error: `Failed to find org: ${findResult.error}` };
+  }
+
+  if (!findResult.orgId) {
+    console.warn(`No org found for Stripe customer ${subscription.customer}`);
+    return { ok: true };
+  }
+
+  const firstItem = subscription.items?.data?.[0];
+  if (firstItem) {
+    const upsertResult = await db.upsertSubscription(
+      findResult.orgId,
+      subscription.id,
+      firstItem.price.id,
+      'canceled',
+    );
+    if (!upsertResult.ok) {
+      return { ok: false, error: `Failed to mark subscription canceled: ${upsertResult.error}` };
+    }
+  }
+
+  const updateResult = await db.updateOrgBillingStatus(
+    findResult.orgId,
+    'canceled',
+    'free',
+    true, // bump quota version
+  );
+
+  if (!updateResult.ok) {
+    return { ok: false, error: `Failed to downgrade org: ${updateResult.error}` };
+  }
+
+  return { ok: true };
+}

@@ -1,0 +1,9 @@
+name = "stripe-webhook"
+main = "src/index.ts"
+compatibility_date = "2026-03-19"
+
+# Stripe webhook secret (set via: wrangler secret put STRIPE_WEBHOOK_SECRET)
+# Retrieve from Stripe Dashboard > Developers > Webhooks > Signing secret
+
+# Supabase credentials (set via environment variables or wrangler secrets)
+# SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured
