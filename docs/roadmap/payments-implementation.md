@@ -395,6 +395,64 @@ execute function update_updated_at_column();
 
 **When adding new tables:** If a table has an `updated_at` column, create a corresponding trigger. The function is reusable across all tables.
 
+## 2.6. Schema enhancements: API keys organization scoping
+
+**Status:** ✅ Implemented in Supabase (2026-03-20)
+
+**Change:** Add `organization_id` column to `api_keys` table for explicit org scoping and improved RLS performance.
+
+**Rationale:**
+- Consistency with other org-scoped resources (subscriptions, entitlements, usage_events)
+- Direct org filtering without multi-join through users/memberships
+- Enables per-org API key namespacing (prefix unique per org, not globally)
+
+**Schema modification:**
+
+```sql
+-- 1. Add column as nullable
+alter table api_keys
+add column organization_id uuid references organizations(id) on delete cascade;
+
+-- 2. Backfill with user's primary active org
+update api_keys k
+set organization_id = (
+  select m.organization_id
+  from organization_memberships m
+  where m.user_id = k.user_id
+    and m.status = 'active'
+  order by m.created_at
+  limit 1
+)
+where organization_id is null;
+
+-- 3. Add NOT NULL constraint
+alter table api_keys
+alter column organization_id set not null;
+
+-- 4. Add indexes for RLS performance
+create index idx_api_keys_organization_id on api_keys(organization_id);
+create index idx_api_keys_user_id on api_keys(user_id);
+
+-- 5. Update unique constraint (prefix per org)
+alter table api_keys drop constraint api_keys_prefix_key;
+alter table api_keys add unique (organization_id, prefix);
+```
+
+**Impact on API key verification flow:**
+
+When verifying an API key (section 12), also resolve `organization_id` to scope operations:
+
+```ts
+// 1. Extract prefix from key
+const [prefix, secret] = token.split('_', 2);
+
+// 2. Query for key by prefix + org_id (faster than before)
+const apiKey = await db.api_keys.findOne({ organization_id, prefix });
+
+// 3. Rest of verification unchanged
+const valid = await bcrypt.compare(secret, apiKey.hash);
+```
+
 ## 3. RLS model
 
 Enable RLS on every customer-visible table. Supabase recommends RLS on exposed schemas and notes that the anon key is only safe to expose when RLS is in place. ([Supabase][3])
