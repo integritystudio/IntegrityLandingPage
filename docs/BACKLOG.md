@@ -243,7 +243,129 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-20 (completed M08 e0b9858: CORS + OPTIONS for sender-worker; api-provisioning review: completed #136 e8da224, completed T01 5367b9e)*
+### M09: Remove Redundant `onBack` Getter in ProvisionPage
+
+**Priority:** P2 | **Source:** session 2026-03-20, code-reviewer (commit 84fb4f2)
+
+`lib/pages/provision_page.dart:188` — The getter `VoidCallback? get onBack => widget.onBack;` creates an unnecessary indirection. In `auth_page.dart`, `widget.onBack` is accessed directly everywhere. Remove the getter and replace `build()` references (lines 84-89) with direct `widget.onBack` calls to match the pattern in auth_page.
+
+**File:** `lib/pages/provision_page.dart:84-89, 188`
+
+**Status:** Deferred — code-review finding, P2 refactor.
+
+---
+
+### M10: Extract Duplicated Spacing Ternaries in AuthPage
+
+**Priority:** P2 | **Source:** session 2026-03-20, code-reviewer (commit 84fb4f2)
+
+`lib/pages/auth_page.dart:165-167, 187-189, 202-204` — The pattern `SizedBox(height: _mode == AuthMode.signUp ? AppSpacing.lg : AppSpacing.md)` appears three times inline. Extract to a single `final fieldSpacing` variable at the top of `build()` to reduce allocations and improve readability.
+
+**File:** `lib/pages/auth_page.dart`
+
+**Status:** Deferred — code-review finding, P2 optimization.
+
+---
+
+### M11: Reset `_isLoading` on Auth Success Path
+
+**Priority:** P2 | **Source:** session 2026-03-20, code-reviewer (commit 84fb4f2)
+
+`lib/pages/auth_page.dart:99-121` — In `_submit()`, on the success branch (`AuthSuccess`), the code calls `context.go(Routes.provision, extra: response)` and returns without setting `_isLoading = false`. If navigation fails, the button remains permanently disabled. Move `_isLoading = false` inside a `try/finally` or explicitly on the success branch before navigating.
+
+**File:** `lib/pages/auth_page.dart:99-121`
+
+**Status:** Deferred — code-review finding, P2 bug fix.
+
+---
+
+### M12: Map Server Error Strings to User-Friendly Messages
+
+**Priority:** P2 | **Source:** session 2026-03-20, code-reviewer (commit 84fb4f2)
+
+`lib/pages/auth_page.dart:233` and `lib/pages/provision_page.dart:233` — Raw server error strings are surfaced directly in `Alert.error` via `_errorMessage` set from `response.error`. If the backend returns a verbose technical string (stack trace, internal path, etc.), it exposes implementation details to users. Add a mapping layer between service errors and user-friendly messages.
+
+**File:** `lib/pages/{auth,provision}_page.dart`
+
+**Status:** Deferred — code-review finding, P2 UX/security fix.
+
+---
+
+### M13: Lowercase and Trim Email for `userId` in ProvisioningEvent
+
+**Priority:** P3 | **Source:** session 2026-03-20, code-reviewer (commit 84fb4f2)
+
+`lib/pages/provision_page.dart:47-51` — `userId` is set to raw `widget.auth.email` without normalization. This conflates PII with the user ID concept and allows case-variation duplicates (e.g., `user@example.com` and `User@Example.Com` create two accounts). Lowercase and trim: `widget.auth.email.toLowerCase().trim()`.
+
+**File:** `lib/pages/provision_page.dart:47`
+
+**Status:** Deferred — code-review finding, P3 data quality.
+
+---
+
+### M14: Add Copy Button for API Key Display
+
+**Priority:** P3 | **Source:** session 2026-03-20, code-reviewer (commit 84fb4f2)
+
+`lib/pages/provision_page.dart:155-165` — API key is displayed in `SelectableText` with no copy-to-clipboard affordance. For security-sensitive values, add a dedicated `IconButton` with `Clipboard.setData()` and visual confirmation (e.g., toast or button state change).
+
+**File:** `lib/pages/provision_page.dart`
+
+**Status:** Deferred — code-review finding, P3 UX enhancement.
+
+---
+
+### M15: Add Maximum Password Length Validation
+
+**Priority:** P3 | **Source:** session 2026-03-20, code-reviewer (commit 84fb4f2)
+
+`lib/pages/auth_page.dart:77` — `_isPasswordValid` enforces `length >= 8` but no upper bound. Extremely long passwords (e.g., 10,000 chars) would pass client validation and trigger a DoS on the auth endpoint if the server doesn't limit. Add `_password.length <= 128` (or server limit) check.
+
+**File:** `lib/pages/auth_page.dart:77`
+
+**Status:** Deferred — code-review finding, P3 security fix.
+
+---
+
+### M16: Move Analytics Tracking to `didChangeDependencies`
+
+**Priority:** P3 | **Source:** session 2026-03-20, code-reviewer (commit 84fb4f2)
+
+`lib/pages/auth_page.dart:50-52` — `AnalyticsService.trackPageView` is called in `initState`, which runs before the first frame is rendered. If route transitions are async (GoRouter with redirect guards), the page may be torn down before being displayed, skewing analytics. Move to `didChangeDependencies` (first call only) or defer via `WidgetsBinding.instance.addPostFrameCallback`.
+
+**File:** `lib/pages/auth_page.dart:50-52`
+
+**Status:** Deferred — code-review finding, P3 observability.
+
+---
+
+### L19: Add Comment About `_email` Preservation on Mode Toggle
+
+**Priority:** P4 | **Source:** session 2026-03-20, code-reviewer (commit 84fb4f2)
+
+`lib/pages/auth_page.dart:93-98` — When a user switches from sign-up to sign-in, `_password`, `_confirmPassword`, and visibility booleans are reset, but `_email` is preserved. This is likely intentional UX, but it's undocumented asymmetry. Add a brief comment explaining the decision to prevent future developers from treating it as an accidental omission.
+
+**File:** `lib/pages/auth_page.dart`
+
+**Status:** Deferred — code-review finding, P4 documentation.
+
+---
+
+### L20: Fix Alert Double-Spacing Issue
+
+**Priority:** P4 | **Source:** session 2026-03-20, code-reviewer (commit 84fb4f2)
+
+`lib/widgets/alert.dart:157` and usage in `lib/pages/{auth,provision}_page.dart` — `Alert` has hardcoded `margin: EdgeInsets.only(bottom: AppSpacing.lg)`. Both pages add `SizedBox(height: AppSpacing.md)` after `Alert.error`, resulting in `AppSpacing.lg + AppSpacing.md` total gap. Review whether `Alert` should have no intrinsic margin (callers own spacing) or whether the post-alert `SizedBox` should be removed.
+
+**File:** `lib/widgets/alert.dart`, `lib/pages/{auth,provision}_page.dart`
+
+**Status:** Deferred — code-review finding, P4 spacing/design.
+
+---
+
+*Last updated: 2026-03-20 (appended M09–M16, L19–L20 from code-reviewer 84fb4f2: auth_page.dart + provision_page.dart review)*
+
+*Previous: 2026-03-20 (completed M08 e0b9858: CORS + OPTIONS for sender-worker; api-provisioning review: completed #136 e8da224, completed T01 5367b9e)*
 
 *Previous: 2026-03-17 (completed #134, #135, M07, #137, #138; review fixes in 44a2450)*
 

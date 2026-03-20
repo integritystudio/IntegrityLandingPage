@@ -1,0 +1,23 @@
+{
+  "name": "@integrity/agents",
+  "version": "1.0.0",
+  "description": "AI agents for Integrity Studio architecture and design",
+  "type": "module",
+  "scripts": {
+    "payment-processor": "tsx payment-processor-expert.ts",
+    "payment-processor:architecture": "tsx payment-processor-expert.ts 'Explain the recommended architecture layers and how they interact'",
+    "payment-processor:data-model": "tsx payment-processor-expert.ts 'Design the Postgres schema for the billing system based on the research'",
+    "payment-processor:provisioning": "tsx payment-processor-expert.ts 'Detail the provisioning flow from Supabase webhooks through Cloudflare Workers'",
+    "payment-processor:security": "tsx payment-processor-expert.ts 'Review all security rules and recommend hardening measures'",
+    "payment-processor:rate-limiting": "tsx payment-processor-expert.ts 'Design a rate limiting and quota enforcement strategy'"
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest",
+    "@types/node": "^25.3.3",
+    "tsx": "^4.17.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -16,33 +16,42 @@ The Content Security Policy directive 'report-uri' is ignored when delivered via
 
 ---
 
-### 2. Facebook Pixel Form Submission ✅ FIXED
+### 2. Facebook Pixel Form Submission ✅ NOT BROKEN
 ```
-Previously blocked: "Sending form data to 'https://www.facebook.com/tr/' violates the following Content Security Policy directive: form-action 'self'."
+Previously observed: "Sending form data to 'https://www.facebook.com/tr/' violates CSP form-action directive."
 ```
 
-**Root Cause**: CSP policy `form-action 'self'` prevented form submissions to external domains
+**Analysis**: Facebook pixel does NOT use HTML form submissions. The pixel fires via:
+- XHR requests → covered by `connect-src` (allows facebook.com)
+- Image beacons → covered by `img-src` (allows facebook.com)
 
-**Resolution**: Added `https://www.facebook.com` to `form-action` directive
+**Root Cause**: Misleading error message; the CSP error was a red herring
 
-**Updated CSP**: `form-action 'self' https://www.facebook.com;`
+**Resolution**: Reverted unnecessary `form-action` broadening to maintain form security boundary
 
-**Impact**: Facebook pixel now receives conversion tracking data
+**CSP Policy**: `form-action 'self'` (unchanged, correct)
+
+**Impact**: Pixel tracking works correctly; form submissions remain protected
 
 ---
 
-### 3. Facebook iframe Framing ✅ FIXED
+### 3. Facebook iframe Framing ✅ ANALYZED
 ```
-Previously blocked: "Framing 'https://www.facebook.com/' violates the following Content Security Policy directive: frame-src 'self' https://calendly.com https://td.doubleclick.net".
+Potential blocking: "Framing 'https://www.facebook.com/' violates CSP frame-src directive."
 ```
 
-**Root Cause**: CSP `frame-src` directive didn't include facebook.com
+**Root Cause**: CSP `frame-src` directive doesn't include facebook.com
 
-**Resolution**: Added `https://www.facebook.com` to `frame-src` directive
+**Analysis**: No active Facebook embed widget (e.g. Like button, Comments plugin) found in codebase. The site only uses pixel for conversion tracking, not social embeds.
 
-**Updated CSP**: `frame-src 'self' https://calendly.com https://td.doubleclick.net https://www.facebook.com;`
+**Resolution**: Kept `frame-src` restricted (no facebook.com added) to maintain iframe security boundary
 
-**Impact**: Facebook embeds and social plugins can now load in iframes
+**CSP Policy**: `frame-src 'self' https://calendly.com https://td.doubleclick.net` (unchanged)
+
+**If Needed Later**: To add Facebook social plugin, scope narrowly:
+```
+frame-src 'self' https://calendly.com https://td.doubleclick.net https://www.facebook.com/plugins/;
+```
 
 ---
 
@@ -91,18 +100,20 @@ Then run with: `npm run dev -- --env development`
 
 | Issue | Priority | Status | Impact |
 |-------|----------|--------|--------|
-| CSP in meta tag | Low | ⏳ Pending | Move to HTTP headers for cleaner security model |
-| Facebook pixel blocked | Low | ✅ Fixed | Form submissions to Facebook pixel now allowed |
-| Facebook iframe blocked | Low | ✅ Fixed | Social embeds and iframes can now load |
+| CSP in meta tag (frame-ancestors) | **High** | ⏳ Pending | Move to HTTP headers — clickjacking protection required |
+| Facebook pixel tracking | Low | ✅ Working | Pixel uses connect-src/img-src; no form-action needed |
+| Facebook embed widgets | Low | ℹ️ Not needed | If social embeds needed later, use `frame-src` + facebook.com/plugins/ |
 | Contact form localhost CORS | Medium | ⏳ Pending | Add localhost to allowlist for dev testing |
 
 ---
 
 ## Deployment Readiness
 
-✅ **Analytics tracking** - Fully functional with Facebook pixel enabled
-✅ **Facebook integration** - Pixel tracking and iframe embeds now supported
-✅ **Security policies** - Working as intended
-⚠️ **Local development** - Contact form blocked on localhost (expected, needs config for dev)
+✅ **Analytics tracking** - Fully functional (Google Analytics, GTM, Facebook Pixel)
+✅ **Security policies** - Correctly configured with minimal necessary permissions
+⚠️ **Clickjacking protection** - Missing (frame-ancestors CSP requires HTTP header, not meta tag)
+⚠️ **Local development** - Contact form blocked on localhost (expected, needs CORS config)
 
-**Production Status**: All analytics including Facebook pixel will work on production domain
+**Production Status**:
+- All analytics will work correctly on production domain
+- Recommend adding frame-ancestors CSP header on production server for complete clickjacking protection
