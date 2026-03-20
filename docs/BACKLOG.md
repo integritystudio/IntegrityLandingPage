@@ -132,6 +132,31 @@ Once #132 (resume upload) is implemented, revert the careers page CTA and copy:
 
 ---
 
+## Deferred: Server-Side Security Headers
+
+These issues require **server-side HTTP response header configuration** and cannot be fixed in the Flutter app.
+
+---
+
+### S01: Add `frame-ancestors` CSP Header for Clickjacking Protection
+
+**Priority:** P1 | **Source:** session 2026-03-20, code-reviewer (commit ec1fc78)
+
+**Status:** Blocked on server configuration
+
+The `frame-ancestors` directive controls who can embed this site in an iframe (clickjacking defense). The directive is currently missing from **both** the HTTP response headers and the `<meta>` CSP tag. CSP directives in `<meta>` tags are silently ignored for `frame-ancestors` — it **must** be delivered via HTTP response header.
+
+**Required:**
+- Add `frame-ancestors 'self';` to the server's CSP HTTP response header (production domain only)
+- Remove from `<meta>` tag (already removed in ec1fc78)
+- This requires Cloudflare Workers (`_headers` file) or similar edge configuration, not Flutter app changes
+
+**File:** Server configuration (e.g., `web/_headers` or Cloudflare Workers config)
+
+**Reason deferred:** Requires server-side deployment; cannot be fixed in Flutter app.
+
+---
+
 ## Code Quality Findings (code-reviewer results)
 
 ### M07: Add retry count assertion to 500 retry test
@@ -363,7 +388,9 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-20 (appended M09–M16, L19–L20 from code-reviewer 84fb4f2: auth_page.dart + provision_page.dart review)*
+*Last updated: 2026-03-20 (appended S01: frame-ancestors CSP header from code-reviewer ec1fc78; fixed CSP security findings)*
+
+*Previous: 2026-03-20 (appended M09–M16, L19–L20 from code-reviewer 84fb4f2: auth_page.dart + provision_page.dart review)*
 
 *Previous: 2026-03-20 (completed M08 e0b9858: CORS + OPTIONS for sender-worker; api-provisioning review: completed #136 e8da224, completed T01 5367b9e)*
 
