@@ -15,6 +15,10 @@ export function corsHeaders(options: CorsOptions = {}): Headers {
     maxAge = 86400,
   } = options;
 
+  if (credentials && origin === '*') {
+    throw new Error('CORS: credentials: true requires a specific origin, not "*"');
+  }
+
   const result = new Headers();
   result.set('access-control-allow-origin', origin);
   result.set('access-control-allow-methods', methods.join(', '));

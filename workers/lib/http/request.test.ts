@@ -131,6 +131,12 @@ describe('getRequiredQueryParam()', () => {
     expect(getRequiredQueryParam(r, 'id')).toEqual({ ok: true, value: '42' });
   });
 
+  it('returns ok: true for empty-string param (present but empty)', () => {
+    const r = makeRequest('http://t/?id=');
+    const result = getRequiredQueryParam(r, 'id');
+    expect(result).toEqual({ ok: true, value: '' });
+  });
+
   it('returns ok: false + 400 for missing param', () => {
     const result = getRequiredQueryParam(makeRequest('http://t/'), 'id');
     expect(result.ok).toBe(false);

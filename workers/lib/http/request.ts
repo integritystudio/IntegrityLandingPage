@@ -4,6 +4,11 @@ export function isJsonRequest(request: Request): boolean {
   return (request.headers.get('content-type') ?? '').toLowerCase().includes('application/json');
 }
 
+/**
+ * Parse the request body as JSON with no schema validation.
+ * The caller is responsible for validating the shape of `T`.
+ * Prefer `requireValidJson` from `lib/validation` for schema-validated payloads.
+ */
 export async function safeParseJson<T>(
   request: Request,
 ): Promise<{ ok: true; data: T } | { ok: false; error: Response }> {
@@ -21,10 +26,6 @@ export async function requireJson<T>(
     return { ok: false, error: badRequest('Expected content-type: application/json') };
   }
   return safeParseJson<T>(request);
-}
-
-export function getHeader(request: Request, name: string): string | null {
-  return request.headers.get(name);
 }
 
 export function getBearerToken(request: Request): string | null {
@@ -49,7 +50,7 @@ export function getRequiredQueryParam(
   key: string,
 ): { ok: true; value: string } | { ok: false; error: Response } {
   const value = getQueryParam(request, key);
-  if (!value) return { ok: false, error: badRequest(`Missing required query parameter: ${key}`) };
+  if (value === null) return { ok: false, error: badRequest(`Missing required query parameter: ${key}`) };
   return { ok: true, value };
 }
 

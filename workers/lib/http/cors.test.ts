@@ -32,8 +32,13 @@ describe('corsHeaders()', () => {
     expect(corsHeaders().get('access-control-allow-credentials')).toBeNull();
   });
 
-  it('sets credentials when enabled', () => {
-    expect(corsHeaders({ credentials: true }).get('access-control-allow-credentials')).toBe('true');
+  it('sets credentials when enabled with a specific origin', () => {
+    const h = corsHeaders({ origin: 'https://example.com', credentials: true });
+    expect(h.get('access-control-allow-credentials')).toBe('true');
+  });
+
+  it('throws when credentials: true is combined with wildcard origin', () => {
+    expect(() => corsHeaders({ credentials: true })).toThrow('credentials: true requires a specific origin');
   });
 });
 
