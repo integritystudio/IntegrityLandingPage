@@ -425,11 +425,11 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **Priority:** P4 | **Source:** session 2026-03-20, code-reviewer (commit d7b597e)
 
-`lib/pages/auth_page.dart` — Placeholder text `'Minimum 8 characters'` does not reflect the 128-char ceiling added in M15.
+`lib/pages/auth_page.dart` — Placeholder text `'Minimum 8 characters'` does not reflect the 128-char ceiling extracted to `PasswordPolicy.maxLength` in L21.
 
 **File:** `lib/pages/auth_page.dart`
 
-**Status:** Done — (2026-03-20). Updated placeholder to `'8–128 characters'`.
+**Status:** Done — `c3b9893` (2026-03-20). Updated placeholder to `'8–128 characters'`.
 
 ---
 
