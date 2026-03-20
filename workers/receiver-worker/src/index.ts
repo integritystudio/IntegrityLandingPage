@@ -1,4 +1,4 @@
-import { JSON_CONTENT_TYPE } from '../../http-constants';
+import { JSON_CONTENT_TYPE } from '../../http-helpers';
 import { REPLAY_WINDOW_MS } from '../../constants';
 
 interface Env {

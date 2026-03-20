@@ -1,4 +1,4 @@
-import { JSON_CONTENT_TYPE } from '../../http-constants';
+import { JSON_CONTENT_TYPE } from '../../http-helpers';
 import { buildCorsHeaders, isOriginAllowed } from '../../cors-utils';
 
 interface Env {
