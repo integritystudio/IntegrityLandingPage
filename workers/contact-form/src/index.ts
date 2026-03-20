@@ -15,19 +15,14 @@ import {
   KV_CIRCUIT_BREAKER_THRESHOLD,
   KV_CIRCUIT_RESET_COOLDOWN_MS,
   KV_CIRCUIT_RESET_JITTER_MS,
-  MAX_COMPANY_SIZE_LENGTH,
-  MAX_EMAIL_LENGTH,
   MAX_IN_MEMORY_ENTRIES,
-  MAX_MESSAGE_LENGTH,
-  MAX_NAME_LENGTH,
-  MAX_ORGANIZATION_LENGTH,
   MAX_REQUEST_BODY_BYTES,
-  MAX_USE_CASE_LENGTH,
   MIN_KV_TTL_SECONDS,
   RESEND_API_TIMEOUT_MS,
 } from '../../constants';
 import { ALLOWED_ORIGINS } from '../../http-helpers';
 import { buildCorsHeaders, isOriginAllowed } from '../../cors-utils';
+import { validateContactForm, type ContactFormData } from './schemas';
 
 interface Env {
   RESEND_API_KEY: string;
@@ -279,14 +274,6 @@ async function validateCsrfToken(
   return null;
 }
 
-interface ContactFormData {
-  name: string;
-  email: string;
-  organization?: string;
-  message?: string;
-  companySize?: string;
-  useCase?: string;
-}
 
 /**
  * Get CORS headers for a request.
@@ -319,35 +306,6 @@ function getCorsHeaders(request: Request): Record<string, string> | null {
   );
 }
 
-// Validate email format (RFC 5321 subset)
-// - Local part: 1-64 chars, alphanumeric + . _ % + -
-// - No leading/trailing/consecutive dots in local part
-// - Domain: valid labels, 2+ char TLD, no leading/trailing hyphens
-function isValidEmail(email: string): boolean {
-  if (email.length > 254) return false;
-  const parts = email.split('@');
-  if (parts.length !== 2) return false;
-  const [local, domain] = parts;
-  if (local.length < 1 || local.length > 64) return false;
-  if (/^\.|\.$|\.\./.test(local)) return false;
-  if (!/^[a-zA-Z0-9._%+-]+$/.test(local)) return false;
-  if (!/^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(domain)) return false;
-  return true;
-}
-
-// Validate contact form data
-function validateForm(data: ContactFormData): string | null {
-  if (!data.name?.trim()) return 'Name is required';
-  if (data.name.length > MAX_NAME_LENGTH) return `Name must be under ${MAX_NAME_LENGTH} characters`;
-  if (!data.email?.trim()) return 'Email is required';
-  if (data.email.length > MAX_EMAIL_LENGTH) return `Email must be under ${MAX_EMAIL_LENGTH} characters`;
-  if (!isValidEmail(data.email)) return 'Invalid email format';
-  if (data.organization && data.organization.length > MAX_ORGANIZATION_LENGTH) return `Organization must be under ${MAX_ORGANIZATION_LENGTH} characters`;
-  if (data.companySize && data.companySize.length > MAX_COMPANY_SIZE_LENGTH) return `Company size must be under ${MAX_COMPANY_SIZE_LENGTH} characters`;
-  if (data.useCase && data.useCase.length > MAX_USE_CASE_LENGTH) return `Use case must be under ${MAX_USE_CASE_LENGTH} characters`;
-  if (data.message && data.message.length > MAX_MESSAGE_LENGTH) return `Message must be under ${MAX_MESSAGE_LENGTH} characters`;
-  return null;
-}
 
 /**
  * Generate a signed CSRF token.
@@ -542,8 +500,8 @@ export default {
       // Parse request body
       const data: ContactFormData = await request.json();
 
-      // Validate form data
-      const validationError = validateForm(data);
+      // Validate form data using Zod schema
+      const validationError = validateContactForm(data);
       if (validationError) {
         return new Response(
           JSON.stringify({ error: validationError }),
