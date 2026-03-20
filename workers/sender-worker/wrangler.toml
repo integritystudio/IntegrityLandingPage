@@ -4,7 +4,7 @@ compatibility_date = "2026-03-19"
 
 [vars]
 # Receiver Worker URL (set to receiver-worker deployment URL)
-RECEIVER_WORKER_URL = "https://receiver-worker.example.workers.dev"
+RECEIVER_WORKER_URL = "https://receiver-worker.alyshia-b38.workers.dev"
 
 # HMAC signing key (set via: wrangler secret put SHARED_SECRET)
 # Must match SHARED_SECRET in receiver-worker
