@@ -81,14 +81,48 @@ Tests use `vitest` with mocked `fetch` to verify:
 
 ## Deployment
 
+### Quick Start (Development)
 ```bash
 wrangler deploy
 ```
 
-Then update the Flutter provisioning service with the deployed URL.
+### Multi-Environment Deployment
+For staging and production setup, see [Environment Setup Guide](../../docs/provisioning-environment-setup.md).
+
+**Key Steps:**
+1. Generate SHARED_SECRET: `openssl rand -base64 32`
+2. Set same SHARED_SECRET on both sender and receiver workers
+3. Update RECEIVER_WORKER_URL in wrangler.toml
+4. Deploy: `wrangler deploy`
+5. Verify: `curl https://receiver-worker.integritystudio.ai/health`
+
+Then update the Flutter provisioning service with the deployed Sender Worker URL.
+
+## CORS Configuration
+
+The Sender Worker enforces CORS for browser-based requests. Configure allowed origins:
+
+```toml
+# In wrangler.toml (optional, defaults to production origin)
+ALLOWED_ORIGINS_JSON = '["https://www.integritystudio.ai"]'
+```
+
+Or deploy with vars:
+```bash
+wrangler deploy --var ALLOWED_ORIGINS_JSON='["https://staging.integritystudio.ai","https://www.integritystudio.ai"]'
+```
+
+**CORS Handling:**
+- OPTIONS preflight returns 204 with headers (if origin allowed)
+- POST from disallowed origin returns 403 forbidden
+- Requests without Origin header (server-to-server) pass through unchanged
 
 ## References
 
 - [docs/api-provisioning.md](../../docs/api-provisioning.md) — Architecture overview
+- [docs/api-provisioning-contract.md](../../docs/api-provisioning-contract.md) — Client contract
+- [docs/inter-worker-contract-validation.md](../../docs/inter-worker-contract-validation.md) — Worker compatibility
+- [docs/provisioning-environment-setup.md](../../docs/provisioning-environment-setup.md) — **Environment setup guide** ⭐
 - [workers/receiver-worker/](../receiver-worker/) — Receiver endpoint (verifies signatures)
 - [workers/constants.ts](../constants.ts) — Shared constants (JSON_CONTENT_TYPE, REPLAY_WINDOW_MS)
+- [workers/cors-utils.ts](../cors-utils.ts) — CORS helper functions
