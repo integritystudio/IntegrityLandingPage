@@ -1,7 +1,7 @@
 # API Provisioning E2E Test Results
 
 **Date:** 2026-03-20
-**Status:** ✅ PASSED
+**Status:** ⏳ PARTIAL (Receiver worker verified; sender worker E2E pending environment configuration)
 
 ## Test Summary
 
@@ -91,11 +91,11 @@ To run full E2E tests locally:
 ```bash
 # Terminal 1: Start receiver-worker
 cd workers/receiver-worker
-SHARED_SECRET=test-secret-key-12345 wrangler dev --port 8788
+SHARED_SECRET=&lt;your-test-secret&gt; wrangler dev --port 8788
 
 # Terminal 2: Start sender-worker
 cd workers/sender-worker
-export SHARED_SECRET=test-secret-key-12345
+export SHARED_SECRET=&lt;your-test-secret&gt;
 export RECEIVER_WORKER_URL=http://localhost:8788
 wrangler dev --port 8787
 
@@ -112,7 +112,7 @@ cat PROVISIONING_MANUAL_TEST.md
 
 - **Receiver Worker Port:** 8788 (localhost)
 - **Sender Worker Port:** 8787 (localhost)
-- **Shared Secret:** `test-secret-key-12345` (test only)
+- **Shared Secret:** `&lt;your-test-secret&gt;` (test only)
 - **Testing Tool:** curl + jq
 - **Protocol:** HTTP (local), HTTPS (production)
 

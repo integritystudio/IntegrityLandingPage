@@ -71,7 +71,9 @@ cd workers/lib && npm test             # Shared library tests
 cd workers/contact-form && npm test    # Contact form worker tests
 cd workers/receiver-worker && npm test # Receiver worker tests
 cd workers/sender-worker && npm test   # Sender worker tests
-npm run test:provisioning              # Provisioning E2E manual test guide
+
+# Manual provisioning E2E test (interactive, do NOT use in CI)
+SHARED_SECRET=your-test-secret npm run test:provisioning
 ```
 
 **[Coverage Report](https://aledlie.github.io/IntegrityLandingPage/)**

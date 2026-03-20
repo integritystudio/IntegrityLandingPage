@@ -1,14 +1,18 @@
 #!/bin/bash
+set -euo pipefail
 
 echo "=== API Provisioning E2E Manual Test ==="
 echo "Following the manual test guide at: PROVISIONING_MANUAL_TEST.md"
+echo
+echo "⚠️  This is an INTERACTIVE manual test — do not run in CI"
 echo
 
 RECEIVER_PORT=8788
 SENDER_PORT=8787
 RECEIVER_URL="http://localhost:${RECEIVER_PORT}"
 SENDER_URL="http://localhost:${SENDER_PORT}"
-PROJECT_ROOT="/Users/alyshialedlie/code/is-public-sites/IntegrityLandingPage"
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+SHARED_SECRET="${SHARED_SECRET:?SHARED_SECRET environment variable must be set}"
 
 # Colors
 GREEN='\033[0;32m'
@@ -20,9 +24,12 @@ NC='\033[0m'
 cleanup() {
   echo
   echo "${YELLOW}Stopping workers...${NC}"
+  pkill -f "wrangler dev.*receiver-worker" 2>/dev/null || true
+  pkill -f "wrangler dev.*sender-worker" 2>/dev/null || true
+  sleep 2
+  # Force kill if still running
   pkill -9 -f "wrangler dev.*receiver-worker" 2>/dev/null || true
   pkill -9 -f "wrangler dev.*sender-worker" 2>/dev/null || true
-  sleep 2
 }
 
 trap cleanup EXIT

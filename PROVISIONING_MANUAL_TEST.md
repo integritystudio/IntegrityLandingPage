@@ -10,11 +10,12 @@ This guide provides manual testing procedures for the API provisioning architect
 ## Prerequisites
 
 ```bash
-# Install wrangler globally
-npm install -g @cloudflare/wrangler
+# Wrangler is already installed in devDependencies (package.json)
+# Use npx for the project version
+npx wrangler --version
 
-# Or use npx for version consistency
-npx wrangler@latest --version
+# Or install globally (optional)
+npm install -g wrangler
 ```
 
 ## Test Environment Setup
@@ -23,7 +24,7 @@ npx wrangler@latest --version
 
 ```bash
 # Create a test secret (in production, use: openssl rand -base64 32)
-SHARED_SECRET="test-secret-key-12345"
+SHARED_SECRET="&lt;your-test-secret&gt;"
 ```
 
 ### 2. Start Receiver Worker
@@ -33,7 +34,7 @@ cd workers/receiver-worker
 
 # Create .env.local with the shared secret
 cat > .env.local << EOF
-SHARED_SECRET=test-secret-key-12345
+SHARED_SECRET=&lt;your-test-secret&gt;
 EOF
 
 # Start the worker on port 8788
@@ -42,8 +43,9 @@ wrangler dev --port 8788
 
 **Expected output:**
 ```
-⛅ wrangler 1.x.x
-✨ Your worker is ready at http://localhost:8788
+⛅ wrangler 4.35.0
+⎔ Starting local server...
+Your Worker is ready at http://localhost:8788
 ```
 
 ### 3. Start Sender Worker (in another terminal)
@@ -53,7 +55,7 @@ cd workers/sender-worker
 
 # Create .env.local with configuration
 cat > .env.local << EOF
-SHARED_SECRET=test-secret-key-12345
+SHARED_SECRET=your-test-secret
 RECEIVER_WORKER_URL=http://localhost:8788
 EOF
 
@@ -63,8 +65,9 @@ wrangler dev --port 8787
 
 **Expected output:**
 ```
-⛅ wrangler 1.x.x
-✨ Your worker is ready at http://localhost:8787
+⛅ wrangler 4.35.0
+⎔ Starting local server...
+Your Worker is ready at http://localhost:8787
 ```
 
 ## Test Cases
@@ -251,7 +254,7 @@ OLD_TIMESTAMP=$(($(date +%s) - 600))000
 # Compute correct signature for old timestamp
 NODE_CMD='
 const crypto = require("crypto");
-const secret = "test-secret-key-12345";
+const secret = "&lt;your-test-secret&gt;";
 const body = JSON.stringify({userId:"user999",action:"replay_test"});
 const ts = "'${OLD_TIMESTAMP}'";
 const key = crypto.createHmac("sha256", secret);
