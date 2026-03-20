@@ -276,7 +276,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/pages/provision_page.dart:84-89, 188`
 
-**Status:** Deferred — code-review finding, P2 refactor.
+**Status:** Done — `171c1fb` (2026-03-20). Removed getter, replaced with direct `widget.onBack` access.
 
 ---
 
@@ -288,7 +288,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/pages/auth_page.dart`
 
-**Status:** Deferred — code-review finding, P2 optimization.
+**Status:** Done — `9deac24` (2026-03-20). Extracted `spacingAfterSubtitle` and `spacingBetweenFields` locals in `build()`.
 
 ---
 
@@ -300,7 +300,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/pages/auth_page.dart:99-121`
 
-**Status:** Deferred — code-review finding, P2 bug fix.
+**Status:** Done — `f72fb4a` (2026-03-20). Added `setState(() => _isLoading = false)` on success branch before `context.go()`.
 
 ---
 
@@ -312,7 +312,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/pages/{auth,provision}_page.dart`
 
-**Status:** Deferred — code-review finding, P2 UX/security fix.
+**Status:** Done — `6bc66ea` (2026-03-20). Added `_sanitizeError()` in both pages; passes through short single-line messages, falls back to generic for verbose/stack-trace errors.
 
 ---
 
@@ -324,7 +324,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/pages/provision_page.dart:47`
 
-**Status:** Deferred — code-review finding, P3 data quality.
+**Status:** Done — `2876b46` (2026-03-20). Added `.toLowerCase().trim()` on `widget.auth.email` when setting `userId`.
 
 ---
 
@@ -336,7 +336,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/pages/provision_page.dart`
 
-**Status:** Deferred — code-review finding, P3 UX enhancement.
+**Status:** Done — `(2026-03-20)`. Replaced `SelectableText` with `CopyableCodeField` widget with built-in copy-to-clipboard button.
 
 ---
 
