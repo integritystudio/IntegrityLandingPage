@@ -1,4 +1,15 @@
-Absolutely. Here's a concrete v1 architecture for **Integrity Studio's SaaS companion-app model**, customized for:
+## Status: Phase 1 & 2 Complete, Phase 3 In Progress
+
+**Last Updated:** 2026-03-20
+- Phase 1 (Sender-Worker UI): ✅ COMPLETE — AuthPage, ProvisionPage, JWT provisioning, workers lib, CORS
+- Phase 2 (SaaS Infra): ✅ COMPLETE — Supabase OAuth, billing schema, Stripe webhooks, Worker API gateway, Durable Objects
+- Phase 3 (Bootstrap + Webhook Workers): ✅ COMPLETE — Bootstrap worker (JWT verify → org context), Stripe webhook worker (signature verify → subscription sync), shared Zod schemas, shared Supabase REST client
+
+---
+
+## Architecture Overview
+
+**Integrity Studio's SaaS companion-app model**, customized for:
 
 * **web-billed Stripe subscriptions**
 * **Cloudflare Workers** as the edge/API gateway
@@ -27,46 +38,125 @@ I'd use Supabase Postgres for the app/system model and keep billing-derived stat
 ### Core tables
 
 ```sql
+-- Identity tables
+create table users (
+  id uuid primary key default gen_random_uuid(),
+  auth0_id varchar unique not null,
+  email varchar unique not null,
+  email_verified boolean default false,
+  name varchar,
+  nickname varchar,
+  picture text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  last_login timestamptz,
+  login_count integer default 0,
+  blocked boolean default false,
+  metadata jsonb default '{}',
+  tier text default 'new',
+  default_organization_id uuid references organizations(id)
+);
+
+create table user_profiles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid unique references users(id) on delete cascade,
+  phone_number varchar,
+  address text,
+  city varchar,
+  state varchar,
+  zip_code varchar,
+  country varchar,
+  timezone varchar,
+  locale varchar default 'en-US',
+  preferences jsonb default '{}',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  organization text,
+  role text,
+  email text,
+  full_name text,
+  avatar_url text
+);
+
+create table user_activity (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id),
+  activity_type varchar not null,
+  description text,
+  metadata jsonb default '{}',
+  ip_address inet,
+  user_agent text,
+  created_at timestamptz default now()
+);
+
+create table user_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id),
+  session_token text unique not null,
+  ip_address inet,
+  user_agent text,
+  device_type varchar,
+  browser varchar,
+  os varchar,
+  country varchar,
+  city varchar,
+  created_at timestamptz default now(),
+  expires_at timestamptz not null,
+  last_activity timestamptz default now(),
+  is_active boolean default true
+);
+
+-- Organization & roles
 create table organizations (
   id uuid primary key default gen_random_uuid(),
   slug text unique not null,
   name text not null,
   stripe_customer_id text unique,
   active_subscription_id uuid,
-  billing_status text not null default 'inactive',
-  current_plan text not null default 'free',
-  quota_version bigint not null default 1,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text not null,
-  full_name text,
-  default_organization_id uuid references organizations(id),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  billing_status text default 'inactive',
+  current_plan text default 'free',
+  quota_version bigint default 1,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
 create table organization_memberships (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references organizations(id) on delete cascade,
-  user_id uuid not null references profiles(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
   role text not null check (role in ('owner','admin','member','billing_admin','viewer')),
-  status text not null default 'active' check (status in ('active','invited','suspended')),
-  created_at timestamptz not null default now(),
+  status text default 'active' check (status in ('active','invited','suspended')),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
   unique (organization_id, user_id)
 );
 
+create table roles (
+  id uuid primary key default gen_random_uuid(),
+  name varchar unique not null,
+  description text,
+  permissions jsonb default '[]',
+  created_at timestamptz default current_timestamp,
+  updated_at timestamptz default current_timestamp
+);
+
+create table user_roles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id) on delete cascade,
+  role_id uuid references roles(id),
+  granted_at timestamptz default current_timestamp,
+  granted_by uuid references users(id)
+);
+
+-- Billing & plans
 create table plans (
   key text primary key,
   display_name text not null,
   monthly_units bigint,
   requests_per_minute integer,
   concurrent_jobs integer,
-  features jsonb not null default '{}',
-  created_at timestamptz not null default now()
+  features jsonb default '{}',
+  created_at timestamptz default now()
 );
 
 create table subscriptions (
@@ -77,91 +167,145 @@ create table subscriptions (
   status text not null,
   current_period_start timestamptz,
   current_period_end timestamptz,
-  cancel_at_period_end boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  cancel_at_period_end boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
 
 create table entitlements (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references organizations(id) on delete cascade,
   feature_key text not null,
-  enabled boolean not null default false,
+  enabled boolean default false,
   hard_limit bigint,
   soft_limit bigint,
-  config jsonb not null default '{}',
-  updated_at timestamptz not null default now(),
+  config jsonb default '{}',
+  updated_at timestamptz default now(),
   unique (organization_id, feature_key)
 );
 
+-- API keys & usage
 create table api_keys (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  created_by_user_id uuid references profiles(id),
-  label text not null,
-  key_prefix text not null,
-  key_hash text not null,
-  scopes jsonb not null default '[]',
-  status text not null default 'active' check (status in ('active','revoked','expired')),
-  last_used_at timestamptz,
+  user_id uuid not null references users(id),
+  prefix varchar not null unique,
+  hash text not null unique,
+  name text default 'Default',
+  tier text default 'new',
+  status text default 'active',
   expires_at timestamptz,
-  created_at timestamptz not null default now()
+  last_used_at timestamptz,
+  created_at timestamptz default now(),
+  revoked_at timestamptz
 );
 
 create table usage_events (
   id bigint generated always as identity primary key,
   organization_id uuid not null references organizations(id) on delete cascade,
-  user_id uuid references profiles(id),
+  user_id uuid references users(id),
   api_key_id uuid references api_keys(id),
   route text not null,
   metric_key text not null,
-  quantity bigint not null default 1,
+  quantity bigint default 1,
   request_id text not null,
-  source text not null,
-  created_at timestamptz not null default now()
+  source text not null check (source in ('api','ingest','job','internal','migration')),
+  status_code integer,
+  latency_ms integer,
+  metadata jsonb default '{}',
+  created_at timestamptz default now()
 );
 
 create table usage_buckets_daily (
   organization_id uuid not null references organizations(id) on delete cascade,
   bucket_date date not null,
   metric_key text not null,
-  total_quantity bigint not null default 0,
-  updated_at timestamptz not null default now(),
+  total_quantity bigint default 0,
+  request_count bigint default 0,
+  avg_latency_ms numeric,
+  updated_at timestamptz default now(),
   primary key (organization_id, bucket_date, metric_key)
 );
 
+-- Webhooks & events
 create table billing_event_log (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid references organizations(id),
   stripe_event_id text unique not null,
-  event_type text not null,
+  event_type text not null check (event_type in ('checkout.session.completed','invoice.paid','invoice.payment_failed','customer.subscription.updated','customer.subscription.deleted','charge.refunded','other')),
   payload jsonb not null,
   processed_at timestamptz,
-  created_at timestamptz not null default now()
+  error_message text,
+  created_at timestamptz default now()
 );
 
 create table provisioning_jobs (
   id uuid primary key default gen_random_uuid(),
-  job_type text not null,
-  source text not null,
+  job_type text not null check (job_type in ('user_created','user_updated','membership_changed','subscription_changed','entitlements_recomputed','quota_version_bumped')),
+  source text not null check (source in ('supabase_webhook','stripe_webhook','manual','migration')),
   dedupe_key text unique not null,
+  organization_id uuid references organizations(id),
+  user_id uuid references users(id),
   payload jsonb not null,
-  status text not null default 'pending',
-  error text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  status text default 'pending' check (status in ('pending','processing','completed','failed','retried')),
+  result jsonb,
+  error_message text,
+  retry_count integer default 0,
+  max_retries integer default 3,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  completed_at timestamptz
 );
 
 create table audit_log (
   id bigint generated always as identity primary key,
   organization_id uuid references organizations(id),
-  actor_user_id uuid references profiles(id),
+  actor_user_id uuid references users(id),
   actor_api_key_id uuid references api_keys(id),
   action text not null,
   target_type text not null,
-  target_id text,
-  metadata jsonb not null default '{}',
-  created_at timestamptz not null default now()
+  target_id text not null,
+  old_values jsonb,
+  new_values jsonb,
+  metadata jsonb default '{}',
+  created_at timestamptz default now()
+);
+
+-- Analytics & integrations
+create table analytics_projects (
+  project_id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id),
+  name text not null,
+  description text,
+  domain_name text,
+  stage text check (stage in ('development','staging','production','archived')),
+  enabled_providers text[] default '{}',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  last_event_at timestamptz,
+  total_events integer default 0,
+  total_users integer default 0,
+  total_sessions integer default 0,
+  total_cost numeric default 0.00,
+  project_type text
+);
+
+create table provider_oauth_tokens (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references analytics_projects(project_id),
+  user_id uuid not null references users(id),
+  provider_type text default 'ga4' check (provider_type in ('ga4','facebook_pixel','google_ads')),
+  property_id text,
+  scope text not null,
+  vault_access_token_id uuid,
+  vault_refresh_token_id uuid,
+  token_expires_at timestamptz,
+  last_sync_at timestamptz,
+  sync_status text default 'pending' check (sync_status in ('pending','syncing','success','error')),
+  sync_error text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  access_token text,
+  refresh_token text
 );
 ```
 
@@ -173,24 +317,36 @@ Internally, you've already been pushing toward a UI that tracks **data usage, pr
 
 Enable RLS on every customer-visible table. Supabase recommends RLS on exposed schemas and notes that the anon key is only safe to expose when RLS is in place. ([Supabase][3])
 
+**Key design:** Link RLS policies to `users(id)` via `organization_memberships`, not directly to `auth.users`. This allows API key authentication (which has no auth.uid()) to work via `api_keys.user_id`.
+
 Example policy pattern:
 
 ```sql
-alter table organizations enable row level security;
+alter table users enable row level security;
+alter table user_profiles enable row level security;
+alter table user_activity enable row level security;
 alter table organization_memberships enable row level security;
+alter table organizations enable row level security;
 alter table entitlements enable row level security;
 alter table usage_events enable row level security;
-alter table usage_buckets_daily enable row level security;
 alter table subscriptions enable row level security;
 
+-- Users can view their own profile
+create policy "users can view own profile"
+on users for select
+using (id = auth.uid());
+
+create policy "users can view own user_profile"
+on user_profiles for select
+using (user_id = auth.uid());
+
+-- Users can view orgs they're members of
 create policy "users can view their org memberships"
-on organization_memberships
-for select
+on organization_memberships for select
 using (user_id = auth.uid());
 
 create policy "users can view orgs they belong to"
-on organizations
-for select
+on organizations for select
 using (
   exists (
     select 1
@@ -201,9 +357,9 @@ using (
   )
 );
 
+-- Users can view entitlements for their orgs
 create policy "users can view entitlements for their orgs"
-on entitlements
-for select
+on entitlements for select
 using (
   exists (
     select 1
@@ -213,6 +369,52 @@ using (
       and m.status = 'active'
   )
 );
+
+-- Users can view usage for their orgs
+create policy "users can view usage for their orgs"
+on usage_events for select
+using (
+  exists (
+    select 1
+    from organization_memberships m
+    where m.organization_id = usage_events.organization_id
+      and m.user_id = auth.uid()
+      and m.status = 'active'
+  )
+);
+
+create policy "users can view usage buckets for their orgs"
+on usage_buckets_daily for select
+using (
+  exists (
+    select 1
+    from organization_memberships m
+    where m.organization_id = usage_buckets_daily.organization_id
+      and m.user_id = auth.uid()
+      and m.status = 'active'
+  )
+);
+
+create policy "users can view subscriptions for their orgs"
+on subscriptions for select
+using (
+  exists (
+    select 1
+    from organization_memberships m
+    where m.organization_id = subscriptions.organization_id
+      and m.user_id = auth.uid()
+      and (m.role = 'owner' or m.role = 'billing_admin')
+  )
+);
+
+-- Users can view their own activity
+create policy "users can view own activity"
+on user_activity for select
+using (user_id = auth.uid());
+
+create policy "users can view own sessions"
+on user_sessions for select
+using (user_id = auth.uid());
 ```
 
 Use backend/service-role access only for:
@@ -222,6 +424,73 @@ Use backend/service-role access only for:
 * usage aggregation
 * API key management
 * audit writes
+* user session cleanup
+* analytics integrations
+
+## 3.5. Schema enhancements: New tables & features
+
+The actual implementation adds several tables not in the initial design:
+
+### User activity & sessions
+
+**`user_activity`** — audit trail of user actions (logins, API calls, settings changes)
+* Tracks `activity_type`, `description`, `ip_address`, `user_agent`
+* Use for compliance, debugging, abuse detection
+
+**`user_sessions`** — active login sessions with device fingerprinting
+* Tracks `session_token`, `browser`, `os`, `device_type`, `country`, `city`
+* Supports multi-device login, session revocation, geo-fencing
+* `last_activity` + `expires_at` for timeout enforcement
+
+### Analytics & provider integrations
+
+**`analytics_projects`** — customer analytics workspace (e.g., GA4 tracking setup)
+* Stores `domain_name`, `stage` (dev/staging/prod), `enabled_providers`
+* Tracks cumulative `total_events`, `total_users`, `total_sessions`, `total_cost`
+* Supports multiple analytics integrations per user
+
+**`provider_oauth_tokens`** — OAuth tokens for third-party integrations
+* Stores GA4, Facebook Pixel, Google Ads OAuth credentials
+* Uses `vault_access_token_id` / `vault_refresh_token_id` for Supabase Vault integration (secure secrets)
+* `sync_status` + `sync_error` for async provider sync workflows
+
+### Usage metrics enhancement
+
+**`usage_events`** now includes:
+* `status_code` — HTTP response code for API debugging
+* `latency_ms` — request latency for perf monitoring
+* Source constraint: `'api'|'ingest'|'job'|'internal'|'migration'`
+
+**`usage_buckets_daily`** now includes:
+* `request_count` — request count separate from quantity
+* `avg_latency_ms` — rolling average latency per bucket
+
+### Billing events enhancement
+
+**`billing_event_log`** now includes:
+* `error_message` — Stripe webhook error details for debugging
+* Event type constraint: explicit enum of Stripe event types
+
+### Provisioning jobs enhancement
+
+**`provisioning_jobs`** now includes:
+* `retry_count` + `max_retries` — exponential backoff retry logic
+* `completed_at` — timestamp when job completed (for SLA tracking)
+* `organization_id` + `user_id` — direct references for job targeting
+* Status constraint: `'pending'|'processing'|'completed'|'failed'|'retried'`
+* Job type constraint: explicit enum (`user_created`, `membership_changed`, etc.)
+
+### Role-based access control (RBAC)
+
+**`roles`** — centralized role definitions
+* `name` — role identifier
+* `permissions` — jsonb array of permission strings
+
+**`user_roles`** — grants roles to users
+* `granted_at` + `granted_by` — audit trail for role changes
+* Separate from `organization_memberships.role` (allows fine-grained permissions)
+
+---
 
 ## 4. Supabase auth model
 
@@ -249,20 +518,41 @@ Supabase's Custom Access Token Hook runs before token issuance and is specifical
 
 Do **not** put mutable usage counters in JWTs. Those belong in the Worker / Durable Object path.
 
+### Auth0 integration (actual implementation)
+
+The actual schema uses **Auth0** as the identity provider via `users.auth0_id`, not direct Supabase auth:
+
+* Supabase Auth is _not_ used for human login — Auth0 handles OAuth / social login
+* Supabase Postgres stores user metadata via `users` table (mirrored from Auth0)
+* App uses Auth0 JWT (not Supabase JWT) for authorization
+* Custom Access Token Hook still applies: Auth0 hooks enrich JWT with org claims
+
+**Why Auth0?**
+* Enterprise integrations (SAML, LDAP, MFA)
+* Better audit trail & compliance reporting
+* Separation of identity provider from database
+
+**Sync flow:**
+* Auth0 webhook → Cloudflare Worker
+* Create/update `users` + `user_profiles` + default `organizations` entry
+* Write provisioning_job with dedupe_key for idempotency
+
+---
+
 ## 5. Provisioning flow
 
 Use **Supabase Database Webhooks** to trigger Cloudflare Worker provisioning whenever the local identity model changes. Supabase Database Webhooks fire on `INSERT`, `UPDATE`, and `DELETE`, and are asynchronous wrappers around trigger-based HTTP calls. ([Supabase][5])
 
-### Provisioning sources
+### Provisioning job types
 
-1. `auth.users` / `profiles` insert
-   → create user profile and default org membership if needed
+The `provisioning_jobs` table tracks all async work with `job_type`, `source`, and `status`:
 
-2. `organization_memberships` insert/update
-   → recalculate claims, roles, default org, audit event
-
-3. Stripe webhook event
-   → sync billing status, subscription, entitlements, quota version
+* **`user_created`** (source: `supabase_webhook`) — user inserted, initialize profile + default org
+* **`user_updated`** (source: `supabase_webhook`) — user metadata/tier changed, recalculate claims
+* **`membership_changed`** (source: `supabase_webhook`) — org membership added/updated/deleted, recalculate roles
+* **`subscription_changed`** (source: `stripe_webhook`) — Stripe subscription event, recompute entitlements
+* **`entitlements_recomputed`** (source: `supabase_webhook`) — plan changed, recompute feature flags + limits
+* **`quota_version_bumped`** (source: `supabase_webhook`) — quota version incremented, invalidate DO cache
 
 ### Provisioning Worker endpoints
 
@@ -271,16 +561,55 @@ POST /internal/provision/user-created
 POST /internal/provision/user-updated
 POST /internal/provision/membership-changed
 POST /internal/provision/subscription-changed
+POST /internal/provision/entitlements-recomputed
+POST /internal/provision/quota-version-bumped
 ```
 
 ### Idempotency rule
 
 Every provisioning event should carry a `dedupe_key`, for example:
 
-* `supabase:profiles:INSERT:<row_id>:<updated_at>`
-* `stripe:<event_id>`
+* `supabase:users:INSERT:<user_id>:<created_at>`
+* `supabase:organization_memberships:INSERT:<membership_id>:<created_at>`
+* `stripe:customer.subscription.updated:<subscription_id>:<event_timestamp>`
 
-and write that into `provisioning_jobs.dedupe_key`.
+and write that into `provisioning_jobs.dedupe_key`. The database constraint ensures each dedupe_key is processed exactly once. Use **retry_count/max_retries** for transient failures (Worker timeout, network errors); use **status=failed** for permanent failures (validation error, 4xx API response).
+
+### Retry strategy
+
+```ts
+// Pseudo-pseudocode for provisioning job handler
+const job = await getProvisioningJob(id);
+
+if (job.status === 'pending') {
+  // Claim the job
+  await updateProvisioningJob(id, { status: 'processing' });
+
+  try {
+    const result = await callProvisioningWorker(job);
+    await updateProvisioningJob(id, {
+      status: 'completed',
+      result,
+      completed_at: now(),
+    });
+  } catch (err) {
+    if (isRetryable(err) && job.retry_count < job.max_retries) {
+      await updateProvisioningJob(id, {
+        retry_count: job.retry_count + 1,
+        status: 'retried',
+        error_message: err.message,
+      });
+      // Re-enqueue after exponential backoff
+    } else {
+      await updateProvisioningJob(id, {
+        status: 'failed',
+        error_message: err.message,
+      });
+      // Alert / manual intervention required
+    }
+  }
+}
+```
 
 ## 6. Cloudflare Worker route map
 
@@ -464,37 +793,66 @@ This matches the internal need to tie visible cost/data usage into contracts and
 
 ## 12. API key model
 
-Use API keys for **authorization and quota identity**, not for user login.
+Use API keys for **authorization and quota identity**, not for user login. Keys are user-owned but inherit organization context via org membership.
 
 ### Key structure
 
-* store prefix in plaintext
-* store hash only
-* show full secret once at creation
+API keys are stored in `api_keys` table with:
+
+* `prefix` — plaintext key prefix (e.g., `int_live_`) for display, rate limit lookup
+* `hash` — bcrypt or Argon2 hash of full secret, never store plaintext
+* `name` — user-defined label
+* `tier` — `'new'`, `'free'`, `'growth'`, `'enterprise'`
+* `status` — `'active'`, `'revoked'`, `'expired'`
+* `user_id` — owner of the key; key inherits org access via user's memberships
+* `expires_at` — optional; null = never expires
+* `last_used_at` — timestamp for audit/cleanup
+* `revoked_at` — timestamp when revoked (non-null = revoked)
 
 Format:
 
 ```text
-int_live_org_ab12cd34_xxxxxxxxxxxxxxxxx
+int_live_abc123def456_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+                      ↑ prefix (plaintext)    ↑ secret (hashed)
 ```
 
-### API key scopes
+### API key verification flow
 
-```json
-[
-  "ingest:events",
-  "read:usage",
-  "run:jobs"
-]
+```ts
+// 1. Client sends key in Authorization header
+const authHeader = req.headers.get('Authorization');
+const [scheme, token] = authHeader.split(' ');
+
+// 2. Extract prefix
+const [prefix, secret] = token.split('_', 2);
+
+// 3. Query for key by prefix (fast)
+const apiKey = await db.api_keys.findOne({ prefix });
+
+if (!apiKey || apiKey.status !== 'active' || (apiKey.expires_at && apiKey.expires_at < now())) {
+  return 401 Unauthorized;
+}
+
+// 4. Compare hash
+const valid = await bcrypt.compare(secret, apiKey.hash);
+if (!valid) return 401 Unauthorized;
+
+// 5. Resolve user & org context
+const user = await db.users.findOne(apiKey.user_id);
+const orgs = await db.organization_memberships.findMany({ user_id: user.id, status: 'active' });
+
+// 6. Load entitlements from org
+return { user, orgs, entitlements: await loadEntitlements(orgs[0].organization_id) };
 ```
 
 ### API key rules
 
-* org-scoped
+* user-owned, inherited via org membership
 * optional expiry
-* optional IP allowlist later
 * revocable
-* audit every creation/revocation/use
+* status tracked for soft delete
+* audit on creation, use, revocation
+* prefix-based lookup for perf
 
 ## 13. `/bootstrap` contract
 
@@ -669,16 +1027,18 @@ export default {
 
 ## 18. Concrete sequence diagrams
 
-### A. User provisioning
+### A. User provisioning (Auth0)
 
 ```text
-Supabase OAuth login
-  -> Auth user created / profile inserted
-  -> Database Webhook
-  -> Cloudflare provisioning Worker
-  -> upsert profile
-  -> create membership / default org if needed
-  -> audit log
+Auth0 new user signup or OAuth
+  -> Auth0 webhook to Cloudflare Worker
+  -> Verify Auth0 signature
+  -> Create users row (auth0_id, email, name from Auth0)
+  -> Create user_profiles entry (contact info, preferences)
+  -> Create default organization + membership
+  -> Write provisioning_job (source: auth0_webhook, job_type: user_created)
+  -> Emit audit_log entry
+  -> Return JWT enriched with org_id + org_roles
 ```
 
 ### B. Subscription update
@@ -706,19 +1066,31 @@ Flutter or API client
   -> daily rollup update async
 ```
 
-## 19. My recommended v1 priorities
+## 19. My recommended v1 priorities (Updated 2026-03-20)
 
-1. **Supabase OAuth + `/bootstrap`**
-2. **organizations / memberships / entitlements schema**
-3. **Stripe webhook sync**
-4. **Cloudflare Worker auth gateway**
-5. **one Durable Object per org**
-6. **usage ledger + daily rollups**
-7. **Flutter dashboard + billing status + usage summary**
+### Completed ✅
+
+1. **Auth pages & JWT flow** — AuthPage, ProvisionPage, SenderHealthPage with custom JWT-based provisioning
+2. **Sender-worker** — HMAC-SHA256 signing, environment-aware CORS, request validation
+3. **Receiver-worker** — HMAC signature verification, replay protection via dedupe key
+4. **Workers lib** — Shared HTTP utilities (CORS, JSON parsing, bearer token extraction, responses), Zod validation schemas
+5. **Contact form validation** — Zod-based validation integrated with contact-form worker
+6. **Provisioning service** — Flutter client for auth/provision flows with error sanitization, retry logic
+7. **Bootstrap Worker** — JWT verification, org/membership/entitlement/usage context loading, `POST /bootstrap` endpoint
+8. **Stripe Webhook Worker** — Webhook signature verification, subscription/invoice event handlers, billing state sync
+9. **Zod schemas** — Runtime validation for all Phase 3 types (OrgRole, BillingStatus, Organization, BootstrapResponse, StripeEvent, etc.)
+10. **Supabase REST client** — Lightweight fetch-based client for edge Workers, query/insert/update/rpc helpers
+11. **Flutter UI refactoring** — StatusResultPage component extraction, TrustBadge improvements, 76-78% code duplication reduction
+
+### Remaining (v1 Phase 4)
+
+1. **Supabase database setup** — Postgres schema deployment, OAuth integration, Custom Access Token Hook, Database Webhooks
+2. **Durable Objects** — Per-org quota state machine, checkAndReserve(), flushUsage(), current-minute counters
+3. **API gateway expansion** — Additional route implementations, API key verification, rate limiting enforcement
+4. **Usage ledger** — Event ingestion optimization, daily bucket aggregation, monthly rollups
+5. **Flutter dashboard** — Org switcher, billing status UI, usage summary/charts, entitlements display, complete bootstrap flow
 
 That sequence supports the internal goal of getting a useful, comprehensible UI in front of non-technical stakeholders while preserving the long-term architecture needed for a sticky recurring SaaS product.
-
-Next, I can turn this into actual starter code: SQL migrations, a Worker skeleton, and Flutter bootstrap models/services.
 
 [1]: https://docs.stripe.com/billing/subscriptions/webhooks?utm_source=chatgpt.com "Using webhooks with subscriptions | Stripe Documentation"
 [2]: https://supabase.com/docs/guides/auth/auth-hooks?utm_source=chatgpt.com "Auth Hooks | Supabase Docs"
