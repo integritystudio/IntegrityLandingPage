@@ -2,13 +2,12 @@
 -- Automatically updates the updated_at timestamp when records are modified
 
 -- Create the update_timestamp function
-create or replace function update_timestamp()
-returns trigger as $$
+create or replace function update_timestamp() returns trigger language plpgsql as $update_timestamp_fn$
 begin
   new.updated_at = now();
   return new;
 end;
-$$ language plpgsql;
+$update_timestamp_fn$;
 
 -- Apply trigger to organizations table
 drop trigger if exists trigger_update_organizations_timestamp on public.organizations;
