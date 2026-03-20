@@ -396,28 +396,28 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Replaced `SelectableText` with `CopyableCodeField` widget
 - Adds dedicated copy-to-clipboard button with visual confirmation
 - Improves UX for security-sensitive values
-- Commit: session 2026-03-20
+- Commits: `bc59b8b`, `7ffbeb0`
 
 **M15: Add Maximum Password Length Validation**
 - Added `_maxPasswordLength = 128` constant to `_isPasswordValid`
 - Prevents DoS on auth endpoint via extremely long password submission
-- Commit: session 2026-03-20
+- Commits: `9581ce8`, `39e54fa`
 
 **M16: Move Analytics Tracking to `didChangeDependencies`**
 - Moved `AnalyticsService.trackPageView` from `initState` to `didChangeDependencies`
 - Defers tracking until after first frame, ensuring route transitions complete
 - Prevents skewed analytics when async redirects tear down pages before display
-- Commit: session 2026-03-20
+- Commit: `a5767c4`
 
 **L19: Add Comment About `_email` Preservation on Mode Toggle**
 - Documented intentional asymmetry: `_email` preserved on mode switch, password fields reset
 - Prevents future developers from treating it as accidental omission
-- Commit: session 2026-03-20
+- Commit: `a5767c4`
 
 **L20: Fix Alert Double-Spacing Issue**
 - Removed redundant `SizedBox(height: AppSpacing.md)` after `Alert.error` in auth_page and provision_page
 - Alert's own `AppSpacing.lg` bottom margin provides sufficient spacing
-- Commit: session 2026-03-20
+- Commit: `a5767c4`
 
 ### Constants & DRY Refactoring (commit e8ab121)
 
