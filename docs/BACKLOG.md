@@ -388,7 +388,9 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-20 (appended S01: frame-ancestors CSP header from code-reviewer ec1fc78; fixed CSP security findings)*
+*Last updated: 2026-03-20 (completed M09–M16, L19–L20: all code-reviewer 84fb4f2 findings implemented; SecurityUtils.sanitizeServerError extracted from duplicate page impls; provision_page analytics deferred to didChangeDependencies)*
+
+*Previous: 2026-03-20 (appended S01: frame-ancestors CSP header from code-reviewer ec1fc78; fixed CSP security findings)*
 
 *Previous: 2026-03-20 (appended M09–M16, L19–L20 from code-reviewer 84fb4f2: auth_page.dart + provision_page.dart review)*
 
