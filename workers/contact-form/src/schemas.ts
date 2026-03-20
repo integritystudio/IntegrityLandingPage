@@ -16,18 +16,22 @@ import {
  */
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
 
+const coerceToString = (val: unknown): unknown => (val == null || typeof val !== 'string' ? '' : val);
+
 export const ContactFormSchema = z.object({
-  name: z
-    .preprocess(
-      (val) => (val === undefined || val === null ? '' : val),
-      z.string().trim().min(1, 'Name is required').max(MAX_NAME_LENGTH, `Name must be under ${MAX_NAME_LENGTH} characters`)
-    ),
-  email: z
-    .preprocess(
-      (val) => (val === undefined || val === null ? '' : val),
-      z.string().min(1, 'Email is required').max(MAX_EMAIL_LENGTH, `Email must be under ${MAX_EMAIL_LENGTH} characters`)
-        .refine((email) => EMAIL_REGEX.test(email), 'Invalid email format')
-    ),
+  name: z.preprocess(
+    coerceToString,
+    z.string().trim().min(1, 'Name is required').max(MAX_NAME_LENGTH, `Name must be under ${MAX_NAME_LENGTH} characters`)
+  ),
+  email: z.preprocess(
+    coerceToString,
+    z
+      .string()
+      .trim()
+      .min(1, 'Email is required')
+      .max(MAX_EMAIL_LENGTH, `Email must be under ${MAX_EMAIL_LENGTH} characters`)
+      .refine((email) => EMAIL_REGEX.test(email), 'Invalid email format')
+  ),
   organization: z
     .string()
     .max(MAX_ORGANIZATION_LENGTH, `Organization must be under ${MAX_ORGANIZATION_LENGTH} characters`)
