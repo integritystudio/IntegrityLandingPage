@@ -436,4 +436,128 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-20 (migrated M07, #134–#138, T01, M08–M16, L19–L20, M17, L21, L22 to changelog/1.1; removed 23 Done items from backlog)*
+## Code Review Findings (Last 4 Commits: 00d7127, 94d26d0, e623040, e89fd7d)
+
+**Date:** 2026-03-20 | **Reviewer:** code-reviewer agent
+
+### R01: Add Clarifying Comment for `sanitizeServerError` Multi-Line Guard
+
+**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer (commit 00d7127)
+
+`lib/utils/security_utils.dart:218–223` — The `raw.contains('\r')` guard blocks CRLF multi-line messages, but the same control characters are also stripped by `sanitizeUserInput` via the `codeUnit < 32` check (line 49). This creates redundancy with unclear layering intent. Add a comment explaining whether this is a defense-in-depth measure or if one guard should be removed.
+
+**File:** `lib/utils/security_utils.dart:218–223`
+
+**Status:** Open — Needs clarifying comment
+
+---
+
+### R02: Document `_stackTracePattern` Extension List Limitations
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer (commit 00d7127)
+
+`lib/utils/security_utils.dart:210` — The regex matches `.dart|.js|.ts|.cjs|.mjs|.wasm` file extensions but not `.py` or `.rb`. This is a known accepted-risk gap for the current deployed stack, but it is undocumented in the code comment. Add a brief note that the extension list is intentionally limited to current runtimes and should be extended if the backend runtime changes.
+
+**File:** `lib/utils/security_utils.dart:205–210`
+
+**Status:** Open — Needs documentation update
+
+---
+
+### R03: Add Isolated Test for Bare Carriage Return (`\r`) in `sanitizeServerError`
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer (commit 00d7127)
+
+`test/utils/security_utils_test.dart:396–401` — The CRLF test uses `'line1\r\nline2'`, which would be blocked by the pre-existing `contains('\n')` check alone. The test does not isolate the `\r`-specific guard. Add a test with bare `'line1\rline2'` to verify the new `\r` guard independently.
+
+**File:** `test/utils/security_utils_test.dart`
+
+**Status:** Open — Needs additional test case
+
+---
+
+### R04: Add Performance Comment to `_stackTracePattern` Static Final
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer (commit 00d7127)
+
+`lib/utils/security_utils.dart:209–210` — `_stackTracePattern` is correctly declared `static final` (compile once, reuse), but the performance motivation is undocumented. Add a one-liner explaining that `RegExp` compilation is expensive and should not be repeated in hot loops.
+
+**File:** `lib/utils/security_utils.dart:209–210`
+
+**Status:** Open — Needs documentation update
+
+---
+
+### R05: Dedup `PasswordPolicy.minLength` Test Assertions
+
+**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer (commit 94d26d0)
+
+`test/config/constants_test.dart:93–107` — Tests `'minLength is at least 8 characters'` (asserts `greaterThanOrEqualTo(8)`) and `'minLength is 8 for DOS protection'` (asserts `equals(8)`) both verify the same property. The `equals(8)` assertion strictly subsumes the `greaterThanOrEqualTo(8)` one, adding noise and creating redundant failure modes. Remove one or rephrase to cover a distinct property (e.g., `minLength < maxLength / 2` as a proportionality check).
+
+**File:** `test/config/constants_test.dart:93–107`
+
+**Status:** Open — Refactor to eliminate duplicate coverage
+
+---
+
+### R06: Remove Backlog ID from Test Group Name
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer (commit 94d26d0)
+
+`test/config/constants_test.dart:92` — Test group is named `'PasswordPolicy (L21: shared constants)'`, embedding a transient backlog ID. Once the item is archived, the label becomes misleading. Use a plain descriptive name like `'PasswordPolicy'`.
+
+**File:** `test/config/constants_test.dart:92`
+
+**Status:** Open — Rename test group
+
+---
+
+### R07: Add Boundary Tests for `PasswordPolicy` Min/Max Length
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer (commit 94d26d0)
+
+`test/config/constants_test.dart` — No test verifies what happens when a password is exactly `minLength` or exactly `maxLength` characters. These boundary values are the most likely to regress if constants shift. Add tests in the auth-page widget tests (not here) to verify passwords of exactly 8 and 128 chars pass validation.
+
+**File:** `test/pages/auth_page.dart` (or integrate into existing validation tests)
+
+**Status:** Open — Add boundary value tests
+
+---
+
+### R08: Update TDD Report with Current `_stackTracePattern` Regex
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer (commit e623040)
+
+`docs/TDD_SESSION_REPORT.md:55–58` — The code snippet shows the original regex `\.(dart|js|ts):\d` from commit `4554f81`, but commit `00d7127` extended it to include `cjs|mjs|wasm`. The report was not updated to reflect the amended pattern. Update the snippet to match current source.
+
+**File:** `docs/TDD_SESSION_REPORT.md:55–58`
+
+**Status:** Open — Update documentation snapshot
+
+---
+
+### R09: Back-Fill Commit Hashes in Changelog v1.1
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer (commit e89fd7d)
+
+`docs/changelog/1.1/CHANGELOG.md:398` (M14, M15, M16, L19, L20) — Entries read `Commit: session 2026-03-20` instead of real git hashes. This breaks traceability. Back-fill with actual commit hashes from `git log`.
+
+**File:** `docs/changelog/1.1/CHANGELOG.md`
+
+**Status:** Open — Add missing commit references
+
+---
+
+### R10: Remove Duplicate M07 Entry from Open Items
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer (commit e89fd7d)
+
+`docs/BACKLOG.md:162–171` — M07 is listed in the changelog as done but still appears under `## Open Items` with a `Status: Done` footnote. The migration was supposed to remove Done items. Remove the M07 entry from this file.
+
+**File:** `docs/BACKLOG.md:162–171`
+
+**Status:** Open — Clean up duplicate entry
+
+---
+
+*Last updated: 2026-03-20 (migrated M07, #134–#138, T01, M08–M16, L19–L20, M17, L21, L22 to changelog/1.1; added code review findings R01–R10)*
