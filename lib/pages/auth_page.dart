@@ -124,6 +124,8 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final spacingAfterSubtitle = _mode == AuthMode.signUp ? AppSpacing.lg : AppSpacing.md;
+    final spacingBetweenFields = _mode == AuthMode.signUp ? AppSpacing.md : AppSpacing.lg;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
@@ -162,9 +164,7 @@ class _AuthPageState extends State<AuthPage> {
                     color: AppColors.gray300,
                   ),
                 ),
-                SizedBox(height: _mode == AuthMode.signUp
-                    ? AppSpacing.lg
-                    : AppSpacing.md),
+                SizedBox(height: spacingAfterSubtitle),
 
                 // Error message
                 if (_errorMessage != null) ...[
@@ -184,9 +184,7 @@ class _AuthPageState extends State<AuthPage> {
                   placeholder: 'you@example.com',
                   enabled: !_isLoading,
                 ),
-                SizedBox(height: _mode == AuthMode.signUp
-                    ? AppSpacing.md
-                    : AppSpacing.lg),
+                SizedBox(height: spacingBetweenFields),
 
                 // Password field
                 FormTextField(
@@ -199,9 +197,7 @@ class _AuthPageState extends State<AuthPage> {
                   placeholder: 'Minimum 8 characters',
                   enabled: !_isLoading,
                 ),
-                SizedBox(height: _mode == AuthMode.signUp
-                    ? AppSpacing.md
-                    : AppSpacing.lg),
+                SizedBox(height: spacingBetweenFields),
 
                 // Confirm password field (signup only)
                 if (_mode == AuthMode.signUp) ...[
