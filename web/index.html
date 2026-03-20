@@ -19,6 +19,9 @@
        - 'wasm-unsafe-eval' allows WebAssembly compilation (Flutter CanvasKit) without full eval
        - 'unsafe-inline' removed from script-src (scripts externalized to js/ directory)
        - 'unsafe-inline' retained in style-src (required by Flutter for dynamic styles)
+
+       NOTE: frame-ancestors and report-uri directives removed from meta tag as they only work
+       in HTTP headers (not meta tags). These should be set via server CSP header in production.
   -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
@@ -28,13 +31,10 @@
     font-src 'self' https://fonts.gstatic.com;
     connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://analytics.google.com https://*.doubleclick.net https://www.facebook.com https://connect.facebook.net https://integrity-studio-contact.alyshia-b38.workers.dev https://www.gstatic.com https://fonts.gstatic.com https://*.ingest.sentry.io;
     frame-src 'self' https://calendly.com https://td.doubleclick.net;
-    frame-ancestors 'self';
     object-src 'none';
     base-uri 'self';
     form-action 'self';
     upgrade-insecure-requests;
-    report-uri https://o4509224386420736.ingest.us.sentry.io/api/4509224390418432/security/?sentry_key=f33ee5bcaaa03614df1bb2b0d0ce88ad;
-    report-to csp-endpoint;
   ">
 
   <!-- Primary Meta Tags -->
