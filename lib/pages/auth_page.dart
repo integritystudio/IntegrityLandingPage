@@ -76,7 +76,13 @@ class _AuthPageState extends State<AuthPage> {
           ? "Already have an account? Sign in"
           : "Don't have an account? Sign up";
 
-  bool get _isPasswordValid => _password.isNotEmpty && _password.length >= 8;
+  static const _minPasswordLength = 8;
+  static const _maxPasswordLength = 128;
+
+  bool get _isPasswordValid =>
+      _password.isNotEmpty &&
+      _password.length >= _minPasswordLength &&
+      _password.length <= _maxPasswordLength;
 
   /// Returns a sanitized user-facing error message.
   ///
