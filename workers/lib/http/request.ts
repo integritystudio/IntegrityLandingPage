@@ -41,12 +41,12 @@ export function requireBearerToken(
   return { ok: true, token };
 }
 
-function parseUrl(request: Request): URL {
-  return new URL(request.url);
+export function getSearchParams(request: Request): URLSearchParams {
+  return new URL(request.url).searchParams;
 }
 
 export function getQueryParam(request: Request, key: string): string | null {
-  return parseUrl(request).searchParams.get(key);
+  return getSearchParams(request).get(key);
 }
 
 export function getRequiredQueryParam(
@@ -59,10 +59,11 @@ export function getRequiredQueryParam(
 }
 
 export function getPathname(request: Request): string {
-  return parseUrl(request).pathname;
+  return new URL(request.url).pathname;
 }
 
 export function assertMethod(request: Request, allowedMethods: string[]): Response | null {
-  if (allowedMethods.includes(request.method)) return null;
+  const method = request.method.toUpperCase();
+  if (allowedMethods.includes(method)) return null;
   return methodNotAllowed(allowedMethods);
 }

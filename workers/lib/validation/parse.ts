@@ -6,10 +6,17 @@ export type ValidResult<T> = { ok: true; data: T } | { ok: false; error: Respons
 
 function formatZodPath(path: (string | number)[]): string {
   if (path.length === 0) return 'root';
-  return path.reduce<string>((acc, part, i) => {
-    if (typeof part === 'number') return `${acc}[${part}]`;
-    return i === 0 ? part : `${acc}.${part}`;
-  }, '');
+  const parts: string[] = [];
+  for (const part of path) {
+    if (typeof part === 'number') {
+      parts.push(`[${part}]`);
+    } else if (parts.length === 0) {
+      parts.push(part);
+    } else {
+      parts.push(`.${part}`);
+    }
+  }
+  return parts.join('');
 }
 
 export function zodValidationError(error: ZodError): Response {
@@ -17,7 +24,6 @@ export function zodValidationError(error: ZodError): Response {
     issues: error.issues.map((issue) => ({
       path: formatZodPath(issue.path),
       message: issue.message,
-      code: issue.code,
     })),
   });
 }
