@@ -223,7 +223,7 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Added 3 edge-case tests for retry-after validation
 - Commits: `747b40a`, `e0e71b7`
 
-**M08: Apply safe-cast pattern to _fetchCsrfToken GET response**
+**M08b: Apply safe-cast pattern to _fetchCsrfToken GET response**
 - Added `is! Map<String, dynamic>` guard before unsafe cast
 - Returns `null` gracefully instead of throwing `TypeError` on non-map responses (e.g., HTML error pages)
 - Commit: `1ca1d0b`
