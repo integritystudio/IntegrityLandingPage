@@ -58,7 +58,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
     });
 
     final event = ProvisioningEvent(
-      userId: widget.auth.email,
+      userId: widget.auth.email.toLowerCase().trim(),
       action: 'provision',
       sentAt: DateTime.now().toUtc(),
     );
