@@ -1,34 +1,62 @@
 # Top 20 most-changed files (last 200 commits)
 # commits  file
-  18 lib/services/content_loader.dart
-  15 e2e/tests/contact-worker.spec.ts
-  11 lib/widgets/docs/doc_components.dart
-  11 e2e/tests/constants.ts
-   8 test/helpers/test_helpers.dart
-   8 lib/pages/docs_quickstart_page.dart
-   8 lib/pages/docs_api_page.dart
-   7 lib/widgets/navigation/shared_app_bar.dart
-   7 lib/services/contact_service.dart
-   7 lib/pages/docs_tracing_page.dart
+  10 lib/pages/provision_page.dart
+  10 lib/pages/auth_page.dart
+  10 CLAUDE.md
+   9 test/services/provisioning_service_test.dart
+   9 README.md
+   9 e2e/tests/contact-worker.spec.ts
+   8 lib/pages/features_page.dart
    7 e2e/tests/routing.spec.ts
-   6 test/controllers/landing_controller_test.dart
-   6 lib/pages/security_page.dart
-   6 lib/pages/features_page.dart
+   7 e2e/tests/constants.ts
+   6 workers/sender-worker/src/index.ts
+   6 workers/lib/http/responses.ts
+   6 workers/contact-form/src/index.ts
+   6 lib/widgets/docs/doc_components.dart
+   6 lib/services/provisioning_service.dart
+   6 lib/services/contact_service.dart
    6 lib/pages/contact_page.dart
-   6 CLAUDE.md
-   5 test/widgets/docs/doc_components_test.dart
-   5 README.md
-   5 lib/pages/docs_alerts_page.dart
-   5 lib/pages/careers_page.dart
+   5 workers/lib/http/request.ts
+   5 test/services/contact_service_test.dart
+   4 workers/receiver-worker/src/index.ts
+   4 workers/lib/validation/parse.ts
 
 # Recent commits touching these files
 
-## lib/services/content_loader.dart
-  7d66da9 2026-03-14 fix(content): reset _loadCompleter in loadFromString (L07)
-  33547c7 2026-03-14 refactor(content): remove Content static facade, migrate to ContentLoader (#106)
-  c47d8e5 2026-03-12 fix(content-loader): complete in-flight Completer before reset() to prevent leaked Futures
-  f1f0ecf 2026-03-12 fix(content-loader): coalesce concurrent load() calls via Completer
-  3d719c1 2026-03-12 fix(content-loader): flush caches at start of load() to mirror loadFromString()
+## lib/pages/provision_page.dart
+  c3b9893 2026-03-20 fix(auth): update password placeholder to show 8-128 range; trailing blank line cleanup (L23/L4)
+  d7b597e 2026-03-20 refactor(provision): remove empty initState override; track M17/L21 in backlog
+  9f826b2 2026-03-20 refactor(auth,provision): implement M15/M16/L19/L20 and centralize error sanitization
+  a5767c4 2026-03-20 fix(auth,provision): defer analytics tracking and fix Alert spacing (M16, L19, L20)
+  bc59b8b 2026-03-20 feat(provision): replace SelectableText API key with CopyableCodeField (M14)
+
+## lib/pages/auth_page.dart
+  e8ab121 2026-03-20 refactor(auth): move password length constraints to shared PasswordPolicy (L21)
+  c3b9893 2026-03-20 fix(auth): update password placeholder to show 8-128 range; trailing blank line cleanup (L23/L4)
+  9f826b2 2026-03-20 refactor(auth,provision): implement M15/M16/L19/L20 and centralize error sanitization
+  a5767c4 2026-03-20 fix(auth,provision): defer analytics tracking and fix Alert spacing (M16, L19, L20)
+  9581ce8 2026-03-20 fix(auth): add max password length validation to prevent DoS (M15)
+
+## CLAUDE.md
+  2784e1d 2026-03-20 docs: add session history and analytics debug documentation
+  0de71fb 2026-03-20 docs: add workers/lib module documentation
+  f7357dd 2026-03-19 docs: update CLAUDE.md and README for API provisioning workers
+  4e1eba1 2026-03-15 docs: update all docs for Phase 2/3b completion, test count 2440+, migrate Done items to changelog
+  8f6615b 2026-03-14 docs: fix stale references in CLAUDE.md and README.md
+
+## test/services/provisioning_service_test.dart
+  9ea6256 2026-03-20 feat: implement sender-worker UI pages (auth, provision, health)
+  4841b8d 2026-03-20 fix(analyzer): comment template code and add missing @override annotations
+  6bc576f 2026-03-20 fix(test): remove invalid @override annotations in MockProvisioningDio
+  edda3e1 2026-03-20 fix: address final review findings from backlog-implementer session
+  5367b9e 2026-03-20 feat(T01): add per-attempt response data to MockProvisioningDio
+
+## README.md
+  f5369a6 2026-03-20 fix(provisioning): address code-reviewer findings
+  64ec76e 2026-03-20 docs(readme): add provisioning test documentation and npm script
+  0de71fb 2026-03-20 docs: add workers/lib module documentation
+  f7357dd 2026-03-19 docs: update CLAUDE.md and README for API provisioning workers
+  4e1eba1 2026-03-15 docs: update all docs for Phase 2/3b completion, test count 2440+, migrate Done items to changelog
 
 ## e2e/tests/contact-worker.spec.ts
   19cf008 2026-03-12 refactor(e2e): replace magic HTTP values with named constants
@@ -37,61 +65,12 @@
   dbd13e3 2026-03-12 test(e2e): fix post-await skip pattern in submission flow tests (#149)
   0aef2a7 2026-03-12 test(e2e): fix test reliability gaps from #146/#147/#148 backlog review
 
-## lib/widgets/docs/doc_components.dart
-  f10c523 2026-03-15 refactor(widgets): consolidate _TimelineCard and _StatBadge into DocStatCard (Phase 3b)
-  6cc9569 2026-03-14 refactor(test): extract doc component constants (feature card width, code font, bullet char)
-  c180d28 2026-03-14 refactor(docs): consolidate _StatCard into DocStatCard (#153)
-  2c41651 2026-03-13 feat(docs): enable Flutter semantics + E2E doc content tests (#111)
-  aa98b7e 2026-03-12 fix(doc-components): const borders and callsite for DocInlineWarning (#92)
-
-## e2e/tests/constants.ts
-  6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
-  27a0285 2026-03-14 refactor(e2e): extract blog article slugs to constants (L05)
-  ece4d5d 2026-03-14 refactor(e2e): extract magic values to constants, remove duplicate tests
-  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
-  162cd6e 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
-
-## test/helpers/test_helpers.dart
-  76d8d6c 2026-03-14 refactor(test): extract contact hero constants, widen PagePumpFunction
-  33547c7 2026-03-14 refactor(content): remove Content static facade, migrate to ContentLoader (#106)
-  bb50016 2026-03-11 fix(constants,test): fix const context errors from CTAText getter conversion
-  195b7e2 2026-03-11 refactor(constants,test): source all CTAText from YAML and use constants in tests
-  b53dd07 2026-03-09 test(api_toolkit_page): add page-level smoke test (#103)
-
-## lib/pages/docs_quickstart_page.dart
-  8879e7d 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
-  bb15418 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
-  aa98b7e 2026-03-12 fix(doc-components): const borders and callsite for DocInlineWarning (#92)
-  eb78ece 2026-03-12 refactor(docs): add DocInlineWarning, consolidate _WarningCallout/_WarningAlert (#92)
-  93c1099 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
-
-## lib/pages/docs_api_page.dart
-  9452499 2026-03-14 refactor(theme): replace bare hex Color literals with AppColors.cyan400/cyan500
-  8879e7d 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
-  bb15418 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
-  eb78ece 2026-03-12 refactor(docs): add DocInlineWarning, consolidate _WarningCallout/_WarningAlert (#92)
-  93c1099 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
-
-## lib/widgets/navigation/shared_app_bar.dart
-  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
-  0b66384 2026-03-13 refactor(nav): remove dead _handleNavSelection from SharedAppBar (#158)
-  68b2301 2026-03-13 feat(nav): add overflow protection for SharedAppBar desktop nav (#136)
-  732ed05 2026-03-11 fix(nav): move Docs link after Contact in all header nav lists
-  4ffe301 2026-03-11 fix(nav,test): resolve SliverAppBar overflow and router test failures
-
-## lib/services/contact_service.dart
-  9ba68db 2026-03-14 fix(contact): await ErrorTrackingService.captureException calls
-  487115b 2026-03-14 fix(contact): safe-cast pattern for _fetchCsrfToken GET response (M08)
-  1d7e336 2026-03-14 fix(contact): also validate body retryAfter for zero/negative values (M04)
-  c4bbe29 2026-03-14 fix(contact): validate retry-after header and prefix synthetic submissionId (M04)
-  022c8cf 2026-03-14 fix(services): sanitize server error strings, guard debugPrint with kDebugMode
-
-## lib/pages/docs_tracing_page.dart
-  8879e7d 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
-  bb15418 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
-  93c1099 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
-  a1f6ed1 2026-03-11 style(docs_tracing_page): add blank line before _TimelineItem class (#122)
-  c534a9a 2026-03-11 perf(pages): add const to DocBulletList call sites (#121)
+## lib/pages/features_page.dart
+  738417a 2026-03-19 refactor(#136): extract InfoCard from 4 duplicated card widgets
+  bafeb87 2026-03-17 refactor(#134): consolidate page scaffold into SubPageShell
+  c9d30fa 2026-03-14 refactor(widgets): add iconColor param to GradientPillBadge (L10)
+  671cf0a 2026-03-14 refactor(widgets): extract GradientPillBadge, consolidate 3 hero sections (#Phase3a)
+  40a5698 2026-03-13 fix(features-page): replace magic 100 with AppSpacing.radiusFull (#91)
 
 ## e2e/tests/routing.spec.ts
   6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
@@ -100,66 +79,85 @@
   ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
   162cd6e 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
 
-## test/controllers/landing_controller_test.dart
-  028acbe 2026-03-12 test(content): strengthen variant assertions and fix legacy magic string
-  3adc413 2026-03-12 refactor(content): remove dead getVariant, use ContentVariants constants in tests
-  195b7e2 2026-03-11 refactor(constants,test): source all CTAText from YAML and use constants in tests
-  9897dd6 2026-03-11 fix(test): use underscore variant keys to match content.yaml
-  702dcee 2026-03-09 fix(tests): add missing test_helpers import for pumpAndSettleWithTimeout
+## e2e/tests/constants.ts
+  6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
+  27a0285 2026-03-14 refactor(e2e): extract blog article slugs to constants (L05)
+  ece4d5d 2026-03-14 refactor(e2e): extract magic values to constants, remove duplicate tests
+  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
+  162cd6e 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
 
-## lib/pages/security_page.dart
+## workers/sender-worker/src/index.ts
+  1768837 2026-03-20 feat(sender-worker): environment-aware CORS origin configuration
+  d59a255 2026-03-20 refactor: rename http-constants.ts to http-helpers.ts
+  3a858b5 2026-03-20 refactor: create http-constants.ts and organize HTTP-related constants
+  f5d2c98 2026-03-20 refactor: extract shared CORS utilities into cors-utils.ts
+  e0b9858 2026-03-20 feat(M08): add CORS headers and OPTIONS preflight to sender-worker
+
+## workers/lib/http/responses.ts
+  a441c89 2026-03-20 fix(lib): guard against protocol-relative URLs in redirect()
+  c2762ed 2026-03-20 refactor(lib): simplifier and linter cleanups
+  ec5085c 2026-03-20 refactor(lib): remove zero-value wrappers and optimize hot paths
+  2db9223 2026-03-20 fix(lib): address code-reviewer findings
+  bf61a7a 2026-03-20 fix(lib): improve zodValidationError and validation exports
+
+## workers/contact-form/src/index.ts
+  457819e 2026-03-20 feat(contact-form): apply Zod schemas for validation
+  d59a255 2026-03-20 refactor: rename http-constants.ts to http-helpers.ts
+  3a858b5 2026-03-20 refactor: create http-constants.ts and organize HTTP-related constants
+  f5d2c98 2026-03-20 refactor: extract shared CORS utilities into cors-utils.ts
+  aefa447 2026-03-19 refactor: use shared constants in contact-form worker
+
+## lib/widgets/docs/doc_components.dart
+  44a2450 2026-03-17 fix: address code-reviewer findings for #134, M07, #138
+  0d30da6 2026-03-17 refactor(#138): extract VerticalIndicatorList from Timeline and DocNumberedList
+  f10c523 2026-03-15 refactor(widgets): consolidate _TimelineCard and _StatBadge into DocStatCard (Phase 3b)
+  6cc9569 2026-03-14 refactor(test): extract doc component constants (feature card width, code font, bullet char)
   c180d28 2026-03-14 refactor(docs): consolidate _StatCard into DocStatCard (#153)
-  9d43c5d 2026-03-13 refactor: backlog items #154 #155 #156 #157 code quality improvements
-  6cd1f14 2026-03-12 refactor(security): merge _WarningAlert/_DangerAlert into _AlertBanner
-  cb6229a 2026-03-12 fix(page-hero): restore security_page mobile headline size via mobileHeadlineFontSize param (#90)
-  abb69c0 2026-03-12 refactor(pages): extract PageHeroSection, consolidate 4 page hero sections (#90)
 
-## lib/pages/features_page.dart
-  c9d30fa 2026-03-14 refactor(widgets): add iconColor param to GradientPillBadge (L10)
-  671cf0a 2026-03-14 refactor(widgets): extract GradientPillBadge, consolidate 3 hero sections (#Phase3a)
-  40a5698 2026-03-13 fix(features-page): replace magic 100 with AppSpacing.radiusFull (#91)
-  202738d 2026-03-13 feat(widgets): add SubPageShell scaffold primitive (#91)
-  9d43c5d 2026-03-13 refactor: backlog items #154 #155 #156 #157 code quality improvements
+## lib/services/provisioning_service.dart
+  9ea6256 2026-03-20 feat: implement sender-worker UI pages (auth, provision, health)
+  5c35e10 2026-03-19 fix: address code-reviewer findings - critical and medium priority
+  d0cfbe0 2026-03-19 fix: remaining code review findings - medium and low priority
+  aff8df8 2026-03-19 fix: address code review findings from provisioning feature implementation
+  bf42385 2026-03-19 refactor: extract timing constants to AppTimings class
+
+## lib/services/contact_service.dart
+  9ba68db 2026-03-14 fix(contact): await ErrorTrackingService.captureException calls
+  487115b 2026-03-14 fix(contact): safe-cast pattern for _fetchCsrfToken GET response (M08)
+  1d7e336 2026-03-14 fix(contact): also validate body retryAfter for zero/negative values (M04)
+  c4bbe29 2026-03-14 fix(contact): validate retry-after header and prefix synthetic submissionId (M04)
+  022c8cf 2026-03-14 fix(services): sanitize server error strings, guard debugPrint with kDebugMode
 
 ## lib/pages/contact_page.dart
+  bafeb87 2026-03-17 refactor(#134): consolidate page scaffold into SubPageShell
   48f8853 2026-03-15 fix(contact): remove dead hover color ternary in _QuickContactCard (L14)
   76d8d6c 2026-03-14 refactor(test): extract contact hero constants, widen PagePumpFunction
   6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
   33547c7 2026-03-14 refactor(content): remove Content static facade, migrate to ContentLoader (#106)
-  671cf0a 2026-03-14 refactor(widgets): extract GradientPillBadge, consolidate 3 hero sections (#Phase3a)
 
-## CLAUDE.md
-  8f6615b 2026-03-14 docs: fix stale references in CLAUDE.md and README.md
-  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
-  2c044fe 2026-03-14 docs(claude): add guidelines for no magic numbers and DRY principles
-  b5ff4c0 2026-03-13 chore(docs): update CLAUDE.md structure, refresh repomix snapshots, relocate replace-magic.sh
-  5f2ffcc 2026-03-12 docs: purge stale docs and update architecture/routes/README
+## workers/lib/http/request.ts
+  74bd32f 2026-03-20 fix(lib): make safeParseJson return unknown type for type safety
+  c2762ed 2026-03-20 refactor(lib): simplifier and linter cleanups
+  4b67829 2026-03-20 refactor(lib): simplify validation & response code
+  2db9223 2026-03-20 fix(lib): address code-reviewer findings
+  941e436 2026-03-20 feat(lib): add http/request.ts — JSON parsing, bearer token, query params, method assertion
 
-## test/widgets/docs/doc_components_test.dart
-  f10c523 2026-03-15 refactor(widgets): consolidate _TimelineCard and _StatBadge into DocStatCard (Phase 3b)
-  6cc9569 2026-03-14 refactor(test): extract doc component constants (feature card width, code font, bullet char)
-  cc1b5b7 2026-03-14 test(docs): add DocStatCard style override tests; mark #153 Done
-  2c41651 2026-03-13 feat(docs): enable Flutter semantics + E2E doc content tests (#111)
-  9420f48 2026-03-09 test(doc_components): add DocStatCard unit tests (#102)
-
-## README.md
-  8f6615b 2026-03-14 docs: fix stale references in CLAUDE.md and README.md
-  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
-  b5ff4c0 2026-03-13 chore(docs): update CLAUDE.md structure, refresh repomix snapshots, relocate replace-magic.sh
-  5f2ffcc 2026-03-12 docs: purge stale docs and update architecture/routes/README
-  3677ee1 2026-03-09 docs(readme): fix stale backlog item IDs and improve description
-
-## lib/pages/docs_alerts_page.dart
-  8879e7d 2026-03-14 refactor(docs): extract DocsHeroSection, remove 7 duplicate _HeroSection classes (#Phase2)
-  bb15418 2026-03-12 style: remove redundant inner const from DocBulletList items params (#124/#125)
-  93c1099 2026-03-11 refactor(docs): extract DocsPageScaffold, consolidate 7 docs page scaffolds (#89)
-  1de8419 2026-03-11 fix(doc_components): add assert message strings; const DocBulletList in 3 more pages
-  969e8e1 2026-03-09 refactor(widgets): replace private widgets with shared components in docs_alerts_page (#88)
-
-## lib/pages/careers_page.dart
+## test/services/contact_service_test.dart
+  44a2450 2026-03-17 fix: address code-reviewer findings for #134, M07, #138
+  f921d20 2026-03-17 test(M07): assert retry count in 500 error test
+  c4bbe29 2026-03-14 fix(contact): validate retry-after header and prefix synthetic submissionId (M04)
   6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
-  671cf0a 2026-03-14 refactor(widgets): extract GradientPillBadge, consolidate 3 hero sections (#Phase3a)
-  d9c1863 2026-03-11 fix(careers,contact): wire ref query param, source CTAText from YAML, fix stale tests
-  aa58467 2026-03-11 feat(careers,pricing): remove enterprise note and update careers CTA copy
-  5cc7999 2026-03-11 fix(careers): route Submit Resume to contact page instead of broken mailto
+  febb2ca 2026-03-14 fix(contact): handle all HTTP status codes gracefully, fix CSRF retry logic
+
+## workers/receiver-worker/src/index.ts
+  d59a255 2026-03-20 refactor: rename http-constants.ts to http-helpers.ts
+  3a858b5 2026-03-20 refactor: create http-constants.ts and organize HTTP-related constants
+  b68ac63 2026-03-19 refactor: move receiver-worker constants to shared workers/constants.ts
+  7ca4853 2026-03-19 feat: add receiver-worker with HMAC-signed inbox endpoint
+
+## workers/lib/validation/parse.ts
+  c2762ed 2026-03-20 refactor(lib): simplifier and linter cleanups
+  ec5085c 2026-03-20 refactor(lib): remove zero-value wrappers and optimize hot paths
+  bf61a7a 2026-03-20 fix(lib): improve zodValidationError and validation exports
+  f3d3f7b 2026-03-20 feat(lib): add validation/ — Zod schemas, requireValidJson, zodValidationError
 

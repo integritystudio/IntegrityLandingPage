@@ -9,7 +9,7 @@ cd agents
 npm install
 ```
 
-Requires: `ANTHROPIC_API_KEY` environment variable set
+Requires: `ANTHROPIC_API_KEY` environment variable set (when running as subprocess) or use within Claude Code session.
 
 ## Run
 
@@ -30,6 +30,8 @@ npm run payment-processor:rate-limiting
 ## Example Session
 
 ```bash
+export ANTHROPIC_API_KEY="sk-..."
+
 # 1. Understand the architecture
 npm run payment-processor:architecture
 
@@ -49,7 +51,7 @@ npm run payment-processor -- "How do we migrate existing customers to this new s
 ## What It Does
 
 The agent:
-1. Reads the payment processor research document
+1. Reads the payment processor research document (`../docs/roadmap/payment-processor-research.md`)
 2. Analyzes your questions using Claude Opus 4.6
 3. References specific architecture patterns and code examples
 4. Provides implementation guidance with phase-by-phase breakdowns

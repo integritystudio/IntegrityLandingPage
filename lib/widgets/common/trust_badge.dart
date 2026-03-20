@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../theme/theme.dart';
 
 /// A trust/certification badge pill with an icon and label.
@@ -7,30 +8,38 @@ import '../../theme/theme.dart';
 ///
 /// Usage:
 /// ```dart
+/// // Custom icon
 /// TrustBadge(
 ///   icon: LucideIcons.shieldCheck,
 ///   label: 'Enterprise Security',
 /// )
+///
+/// // With check icon (default)
+/// TrustBadge(
+///   label: 'EU AI Act Ready',
+/// )
 /// ```
 class TrustBadge extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
   final String label;
   final Color iconColor;
 
   const TrustBadge({
     super.key,
-    required this.icon,
+    this.icon,
     required this.label,
     this.iconColor = AppColors.success,
   });
 
   @override
   Widget build(BuildContext context) {
+    final displayIcon = icon ?? LucideIcons.check;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          icon,
+          displayIcon,
           size: 16,
           color: iconColor,
         ),

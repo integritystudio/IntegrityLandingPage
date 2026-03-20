@@ -5,6 +5,7 @@ import '../../theme/theme.dart';
 import '../../services/analytics.dart';
 import '../common/buttons.dart';
 import '../common/containers.dart';
+import '../common/trust_badge.dart';
 import '../decorative/animated_orb.dart';
 
 /// Hero section with gradient background and decorative orbs
@@ -234,7 +235,7 @@ class HeroSection extends StatelessWidget {
         children: indicators
             .map((text) => Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                  child: _TrustIndicator(text: text),
+                  child: TrustBadge(label: text),
                 ))
             .toList(),
       );
@@ -250,7 +251,7 @@ class HeroSection extends StatelessWidget {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _TrustIndicator(text: entry.value),
+            TrustBadge(label: entry.value),
             if (!isLast) ...[
               const SizedBox(width: AppSpacing.md),
               Container(
@@ -262,33 +263,6 @@ class HeroSection extends StatelessWidget {
           ],
         );
       }).toList(),
-    );
-  }
-}
-
-class _TrustIndicator extends StatelessWidget {
-  final String text;
-
-  const _TrustIndicator({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(
-          LucideIcons.check,
-          size: 16,
-          color: AppColors.success,
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Text(
-          text,
-          style: AppTypography.bodySM.copyWith(
-            color: AppColors.gray400,
-          ),
-        ),
-      ],
     );
   }
 }
