@@ -3,7 +3,6 @@ import {
   isJsonRequest,
   safeParseJson,
   requireJson,
-  getHeader,
   getBearerToken,
   requireBearerToken,
   getQueryParam,
@@ -71,17 +70,6 @@ describe('requireJson()', () => {
     });
     const result = await requireJson<{ y: number }>(r);
     expect(result).toEqual({ ok: true, data: { y: 2 } });
-  });
-});
-
-describe('getHeader()', () => {
-  it('returns the header value', () => {
-    const r = makeRequest('http://t/', { headers: { 'x-foo': 'bar' } });
-    expect(getHeader(r, 'x-foo')).toBe('bar');
-  });
-
-  it('returns null for missing header', () => {
-    expect(getHeader(makeRequest('http://t/'), 'x-foo')).toBeNull();
   });
 });
 

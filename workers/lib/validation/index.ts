@@ -1,3 +1,3 @@
 export { z } from 'zod';
-export type { ZodSchema, ZodTypeAny } from 'zod';
+export type { ZodSchema } from 'zod';
 export * from './parse';

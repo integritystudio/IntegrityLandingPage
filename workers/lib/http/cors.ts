@@ -30,7 +30,8 @@ export function corsHeaders(options: CorsOptions = {}): Headers {
 
 export function withCors(response: Response, options: CorsOptions = {}): Response {
   const headers = new Headers(response.headers);
-  corsHeaders(options).forEach((value, key) => headers.set(key, value));
+  const cors = corsHeaders(options);
+  cors.forEach((value, key) => headers.set(key, value));
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 

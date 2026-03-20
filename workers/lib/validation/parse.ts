@@ -1,21 +1,21 @@
-import type { ZodSchema, ZodTypeAny, ZodError } from 'zod';
+import type { ZodSchema, ZodError } from 'zod';
 import { badRequest, unprocessableEntity } from '../http/errors';
 import { isJsonRequest } from '../http/request';
 
 export type ValidResult<T> = { ok: true; data: T } | { ok: false; error: Response };
 
-export type Infer<TSchema extends ZodTypeAny> = TSchema['_output'];
+function formatZodPath(path: (string | number)[]): string {
+  if (path.length === 0) return 'root';
+  return path.reduce<string>((acc, part, i) => {
+    if (typeof part === 'number') return `${acc}[${part}]`;
+    return i === 0 ? part : `${acc}.${part}`;
+  }, '');
+}
 
 export function zodValidationError(error: ZodError): Response {
   return unprocessableEntity('Validation failed', {
     issues: error.issues.map((issue) => ({
-      path:
-        issue.path.length === 0
-          ? 'root'
-          : issue.path
-              .map((part) => (typeof part === 'number' ? `[${part}]` : part))
-              .join('.')
-              .replaceAll('.[', '['),
+      path: formatZodPath(issue.path),
       message: issue.message,
       code: issue.code,
     })),

@@ -8,30 +8,31 @@ export type JsonValue =
 
 export type JsonObject = Record<string, JsonValue>;
 
-const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
+const CONTENT_TYPES = {
+  json: 'application/json; charset=utf-8',
+  text: 'text/plain; charset=utf-8',
+  html: 'text/html; charset=utf-8',
+} as const;
+
+function withContentType(init: ResponseInit, contentType: string): Headers {
+  const headers = new Headers(init.headers);
+  if (!headers.has('content-type')) headers.set('content-type', contentType);
+  return headers;
+}
 
 export function json(data: JsonValue | JsonObject, init: ResponseInit = {}): Response {
-  const headers = new Headers(init.headers);
-  if (!headers.has('content-type')) {
-    headers.set('content-type', JSON_CONTENT_TYPE);
-  }
-  return new Response(JSON.stringify(data), { ...init, headers });
+  return new Response(JSON.stringify(data), {
+    ...init,
+    headers: withContentType(init, CONTENT_TYPES.json),
+  });
 }
 
 export function text(body: string, init: ResponseInit = {}): Response {
-  const headers = new Headers(init.headers);
-  if (!headers.has('content-type')) {
-    headers.set('content-type', 'text/plain; charset=utf-8');
-  }
-  return new Response(body, { ...init, headers });
+  return new Response(body, { ...init, headers: withContentType(init, CONTENT_TYPES.text) });
 }
 
 export function html(body: string, init: ResponseInit = {}): Response {
-  const headers = new Headers(init.headers);
-  if (!headers.has('content-type')) {
-    headers.set('content-type', 'text/html; charset=utf-8');
-  }
-  return new Response(body, { ...init, headers });
+  return new Response(body, { ...init, headers: withContentType(init, CONTENT_TYPES.html) });
 }
 
 export function ok(data: JsonValue | JsonObject, init: ResponseInit = {}): Response {
