@@ -11,10 +11,11 @@
 
 **Integrity Studio's SaaS companion-app model**, customized for:
 
-* **web-billed Stripe subscriptions**
-* **Cloudflare Workers** as the edge/API gateway
-* **Supabase Auth + Postgres** for users, orgs, usage, and entitlements
-* **API-key-backed authorization and tier rate limits**
+* **Auth0** as the identity provider (OAuth, SAML, MFA, compliance)
+* **web-billed Stripe subscriptions** for billing
+* **Cloudflare Workers** as the edge/API gateway for authorization & quota enforcement
+* **Supabase Postgres** for product state (users, orgs, usage, entitlements, audit)
+* **API-key-backed authorization** with tier rate limits
 * **Flutter** as the authenticated companion app, not the primary billing surface
 
 This shape matches the internal direction toward a recurring-revenue SMB product, a plugin/integration motion into observability/compliance stacks, and a UI/dashboard that makes the system legible to non-technical users. It also fits the company's existing emphasis on secure Cloudflare tunnels, monitoring, cost/data tracking, and authentication between many services.
@@ -23,13 +24,17 @@ This shape matches the internal direction toward a recurring-revenue SMB product
 
 The cleanest split is:
 
+* **Auth0** = human identity truth (OAuth, SAML, MFA, compliance)
 * **Stripe** = billing truth
-* **Supabase Auth** = human identity truth
 * **Cloudflare Worker + Durable Object** = request authorization, tier enforcement, quota coordination
 * **Supabase Postgres** = product truth for orgs, entitlements, usage ledger, audit history
 * **Flutter** = dashboard / alerts / usage / account status UI
 
-That separation is important because Stripe subscription events are asynchronous and should be handled by webhooks, not by trusting frontend success alone. Stripe explicitly recommends webhooks for subscription lifecycle handling and exposes Customer Portal for customer self-service billing management. ([Stripe Docs][1])
+That separation is important because:
+- Stripe subscription events are asynchronous and should be handled by webhooks, not by trusting frontend success alone. Stripe explicitly recommends webhooks for subscription lifecycle handling and exposes Customer Portal for customer self-service billing management. ([Stripe Docs][1])
+- Auth0 provides enterprise identity features (SAML, LDAP, MFA) and better compliance than direct Supabase auth
+- Supabase Postgres stores mirrored user metadata + org/entitlements state, not auth truth
+- Workers verify JWTs from Auth0, not directly from Supabase
 
 ## 2. Postgres schema
 
@@ -313,6 +318,83 @@ create table provider_oauth_tokens (
 
 Internally, you've already been pushing toward a UI that tracks **data usage, processing power, cost, and operational state**, with those metrics feeding pricing and contract decisions. You've also described the product as an add-on to observability/compliance stacks, with backend integrations already in place.
 
+## 2.5. Database utilities: `updated_at` trigger
+
+**Status:** ✅ Implemented manually in Supabase UI (2026-03-20)
+
+Every mutable table includes an `updated_at` timestamp. To keep these in sync automatically, create a reusable trigger function:
+
+```sql
+create or replace function update_updated_at_column()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+```
+
+Apply to each mutable table:
+
+```sql
+create trigger update_organizations_updated_at
+before update on organizations
+for each row
+execute function update_updated_at_column();
+
+create trigger update_organization_memberships_updated_at
+before update on organization_memberships
+for each row
+execute function update_updated_at_column();
+
+create trigger update_subscriptions_updated_at
+before update on subscriptions
+for each row
+execute function update_updated_at_column();
+
+create trigger update_entitlements_updated_at
+before update on entitlements
+for each row
+execute function update_updated_at_column();
+
+create trigger update_api_keys_updated_at
+before update on api_keys
+for each row
+execute function update_updated_at_column();
+
+create trigger update_user_profiles_updated_at
+before update on user_profiles
+for each row
+execute function update_updated_at_column();
+
+create trigger update_user_sessions_updated_at
+before update on user_sessions
+for each row
+execute function update_updated_at_column();
+
+create trigger update_provisioning_jobs_updated_at
+before update on provisioning_jobs
+for each row
+execute function update_updated_at_column();
+
+create trigger update_analytics_projects_updated_at
+before update on analytics_projects
+for each row
+execute function update_updated_at_column();
+
+create trigger update_provider_oauth_tokens_updated_at
+before update on provider_oauth_tokens
+for each row
+execute function update_updated_at_column();
+
+create trigger update_billing_event_log_updated_at
+before update on billing_event_log
+for each row
+execute function update_updated_at_column();
+```
+
+**When adding new tables:** If a table has an `updated_at` column, create a corresponding trigger. The function is reusable across all tables.
+
 ## 3. RLS model
 
 Enable RLS on every customer-visible table. Supabase recommends RLS on exposed schemas and notes that the anon key is only safe to expose when RLS is in place. ([Supabase][3])
@@ -492,21 +574,28 @@ The actual implementation adds several tables not in the initial design:
 
 ---
 
-## 4. Supabase auth model
+## 4. Auth0 identity model (actual implementation)
 
-Use **Supabase OAuth** for human users. Then add a **Custom Access Token Hook** so every token includes stable org claims like:
+Use **Auth0** as the identity provider instead of Supabase OAuth. Auth0 provides better enterprise support (SAML, LDAP, MFA) and compliance features.
 
-* `default_org_id`
-* `org_roles`
-* `billing_status`
-* `plan_key`
+### Auth0 configuration
 
-Supabase's Custom Access Token Hook runs before token issuance and is specifically meant for adding claims. Auth Hooks are also the supported customization point for auth flows. ([Supabase][4])
+Configure Auth0 Custom Claims / Rules to enrich the JWT with org context:
 
-### Suggested token claims
+* `default_org_id` — user's active org
+* `org_roles` — mapping of org_id → role (owner, admin, member, etc.)
+* `billing_status` — org billing status
+* `plan_key` — org plan key
+
+Auth0 Rules/Actions run before token issuance and are the supported customization point for JWT enrichment. ([Auth0 Docs](https://auth0.com/docs/customize/rules))
+
+### Suggested Auth0 JWT claims
 
 ```json
 {
+  "sub": "auth0|6123456789abcdef",
+  "email": "user@example.com",
+  "name": "User Name",
   "default_org_id": "org_uuid",
   "org_roles": {
     "org_uuid": "owner"
@@ -518,24 +607,21 @@ Supabase's Custom Access Token Hook runs before token issuance and is specifical
 
 Do **not** put mutable usage counters in JWTs. Those belong in the Worker / Durable Object path.
 
-### Auth0 integration (actual implementation)
+### Auth0 to Postgres sync flow
 
-The actual schema uses **Auth0** as the identity provider via `users.auth0_id`, not direct Supabase auth:
+Supabase Postgres does **not** store auth truth — it mirrors user data from Auth0:
 
-* Supabase Auth is _not_ used for human login — Auth0 handles OAuth / social login
-* Supabase Postgres stores user metadata via `users` table (mirrored from Auth0)
-* App uses Auth0 JWT (not Supabase JWT) for authorization
-* Custom Access Token Hook still applies: Auth0 hooks enrich JWT with org claims
+1. User signs up via Auth0
+2. Auth0 webhook → Cloudflare Worker `/internal/auth0/user-created`
+3. Worker verifies Auth0 signature, creates/updates `users` row via `users.auth0_id`
+4. Worker creates default `organizations` + `organization_memberships` if first signup
+5. Worker writes `provisioning_jobs` entry (dedupe_key for idempotency)
+6. Provisioning job enqueued for background processing
 
-**Why Auth0?**
-* Enterprise integrations (SAML, LDAP, MFA)
-* Better audit trail & compliance reporting
-* Separation of identity provider from database
-
-**Sync flow:**
-* Auth0 webhook → Cloudflare Worker
-* Create/update `users` + `user_profiles` + default `organizations` entry
-* Write provisioning_job with dedupe_key for idempotency
+This separation ensures:
+* Auth0 is the identity truth (cannot be bypassed)
+* Supabase Postgres is product/entitlements truth
+* Cloudflare Worker enforces both via JWT verification + RLS
 
 ---
 
@@ -972,6 +1058,115 @@ Future<BootstrapResponse> bootstrap(String accessToken, String orgId) async {
   return BootstrapResponse.fromJson(res.data);
 }
 ```
+
+## 15.5. Auth0 integration in Flutter (actual implementation)
+
+The actual implementation uses **Auth0** instead of Supabase OAuth. Auth0 provides better enterprise support (SAML, LDAP, MFA) and is the identity source of truth.
+
+```dart
+import 'package:auth0_flutter/auth0_flutter.dart';
+
+final auth0 = Auth0(
+  domain: 'YOUR_AUTH0_DOMAIN',
+  clientId: 'YOUR_AUTH0_CLIENT_ID',
+);
+
+Future<void> signInWithAuth0() async {
+  try {
+    final credentials = await auth0.webAuthentication().login();
+    // credentials.accessToken is Auth0 JWT
+    // credentials.user.sub is auth0|xxxxx
+
+    // Call bootstrap with Auth0 JWT
+    final bootstrap = await bootstrapWithAuth0(
+      credentials.accessToken,
+      credentials.user?.sub ?? '',
+    );
+
+    // Store org context locally
+    appState.activeOrg = bootstrap.activeOrg;
+    appState.entitlements = bootstrap.entitlements;
+
+  } catch (e) {
+    print('Auth0 login failed: $e');
+  }
+}
+
+Future<BootstrapResponse> bootstrapWithAuth0(
+  String accessToken,
+  String auth0Id,
+) async {
+  final res = await dio.post(
+    '/bootstrap',
+    options: Options(headers: {
+      'Authorization': 'Bearer $accessToken',
+      'X-Auth0-ID': auth0Id,
+    }),
+  );
+  return BootstrapResponse.fromJson(res.data);
+}
+```
+
+**Worker side: Auth0 JWT verification**
+
+```ts
+import { jwtVerify } from 'jose';
+
+export async function bootstrapWithAuth0(req: Request, env: Env) {
+  // 1. Extract Auth0 JWT from Authorization header
+  const token = req.headers.get('Authorization')?.split(' ')[1];
+  if (!token) return new Response('Missing token', { status: 401 });
+
+  // 2. Verify Auth0 JWT signature using JWKS
+  const secret = new TextEncoder().encode(env.AUTH0_CLIENT_SECRET);
+  const { payload } = await jwtVerify(token, secret);
+
+  const auth0Id = payload.sub as string;  // "auth0|6123456789abcdef"
+  const email = payload.email as string;
+
+  // 3. Lookup or provision user
+  let user = await db.query(
+    'SELECT * FROM users WHERE auth0_id = $1',
+    [auth0Id]
+  );
+
+  if (!user.rows.length) {
+    // First login — trigger user_created provisioning job
+    await db.query(
+      'INSERT INTO provisioning_jobs (job_type, source, dedupe_key, payload, status) VALUES ($1, $2, $3, $4, $5)',
+      [
+        'user_created',
+        'auth0_webhook',
+        `auth0:${auth0Id}:${Date.now()}`,
+        JSON.stringify({ auth0Id, email, name: payload.name }),
+        'pending',
+      ]
+    );
+
+    // Wait for provisioning (max 5s)
+    user = await waitForUserProvisioning(auth0Id, 5000);
+  }
+
+  // 4. Return bootstrap response
+  const orgs = await db.query(
+    'SELECT * FROM organization_memberships WHERE user_id = $1 AND status = $2',
+    [user.rows[0].id, 'active']
+  );
+
+  return json({
+    user: {
+      id: user.rows[0].id,
+      email: user.rows[0].email,
+      name: user.rows[0].name,
+    },
+    organizations: orgs.rows,
+    active_org_id: user.rows[0].default_organization_id,
+    entitlements: await loadEntitlements(user.rows[0].default_organization_id),
+  });
+}
+```
+
+---
 
 ## 16. What the Flutter app should show
 
