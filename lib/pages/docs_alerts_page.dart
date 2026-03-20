@@ -45,7 +45,7 @@ class DocsAlertsPage extends StatelessWidget {
                 accentColor: AppColors.warning,
                 backgroundColor: AppColors.gray800,
                 borderColor: AppColors.gray700,
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.lg,
                   vertical: AppSpacing.md,
                 ),
@@ -57,7 +57,7 @@ class DocsAlertsPage extends StatelessWidget {
                 accentColor: AppColors.warning,
                 backgroundColor: AppColors.gray800,
                 borderColor: AppColors.gray700,
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.lg,
                   vertical: AppSpacing.md,
                 ),
@@ -69,7 +69,7 @@ class DocsAlertsPage extends StatelessWidget {
                 accentColor: AppColors.warning,
                 backgroundColor: AppColors.gray800,
                 borderColor: AppColors.gray700,
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.lg,
                   vertical: AppSpacing.md,
                 ),
@@ -81,7 +81,7 @@ class DocsAlertsPage extends StatelessWidget {
                 accentColor: AppColors.warning,
                 backgroundColor: AppColors.gray800,
                 borderColor: AppColors.gray700,
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.lg,
                   vertical: AppSpacing.md,
                 ),

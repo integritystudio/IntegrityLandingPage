@@ -18,12 +18,12 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\
 
 export const ContactFormSchema = z.object({
   name: z
-    .string()
+    .string({ invalid_type_error: 'Name is required' })
+    .trim()
     .min(1, 'Name is required')
-    .max(MAX_NAME_LENGTH, `Name must be under ${MAX_NAME_LENGTH} characters`)
-    .trim(),
+    .max(MAX_NAME_LENGTH, `Name must be under ${MAX_NAME_LENGTH} characters`),
   email: z
-    .string()
+    .string({ invalid_type_error: 'Email is required' })
     .min(1, 'Email is required')
     .max(MAX_EMAIL_LENGTH, `Email must be under ${MAX_EMAIL_LENGTH} characters`)
     .refine((email) => EMAIL_REGEX.test(email), 'Invalid email format'),
