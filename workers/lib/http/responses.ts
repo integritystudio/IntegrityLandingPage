@@ -51,9 +51,11 @@ export function noContent(init: ResponseInit = {}): Response {
  * Redirect response.
  * IMPORTANT: location MUST NOT contain user-controlled input.
  * Validate with URL/path parsing before passing.
+ * Only allows relative paths (must start with /).
  */
 export function redirect(location: string, status = 302): Response {
-  if (/^[a-z][a-z0-9+.-]*:/i.test(location) && !location.startsWith('/')) {
+  // Reject absolute URLs (http://...), protocol-relative URLs (//...), and data URIs
+  if (location.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(location)) {
     throw new Error('redirect: absolute URLs not allowed, use relative paths only');
   }
   return new Response(null, { status, headers: { location } });
