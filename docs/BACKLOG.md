@@ -180,7 +180,7 @@ Multiple card-style widgets share Container+decoration+Column layout (70–78% s
 
 **Files:** `lib/pages/{sources,status,features,docs_alerts,docs_quickstart,compliance}_page.dart`, `lib/widgets/docs/doc_components.dart`
 **Impl doc:** `docs/duplication/136-info-card-pattern.md`
-**Status:** Open
+**Status:** Done — `e8da224` (2026-03-20). Extended InfoCard with iconSpacing, iconContainerPadding, iconContainerBorderRadius, onTap, trailingWidget. Refactored _MethodologyCard and _ResourceLink to use InfoCard. -86 lines, 2565 tests pass.
 
 ---
 
@@ -208,7 +208,24 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-17 (completed #134, #135, M07, #137, #138; review fixes in 44a2450)*
+### T01: Enhance Mock ProvisioningDio for Multiple Different Per-Attempt Responses
+
+**Priority:** P4 | **Source:** session 2026-03-20, code-reviewer (commit 5c35e10)
+
+`test/services/provisioning_service_test.dart` — Current `MockProvisioningDio` supports per-attempt error injection via `_postErrorAttempts` and `_getErrorAttempts` maps, but success responses are stored in a single global `_mockGetResponseData` / `_mockPostResponseData` map. If a future test needs different response data on different retry attempts (e.g., attempt 1 returns 500, attempt 2 returns 200+data), the mock cannot represent this without significant refactoring.
+
+**Current behavior:** Per-attempt responses fall back to the same global response data.
+**Limitation:** Not blocking; no current tests need this. Enhancement for future test complexity.
+
+**File:** `test/services/provisioning_service_test.dart:395–415`
+
+**Status:** Done — `5367b9e` (2026-03-20). Added _postResponseAttempts/_getResponseAttempts maps; fixed mockGetResponse per-attempt storage; standardized counter pattern. 3 new tests, 2568 pass.
+
+---
+
+*Last updated: 2026-03-20 (completed #136 info-card consolidation e8da224; completed T01 per-attempt mock 5367b9e)*
+
+*Previous: 2026-03-17 (completed #134, #135, M07, #137, #138; review fixes in 44a2450)*
 
 *Previous: 2026-03-15 (Phase 3b done, L15 appended)*
 
