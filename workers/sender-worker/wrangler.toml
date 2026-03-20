@@ -9,3 +9,9 @@ RECEIVER_WORKER_URL = "https://receiver-worker.example.workers.dev"
 # HMAC signing key (set via: wrangler secret put SHARED_SECRET)
 # Must match SHARED_SECRET in receiver-worker
 # Generate a secure random secret: openssl rand -base64 32
+
+# CORS Origins (optional JSON array of allowed origins)
+# If not set, defaults to ["https://integritystudio.ai", "https://www.integritystudio.ai"]
+# For development/staging, set via:
+#   wrangler deploy --var ALLOWED_ORIGINS_JSON='["http://localhost:8081","https://staging.integritystudio.ai","https://integritystudio.ai","https://www.integritystudio.ai"]'
+# ALLOWED_ORIGINS_JSON = '["https://integritystudio.ai", "https://www.integritystudio.ai"]'

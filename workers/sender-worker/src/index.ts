@@ -1,9 +1,10 @@
 import { JSON_CONTENT_TYPE } from '../../http-helpers';
-import { buildCorsHeaders, isOriginAllowed } from '../../cors-utils';
+import { buildCorsHeaders, isOriginAllowedWithEnv } from '../../cors-utils';
 
 interface Env {
   SHARED_SECRET: string;
   RECEIVER_WORKER_URL: string;
+  ALLOWED_ORIGINS_JSON?: string;
 }
 
 function jsonResponse(body: unknown, status: number, extra: Record<string, string> = {}): Response {
@@ -17,10 +18,14 @@ function jsonResponse(body: unknown, status: number, extra: Record<string, strin
  * Returns CORS headers for allowed origins, null for disallowed browser origins.
  * Requests without an Origin header (non-browser / internal calls) pass through
  * with no CORS headers and no rejection.
+ *
+ * @param origin - The Origin header from the request
+ * @param env - Environment config (supports ALLOWED_ORIGINS_JSON)
+ * @returns CORS headers if allowed, null if disallowed, empty object if no origin
  */
-function getCorsHeaders(origin: string | null): Record<string, string> | null {
+function getCorsHeaders(origin: string | null, env: Env): Record<string, string> | null {
   if (!origin) return {};
-  if (!isOriginAllowed(origin)) return null;
+  if (!isOriginAllowedWithEnv(origin, env)) return null;
   return buildCorsHeaders(origin);
 }
 
@@ -103,13 +108,12 @@ export default {
 
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {
-      const corsHeaders = isOriginAllowed(origin)
-        ? getCorsHeaders(origin)!
-        : {};
-      return new Response(null, { status: 204, headers: corsHeaders });
+      const corsHeaders = getCorsHeaders(origin, env);
+      // Return 204 with CORS headers if allowed, or empty headers if not
+      return new Response(null, { status: 204, headers: corsHeaders ?? {} });
     }
 
-    const corsHeaders = getCorsHeaders(origin);
+    const corsHeaders = getCorsHeaders(origin, env);
     if (corsHeaders === null) {
       return jsonResponse({ error: 'forbidden' }, 403);
     }

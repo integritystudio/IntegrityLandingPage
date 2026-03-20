@@ -21,6 +21,7 @@ type ApiResponse = SuccessResponse | ErrorResponse;
 interface Env {
   SHARED_SECRET: string;
   RECEIVER_WORKER_URL: string;
+  ALLOWED_ORIGINS_JSON?: string;
 }
 
 import worker from './index';
@@ -372,6 +373,151 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(403);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toBe('forbidden');
+    });
+  });
+
+  describe('CORS — Environment-based origin configuration', () => {
+    it('allows development origin when ALLOWED_ORIGINS_JSON is configured', async () => {
+      const body = JSON.stringify({ userId: 'user123' });
+      const envWithDevOrigin: Env = {
+        ...mockEnv,
+        ALLOWED_ORIGINS_JSON: JSON.stringify(['http://localhost:8081', 'https://integritystudio.ai']),
+      };
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ok: true, received: JSON.parse(body) }),
+          { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } },
+        ),
+      );
+
+      const request = new Request('https://worker.test/send', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Origin: 'http://localhost:8081',
+        },
+        body,
+      });
+
+      const response = await worker.fetch(request, envWithDevOrigin);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:8081');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('allows staging origin when configured', async () => {
+      const body = JSON.stringify({ userId: 'user456' });
+      const envWithStaging: Env = {
+        ...mockEnv,
+        ALLOWED_ORIGINS_JSON: JSON.stringify(['https://staging.integritystudio.ai', 'https://www.integritystudio.ai']),
+      };
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ok: true, received: JSON.parse(body) }),
+          { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } },
+        ),
+      );
+
+      const request = new Request('https://worker.test/send', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Origin: 'https://staging.integritystudio.ai',
+        },
+        body,
+      });
+
+      const response = await worker.fetch(request, envWithStaging);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://staging.integritystudio.ai');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('rejects unregistered origins even with ALLOWED_ORIGINS_JSON configured', async () => {
+      const envWithDevOrigin: Env = {
+        ...mockEnv,
+        ALLOWED_ORIGINS_JSON: JSON.stringify(['http://localhost:8081']),
+      };
+
+      const request = new Request('https://worker.test/send', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Origin: 'https://evil.example.com',
+        },
+        body: JSON.stringify({ data: 'test' }),
+      });
+
+      const response = await worker.fetch(request, envWithDevOrigin);
+
+      expect(response.status).toBe(403);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('forbidden');
+    });
+
+    it('uses ALLOWED_ORIGINS_JSON when provided, ignoring hardcoded defaults', async () => {
+      const body = JSON.stringify({ userId: 'user789' });
+      const customOrigin = 'https://custom.example.com';
+      const envWithCustomOrigins: Env = {
+        ...mockEnv,
+        ALLOWED_ORIGINS_JSON: JSON.stringify([customOrigin]),
+      };
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ok: true, received: JSON.parse(body) }),
+          { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } },
+        ),
+      );
+
+      const request = new Request('https://worker.test/send', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Origin: customOrigin,
+        },
+        body,
+      });
+
+      const response = await worker.fetch(request, envWithCustomOrigins);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe(customOrigin);
+
+      fetchSpy.mockRestore();
+    });
+
+    it('falls back to hardcoded defaults when ALLOWED_ORIGINS_JSON is not set', async () => {
+      const body = JSON.stringify({ userId: 'user000' });
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ok: true, received: JSON.parse(body) }),
+          { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } },
+        ),
+      );
+
+      const request = new Request('https://worker.test/send', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Origin: 'https://integritystudio.ai',
+        },
+        body,
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://integritystudio.ai');
+
+      fetchSpy.mockRestore();
     });
   });
 });

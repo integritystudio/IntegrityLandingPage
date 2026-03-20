@@ -1,4 +1,4 @@
-import { ALLOWED_ORIGINS } from './http-helpers';
+import { ALLOWED_ORIGINS, getAllowedOrigins } from './http-helpers';
 
 /**
  * Build CORS response headers for a given origin.
@@ -29,8 +29,26 @@ export function buildCorsHeaders(
 }
 
 /**
- * Check if an origin is in the allowed origins list.
+ * Check if an origin is in the allowed origins list (using defaults).
+ * For environment-aware checking, use isOriginAllowedWithEnv() instead.
  */
 export function isOriginAllowed(origin: string | null): boolean {
   return origin ? ALLOWED_ORIGINS.includes(origin) : false;
+}
+
+/**
+ * Check if an origin is in the allowed origins list, respecting environment config.
+ * Supports ALLOWED_ORIGINS_JSON environment variable for dynamic origin configuration.
+ *
+ * @param origin - The Origin header value (typically from request headers)
+ * @param env - Environment object with optional ALLOWED_ORIGINS_JSON
+ * @returns true if origin is allowed, false otherwise
+ */
+export function isOriginAllowedWithEnv(
+  origin: string | null,
+  env?: { ALLOWED_ORIGINS_JSON?: string },
+): boolean {
+  if (!origin) return false;
+  const allowedOrigins = getAllowedOrigins(env);
+  return allowedOrigins.includes(origin);
 }
