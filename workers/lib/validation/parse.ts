@@ -15,7 +15,7 @@ export function zodValidationError(error: ZodError): Response {
           : issue.path
               .map((part) => (typeof part === 'number' ? `[${part}]` : part))
               .join('.')
-              .replace('.[', '['),
+              .replaceAll('.[', '['),
       message: issue.message,
       code: issue.code,
     })),

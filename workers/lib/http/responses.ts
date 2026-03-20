@@ -34,15 +34,15 @@ export function html(body: string, init: ResponseInit = {}): Response {
 }
 
 export function ok(data: JsonValue | JsonObject, init: ResponseInit = {}): Response {
-  return json(data, { ...init, status: init.status ?? 200 });
+  return json(data, { ...init, status: 200 });
 }
 
 export function created(data: JsonValue | JsonObject, init: ResponseInit = {}): Response {
-  return json(data, { ...init, status: init.status ?? 201 });
+  return json(data, { ...init, status: 201 });
 }
 
 export function noContent(init: ResponseInit = {}): Response {
-  return new Response(null, { ...init, status: init.status ?? 204 });
+  return new Response(null, { ...init, status: 204 });
 }
 
 export function redirect(location: string, status = 302): Response {
