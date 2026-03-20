@@ -323,7 +323,7 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Result: -20 lines, 2456 tests pass
 - Commit: `0d30da6`
 
-### Infrastructure & Mocking (2026-03-20)
+### Infrastructure & Mocking
 
 **T01: Enhance Mock ProvisioningDio for Multiple Different Per-Attempt Responses**
 - Extended `MockProvisioningDio` to support different response data per retry attempt
