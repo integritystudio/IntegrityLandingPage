@@ -61,7 +61,7 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Jump-to-start accepted: completes frame callbacks cleanly, renders 0.0 initial state consistently
 - Commit: `6e22745`
 
-**#136: SharedAppBar Nav Item Count Scalability**
+**SharedAppBar Nav Item Count Scalability**
 - Added `kMaxInlineNavItems = 7` constant to track desktop nav item capacity
 - Both mobile and desktop popup menus migrated to `PopupMenuButton<int>` with index keys and `_handleNavItem` per item
 - Eliminates value-collision and open-redirect risks
