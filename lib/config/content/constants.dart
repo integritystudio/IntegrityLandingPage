@@ -99,6 +99,9 @@ abstract final class Routes {
   static const String contact = '/contact';
   static const String signup = '/signup';
   static const String signupTeam = '/signup?tier=Team';
+  static const String signin = '/signin';
+  static const String provision = '/provision';
+  static const String senderHealth = '/health';
 
   // Feature pages
   static const String features = '/features';

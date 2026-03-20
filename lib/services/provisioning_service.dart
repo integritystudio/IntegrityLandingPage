@@ -35,6 +35,29 @@ class ProvisioningEvent {
       };
 }
 
+/// Authentication API response.
+sealed class AuthResponse {
+  const AuthResponse();
+}
+
+/// Successful authentication response with JWT.
+class AuthSuccess extends AuthResponse {
+  final String jwt;
+  final String email;
+
+  const AuthSuccess({
+    required this.jwt,
+    required this.email,
+  });
+}
+
+/// Authentication error response.
+class AuthError extends AuthResponse {
+  final String error;
+
+  const AuthError({required this.error});
+}
+
 /// Provisioning API response.
 sealed class ProvisioningResponse {
   const ProvisioningResponse();
@@ -109,20 +132,100 @@ class ProvisioningService {
     retryDelay = Future.delayed;
   }
 
+  /// Sign up with email and password.
+  ///
+  /// Returns AuthSuccess (201) with JWT token or AuthError.
+  static Future<AuthResponse> signUp(String email, String password) async {
+    try {
+      final response = await _dio.post(
+        '$_senderWorkerUrl/signup',
+        data: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+          validateStatus: (status) => status != null,
+        ),
+      );
+
+      final data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : const <String, dynamic>{};
+
+      if (response.statusCode == 201 && data['jwt'] != null) {
+        return AuthSuccess(
+          jwt: data['jwt'] as String,
+          email: email,
+        );
+      }
+
+      return AuthError(
+        error: data['error'] as String? ?? _errorUnexpected,
+      );
+    } catch (e, stackTrace) {
+      await ErrorTrackingService.captureException(e,
+          stackTrace: stackTrace);
+      return const AuthError(error: _errorUnexpected);
+    }
+  }
+
+  /// Sign in with email and password.
+  ///
+  /// Returns AuthSuccess (200) with JWT token or AuthError.
+  static Future<AuthResponse> signIn(String email, String password) async {
+    try {
+      final response = await _dio.post(
+        '$_senderWorkerUrl/signin',
+        data: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+          validateStatus: (status) => status != null,
+        ),
+      );
+
+      final data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : const <String, dynamic>{};
+
+      if (response.statusCode == 200 && data['jwt'] != null) {
+        return AuthSuccess(
+          jwt: data['jwt'] as String,
+          email: email,
+        );
+      }
+
+      return AuthError(
+        error: data['error'] as String? ?? _errorUnexpected,
+      );
+    } catch (e, stackTrace) {
+      await ErrorTrackingService.captureException(e,
+          stackTrace: stackTrace);
+      return const AuthError(error: _errorUnexpected);
+    }
+  }
+
   /// Send a provisioning event to the Sender Worker.
   ///
   /// Retries up to [_maxRetries] times on transient network errors
   /// with exponential backoff (1s, 2s).
   static Future<ProvisioningResponse> sendEvent(
-    ProvisioningEvent event,
-  ) async {
+    ProvisioningEvent event, {
+    required String jwt,
+  }) async {
     for (var attempt = 0; attempt <= _maxRetries; attempt++) {
       try {
         final response = await _dio.post(
           '$_senderWorkerUrl/send',
           data: jsonEncode(event.toJson()),
           options: Options(
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $jwt',
+            },
             // Accept all non-null status codes — HTTP errors are handled in
             // the explicit dispatch below so Dio must not throw on 4xx/5xx.
             validateStatus: (status) => status != null,

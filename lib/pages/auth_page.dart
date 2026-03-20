@@ -126,7 +126,7 @@ class _AuthPageState extends State<AuthPage> {
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -141,7 +141,7 @@ class _AuthPageState extends State<AuthPage> {
         child: Center(
           child: ResponsiveContainer(
             maxWidth: 500,
-            padding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
+            additionalPadding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,7 +149,7 @@ class _AuthPageState extends State<AuthPage> {
                 // Title
                 Text(
                   _pageTitle,
-                  style: AppTypography.heading2.copyWith(
+                  style: AppTypography.headingLG.copyWith(
                     color: AppColors.textPrimary,
                   ),
                 ),
@@ -222,7 +222,7 @@ class _AuthPageState extends State<AuthPage> {
                 GradientButton(
                   onPressed: _isFormValid && !_isLoading ? _submit : null,
                   isLoading: _isLoading,
-                  child: Text(_submitButtonText),
+                  text: _submitButtonText,
                 ),
                 const SizedBox(height: AppSpacing.md),
 

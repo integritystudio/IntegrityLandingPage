@@ -63,7 +63,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
           _apiKey = response.apiKey;
           _isLoading = false;
         });
-        AnalyticsService.trackEvent('api_key_provisioned');
+        AnalyticsService.trackEvent(eventName: 'api_key_provisioned');
       case ProvisioningError():
         setState(() {
           _errorMessage = response.error;
@@ -77,7 +77,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
     final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -92,7 +92,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
         child: Center(
           child: ResponsiveContainer(
             maxWidth: 500,
-            padding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
+            additionalPadding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,7 +100,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
                 // Title
                 Text(
                   'Provision API Key',
-                  style: AppTypography.heading2.copyWith(
+                  style: AppTypography.headingLG.copyWith(
                     color: AppColors.textPrimary,
                   ),
                 ),
@@ -174,7 +174,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
                   GradientButton(
                     onPressed: _isLoading ? null : _provisionApiKey,
                     isLoading: _isLoading,
-                    child: const Text('Generate API Key'),
+                    text: 'Generate API Key',
                   ),
                 ],
               ],

@@ -53,7 +53,7 @@ void main() {
         sentAt: DateTime.now(),
       );
 
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningSuccess>());
       expect((result as ProvisioningSuccess).apiKey, 'sk-test-key-123');
@@ -77,7 +77,7 @@ void main() {
         sentAt: DateTime.now(),
       );
 
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningSuccess>());
       expect((result as ProvisioningSuccess).apiKey, 'sk-recovered');
@@ -96,7 +96,7 @@ void main() {
         sentAt: DateTime.now(),
       );
 
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningError>());
       expect((result as ProvisioningError).error,
@@ -120,7 +120,7 @@ void main() {
         sentAt: DateTime.now(),
       );
 
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningSuccess>());
       expect(mockDio.postCallCount, 2);
@@ -140,7 +140,7 @@ void main() {
         sentAt: DateTime.now(),
       );
 
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningSuccess>());
       expect(mockDio.postCallCount, 2);
@@ -160,7 +160,7 @@ void main() {
         sentAt: DateTime.now(),
       );
 
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningSuccess>());
       expect(mockDio.postCallCount, 2);
@@ -180,7 +180,7 @@ void main() {
         sentAt: DateTime.now(),
       );
 
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningSuccess>());
       expect(mockDio.postCallCount, 2);
@@ -195,7 +195,7 @@ void main() {
         sentAt: DateTime.now(),
       );
 
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningError>());
       expect((result as ProvisioningError).error,
@@ -212,7 +212,7 @@ void main() {
         sentAt: DateTime.now(),
       );
 
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningError>());
       expect((result as ProvisioningError).error,
@@ -232,7 +232,7 @@ void main() {
         sentAt: DateTime.now(),
       );
 
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningError>());
       expect(mockDio.postCallCount, 1);
@@ -250,7 +250,7 @@ void main() {
         sentAt: DateTime.now(),
       );
 
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningError>());
       expect((result as ProvisioningError).error, 'Invalid userId format');
@@ -342,7 +342,7 @@ void main() {
         action: 'create-api-key',
         sentAt: DateTime(2026, 3, 20),
       );
-      final result = await ProvisioningService.sendEvent(event);
+      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 
       expect(result, isA<ProvisioningSuccess>());
       expect((result as ProvisioningSuccess).apiKey, 'sk-retry-key');

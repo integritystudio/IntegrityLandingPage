@@ -9,7 +9,11 @@ import '../pages/sources_page.dart';
 import '../pages/legal_page.dart';
 import '../pages/about_page.dart';
 import '../pages/signup_page.dart';
+import '../pages/auth_page.dart';
+import '../pages/provision_page.dart';
+import '../pages/sender_health_page.dart';
 import '../pages/pricing_page.dart';
+import '../services/provisioning_service.dart';
 import '../pages/contact_page.dart';
 import '../pages/careers_page.dart';
 import '../pages/security_page.dart';
@@ -150,6 +154,30 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
         path: '/signup',
         builder: (context, state) => SignupPage(
           tier: state.uri.queryParameters['tier'] ?? 'starter',
+          onBack: _goHome(context),
+        ),
+      ),
+      GoRoute(
+        path: '/signin',
+        builder: (context, state) => AuthPage(
+          mode: AuthMode.signIn,
+          onBack: _goHome(context),
+        ),
+      ),
+      GoRoute(
+        path: '/provision',
+        redirect: (context, state) {
+          if (state.extra is! AuthSuccess) return Routes.signin;
+          return null;
+        },
+        builder: (context, state) => ProvisionPage(
+          auth: state.extra as AuthSuccess,
+          onBack: _goHome(context),
+        ),
+      ),
+      GoRoute(
+        path: '/health',
+        builder: (context, state) => SenderHealthPage(
           onBack: _goHome(context),
         ),
       ),
