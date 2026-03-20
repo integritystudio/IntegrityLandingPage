@@ -359,7 +359,7 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Natural language like "Failed at validation step" no longer triggers generic fallback
 - Avoids false positives while maintaining security boundary
 - 11 new tests verify both fixes
-- Commits: `4554f81`, amended with CRLF + extension fixes
+- Commit: `4554f81`
 
 ### Code Quality: Refactoring & Constants (code-reviewer findings, commits 171c1fb – 6bc66ea)
 
