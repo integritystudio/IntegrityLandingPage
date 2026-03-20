@@ -35,7 +35,6 @@ void main() {
           icon: icon,
           title: title,
           description: description,
-          child: child,
           iconColor: iconColor,
           iconBackgroundColor: iconBackgroundColor,
           iconBackgroundGradient: iconBackgroundGradient,
@@ -52,6 +51,7 @@ void main() {
           iconSpacing: iconSpacing,
           onTap: onTap,
           trailingWidget: trailingWidget,
+          child: child,
         ),
       ),
     );
