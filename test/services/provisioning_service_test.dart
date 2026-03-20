@@ -753,12 +753,10 @@ class MockProvisioningDio implements Dio {
           ProgressCallback? onReceiveProgress}) =>
       throw UnimplementedError();
 
-  @override
   Future<Response> upload(String filePath, String uploadUrl,
           {ProgressCallback? onSendProgress}) =>
       throw UnimplementedError();
 
-  @override
   Future<Response> uploadFileStream(Stream<List<int>> fileStream, int fileSize,
           String uploadUrl,
           {ProgressCallback? onSendProgress}) =>
