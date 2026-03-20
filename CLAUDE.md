@@ -23,7 +23,14 @@ lib/
 ├── app.dart          # Main App widget
 └── main.dart         # Entry point
 
-workers/contact-form/ # Cloudflare Worker (Resend email, KV rate limiting, CSRF)
+workers/
+├── lib/              # Shared HTTP + validation utilities (79 tests)
+│   ├── http/         # CORS, request parsing, responses, error handling
+│   └── validation/   # Zod schemas, requireValidJson, zodValidationError
+├── contact-form/     # Contact form worker (Resend email, KV rate limiting, CSRF)
+├── sender-worker/    # Provisioning sender (HMAC-SHA256 auth)
+└── receiver-worker/  # Provisioning receiver (signature verification, replay protection)
+
 scripts/              # Build/dev tooling, repomix generation
 docs/                 # Architecture, routes, changelog, backlog
 test/                 # Unit + widget tests (2440+ passing, ~94% coverage)
@@ -34,6 +41,12 @@ Use DRY principles
 
 ## Workers
 
+**Shared Library**
+- [workers/lib/](workers/lib/) — Shared HTTP and validation utilities (79 tests, ~94% coverage)
+  - `http/` — CORS, request parsing (JSON, bearer token, query params, method assertion), response factories, error handling
+  - `validation/` — Zod-based validation with typed result unions, formatted error responses
+
+**Workers**
 - [workers/contact-form/](workers/contact-form/) — Cloudflare Worker handling contact form submissions (Resend email, KV rate limiting, CSRF, idempotency)
 - [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker that signs and forwards provisioning events to receiver-worker (HMAC-SHA256 inter-service auth, TDD-tested)
 - [workers/receiver-worker/](workers/receiver-worker/) — Cloudflare Worker that verifies signed requests and stores provisioning data (signature verification, replay protection)

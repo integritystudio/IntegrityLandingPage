@@ -16,6 +16,15 @@ flutter test             # Run tests (2440+ passing)
 flutter build web        # Production build
 ```
 
+### Shared Worker Library
+
+```bash
+cd workers/lib
+npm install && npm test           # Tests (79 passing, ~94% coverage)
+```
+
+Provides HTTP utilities (CORS, request parsing, response factories, error handling) and validation (Zod-based with typed result unions) shared across worker projects.
+
 ### Contact Form Worker
 
 ```bash
@@ -52,7 +61,8 @@ npx vitest run                    # Tests
 flutter test                           # All tests
 flutter test --coverage                # With coverage (~94%)
 flutter test test/pages/               # Page tests only
-cd workers/contact-form && npx vitest run  # Worker tests
+cd workers/lib && npm test             # Shared library tests
+cd workers/contact-form && npx vitest run  # Contact form worker tests
 ```
 
 **[Coverage Report](https://aledlie.github.io/IntegrityLandingPage/)**
