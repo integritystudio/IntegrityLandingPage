@@ -28,6 +28,8 @@ class ProvisionPage extends StatefulWidget {
 }
 
 class _ProvisionPageState extends State<ProvisionPage> {
+  static const _genericErrorMessage = 'Something went wrong. Please try again.';
+
   bool _isLoading = false;
   String? _errorMessage;
   String? _apiKey;
@@ -36,6 +38,17 @@ class _ProvisionPageState extends State<ProvisionPage> {
   void initState() {
     super.initState();
     AnalyticsService.trackPageView('provision');
+  }
+
+  /// Returns a sanitized user-facing error message.
+  ///
+  /// Passes through short single-line messages that are likely user-friendly.
+  /// Falls back to a generic message for verbose or multi-line server errors.
+  static String _sanitizeError(String raw) {
+    if (raw.length > 120 || raw.contains('\n') || raw.contains(' at ')) {
+      return _genericErrorMessage;
+    }
+    return raw;
   }
 
   Future<void> _provisionApiKey() async {
@@ -66,7 +79,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
         AnalyticsService.trackEvent(eventName: 'api_key_provisioned');
       case ProvisioningError():
         setState(() {
-          _errorMessage = response.error;
+          _errorMessage = _sanitizeError(response.error);
           _isLoading = false;
         });
     }
