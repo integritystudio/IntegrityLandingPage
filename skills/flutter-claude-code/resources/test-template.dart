@@ -1,21 +1,24 @@
 // Standard widget test template for IntegrityLandingPage
-// Copy and adapt for each new widget test file.
+// INSTRUCTIONS: Copy this file and replace the following placeholders:
+// - YourWidgetName: The actual widget class name to test
+// - 'Expected Text': The text your widget renders
+// - Update import path if not at same level as other tests
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import '../../test/helpers/test_helpers.dart';
+import 'package:integrity_studio_ai/widgets/YOUR_WIDGET_PATH.dart'; // UPDATE PATH
+import '../helpers/test_helpers.dart'; // Adjust path as needed
 
 void main() {
-  group('WidgetName', () {
+  group('YourWidgetName', () {
     late Widget widget;
 
     setUpAll(() {
-      widget = MaterialApp(home: Scaffold(body: WidgetName()));
+      widget = MaterialApp(home: Scaffold(body: const YourWidgetName()));
     });
 
     setUp(() {
       setUpOverflowErrorSuppression();
-      IntegrationMocks.resetAll();
     });
 
     tearDown(() {
@@ -44,7 +47,7 @@ void main() {
 
       testWidgets('renders on mobile', (tester) async {
         await pumpMobile(tester);
-        expect(find.byType(WidgetName), findsOneWidget);
+        expect(find.byType(YourWidgetName), findsOneWidget);
       });
     });
   });
