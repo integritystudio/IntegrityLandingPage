@@ -36,11 +36,6 @@ class _ProvisionPageState extends State<ProvisionPage> {
   bool _pageViewTracked = false;
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_pageViewTracked) {

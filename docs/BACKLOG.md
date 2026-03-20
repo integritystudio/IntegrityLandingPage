@@ -388,6 +388,30 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
+### M17: Pipe sanitizeServerError Through sanitizeUserInput
+
+**Priority:** P3 | **Source:** session 2026-03-20, code-reviewer (commit 9f826b2)
+
+`lib/utils/security_utils.dart` — `sanitizeServerError` passes short, single-line strings directly without HTML-escaping. A payload like `<img src=x onerror=...>` (27 chars, no newlines) passes through verbatim. Pipe through `sanitizeUserInput` before returning for consistency with the rest of `SecurityUtils`.
+
+**File:** `lib/utils/security_utils.dart`
+
+**Status:** Deferred — code-review finding, P3 security.
+
+---
+
+### L21: Move Password Length Constants to Shared Constants
+
+**Priority:** P4 | **Source:** session 2026-03-20, code-reviewer (commit 9f826b2)
+
+`lib/pages/auth_page.dart:88-89` — `_minPasswordLength = 8` and `_maxPasswordLength = 128` declared in `_AuthPageState`. Password constraints are cross-cutting policy; move to shared constants so server-side and UI stay in sync.
+
+**File:** `lib/pages/auth_page.dart`, shared constants file
+
+**Status:** Deferred — code-review finding, P4 refactor.
+
+---
+
 *Last updated: 2026-03-20 (completed M09–M16, L19–L20: all code-reviewer 84fb4f2 findings implemented; SecurityUtils.sanitizeServerError extracted from duplicate page impls; provision_page analytics deferred to didChangeDependencies)*
 
 *Previous: 2026-03-20 (appended S01: frame-ancestors CSP header from code-reviewer ec1fc78; fixed CSP security findings)*
