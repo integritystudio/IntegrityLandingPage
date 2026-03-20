@@ -9,6 +9,7 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
-    "repomix": "bash scripts/repomix/repomix-regen.sh"
+    "repomix": "bash scripts/repomix/repomix-regen.sh",
+    "test:provisioning": "bash test-provisioning-e2e.sh"
   }
 }

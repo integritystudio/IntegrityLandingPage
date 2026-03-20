@@ -44,6 +44,10 @@ npx vitest run                    # Tests
 cd workers/receiver-worker
 npm install && npx wrangler dev   # Local dev (verifies & stores)
 npx vitest run                    # Tests
+
+# Manual E2E testing
+npm run test:provisioning         # Interactive test guide
+# Or read: PROVISIONING_MANUAL_TEST.md for detailed steps
 ```
 
 ## Documentation
@@ -51,6 +55,8 @@ npx vitest run                    # Tests
 - [Architecture](docs/architecture.md) — tech stack, patterns, directory structure
 - [Routes](docs/routes.md) — GoRouter configuration, 33 routes
 - [API Provisioning](docs/api-provisioning.md) — inter-worker HMAC-SHA256 auth, Flutter service layer, security model
+- [Provisioning Manual Test Guide](PROVISIONING_MANUAL_TEST.md) — 7 test cases, step-by-step instructions
+- [Provisioning E2E Results](PROVISIONING_E2E_RESULTS.md) — verified working components, test summary
 - [Changelog](docs/changelog/1.1/CHANGELOG.md) — version history
 - [BACKLOG](docs/BACKLOG.md) — open, deferred, blocked items
 - [Token Tree](docs/repomix/token-tree.txt) — file tree with token counts
@@ -62,7 +68,10 @@ flutter test                           # All tests
 flutter test --coverage                # With coverage (~94%)
 flutter test test/pages/               # Page tests only
 cd workers/lib && npm test             # Shared library tests
-cd workers/contact-form && npx vitest run  # Contact form worker tests
+cd workers/contact-form && npm test    # Contact form worker tests
+cd workers/receiver-worker && npm test # Receiver worker tests
+cd workers/sender-worker && npm test   # Sender worker tests
+npm run test:provisioning              # Provisioning E2E manual test guide
 ```
 
 **[Coverage Report](https://aledlie.github.io/IntegrityLandingPage/)**
