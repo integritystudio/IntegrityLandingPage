@@ -392,6 +392,21 @@ void main() {
           equals(SecurityUtils.genericErrorMessage),
         );
       });
+
+      test('returns generic for Windows-style CRLF multi-line', () {
+        expect(
+          SecurityUtils.sanitizeServerError('line1\r\nline2'),
+          equals(SecurityUtils.genericErrorMessage),
+        );
+      });
+
+      test('returns generic for .cjs file:line stack reference', () {
+        const trace = 'Error at fn (worker.cjs:42)';
+        expect(
+          SecurityUtils.sanitizeServerError(trace),
+          equals(SecurityUtils.genericErrorMessage),
+        );
+      });
     });
 
     group('constants', () {

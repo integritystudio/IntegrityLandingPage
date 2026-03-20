@@ -203,11 +203,11 @@ class SecurityUtils {
   static const int maxServerErrorLength = 120;
 
   /// Matches stack-trace patterns: ` at ` followed by address/path/method-call, or
-  /// file:line references like `.dart:10`, `.js:10`, `.ts:10`.
+  /// file:line references like `.dart:10`, `.js:10`, `.ts:10`, `.cjs:10`, `.mjs:10`.
   /// Avoids matching natural language like "Failed at validation step"
   /// (no dot/digit/path follows the identifier in natural language).
   static final _stackTracePattern =
-      RegExp(r' at (?:\d|[/\\(]|\w+\.)|\.(dart|js|ts):\d');
+      RegExp(r' at (?:\d|[/\\(]|\w+\.)|\.(dart|js|ts|cjs|mjs|wasm):\d');
 
   /// Sanitizes a raw server error string for display in the UI.
   ///
@@ -218,6 +218,7 @@ class SecurityUtils {
   static String sanitizeServerError(String raw) {
     if (raw.length > maxServerErrorLength ||
         raw.contains('\n') ||
+        raw.contains('\r') ||
         _stackTracePattern.hasMatch(raw)) {
       return genericErrorMessage;
     }

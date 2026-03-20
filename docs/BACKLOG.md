@@ -396,7 +396,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/utils/security_utils.dart`
 
-**Status:** Deferred — code-review finding, P3 security.
+**Status:** Done — `4554f81` (2026-03-20). Piped through `sanitizeUserInput`; HTML special chars now escaped before display.
 
 ---
 
@@ -408,7 +408,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/pages/auth_page.dart`, shared constants file
 
-**Status:** Deferred — code-review finding, P4 refactor.
+**Status:** Done — `e8ab121` (2026-03-20). Extracted `PasswordPolicy` class to `constants.dart`; placeholder interpolates from `PasswordPolicy.minLength`/`maxLength`.
 
 ---
 
@@ -420,7 +420,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/utils/security_utils.dart`
 
-**Status:** Deferred — code-review finding, P4 correctness.
+**Status:** Done — `4554f81` (2026-03-20). Replaced `' at '` substring check with `_stackTracePattern` regex; natural language like "Failed at validation step" no longer triggers the generic fallback.
 
 ---
 
@@ -436,7 +436,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
-*Last updated: 2026-03-20 (completed M09–M16, L19–L20: all code-reviewer 84fb4f2 findings implemented; SecurityUtils.sanitizeServerError extracted from duplicate page impls; provision_page analytics deferred to didChangeDependencies)*
+*Last updated: 2026-03-20 (completed M17, L21, L22: sanitizeServerError HTML-escaping + narrowed stack-trace regex + PasswordPolicy shared constants)*
 
 *Previous: 2026-03-20 (appended S01: frame-ancestors CSP header from code-reviewer ec1fc78; fixed CSP security findings)*
 
