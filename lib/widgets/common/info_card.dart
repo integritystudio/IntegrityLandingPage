@@ -11,6 +11,10 @@ class InfoCard extends StatelessWidget {
   final Color? iconColor;
   final Color? iconBackgroundColor;
   final Gradient? iconBackgroundGradient;
+  /// Only applied when [iconBackgroundColor] or [iconBackgroundGradient] is set.
+  final EdgeInsets? iconContainerPadding;
+  /// Only applied when [iconBackgroundColor] or [iconBackgroundGradient] is set.
+  final double? iconContainerBorderRadius;
   final Color? backgroundColor;
   final Color? borderColor;
   final double? borderRadius;
@@ -19,6 +23,10 @@ class InfoCard extends StatelessWidget {
   final TextStyle? titleStyle;
   final TextStyle? descriptionStyle;
   final double? iconSize;
+  /// Horizontal gap between icon and text content. Defaults to [AppSpacing.sm].
+  final double? iconSpacing;
+  final VoidCallback? onTap;
+  final Widget? trailingWidget;
 
   const InfoCard({
     super.key,
@@ -29,6 +37,8 @@ class InfoCard extends StatelessWidget {
     this.iconColor,
     this.iconBackgroundColor,
     this.iconBackgroundGradient,
+    this.iconContainerPadding,
+    this.iconContainerBorderRadius,
     this.backgroundColor,
     this.borderColor,
     this.borderRadius,
@@ -37,6 +47,9 @@ class InfoCard extends StatelessWidget {
     this.titleStyle,
     this.descriptionStyle,
     this.iconSize,
+    this.iconSpacing,
+    this.onTap,
+    this.trailingWidget,
   });
 
   @override
@@ -53,9 +66,13 @@ class InfoCard extends StatelessWidget {
 
     if (iconBackgroundColor != null || iconBackgroundGradient != null) {
       iconWidget = Container(
+        padding: iconContainerPadding,
         decoration: BoxDecoration(
           color: iconBackgroundColor,
           gradient: iconBackgroundGradient,
+          borderRadius: iconContainerBorderRadius != null
+              ? BorderRadius.circular(iconContainerBorderRadius!)
+              : null,
         ),
         child: iconWidget,
       );
@@ -74,7 +91,7 @@ class InfoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           iconWidget,
-          const SizedBox(width: AppSpacing.sm),
+          SizedBox(width: iconSpacing ?? AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,13 +116,28 @@ class InfoCard extends StatelessWidget {
               ],
             ),
           ),
+          if (trailingWidget != null) trailingWidget!,
         ],
       ),
     );
 
-    if (width != null) {
-      return SizedBox(width: width, child: card);
+    Widget result = card;
+
+    if (onTap != null) {
+      result = Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(resolvedBorderRadius),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(resolvedBorderRadius),
+          child: card,
+        ),
+      );
     }
-    return card;
+
+    if (width != null) {
+      return SizedBox(width: width, child: result);
+    }
+    return result;
   }
 }

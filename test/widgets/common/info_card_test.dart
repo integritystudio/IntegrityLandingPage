@@ -15,6 +15,8 @@ void main() {
     Color? iconColor,
     Color? iconBackgroundColor,
     Gradient? iconBackgroundGradient,
+    EdgeInsets? iconContainerPadding,
+    double? iconContainerBorderRadius,
     Color? backgroundColor,
     Color? borderColor,
     double? borderRadius,
@@ -23,6 +25,9 @@ void main() {
     TextStyle? titleStyle,
     TextStyle? descriptionStyle,
     double? iconSize,
+    double? iconSpacing,
+    VoidCallback? onTap,
+    Widget? trailingWidget,
   }) {
     return testableWidget(
       Center(
@@ -34,6 +39,8 @@ void main() {
           iconColor: iconColor,
           iconBackgroundColor: iconBackgroundColor,
           iconBackgroundGradient: iconBackgroundGradient,
+          iconContainerPadding: iconContainerPadding,
+          iconContainerBorderRadius: iconContainerBorderRadius,
           backgroundColor: backgroundColor,
           borderColor: borderColor,
           borderRadius: borderRadius,
@@ -42,6 +49,9 @@ void main() {
           titleStyle: titleStyle,
           descriptionStyle: descriptionStyle,
           iconSize: iconSize,
+          iconSpacing: iconSpacing,
+          onTap: onTap,
+          trailingWidget: trailingWidget,
         ),
       ),
     );
@@ -393,6 +403,129 @@ void main() {
             tester.widget<Text>(find.text('Styled description'));
         expect(descWidget.style?.fontSize, equals(12));
         expect(descWidget.style?.color, equals(AppColors.gray300));
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // Icon container padding / border radius
+    // -------------------------------------------------------------------------
+
+    group('iconContainerPadding', () {
+      testWidgets('applies padding inside icon container when set',
+          (tester) async {
+        const containerPadding = EdgeInsets.all(AppSpacing.sm);
+        await tester.pumpWidget(buildInfoCard(
+          icon: LucideIcons.zap,
+          iconBackgroundColor: AppColors.gray800,
+          iconContainerPadding: containerPadding,
+        ));
+
+        final containers =
+            tester.widgetList<Container>(find.byType(Container));
+        final hasPaddedContainer = containers.any((c) {
+          final dec = c.decoration;
+          return dec is BoxDecoration &&
+              dec.color == AppColors.gray800 &&
+              c.padding == containerPadding;
+        });
+        expect(hasPaddedContainer, isTrue);
+      });
+    });
+
+    group('iconContainerBorderRadius', () {
+      testWidgets('applies border radius to icon container when set',
+          (tester) async {
+        const radius = AppSpacing.radiusSM;
+        await tester.pumpWidget(buildInfoCard(
+          icon: LucideIcons.zap,
+          iconBackgroundColor: AppColors.gray800,
+          iconContainerBorderRadius: radius,
+        ));
+
+        final containers =
+            tester.widgetList<Container>(find.byType(Container));
+        final hasRoundedContainer = containers.any((c) {
+          final dec = c.decoration;
+          return dec is BoxDecoration &&
+              dec.color == AppColors.gray800 &&
+              dec.borderRadius == BorderRadius.circular(radius);
+        });
+        expect(hasRoundedContainer, isTrue);
+      });
+
+      testWidgets('no border radius on icon container when null', (tester) async {
+        await tester.pumpWidget(buildInfoCard(
+          icon: LucideIcons.zap,
+          iconBackgroundColor: AppColors.gray800,
+          iconContainerBorderRadius: null,
+        ));
+
+        final containers =
+            tester.widgetList<Container>(find.byType(Container));
+        final hasNullRadiusContainer = containers.any((c) {
+          final dec = c.decoration;
+          return dec is BoxDecoration &&
+              dec.color == AppColors.gray800 &&
+              dec.borderRadius == null;
+        });
+        expect(hasNullRadiusContainer, isTrue);
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // Icon spacing
+    // -------------------------------------------------------------------------
+
+    group('iconSpacing', () {
+      testWidgets('uses AppSpacing.sm as default gap between icon and text',
+          (tester) async {
+        await tester.pumpWidget(buildInfoCard());
+
+        final sizedBoxes = tester.widgetList<SizedBox>(find.byType(SizedBox));
+        expect(sizedBoxes.any((s) => s.width == AppSpacing.sm), isTrue);
+      });
+
+      testWidgets('uses custom iconSpacing when provided', (tester) async {
+        await tester.pumpWidget(buildInfoCard(iconSpacing: AppSpacing.md));
+
+        final sizedBoxes = tester.widgetList<SizedBox>(find.byType(SizedBox));
+        expect(sizedBoxes.any((s) => s.width == AppSpacing.md), isTrue);
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // onTap / trailingWidget
+    // -------------------------------------------------------------------------
+
+    group('onTap', () {
+      testWidgets('wraps card in InkWell when onTap provided', (tester) async {
+        var tapped = false;
+        await tester.pumpWidget(buildInfoCard(
+          onTap: () => tapped = true,
+        ));
+
+        expect(find.byType(InkWell), findsOneWidget);
+        await tester.tap(find.byType(InkWell));
+        expect(tapped, isTrue);
+      });
+
+      testWidgets('no InkWell when onTap is null', (tester) async {
+        await tester.pumpWidget(buildInfoCard(onTap: null));
+        expect(find.byType(InkWell), findsNothing);
+      });
+    });
+
+    group('trailingWidget', () {
+      testWidgets('renders trailing widget when provided', (tester) async {
+        await tester.pumpWidget(buildInfoCard(
+          trailingWidget: const Icon(LucideIcons.chevronRight),
+        ));
+        expect(find.byIcon(LucideIcons.chevronRight), findsOneWidget);
+      });
+
+      testWidgets('no trailing widget when null', (tester) async {
+        await tester.pumpWidget(buildInfoCard(trailingWidget: null));
+        expect(find.byIcon(LucideIcons.chevronRight), findsNothing);
       });
     });
   });

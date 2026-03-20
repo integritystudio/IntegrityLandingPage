@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/common/info_card.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/sections/page_hero_section.dart';
 
@@ -340,51 +341,26 @@ class _ResourceLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return InfoCard(
+      icon: icon,
+      title: title,
+      description: description,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.gray800,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-          border: Border.all(color: AppColors.gray700),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: AppColors.gray700,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-              ),
-              child: Icon(icon, size: 20, color: AppColors.gray400),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTypography.bodySM.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    description,
-                    style: AppTypography.bodySM.copyWith(
-                      color: AppColors.gray400,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(LucideIcons.chevronRight, size: 20, color: AppColors.gray500),
-          ],
-        ),
+      iconColor: AppColors.gray400,
+      iconBackgroundColor: AppColors.gray700,
+      iconContainerPadding: const EdgeInsets.all(AppSpacing.sm),
+      iconContainerBorderRadius: AppSpacing.radiusSM,
+      iconSpacing: AppSpacing.md,
+      backgroundColor: AppColors.gray800,
+      borderColor: AppColors.gray700,
+      borderRadius: AppSpacing.radiusMD,
+      titleStyle: AppTypography.bodySM.copyWith(
+        color: Colors.white,
+        fontWeight: FontWeight.w600,
       ),
+      descriptionStyle: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+      trailingWidget:
+          Icon(LucideIcons.chevronRight, size: 20, color: AppColors.gray500),
     );
   }
 }

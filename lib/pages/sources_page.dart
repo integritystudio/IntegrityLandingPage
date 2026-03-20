@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/common/info_card.dart';
 
 /// Sources and citations page.
 ///
@@ -544,48 +545,20 @@ class _MethodologyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return InfoCard(
+      icon: icon,
+      title: title,
+      description: description,
+      iconColor: AppColors.blue400,
+      iconBackgroundColor: AppColors.blue500.withValues(alpha: 0.2),
+      iconContainerPadding: const EdgeInsets.all(AppSpacing.sm),
+      iconContainerBorderRadius: AppSpacing.radiusSM,
+      iconSpacing: AppSpacing.md,
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.gray900,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: AppColors.blue500.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-            ),
-            child: Icon(icon, size: 20, color: AppColors.blue400),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppTypography.bodyMD.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  description,
-                  style: AppTypography.bodyMD.copyWith(
-                    color: AppColors.gray400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      backgroundColor: AppColors.gray900,
+      borderColor: AppColors.gray700,
+      borderRadius: AppSpacing.radiusLG,
+      descriptionStyle: AppTypography.bodyMD.copyWith(color: AppColors.gray400),
     );
   }
 }
