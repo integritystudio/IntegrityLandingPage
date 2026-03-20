@@ -42,7 +42,7 @@ describe('isJsonRequest()', () => {
 describe('safeParseJson()', () => {
   it('returns ok: true for valid JSON', async () => {
     const r = makeRequest('http://t/', { method: 'POST', body: '{"x":1}' });
-    const result = await safeParseJson<{ x: number }>(r);
+    const result = await safeParseJson(r);
     expect(result).toEqual({ ok: true, data: { x: 1 } });
   });
 

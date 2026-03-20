@@ -6,14 +6,14 @@ export function isJsonRequest(request: Request): boolean {
 
 /**
  * Parse the request body as JSON with no schema validation.
- * The caller is responsible for validating the shape of `T`.
+ * Returns data as `unknown` — caller must validate the shape.
  * Prefer `requireValidJson` from `lib/validation` for schema-validated payloads.
  */
-export async function safeParseJson<T>(
+export async function safeParseJson(
   request: Request,
-): Promise<{ ok: true; data: T } | { ok: false; error: Response }> {
+): Promise<{ ok: true; data: unknown } | { ok: false; error: Response }> {
   try {
-    return { ok: true, data: (await request.json()) as T };
+    return { ok: true, data: await request.json() };
   } catch {
     return { ok: false, error: badRequest('Request body must be valid JSON') };
   }
@@ -25,7 +25,9 @@ export async function requireJson<T>(
   if (!isJsonRequest(request)) {
     return { ok: false, error: badRequest('Expected content-type: application/json') };
   }
-  return safeParseJson<T>(request);
+  const result = await safeParseJson(request);
+  if (!result.ok) return result;
+  return { ok: true, data: result.data as T };
 }
 
 export function getBearerToken(request: Request): string | null {
