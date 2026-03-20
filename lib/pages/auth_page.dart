@@ -9,6 +9,7 @@ import '../theme/theme.dart';
 import '../widgets/common/alert.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
+import '../utils/security_utils.dart';
 import '../widgets/common/form_fields.dart';
 
 enum AuthMode { signUp, signIn }
@@ -32,8 +33,6 @@ class AuthPage extends StatefulWidget {
 }
 
 class _AuthPageState extends State<AuthPage> {
-  static const _genericErrorMessage = 'Something went wrong. Please try again.';
-
   late AuthMode _mode;
   late TapGestureRecognizer _toggleModeRecognizer;
   String _email = '';
@@ -94,17 +93,6 @@ class _AuthPageState extends State<AuthPage> {
       _password.length >= _minPasswordLength &&
       _password.length <= _maxPasswordLength;
 
-  /// Returns a sanitized user-facing error message.
-  ///
-  /// Passes through short single-line messages that are likely user-friendly.
-  /// Falls back to a generic message for verbose or multi-line server errors.
-  static String _sanitizeError(String raw) {
-    if (raw.length > 120 || raw.contains('\n') || raw.contains(' at ')) {
-      return _genericErrorMessage;
-    }
-    return raw;
-  }
-
   bool get _isFormValid {
     if (_email.isEmpty || !ContactService.isValidEmail(_email)) return false;
     if (!_isPasswordValid) return false;
@@ -147,7 +135,7 @@ class _AuthPageState extends State<AuthPage> {
         context.go(Routes.provision, extra: response);
       case AuthError():
         setState(() {
-          _errorMessage = _sanitizeError(response.error);
+          _errorMessage = SecurityUtils.sanitizeServerError(response.error);
           _isLoading = false;
         });
     }

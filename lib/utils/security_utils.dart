@@ -195,6 +195,27 @@ class SecurityUtils {
     return input;
   }
 
+  /// Default message for verbose or unrecognized server errors.
+  static const String genericErrorMessage =
+      'Something went wrong. Please try again.';
+
+  /// Maximum length for a user-displayable server error message.
+  static const int maxServerErrorLength = 120;
+
+  /// Sanitizes a raw server error string for display in the UI.
+  ///
+  /// Passes through short, single-line messages that are likely user-friendly.
+  /// Falls back to [genericErrorMessage] for verbose, multi-line, or
+  /// stack-trace-containing strings to prevent internal detail leakage.
+  static String sanitizeServerError(String raw) {
+    if (raw.length > maxServerErrorLength ||
+        raw.contains('\n') ||
+        raw.contains(' at ')) {
+      return genericErrorMessage;
+    }
+    return raw;
+  }
+
   /// Sanitizes an OAuth authorization code.
   ///
   /// OAuth codes are typically base64-encoded, so we allow alphanumeric

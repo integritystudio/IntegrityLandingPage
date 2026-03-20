@@ -360,7 +360,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/pages/auth_page.dart:50-52`
 
-**Status:** Deferred — code-review finding, P3 observability.
+**Status:** Done — (2026-03-20). Added `_pageViewTracked` flag; analytics call moved to `didChangeDependencies` (first call only).
 
 ---
 
@@ -372,7 +372,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/pages/auth_page.dart`
 
-**Status:** Deferred — code-review finding, P4 documentation.
+**Status:** Done — (2026-03-20). Added inline comment in `_toggleMode()` explaining intentional `_email` preservation.
 
 ---
 
@@ -384,7 +384,7 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 **File:** `lib/widgets/alert.dart`, `lib/pages/{auth,provision}_page.dart`
 
-**Status:** Deferred — code-review finding, P4 spacing/design.
+**Status:** Done — (2026-03-20). Removed redundant `SizedBox(height: AppSpacing.md)` after `Alert.error` in auth_page and provision_page; Alert's own `AppSpacing.lg` bottom margin provides sufficient spacing.
 
 ---
 

@@ -7,6 +7,7 @@ import '../theme/theme.dart';
 import '../widgets/common/alert.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
+import '../utils/security_utils.dart';
 import '../widgets/common/copyable_code_field.dart';
 
 /// Provision API key page.
@@ -29,27 +30,23 @@ class ProvisionPage extends StatefulWidget {
 }
 
 class _ProvisionPageState extends State<ProvisionPage> {
-  static const _genericErrorMessage = 'Something went wrong. Please try again.';
-
   bool _isLoading = false;
   String? _errorMessage;
   String? _apiKey;
+  bool _pageViewTracked = false;
 
   @override
   void initState() {
     super.initState();
-    AnalyticsService.trackPageView('provision');
   }
 
-  /// Returns a sanitized user-facing error message.
-  ///
-  /// Passes through short single-line messages that are likely user-friendly.
-  /// Falls back to a generic message for verbose or multi-line server errors.
-  static String _sanitizeError(String raw) {
-    if (raw.length > 120 || raw.contains('\n') || raw.contains(' at ')) {
-      return _genericErrorMessage;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_pageViewTracked) {
+      _pageViewTracked = true;
+      AnalyticsService.trackPageView('provision');
     }
-    return raw;
   }
 
   Future<void> _provisionApiKey() async {
@@ -80,7 +77,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
         AnalyticsService.trackEvent(eventName: 'api_key_provisioned');
       case ProvisioningError():
         setState(() {
-          _errorMessage = _sanitizeError(response.error);
+          _errorMessage = SecurityUtils.sanitizeServerError(response.error);
           _isLoading = false;
         });
     }
