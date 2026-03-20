@@ -325,6 +325,55 @@ void main() {
       expect(result, false);
       expect(mockDio.getCallCount, 3); // Initial + 2 retries
     });
+
+  });
+
+  group('MockProvisioningDio per-attempt response data', () {
+    test('post returns per-attempt data when attemptNumber matches', () async {
+      // Attempt 0: connection error (triggers retry), attempt 1: success
+      mockDio.mockPostError(DioExceptionType.connectionTimeout, attemptNumber: 0);
+      mockDio.mockPostResponse(
+        {'ok': true, 'apiKey': 'sk-retry-key', 'received': 'xyz'},
+        attemptNumber: 1,
+      );
+
+      final event = ProvisioningEvent(
+        userId: 'u1',
+        action: 'create-api-key',
+        sentAt: DateTime(2026, 3, 20),
+      );
+      final result = await ProvisioningService.sendEvent(event);
+
+      expect(result, isA<ProvisioningSuccess>());
+      expect((result as ProvisioningSuccess).apiKey, 'sk-retry-key');
+      expect(mockDio.postCallCount, 2);
+    });
+
+    test('get returns per-attempt data when attemptNumber matches', () async {
+      mockDio.mockGetError(DioExceptionType.connectionTimeout, attemptNumber: 0);
+      mockDio.mockGetResponse(
+        {'ok': true, 'status': 'healthy'},
+        statusCode: 200,
+        attemptNumber: 1,
+      );
+
+      final result =
+          await ProvisioningService.checkHealth('https://receiver.example.com');
+
+      expect(result, true);
+      expect(mockDio.getCallCount, 2);
+    });
+
+    test('get falls back to global response when attempt has no override',
+        () async {
+      mockDio.mockGetResponse({'ok': true});
+
+      final result =
+          await ProvisioningService.checkHealth('https://receiver.example.com');
+
+      expect(result, true);
+      expect(mockDio.getCallCount, 1);
+    });
   });
 }
 
@@ -351,6 +400,14 @@ class MockProvisioningDio implements Dio {
   final Map<int, DioExceptionType> _postErrorAttempts = {};
   final Map<int, DioExceptionType> _getErrorAttempts = {};
 
+  /// Per-attempt response data for POST. Keyed by zero-based attempt index.
+  final Map<int, Map<String, dynamic>> _postResponseAttempts = {};
+  final Map<int, int> _postStatusAttempts = {};
+
+  /// Per-attempt response data for GET. Keyed by zero-based attempt index.
+  final Map<int, Map<String, dynamic>> _getResponseAttempts = {};
+  final Map<int, int> _getStatusAttempts = {};
+
   int postCallCount = 0;
   int getCallCount = 0;
 
@@ -358,14 +415,25 @@ class MockProvisioningDio implements Dio {
     Map<String, dynamic> data, {
     int statusCode = 200,
     Map<String, List<String>>? headers,
+    int attemptNumber = -1,
   }) {
-    _mockPostResponseData.clear();
-    _mockPostResponseData.addAll(data);
-    _mockPostStatusCode = statusCode;
-    _mockPostHeaders = headers ?? {};
-    _mockPostError = null;
-    _retryableResponses = null;
-    _retryAttempt = 0;
+    if (attemptNumber >= 0) {
+      _postResponseAttempts[attemptNumber] = Map.of(data);
+      _postStatusAttempts[attemptNumber] = statusCode;
+      _postErrorAttempts.remove(attemptNumber);
+      _retryableResponses = null;
+      _retryAttempt = 0;
+    } else {
+      _mockPostResponseData.clear();
+      _mockPostResponseData.addAll(data);
+      _mockPostStatusCode = statusCode;
+      _mockPostHeaders = headers ?? {};
+      _mockPostError = null;
+      _retryableResponses = null;
+      _retryAttempt = 0;
+      _postResponseAttempts.clear();
+      _postStatusAttempts.clear();
+    }
   }
 
   void mockPostError(
@@ -399,22 +467,18 @@ class MockProvisioningDio implements Dio {
     int attemptNumber = -1,
   }) {
     if (attemptNumber >= 0) {
-      // For per-attempt responses, set the fallback response data
-      // (Note: multiple different per-attempt responses are not yet supported)
-      _mockGetResponseData.clear();
-      _mockGetResponseData.addAll(data);
-      _mockGetStatusCode = statusCode;
-      _mockGetHeaders = headers ?? {};
-      // Clear any errors for this attempt
+      _getResponseAttempts[attemptNumber] = Map.of(data);
+      _getStatusAttempts[attemptNumber] = statusCode;
       _getErrorAttempts.remove(attemptNumber);
     } else {
-      // For global response, clear all per-attempt state
       _mockGetResponseData.clear();
       _mockGetResponseData.addAll(data);
       _mockGetStatusCode = statusCode;
       _mockGetHeaders = headers ?? {};
       _mockGetError = null;
       _getErrorAttempts.clear();
+      _getResponseAttempts.clear();
+      _getStatusAttempts.clear();
     }
   }
 
@@ -440,13 +504,23 @@ class MockProvisioningDio implements Dio {
     ProgressCallback? onSendProgress,
     ProgressCallback? onReceiveProgress,
   }) async {
+    final currentAttempt = postCallCount;
     postCallCount++;
-    final currentAttempt = postCallCount - 1;
 
     // Check for error at this attempt
     if (_postErrorAttempts.containsKey(currentAttempt)) {
       throw DioException(
         type: _postErrorAttempts[currentAttempt]!,
+        requestOptions: RequestOptions(path: path),
+      );
+    }
+
+    // Check for per-attempt response data
+    if (_postResponseAttempts.containsKey(currentAttempt)) {
+      return Response<T>(
+        data: _postResponseAttempts[currentAttempt]! as T,
+        statusCode: _postStatusAttempts[currentAttempt] ?? _mockPostStatusCode,
+        headers: Headers.fromMap(_mockPostHeaders),
         requestOptions: RequestOptions(path: path),
       );
     }
@@ -502,6 +576,16 @@ class MockProvisioningDio implements Dio {
     if (_mockGetError != null) {
       throw DioException(
         type: _mockGetError!,
+        requestOptions: RequestOptions(path: path),
+      );
+    }
+
+    // Check for per-attempt response data
+    if (_getResponseAttempts.containsKey(currentAttempt)) {
+      return Response<T>(
+        data: _getResponseAttempts[currentAttempt]! as T,
+        statusCode: _getStatusAttempts[currentAttempt] ?? _mockGetStatusCode,
+        headers: Headers.fromMap(_mockGetHeaders),
         requestOptions: RequestOptions(path: path),
       );
     }
