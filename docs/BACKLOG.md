@@ -412,6 +412,30 @@ Badge and chip widgets share similar Container+Row+decoration layout (71–75% s
 
 ---
 
+### L22: Narrow `sanitizeServerError` Stack-Trace Heuristic
+
+**Priority:** P4 | **Source:** session 2026-03-20, code-reviewer (commit d7b597e)
+
+`lib/utils/security_utils.dart` — The `' at '` substring check in `sanitizeServerError` is too broad; legitimate messages like `"Failed at validation step"` are replaced by the generic fallback. Narrow to match stack-trace patterns (e.g., `' at '` followed by path/digit, or check for `.js:` / `.dart:`).
+
+**File:** `lib/utils/security_utils.dart`
+
+**Status:** Deferred — code-review finding, P4 correctness.
+
+---
+
+### L23: Update Password Placeholder to Reflect Max Length
+
+**Priority:** P4 | **Source:** session 2026-03-20, code-reviewer (commit d7b597e)
+
+`lib/pages/auth_page.dart` — Placeholder text `'Minimum 8 characters'` does not reflect the 128-char ceiling added in M15.
+
+**File:** `lib/pages/auth_page.dart`
+
+**Status:** Done — (2026-03-20). Updated placeholder to `'8–128 characters'`.
+
+---
+
 *Last updated: 2026-03-20 (completed M09–M16, L19–L20: all code-reviewer 84fb4f2 findings implemented; SecurityUtils.sanitizeServerError extracted from duplicate page impls; provision_page analytics deferred to didChangeDependencies)*
 
 *Previous: 2026-03-20 (appended S01: frame-ancestors CSP header from code-reviewer ec1fc78; fixed CSP security findings)*

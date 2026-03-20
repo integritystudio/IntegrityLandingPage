@@ -212,7 +212,7 @@ class _AuthPageState extends State<AuthPage> {
                     _password = value;
                     _errorMessage = null;
                   }),
-                  placeholder: 'Minimum 8 characters',
+                  placeholder: '8\u2013128 characters',
                   enabled: !_isLoading,
                 ),
                 SizedBox(height: spacingBetweenFields),
