@@ -325,6 +325,75 @@ void main() {
       });
     });
 
+    group('sanitizeServerError', () {
+      test('passes through short friendly message', () {
+        const msg = 'Invalid email or password.';
+        expect(SecurityUtils.sanitizeServerError(msg), equals(msg));
+      });
+
+      test('HTML-escapes special characters in friendly messages', () {
+        const msg = '<b>Invalid</b>';
+        final result = SecurityUtils.sanitizeServerError(msg);
+        expect(result, contains('&lt;'));
+        expect(result, isNot(contains('<')));
+      });
+
+      test('returns generic for message over maxServerErrorLength', () {
+        final longMsg = 'x' * 121;
+        expect(
+          SecurityUtils.sanitizeServerError(longMsg),
+          equals(SecurityUtils.genericErrorMessage),
+        );
+      });
+
+      test('returns generic for multi-line message', () {
+        expect(
+          SecurityUtils.sanitizeServerError('line1\nline2'),
+          equals(SecurityUtils.genericErrorMessage),
+        );
+      });
+
+      test('returns generic for JS stack trace pattern', () {
+        const trace = 'Error at Object.method (file.js:10:5)';
+        expect(
+          SecurityUtils.sanitizeServerError(trace),
+          equals(SecurityUtils.genericErrorMessage),
+        );
+      });
+
+      test('returns generic for Dart stack trace pattern', () {
+        const trace = 'Unhandled exception at main (main.dart:42:3)';
+        expect(
+          SecurityUtils.sanitizeServerError(trace),
+          equals(SecurityUtils.genericErrorMessage),
+        );
+      });
+
+      test('does NOT treat natural language "at" as stack trace', () {
+        const msg = 'Failed at validation step';
+        expect(
+          SecurityUtils.sanitizeServerError(msg),
+          isNot(equals(SecurityUtils.genericErrorMessage)),
+        );
+      });
+
+      test('does NOT treat "at the" as stack trace', () {
+        const msg = 'Error occurred at the server';
+        expect(
+          SecurityUtils.sanitizeServerError(msg),
+          isNot(equals(SecurityUtils.genericErrorMessage)),
+        );
+      });
+
+      test('returns generic for lowercase JS stack frame', () {
+        const trace = 'Error at object.run (bundle:10)';
+        expect(
+          SecurityUtils.sanitizeServerError(trace),
+          equals(SecurityUtils.genericErrorMessage),
+        );
+      });
+    });
+
     group('constants', () {
       test('maxErrorLength is reasonable', () {
         expect(SecurityUtils.maxErrorLength, equals(200));

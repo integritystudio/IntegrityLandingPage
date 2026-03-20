@@ -202,18 +202,26 @@ class SecurityUtils {
   /// Maximum length for a user-displayable server error message.
   static const int maxServerErrorLength = 120;
 
+  /// Matches stack-trace patterns: ` at ` followed by address/path/method-call, or
+  /// file:line references like `.dart:10`, `.js:10`, `.ts:10`.
+  /// Avoids matching natural language like "Failed at validation step"
+  /// (no dot/digit/path follows the identifier in natural language).
+  static final _stackTracePattern =
+      RegExp(r' at (?:\d|[/\\(]|\w+\.)|\.(dart|js|ts):\d');
+
   /// Sanitizes a raw server error string for display in the UI.
   ///
-  /// Passes through short, single-line messages that are likely user-friendly.
+  /// Passes through short, single-line messages that are likely user-friendly,
+  /// HTML-escaping any special characters before display.
   /// Falls back to [genericErrorMessage] for verbose, multi-line, or
   /// stack-trace-containing strings to prevent internal detail leakage.
   static String sanitizeServerError(String raw) {
     if (raw.length > maxServerErrorLength ||
         raw.contains('\n') ||
-        raw.contains(' at ')) {
+        _stackTracePattern.hasMatch(raw)) {
       return genericErrorMessage;
     }
-    return raw;
+    return sanitizeUserInput(raw, maxLength: maxServerErrorLength);
   }
 
   /// Sanitizes an OAuth authorization code.
