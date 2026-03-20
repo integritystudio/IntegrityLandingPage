@@ -1,15 +1,31 @@
-import { JSON_CONTENT_TYPE } from '../../constants';
+import { ALLOWED_ORIGINS, JSON_CONTENT_TYPE } from '../../constants';
 
 interface Env {
   SHARED_SECRET: string;
   RECEIVER_WORKER_URL: string;
 }
 
-function jsonResponse(body: unknown, status: number): Response {
+function jsonResponse(body: unknown, status: number, extra: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': JSON_CONTENT_TYPE },
+    headers: { 'content-type': JSON_CONTENT_TYPE, ...extra },
   });
+}
+
+/**
+ * Returns CORS headers for allowed origins, null for disallowed browser origins.
+ * Requests without an Origin header (non-browser / internal calls) pass through
+ * with no CORS headers and no rejection.
+ */
+function getCorsHeaders(origin: string | null): Record<string, string> | null {
+  if (!origin) return {};
+  if (!ALLOWED_ORIGINS.includes(origin)) return null;
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Vary': 'Origin',
+  };
 }
 
 async function computeSignature(
@@ -33,12 +49,17 @@ async function computeSignature(
   return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function handleSend(request: Request, env: Env): Promise<Response> {
+async function handleSend(
+  request: Request,
+  env: Env,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
   // Validate configuration
   if (!env.RECEIVER_WORKER_URL || !env.SHARED_SECRET) {
     return jsonResponse(
       { error: 'Receiver-worker or shared secret not configured' },
       500,
+      corsHeaders,
     );
   }
 
@@ -49,7 +70,7 @@ async function handleSend(request: Request, env: Env): Promise<Response> {
   try {
     JSON.parse(body);
   } catch {
-    return jsonResponse({ error: 'invalid json' }, 400);
+    return jsonResponse({ error: 'invalid json' }, 400, corsHeaders);
   }
 
   // Create timestamp and compute signature
@@ -72,21 +93,35 @@ async function handleSend(request: Request, env: Env): Promise<Response> {
     const responseBody = await response.text();
     return new Response(responseBody, {
       status: response.status,
-      headers: { 'content-type': JSON_CONTENT_TYPE },
+      headers: { 'content-type': JSON_CONTENT_TYPE, ...corsHeaders },
     });
   } catch {
-    return jsonResponse({ error: 'receiver-worker unreachable' }, 502);
+    return jsonResponse({ error: 'receiver-worker unreachable' }, 502, corsHeaders);
   }
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const { pathname } = new URL(request.url);
+    const origin = request.headers.get('Origin');
 
-    if (pathname === '/send' && request.method === 'POST') {
-      return handleSend(request, env);
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      const corsHeaders = origin && ALLOWED_ORIGINS.includes(origin)
+        ? getCorsHeaders(origin)!
+        : {};
+      return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    return jsonResponse({ error: 'not found' }, 404);
+    const corsHeaders = getCorsHeaders(origin);
+    if (corsHeaders === null) {
+      return jsonResponse({ error: 'forbidden' }, 403);
+    }
+
+    if (pathname === '/send' && request.method === 'POST') {
+      return handleSend(request, env, corsHeaders);
+    }
+
+    return jsonResponse({ error: 'not found' }, 404, corsHeaders);
   },
 };

@@ -300,4 +300,78 @@ describe('Sender Worker', () => {
       expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
     });
   });
+
+  describe('CORS — OPTIONS preflight', () => {
+    it('returns 204 with CORS headers for allowed origin', async () => {
+      const request = new Request('https://worker.test/send', {
+        method: 'OPTIONS',
+        headers: { Origin: 'https://integritystudio.ai' },
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(204);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://integritystudio.ai');
+      expect(response.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+      expect(response.headers.get('Access-Control-Allow-Methods')).toContain('OPTIONS');
+    });
+
+    it('returns 204 with no CORS headers for disallowed origin', async () => {
+      const request = new Request('https://worker.test/send', {
+        method: 'OPTIONS',
+        headers: { Origin: 'https://evil.example.com' },
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(204);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
+    });
+  });
+
+  describe('CORS — POST requests', () => {
+    it('includes CORS headers on POST response from allowed origin', async () => {
+      const body = JSON.stringify({ userId: 'user123' });
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ok: true, received: JSON.parse(body) }),
+          { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } },
+        ),
+      );
+
+      const request = new Request('https://worker.test/send', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Origin: 'https://www.integritystudio.ai',
+        },
+        body,
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://www.integritystudio.ai');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 403 for POST from disallowed origin', async () => {
+      const request = new Request('https://worker.test/send', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          Origin: 'https://evil.example.com',
+        },
+        body: JSON.stringify({ data: 'test' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(403);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('forbidden');
+    });
+  });
 });
