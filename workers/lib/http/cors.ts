@@ -35,6 +35,6 @@ export function withCors(response: Response, options: CorsOptions = {}): Respons
 }
 
 export function handleOptions(request: Request, options: CorsOptions = {}): Response | null {
-  if (request.method.toUpperCase() !== 'OPTIONS') return null;
+  if (request.method !== 'OPTIONS') return null;
   return new Response(null, { status: 204, headers: corsHeaders(options) });
 }
