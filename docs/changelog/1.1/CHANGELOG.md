@@ -159,6 +159,7 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Added `Sitemap` assertion to `robots.txt` test
 - Prevents vacuous tests that only check for presence of a header
 - Test now validates both `User-agent` and `Sitemap` directives
+- Commit: `6248eda`
 
 **L03: Document service worker availability policy in routing.spec.ts**
 - Added JSDoc comment explaining why `flutter_service_worker.js` accepts both `[HTTP_OK, HTTP_NOT_FOUND]`
@@ -169,6 +170,7 @@ All notable changes to the IntegrityStudio.ai Flutter project.
 - Extracted `SPA_ROUTE_BLOG` and `SPA_ROUTE_INTERNSHIP` constants to `e2e/tests/constants.ts`
 - Updated redirect tests (lines 197–246) to use named constants instead of inline strings
 - Improves maintainability and consistency with `spaRoutes` array pattern
+- Commit: `6248eda`
 
 **L05: Use static test fixture for blog article assertions in routing.spec.ts**
 - Blog article slugs already extracted in prior session (`BLOG_ARTICLE_SLUG`, `BLOG_ARTICLE_NESTED_SLUG`, `BLOG_ARTICLE_FLAT_SLUG`)
