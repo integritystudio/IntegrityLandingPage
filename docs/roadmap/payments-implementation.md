@@ -1,9 +1,10 @@
-## Status: Phase 1 & 2 Complete, Phase 3 In Progress
+## Status: Phase 1-3 Complete, Phase 4 In Progress
 
 **Last Updated:** 2026-03-20
 - Phase 1 (Sender-Worker UI): ✅ COMPLETE — AuthPage, ProvisionPage, JWT provisioning, workers lib, CORS
 - Phase 2 (SaaS Infra): ✅ COMPLETE — Supabase OAuth, billing schema, Stripe webhooks, Worker API gateway, Durable Objects
 - Phase 3 (Bootstrap + Webhook Workers): ✅ COMPLETE — Bootstrap worker (JWT verify → org context), Stripe webhook worker (signature verify → subscription sync), shared Zod schemas, shared Supabase REST client
+- Phase 4 (Database + API Gateway): 🔄 IN PROGRESS — Supabase schema deployment complete, RLS enabled, triggers/indexes active; next: Durable Objects, API gateway routes, usage ledger, Flutter dashboard
 
 ---
 
@@ -1334,14 +1335,14 @@ Flutter or API client
 9. **Zod schemas** — Runtime validation for all Phase 3 types (OrgRole, BillingStatus, Organization, BootstrapResponse, StripeEvent, etc.)
 10. **Supabase REST client** — Lightweight fetch-based client for edge Workers, query/insert/update/rpc helpers
 11. **Flutter UI refactoring** — StatusResultPage component extraction, TrustBadge improvements, 76-78% code duplication reduction
+12. **Supabase database setup** — 29-table schema, RLS policies (14 tables), `update_timestamp()` triggers, performance indexes, OAuth integration, plans + orgs seeded
 
 ### Remaining (v1 Phase 4)
 
-1. **Supabase database setup** — Postgres schema deployment, OAuth integration, Custom Access Token Hook, Database Webhooks
-2. **Durable Objects** — Per-org quota state machine, checkAndReserve(), flushUsage(), current-minute counters
-3. **API gateway expansion** — Additional route implementations, API key verification, rate limiting enforcement
-4. **Usage ledger** — Event ingestion optimization, daily bucket aggregation, monthly rollups
-5. **Flutter dashboard** — Org switcher, billing status UI, usage summary/charts, entitlements display, complete bootstrap flow
+1. **Durable Objects** — Per-org quota state machine, checkAndReserve(), flushUsage(), current-minute counters
+2. **API gateway expansion** — Route implementations (`/v1/orgs/:id/...`, `/v1/ingest/...`), API key verification, JWT verification, rate limiting
+3. **Usage ledger** — Event ingestion, daily bucket aggregation, monthly rollups
+4. **Flutter dashboard** — Org switcher, billing status UI, usage summary/charts, entitlements display, complete bootstrap flow
 
 That sequence supports the internal goal of getting a useful, comprehensible UI in front of non-technical stakeholders while preserving the long-term architecture needed for a sticky recurring SaaS product.
 
