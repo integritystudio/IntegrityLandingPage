@@ -15,6 +15,111 @@ Flutter app
 
 Flutter never holds the inter-service shared secret. The browser/mobile client calls the Sender Worker over plain HTTPS; the Sender Worker signs and forwards to the Receiver Worker.
 
+## Architecture
+
+### Public API (Flutter Client → Sender Worker)
+
+```
+┌──────────────┐
+│  Flutter App │
+│  (iOS/Android)
+└──────┬───────┘
+       │ HTTPS POST/GET
+       │ (public endpoints)
+       ▼
+┌──────────────────────────────────────┐
+│  Sender Worker                        │
+│  (api-provisioning-sender)            │
+│  ├─ POST /signup                      │
+│  ├─ POST /signin                      │
+│  ├─ POST /send                        │
+│  └─ GET /health                       │
+└──────┬───────────────────────────────┘
+       │
+       ├─────────► Supabase Auth
+       │           (email, password, JWT)
+       │
+       └─────────► Receiver Worker
+                   (internal forwarding)
+```
+
+### Internal Flow (Sender → Receiver → Edge Function)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ POST /send (provision_api_key)                                  │
+│ From: Flutter Client                                            │
+│ Body: {action, jwt, name, tier}                                 │
+└──────────────┬──────────────────────────────────────────────────┘
+               │
+               ▼ (Sender Worker)
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. Validate request (action, jwt, name, tier present)           │
+│ 2. Create HMAC signature                                         │
+│ 3. Forward to Receiver                                           │
+└──────────────┬──────────────────────────────────────────────────┘
+               │
+               ▼ HTTPS POST (internal)
+┌─────────────────────────────────────────────────────────────────┐
+│ POST /inbox (with x-signature, x-timestamp headers)             │
+│ To: Receiver Worker                                              │
+│ Body: {action, jwt, name, tier} (same as request)               │
+└──────────────┬──────────────────────────────────────────────────┘
+               │
+               ▼ (Receiver Worker)
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. Validate signature using SHARED_SECRET                        │
+│ 2. Validate timestamp (prevent replay attacks)                   │
+│ 3. Validate JWT via Supabase /auth/v1/user                       │
+│ 4. Dispatch to handler (provision-api-key)                       │
+└──────────────┬──────────────────────────────────────────────────┘
+               │
+               ▼ HTTPS POST (to Supabase)
+┌─────────────────────────────────────────────────────────────────┐
+│ POST /functions/v1/api-keys-create (Supabase Edge Function)     │
+│ Authorization: Bearer {jwt}                                      │
+│ Body: {name, tier}                                               │
+└──────────────┬──────────────────────────────────────────────────┘
+               │
+               ▼ (Edge Function response)
+┌─────────────────────────────────────────────────────────────────┐
+│ Response: {token, keyId, prefix, tier}                          │
+│ - token: API key (obtk_...)                                      │
+│ - keyId: unique identifier                                       │
+│ - prefix: first 8 chars (safe for logs)                          │
+│ - tier: echoed back from request                                 │
+└──────────────┬──────────────────────────────────────────────────┘
+               │
+               ▼ (Receiver → Sender)
+┌─────────────────────────────────────────────────────────────────┐
+│ Response to Sender Worker                                        │
+│ Status: 200 OK                                                   │
+│ Body: {ok, token, keyId, prefix, tier}                           │
+└──────────────┬──────────────────────────────────────────────────┘
+               │
+               ▼ HTTPS (to Flutter App)
+┌──────────────────────────────────────────────────────────────────┐
+│ Final Response to Flutter Client                                 │
+│ Status: 200 OK                                                   │
+│ Body: {ok, token, keyId, prefix, tier}                           │
+│                                                                   │
+│ Flutter stores token securely and can now make authenticated     │
+│ requests to the API Worker using Bearer {token}                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow Summary
+
+| Step | Source | Destination | Auth Method | Data Signed |
+|------|--------|-------------|-------------|------------|
+| 1 | Flutter Client | Sender Worker | None (public) | No |
+| 2 | Sender Worker | Receiver Worker | HMAC signature | Yes (x-signature) |
+| 3 | Receiver Worker | Supabase Auth | Bearer JWT | Yes (JWT token) |
+| 4 | Receiver Worker | Supabase Edge Function | Bearer JWT | Yes (JWT token) |
+| 5 | Edge Function | Receiver Worker | — | Edge function response |
+| 6 | Receiver Worker | Sender Worker | — | Internal response |
+| 7 | Sender Worker | Flutter Client | CORS header | No |
+
 ## Service Layer
 
 Follow the existing `ContactService` pattern (`lib/services/contact_service.dart`):
