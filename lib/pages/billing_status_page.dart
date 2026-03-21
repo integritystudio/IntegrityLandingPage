@@ -156,17 +156,12 @@ Color _statusColor(String status) {
 
 String _statusLabel(String status) {
   assert(
-    status == 'active' ||
-        status == 'past_due' ||
-        status == 'suspended' ||
-        status == 'inactive' ||
-        status == 'canceled',
+    status == 'active' || status == 'past_due' || status == 'inactive' || status == 'canceled',
     'Unknown billing status: $status',
   );
   return switch (status) {
     'active' => 'Active',
     'past_due' => 'Past Due',
-    'suspended' => 'Suspended',
     _ => 'Inactive',
   };
 }

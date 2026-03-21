@@ -66,7 +66,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     }
 
     if (bumpQuotaVersion) {
-      updates.quota_version = new Date().toISOString();
+      updates.quota_version = Date.now();
     }
 
     const result = await sb.update(
