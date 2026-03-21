@@ -366,7 +366,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 `addDeadLetter` (workers/stripe-webhook/src/supabase.ts:155) uses hardcoded `60_000` (ms) for initial retry delay. `failDeadLetter` at line 224 uses same logic with `Math.pow(2, retryCount) * 60_000`. Extract to named constant alongside existing `REPLAY_WINDOW_MS` pattern in `workers/constants.ts`.
 
-**Status:** Open
+**Status:** ✅ Done — `DEAD_LETTER_INITIAL_RETRY_DELAY_MS` exported from `workers/constants.ts`; used in `supabase.ts:156,216`.
 
 ---
 
@@ -376,7 +376,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 `index.test.ts` has only one test for `handleWebhook` (the M23 logProcessedEvent failure case). Missing coverage: invalid signature rejection, already-processed skip (`skipped: true` response), handler failure → dead letter, health endpoint. Reconciliation suite is comprehensive; webhook handler suite is not.
 
-**Status:** Open
+**Status:** ✅ Done — 6 handleWebhook tests added in `index.test.ts`: invalid signature (400), already-processed skip, handler failure → dead letter, addDeadLetter CRITICAL failure, health endpoint, unknown route (404).
 
 ---
 
@@ -421,7 +421,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 - Malformed payloads (missing required fields, type mismatches) fail safeParse
 - Edge cases (null metadata, missing items array, missing price.id)
 
-**Status:** Open
+**Status:** ✅ Done — `stripe-schemas.test.ts` added with 16 tests across CheckoutSessionSchema, SubscriptionSchema, InvoiceSchema; covers valid, minimal, required-field rejection, edge cases, and passthrough.
 
 ---
 
@@ -433,7 +433,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 **Files:** `workers/stripe-webhook/src/stripe-schemas.ts:16,22`
 
-**Status:** Open (semantic issue, not a correctness bug)
+**Status:** ✅ Done — commit fe85c77. `customer` is `z.string()` (required) in both `SubscriptionSchema` and `InvoiceSchema`.
 
 ---
 
@@ -525,7 +525,7 @@ Code-reviewer full-stack review of billing status page (BillingStatusPage + Dash
 
 **Fix:** Extract to a static method or use `containers.dart` GlassCard widget for consistency.
 
-**Status:** Open
+**Status:** ✅ Done — commit d1152ed. `AppDecorations.card()` replaces inline `BoxDecoration` in `_BillingCard` and `ErrorCard`.
 
 ---
 
@@ -537,7 +537,7 @@ Code-reviewer full-stack review of billing status page (BillingStatusPage + Dash
 
 **Fix:** Add line comment: `// Max retry attempts (2 retries = 3 total attempts: initial + 2 retries)`
 
-**Status:** Open
+**Status:** ✅ Done — comment present at `dashboard_service.dart:294`.
 
 ---
 
