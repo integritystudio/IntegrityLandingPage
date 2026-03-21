@@ -310,6 +310,10 @@ class DashboardService {
   static const String _errorNetwork = 'Network error. Please try again.';
   static const String _errorServer = 'Server error. Please try again.';
   static const String _errorUnexpected = 'An unexpected error occurred.';
+  static const String _errorBillingAuth = 'Authentication required. Please log in again.';
+  static const String _errorBillingForbidden =
+      "You don't have permission to manage billing for this organization.";
+  static const String _errorBillingNotFound = 'Organization not found.';
   // Max retry attempts (2 retries = 3 total attempts: initial + 2 retries)
   static const int _maxRetries = 2;
 
@@ -732,12 +736,6 @@ class DashboardService {
 
     return const BillingPortalError(error: _errorUnexpected);
   }
-
-  static const String _errorBillingAuth =
-      'Authentication required. Please log in again.';
-  static const String _errorBillingForbidden =
-      'You don\'t have permission to manage billing for this organization.';
-  static const String _errorBillingNotFound = 'Organization not found.';
 
   static String _billingPortalErrorMessage(int? statusCode) {
     if (statusCode == HttpStatus.unauthorized.code) return _errorBillingAuth;

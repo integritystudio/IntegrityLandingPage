@@ -364,5 +364,6 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
     });
     const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb, mockStripe));
     expect(res.status).toBe(500);
+    expect(mockSb.insert).not.toHaveBeenCalled();
   });
 });
