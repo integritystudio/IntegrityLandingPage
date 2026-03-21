@@ -38,6 +38,11 @@ interface ReconciliationSummary {
   errors: string[];
 }
 
+interface DbResult {
+  ok: boolean;
+  error?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Price → plan mapping
 // ---------------------------------------------------------------------------
@@ -81,6 +86,13 @@ interface SupabaseError {
   code?: string;
 }
 
+function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
+  return {
+    'apikey': serviceRoleKey,
+    'Authorization': `Bearer ${serviceRoleKey}`,
+  };
+}
+
 async function supabaseUpsert(
   supabaseUrl: string,
   serviceRoleKey: string,
@@ -88,19 +100,21 @@ async function supabaseUpsert(
   record: Record<string, unknown>,
   onConflict: string,
   dryRun: boolean,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<DbResult> {
   if (dryRun) return { ok: true };
 
-  const resp = await fetch(`${supabaseUrl}/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`, {
-    method: 'POST',
-    headers: {
-      'apikey': serviceRoleKey,
-      'Authorization': `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'resolution=merge-duplicates,return=minimal',
+  const resp = await fetch(
+    `${supabaseUrl}/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`,
+    {
+      method: 'POST',
+      headers: {
+        ...supabaseHeaders(serviceRoleKey),
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(record),
     },
-    body: JSON.stringify(record),
-  });
+  );
 
   if (!resp.ok) {
     const err = await resp.json() as SupabaseError;
@@ -116,15 +130,12 @@ async function supabaseDelete(
   table: string,
   filter: string,
   dryRun: boolean,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<DbResult> {
   if (dryRun) return { ok: true };
 
   const resp = await fetch(`${supabaseUrl}/rest/v1/${table}?${filter}`, {
     method: 'DELETE',
-    headers: {
-      'apikey': serviceRoleKey,
-      'Authorization': `Bearer ${serviceRoleKey}`,
-    },
+    headers: supabaseHeaders(serviceRoleKey),
   });
 
   if (!resp.ok) {
@@ -133,6 +144,29 @@ async function supabaseDelete(
   }
 
   return { ok: true };
+}
+
+async function supabaseLookupOrgId(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  stripeCustomerId: string,
+): Promise<{ orgId: string } | { error: string }> {
+  const resp = await fetch(
+    `${supabaseUrl}/rest/v1/organizations?stripe_customer_id=eq.${encodeURIComponent(stripeCustomerId)}&select=id`,
+    { method: 'GET', headers: supabaseHeaders(serviceRoleKey) },
+  );
+
+  if (!resp.ok) {
+    const err = await resp.json() as SupabaseError;
+    return { error: err.message };
+  }
+
+  const orgs = await resp.json() as Array<{ id: string }>;
+  if (orgs.length === 0) {
+    return { error: `No org found for stripe_customer_id ${stripeCustomerId}` };
+  }
+
+  return { orgId: orgs[0].id };
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +201,12 @@ async function provisionEntitlements(
   orgId: string,
   tier: PlanKey,
   dryRun: boolean,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<DbResult> {
+  if (dryRun) {
+    console.log(`  [dry-run] Would rebuild entitlements for org ${orgId} (tier=${tier})`);
+    return { ok: true };
+  }
+
   // Clear existing entitlements for this org and re-insert from plan definition
   const deleteResult = await supabaseDelete(
     supabaseUrl, serviceRoleKey,
@@ -190,6 +229,90 @@ async function provisionEntitlements(
   }
 
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Per-customer processing
+// ---------------------------------------------------------------------------
+
+type CustomerProcessResult =
+  | { ok: false; error: string }
+  | { ok: true; subscriptions: Array<{ stripeCustomerId: string; tier: PlanKey }> };
+
+async function processCustomer(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  customer: Stripe.Customer,
+  dryRun: boolean,
+): Promise<CustomerProcessResult> {
+  const now = new Date().toISOString();
+
+  const orgRecord = {
+    stripe_customer_id: customer.id,
+    name: customer.name ?? customer.email ?? customer.id,
+    email: customer.email,
+    updated_at: now,
+  };
+
+  const orgResult = await supabaseUpsert(
+    supabaseUrl, serviceRoleKey,
+    'organizations', orgRecord,
+    'stripe_customer_id', dryRun,
+  );
+
+  if (!orgResult.ok) {
+    return { ok: false, error: `Org upsert failed for ${customer.id}: ${orgResult.error}` };
+  }
+
+  if (dryRun) {
+    console.log(`  [dry-run] Would upsert org for customer ${customer.id} (${customer.email})`);
+  }
+
+  // The Stripe SDK requires a cast to access expanded `subscriptions` — guard
+  // the shape at runtime so a SDK update that changes the structure fails fast.
+  const expandedSubs = (customer as Stripe.Customer & { subscriptions?: Stripe.ApiList<Stripe.Subscription> }).subscriptions?.data;
+  if (expandedSubs !== undefined && !Array.isArray(expandedSubs)) {
+    throw new Error(`Unexpected subscriptions shape for customer ${customer.id}: expected array`);
+  }
+  const subs = expandedSubs ?? [];
+
+  const entitlementTargets: Array<{ stripeCustomerId: string; tier: PlanKey }> = [];
+
+  for (const sub of subs) {
+    const tier = mapPriceToTier(sub.items.data[0]?.price.id);
+    const billingStatus = mapStripeStatusToBillingStatus(sub.status);
+
+    const subRecord = {
+      stripe_subscription_id: sub.id,
+      stripe_customer_id: customer.id,
+      stripe_price_id: sub.items.data[0]?.price.id ?? '',
+      status: sub.status,
+      tier,
+      billing_status: billingStatus,
+      current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+      cancel_at_period_end: sub.cancel_at_period_end,
+      updated_at: now,
+    };
+
+    const subResult = await supabaseUpsert(
+      supabaseUrl, serviceRoleKey,
+      'subscriptions', subRecord,
+      'stripe_subscription_id', dryRun,
+    );
+
+    if (!subResult.ok) {
+      return { ok: false, error: `Sub upsert failed for ${sub.id}: ${subResult.error}` };
+    }
+
+    if (dryRun) {
+      console.log(`  [dry-run] Would upsert subscription ${sub.id} (tier=${tier}, status=${sub.status})`);
+    }
+
+    entitlementTargets.push({ stripeCustomerId: customer.id, tier });
+  }
+
+  return { ok: true, subscriptions: entitlementTargets };
 }
 
 // ---------------------------------------------------------------------------
@@ -217,147 +340,58 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
 
   console.log(`[reconciliation] Starting full reconciliation${dryRun ? ' (DRY RUN — no changes will be written)' : ''}...`);
 
-  // Collect stripe_customer_id → tier pairs during first pass for entitlement rebuild in second pass
   const entitlementsToRebuild: Array<{ stripeCustomerId: string; tier: PlanKey }> = [];
 
+  // Phase 1: page through all Stripe customers; upsert orgs + subscriptions
   let hasMore = true;
   let startingAfter: string | undefined;
 
-  // First pass: upsert orgs and subscriptions, collect entitlement rebuild targets
   while (hasMore) {
-    const customers = await stripe.customers.list({
+    const page = await stripe.customers.list({
       limit: 100,
       starting_after: startingAfter,
       expand: ['data.subscriptions'],
     });
 
-    for (const customer of customers.data) {
+    for (const customer of page.data) {
       summary.customersProcessed++;
 
       try {
-        // Upsert organization from Stripe customer
-        const orgRecord = {
-          stripe_customer_id: customer.id,
-          name: customer.name ?? customer.email ?? customer.id,
-          email: customer.email,
-          updated_at: new Date().toISOString(),
-        };
-
-        const orgResult = await supabaseUpsert(
-          supabaseUrl, serviceRoleKey,
-          'organizations', orgRecord,
-          'stripe_customer_id', dryRun,
-        );
-
-        if (!orgResult.ok) {
-          summary.errors.push(`Org upsert failed for ${customer.id}: ${orgResult.error}`);
+        const result = await processCustomer(supabaseUrl, serviceRoleKey, customer, dryRun);
+        if (!result.ok) {
+          summary.errors.push(`Error processing customer ${customer.id}: ${result.error}`);
           continue;
         }
 
-        if (dryRun) {
-          console.log(`  [dry-run] Would upsert org for customer ${customer.id} (${customer.email})`);
-        }
-
         summary.orgsUpserted++;
-
-        // Upsert subscriptions and collect entitlement rebuild targets.
-        // The Stripe SDK requires a cast to access expanded `subscriptions` — guard
-        // the shape at runtime so a SDK update that changes the structure fails fast.
-        const subsData = (customer as Stripe.Customer & { subscriptions?: Stripe.ApiList<Stripe.Subscription> }).subscriptions?.data;
-        if (subsData !== undefined && !Array.isArray(subsData)) {
-          throw new Error(
-            `Unexpected subscriptions shape for customer ${customer.id}: expected array, got ${typeof subsData}`,
-          );
-        }
-        const subs = subsData ?? [];
-
-        for (const sub of subs) {
-          const tier = mapPriceToTier(sub.items.data[0]?.price.id);
-          const billingStatus = mapStripeStatusToBillingStatus(sub.status);
-
-          const subRecord = {
-            stripe_subscription_id: sub.id,
-            stripe_customer_id: customer.id,
-            stripe_price_id: sub.items.data[0]?.price.id ?? '',
-            status: sub.status,
-            tier,
-            billing_status: billingStatus,
-            current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
-            cancel_at_period_end: sub.cancel_at_period_end,
-            updated_at: new Date().toISOString(),
-          };
-
-          const subResult = await supabaseUpsert(
-            supabaseUrl, serviceRoleKey,
-            'subscriptions', subRecord,
-            'stripe_subscription_id', dryRun,
-          );
-
-          if (!subResult.ok) {
-            summary.errors.push(`Sub upsert failed for ${sub.id}: ${subResult.error}`);
-            continue;
-          }
-
-          if (dryRun) {
-            console.log(`  [dry-run] Would upsert subscription ${sub.id} (tier=${tier}, status=${sub.status})`);
-          }
-
-          summary.subscriptionsUpserted++;
-
-          // Collect for entitlement rebuild in second pass
-          entitlementsToRebuild.push({ stripeCustomerId: customer.id, tier });
-        }
+        summary.subscriptionsUpserted += result.subscriptions.length;
+        entitlementsToRebuild.push(...result.subscriptions);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         summary.errors.push(`Error processing customer ${customer.id}: ${message}`);
       }
     }
 
-    hasMore = customers.has_more;
-    startingAfter = customers.data[customers.data.length - 1]?.id;
+    hasMore = page.has_more;
+    startingAfter = page.data[page.data.length - 1]?.id;
   }
 
-  // Second pass: rebuild entitlements (requires org_id lookup)
+  // Phase 2: rebuild entitlements (requires org UUID lookup by stripe_customer_id)
   if (entitlementsToRebuild.length > 0) {
     console.log(`[reconciliation] Phase 2: rebuilding entitlements for ${entitlementsToRebuild.length} org(s)...`);
 
     for (const { stripeCustomerId, tier } of entitlementsToRebuild) {
       try {
-        // Query org by stripe_customer_id to get org.id (UUID)
-        const orgResp = await fetch(
-          `${supabaseUrl}/rest/v1/organizations?stripe_customer_id=eq.${encodeURIComponent(stripeCustomerId)}&select=id`,
-          {
-            method: 'GET',
-            headers: {
-              'apikey': serviceRoleKey,
-              'Authorization': `Bearer ${serviceRoleKey}`,
-            },
-          },
-        );
-
-        if (!orgResp.ok) {
-          const err = await orgResp.json() as SupabaseError;
-          summary.errors.push(`Failed to lookup org for ${stripeCustomerId}: ${err.message}`);
+        const lookup = await supabaseLookupOrgId(supabaseUrl, serviceRoleKey, stripeCustomerId);
+        if ('error' in lookup) {
+          summary.errors.push(`Failed to lookup org for ${stripeCustomerId}: ${lookup.error}`);
           continue;
         }
 
-        const orgs = await orgResp.json() as Array<{ id: string }>;
-        if (orgs.length === 0) {
-          summary.errors.push(`No org found for stripe_customer_id ${stripeCustomerId}`);
+        const entResult = await provisionEntitlements(supabaseUrl, serviceRoleKey, lookup.orgId, tier, dryRun);
+        if (!entResult.ok) {
+          summary.errors.push(`Entitlement rebuild failed for org ${lookup.orgId}: ${entResult.error}`);
           continue;
-        }
-
-        const orgId = orgs[0].id;
-
-        if (dryRun) {
-          console.log(`  [dry-run] Would rebuild entitlements for org ${orgId} (tier=${tier})`);
-        } else {
-          const entResult = await provisionEntitlements(supabaseUrl, serviceRoleKey, orgId, tier, dryRun);
-          if (!entResult.ok) {
-            summary.errors.push(`Entitlement rebuild failed for org ${orgId}: ${entResult.error}`);
-            continue;
-          }
         }
 
         summary.orgEntitlementsRebuilt++;
@@ -380,9 +414,9 @@ const dryRun = process.argv.includes('--dry-run');
 runFullReconciliation(dryRun)
   .then((summary) => {
     console.log('\n[reconciliation] Complete:');
-    console.log(`  Customers processed:     ${summary.customersProcessed}`);
-    console.log(`  Organizations upserted:  ${summary.orgsUpserted}`);
-    console.log(`  Subscriptions upserted:  ${summary.subscriptionsUpserted}`);
+    console.log(`  Customers processed:            ${summary.customersProcessed}`);
+    console.log(`  Organizations upserted:         ${summary.orgsUpserted}`);
+    console.log(`  Subscriptions upserted:         ${summary.subscriptionsUpserted}`);
     console.log(`  Orgs with entitlements rebuilt: ${summary.orgEntitlementsRebuilt}`);
     if (summary.errors.length > 0) {
       console.error(`  Errors (${summary.errors.length}):`);
