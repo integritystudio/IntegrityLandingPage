@@ -16,13 +16,20 @@ const makeEvents = (overrides: Partial<{
     ...o,
   }));
 
-const makeSb = (events: ReturnType<typeof makeEvents>) => ({
-  query: vi.fn().mockResolvedValue({ ok: true, data: events }),
+const makeMockSupabaseClient = (
+  queryData: unknown,
+  mocks?: Record<string, any>
+) => ({
+  query: vi.fn().mockResolvedValue({ ok: true, data: queryData }),
   insert: vi.fn(),
   update: vi.fn(),
   upsert: vi.fn().mockResolvedValue({ ok: true, data: null }),
   rpc: vi.fn(),
+  ...mocks,
 });
+
+const makeSb = (events: ReturnType<typeof makeEvents>) =>
+  makeMockSupabaseClient(events);
 
 describe('rollupDailyBucket', () => {
   it('queries usage_events for the correct org and date range', async () => {
@@ -165,13 +172,8 @@ const makeDailyBuckets = (overrides: Partial<{
     ...o,
   }));
 
-const makeMonthSb = (buckets: ReturnType<typeof makeDailyBuckets>) => ({
-  query: vi.fn().mockResolvedValue({ ok: true, data: buckets }),
-  insert: vi.fn(),
-  update: vi.fn(),
-  upsert: vi.fn(),
-  rpc: vi.fn(),
-});
+const makeMonthSb = (buckets: ReturnType<typeof makeDailyBuckets>) =>
+  makeMockSupabaseClient(buckets, { upsert: vi.fn() });
 
 const ORG_UUID = '00000000-0000-0000-0000-000000000001';
 
