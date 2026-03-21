@@ -41,6 +41,12 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
 
   const db = createSupabaseAdmin(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
+  // Idempotency guard: skip events already processed to handle Stripe retries safely.
+  const alreadyProcessed = await db.isEventProcessed(event.id);
+  if (alreadyProcessed) {
+    return ok({ ok: true, processed: false, skipped: true, reason: 'already_processed' });
+  }
+
   let result: HandlerResult = { ok: true };
 
   switch (event.type) {
@@ -69,12 +75,63 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   }
 
   if (!result.ok) {
-    // Return 200 to suppress Stripe retries; failures are logged for investigation.
+    // Write to dead letter queue for retry via reconciliation cron.
+    // Return 200 to suppress Stripe's built-in retry (we own the retry schedule).
     console.error(`Failed to handle Stripe event ${event.type}:`, result.error);
+    await db.addDeadLetter(event.id, event.type, event, result.error);
     return ok({ ok: true, processed: false, error: result.error });
   }
 
+  // Record successful processing for idempotency checks on future retries.
+  await db.logProcessedEvent(event.id, event.type);
+
   return ok({ ok: true, processed: true });
+}
+
+/**
+ * Reconciliation cron: runs every 15 min (configured in wrangler.toml).
+ * Retries pending dead letters with exponential backoff.
+ */
+async function runReconciliation(env: Env): Promise<void> {
+  const db = createSupabaseAdmin(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  const pending = await db.fetchPendingDeadLetters(50);
+
+  for (const dl of pending) {
+    try {
+      const event = dl.payload as StripeEvent;
+
+      let handlerResult: HandlerResult = { ok: true };
+      switch (dl.event_type) {
+        case 'checkout.session.completed':
+          handlerResult = await handleCheckoutSessionCompleted(event, db);
+          break;
+        case 'invoice.paid':
+          handlerResult = await handleInvoicePaid(event, db);
+          break;
+        case 'invoice.payment_failed':
+          handlerResult = await handleInvoicePaymentFailed(event, db);
+          break;
+        case 'customer.subscription.updated':
+          handlerResult = await handleSubscriptionUpdated(event, db);
+          break;
+        case 'customer.subscription.deleted':
+          handlerResult = await handleSubscriptionDeleted(event, db);
+          break;
+        default:
+          await db.abandonDeadLetter(dl.id);
+          continue;
+      }
+
+      if (handlerResult.ok) {
+        await db.logProcessedEvent(dl.stripe_event_id, dl.event_type);
+        await db.resolveDeadLetter(dl.id);
+      } else {
+        await db.failDeadLetter(dl.id, dl.retry_count, dl.max_retries, handlerResult.error);
+      }
+    } catch (err) {
+      console.error(`Reconciliation error for dead letter ${dl.id}:`, err);
+    }
+  }
 }
 
 export default {
@@ -90,5 +147,9 @@ export default {
     }
 
     return serverError('Not found');
+  },
+
+  async scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
+    await runReconciliation(env);
   },
 };

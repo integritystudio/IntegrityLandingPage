@@ -113,11 +113,124 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     return { ok: true, orgId: org?.id ?? null };
   }
 
+  /**
+   * Check whether a Stripe event has already been processed (idempotency guard).
+   */
+  async function isEventProcessed(stripeEventId: string): Promise<boolean> {
+    const result = await sb.query('webhook_events_log', {
+      select: 'id',
+      filters: [{ column: 'stripe_event_id', operator: 'eq', value: stripeEventId }],
+      limit: 1,
+      single: true,
+    });
+    return result.ok && result.data !== null;
+  }
+
+  /**
+   * Record a successfully processed event to prevent duplicate processing.
+   */
+  async function logProcessedEvent(stripeEventId: string, eventType: string): Promise<VoidResult> {
+    const result = await sb.insert('webhook_events_log', {
+      stripe_event_id: stripeEventId,
+      event_type: eventType,
+      processed_at: new Date().toISOString(),
+    });
+    return toVoidResult(result);
+  }
+
+  /**
+   * Write a failed event to the dead letter queue for later retry.
+   * Uses next_retry_at = now + 1 min for the first attempt.
+   */
+  async function addDeadLetter(
+    stripeEventId: string,
+    eventType: string,
+    payload: unknown,
+    errorMessage: string,
+  ): Promise<VoidResult> {
+    const nextRetryAt = new Date(Date.now() + 60_000).toISOString();
+    const result = await sb.insert('webhook_dead_letters', {
+      stripe_event_id: stripeEventId,
+      event_type: eventType,
+      payload,
+      error_message: errorMessage,
+      retry_count: 0,
+      max_retries: 5,
+      next_retry_at: nextRetryAt,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    });
+    return toVoidResult(result);
+  }
+
+  interface DeadLetter {
+    id: string;
+    stripe_event_id: string;
+    event_type: string;
+    payload: unknown;
+    retry_count: number;
+    max_retries: number;
+  }
+
+  /**
+   * Fetch dead letters due for retry (status=pending, retry_count < max_retries).
+   */
+  async function fetchPendingDeadLetters(limit = 50): Promise<DeadLetter[]> {
+    const result = await sb.query<DeadLetter>('webhook_dead_letters', {
+      select: 'id, stripe_event_id, event_type, payload, retry_count, max_retries',
+      filters: [{ column: 'status', operator: 'eq', value: 'pending' }],
+      order: { column: 'created_at', ascending: true },
+      limit,
+    });
+    if (!result.ok || !Array.isArray(result.data)) return [];
+    return result.data.filter((dl) => dl.retry_count < dl.max_retries);
+  }
+
+  /** Mark a dead letter as resolved (successfully retried). */
+  async function resolveDeadLetter(id: string): Promise<VoidResult> {
+    const result = await sb.update(
+      'webhook_dead_letters',
+      { status: 'resolved', resolved_at: new Date().toISOString() },
+      [{ column: 'id', operator: 'eq', value: id }],
+    );
+    return toVoidResult(result);
+  }
+
+  /** Increment retry count; abandon if max_retries reached. */
+  async function failDeadLetter(id: string, retryCount: number, maxRetries: number, errorMessage: string): Promise<VoidResult> {
+    const newCount = retryCount + 1;
+    const newStatus = newCount >= maxRetries ? 'abandoned' : 'pending';
+    const nextRetryAt = new Date(Date.now() + Math.pow(2, retryCount) * 60_000).toISOString();
+    const result = await sb.update(
+      'webhook_dead_letters',
+      { retry_count: newCount, next_retry_at: nextRetryAt, error_message: errorMessage, status: newStatus },
+      [{ column: 'id', operator: 'eq', value: id }],
+    );
+    return toVoidResult(result);
+  }
+
+  /** Abandon a dead letter that has no registered handler. */
+  async function abandonDeadLetter(id: string): Promise<VoidResult> {
+    const result = await sb.update(
+      'webhook_dead_letters',
+      { status: 'abandoned', resolved_at: new Date().toISOString() },
+      [{ column: 'id', operator: 'eq', value: id }],
+    );
+    return toVoidResult(result);
+  }
+
   return {
     linkStripeCustomer,
     upsertSubscription,
     updateOrgBillingStatus,
     findOrgByStripeCustomerId,
+    isEventProcessed,
+    logProcessedEvent,
+    addDeadLetter,
+    fetchPendingDeadLetters,
+    resolveDeadLetter,
+    failDeadLetter,
+    abandonDeadLetter,
   };
 }
 
