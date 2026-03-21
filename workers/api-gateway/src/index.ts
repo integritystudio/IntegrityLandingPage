@@ -1,4 +1,5 @@
 import { ok, notFound } from '../../lib/http';
+import { handleMe } from './routes/me';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -13,6 +14,14 @@ export default {
 
     if (pathname === '/health' && request.method === 'GET') {
       return ok({ ok: true, service: 'api-gateway' });
+    }
+
+    if (pathname === '/v1/me' && request.method === 'GET') {
+      return handleMe(request, {
+        jwtSecret: env.SUPABASE_JWT_SECRET,
+        supabaseUrl: env.SUPABASE_URL,
+        serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+      });
     }
 
     return notFound('Not found');
