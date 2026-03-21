@@ -176,6 +176,7 @@ describe('upsertSubscription', () => {
       [
         { column: 'organization_id', operator: 'eq', value: 'org-1' },
         { column: 'stripe_subscription_id', operator: 'neq', value: 'sub_new' },
+        { column: 'status', operator: 'neq', value: 'canceled' },
       ],
     );
   });

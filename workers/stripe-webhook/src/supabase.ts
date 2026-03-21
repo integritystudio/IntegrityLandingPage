@@ -63,13 +63,14 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     status: string,
   ): Promise<VoidResult> {
     const now = new Date().toISOString();
-    // Soft-delete prior subscriptions with a different ID (free→paid upgrade path).
+    // Soft-delete prior active subscriptions with a different ID (free→paid upgrade path).
     const cancelResult = await sb.update(
       'subscriptions',
       { status: 'canceled', updated_at: now },
       [
         { column: 'organization_id', operator: 'eq', value: orgId },
         { column: 'stripe_subscription_id', operator: 'neq', value: stripeSubscriptionId },
+        { column: 'status', operator: 'neq', value: 'canceled' },
       ],
     );
     if (!cancelResult.ok) {
