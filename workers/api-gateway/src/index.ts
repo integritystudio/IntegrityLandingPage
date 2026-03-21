@@ -7,6 +7,7 @@ import { handleHealthCheck } from './routes/health';
 import { handleIngestEvent } from './routes/ingest';
 import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
+import { resolveJwt } from './lib/helpers';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -68,6 +69,11 @@ export default {
     if (orgMatch) {
       const orgId = orgMatch[1];
       const subPath = orgMatch[2] ?? '';
+
+      // Verify JWT before quota enforcement to prevent unauthenticated callers
+      // from triggering DO reads and leaking org existence via 429 vs 401.
+      const jwtResult = await resolveJwt(request, routeOpts.jwtSecret, routeOpts.jwtIssuerUrl);
+      if (!jwtResult.ok) return jwtResult.error;
 
       const quotaOpts = {
         doNamespace: env.QUOTA_DO,
