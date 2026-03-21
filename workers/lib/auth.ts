@@ -54,9 +54,7 @@ export async function verifyJwt(
     return { ok: false, error: unauthorized('Invalid JWT format') };
   }
 
-  // Verify signature first — standard JWT order is: parse → verify → check claims.
-  // Validating claims on an unverified token leaks information about claim structure
-  // and allows attacker-crafted tokens to probe validation logic.
+  // Verify signature before claims — avoids leaking claim structure to attacker-crafted tokens.
   try {
     const parts = token.split('.');
     const encoder = new TextEncoder();
@@ -84,7 +82,7 @@ export async function verifyJwt(
     return { ok: false, error: unauthorized('JWT verification failed') };
   }
 
-  // Claims validation — only reached after signature is confirmed valid.
+  // Claims validation.
   const { payload } = parseResult;
 
   const now = Math.floor(Date.now() / 1000);
@@ -92,11 +90,8 @@ export async function verifyJwt(
     return { ok: false, error: unauthorized('JWT expired') };
   }
 
-  // Validate issuer to prevent token forgery from attacker-controlled JWTs (V-02)
-  if (opts.issuerUrl !== undefined) {
-    if (typeof payload.iss !== 'string' || payload.iss !== opts.issuerUrl) {
-      return { ok: false, error: unauthorized('JWT issuer mismatch') };
-    }
+  if (opts.issuerUrl !== undefined && (typeof payload.iss !== 'string' || payload.iss !== opts.issuerUrl)) {
+    return { ok: false, error: unauthorized('JWT issuer mismatch') };
   }
 
   return { ok: true, payload };
