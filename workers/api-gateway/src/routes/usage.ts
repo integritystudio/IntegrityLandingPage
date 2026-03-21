@@ -5,6 +5,7 @@ import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, Entitlement } from '../../../lib/types';
 import { buildEntitlementMap } from '../lib/helpers';
+import type { AuthResult } from '../../../lib/types/handler-options';
 
 interface UsageHandlerOptions {
   jwtSecret: string;
@@ -22,11 +23,6 @@ interface UsageBucket extends Record<string, unknown> {
   request_count: number;
   avg_latency_ms: number | null;
 }
-
-type AuthResult =
-  | { ok: true; type: 'jwt'; sub: string }
-  | { ok: true; type: 'api_key'; userId: string; organizationId: string }
-  | { ok: false; error: Response };
 
 async function resolveAuth(
   request: Request,
