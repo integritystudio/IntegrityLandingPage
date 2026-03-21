@@ -147,7 +147,7 @@ describe('POST /v1/ingest/events', () => {
 
   it('returns 403 when API key belongs to different org', async () => {
     const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow('different-org-id-0000000000000');
+    const apiKeyRow = await makeApiKeyRow('00000000-0000-0000-0000-000000000099');
     const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
     const req = makeRequest(validBody(), `int_live_abc12345_${secret}`);
     const res = await handleIngestEvent(req, makeOpts(mockSb));
