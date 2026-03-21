@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup & Final Fixes; V02-Remaining, M38, M39 migrated to v1.2 changelog; 35+ items migrated to v1.2; 2 remaining design-decision items (T25, T28)
+**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup & Final Fixes; V02-Remaining, M38, M39, L17-L19 migrated to v1.2 changelog; 38+ items migrated to v1.2; 2 remaining design-decision items (T25, T28)
 
 ---
 
@@ -255,43 +255,6 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
-## Documentation Cleanup (Session 2026-03-21: backlog-implementer M38, M39)
-
-### L17: Fix M39 Problem Statement — Clarify Indefinite Pending vs Exhaustion
-
-**Priority:** P3 | **Source:** session 2026-03-21, final code review finding
-
-M39's problem statement (line 307–311) describes "retry counter can be exhausted" but the actual code behavior is indefinite pending — `retry_count` is never incremented on Path B (`logProcessedEvent` failure), so `max_retries` is never reached. Update the problem statement to accurately describe indefinite pending instead of exhaustion.
-
-**Files:** `docs/BACKLOG.md:304–311` (M39 problem statement)
-
-**Status:** Pending.
-
----
-
-### L18: Document next_retry_at Filter Behavior in WEBHOOK_DEAD_LETTER_ARCHITECTURE.md
-
-**Priority:** P3 | **Source:** session 2026-03-21, final code review finding (Medium completeness gap)
-
-The architecture doc does not mention the `fetchPendingDeadLetters` filter on `next_retry_at <= now`. Path B dead letters created with `next_retry_at = now + 1 min` will be excluded from the first cron tick after creation, introducing a 1-minute initial delay before the first retry. Add a note clarifying the retry timing and the `next_retry_at` backoff mechanism.
-
-**Files:** `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md` (Path B section around line 162)
-
-**Status:** Pending.
-
----
-
-### L19: Fix M38 File References — workers/reconciliation-cron.ts Does Not Exist
-
-**Priority:** P3 | **Source:** session 2026-03-21, final code review finding
-
-M38 backlog entry (line 281 & 294) references `workers/reconciliation-cron.ts:50–100` but that file does not exist. The reconciliation logic lives in `workers/stripe-webhook/src/index.ts:148–222`. Update the file references in M38.
-
-**Files:** `docs/BACKLOG.md:281, 294` (M38 file references)
-
-**Status:** Pending.
-
----
 
 *Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to v1.2; CSP test failure diagnosed and fixed (47b4dc3); L16 + M37 migrated to v1.2 changelog (2 completed items). Test Status: ✅ ALL 2631 TESTS PASSING. Remaining: T25, T28, V02-Remaining, M34, M38, M39 (6 deferred/design-decision items). Score: 9/10.*
 

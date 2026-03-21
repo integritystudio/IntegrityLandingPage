@@ -157,7 +157,7 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - Implemented webhook idempotency and dead letter queue for Stripe events
 - `webhook_dead_letters` table with schema migration (status, next_retry_at indexing)
 - Dead letter insertion on webhook processing failure
-- Reconciliation cron (`workers/reconciliation-cron.ts`) runs every 15 min with exponential backoff
+- Reconciliation cron (`workers/stripe-webhook/src/index.ts:148–222`) runs every 15 min with exponential backoff
 - Stripe event ID as idempotency key (globally unique)
 - Commit: `71153fc`
 
@@ -655,7 +655,7 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 
 **Documentation-only fix** — Documented architectural assumption.
 
-- When handler succeeds but `logProcessedEvent` fails, dead letter is retried indefinitely until `max_retries` is exhausted
+- When handler succeeds but `logProcessedEvent` fails, dead letter is retried indefinitely (never exhausted) because `retry_count` is never incremented, so `max_retries` is never reached
 - Event processing assumes handler idempotency; if logging infrastructure becomes unavailable, events may be dropped
 - **Assumption:** This is acceptable because webhook handlers are expected to be idempotent and low-cost to re-run
 - **Recovery path documented:**
@@ -666,5 +666,36 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - **Monitoring:** Recommended alerts on dead letter table for `retry_count` approaching `max_retries` threshold
 - Documented in `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md`
 - Commits: `4bf3fff`, `4ebe6cb`
+
+## Documentation Cleanup (Session 2026-03-21)
+
+### L17: Fix M39 Problem Statement — Clarify Indefinite Pending vs Exhaustion
+
+**Priority:** P3 | **Completed:** 2026-03-21
+
+Clarified M39's problem statement to accurately reflect code behavior: dead letters are retried indefinitely when `logProcessedEvent` fails because `retry_count` is never incremented, so `max_retries` is never reached (not exhausted).
+
+- **Changed:** "retry counter can be exhausted" → "retried indefinitely (never exhausted) because retry_count is never incremented"
+- **Impact:** Operators can now correctly understand that Path B dead letters require infrastructure recovery or manual intervention, not just waiting for retry exhaustion
+
+### L18: Document next_retry_at Filter Behavior in WEBHOOK_DEAD_LETTER_ARCHITECTURE.md
+
+**Priority:** P3 | **Completed:** 2026-03-21
+
+Added documentation explaining the `fetchPendingDeadLetters(next_retry_at <= now)` filter timing behavior. Path B dead letters (logging failures) are created with `next_retry_at = now + 1 minute`, introducing a 1-minute initial delay before first cron retry.
+
+- **Documented:** Retry timing mechanics, backoff rationale, manual override options
+- **File:** `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md:109–120`
+- **Impact:** Operators understand why Path B dead letters have initial delay and can manually expedite if needed
+
+### L19: Fix M38 File References — workers/reconciliation-cron.ts Does Not Exist
+
+**Priority:** P3 | **Completed:** 2026-03-21
+
+Fixed incorrect file reference in M38 changelog entry. The reconciliation cron is not in `workers/reconciliation-cron.ts` (file does not exist) but rather in `workers/stripe-webhook/src/index.ts:148–222`.
+
+- **Fixed:** File path reference in M38 documentation
+- **File:** `docs/changelog/1.2/CHANGELOG.md:160`
+- **Impact:** Engineers can now correctly locate the reconciliation cron implementation
 
 ---

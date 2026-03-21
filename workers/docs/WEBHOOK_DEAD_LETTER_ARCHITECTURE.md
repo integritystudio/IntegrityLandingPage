@@ -106,6 +106,15 @@ for each dead letter:
                          guard detects event as processed and calls resolveDeadLetter again
 ```
 
+**Note on `fetchPendingDeadLetters` Timing:**
+
+The cron queries: `fetchPendingDeadLetters(limit)` with filter `next_retry_at <= now()`. When a dead letter is created on Path B (logging failure), it is written with `next_retry_at = now() + 1 minute` (backoff delay). This means:
+- First cron tick after creation: Dead letter is **excluded** from `fetchPendingDeadLetters` (next_retry_at > now)
+- Cron tick 1+ minutes later: Dead letter is **included** and retried
+- **Impact:** Path B dead letters have a 1-minute initial delay before the first cron retry, even though the handler could run immediately
+
+This backoff window provides time for transient logging infrastructure issues to resolve before retry, reducing noise on noisy infrastructure. If immediate retry is needed, the `next_retry_at` can be manually updated or the cron can be run manually.
+
 ---
 
 ## Files
