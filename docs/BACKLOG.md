@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup Complete; M36 Dead-Letter Fix + L5 Env Binding; 27 items migrated to v1.2 changelog; 5 remaining design-decision items + 1 deferred cosmetic item
+**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup & Final Fixes; L16 Design System + M34 Subscription Upsert Complete; 3 commits (5786939, 33aa1a2, cf5059c); 31 items migrated to v1.2 changelog; 4 remaining design-decision items (T25, T28, M38, M39)
 
 ---
 
@@ -288,47 +288,7 @@ V02 Flutter Dashboard UI has 3 remaining components:
 
 **File:** `workers/stripe-webhook/src/supabase.ts:38–58`
 
-**Status:** ✅ Done — Option 1 implemented. `upsertSubscription` now soft-deletes (status='canceled') any existing subscription for the org where `stripe_subscription_id` differs before the upsert. Two new tests added covering cancellation and soft-delete failure propagation (61 tests passing).
-
----
-
-### L16: Incomplete Scope — Update Remaining Card Containers in Dashboard Pages
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer observation, backlog-implementer session 2026-03-21
-
-L10 refactored `_BillingCard` and `ErrorCard` to use `AppDecorations.card()` (commit d1152ed), but code-reviewer noted that equivalent inline `Container` + `BoxDecoration` patterns remain in:
-- `_QuotaCard` (quota_status_page.dart)
-- `_buildOrgContextCard` (provision_page.dart)
-- Email badge `Container` in ProvisionPage
-
-This creates inconsistency in design system usage. If the card style changes, developers must remember to update these three locations separately.
-
-**Fix:** Apply the same `AppDecorations.card(borderColor: AppColors.gray700)` refactor to the remaining three containers for consistency.
-
-**Files:** `lib/pages/quota_status_page.dart`, `lib/pages/provision_page.dart` (email badge, _buildOrgContextCard)
-
-**Status:** ✅ Done — commit 5786939. All three card containers migrated to `AppDecorations.card(borderColor: AppColors.gray700)`. Remaining `BoxDecoration` instances are intentional colored badges, not card containers.
-
----
-
-### M37: DeadLetter and WebhookDeadLetter Interface Duplication
-
-**Priority:** P3 | **Severity:** Low | **Source:** code review analysis, backlog-implementer session 2026-03-21
-
-Two canonical definitions of the dead-letter interface exist:
-1. `DeadLetter` — module-level export in `workers/stripe-webhook/src/supabase.ts` (lines 6–12), with 6 fields: `id`, `stripe_event_id`, `event_type`, `payload`, `retry_count`, `max_retries`
-2. `WebhookDeadLetter` — Zod schema in `lib/types/schemas.ts`, with 8 fields including `status` and `created_at`
-
-The two interfaces have overlapping but non-identical fields. Code references one or the other depending on context. During L9 implementation, this structural mismatch prevented using `WebhookDeadLetter` as a type for the query result (only 6 fields returned from the DB query, but `WebhookDeadLetter` requires 8).
-
-**Fix options:**
-1. Consolidate into a single schema definition and re-export from both locations
-2. Document which definition is canonical and deprecate the other
-3. Add JSDoc comments explaining the structural differences and use-case for each
-
-**Files:** `workers/stripe-webhook/src/supabase.ts:6–12`, `lib/types/schemas.ts:DeadLetter vs WebhookDeadLetter`
-
-**Status:** ✅ Done — added JSDoc cross-references to both `DeadLetter` (supabase.ts) and `WebhookDeadLetterSchema` (types.zod.ts) documenting the projection vs full-row relationship (commit 8fd1d47).
+**Status:** ✅ Done — Option 1 implemented (commits 33aa1a2, cf5059c). `upsertSubscription` soft-deletes (status='canceled') any active subscription for the org where `stripe_subscription_id` differs before the upsert. Soft-delete filter: org_id eq, sub_id neq, status neq 'canceled' (prevents spurious DB writes on already-canceled rows). Two new tests cover cancellation filter and soft-delete failure propagation (61 tests passing).
 
 ---
 
@@ -385,4 +345,6 @@ This is a low-severity pre-existing assumption: handlers are assumed to be safe 
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to CHANGELOG; CSP test failure diagnosed as stale assertions (checking meta tag for report-uri instead of _headers file where Sentry endpoint actually configured); test fixed (47b4dc3). Test Status: ✅ ALL 2631 TESTS PASSING (was 2630 passing, 1 failing stale CSP test). Remaining: T25, T28, V02-Remaining, M34, L16, M37, M38, M39. Score: 9/10.*
+*Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to v1.2; CSP test failure diagnosed and fixed (47b4dc3); L16 + M37 migrated to v1.2 changelog (2 completed items). Test Status: ✅ ALL 2631 TESTS PASSING. Remaining: T25, T28, V02-Remaining, M34, M38, M39 (6 deferred/design-decision items). Score: 9/10.*
+
+*Backlog-implementer continuation (2026-03-21): L16 refactored (AppDecorations.card() 5786939, PASS); M34 fixed with soft-delete + active-only filter (33aa1a2, cf5059c, PASS); M37 verified done (no new commits). Test Status: ✅ 61 stripe-webhook tests passing. Remaining open items: 4 (T25, T28, M38, M39 require design decisions). Items completed: 2 (L16, M34). Score: 9/10.*
