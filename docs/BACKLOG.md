@@ -626,4 +626,4 @@ In `handleWebhook` (`workers/stripe-webhook/src/index.ts:78–83`): when a handl
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer (HARDEST) session: L8 done (3b017e9, 20 tests), M34/M35 documented. Remaining: V02 Stripe portal link (needs feature-dev + Stripe SDK in api-gateway), M34/M35 medium items, Low items (L5–L7, L9, L12–L15).*
+*Last updated: 2026-03-21 — backlog-implementer (HARDEST) session: L8 done (3b017e9, 15 tests + review fixes in follow-up commit), M34/M35 documented. Remaining: V02 Stripe portal link (needs feature-dev + Stripe SDK in api-gateway), M34/M35 medium items, Low items (L5–L7, L9, L12–L15).*

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createSupabaseAdmin } from './supabase';
+import { DEAD_LETTER_MAX_RETRIES } from '../../constants';
 
 const { mockQuery, mockInsert, mockUpdate, mockUpsert } = vi.hoisted(() => ({
   mockQuery: vi.fn(),
@@ -193,8 +194,11 @@ describe('updateOrgBillingStatus', () => {
 
     await db.updateOrgBillingStatus('org-1', 'active', 'growth');
 
-    const [, updates] = mockUpdate.mock.calls[0];
-    expect(updates).toMatchObject({ billing_status: 'active', current_plan: 'growth' });
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'organizations',
+      expect.objectContaining({ billing_status: 'active', current_plan: 'growth' }),
+      [{ column: 'id', operator: 'eq', value: 'org-1' }],
+    );
   });
 
   it('includes numeric quota_version when bumpQuotaVersion is true', async () => {
@@ -202,8 +206,11 @@ describe('updateOrgBillingStatus', () => {
 
     await db.updateOrgBillingStatus('org-1', 'active', undefined, true);
 
-    const [, updates] = mockUpdate.mock.calls[0];
-    expect(typeof updates.quota_version).toBe('number');
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'organizations',
+      expect.objectContaining({ quota_version: expect.any(Number) }),
+      [{ column: 'id', operator: 'eq', value: 'org-1' }],
+    );
   });
 
   it('does not include quota_version when bumpQuotaVersion is false', async () => {
@@ -261,9 +268,10 @@ describe('addDeadLetter', () => {
         payload: { id: 'evt_123' },
         error_message: 'parse error',
         retry_count: 0,
-        max_retries: 5,
+        max_retries: DEAD_LETTER_MAX_RETRIES,
         status: 'pending',
         next_retry_at: '2026-01-01T00:01:00.000Z',
+        created_at: '2026-01-01T00:00:00.000Z',
       }),
     );
   });
@@ -300,12 +308,17 @@ describe('failDeadLetter', () => {
 
     await db.failDeadLetter('dl-1', 1, 5, 'transient error');
 
-    const [, updates] = mockUpdate.mock.calls[0];
-    expect(updates.retry_count).toBe(2);
-    expect(updates.status).toBe('pending');
     // next_retry_at = now + 2^1 * 60_000ms = +2 min
-    expect(updates.next_retry_at).toBe('2026-01-01T00:02:00.000Z');
-    expect(updates.error_message).toBe('transient error');
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'webhook_dead_letters',
+      expect.objectContaining({
+        retry_count: 2,
+        status: 'pending',
+        next_retry_at: '2026-01-01T00:02:00.000Z',
+        error_message: 'transient error',
+      }),
+      [{ column: 'id', operator: 'eq', value: 'dl-1' }],
+    );
   });
 
   it('sets status to abandoned and omits next_retry_at when newCount reaches maxRetries', async () => {
@@ -313,7 +326,9 @@ describe('failDeadLetter', () => {
 
     await db.failDeadLetter('dl-1', 4, 5, 'final error');
 
-    const [, updates] = mockUpdate.mock.calls[0];
+    const [table, updates, filter] = mockUpdate.mock.calls[0];
+    expect(table).toBe('webhook_dead_letters');
+    expect(filter).toEqual([{ column: 'id', operator: 'eq', value: 'dl-1' }]);
     expect(updates.retry_count).toBe(5);
     expect(updates.status).toBe('abandoned');
     expect(updates).not.toHaveProperty('next_retry_at');
