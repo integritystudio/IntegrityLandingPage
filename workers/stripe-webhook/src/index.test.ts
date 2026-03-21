@@ -115,7 +115,7 @@ describe('handleWebhook (fetch handler)', () => {
     });
   }
 
-  it('invalid signature → 400 rejected', async () => {
+  it('invalid signature → 401 rejected', async () => {
     const request = new Request('https://example.com/webhook', {
       method: 'POST',
       headers: { 'stripe-signature': 'invalid', 'content-type': 'application/json' },
