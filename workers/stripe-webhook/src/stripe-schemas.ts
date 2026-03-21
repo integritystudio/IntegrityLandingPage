@@ -13,13 +13,13 @@ export const CheckoutSessionSchema = z.object({
 
 export const SubscriptionSchema = z.object({
   id: z.string(),
-  customer: z.string().optional(),
+  customer: z.string(),
   status: z.string(),
   items: z.object({ data: z.array(SubscriptionItemSchema) }).optional(),
 }).passthrough();
 
 export const InvoiceSchema = z.object({
-  customer: z.string().optional(),
+  customer: z.string(),
   subscription: z.string().optional(),
 }).passthrough();
 
