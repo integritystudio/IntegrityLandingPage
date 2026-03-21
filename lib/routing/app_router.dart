@@ -39,6 +39,7 @@ import '../pages/demo_page.dart';
 import '../pages/request_success_page.dart';
 import '../pages/request_failure_page.dart';
 import '../pages/oauth_callback_page.dart';
+import '../pages/dashboard_page.dart';
 
 /// Returns a callback that navigates to the home route.
 /// Used to avoid repeating `() => context.go(Routes.home)` across every route.
@@ -176,6 +177,17 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
         },
         builder: (context, state) => ProvisionPage(
           auth: state.extra as AuthSuccess,
+          onBack: _goHome(context),
+        ),
+      ),
+      GoRoute(
+        path: Routes.dashboard,
+        redirect: (context, state) {
+          if (state.extra is! DashboardArgs) return Routes.signin;
+          return null;
+        },
+        builder: (context, state) => DashboardPage(
+          args: state.extra as DashboardArgs,
           onBack: _goHome(context),
         ),
       ),

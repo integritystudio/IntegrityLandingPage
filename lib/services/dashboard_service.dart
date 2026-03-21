@@ -236,6 +236,53 @@ class QuotaStatusError extends QuotaStatusResponse {
   const QuotaStatusError({required this.error});
 }
 
+/// Summary of an organization for the org switcher.
+class OrgSummary {
+  final String orgId;
+  final String name;
+  final String? slug;
+  final String billingStatus;
+  final String? currentPlan;
+  final String role;
+
+  const OrgSummary({
+    required this.orgId,
+    required this.name,
+    this.slug,
+    required this.billingStatus,
+    this.currentPlan,
+    required this.role,
+  });
+
+  factory OrgSummary.fromJson(Map<String, dynamic> json) => OrgSummary(
+        orgId: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        slug: json['slug'] as String?,
+        billingStatus: json['billing_status'] as String? ?? 'inactive',
+        currentPlan: json['current_plan'] as String?,
+        role: json['role'] as String? ?? 'member',
+      );
+}
+
+/// Org list API response.
+sealed class OrgListResponse {
+  const OrgListResponse();
+}
+
+/// Successful org list response.
+class OrgListSuccess extends OrgListResponse {
+  final List<OrgSummary> orgs;
+
+  const OrgListSuccess({required this.orgs});
+}
+
+/// Org list error response.
+class OrgListError extends OrgListResponse {
+  final String error;
+
+  const OrgListError({required this.error});
+}
+
 /// API client for dashboard data endpoints.
 class DashboardService {
   DashboardService._();
@@ -584,5 +631,80 @@ class DashboardService {
     }
 
     return const QuotaStatusError(error: _errorUnexpected);
+  }
+
+  /// Fetch the list of organizations the authenticated user belongs to.
+  ///
+  /// Calls GET /v1/orgs with the provided JWT.
+  /// Retries up to [_maxRetries] times on transient network errors
+  /// with exponential backoff (1s, 2s).
+  static Future<OrgListResponse> fetchOrgList({required String jwt}) async {
+    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
+      try {
+        final response = await _dio.get(
+          '$_apiGatewayUrl/v1/orgs',
+          options: Options(
+            headers: {'Authorization': 'Bearer $jwt'},
+            validateStatus: (status) => status != null,
+          ),
+        );
+
+        final data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : const <String, dynamic>{};
+
+        if (response.statusCode == HttpStatus.internalServerError.code ||
+            response.statusCode == HttpStatus.gatewayTimeout.code) {
+          if (attempt < _maxRetries) {
+            await retryDelay(Duration(seconds: 1 << attempt));
+            continue;
+          }
+          return const OrgListError(error: _errorServer);
+        }
+
+        if (response.statusCode == HttpStatus.ok.code) {
+          final raw = data['organizations'];
+          final orgs = raw is List
+              ? raw
+                  .map((o) => OrgSummary.fromJson(o as Map<String, dynamic>))
+                  .toList()
+              : <OrgSummary>[];
+          return OrgListSuccess(orgs: orgs);
+        }
+
+        return OrgListError(
+          error: data['error'] as String? ?? _errorUnexpected,
+        );
+      } on DioException catch (e) {
+        final isRetryable =
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+
+        if (isRetryable && attempt < _maxRetries) {
+          await retryDelay(Duration(seconds: 1 << attempt));
+          continue;
+        }
+
+        // SECURITY: never add jwt or other credentials to extra — Sentry stores this unredacted.
+        await ErrorTrackingService.captureException(
+          e,
+          stackTrace: e.stackTrace,
+          context: 'DashboardService.fetchOrgList',
+          extra: {'attempt': attempt + 1},
+        );
+
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          return const OrgListError(error: _errorTimeout);
+        }
+        return const OrgListError(error: _errorNetwork);
+      } catch (e, stackTrace) {
+        await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+        return const OrgListError(error: _errorUnexpected);
+      }
+    }
+
+    return const OrgListError(error: _errorUnexpected);
   }
 }
