@@ -2,7 +2,65 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md` and `docs/changelog/1.1/CHANGELOG.md`.
 
+**Last Updated:** 2026-03-20
+
 ---
+
+## Phase 4 Remaining Items (Substantially Complete)
+
+**Status:** Phase 1–4 substantially complete as of 2026-03-20. These items are essential for v1 release completion:
+
+### V01: Usage Ledger Ingestion
+
+**Priority:** P1 | **Estimated:** 6–8 hours
+
+Implement event ingestion pipeline for metered usage tracking:
+
+1. Create `/v1/ingest/events` endpoint accepting POST requests
+2. Validate and store `usage_events` rows (org_id, metric_key, quantity, request_id, source, status_code, latency_ms)
+3. Emit async task to aggregate daily bucket (`usage_buckets_daily`)
+4. Return 202 Accepted for fire-and-forget ingest
+5. Add query helpers for usage summaries by org/date/metric
+
+**Files to implement:**
+- `workers/api-gateway/src/routes/ingest.ts` — event handler
+- `workers/api-gateway/src/aggregation.ts` — daily bucket rollup task
+- Supabase integration for writes
+
+**Status:** Deferred — Core infrastructure complete, ingest endpoint not yet wired.
+
+---
+
+### V02: Flutter Dashboard UI
+
+**Priority:** P1 | **Estimated:** 10–12 hours
+
+Implement authenticated dashboard with org switching, billing status, usage summaries, and entitlements display:
+
+1. Create dashboard page with org switcher dropdown
+2. Display current plan, billing status, next renewal date
+3. Show monthly usage vs quota (bar/line chart for metrics)
+4. Display feature entitlements grid (enabled/disabled flags)
+5. Link to Stripe Customer Portal for billing self-service
+6. Add real-time usage polling (refresh every 30s or on focus)
+7. Error boundary and loading states for all async operations
+
+**Architecture:**
+- Use `provisioning_service.dart` for bootstrap/org context
+- Integrate with `GET /v1/orgs/:id/dashboard`, `/v1/orgs/:id/usage/summary`, `/v1/orgs/:id/entitlements`
+- Local state: active_org, entitlements, usage_snapshot (cached, TTL 30s)
+- Global state: org_list, billing_status (cached, TTL 5min)
+
+**Files to create:**
+- `lib/pages/dashboard_page.dart`
+- `lib/widgets/sections/dashboard_section.dart`
+- `lib/services/dashboard_service.dart` (API client wrapper)
+
+**Status:** Deferred — API gateway ready, Flutter UI scaffolding only.
+
+---
+
+## Deferred: OAuth Security (#8-#10)
 
 ## Deferred: OAuth Security (#8-#10)
 
@@ -168,7 +226,7 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 **File:** `lib/utils/security_utils.dart:218–223`
 
-**Status:** Open — Needs clarifying comment
+**Status:** Done — Clarifying comment added (commit d186f1d)
 
 ---
 
@@ -192,7 +250,7 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 **File:** `test/utils/security_utils_test.dart`
 
-**Status:** Open — Needs additional test case
+**Status:** Done — Isolated \r test added (commit bfc0d0c)
 
 ---
 
@@ -216,7 +274,7 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 **File:** `test/config/constants_test.dart:93–107`
 
-**Status:** Open — Refactor to eliminate duplicate coverage
+**Status:** Done — Replaced with proportionality check (commit 9ec3af4)
 
 ---
 
@@ -228,7 +286,7 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 **File:** `test/config/constants_test.dart:92`
 
-**Status:** Open — Rename test group
+**Status:** Done — Group renamed to 'PasswordPolicy' (commit 7f116c1)
 
 ---
 
@@ -470,4 +528,97 @@ Implement the health check and alerting infrastructure:
 
 ---
 
-*Last updated: 2026-03-21 (added payment processor security remediation items M18, H19, H20, T22–T25 from session work)*
+---
+
+## Quota Durable Object Integration & Testing
+
+Items identified in session 2026-03-20: quota.ts idempotency and monthly reset fixes applied, but integration and test gaps remain.
+
+---
+
+### T26: Wire Quota Checks Into API Gateway Request Handler
+
+**Priority:** P1 | **Source:** session 2026-03-20, quota commit review (523518f)
+**Estimated:** 3–4 hours
+
+The quota Durable Object (`workers/api-gateway/src/durable-objects/quota.ts`) is implemented with idempotency and monthly auto-reset, but is never called from the API gateway request handler. Routes do not enforce quotas — all requests are allowed regardless of plan.
+
+**Scope:**
+1. Import `checkAndReserve()` from `workers/api-gateway/src/lib/quota.ts`
+2. Extract `orgId`, `planKey`, `quotaVersion` from JWT/API key in request context
+3. Generate idempotent `requestId` (e.g., `sha256(orgId + timestamp + random)`)
+4. Call `checkAndReserve()` before executing route handler
+5. Return 429 if quota exceeded; include `remainingMinute` and `remainingMonthly` in response headers
+6. Validate against all metriced endpoints (`/v1/ingest`, `/v1/dashboard`, etc.)
+
+**Files to modify:**
+- `workers/api-gateway/src/index.ts` — Add quota check middleware
+- `workers/api-gateway/src/routes/*.ts` — Wire middleware into all protected routes
+
+**Status:** Deferred — quota checking logic is ready; integration layer not yet implemented.
+
+---
+
+### T27: Write Integration Tests for Quota Durable Object
+
+**Priority:** P2 | **Source:** session 2026-03-20, quota commit review (523518f)
+**Estimated:** 4–6 hours
+
+Current test file (`workers/api-gateway/src/durable-objects/quota.test.ts`) contains only placeholder stubs (35 lines, all `expect(true).toBe(true)`). No actual validation of quota logic:
+- Minute window reset behavior
+- Monthly counter reset on calendar month boundary
+- Idempotent request tracking and TTL cleanup
+- Version bump quota resets
+- Minute + monthly limit enforcement
+
+**Scope:**
+1. Set up Wrangler miniflare environment for local DO testing
+2. Write integration tests:
+   - Request under minute limit → allowed
+   - Request exceeding minute limit → 429 + reason: "minute_limit"
+   - Request exceeding monthly limit → 429 + reason: "monthly_limit"
+   - Identical requestId retried within 5min window → allowed without double-counting
+   - requestId older than 5min cleaned up
+   - Calendar month boundary → monthlyUsed reset to 0
+   - quotaVersion bump → all counters reset
+   - Concurrent requests to same org (DO serialization) → quota checks ordered
+3. Add edge cases:
+   - Enterprise plan (no monthly limit) should only check minute limit
+   - Exact boundary: `minuteUsed == minuteLimit` → next request rejected
+
+**Files to create/modify:**
+- `workers/api-gateway/src/durable-objects/quota.test.ts` — Full test suite
+- `workers/api-gateway/wrangler.toml` — Ensure Durable Object is configured for tests
+
+**Status:** Deferred — Test scaffolding in place; actual test implementations missing.
+
+---
+
+### T28: Handle Persistent Storage Data Loss Risk in Quota DO
+
+**Priority:** P3 | **Source:** session 2026-03-20, quota commit review (523518f)
+**Estimated:** 2–3 hours
+
+Quota state is lazily persisted to Durable Object storage every 10 seconds (`workers/api-gateway/src/durable-objects/quota.ts:174–177`). If the DO crashes or is evicted between saves, up to 10 seconds of quota usage is lost (counts are dropped, monthly counter reverts).
+
+**Scope:**
+1. Evaluate risk appetite: Is 10-second data loss acceptable for quota tracking? (likely yes for low-tier plans, needs confirmation)
+2. If higher durability is required:
+   - Change save interval to synchronous: save immediately after every reservation (impacts latency)
+   - OR batch saves: write to Durable Object every 100 requests OR 5 seconds (hybrid approach)
+   - OR implement eventual consistency mode: accept up-to-10s drift, document in API contract
+3. Document the chosen strategy in `workers/docs/QUOTA_DURABLE_OBJECTS.md` with:
+   - Data consistency SLA
+   - Acceptable loss window
+   - When DO eviction is expected (low-traffic orgs evicted after 15 min idle)
+4. Add monitoring: Cloudflare Durable Object metrics dashboard to track eviction rate
+
+**Files to modify:**
+- `workers/api-gateway/src/durable-objects/quota.ts` — Adjust save strategy (if needed)
+- `workers/docs/QUOTA_DURABLE_OBJECTS.md` — Document durability guarantees and trade-offs
+
+**Status:** Deferred — Documented but requires risk/latency trade-off decision and monitoring setup.
+
+---
+
+*Last updated: 2026-03-20 (Phase 1–4 substantially complete; added Phase 4 remaining items V01, V02; quota DO integration items T26–T28 added; existing security/monitoring items follow below)*
