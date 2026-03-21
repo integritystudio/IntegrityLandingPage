@@ -15,6 +15,7 @@ interface OrgsHandlerOptions {
 interface BillingPortalHandlerOptions extends OrgsHandlerOptions {
   stripeSecretKey: string;
   returnUrl: string;
+  waitUntil?: (promise: Promise<unknown>) => void;
   _stripeOverride?: Stripe;
 }
 
@@ -209,13 +210,19 @@ export async function handleBillingPortal(
     return serverError('Failed to create billing portal session');
   }
 
-  await writeAuditLog(sb, {
+  const auditLog = writeAuditLog(sb, {
     organization_id: orgId,
     action: 'billing_portal.accessed',
     target_type: 'org',
     target_id: orgId,
     metadata: { actor_auth0_id: auth.sub },
   });
+
+  if (opts.waitUntil) {
+    opts.waitUntil(auditLog);
+  } else {
+    await auditLog;
+  }
 
   return ok({ url: sessionUrl });
 }

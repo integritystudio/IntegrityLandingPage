@@ -131,6 +131,7 @@ export default {
           ...routeOpts,
           stripeSecretKey: env.STRIPE_SECRET_KEY,
           returnUrl: `${env.APP_URL ?? APP_URL_FALLBACK}/#/billing`,
+          waitUntil: ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
         }));
       }
       if (subPath === '/api-keys' && request.method === 'POST') {
