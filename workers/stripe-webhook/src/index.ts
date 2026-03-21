@@ -79,7 +79,16 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
     // Write to dead letter queue for retry via reconciliation cron.
     // Return 200 to suppress Stripe's built-in retry (we own the retry schedule).
     console.error(`Failed to handle Stripe event ${event.type}:`, result.error);
-    await db.addDeadLetter(event.id, event.type, event, result.error);
+    const deadLetterResult = await db.addDeadLetter(event.id, event.type, event, result.error);
+    if (!deadLetterResult.ok) {
+      // Dead letter insert failed — event will not be retried. Log the full payload
+      // so operators can recover it manually from logs.
+      console.error(
+        `CRITICAL: Failed to dead-letter event ${event.id} (${event.type}). Event lost. Payload:`,
+        JSON.stringify(event),
+        deadLetterResult.error,
+      );
+    }
     return ok({ ok: true, processed: false, error: result.error });
   }
 
