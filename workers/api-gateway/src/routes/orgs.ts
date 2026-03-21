@@ -46,13 +46,12 @@ async function loadOrgsForMemberships(
 
   const result = await sb.query<Organization>('organizations', {
     select: 'id, slug, name, billing_status, current_plan, quota_version',
+    filters: [{ column: 'id', operator: 'in', value: [...orgIds] }],
   });
 
   if (!result.ok || !Array.isArray(result.data)) return [];
 
-  return result.data
-    .filter((org) => orgIds.has(org.id))
-    .map((org) => ({ ...org, role: roleByOrgId.get(org.id) as OrgRole }));
+  return result.data.map((org) => ({ ...org, role: roleByOrgId.get(org.id) as OrgRole }));
 }
 
 export async function handleListOrgs(

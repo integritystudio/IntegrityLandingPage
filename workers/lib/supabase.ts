@@ -26,7 +26,14 @@ function serializeFilters(
   filters: Filter[],
 ): void {
   for (const { column, operator, value } of filters) {
-    const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+    let serialized: string;
+    if (Array.isArray(value)) {
+      serialized = `(${value.join(',')})`;
+    } else if (typeof value === 'string') {
+      serialized = value;
+    } else {
+      serialized = JSON.stringify(value);
+    }
     url.searchParams.set(column, `${operator}.${serialized}`);
   }
 }

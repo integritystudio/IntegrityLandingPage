@@ -76,6 +76,32 @@ describe('GET /v1/orgs', () => {
     expect(body.organizations[0].role).toBe('owner');
   });
 
+  it('passes org IDs as in-filter to DB query (H3)', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const org = makeOrg();
+
+    const mockSb = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
+        .mockResolvedValueOnce({ ok: true, data: [org] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+
+    const req = new Request('https://api.test/v1/orgs', {
+      method: 'GET',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    await handleListOrgs(req, makeOpts(mockSb));
+
+    const secondCall = mockSb.query.mock.calls[1];
+    expect(secondCall[1]).toMatchObject({
+      filters: expect.arrayContaining([
+        expect.objectContaining({ column: 'id', operator: 'in' }),
+      ]),
+    });
+  });
+
   it('returns empty list when user has no memberships', async () => {
     const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
     const mockSb = {
