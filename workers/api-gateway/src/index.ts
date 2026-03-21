@@ -1,6 +1,7 @@
 import { ok, notFound } from '../../lib/http';
 import { handleMe } from './routes/me';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus } from './routes/orgs';
+import { handleUsageSummary, handleOrgEntitlements } from './routes/usage';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -31,6 +32,11 @@ export default {
       serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
     };
 
+    const machineRouteOpts = {
+      ...routeOpts,
+      hmacSecret: env.API_KEY_HMAC_SECRET,
+    };
+
     if (pathname === '/v1/orgs' && request.method === 'GET') {
       return handleListOrgs(request, routeOpts);
     }
@@ -45,6 +51,12 @@ export default {
       }
       if (subPath === '/billing-status' && request.method === 'GET') {
         return handleOrgBillingStatus(request, orgId, routeOpts);
+      }
+      if (subPath === '/usage/summary' && request.method === 'GET') {
+        return handleUsageSummary(request, orgId, machineRouteOpts);
+      }
+      if (subPath === '/entitlements' && request.method === 'GET') {
+        return handleOrgEntitlements(request, orgId, machineRouteOpts);
       }
     }
 
