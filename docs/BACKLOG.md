@@ -349,58 +349,27 @@ Deferred security hardening for the two-layer authentication and billing system.
 ### M18: JWT Phase 1 Remediation (CRITICAL)
 
 **Priority:** P1 | **Source:** session 2026-03-21, JWT_COMPLIANCE_REVIEW.md findings
-**Estimated:** 5–6 hours
 
-Implement mandatory fixes for 3 CRITICAL JWT claims strategy issues:
+**Partially complete** — V-02 (`iss` validation) implemented in commit 00bfaaf. Still open:
 
-1. **V-01: Remove mutable claims from JWT** — Remove `billing_status` and `plan` from token (currently stale up to 59min, causing authorization bypass). Query these server-side in `/bootstrap` and `/snapshot` endpoints.
-2. **V-02: Add `iss` (issuer) validation** — Verify token `iss` claim equals Supabase issuer URL; prevents token forgery from attacker-controlled JWTs.
-3. **Normalize IANA algorithm claim** — Ensure RS256 (asymmetric) is used; currently HS256 (symmetric) is a security anti-pattern for multi-service architectures.
+1. **V-01: Remove mutable claims from JWT** — Remove `billing_status` and `plan` from token; query server-side instead. Requires `supabase/custom-access-token-hook.ts` update (Edge Function, not in this repo).
+2. **V-02: Add `iss` validation** — ✅ DONE (commit 00bfaaf). `verifyJwt` accepts optional `issuerUrl`; api-gateway threads `SUPABASE_JWT_ISSUER` env var through all route opts.
+3. **Normalize RS256** — Requires Supabase project setting change (not code change).
 
-**Files to modify:**
-- `workers/auth/verify-jwt.ts` — Add `iss` validation
-- `workers/bootstrap.ts` — Query subscription status server-side, not from JWT
-- `supabase/custom-access-token-hook.ts` — Remove mutable claims from enriched JWT
-
-**References:** RFC 7519 (JWT standard), findings V-01, V-02 in vulnerability report
-
-**Status:** Deferred — Requires JWT hook update, endpoint changes, and testing (~8 workers to update).
+**Status:** Partial — V-02 done. V-01 and RS256 blocked on Supabase project config/hook deployment.
 
 ---
 
 ### H19: Timing-Safe Hash Comparisons (CRITICAL)
 
-**Priority:** P1 | **Source:** session 2026-03-21, SECURITY_VULNERABILITY_REPORT.md (V-03, V-04)
-**Estimated:** 3–4 hours
+**Priority:** P1 | **Source:** session 2026-03-21 | **Commit:** 0f9cece
 
-Replace non-constant-time hash comparisons with constant-time functions to prevent timing side-channels:
+✅ **DONE** — Both comparison sites replaced with `crypto.subtle.verify()` (constant-time):
 
-1. **V-03: API key hash verification** — Current code uses `hash === requestHash` (O(1) early exit on mismatch). Use `crypto.subtle.timingSafeEqual()` in `workers/auth/verify-api-key.ts`.
-2. **V-04: Stripe webhook signature verification** — Current code uses string equality for HMAC-SHA256 signature. Use `crypto.subtle.timingSafeEqual()` in `workers/webhooks/stripe.ts`.
+1. **V-03: API key hash verification** — `workers/lib/api-keys.ts:verifyApiKeyHash` now uses `crypto.subtle.verify('HMAC', ...)` with hex-to-bytes conversion.
+2. **V-04: Stripe webhook signature verification** — `workers/stripe-webhook/src/verify.ts` validates hex, converts to bytes, uses `crypto.subtle.verify('HMAC', ...)`.
 
-**Implementation:**
-```typescript
-// Before (vulnerable)
-if (storedHash === providedHash) { /* ... */ }
-
-// After (safe)
-const equal = crypto.getRandomValues(new Uint8Array(1))[0] === 0; // timing-safe constant-time comparison
-const encoder = new TextEncoder();
-try {
-  await crypto.subtle.timingSafeEqual(
-    encoder.encode(storedHash),
-    encoder.encode(providedHash)
-  );
-} catch {
-  return null; // hashes don't match
-}
-```
-
-**Files to modify:**
-- `workers/auth/verify-api-key.ts`
-- `workers/webhooks/stripe.ts`
-
-**Status:** Deferred — Requires cryptographic library integration and testing.
+**Status:** ✅ DONE — commit 0f9cece. All 22 tests passing.
 
 ---
 
@@ -469,8 +438,7 @@ async function requireOrgMembership(orgId: string, userJWT: string, env: Env) {
 
 ### T23: Webhook Resilience & Dead Letter Queue (Phase 1 of DR)
 
-**Priority:** P2 | **Source:** session 2026-03-21, DISASTER_RECOVERY_PLAN.md (Scenario D)
-**Estimated:** 6–8 hours
+**Priority:** P2 | **Source:** session 2026-03-21 | **Commit:** 71153fc
 
 Implement webhook idempotency and dead letter queue for Stripe webhook processing to prevent missed events during outages.
 
@@ -490,7 +458,7 @@ Implement webhook idempotency and dead letter queue for Stripe webhook processin
 - `workers/reconciliation-cron.ts` (new)
 - `wrangler.toml` (add cron trigger)
 
-**Status:** Deferred — Requires schema migration, Worker updates, and cron scheduling.
+**Status:** ✅ DONE — commit 71153fc. Schema migration, idempotency log, dead letter insert on failure, reconciliation cron (every 15 min), wrangler.toml cron trigger.
 
 ---
 
@@ -509,31 +477,20 @@ Implement the "nuclear option" full reconciliation script to rebuild billing sta
 5. Add safety: dry-run mode with summary before applying
 6. Document runbook: when to trigger, what to monitor, expected duration
 
-**Status:** Deferred — Utility script, low runtime complexity but requires careful execution.
+**Status:** ✅ DONE — commit 156bec1. `scripts/full-reconciliation.ts` with --dry-run mode, pages all Stripe customers, upserts orgs/subscriptions/entitlements.
 
 ---
 
 ### T25: Health Check & Monitoring Endpoints
 
-**Priority:** P3 | **Source:** session 2026-03-21, DISASTER_RECOVERY_PLAN.md (section 3)
-**Estimated:** 2–3 hours
+**Priority:** P3 | **Source:** session 2026-03-21 | **Commit:** a9a034f
 
-Implement the health check and alerting infrastructure:
+**Partially complete** — Health endpoint upgraded in commit a9a034f:
+- `/health` on api-gateway now checks Supabase connectivity + DO liveness
+- Returns `{ database, durableObjects, timestamp }`, 200 if all healthy, 503 otherwise
+- Still open: PagerDuty integration and monitoring dashboard configuration
 
-1. Create `workers/health.ts` — Endpoint that checks:
-   - Supabase connectivity (list orgs)
-   - Stripe API availability (list customers)
-   - Durable Objects liveness (ping rate limiter)
-   - Returns JSON with component status and timestamp
-2. Configure PagerDuty integration for alerts:
-   - Webhook gap > 5 min → P2
-   - Dead letters > 10 → P2
-   - DB replica lag > 30s → P1
-   - Entitlement check failure rate > 5% → P1
-   - Backup job missed → P2
-3. Add health check to monitoring dashboard
-
-**Status:** Deferred — Observable/monitoring infrastructure, enables proactive alerting.
+**Status:** Partial — Core health endpoint done. Alerting integration (PagerDuty) deferred.
 
 ---
 
