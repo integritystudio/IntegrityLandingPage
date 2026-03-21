@@ -79,18 +79,34 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
     }
   }
 
-  Color _statusColor(String status) => switch (status) {
-        'active' => AppColors.success,
-        'past_due' => AppColors.warning,
-        _ => AppColors.error,
-      };
+  Color _statusColor(String status) {
+    assert(
+      status == 'active' || status == 'past_due' || status == 'inactive' || status == 'canceled',
+      'Unknown billing status: $status',
+    );
+    return switch (status) {
+      'active' => AppColors.success,
+      'past_due' => AppColors.warning,
+      _ => AppColors.error,
+    };
+  }
 
-  String _statusLabel(String status) => switch (status) {
-        'active' => 'Active',
-        'past_due' => 'Past Due',
-        'suspended' => 'Suspended',
-        _ => 'Inactive',
-      };
+  String _statusLabel(String status) {
+    assert(
+      status == 'active' ||
+          status == 'past_due' ||
+          status == 'suspended' ||
+          status == 'inactive' ||
+          status == 'canceled',
+      'Unknown billing status: $status',
+    );
+    return switch (status) {
+      'active' => 'Active',
+      'past_due' => 'Past Due',
+      'suspended' => 'Suspended',
+      _ => 'Inactive',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
