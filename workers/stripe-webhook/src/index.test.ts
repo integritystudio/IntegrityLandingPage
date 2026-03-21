@@ -145,8 +145,15 @@ describe('runReconciliation', () => {
     max_retries: 5,
   };
 
+  let consoleSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
   });
 
   it('retries successfully: logProcessedEvent and resolveDeadLetter called', async () => {
@@ -247,8 +254,6 @@ describe('runReconciliation', () => {
     mockDb.logProcessedEvent.mockResolvedValue({ ok: false, error: 'Write failed' });
     mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
 
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
     await worker.scheduled(
       { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
       MOCK_ENV,
@@ -260,7 +265,5 @@ describe('runReconciliation', () => {
       'Write failed',
     );
     expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_1');
-
-    consoleSpy.mockRestore();
   });
 });
