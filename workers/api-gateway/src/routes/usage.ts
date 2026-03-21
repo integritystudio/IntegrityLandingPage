@@ -4,6 +4,7 @@ import { verifyJwt } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, Entitlement } from '../../../lib/types';
+import { buildEntitlementMap } from '../lib/helpers';
 
 interface UsageHandlerOptions {
   jwtSecret: string;
@@ -80,18 +81,6 @@ async function assertOrgAccess(
   }
 
   return { ok: true };
-}
-
-function buildEntitlementMap(rows: Entitlement[]): Record<string, boolean | number | null> {
-  const map: Record<string, boolean | number | null> = {};
-  for (const ent of rows) {
-    if (!ent.enabled) {
-      map[ent.feature_key] = false;
-      continue;
-    }
-    map[ent.feature_key] = ent.hard_limit ?? ent.soft_limit ?? true;
-  }
-  return map;
 }
 
 export async function handleUsageSummary(

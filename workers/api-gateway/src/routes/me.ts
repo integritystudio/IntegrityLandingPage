@@ -1,7 +1,6 @@
-import { notFound, ok, unauthorized } from '../../../lib/http';
-import { requireBearerToken } from '../../../lib/http/request';
-import { verifyJwt } from '../../../lib/auth';
+import { notFound, ok } from '../../../lib/http';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
+import { resolveJwt } from '../lib/helpers';
 
 interface MeHandlerOptions {
   jwtSecret: string;
@@ -22,19 +21,13 @@ interface UserRow extends Record<string, unknown> {
 }
 
 export async function handleMe(request: Request, opts: MeHandlerOptions): Promise<Response> {
-  const tokenResult = requireBearerToken(request);
-  if (!tokenResult.ok) return tokenResult.error;
-
-  const jwtResult = await verifyJwt(tokenResult.token, opts.jwtSecret);
-  if (!jwtResult.ok) return jwtResult.error;
-
-  const { payload } = jwtResult;
-  if (!payload.sub) return unauthorized('JWT missing sub claim');
+  const auth = await resolveJwt(request, opts.jwtSecret);
+  if (!auth.ok) return auth.error;
 
   const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
   const result = await sb.query<UserRow>('users', {
-    filters: [{ column: 'auth0_id', operator: 'eq', value: payload.sub }],
+    filters: [{ column: 'auth0_id', operator: 'eq', value: auth.sub }],
     select: 'id, auth0_id, email, name, tier, default_organization_id, created_at',
     limit: 1,
   });

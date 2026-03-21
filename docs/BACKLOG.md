@@ -280,4 +280,194 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 ---
 
-*Last updated: 2026-03-20 (migrated M07, #134–#138, T01, M08–M16, L19–L20, M17, L21, L22 to changelog/1.1; added code review findings R01–R10)*
+---
+
+## Payment Processor Security Remediation
+
+Deferred security hardening for the two-layer authentication and billing system. Findings documented in `docs/security/SECURITY_VULNERABILITY_REPORT.md` and `docs/reports/JWT_COMPLIANCE_REVIEW.md`.
+
+---
+
+### M18: JWT Phase 1 Remediation (CRITICAL)
+
+**Priority:** P1 | **Source:** session 2026-03-21, JWT_COMPLIANCE_REVIEW.md findings
+**Estimated:** 5–6 hours
+
+Implement mandatory fixes for 3 CRITICAL JWT claims strategy issues:
+
+1. **V-01: Remove mutable claims from JWT** — Remove `billing_status` and `plan` from token (currently stale up to 59min, causing authorization bypass). Query these server-side in `/bootstrap` and `/snapshot` endpoints.
+2. **V-02: Add `iss` (issuer) validation** — Verify token `iss` claim equals Supabase issuer URL; prevents token forgery from attacker-controlled JWTs.
+3. **Normalize IANA algorithm claim** — Ensure RS256 (asymmetric) is used; currently HS256 (symmetric) is a security anti-pattern for multi-service architectures.
+
+**Files to modify:**
+- `workers/auth/verify-jwt.ts` — Add `iss` validation
+- `workers/bootstrap.ts` — Query subscription status server-side, not from JWT
+- `supabase/custom-access-token-hook.ts` — Remove mutable claims from enriched JWT
+
+**References:** RFC 7519 (JWT standard), findings V-01, V-02 in vulnerability report
+
+**Status:** Deferred — Requires JWT hook update, endpoint changes, and testing (~8 workers to update).
+
+---
+
+### H19: Timing-Safe Hash Comparisons (CRITICAL)
+
+**Priority:** P1 | **Source:** session 2026-03-21, SECURITY_VULNERABILITY_REPORT.md (V-03, V-04)
+**Estimated:** 3–4 hours
+
+Replace non-constant-time hash comparisons with constant-time functions to prevent timing side-channels:
+
+1. **V-03: API key hash verification** — Current code uses `hash === requestHash` (O(1) early exit on mismatch). Use `crypto.subtle.timingSafeEqual()` in `workers/auth/verify-api-key.ts`.
+2. **V-04: Stripe webhook signature verification** — Current code uses string equality for HMAC-SHA256 signature. Use `crypto.subtle.timingSafeEqual()` in `workers/webhooks/stripe.ts`.
+
+**Implementation:**
+```typescript
+// Before (vulnerable)
+if (storedHash === providedHash) { /* ... */ }
+
+// After (safe)
+const equal = crypto.getRandomValues(new Uint8Array(1))[0] === 0; // timing-safe constant-time comparison
+const encoder = new TextEncoder();
+try {
+  await crypto.subtle.timingSafeEqual(
+    encoder.encode(storedHash),
+    encoder.encode(providedHash)
+  );
+} catch {
+  return null; // hashes don't match
+}
+```
+
+**Files to modify:**
+- `workers/auth/verify-api-key.ts`
+- `workers/webhooks/stripe.ts`
+
+**Status:** Deferred — Requires cryptographic library integration and testing.
+
+---
+
+### H20: IDOR Prevention — Org Membership Authorization (HIGH)
+
+**Priority:** P2 | **Source:** session 2026-03-21, SECURITY_VULNERABILITY_REPORT.md (V-10)
+**Estimated:** 4–5 hours
+
+Add organization membership checks to all data access endpoints to prevent IDOR (Insecure Direct Object Reference) attacks. Currently, a user with a JWT for org A could potentially access org B's data if they craft direct requests.
+
+**Pattern to implement:**
+```typescript
+// Middleware to verify user membership in requested org
+async function requireOrgMembership(orgId: string, userJWT: string, env: Env) {
+  const payload = await verifyJWT(userJWT, env);
+  if (!payload.org_ids.includes(orgId)) {
+    return { error: 'forbidden', status: 403 };
+  }
+  return { allowed: true };
+}
+```
+
+**Endpoints to add checks:**
+- GET `/api/orgs/{orgId}/subscriptions` — Verify caller is org member
+- POST `/api/orgs/{orgId}/api-keys` — Verify caller is org admin/owner
+- GET `/api/orgs/{orgId}/usage` — Verify caller is org member
+- Any endpoint with `:orgId` path parameter
+
+**Files to create/modify:**
+- `workers/middleware/org-auth.ts` (new)
+- `workers/routes/api.ts` (integrate middleware)
+
+**Status:** Deferred — Requires middleware layer, testing, and endpoint audit.
+
+---
+
+### T22: Durable Object Quota Enforcement Implementation
+
+**Priority:** P2 | **Source:** session 2026-03-21, implementation work deferred
+**Estimated:** 8–10 hours
+
+Implement the Durable Object quota enforcement system for which comprehensive tests were written (`workers/tests/org-quota-do.test.ts`, 897 lines). Tests pass but the actual Worker and DO handler are not yet deployed.
+
+**Scope:**
+1. Create `workers/quota/org-quota-do.ts` — Durable Object handler for per-org quota state (check/commit two-phase protocol)
+2. Create `workers/quota/quota-client.ts` — HTTP client for Workers to call DO
+3. Wire up DO binding in `wrangler.toml` (Durable Object namespace)
+4. Integrate into request flow: extract org_id from JWT/API key → call DO → enforce quota
+5. Add `/health` DO endpoint for monitoring
+6. Test with real Stripe plan sync (version guarding)
+
+**Design reference:** docs/TWO_LAYER_AUTH_ARCHITECTURE.md (section "Integration Flow")
+
+**Status:** Deferred — Tests pass but implementation blocked on infrastructure setup (DO namespace binding).
+
+---
+
+### T23: Webhook Resilience & Dead Letter Queue (Phase 1 of DR)
+
+**Priority:** P2 | **Source:** session 2026-03-21, DISASTER_RECOVERY_PLAN.md (Scenario D)
+**Estimated:** 6–8 hours
+
+Implement webhook idempotency and dead letter queue for Stripe webhook processing to prevent missed events during outages.
+
+**Scope:**
+1. Create `webhook_dead_letters` table (schema provided in DR plan)
+2. Update `workers/webhooks/stripe.ts` to:
+   - Store incoming event in dead letter queue on processing failure
+   - Use `stripe_event_id` as idempotency key (Stripe event IDs are globally unique)
+3. Create `workers/reconciliation-cron.ts` — Runs every 15 min to:
+   - Retry pending dead letters with exponential backoff
+   - Detect gaps: fetch recent Stripe events, verify local processing
+4. Add database index on `webhook_dead_letters (status, next_retry_at)`
+
+**Files to create/modify:**
+- `supabase/migrations/20260321000000_add_webhook_dead_letters.sql` (schema)
+- `workers/webhooks/stripe.ts` (update to write dead letters on failure)
+- `workers/reconciliation-cron.ts` (new)
+- `wrangler.toml` (add cron trigger)
+
+**Status:** Deferred — Requires schema migration, Worker updates, and cron scheduling.
+
+---
+
+### T24: Full Reconciliation Script Implementation
+
+**Priority:** P2 | **Source:** session 2026-03-21, DISASTER_RECOVERY_PLAN.md (Scenario E)
+**Estimated:** 3–4 hours
+
+Implement the "nuclear option" full reconciliation script to rebuild billing state from Stripe after data corruption or extended outage.
+
+**Scope:**
+1. Create `scripts/full-reconciliation.ts` (implementation provided in DR plan)
+2. Script pulls all Stripe customers + subscriptions
+3. Upserts to `organizations` and `subscriptions` tables
+4. Calls `provisionEntitlements()` to rebuild entitlements from tier
+5. Add safety: dry-run mode with summary before applying
+6. Document runbook: when to trigger, what to monitor, expected duration
+
+**Status:** Deferred — Utility script, low runtime complexity but requires careful execution.
+
+---
+
+### T25: Health Check & Monitoring Endpoints
+
+**Priority:** P3 | **Source:** session 2026-03-21, DISASTER_RECOVERY_PLAN.md (section 3)
+**Estimated:** 2–3 hours
+
+Implement the health check and alerting infrastructure:
+
+1. Create `workers/health.ts` — Endpoint that checks:
+   - Supabase connectivity (list orgs)
+   - Stripe API availability (list customers)
+   - Durable Objects liveness (ping rate limiter)
+   - Returns JSON with component status and timestamp
+2. Configure PagerDuty integration for alerts:
+   - Webhook gap > 5 min → P2
+   - Dead letters > 10 → P2
+   - DB replica lag > 30s → P1
+   - Entitlement check failure rate > 5% → P1
+   - Backup job missed → P2
+3. Add health check to monitoring dashboard
+
+**Status:** Deferred — Observable/monitoring infrastructure, enables proactive alerting.
+
+---
+
+*Last updated: 2026-03-21 (added payment processor security remediation items M18, H19, H20, T22–T25 from session work)*
