@@ -39,6 +39,8 @@ export async function handleHealthCheck(
 }
 
 async function checkDatabase(supabaseUrl: string, serviceRoleKey: string): Promise<ComponentStatus> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
   try {
     const sb = createSupabaseClient(supabaseUrl, serviceRoleKey);
     const result = await sb.query('organizations', {
@@ -48,16 +50,22 @@ async function checkDatabase(supabaseUrl: string, serviceRoleKey: string): Promi
     return result.ok ? 'healthy' : 'degraded';
   } catch {
     return 'unhealthy';
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 async function checkDurableObject(quotaDO: DurableObjectNamespace): Promise<ComponentStatus> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5_000);
   try {
     const stub = quotaDO.get(quotaDO.idFromName('health-probe'));
-    const resp = await stub.fetch('http://do/status', { method: 'GET' });
+    const resp = await stub.fetch('http://do/status', { method: 'GET', signal: controller.signal });
     // DO returns 200 (initialized) or 200 (uninitialized — {"status":"uninitialized"}) — both are live
     return resp.status < 500 ? 'healthy' : 'degraded';
   } catch {
     return 'unhealthy';
+  } finally {
+    clearTimeout(timer);
   }
 }
