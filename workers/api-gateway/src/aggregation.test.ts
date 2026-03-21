@@ -335,4 +335,17 @@ describe('rollupMonthlyBucket', () => {
     expect(Number.isInteger(result.total_quantity)).toBe(true);
     expect(Number.isInteger(result.total_requests)).toBe(true);
   });
+
+  it('uses truncated request_count as latency weight to keep weighted average consistent', async () => {
+    const buckets = makeDailyBuckets([
+      // float request_count should be truncated before weighting: trunc(9.9) = 9
+      { total_quantity: 10, request_count: 9.9, avg_latency_ms: 100 },
+    ]);
+    const sb = makeMonthSb(buckets);
+    const result = await rollupMonthlyBucket(ORG_UUID, '2026-03', sb as any);
+
+    // weighted sum = 100 * trunc(9.9) = 100 * 9 = 900; count = 9; avg = 100
+    expect(result.avg_latency_ms).toBeCloseTo(100, 5);
+    expect(result.total_requests).toBe(9);
+  });
 });

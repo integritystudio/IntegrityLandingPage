@@ -822,7 +822,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **File:** `workers/api-gateway/src/aggregation.test.ts:18–24, 167–173`
 
-**Status:** Open
+**Status:** Done — Extracted `makeMockSupabaseClient` factory; `makeSb` and `makeMonthSb` now use single factory with optional mock overrides (commit 11049a3)
 
 ---
 
