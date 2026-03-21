@@ -19,46 +19,6 @@ Open and deferred items only. Completed items are migrated to `docs/changelog/1.
 
 **Remaining for v1 release:**
 
-### V01: Usage Ledger Ingestion
-
-**Priority:** P1 | **Estimated:** 6–8 hours
-
-Implement event ingestion pipeline for metered usage tracking:
-
-1. Create `/v1/ingest/events` endpoint accepting POST requests
-2. Validate and store `usage_events` rows (org_id, metric_key, quantity, request_id, source, status_code, latency_ms)
-3. Emit async task to aggregate daily bucket (`usage_buckets_daily`)
-4. Return 202 Accepted for fire-and-forget ingest
-5. Add query helpers for usage summaries by org/date/metric
-
-**Files to implement:**
-- `workers/api-gateway/src/routes/ingest.ts` — event handler
-- `workers/api-gateway/src/aggregation.ts` — daily bucket rollup task
-- Supabase integration for writes
-
-**Status:** Done — Implemented in commit 761ab48 (2026-03-20). Endpoint wired, 16 tests passing.
-
----
-
-### V03: Monthly Aggregation Rollup
-
-**Priority:** P1 | **Estimated:** 2–3 hours
-
-Implement monthly rollup that aggregates `usage_buckets_daily` rows into `MonthlyUsageSummary` responses for billing period reporting:
-
-1. `rollupMonthlyBucket(orgId, yearMonth, sb)` — queries `usage_buckets_daily` for a given YYYY-MM period and aggregates totals/averages per metric_key
-2. Return `MonthlyUsageSummary` validated via `MonthlyUsageSummarySchema` (already defined in `workers/lib/types/usage.ts`)
-3. `metric_breakdown` map: per-metric quantity, request count, avg_latency_ms
-4. TDD: write tests first, implement to pass
-
-**Files to implement:**
-- `workers/api-gateway/src/aggregation.ts` — add `rollupMonthlyBucket`
-- `workers/api-gateway/src/aggregation.test.ts` — monthly tests (TDD)
-
-**Status:** Done — Implemented in commits 59402f3, c021f5b (2026-03-20). 17 tests passing (TDD). Zod-validated return via MonthlyUsageSummarySchema.
-
----
-
 ### V02: Flutter Dashboard UI
 
 **Priority:** P1 | **Estimated:** 10–12 hours
@@ -221,23 +181,6 @@ These issues require **server-side HTTP response header configuration** and cann
 
 ---
 
-### S01: Add `frame-ancestors` CSP Header for Clickjacking Protection
-
-**Priority:** P1 | **Source:** session 2026-03-20, code-reviewer (commit ec1fc78)
-
-**Status:** Done — `Content-Security-Policy: frame-ancestors 'self'` present in `web/_headers:13`, delivered as HTTP response header via Cloudflare Pages (commit 81f1921, 2026-03-20).
-
-The `frame-ancestors` directive controls who can embed this site in an iframe (clickjacking defense). The directive is currently missing from **both** the HTTP response headers and the `<meta>` CSP tag. CSP directives in `<meta>` tags are silently ignored for `frame-ancestors` — it **must** be delivered via HTTP response header.
-
-**Required:**
-- Add `frame-ancestors 'self';` to the server's CSP HTTP response header (production domain only)
-- Remove from `<meta>` tag (already removed in ec1fc78)
-- This requires Cloudflare Workers (`_headers` file) or similar edge configuration, not Flutter app changes
-
-**File:** Server configuration (e.g., `web/_headers` or Cloudflare Workers config)
-
----
-
 ## Open Items
 
 ## Payment Processor Security Remediation
@@ -260,39 +203,6 @@ Deferred security hardening for the two-layer authentication and billing system.
 
 ---
 
-### H20: IDOR Prevention — Org Membership Authorization (HIGH)
-
-**Priority:** P2 | **Source:** session 2026-03-21, SECURITY_VULNERABILITY_REPORT.md (V-10)
-**Estimated:** 4–5 hours
-
-Add organization membership checks to all data access endpoints to prevent IDOR (Insecure Direct Object Reference) attacks. Currently, a user with a JWT for org A could potentially access org B's data if they craft direct requests.
-
-**Pattern to implement:**
-```typescript
-// Middleware to verify user membership in requested org
-async function requireOrgMembership(orgId: string, userJWT: string, env: Env) {
-  const payload = await verifyJWT(userJWT, env);
-  if (!payload.org_ids.includes(orgId)) {
-    return { error: 'forbidden', status: 403 };
-  }
-  return { allowed: true };
-}
-```
-
-**Endpoints to add checks:**
-- GET `/api/orgs/{orgId}/subscriptions` — Verify caller is org member
-- POST `/api/orgs/{orgId}/api-keys` — Verify caller is org admin/owner
-- GET `/api/orgs/{orgId}/usage` — Verify caller is org member
-- Any endpoint with `:orgId` path parameter
-
-**Files to create/modify:**
-- `workers/middleware/org-auth.ts` (new)
-- `workers/routes/api.ts` (integrate middleware)
-
-**Status:** Done — All org-scoped routes already enforce membership/access before returning data. `handleOrgDashboard` and `handleOrgBillingStatus` check via `loadUserMemberships`; `handleUsageSummary` and `handleOrgEntitlements` use `assertOrgAccess` (JWT membership or API key org match); `handleCreateApiKey` and `handleRevokeApiKey` use `assertOrgMembership`. All paths have 403 tests covering the IDOR scenario. Endpoint audit (2026-03-20) confirms full coverage across all 6 org-scoped routes (test coverage: commit e296e20).
-
----
-
 ### T25: Health Check & Monitoring Endpoints
 
 **Priority:** P3 | **Source:** session 2026-03-21 | **Commit:** a9a034f
@@ -305,98 +215,6 @@ async function requireOrgMembership(orgId: string, userJWT: string, env: Env) {
 **Status:** Partial — Core health endpoint done. Alerting integration (PagerDuty) deferred.
 
 ---
-
----
-
-## Quota Durable Object Integration & Testing
-
-Items identified in session 2026-03-20: quota.ts idempotency and monthly reset fixes applied; T26 and T27 now complete (commit 6bc3cd8).
-
----
-
-### T26: Wire Quota Checks Into API Gateway Request Handler
-
-**Priority:** P1 | **Source:** session 2026-03-20, follows T22 completion
-**Estimated:** 3–4 hours
-
-Wire the completed quota Durable Object into the API gateway request handler. Routes currently do not enforce quotas — all requests are allowed regardless of plan.
-
-**Scope:**
-1. Import `checkAndReserve()` from `workers/api-gateway/src/lib/quota.ts`
-2. Extract `orgId`, `planKey`, `quotaVersion` from JWT/API key in request context
-3. Generate idempotent `requestId` (uuid-based)
-4. Call `checkAndReserve()` before executing route handler
-5. Return 429 if quota exceeded; include `reason` and remaining units in response
-6. Apply to all metered endpoints (`/v1/ingest/events`, `/v1/orgs/:id/dashboard`, etc.)
-
-**Implementation pattern:**
-```typescript
-const quotaCheck = await checkAndReserve(env.QUOTA_DO, {
-  orgId,
-  metricKey: 'api_requests',
-  units: 1,
-  requestId: crypto.randomUUID(),
-  planKey,
-  quotaVersion,
-});
-
-if (!quotaCheck.allowed) {
-  return new Response(JSON.stringify({
-    error: 'Quota exceeded',
-    reason: quotaCheck.reason,
-    remaining_minute: quotaCheck.remainingMinute,
-  }), { status: 429 });
-}
-```
-
-**Files to modify:**
-- `workers/api-gateway/src/index.ts` — Add quota check middleware
-- `workers/api-gateway/src/routes/*.ts` — Wire middleware into all protected routes
-
-**Status:** ✅ Done — `enforceOrgQuota()` added to `lib/quota.ts`; wired into all org-specific routes in `index.ts` (commits bb1d810, d58f382). Fetches org plan from DB, calls `checkAndReserve()`, returns 429 with `X-RateLimit-Remaining-*` headers. Fail-open if DO unavailable.
-
----
-
-### T27: Write Integration Tests for Quota Durable Object
-
-**Priority:** P2 | **Source:** session 2026-03-20, follows T22 completion
-**Estimated:** 4–6 hours
-
-Write comprehensive integration tests for the completed quota Durable Object. Current test file (`workers/api-gateway/src/durable-objects/quota.test.ts`) contains only placeholder stubs (35 lines). No actual validation of quota logic.
-
-**Scope:**
-1. Set up Wrangler miniflare environment for local DO testing (`npm run test:workers`)
-2. Write integration tests covering core logic:
-   - Request under minute limit → allowed, returns remaining units
-   - Request exceeding minute limit → 429 + reason: "minute_limit"
-   - Request exceeding monthly limit → 429 + reason: "monthly_limit"
-   - Identical `requestId` retried within 5min window → allowed without double-counting
-   - `requestId` older than 5min cleaned up (no memory leak)
-   - 60-second window expiry → `minuteUsed` reset to 0
-   - `quotaVersion` bump → all counters reset
-   - Concurrent requests to same org (DO serialization) → quota checks strictly ordered
-3. Edge cases:
-   - Enterprise plan (no monthly limit) → only check minute limit
-   - Exact boundary: `minuteUsed == minuteLimit` → next request rejected
-   - Free plan (60 rpm, 10k/month) → enforce both limits
-   - Default quotas loaded from `DEFAULT_QUOTAS` map
-
-**Test structure:**
-```typescript
-describe('QuotaDurableObject integration', () => {
-  it('should reject requests exceeding minute limit', async () => {
-    // setup: create DO with free plan (60 rpm)
-    // act: send 61 requests in rapid succession
-    // assert: 61st request returns 429 with remainingMinute = 0
-  });
-  // ... more tests
-});
-```
-
-**Files to create/modify:**
-- `workers/api-gateway/src/durable-objects/quota.test.ts` — Full test suite (replace stubs)
-
-**Status:** ✅ Done — 25 integration tests covering minute/monthly limits, idempotency, enterprise plan, quotaVersion bumps, storage persistence, and legacy backfill (commit 6bc3cd8)
 
 ---
 
@@ -590,18 +408,6 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 ---
 
-### H21: Org Quota Enforcement Before JWT Authentication
-
-**Priority:** P1 | **Severity:** High | **Source:** code-reviewer, session 2026-03-20 final review
-
-`workers/api-gateway/src/index.ts:58–70` — `enforceOrgQuota()` is called before JWT authentication on all `/v1/orgs/:orgId/*` sub-routes. An unauthenticated caller who knows (or guesses) a valid `orgId` will trigger a Durable Object read and consume quota I/O before being rejected. This also leaks information: a 429 response reveals the org exists and is active, while a 401/404 signals auth failure. Fix: resolve and verify JWT first, return early on failure, then enforce quota.
-
-**File:** `workers/api-gateway/src/index.ts:58–70`
-
-**Status:** Done — `requireBearerToken` check added before `enforceOrgQuota` in the orgMatch block; completely unauthenticated callers return 401 before the DO is touched. Full auth (JWT or API key) remains delegated to route handlers so machine routes accepting API keys are not broken (commit aa4abf6).
-
----
-
 ### M19: Typo in `entitlements` Variable Name
 
 **Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 final review
@@ -698,24 +504,6 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 ---
 
-### T23-M4: Write Unit Tests for `runReconciliation` Idempotency Guard
-
-**Priority:** P1 | **Severity:** High | **Source:** code-reviewer, session 2026-03-20 (backlog-implementer final review)
-
-`workers/stripe-webhook/src/index.test.ts` — The idempotency guard added in T23-M1 (commit fe479cc) has zero test coverage. `runReconciliation` is entirely untested — no cases for: (1) the happy path where a dead letter retries successfully, (2) the new idempotency guard resolving and skipping an already-processed event, or (3) a handler failure incrementing the retry counter. The guard is the load-bearing logic of T23-M1 and regressions will not be caught without tests.
-
-**File:** `workers/stripe-webhook/src/index.test.ts`
-
-**Scope:** Write integration tests for `runReconciliation` using mocked Supabase client:
-- Dead letter retries successfully → `logProcessedEvent` and `resolveDeadLetter` called
-- Duplicate event (already in `webhook_events_log`) → guard skips handler and resolves dead letter
-- Handler failure → `failDeadLetter` increments retry counter
-- Unhandled event type → `abandonDeadLetter` called
-
-**Status:** Done — 4 integration tests added covering retry success, idempotency guard, handler failure, and unhandled event type (commit 1ae481d, 2026-03-20).
-
----
-
 ### T24-M4: Replace Delete-Then-Insert with Upsert-Only Pattern in `provisionEntitlements`
 
 **Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 (follow-up to T24-M2)
@@ -733,19 +521,4 @@ This is the remediation for the atomicity risk documented in T24-M2.
 
 ---
 
-### H19-M3: Handle DB Errors Explicitly in `isEventProcessed`
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 (final review of commits fe479cc–a9210e2)
-
-`workers/stripe-webhook/src/supabase.ts:126` — `isEventProcessed` returns `false` on any database error, treating it as "event not yet processed". A transient DB failure is indistinguishable from "not in the log". In `handleWebhook` (line 45-48) this is a single guard and accepts the risk. In `runReconciliation` (line 102, added by T23-M1), a DB error causes the guard to pass and the handler executes, potentially double-processing if the outage masks a duplicate. Consider:
-- Return a union type `{ ok: false; error: string } | { ok: true; processed: boolean }` to distinguish DB failures from "not processed"
-- OR add exponential backoff and retry logic within `isEventProcessed`
-- OR log DB errors and fail-closed (skip the event) on transient failures
-
-**File:** `workers/stripe-webhook/src/supabase.ts:119–127`
-
-**Status:** Done — isEventProcessed returns union type; runReconciliation fails-closed on DB error; handleWebhook returns 500 on guard failure. TDD: 3 tests in supabase.test.ts (commit 1ef83d1, 2026-03-20).
-
----
-
-*Last updated: 2026-03-20 — T23-M4 and H19-M3 completed via TDD with full test coverage (commits 1ae481d, 1ef83d1, 264a4b0). S01 and H20 marked Done with commit refs (81f1921, e296e20). T24-M4 remains deferred.*
+*Last updated: 2026-03-20 — Backlog migration completed. Items S01, H20, H21, T23-M4, H19-M3, V01, V03, T26, T27 migrated to changelog v1.2. Remaining open items: M18 (Partial), T25 (Partial), T24-M4 (Deferred), T28 (Deferred).*

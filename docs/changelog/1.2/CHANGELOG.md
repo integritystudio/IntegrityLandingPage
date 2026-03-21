@@ -221,4 +221,63 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - L3: Add Zod schema rejection path test for `MonthlyUsageSummary` (no external commit, inline test)
 - L4: Extract shared mock factory in `aggregation.test.ts` to reduce duplication (commit `11049a3`)
 
+**S01: Clickjacking Protection via CSP Header**
+- Added `frame-ancestors 'self'` to Cloudflare Pages `_headers` configuration
+- Prevents embedding this site in iframes (clickjacking defense)
+- Commit: `81f1921`
+
+**H20: IDOR Prevention — Org Membership Authorization (AUDIT VERIFIED)**
+- All org-scoped routes enforce membership/access before returning data
+- `handleOrgDashboard`, `handleOrgBillingStatus` check via `loadUserMemberships`
+- `handleUsageSummary`, `handleOrgEntitlements` use `assertOrgAccess` (JWT membership or API key org match)
+- `handleCreateApiKey`, `handleRevokeApiKey` use `assertOrgMembership`
+- 6 org-scoped routes with full 403 IDOR test coverage
+- Test coverage commit: `e296e20`
+
+**H21: Org Quota Enforcement Before JWT Authentication**
+- Fixed quota enforcement order: `requireBearerToken` check before `enforceOrgQuota()`
+- Prevents unauthenticated callers from triggering DO reads and consuming quota I/O
+- Stops information leakage: 429 vs 401/404 response codes
+- Full auth (JWT or API key) remains delegated to route handlers for machine routes
+- Commit: `aa4abf6`
+
+**T23-M4: Integration Tests for `runReconciliation` Idempotency Guard**
+- 4 integration test cases covering dead letter retry, idempotency guard, handler failure, unhandled event type
+- Mocked Supabase client for reliable webhook reconciliation testing
+- Guards test coverage for T23-M1 idempotency fix
+- Commit: `1ae481d`
+
+**H19-M3: Explicit DB Error Handling in `isEventProcessed`**
+- Returns union type `{ ok: false; error: string } | { ok: true; processed: boolean }`
+- Distinguishes DB failures from "event not yet processed"
+- `runReconciliation` fails-closed on DB error; `handleWebhook` returns 500 on guard failure
+- TDD: 3 tests in `supabase.test.ts` covering error paths
+- Commit: `1ef83d1`
+
+**V01: Usage Ledger Ingestion**
+- `/v1/ingest/events` endpoint accepting POST requests with usage event data
+- Validates and stores to `usage_events` (org_id, metric_key, quantity, request_id, source, status_code, latency_ms)
+- Fire-and-forget: returns 202 Accepted
+- 16 integration tests passing
+- Commit: `761ab48`
+
+**V03: Monthly Aggregation Rollup**
+- `rollupMonthlyBucket(orgId, yearMonth, sb)` aggregates daily buckets into monthly usage summaries
+- Returns `MonthlyUsageSummary` with metric_breakdown (quantity, request count, avg_latency_ms)
+- Zod validation via `MonthlyUsageSummarySchema`
+- 17 integration tests (TDD)
+- Commits: `59402f3`, `c021f5b`
+
+**T26: Wire Quota Checks Into API Gateway Request Handler**
+- `enforceOrgQuota()` middleware integrated into all org-specific routes
+- Fetches org plan from DB, calls `checkAndReserve()`, returns 429 with `X-RateLimit-Remaining-*` headers
+- Fail-open if Durable Object unavailable
+- Commits: `bb1d810`, `d58f382`, `3483538`
+
+**T27: Integration Tests for Quota Durable Object**
+- 25 integration tests covering minute/monthly limits, idempotency, enterprise plan, quotaVersion bumps, storage persistence, legacy backfill
+- Wrangler miniflare environment for local DO testing
+- Edge cases: free plan (60 rpm, 10k/month), enterprise (no monthly limit), boundary conditions
+- Commit: `6bc3cd8`
+
 ---
