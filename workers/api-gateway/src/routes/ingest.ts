@@ -5,6 +5,7 @@ import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership } from '../../../lib/types';
 import { IngestEventRequestSchema, IngestOtelRequestSchema, type IngestEventRequest } from '../../../lib/types/usage';
+import { enforceOrgQuota } from '../lib/quota';
 import { rollupDailyBucket } from '../aggregation';
 
 type IngestAuth =
@@ -18,6 +19,8 @@ interface IngestHandlerOptions {
   supabaseUrl: string;
   serviceRoleKey: string;
   jwtIssuerUrl?: string;
+  /** Durable Object namespace for quota enforcement. Required for /v1/ingest/otel. */
+  doNamespace?: DurableObjectNamespace;
   _sbOverride?: SupabaseClient;
 }
 
@@ -166,6 +169,17 @@ export async function handleIngestOtel(
 
   const { spans } = parsed.data;
   const orgId = keyResult.organizationId;
+
+  // Enforce org quota before writing. Fail-open when doNamespace is absent (e.g., tests).
+  if (opts.doNamespace) {
+    const quota = await enforceOrgQuota(orgId, {
+      doNamespace: opts.doNamespace,
+      supabaseUrl: opts.supabaseUrl,
+      serviceRoleKey: opts.serviceRoleKey,
+    });
+    if (!quota.ok) return quota.response;
+  }
+
   const requestId = crypto.randomUUID();
   const now = new Date().toISOString();
   const bucketDate = now.slice(0, 10);

@@ -279,6 +279,16 @@ describe('POST /v1/ingest/otel', () => {
     expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
   });
 
+  it('returns 422 when spans exceed the 1000-span limit', async () => {
+    const secret = 'testsecret32charsminimumvalue000';
+    const apiKeyRow = await makeApiKeyRow();
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    const tooManySpans = Array.from({ length: 1001 }, (_, i) => ({ ...validSpan(), span_id: `span${i}` }));
+    const req = makeOtelRequest({ spans: tooManySpans }, `int_live_abc12345_${secret}`);
+    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    expect(res.status).toBe(422);
+  });
+
   it('accepts optional span attributes and status', async () => {
     const secret = 'testsecret32charsminimumvalue000';
     const apiKeyRow = await makeApiKeyRow();

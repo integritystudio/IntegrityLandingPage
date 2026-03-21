@@ -87,7 +87,7 @@ export default {
     if (pathname === '/v1/ingest/otel' && request.method === 'POST') {
       return handleIngestOtel(
         request,
-        { ...machineRouteOpts },
+        { ...machineRouteOpts, doNamespace: env.QUOTA_DO },
         ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
       );
     }

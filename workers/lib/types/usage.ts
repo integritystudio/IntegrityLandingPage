@@ -134,7 +134,12 @@ export const OtelSpanSchema = z.object({
   start_time_ms: z.number().int().nonnegative(),
   duration_ms: z.number().int().nonnegative(),
   status: z.enum(['ok', 'error', 'unset']).default('unset'),
-  attributes: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+  attributes: z.record(
+    z.union([z.string().max(256), z.number(), z.boolean()])
+  ).refine(
+    r => Object.keys(r).length <= 64,
+    { message: 'attributes must have at most 64 keys' },
+  ).optional(),
 });
 
 export type OtelSpan = z.infer<typeof OtelSpanSchema>;
