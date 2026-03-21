@@ -700,4 +700,54 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 ---
 
-*Last updated: 2026-03-20 — Phase 4 substantially complete. Quota Durable Object (T22-T27) fully integrated with API gateway routes; sender-worker UI pages (auth, provision, health) implemented; Usage Ledger Ingestion (V01) and Monthly Aggregation (V03) completed. Final review of V03 identified 4 medium/low findings (M21–L4) for future hardening and observability improvement.*
+### T23-M4: Write Unit Tests for `runReconciliation` Idempotency Guard
+
+**Priority:** P1 | **Severity:** High | **Source:** code-reviewer, session 2026-03-20 (backlog-implementer final review)
+
+`workers/stripe-webhook/src/index.test.ts` — The idempotency guard added in T23-M1 (commit fe479cc) has zero test coverage. `runReconciliation` is entirely untested — no cases for: (1) the happy path where a dead letter retries successfully, (2) the new idempotency guard resolving and skipping an already-processed event, or (3) a handler failure incrementing the retry counter. The guard is the load-bearing logic of T23-M1 and regressions will not be caught without tests.
+
+**File:** `workers/stripe-webhook/src/index.test.ts`
+
+**Scope:** Write integration tests for `runReconciliation` using mocked Supabase client:
+- Dead letter retries successfully → `logProcessedEvent` and `resolveDeadLetter` called
+- Duplicate event (already in `webhook_events_log`) → guard skips handler and resolves dead letter
+- Handler failure → `failDeadLetter` increments retry counter
+- Unhandled event type → `abandonDeadLetter` called
+
+**Status:** Open
+
+---
+
+### T24-M4: Replace Delete-Then-Insert with Upsert-Only Pattern in `provisionEntitlements`
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 (follow-up to T24-M2)
+
+`scripts/full-reconciliation.ts:250–272` — T24-M2 documented the non-atomic delete-then-insert pattern in `provisionEntitlements`, but did not schedule the underlying fix. A crash between the delete and re-insert leaves an org with zero entitlements. Replace with an upsert-only approach:
+- Use Supabase RPC or upsert-on-conflict to atomically replace entitlements
+- OR wrap the two calls in a database transaction (if Supabase REST API supports it)
+- OR implement eventual consistency: mark old rows as `deprecated`, insert new rows, then delete old ones in a separate reconciliation step
+
+This is the remediation for the atomicity risk documented in T24-M2.
+
+**File:** `scripts/full-reconciliation.ts:250–272`
+
+**Status:** Deferred — Requires investigation of Supabase transaction/RPC capabilities and risk tolerance (live-data impact during reconciliation runs).
+
+---
+
+### H19-M3: Handle DB Errors Explicitly in `isEventProcessed`
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 (final review of commits fe479cc–a9210e2)
+
+`workers/stripe-webhook/src/supabase.ts:126` — `isEventProcessed` returns `false` on any database error, treating it as "event not yet processed". A transient DB failure is indistinguishable from "not in the log". In `handleWebhook` (line 45-48) this is a single guard and accepts the risk. In `runReconciliation` (line 102, added by T23-M1), a DB error causes the guard to pass and the handler executes, potentially double-processing if the outage masks a duplicate. Consider:
+- Return a union type `{ ok: false; error: string } | { ok: true; processed: boolean }` to distinguish DB failures from "not processed"
+- OR add exponential backoff and retry logic within `isEventProcessed`
+- OR log DB errors and fail-closed (skip the event) on transient failures
+
+**File:** `workers/stripe-webhook/src/supabase.ts:119–127`
+
+**Status:** Open
+
+---
+
+*Last updated: 2026-03-20 (backlog-implementer session) — Very Easy items (T23-M1, T24-M2) implemented; code-reviewer identified 3 follow-up items: T23-M4 (test coverage), T24-M4 (upsert fix), H19-M3 (DB error handling).*
