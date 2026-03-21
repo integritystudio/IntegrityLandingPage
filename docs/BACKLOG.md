@@ -626,4 +626,18 @@ In `handleWebhook` (`workers/stripe-webhook/src/index.ts:78–83`): when a handl
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer (HARD) + extended session: M34 documented, M35-a fixed (b3a4224 — skip resolveDeadLetter when logProcessedEvent fails), M35-b fixed (82e488a — check addDeadLetter result, CRITICAL log on failure), L14 extracted (315fb8d — shared ErrorCard widget, review PASS), roadmap updated (dfa23d7 — document status). Test status: 2630 passing, 1 intermittent failure in parallel test runner (timing-related, pre-existing). Remaining: M34 conflict key design decision, V02 Stripe portal link, Low items (L5–L7, L9, L12–L13, L15).*
+### M36: `handleWebhook` Returns `processed: true` When `logProcessedEvent` Fails
+
+**Priority:** P2 | **Severity:** High | **Source:** code-reviewer final review, backlog-implementer session 2026-03-21
+
+In `handleWebhook` (`workers/stripe-webhook/src/index.ts`), when the handler succeeds but `logProcessedEvent` fails, the function returns HTTP 200 with `{ processed: true }`. The event is NOT in `webhook_events_log`, so the idempotency guard will not detect it as processed on a future Stripe retry — the handler will fire a second time. There is no dead-letter row (handler succeeded, no dead-letter written) and no cron recovery path.
+
+**Fix:** When `logProcessedEvent` fails in `handleWebhook`, insert a dead-letter row (or return `processed: false`) so the cron can retry the log write. Alternatively, mirror the `runReconciliation` pattern: skip the success response and leave the event for retry.
+
+**File:** `workers/stripe-webhook/src/index.ts:96–101`
+
+**Status:** Open — High severity; complements the M35-a fix in runReconciliation.
+
+---
+
+*Last updated: 2026-03-21 — backlog-implementer (Medium) session: M34 documented (e9046de), M35-a fixed (b3a4224), M35-b fixed (82e488a), L14 extracted (2b281c5). Final review PASS (7/10). New finding: M36 (handleWebhook logProcessedEvent failure returns processed: true). Remaining: M34 conflict key design decision, M36, V02 Stripe portal link, Low items (L5–L7, L9, L12–L13, L15).*
