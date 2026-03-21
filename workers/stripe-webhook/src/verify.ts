@@ -46,13 +46,13 @@ export async function verifyStripeSignature(
     return { ok: false, error: unauthorized('Stripe signature timestamp is stale') };
   }
 
+  const sigBytes = hexToBytes(signature);
+  if (!sigBytes) {
+    return { ok: false, error: unauthorized('Invalid Stripe signature format') };
+  }
+
   // Verify signature using constant-time HMAC comparison to prevent timing side-channels.
   try {
-    const sigBytes = hexToBytes(signature);
-    if (!sigBytes) {
-      return { ok: false, error: unauthorized('Invalid Stripe signature format') };
-    }
-
     const signedContent = `${timestamp}.${rawBody}`;
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
