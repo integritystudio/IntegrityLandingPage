@@ -110,7 +110,12 @@ async function runReconciliation(env: Env): Promise<void> {
         continue;
       }
       if (guardResult.processed) {
-        await db.resolveDeadLetter(dl.id);
+        // Recovery path: event was already logged but dead-letter row was not resolved
+        // (e.g. resolveDeadLetter failed on a prior run). Clean up now.
+        const resolveResult = await db.resolveDeadLetter(dl.id);
+        if (!resolveResult.ok) {
+          console.error(`Failed to resolve orphaned dead letter ${dl.id}:`, resolveResult.error);
+        }
         continue;
       }
 
@@ -143,7 +148,14 @@ async function runReconciliation(env: Env): Promise<void> {
         if (!logResult.ok) {
           console.error(`Failed to log processed event ${dl.stripe_event_id} (${dl.event_type}):`, logResult.error);
         }
-        await db.resolveDeadLetter(dl.id);
+        // resolveDeadLetter is called after logProcessedEvent. If this call fails, the
+        // dead-letter row remains pending but the event is already in webhook_events_log.
+        // The idempotency guard at the top of this loop will detect and clean up the
+        // orphaned row on the next reconciliation run.
+        const resolveResult = await db.resolveDeadLetter(dl.id);
+        if (!resolveResult.ok) {
+          console.error(`Failed to resolve dead letter ${dl.id} for event ${dl.stripe_event_id}:`, resolveResult.error);
+        }
       } else {
         await db.failDeadLetter(dl.id, dl.retry_count, dl.max_retries, result.error);
       }

@@ -26,7 +26,14 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
   }
 
   /**
-   * Create or update subscription.
+   * Create or update subscription row for an org.
+   *
+   * Conflict key: (organization_id, stripe_subscription_id)
+   * - Handles duplicate customer.subscription.updated events via last-write-wins.
+   * - Design assumption: one active subscription per org (Stripe enforces this by default).
+   * - Plan upgrades/downgrades reuse the same stripe_subscription_id and only change
+   *   stripe_price_id. The upsert correctly overwrites the price on conflict — no special
+   *   handling is needed for rapid price changes; the final event's price wins.
    */
   async function upsertSubscription(
     orgId: string,
