@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { handleIngestEvent, handleIngestOtel } from './ingest';
 import { hashApiKeySecret } from '../../../lib/api-keys';
+import type { SupabaseClient } from '../../../lib/supabase';
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
 const HMAC_SECRET = 'test-hmac-secret-at-least-32-chars!';
@@ -24,7 +25,7 @@ async function makeJwt(payload: Record<string, unknown>): Promise<string> {
 const ORG_ID = '00000000-0000-0000-0000-000000000001';
 const USER_ID = '00000000-0000-0000-0000-000000000002';
 
-const makeOpts = (sbOverride: any) => ({
+const makeOpts = (sbOverride: SupabaseClient | undefined = undefined) => ({
   jwtSecret: JWT_SECRET,
   hmacSecret: HMAC_SECRET,
   supabaseUrl: 'https://test.supabase.co',
@@ -85,7 +86,7 @@ const makeMockSb = (overrides: Partial<{
 describe('POST /v1/ingest/events', () => {
   it('returns 401 when no auth header', async () => {
     const req = new Request('https://api.test/v1/ingest/events', { method: 'POST' });
-    const res = await handleIngestEvent(req, makeOpts(null));
+    const res = await handleIngestEvent(req, makeOpts());
     expect(res.status).toBe(401);
   });
 
@@ -193,7 +194,7 @@ const makeOtelRequest = (body: unknown, token: string) =>
 describe('POST /v1/ingest/otel', () => {
   it('returns 401 when no auth header', async () => {
     const req = new Request('https://api.test/v1/ingest/otel', { method: 'POST' });
-    const res = await handleIngestOtel(req, makeOpts(null));
+    const res = await handleIngestOtel(req, makeOpts());
     expect(res.status).toBe(401);
   });
 
