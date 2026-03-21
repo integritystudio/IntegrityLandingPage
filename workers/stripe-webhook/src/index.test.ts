@@ -173,4 +173,28 @@ describe('runReconciliation', () => {
     expect(mockDb.abandonDeadLetter).toHaveBeenCalledWith('dl_1');
     expect(mockHandleCheckout).not.toHaveBeenCalled();
   });
+
+  it('isEventProcessed DB error → dead letter skipped, no state mutation', async () => {
+    const secondDl = { ...checkoutDeadLetter, id: 'dl_2', stripe_event_id: 'evt_456' };
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([checkoutDeadLetter, secondDl]);
+    mockDb.isEventProcessed
+      .mockResolvedValueOnce({ ok: false, error: 'Connection timeout' })
+      .mockResolvedValueOnce({ ok: true, processed: false });
+    mockHandleCheckout.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    // dl_1 skipped — no mutations
+    expect(mockDb.resolveDeadLetter).not.toHaveBeenCalledWith('dl_1');
+    expect(mockDb.failDeadLetter).not.toHaveBeenCalled();
+    expect(mockDb.abandonDeadLetter).not.toHaveBeenCalled();
+    // dl_2 processed normally
+    expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_2');
+  });
 });
