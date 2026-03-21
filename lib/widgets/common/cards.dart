@@ -281,6 +281,88 @@ class StatCard extends StatelessWidget {
   }
 }
 
+/// List card for displaying titled lists with custom item rendering
+///
+/// Consolidates _ChoiceCard, _QueryCard, and similar list-based cards.
+/// Supports flexible item types and optional highlighting.
+///
+/// Usage:
+/// ```dart
+/// ListCard(
+///   title: 'Features',
+///   items: ['Item 1', 'Item 2'],
+///   itemBuilder: (item, isHighlighted) => Text(item),
+///   isHighlighted: true,
+/// )
+/// ```
+class ListCard<T> extends StatelessWidget {
+  final String title;
+  final List<T> items;
+  final Widget Function(T item, bool isHighlighted) itemBuilder;
+  final bool isHighlighted;
+  final double? width;
+  final Color? backgroundColor;
+  final Color? highlightedBackgroundColor;
+  final Color? borderColor;
+  final Color? highlightedBorderColor;
+  final Color? titleColor;
+  final Color? highlightedTitleColor;
+
+  const ListCard({
+    super.key,
+    required this.title,
+    required this.items,
+    required this.itemBuilder,
+    this.isHighlighted = false,
+    this.width,
+    this.backgroundColor,
+    this.highlightedBackgroundColor,
+    this.borderColor,
+    this.highlightedBorderColor,
+    this.titleColor,
+    this.highlightedTitleColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = isHighlighted
+        ? (highlightedBackgroundColor ?? AppColors.blue500.withValues(alpha: 0.1))
+        : (backgroundColor ?? AppColors.gray800);
+
+    final bdrColor = isHighlighted
+        ? (highlightedBorderColor ?? AppColors.blue500.withValues(alpha: 0.3))
+        : (borderColor ?? AppColors.gray700);
+
+    final titleCol = isHighlighted
+        ? (highlightedTitleColor ?? AppColors.blue400)
+        : (titleColor ?? AppColors.gray300);
+
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+        border: Border.all(color: bdrColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: AppTypography.headingSM.copyWith(color: titleCol),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ...items.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: itemBuilder(item, isHighlighted),
+              )),
+        ],
+      ),
+    );
+  }
+}
+
 /// Pricing card for tier display
 ///
 /// Usage:

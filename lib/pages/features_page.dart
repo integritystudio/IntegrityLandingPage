@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
+import '../widgets/common/cards.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/common/gradient_pill_badge.dart';
 import '../widgets/common/info_card.dart';
@@ -216,67 +217,72 @@ class _QuerySection extends StatelessWidget {
               runSpacing: AppSpacing.lg,
               alignment: WrapAlignment.center,
               children: [
-                _QueryCard(
+                ListCard<(String, String)>(
                   title: 'Trace Queries',
-                  features: FeaturesContentVariants.traceQueryFeatures,
+                  items: FeaturesContentVariants.traceQueryFeatures,
+                  width: 300,
+                  backgroundColor: AppColors.gray900,
+                  borderColor: AppColors.gray700,
+                  titleColor: Colors.white,
+                  itemBuilder: (feature, _) => Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(LucideIcons.check, size: 14, color: AppColors.success),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          feature.$1,
+                          style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                _QueryCard(
+                ListCard<(String, String)>(
                   title: 'Log Queries',
-                  features: FeaturesContentVariants.logQueryFeatures,
+                  items: FeaturesContentVariants.logQueryFeatures,
+                  width: 300,
+                  backgroundColor: AppColors.gray900,
+                  borderColor: AppColors.gray700,
+                  titleColor: Colors.white,
+                  itemBuilder: (feature, _) => Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(LucideIcons.check, size: 14, color: AppColors.success),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          feature.$1,
+                          style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                _QueryCard(
+                ListCard<(String, String)>(
                   title: 'Metric Aggregations',
-                  features: FeaturesContentVariants.metricAggregations,
+                  items: FeaturesContentVariants.metricAggregations,
+                  width: 300,
+                  backgroundColor: AppColors.gray900,
+                  borderColor: AppColors.gray700,
+                  titleColor: Colors.white,
+                  itemBuilder: (feature, _) => Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(LucideIcons.check, size: 14, color: AppColors.success),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          feature.$1,
+                          style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QueryCard extends StatelessWidget {
-  final String title;
-  final List<(String, String)> features;
-
-  const _QueryCard({required this.title, required this.features});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 300,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.gray900,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.gray700),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: AppTypography.headingSM.copyWith(color: Colors.white),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ...features.map((f) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(LucideIcons.check, size: 14, color: AppColors.success),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        f.$1,
-                        style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
         ],
       ),
     );

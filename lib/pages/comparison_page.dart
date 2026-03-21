@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
+import '../widgets/common/cards.dart';
 import '../widgets/common/containers.dart';
 
 /// Generic comparison/migration page for competitor alternatives.
@@ -599,16 +600,58 @@ class _WhoShouldChooseSection extends StatelessWidget {
           if (isMobile)
             Column(
               children: [
-                _ChoiceCard(
+                ListCard<String>(
                   title: 'Choose Integrity Studio if you need...',
                   items: content.whyChooseUs,
                   isHighlighted: true,
+                  itemBuilder: (item, isHighlighted) => Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        isHighlighted ? LucideIcons.check : LucideIcons.circle,
+                        size: 16,
+                        color: isHighlighted
+                            ? AppColors.success
+                            : AppColors.gray500,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          item,
+                          style: AppTypography.bodyMD.copyWith(
+                            color: AppColors.gray300,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                _ChoiceCard(
+                ListCard<String>(
                   title: 'Consider ${content.competitorName} if you prefer...',
                   items: content.whyChooseThem,
                   isHighlighted: false,
+                  itemBuilder: (item, isHighlighted) => Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        isHighlighted ? LucideIcons.check : LucideIcons.circle,
+                        size: 16,
+                        color: isHighlighted
+                            ? AppColors.success
+                            : AppColors.gray500,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          item,
+                          style: AppTypography.bodyMD.copyWith(
+                            color: AppColors.gray300,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             )
@@ -617,88 +660,64 @@ class _WhoShouldChooseSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: _ChoiceCard(
+                  child: ListCard<String>(
                     title: 'Choose Integrity Studio if you need...',
                     items: content.whyChooseUs,
                     isHighlighted: true,
+                    itemBuilder: (item, isHighlighted) => Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          isHighlighted ? LucideIcons.check : LucideIcons.circle,
+                          size: 16,
+                          color: isHighlighted
+                              ? AppColors.success
+                              : AppColors.gray500,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            item,
+                            style: AppTypography.bodyMD.copyWith(
+                              color: AppColors.gray300,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.lg),
                 Expanded(
-                  child: _ChoiceCard(
+                  child: ListCard<String>(
                     title: 'Consider ${content.competitorName} if you prefer...',
                     items: content.whyChooseThem,
                     isHighlighted: false,
+                    itemBuilder: (item, isHighlighted) => Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          isHighlighted ? LucideIcons.check : LucideIcons.circle,
+                          size: 16,
+                          color: isHighlighted
+                              ? AppColors.success
+                              : AppColors.gray500,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            item,
+                            style: AppTypography.bodyMD.copyWith(
+                              color: AppColors.gray300,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChoiceCard extends StatelessWidget {
-  final String title;
-  final List<String> items;
-  final bool isHighlighted;
-
-  const _ChoiceCard({
-    required this.title,
-    required this.items,
-    required this.isHighlighted,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: isHighlighted
-            ? AppColors.blue500.withValues(alpha: 0.1)
-            : AppColors.gray800,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        border: Border.all(
-          color: isHighlighted
-              ? AppColors.blue500.withValues(alpha: 0.3)
-              : AppColors.gray700,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: AppTypography.headingSM.copyWith(
-              color: isHighlighted ? AppColors.blue400 : AppColors.gray300,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ...items.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      isHighlighted ? LucideIcons.check : LucideIcons.circle,
-                      size: 16,
-                      color: isHighlighted
-                          ? AppColors.success
-                          : AppColors.gray500,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        item,
-                        style: AppTypography.bodyMD.copyWith(
-                          color: AppColors.gray300,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
         ],
       ),
     );
