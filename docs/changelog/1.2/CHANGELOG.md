@@ -833,4 +833,35 @@ Added call count assertion to billing portal success test to catch duplicate aud
 - **Tests:** 17 Worker tests passing (orgs.test.ts); includes `not.toHaveBeenCalled()` on Stripe-throws path to verify no audit log on error
 - **Commit:** `32ee699`
 
+### L22: billing_admin Path Lacks Audit Log Call Count Assertion
+
+**Priority:** P3 | **Completed:** 2026-03-21
+
+Added call count assertions to billing_admin success path in billing portal endpoint test.
+
+- **Issue:** The `billing_admin` success path asserted returned URL but did not verify audit log write count
+  - Regression risk: double-writes or missing writes on this role path would not be caught
+- **Fix:** Added `toHaveBeenCalledTimes(1)` + `toHaveBeenCalledWith()` assertions on billing_admin success branch
+  - Verifies exactly one audit log write per billing_admin portal session creation
+  - Mirrors L21 pattern applied to owner role path
+- **Tests:** orgs.test.ts billing_admin success case now fully specified
+- **Commit:** `15da535`
+
+### L23: Sanitize Raw Errors in Other DashboardService Methods
+
+**Priority:** P3 | **Completed:** 2026-03-21
+
+Extended L20 error sanitization to all `DashboardService` read-endpoint methods.
+
+- **Issue:** L20 sanitized `fetchBillingPortalUrl` but four other methods still surfaced raw `data['error']` strings
+  - Inconsistent error handling across similar endpoints
+- **Fix:** Added `_sanitizeReadError()` helper that maps HTTP status codes to user-friendly messages
+  - 401 Unauthorized → "Authentication required. Please log in again." (uses `_errorBillingAuth`)
+  - Other status codes → "An unexpected error occurred." (fallback)
+  - Applied to: `fetchBillingStatus`, `fetchUsageSummary`, `fetchEntitlements`, `fetchQuotaStatus`
+- **Tests:** 4 new test cases per method verify no raw API strings in error responses (e.g., `isNot('Unauthorized')` + `contains('log in')`)
+  - Integration with existing test mocks (mockGetResponse) without new mock infrastructure
+- **Coverage:** All 33 dashboard service tests passing (100% of test suite)
+- **Commit:** `15da535`
+
 ---

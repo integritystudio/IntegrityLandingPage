@@ -227,23 +227,6 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
-## V02: Stripe Portal Link — Code Review Findings
-
-### L22: billing_admin Path Lacks Audit Log Call Count Assertion
-
-**Priority:** P3 | **Source:** session 2026-03-21, code-reviewer post-implementation review
-
-**Status:** Done — `toHaveBeenCalledTimes(1)` and `CalledWith` assertions added for billing_admin path (commit 15da535).
-
----
-
-### L23: Sanitize Raw Errors in Other DashboardService Methods
-
-**Priority:** P3 | **Source:** session 2026-03-21, code-reviewer post-implementation review
-
-**Status:** Done — `_sanitizeReadError` helper added; applied to fetchBillingStatus, fetchUsageSummary, fetchEntitlements, fetchQuotaStatus (commit 15da535).
-
----
 
 *Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to v1.2; CSP test failure diagnosed and fixed (47b4dc3); L16 + M37 migrated to v1.2 changelog (2 completed items). Test Status: ✅ ALL 2631 TESTS PASSING. Remaining: T25, T28, V02-Remaining, M34, M38, M39 (6 deferred/design-decision items). Score: 9/10.*
 
