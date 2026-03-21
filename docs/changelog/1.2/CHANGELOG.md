@@ -176,4 +176,49 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - Async keyword removed for clarity (function now synchronous)
 - Commits: `398545d`, `e1d3e56`
 
+### Code Quality & Security Review Phase 2 (2026-03-20/21)
+
+**R01–R10: Dart Security Utilities & Test Hardening**
+- R01: Clarifying comment for CRLF multi-line guards in `sanitizeServerError` (commit `d186f1d`)
+- R02: Document `_stackTracePattern` regex extension list limitations and runtime guidance (commit `c326a28`)
+- R03: Isolated test for bare carriage return (`\r`) in `sanitizeServerError` (commit `bfc0d0c`)
+- R04: Added performance comment to `_stackTracePattern` static final (commit `c326a28`)
+- R05: Dedup `PasswordPolicy.minLength` test assertions with proportionality check (commit `9ec3af4`)
+- R06: Remove backlog ID from test group name (commit `7f116c1`)
+- R07: Add boundary tests for `PasswordPolicy` min/max length (commit `3cce1c5`)
+- R08: Update TDD report with current `_stackTracePattern` regex (commit `26e12a7`)
+- R09: Back-fill commit hashes in changelog v1.1 (commits `bc59b8b`, `7ffbeb0`, `9581ce8`, `39e54fa`, `a5767c4`)
+- R10: Remove duplicate M07 entry from open items (already removed)
+
+**H19: Security — Shared Utilities & Validation Hardening**
+- H19-M1: Extract `hexToBytes` utility to `workers/lib/hex-utils.ts` for API key and Stripe webhook verification (commits `2d4df62`, `5d00632`)
+- H19-M2: Strict validation for `hexToBytes` regex (change `*` to `+` to reject empty strings) (commits `2d4df62`, `5d00632`)
+
+**M18: JWT & Issuer Validation**
+- M18-M1: Reorder JWT validation to verify signature before claims (commits `fc69dea`, `42faa70`)
+- M18-M2: Add startup warning when JWT issuer validation disabled (commits `0932e90`, `ee29f30`)
+
+**M19–M22: Reconciliation Script & Aggregation Hardening**
+- M19: Fix typo in `entitlementsToRebuild` variable name across 5 occurrences (commit `7fa808f`)
+- M20: Add explicit `!orgId` guard after Zod parse in reconciliation (commit `005fc5c`)
+- M21: Log warnings when daily/monthly query results hit configured limits (commit `8e8c033`)
+- M22: Add `Math.trunc()` for integer enforcement in aggregation (commit `1a446fa`)
+
+**T23: Webhook Dead Letter Queue Hardening**
+- T23-M2: Add RLS policy documentation comment to webhook dead letter tables (commit `313cd7f`)
+- T23-M3: Remove unused `'processing'` status from dead letter enum (commit `7da6701`)
+
+**T24: Reconciliation Script Validation & Type Safety**
+- T24-M1: Guard Stripe customer subscriptions cast with `Array.isArray` runtime check (commits `9bbb550`, `4f03052`)
+- T24-M3: Clarify `orgEntitlementsRebuilt` counter semantics in logs (commit `1b9c88d`)
+
+**T25: Health Check Type Safety**
+- T25-M2: Narrow health check return type to `'healthy' | 'unhealthy'` (commit `3dd5824`)
+
+**L1–L4: Low-Priority Code Quality**
+- L1: Eliminate redundant `token.split()` calls in JWT verification by returning parts from `parseJwtPayload` (commit `f3cbb38`)
+- L2: Simplify compound issuer check logic (commit `7fa808f`)
+- L3: Add Zod schema rejection path test for `MonthlyUsageSummary` (no external commit, inline test)
+- L4: Extract shared mock factory in `aggregation.test.ts` to reduce duplication (commit `11049a3`)
+
 ---
