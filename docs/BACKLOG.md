@@ -259,6 +259,26 @@ Test asserts `mockSb.insert` was called but doesn't verify call count. Should as
 
 ---
 
+### L22: billing_admin Path Lacks Audit Log Call Count Assertion
+
+**Priority:** P3 | **Source:** session 2026-03-21, code-reviewer post-implementation review
+
+The `billing_admin` success path in the billing portal endpoint test asserts the returned URL but does not verify audit log write count. Regression risk: if a change causes double-writes or no write on the `billing_admin` path, the test would not catch it. -- `workers/api-gateway/src/routes/orgs.test.ts:324`
+
+**Status:** Open — Deferred from L21 implementation (partial assertion gap).
+
+---
+
+### L23: Sanitize Raw Errors in Other DashboardService Methods
+
+**Priority:** P3 | **Source:** session 2026-03-21, code-reviewer post-implementation review
+
+The L20 fix sanitized `fetchBillingPortalUrl` error messages, but four other methods in `DashboardService` still surface raw `data['error']` strings from API responses, creating an inconsistency. Methods affected: `fetchBillingStatus` (line 384), `fetchUsageSummary` (line 464), `fetchEntitlements` (line 541), `fetchQuotaStatus` (line 619). -- `lib/services/dashboard_service.dart:384,464,541,619`
+
+**Status:** Open — Pre-existing pattern not introduced by L20; represents scope creep from L20 fix.
+
+---
+
 *Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to v1.2; CSP test failure diagnosed and fixed (47b4dc3); L16 + M37 migrated to v1.2 changelog (2 completed items). Test Status: ✅ ALL 2631 TESTS PASSING. Remaining: T25, T28, V02-Remaining, M34, M38, M39 (6 deferred/design-decision items). Score: 9/10.*
 
 *Backlog-implementer continuation (2026-03-21): L16 refactored (AppDecorations.card() 5786939, PASS); M34 fixed with soft-delete + active-only filter (33aa1a2, cf5059c, PASS); M37 verified done (no new commits). Test Status: ✅ 61 stripe-webhook tests passing. Remaining open items: 4 (T25, T28, M38, M39 require design decisions). Items completed: 2 (L16, M34). Score: 9/10.*
