@@ -1,4 +1,5 @@
 import { REPLAY_WINDOW_MS } from '../../constants';
+import { hexToBytes } from '../../lib/hex-utils';
 import { unauthorized } from '../../lib/http';
 
 /**
@@ -47,8 +48,8 @@ export async function verifyStripeSignature(
 
   // Verify signature using constant-time HMAC comparison to prevent timing side-channels.
   try {
-    // Validate hex before conversion — Stripe signatures are lowercase hex
-    if (!/^[0-9a-f]+$/.test(signature) || signature.length % 2 !== 0) {
+    const sigBytes = hexToBytes(signature);
+    if (!sigBytes) {
       return { ok: false, error: unauthorized('Invalid Stripe signature format') };
     }
 
@@ -61,11 +62,6 @@ export async function verifyStripeSignature(
       false,
       ['verify'],
     );
-
-    const sigBytes = new Uint8Array(signature.length / 2);
-    for (let i = 0; i < signature.length; i += 2) {
-      sigBytes[i / 2] = parseInt(signature.slice(i, i + 2), 16);
-    }
 
     const isValid = await crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(signedContent));
     if (!isValid) {

@@ -1,3 +1,4 @@
+import { hexToBytes } from './hex-utils';
 import { unauthorized } from './http';
 import type { SupabaseClient } from './supabase';
 import type { ApiKey } from './types';
@@ -38,16 +39,6 @@ export async function hashApiKeySecret(secret: string, hmacSecret: string): Prom
   );
   const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(secret));
   return Array.from(new Uint8Array(signature), (b) => HEX_CHARS[b >> 4] + HEX_CHARS[b & 0xf]).join('');
-}
-
-/** Convert a lowercase hex string to a Uint8Array. Returns null for invalid input. */
-function hexToBytes(hex: string): Uint8Array | null {
-  if (hex.length % 2 !== 0 || !/^[0-9a-f]*$/.test(hex)) return null;
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
 }
 
 /**
