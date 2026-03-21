@@ -115,6 +115,79 @@ describe('handleWebhook (fetch handler)', () => {
     });
   }
 
+  it('invalid signature → 400 rejected', async () => {
+    const request = new Request('https://example.com/webhook', {
+      method: 'POST',
+      headers: { 'stripe-signature': 'invalid', 'content-type': 'application/json' },
+      body: '{"type":"checkout.session.completed","id":"evt_abc"}',
+    });
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    expect(response.status).toBe(401);
+  });
+
+  it('already processed → skipped: true response, handler not called', async () => {
+    const body = JSON.stringify({ id: 'evt_dup', type: 'checkout.session.completed' });
+    const request = await makeWebhookRequest(body);
+
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: true });
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    const json = await response.json<{ ok: boolean; skipped: boolean }>();
+
+    expect(response.status).toBe(200);
+    expect(json.skipped).toBe(true);
+    expect(mockHandleCheckout).not.toHaveBeenCalled();
+  });
+
+  it('handler failure → addDeadLetter called, 200 returned with error field', async () => {
+    const body = JSON.stringify({ id: 'evt_fail', type: 'checkout.session.completed' });
+    const request = await makeWebhookRequest(body);
+
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleCheckout.mockResolvedValue({ ok: false, error: 'DB write failed' });
+    mockDb.addDeadLetter.mockResolvedValue({ ok: true });
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    const json = await response.json<{ ok: boolean; processed: boolean; error: string }>();
+
+    expect(response.status).toBe(200);
+    expect(json.processed).toBe(false);
+    expect(json.error).toBe('DB write failed');
+    expect(mockDb.addDeadLetter).toHaveBeenCalledWith('evt_fail', 'checkout.session.completed', expect.any(Object), 'DB write failed');
+  });
+
+  it('addDeadLetter failure → CRITICAL error logged, 200 still returned', async () => {
+    const body = JSON.stringify({ id: 'evt_lost', type: 'checkout.session.completed' });
+    const request = await makeWebhookRequest(body);
+
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleCheckout.mockResolvedValue({ ok: false, error: 'handler error' });
+    mockDb.addDeadLetter.mockResolvedValue({ ok: false, error: 'DB unavailable' });
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    expect(response.status).toBe(200);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('CRITICAL'),
+      expect.any(String),
+      'DB unavailable',
+    );
+  });
+
+  it('health endpoint → 200 with ok:true', async () => {
+    const request = new Request('https://example.com/health', { method: 'GET' });
+    const response = await worker.fetch(request, MOCK_ENV);
+    const json = await response.json<{ ok: boolean }>();
+    expect(response.status).toBe(200);
+    expect(json.ok).toBe(true);
+  });
+
+  it('unknown route → 404', async () => {
+    const request = new Request('https://example.com/unknown', { method: 'GET' });
+    const response = await worker.fetch(request, MOCK_ENV);
+    expect(response.status).toBe(404);
+  });
+
   it('logProcessedEvent failure → console.error logged, 200 still returned', async () => {
     const body = JSON.stringify({ id: 'evt_abc', type: 'checkout.session.completed' });
     const request = await makeWebhookRequest(body);
