@@ -40,6 +40,25 @@ Implement event ingestion pipeline for metered usage tracking:
 
 ---
 
+### V03: Monthly Aggregation Rollup
+
+**Priority:** P1 | **Estimated:** 2–3 hours
+
+Implement monthly rollup that aggregates `usage_buckets_daily` rows into `MonthlyUsageSummary` responses for billing period reporting:
+
+1. `rollupMonthlyBucket(orgId, yearMonth, sb)` — queries `usage_buckets_daily` for a given YYYY-MM period and aggregates totals/averages per metric_key
+2. Return `MonthlyUsageSummary` validated via `MonthlyUsageSummarySchema` (already defined in `workers/lib/types/usage.ts`)
+3. `metric_breakdown` map: per-metric quantity, request count, avg_latency_ms
+4. TDD: write tests first, implement to pass
+
+**Files to implement:**
+- `workers/api-gateway/src/aggregation.ts` — add `rollupMonthlyBucket`
+- `workers/api-gateway/src/aggregation.test.ts` — monthly tests (TDD)
+
+**Status:** Open
+
+---
+
 ### V02: Flutter Dashboard UI
 
 **Priority:** P1 | **Estimated:** 10–12 hours

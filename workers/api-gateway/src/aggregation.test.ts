@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { rollupDailyBucket } from './aggregation';
+import { rollupDailyBucket, rollupMonthlyBucket } from './aggregation';
 
 const makeEvents = (overrides: Partial<{
   organization_id: string;
@@ -145,5 +145,157 @@ describe('rollupDailyBucket', () => {
     await expect(rollupDailyBucket('org-1', '2026-03-20', sb as any)).rejects.toThrow(
       'usage_events query failed',
     );
+  });
+});
+
+const makeDailyBuckets = (overrides: Partial<{
+  organization_id: string;
+  metric_key: string;
+  total_quantity: number;
+  request_count: number;
+  avg_latency_ms: number | null;
+  updated_at: string;
+}>[] = []) =>
+  overrides.map(o => ({
+    organization_id: '00000000-0000-0000-0000-000000000001',
+    metric_key: 'api_requests',
+    total_quantity: 1,
+    request_count: 1,
+    avg_latency_ms: null,
+    updated_at: '2026-03-01T00:00:00.000Z',
+    ...o,
+  }));
+
+const makeMonthSb = (buckets: ReturnType<typeof makeDailyBuckets>) => ({
+  query: vi.fn().mockResolvedValue({ ok: true, data: buckets }),
+  insert: vi.fn(),
+  update: vi.fn(),
+  upsert: vi.fn(),
+  rpc: vi.fn(),
+});
+
+const ORG_UUID = '00000000-0000-0000-0000-000000000001';
+
+describe('rollupMonthlyBucket', () => {
+  it('queries usage_buckets_daily for correct org and month range', async () => {
+    const sb = makeMonthSb([]);
+    await rollupMonthlyBucket(ORG_UUID, '2026-03', sb as any);
+
+    expect(sb.query).toHaveBeenCalledWith('usage_buckets_daily', expect.objectContaining({
+      filters: expect.arrayContaining([
+        { column: 'organization_id', operator: 'eq', value: ORG_UUID },
+        { column: 'bucket_date', operator: 'gte', value: '2026-03-01' },
+        { column: 'bucket_date', operator: 'lt', value: '2026-04-01' },
+      ]),
+    }));
+  });
+
+  it('handles December month rollover correctly', async () => {
+    const sb = makeMonthSb([]);
+    await rollupMonthlyBucket(ORG_UUID, '2026-12', sb as any);
+
+    expect(sb.query).toHaveBeenCalledWith('usage_buckets_daily', expect.objectContaining({
+      filters: expect.arrayContaining([
+        { column: 'bucket_date', operator: 'gte', value: '2026-12-01' },
+        { column: 'bucket_date', operator: 'lt', value: '2027-01-01' },
+      ]),
+    }));
+  });
+
+  it('returns zero totals and empty breakdown when no daily buckets', async () => {
+    const sb = makeMonthSb([]);
+    const result = await rollupMonthlyBucket(ORG_UUID, '2026-03', sb as any);
+
+    expect(result.organization_id).toBe(ORG_UUID);
+    expect(result.year_month).toBe('2026-03');
+    expect(result.total_quantity).toBe(0);
+    expect(result.total_requests).toBe(0);
+    expect(result.avg_latency_ms).toBeNull();
+    expect(result.metric_breakdown).toEqual({});
+  });
+
+  it('aggregates single metric across multiple days', async () => {
+    const buckets = makeDailyBuckets([
+      { total_quantity: 5, request_count: 5, avg_latency_ms: 100 },
+      { total_quantity: 10, request_count: 10, avg_latency_ms: 200 },
+      { total_quantity: 3, request_count: 3, avg_latency_ms: null },
+    ]);
+    const sb = makeMonthSb(buckets);
+    const result = await rollupMonthlyBucket(ORG_UUID, '2026-03', sb as any);
+
+    expect(result.total_quantity).toBe(18);
+    expect(result.total_requests).toBe(18);
+    expect(result.metric_breakdown['api_requests'].quantity).toBe(18);
+    expect(result.metric_breakdown['api_requests'].requests).toBe(18);
+    // weighted avg: (100*5 + 200*10) / (5+10) = (500 + 2000) / 15 = 166.67
+    expect(result.metric_breakdown['api_requests'].avg_latency_ms).toBeCloseTo(166.67, 1);
+  });
+
+  it('aggregates multiple metrics into separate breakdown entries', async () => {
+    const buckets = makeDailyBuckets([
+      { metric_key: 'api_requests', total_quantity: 20, request_count: 20, avg_latency_ms: 50 },
+      { metric_key: 'data_retention_days', total_quantity: 30, request_count: 1, avg_latency_ms: null },
+      { metric_key: 'api_requests', total_quantity: 10, request_count: 10, avg_latency_ms: 100 },
+    ]);
+    const sb = makeMonthSb(buckets);
+    const result = await rollupMonthlyBucket(ORG_UUID, '2026-03', sb as any);
+
+    expect(result.total_quantity).toBe(60);
+    expect(result.total_requests).toBe(31);
+
+    const reqBreakdown = result.metric_breakdown['api_requests'];
+    expect(reqBreakdown.quantity).toBe(30);
+    expect(reqBreakdown.requests).toBe(30);
+    // weighted avg: (50*20 + 100*10) / (20+10) = (1000 + 1000) / 30 ≈ 66.67
+    expect(reqBreakdown.avg_latency_ms).toBeCloseTo(66.67, 1);
+
+    const retBreakdown = result.metric_breakdown['data_retention_days'];
+    expect(retBreakdown.quantity).toBe(30);
+    expect(retBreakdown.requests).toBe(1);
+    expect(retBreakdown.avg_latency_ms).toBeNull();
+  });
+
+  it('returns null avg_latency_ms when all daily buckets have null latency', async () => {
+    const buckets = makeDailyBuckets([
+      { total_quantity: 1, request_count: 1, avg_latency_ms: null },
+      { total_quantity: 2, request_count: 2, avg_latency_ms: null },
+    ]);
+    const sb = makeMonthSb(buckets);
+    const result = await rollupMonthlyBucket(ORG_UUID, '2026-03', sb as any);
+
+    expect(result.avg_latency_ms).toBeNull();
+    expect(result.metric_breakdown['api_requests'].avg_latency_ms).toBeNull();
+  });
+
+  it('throws for invalid yearMonth format', async () => {
+    const sb = makeMonthSb([]);
+    await expect(rollupMonthlyBucket(ORG_UUID, '2026-3', sb as any)).rejects.toThrow('invalid yearMonth format');
+    await expect(rollupMonthlyBucket(ORG_UUID, '2026-03-01', sb as any)).rejects.toThrow('invalid yearMonth format');
+    await expect(rollupMonthlyBucket(ORG_UUID, 'bad', sb as any)).rejects.toThrow('invalid yearMonth format');
+  });
+
+  it('throws when usage_buckets_daily query fails', async () => {
+    const sb = {
+      query: vi.fn().mockResolvedValue({ ok: false, error: 'DB error' }),
+      insert: vi.fn(),
+      update: vi.fn(),
+      upsert: vi.fn(),
+      rpc: vi.fn(),
+    };
+    await expect(rollupMonthlyBucket(ORG_UUID, '2026-03', sb as any)).rejects.toThrow(
+      'usage_buckets_daily query failed',
+    );
+  });
+
+  it('returns a Zod-validated MonthlyUsageSummary shape', async () => {
+    const buckets = makeDailyBuckets([{ total_quantity: 5, request_count: 5, avg_latency_ms: 100 }]);
+    const sb = makeMonthSb(buckets);
+    const result = await rollupMonthlyBucket(ORG_UUID, '2026-03', sb as any);
+
+    // Zod validation would throw on parse — reaching here confirms shape is valid
+    expect(result.organization_id).toBe(ORG_UUID);
+    expect(result.year_month).toBe('2026-03');
+    expect(typeof result.created_at).toBe('string');
+    expect(typeof result.updated_at).toBe('string');
   });
 });

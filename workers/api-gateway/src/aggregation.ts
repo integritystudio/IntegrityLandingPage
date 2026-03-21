@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '../../lib/supabase';
 import type { UsageFlushResult } from '../../lib/types/usage';
+import { MonthlyUsageSummarySchema, type MonthlyUsageSummary } from '../../lib/types/usage';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // Capped to avoid unbounded memory usage; high-volume orgs should use a DB-side RPC rollup.
@@ -27,6 +28,7 @@ interface BucketAggregate {
  * (organization_id, bucket_date, metric_key) keeps the latest rollup.
  */
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const YEAR_MONTH_RE = /^\d{4}-\d{2}$/;
 
 export async function rollupDailyBucket(
   orgId: string,
@@ -100,4 +102,108 @@ export async function rollupDailyBucket(
     },
     flushed_at: now,
   };
+}
+
+interface DailyBucketRow extends Record<string, unknown> {
+  organization_id: string;
+  metric_key: string;
+  total_quantity: number;
+  request_count: number;
+  avg_latency_ms: number | null;
+}
+
+interface MonthlyMetricAgg {
+  total_quantity: number;
+  request_count: number;
+  weighted_latency_sum: number;
+  weighted_latency_count: number;
+}
+
+/**
+ * Reads usage_buckets_daily for the given org and year-month, aggregates by
+ * metric_key across all days in the period, and returns a MonthlyUsageSummary.
+ *
+ * avg_latency_ms is weighted by request_count per daily bucket.
+ * This is an approximation because daily buckets store avg rather than sum,
+ * but it is consistent and avoids querying raw events for large date ranges.
+ */
+export async function rollupMonthlyBucket(
+  orgId: string,
+  yearMonth: string, // YYYY-MM UTC
+  sb: SupabaseClient,
+): Promise<MonthlyUsageSummary> {
+  if (!YEAR_MONTH_RE.test(yearMonth)) {
+    throw new Error(`[aggregation] invalid yearMonth format: ${yearMonth}`);
+  }
+
+  const periodStart = `${yearMonth}-01`;
+  const [year, month] = yearMonth.split('-').map(Number);
+  const nextYear = month === 12 ? year + 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const periodEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+  const result = await sb.query<DailyBucketRow>('usage_buckets_daily', {
+    select: 'organization_id, metric_key, total_quantity, request_count, avg_latency_ms',
+    filters: [
+      { column: 'organization_id', operator: 'eq', value: orgId },
+      { column: 'bucket_date', operator: 'gte', value: periodStart },
+      { column: 'bucket_date', operator: 'lt', value: periodEnd },
+    ],
+  });
+
+  if (!result.ok) {
+    throw new Error(`[aggregation] usage_buckets_daily query failed: ${String(result.error)}`);
+  }
+
+  const buckets: DailyBucketRow[] = Array.isArray(result.data) ? result.data : [];
+
+  const aggregates = new Map<string, MonthlyMetricAgg>();
+  for (const bucket of buckets) {
+    const existing = aggregates.get(bucket.metric_key) ?? {
+      total_quantity: 0,
+      request_count: 0,
+      weighted_latency_sum: 0,
+      weighted_latency_count: 0,
+    };
+    aggregates.set(bucket.metric_key, {
+      total_quantity: existing.total_quantity + bucket.total_quantity,
+      request_count: existing.request_count + bucket.request_count,
+      weighted_latency_sum: existing.weighted_latency_sum +
+        (bucket.avg_latency_ms !== null ? bucket.avg_latency_ms * bucket.request_count : 0),
+      weighted_latency_count: existing.weighted_latency_count +
+        (bucket.avg_latency_ms !== null ? bucket.request_count : 0),
+    });
+  }
+
+  const now = new Date().toISOString();
+  let total_quantity = 0;
+  let total_requests = 0;
+  let total_weighted_latency = 0;
+  let total_latency_count = 0;
+  const metric_breakdown: Record<string, { quantity: number; requests: number; avg_latency_ms: number | null }> = {};
+
+  for (const [metric_key, agg] of aggregates.entries()) {
+    total_quantity += agg.total_quantity;
+    total_requests += agg.request_count;
+    total_weighted_latency += agg.weighted_latency_sum;
+    total_latency_count += agg.weighted_latency_count;
+    metric_breakdown[metric_key] = {
+      quantity: agg.total_quantity,
+      requests: agg.request_count,
+      avg_latency_ms: agg.weighted_latency_count > 0
+        ? agg.weighted_latency_sum / agg.weighted_latency_count
+        : null,
+    };
+  }
+
+  return MonthlyUsageSummarySchema.parse({
+    organization_id: orgId,
+    year_month: yearMonth,
+    total_quantity,
+    total_requests,
+    avg_latency_ms: total_latency_count > 0 ? total_weighted_latency / total_latency_count : null,
+    metric_breakdown,
+    created_at: now,
+    updated_at: now,
+  });
 }
