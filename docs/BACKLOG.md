@@ -647,7 +647,7 @@ Both perform identical hex-to-bytes conversion. This is a maintenance risk: a bu
 **Files affected:**
 - `supabase/migrations/20260321000000_add_webhook_dead_letters.sql`
 
-**Status:** Open
+**Status:** Done — Added comment explaining service-role-only access pattern and why RLS is intentionally omitted (commit 313cd7f)
 
 ---
 
@@ -750,7 +750,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **File:** `scripts/full-reconciliation.ts:325–351`
 
-**Status:** Open
+**Status:** Done — Explicit `!orgId` guard added after Zod parse; returns error if id is somehow empty (commit 005fc5c)
 
 ---
 
@@ -762,7 +762,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **File:** `workers/lib/auth.ts:52–59`
 
-**Status:** Open
+**Status:** Done — `parseJwtPayload` returns `parts` in ok result; `verifyJwt` destructures from parse result, eliminating second split (commit f3cbb38)
 
 ---
 
@@ -786,7 +786,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **Files:** `workers/api-gateway/src/aggregation.ts:50–52, 155–158`
 
-**Status:** Open
+**Status:** Done — `console.warn` added in both rollup functions when result count hits the configured limit (commit 8e8c033)
 
 ---
 
