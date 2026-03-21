@@ -23,8 +23,12 @@ export interface Env {
   APP_URL?: string;
 }
 
+const APP_URL_FALLBACK = 'https://app.integritystudio.ai';
+
 // Emitted at most once per isolate so production logs are not flooded.
 let jwtIssuerWarned = false;
+let stripeKeyWarned = false;
+let appUrlWarned = false;
 
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
@@ -33,6 +37,16 @@ export default {
         '[api-gateway] SUPABASE_JWT_ISSUER is not set — JWT iss claim validation (V-02) is disabled.',
       );
       jwtIssuerWarned = true;
+    }
+    if (!stripeKeyWarned && !env.STRIPE_SECRET_KEY) {
+      console.error('[api-gateway] STRIPE_SECRET_KEY is not set — billing portal will fail.');
+      stripeKeyWarned = true;
+    }
+    if (!appUrlWarned && !env.APP_URL) {
+      console.warn(
+        '[api-gateway] APP_URL is not set — billing portal return_url defaults to production.',
+      );
+      appUrlWarned = true;
     }
 
     const { pathname } = new URL(request.url);
@@ -108,7 +122,7 @@ export default {
         return handleBillingPortal(request, orgId, {
           ...routeOpts,
           stripeSecretKey: env.STRIPE_SECRET_KEY,
-          returnUrl: env.APP_URL ? `${env.APP_URL}/#/billing` : 'https://app.integritystudio.ai/#/billing',
+          returnUrl: `${env.APP_URL ?? APP_URL_FALLBACK}/#/billing`,
         });
       }
       if (subPath === '/api-keys' && request.method === 'POST') {
