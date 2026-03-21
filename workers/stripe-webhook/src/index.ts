@@ -98,7 +98,7 @@ async function runReconciliation(env: Env): Promise<void> {
 
   for (const dl of pending) {
     try {
-      // Idempotency guard: skip events already processed to handle overlapping cron ticks.
+      // Idempotency guard: resolve and skip dead letters whose event was already processed (e.g. overlapping cron ticks).
       const alreadyProcessed = await db.isEventProcessed(dl.stripe_event_id);
       if (alreadyProcessed) {
         await db.resolveDeadLetter(dl.id);
@@ -107,33 +107,33 @@ async function runReconciliation(env: Env): Promise<void> {
 
       const event = dl.payload as StripeEvent;
 
-      let handlerResult: HandlerResult = { ok: true };
+      let result: HandlerResult = { ok: true };
       switch (dl.event_type) {
         case 'checkout.session.completed':
-          handlerResult = await handleCheckoutSessionCompleted(event, db);
+          result = await handleCheckoutSessionCompleted(event, db);
           break;
         case 'invoice.paid':
-          handlerResult = await handleInvoicePaid(event, db);
+          result = await handleInvoicePaid(event, db);
           break;
         case 'invoice.payment_failed':
-          handlerResult = await handleInvoicePaymentFailed(event, db);
+          result = await handleInvoicePaymentFailed(event, db);
           break;
         case 'customer.subscription.updated':
-          handlerResult = await handleSubscriptionUpdated(event, db);
+          result = await handleSubscriptionUpdated(event, db);
           break;
         case 'customer.subscription.deleted':
-          handlerResult = await handleSubscriptionDeleted(event, db);
+          result = await handleSubscriptionDeleted(event, db);
           break;
         default:
           await db.abandonDeadLetter(dl.id);
           continue;
       }
 
-      if (handlerResult.ok) {
+      if (result.ok) {
         await db.logProcessedEvent(dl.stripe_event_id, dl.event_type);
         await db.resolveDeadLetter(dl.id);
       } else {
-        await db.failDeadLetter(dl.id, dl.retry_count, dl.max_retries, handlerResult.error);
+        await db.failDeadLetter(dl.id, dl.retry_count, dl.max_retries, result.error);
       }
     } catch (err) {
       console.error(`Reconciliation error for dead letter ${dl.id}:`, err);
