@@ -515,20 +515,19 @@ Code-reviewer full-stack review of billing status page (BillingStatusPage + Dash
 
 ---
 
-### V02-Remaining: Org Switcher, Entitlements Grid, Polling
+### V02-Remaining: Org Switcher, Stripe Portal, Polling
 
 **Priority:** P1 | **Severity:** Medium | **Source:** session 2026-03-21 (billing status implementation)
 
-V02 Flutter Dashboard UI has 5 remaining components per BACKLOG.md item:
+V02 Flutter Dashboard UI has 3 remaining components:
 1. **Org switcher dropdown** — Select active org from list, update local state
-2. **Entitlements grid display** — Show feature flags (usage_dashboard, alerts, compliance_summary, etc.) with enabled/disabled toggles
-3. **Stripe Customer Portal link** — Button linking to Stripe-managed subscription UI
-4. **Real-time usage polling** — Refresh usage every 30s or on window focus (via `visibilitychange` event)
-5. **Usage charts/metrics visualization** — Plot historical usage over time (requires time-series queries or backfill)
+2. **Stripe Customer Portal link** — Button linking to Stripe-managed subscription UI
+3. **Real-time usage polling** — Refresh usage every 30s or on window focus (via `visibilitychange` event)
 
-Current status: BillingStatusPage + UsageSummaryPage implemented. Remaining 5 tasks are independent and can be implemented in parallel or sequenced.
+~~**Entitlements grid display** — ✅ Done: `EntitlementsPage` at `/entitlements` (commit 9f93f67)~~
+~~**Usage charts/metrics visualization** — ✅ Done: `_DailyBarChart` (commits c78bbf1, 809496a), `QuotaStatusPage` (commits 9f93f67, e3ff7f3)~~
 
-**Status:** Deferred — Scaffolding ready; UI implementation deferred to next session.
+**Status:** Partially deferred — Entitlements grid and usage charts complete. Remaining 3 tasks are independent.
 
 ---
 
