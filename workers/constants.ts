@@ -3,6 +3,8 @@ export const REPLAY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 // Dead letter queue: max retry attempts before abandoning
 export const DEAD_LETTER_MAX_RETRIES = 5;
+// Initial retry delay (ms) for dead letters; doubles on each retry (exponential backoff)
+export const DEAD_LETTER_INITIAL_RETRY_DELAY_MS = 60_000; // 1 minute
 
 // CSRF configuration
 export const CSRF_TOKEN_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour

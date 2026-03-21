@@ -1,6 +1,6 @@
 import { createSupabaseClient } from '../../lib/supabase';
 import type { BillingStatus, PlanKey } from '../../lib/types';
-import { DEAD_LETTER_MAX_RETRIES } from '../../constants';
+import { DEAD_LETTER_INITIAL_RETRY_DELAY_MS, DEAD_LETTER_MAX_RETRIES } from '../../constants';
 
 type OkVoid = { ok: true };
 type Err = { ok: false; error: string };
@@ -144,7 +144,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     payload: unknown,
     errorMessage: string,
   ): Promise<VoidResult> {
-    const nextRetryAt = new Date(Date.now() + 60_000).toISOString();
+    const nextRetryAt = new Date(Date.now() + DEAD_LETTER_INITIAL_RETRY_DELAY_MS).toISOString();
     const result = await sb.insert('webhook_dead_letters', {
       stripe_event_id: stripeEventId,
       event_type: eventType,
@@ -214,7 +214,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     };
     // Only set next_retry_at if still pending (not abandoned)
     if (newStatus === 'pending') {
-      updates.next_retry_at = new Date(Date.now() + Math.pow(2, retryCount) * 60_000).toISOString();
+      updates.next_retry_at = new Date(Date.now() + Math.pow(2, retryCount) * DEAD_LETTER_INITIAL_RETRY_DELAY_MS).toISOString();
     }
     const result = await sb.update(
       'webhook_dead_letters',
