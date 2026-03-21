@@ -640,7 +640,7 @@ Both perform identical hex-to-bytes conversion. This is a maintenance risk: a bu
 
 **File:** `supabase/migrations/20260321000000_add_webhook_dead_letters.sql:20`
 
-**Status:** Open
+**Status:** Done (commit 7da6701, 2026-03-21)
 
 ---
 

@@ -4,8 +4,6 @@ import {
   PlanKeySchema,
   OrgRoleSchema,
   EntitlementSchema as CanonicalEntitlementSchema,
-  StripeEventSchema as CanonicalStripeEventSchema,
-  ApiKeySchema as CanonicalApiKeySchema,
 } from './types/schemas';
 
 // Re-export canonical schemas to consolidate access
