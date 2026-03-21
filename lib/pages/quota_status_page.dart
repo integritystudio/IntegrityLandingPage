@@ -180,7 +180,11 @@ class _QuotaCard extends StatelessWidget {
             ],
           ),
           if (data != null) ...[
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
+            if (data!.planKey != null) ...[
+              _PlanBadge(planKey: data!.planKey!),
+              const SizedBox(height: AppSpacing.md),
+            ],
             _QuotaRow(
               icon: LucideIcons.zap,
               label: 'Minute',
@@ -192,7 +196,7 @@ class _QuotaCard extends StatelessWidget {
               icon: LucideIcons.calendar,
               label: 'Monthly',
               used: data!.monthlyUsed,
-              limit: data!.monthlyLimit ?? 0,
+              limit: data!.monthlyLimit,
             ),
           ] else if (!isLoading) ...[
             const SizedBox(height: AppSpacing.md),
@@ -220,10 +224,15 @@ class _QuotaCard extends StatelessWidget {
 }
 
 class _QuotaRow extends StatelessWidget {
+  static const double _dangerThreshold = 0.90;
+  static const double _warningThreshold = 0.75;
+
   final IconData icon;
   final String label;
   final int used;
-  final int limit;
+
+  /// Null means unlimited — show label only, no progress bar.
+  final int? limit;
 
   const _QuotaRow({
     required this.icon,
@@ -232,13 +241,19 @@ class _QuotaRow extends StatelessWidget {
     required this.limit,
   });
 
+  String _limitLabel() {
+    if (limit == null) return '$used (Unlimited)';
+    return '$used / $limit';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final hasLimit = limit > 0;
-    final ratio = hasLimit ? (used / limit).clamp(0.0, 1.0) : 0.0;
-    final barColor = ratio >= 0.90
+    final ratio = limit != null && limit! > 0
+        ? (used / limit!).clamp(0.0, 1.0)
+        : 0.0;
+    final barColor = ratio >= _dangerThreshold
         ? AppColors.error
-        : ratio >= 0.75
+        : ratio >= _warningThreshold
             ? AppColors.warning
             : AppColors.blue500;
 
@@ -250,12 +265,12 @@ class _QuotaRow extends StatelessWidget {
             Icon(icon, size: 14, color: AppColors.gray400),
             const SizedBox(width: AppSpacing.xs),
             Text(
-              '$label: $used${hasLimit ? ' / $limit' : ''}',
+              '$label: ${_limitLabel()}',
               style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
             ),
           ],
         ),
-        if (hasLimit) ...[
+        if (limit != null) ...[
           const SizedBox(height: AppSpacing.xs),
           ClipRRect(
             borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
@@ -268,6 +283,34 @@ class _QuotaRow extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _PlanBadge extends StatelessWidget {
+  final String planKey;
+
+  const _PlanBadge({required this.planKey});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.blue500.withAlpha(25),
+        border: Border.all(color: AppColors.blue500),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+      ),
+      child: Text(
+        planKey,
+        style: AppTypography.bodySM.copyWith(
+          color: AppColors.blue500,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }

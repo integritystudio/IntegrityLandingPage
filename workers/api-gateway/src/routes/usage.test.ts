@@ -264,6 +264,28 @@ describe('GET /v1/orgs/:orgId/quota/status', () => {
     expect(body.minuteWindowExpiresIn).toBe(45000);
   });
 
+  it('returns uninitialized status when DO is unavailable', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership()] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const throwingDo = {
+      idFromName: vi.fn().mockReturnValue('stub-id'),
+      get: vi.fn().mockReturnValue({
+        fetch: vi.fn().mockRejectedValue(new Error('DO unavailable')),
+      }),
+    } as unknown as DurableObjectNamespace;
+    const req = new Request('https://api.test/v1/orgs/org-id-1/quota/status', {
+      method: 'GET',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleQuotaStatus(req, 'org-id-1', makeQuotaOpts(mockSb, throwingDo));
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.status).toBe('uninitialized');
+  });
+
   it('returns quota status with null monthlyLimit for unlimited plan', async () => {
     const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
     const mockSb = {

@@ -152,6 +152,11 @@ export async function handleQuotaStatus(
   const access = await assertOrgAccess(auth, orgId, sb);
   if (!access.ok) return access.error;
 
-  const status = await getQuotaStatus(opts.doNamespace, orgId);
-  return ok({ org_id: orgId, ...status });
+  try {
+    const status = await getQuotaStatus(opts.doNamespace, orgId);
+    return ok({ org_id: orgId, ...status });
+  } catch {
+    // Fail-open: if DO is unavailable, return uninitialized status
+    return ok({ org_id: orgId, status: 'uninitialized' });
+  }
 }
