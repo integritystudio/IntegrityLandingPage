@@ -573,7 +573,7 @@ Code-reviewer session on quota_status_page, entitlements_page, usage_summary_pag
 
 **Files:** `billing_status_page.dart:355-378`, `quota_status_page.dart:324-365`, `entitlements_page.dart:345-385`, `usage_summary_page.dart:614-660`, `dashboard_page.dart:273-301`
 
-**Status:** Open — Code quality debt, Low priority.
+**Status:** ✅ Done — commit 2b281c5, code review PASS 2026-03-21.
 
 ---
 
