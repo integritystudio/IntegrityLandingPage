@@ -247,7 +247,7 @@ describe('runReconciliation', () => {
     expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_2');
   });
 
-  it('logProcessedEvent failure in reconciliation → console.error logged, resolveDeadLetter still called', async () => {
+  it('logProcessedEvent failure in reconciliation → console.error logged, resolveDeadLetter NOT called (leave pending for retry)', async () => {
     mockDb.fetchPendingDeadLetters.mockResolvedValue([checkoutDeadLetter]);
     mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
     mockHandleCheckout.mockResolvedValue({ ok: true });
@@ -264,6 +264,9 @@ describe('runReconciliation', () => {
       expect.stringContaining('Failed to log processed event evt_123'),
       'Write failed',
     );
-    expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_1');
+    // Dead-letter must NOT be resolved — leave it pending so the next cron run
+    // retries the full sequence (handler → logProcessedEvent → resolveDeadLetter).
+    // Without a log entry the idempotency guard cannot detect the event as processed.
+    expect(mockDb.resolveDeadLetter).not.toHaveBeenCalled();
   });
 });

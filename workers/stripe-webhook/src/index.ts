@@ -146,12 +146,15 @@ async function runReconciliation(env: Env): Promise<void> {
       if (result.ok) {
         const logResult = await db.logProcessedEvent(dl.stripe_event_id, dl.event_type);
         if (!logResult.ok) {
+          // Leave dead-letter pending — do not resolve. Next cron run will retry the full
+          // sequence (handler → logProcessedEvent → resolveDeadLetter). Without a log entry,
+          // the idempotency guard cannot detect the event as processed.
           console.error(`Failed to log processed event ${dl.stripe_event_id} (${dl.event_type}):`, logResult.error);
+          continue;
         }
-        // resolveDeadLetter is called after logProcessedEvent. If this call fails, the
-        // dead-letter row remains pending but the event is already in webhook_events_log.
-        // The idempotency guard at the top of this loop will detect and clean up the
-        // orphaned row on the next reconciliation run.
+        // If resolveDeadLetter fails here, the event is already in webhook_events_log.
+        // The idempotency guard will detect it as processed on the next run and call
+        // resolveDeadLetter again to clean up the orphaned dead-letter row.
         const resolveResult = await db.resolveDeadLetter(dl.id);
         if (!resolveResult.ok) {
           console.error(`Failed to resolve dead letter ${dl.id} for event ${dl.stripe_event_id}:`, resolveResult.error);
