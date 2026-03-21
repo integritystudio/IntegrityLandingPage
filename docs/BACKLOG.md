@@ -591,4 +591,4 @@ Code-reviewer session on quota_status_page, entitlements_page, usage_summary_pag
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer session: 11 items implemented (H1, H2, M25–M33, H2-V02), 12 commits (64b1387–0af1f0c), code review PASS. New findings added: M34 (subscription upgrade conflict key design), M35 (dead letter partial failure idempotency gap). Remaining open: Medium items (M34–M35), Low items (L5–L9, L12–L15), V02 org switcher/portal/polling.*
+*Last updated: 2026-03-21 — backlog-implementer (HARD) session: V02 real-time polling done (f6581fd, d14280c, f77cbb5); V02 org switcher done (91cdae3, 226b568); M29 already done (cec8997); #132/#133 blocked on R2. Remaining: V02 Stripe portal link (needs Stripe SDK in api-gateway), Medium items (M34–M35), Low items (L5–L9, L12–L15).*
