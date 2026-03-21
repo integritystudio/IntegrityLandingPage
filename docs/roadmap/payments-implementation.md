@@ -1,6 +1,6 @@
-## Status: Phase 1-4 COMPLETE; V02 Flutter Dashboard FEATURE-COMPLETE; H1 Zod Schemas + Code Review Cycle COMPLETE
+## Status: Phase 1-4 COMPLETE; V02 Flutter Dashboard FEATURE-COMPLETE; L14-L15 Code Debt + Zod Schemas DONE
 
-**Last Updated:** 2026-03-21 | **Session Focus:** V02 Dashboard 5/8 steps complete (org switcher, billing status, usage summary, charts, entitlements, polling); H1 Zod Stripe schemas; M25–M33 code review findings fixed; quota version type correction; Zod error formatting
+**Last Updated:** 2026-03-21 | **Session Focus:** L14 ErrorCard extracted (5 files → shared widget, 2b281c5); L15 planKey formatting (b92d558); QuotaStatusResponseSchema + typed getQuotaStatus (0767a64)
 **Build Status:** ✅ All tests passing (2630+ tests, ~94% coverage)
 
 - **Phase 1 (Sender-Worker UI):** ✅ COMPLETE — AuthPage, ProvisionPage, SenderHealthPage, JWT provisioning flow, HMAC-SHA256 signing, CORS preflight

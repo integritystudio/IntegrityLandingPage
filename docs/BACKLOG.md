@@ -587,7 +587,7 @@ Code-reviewer session on quota_status_page, entitlements_page, usage_summary_pag
 
 **File:** `lib/pages/quota_status_page.dart:307-310`
 
-**Status:** Open — Display inconsistency, Low priority.
+**Status:** ✅ Done — commit b92d558, code review PASS 2026-03-21.
 
 ---
 
