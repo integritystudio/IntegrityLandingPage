@@ -20,15 +20,16 @@ function base64urlToBytes(value: string): Uint8Array {
 /**
  * Parse JWT payload without signature verification.
  * IMPORTANT: Must be followed by verifyJwt before trusting the result.
+ * Returns `parts` so callers can reuse the split for signature verification.
  */
-export function parseJwtPayload(token: string): { ok: true; payload: JwtPayload } | { ok: false; error: string } {
+export function parseJwtPayload(token: string): { ok: true; payload: JwtPayload; parts: string[] } | { ok: false; error: string } {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) {
       return { ok: false, error: 'invalid jwt format' };
     }
     const payload = JSON.parse(new TextDecoder().decode(base64urlToBytes(parts[1])));
-    return { ok: true, payload };
+    return { ok: true, payload, parts };
   } catch {
     return { ok: false, error: 'failed to parse jwt' };
   }
@@ -54,8 +55,7 @@ export async function verifyJwt(
     return { ok: false, error: unauthorized('Invalid JWT format') };
   }
 
-  const { payload } = parseResult;
-  const parts = token.split('.');
+  const { payload, parts } = parseResult;
   const encoder = new TextEncoder();
 
   // Verify signature before claims — avoids leaking claim structure to attacker-crafted tokens.
