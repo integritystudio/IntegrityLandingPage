@@ -1,5 +1,62 @@
 # Session History
 
+## 2026-03-20 (Session 3): Zod Schema Validation + Code Review + Test Suite
+
+### Status
+✅ **Complete** - Full code review cycle with test-driven validation
+
+### Work Completed
+
+1. **Code Review & Schema Implementation** - `scripts/full-reconciliation.ts` (commit 3eaad38)
+   - Added EnvSchema: Stripe key format, Supabase URL, JWT service role key validation
+   - Added SupabaseErrorSchema: API error response parsing
+   - Added OrgRowSchema: UUID validation with .min(1) constraint
+   - Replaced 3× unsafe type casts (`as SupabaseError`, `as Array<{ id }>`) with Zod safeParse
+   - Replaced bare truthy env var check with per-field error messages
+
+2. **Code Review Fixes** - commit 2c71638
+   - High severity: Added parseJsonSafe helper to guard resp.json() throws in 4 error paths
+   - Medium severity: Upgraded SUPABASE_SERVICE_ROLE_KEY to /^eyJ/ JWT regex validation
+   - Medium severity: Enhanced error fallbacks with raw response body JSON.stringify
+   - Medium severity: Added .min(1) constraint to OrgRowSchema, removed manual length check
+   - Code-reviewer confirmed: **Overall: PASS** ✅
+
+3. **Comprehensive Test Suite** - `scripts/full-reconciliation.test.ts` (commit c91af90, 30 tests)
+   - EnvSchema: 7 tests (valid/invalid keys, URLs, JWT validation, error messages)
+   - SupabaseErrorSchema: 6 tests (valid/invalid responses, null handling)
+   - OrgRowSchema: 6 tests (UUID validation, empty array rejection, edge cases)
+   - parseJsonSafe: 4 tests (valid JSON, malformed, HTML errors, empty responses)
+   - Error handling contract: 3 tests (informative messages, fallbacks, parse failures)
+   - Integration tests: 4 tests (multi-field error formatting, realistic scenarios)
+   - **Result: 30/30 tests passing** ✅
+
+4. **Additional Refactoring** - commit 3dd5824
+   - Narrowed ComponentStatus to literal union in health route: 'healthy' | 'unhealthy'
+   - Removed generic type, enforced binary health states (DOs have no degraded state)
+
+5. **Documentation Updates** - commit 36e172a
+   - Updated SESSION_HISTORY.md with this session's work
+   - Preserved previous V01/V03 documentation
+
+### Key Learnings
+
+**Data Boundaries Protected (disaster recovery script):**
+- Environment variables (startup validation)
+- Supabase REST API error responses (error path recovery)
+- Org lookup responses (UUID validation + empty array guard)
+
+**Code Review Findings:**
+- Unguarded async JSON parsing can silently bypass error contracts
+- Type casts on external data hide validation failures
+- Per-field error messages crucial for troubleshooting misconfigured deployments
+
+**Test-First Validation:**
+- Test error paths, not just happy paths
+- Validate error message quality and informativeness
+- Use safeParse everywhere, never silent type casting
+
+---
+
 ## 2026-03-20 (Session 2): Usage Ledger Ingestion (V01) & Monthly Aggregation (V03) Documentation
 
 ### Status
