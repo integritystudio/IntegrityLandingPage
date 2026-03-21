@@ -2,6 +2,7 @@ import { ok, notFound } from '../../lib/http';
 import { handleMe } from './routes/me';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus } from './routes/orgs';
 import { handleUsageSummary, handleOrgEntitlements } from './routes/usage';
+import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -57,6 +58,14 @@ export default {
       }
       if (subPath === '/entitlements' && request.method === 'GET') {
         return handleOrgEntitlements(request, orgId, machineRouteOpts);
+      }
+      if (subPath === '/api-keys' && request.method === 'POST') {
+        return handleCreateApiKey(request, orgId, machineRouteOpts);
+      }
+
+      const revokeMatch = subPath.match(/^\/api-keys\/([^/]+)\/revoke$/);
+      if (revokeMatch && request.method === 'POST') {
+        return handleRevokeApiKey(request, orgId, revokeMatch[1], machineRouteOpts);
       }
     }
 
