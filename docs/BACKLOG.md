@@ -445,7 +445,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 **Files:** `workers/stripe-webhook/src/supabase.ts:31-50`, `workers/stripe-webhook/src/handlers/subscription.ts:10-60`
 
-**Status:** Open — Design-level issue, not blocking current implementation.
+**Status:** ✅ Done — commit e9046de. Doc comment added to `upsertSubscription` documenting conflict key semantics: one subscription per org assumption, plan upgrades/downgrades reuse same `stripe_subscription_id` and update `stripe_price_id` on conflict (last-write-wins), no special handling needed.
 
 ---
 
@@ -457,7 +457,7 @@ Dead letter retry loop (`workers/stripe-webhook/src/index.ts:180-210`) calls `db
 
 **Files:** `workers/stripe-webhook/src/index.ts:198-206`
 
-**Status:** Open — Low-severity idempotency gap; affects cleanup/monitoring more than event processing correctness.
+**Status:** ✅ Done — commits e9046de, b3a4224. Error logging added to both `resolveDeadLetter` call sites. When `logProcessedEvent` fails, `continue` skips `resolveDeadLetter` to leave dead-letter pending for retry. Idempotency guard recovery path documented in comments. Test updated to assert new correct behavior (resolveDeadLetter NOT called on logProcessedEvent failure).
 
 ---
 
@@ -622,8 +622,8 @@ In `handleWebhook` (`workers/stripe-webhook/src/index.ts:78–83`): when a handl
 
 **File:** `workers/stripe-webhook/src/index.ts:78–83`, `src/supabase.ts:141–160`
 
-**Status:** Open — low complexity fix (check return value + log); design question on 500 vs 200 fallback.
+**Status:** ✅ Done — commit 82e488a. `addDeadLetter` result checked; on failure a CRITICAL log is emitted with the full event payload for operator recovery. HTTP 200 still returned to suppress Stripe retry (cron owns retry schedule).
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer (HARDEST) session: L8 done (3b017e9, 15 tests + review fixes in follow-up commit), M34/M35 documented. Remaining: V02 Stripe portal link (needs feature-dev + Stripe SDK in api-gateway), M34/M35 medium items, Low items (L5–L7, L9, L12–L15).*
+*Last updated: 2026-03-21 — backlog-implementer (Medium) session: M34 documented (e9046de), M35-a fixed (e9046de, b3a4224 — skip resolveDeadLetter when logProcessedEvent fails), M35-b fixed (82e488a — check addDeadLetter result, CRITICAL log on failure), L14 extracted (2b281c5 — shared ErrorCard widget). Remaining: second M34 (conflict key design decision required), V02 Stripe portal link, Low items (L5–L7, L9, L12–L13, L15).*
