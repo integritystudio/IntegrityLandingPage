@@ -1,7 +1,7 @@
-## Status: Phase 1-4 COMPLETE; V02 Flutter Dashboard FEATURE-COMPLETE; L14-L15 Code Debt + Zod Schemas DONE
+## Status: Phase 1-4 COMPLETE; Audit Logging + Rate Limit Headers DONE
 
-**Last Updated:** 2026-03-21 | **Session Focus:** L14 ErrorCard extracted (5 files → shared widget, 2b281c5); L15 planKey formatting (b92d558); QuotaStatusResponseSchema + typed getQuotaStatus (0767a64)
-**Build Status:** ✅ All tests passing (2630+ tests, ~94% coverage)
+**Last Updated:** 2026-03-21 | **Session Focus:** Audit logging for sensitive ops (api_key.created, api_key.revoked, billing_portal.accessed) + X-RateLimit-Remaining headers on all org responses (f8bec9b, e783954, 6954ae6)
+**Build Status:** ✅ All tests passing (2631+ tests, ~94% coverage)
 
 - **Phase 1 (Sender-Worker UI):** ✅ COMPLETE — AuthPage, ProvisionPage, SenderHealthPage, JWT provisioning flow, HMAC-SHA256 signing, CORS preflight
 - **Phase 2 (SaaS Infra):** ✅ COMPLETE — Supabase schema (29 tables, RLS, triggers), Auth0 identity integration, Stripe webhooks, Worker API gateway, Durable Objects per-org quota
@@ -1422,11 +1422,22 @@ Flutter or API client
   - Documented dead letter failure modes and retry assumptions (4bf3fff)
   - Fixed diagram omissions in architecture doc (4ebe6cb)
   - Marked M38 and M39 done in BACKLOG (1a51f3f)
+- **Audit Logging** ✅ COMPLETE
+  - `writeAuditLog` helper in helpers.ts writes to audit_log table (f8bec9b)
+  - `api_key.created` logged with actor_user_id, org, prefix (f8bec9b)
+  - `api_key.revoked` logged with org, actor_auth0_id (f8bec9b)
+  - `billing_portal.accessed` logged with org, actor_auth0_id (f8bec9b, 6954ae6)
+  - Exceptions in writeAuditLog caught and logged; never propagate to caller (6954ae6)
+  - Billing portal audit write moved outside Stripe try/catch to prevent misattribution (6954ae6)
+- **Rate Limiting Headers** ✅ COMPLETE
+  - `enforceOrgQuota` now returns `rateLimitHeaders` on success (e783954)
+  - `withRateLimitHeaders()` in index.ts forwards `X-RateLimit-Remaining-Minute` and `X-RateLimit-Remaining-Monthly` on all successful org responses (e783954)
+  - Fail-open path returns empty headers (no headers forwarded) (e783954)
 
 ### Remaining (Polish + Code Review Backlog Items)
 
 1. **Code Review Backlog** — M35 (dead letter partial failure idempotency gap), L6–L19 (low-priority items: sanitization, error card duplication, schema tests, etc.)
-2. **Polish & observability** — Enhanced error responses, rate limiting integration, audit logging for sensitive operations, telemetry/monitoring setup
+2. **Polish & observability** — Enhanced error responses, telemetry/monitoring setup
 
 This sequence delivers production-grade auth/provisioning infrastructure with clear path to user-facing analytics and usage dashboards, supporting the internal goal of a comprehensible UI for non-technical stakeholders while preserving long-term recurring SaaS architecture.
 
