@@ -400,3 +400,182 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - Commits: `f2b28a1`, `cc6c88e`, `7dee8b3`
 
 ---
+
+## [2026-03-21] - Code Review Cycle 2 & Security Hardening (34 items migrated from backlog)
+
+### Security & Infrastructure Hardening
+
+**L5: Sanitize `auth.email` in ProvisionPage**
+- Wraps email display with `SecurityUtils.sanitizeUserInput()` for defense-in-depth consistency
+- Matches sanitization standard applied to other server-sourced fields (`org.name`, `org.planKey`)
+- Commit: `02f567a`
+
+**L6: Extract `DEAD_LETTER_INITIAL_RETRY_DELAY_MS` Constant**
+- Magic number `60_000` (ms) extracted to named constant in `workers/constants.ts`
+- Used in `supabase.ts:156,216` for initial retry delay and exponential backoff calculation
+- Follows existing `REPLAY_WINDOW_MS` pattern for maintainability
+- Commit: `3c39673`
+
+**L5 (Stripe Webhook): `STRIPE_PRICE_TO_PLAN_JSON` Environment Binding**
+- Replaced empty hardcoded `PRICE_TO_PLAN` map with environment-driven configuration
+- Added `STRIPE_PRICE_TO_PLAN_JSON` env binding to `Env` interface
+- `parsePriceToPlan` helper parses JSON safely (warns + falls back on invalid JSON)
+- Subscription handlers accept `priceToPlan: Record<string, PlanKey>` parameter (default `{}`)
+- Both `handleWebhook` and `runReconciliation` parse and thread the map through
+- Commits: `5c7a443`, `8cdaa09`, `306ccfc`
+
+**M35-A: Silent Event Loss When `addDeadLetter` Fails**
+- Check `addDeadLetter` return value; CRITICAL log emitted with full event payload on failure
+- HTTP 200 still returned to suppress Stripe retry (cron owns retry schedule)
+- Provides operator recovery path for failed dead-letter insertions
+- Commit: `82e488a`
+
+**M36: `logProcessedEvent` Failure Results in Event Loss**
+- When `logProcessedEvent` fails in `handleWebhook`, insert dead-letter row via `addDeadLetter`
+- Returns `processed: false` so cron retry path can recover
+- CRITICAL log if `addDeadLetter` also fails
+- Mirrors `runReconciliation` failure pattern for consistency
+- Commits: `82e488a`, `7d86372`
+
+### Code Quality & Type Safety
+
+**H1: Type Safety Lost — Stripe Event Payloads Cast as `any`**
+- Defined Zod schemas: `CheckoutSessionSchema`, `SubscriptionSchema`, `InvoiceSchema` in `stripe-schemas.ts`
+- All `as any` casts replaced with `safeParse` + typed error returns
+- Dead-letter retry path now type-safe
+- Commit: `29a71d1`
+
+**H2: Missing Subscription Upsert in Checkout Handler**
+- `handleCheckoutSessionCompleted` now calls `db.upsertSubscription()` after linking customer
+- Stub row with null `price_id` and status 'active' created; price populated by `customer.subscription.updated`
+- Ensures subscriptions table has entry before `invoice.paid` events arrive
+- Commit: `64b1387`
+
+**M25: `HandlerResult` Type Duplicated Across Four Files**
+- Moved `HandlerResult` type to `workers/lib/types/index.ts` and exported
+- Removed local definitions from `index.ts`, `checkout.ts`, `subscription.ts`, `invoice.ts`
+- Single source of truth prevents drift
+- Commit: `3e63278`
+
+**M26: Non-Atomic Check-Then-Write in `upsertSubscription`**
+- Replaced manual read-check-insert pattern with true upsert (`ON CONFLICT DO UPDATE`)
+- Uses conflict key `(organization_id, stripe_subscription_id)`
+- Prevents duplicate key violations from overlapping `customer.subscription.updated` events
+- Commit: `867957c`
+
+**M27: Dead Letter Filter Applied in App Code, Not Query**
+- Added `DEAD_LETTER_MAX_RETRIES=5` constant
+- Pushed `retry_count < max_retries` filter into PostgREST query
+- Eliminates silent client-side discard of max-retry rows
+- Commit: `77bd17e`
+
+**M28: Wrong HTTP Status Code for Unmatched Webhook Route**
+- Changed return from `serverError()` (HTTP 500) to `notFound()` (HTTP 404) for unmatched routes
+- Prevents Stripe dashboard from reporting webhook delivery failures as 5xx
+- Commit: `22794bb`
+
+**M29: Quota Bump Uses Null Assignment Instead of Monotonic Increment**
+- Changed `quota_version` from `null` to ISO 8601 timestamp `new Date().toISOString()`
+- Monotonic and unique per bump; enables change detection on polling clients
+- Commit: `cec8997`
+
+**M33: Improve Zod Error Message Formatting in Stripe Webhook Handlers**
+- Changed error formatting from `error.message` (stringified JSON array) to `issues.map(i => i.message).join('; ')`
+- Applied across 5 call sites: `checkout.ts:17`, `subscription.ts:31,90`, `invoice.ts:52,77`
+- Cleaner error records in dead-letter queue
+- Commit: `9a154ea`
+
+**M34: Subscription Upsert Conflict Key Doesn't Handle Plan Upgrades**
+- Added doc comment to `upsertSubscription` documenting conflict key semantics
+- Clarifies one-subscription-per-org assumption; plan upgrades/downgrades reuse same `stripe_subscription_id`
+- Last-write-wins strategy for `stripe_price_id` on conflict
+- Commit: `e9046de`
+
+**M35-B: Dead Letter Reconciliation Partial Failure Leaves Inconsistent State**
+- Added error logging at both `resolveDeadLetter` call sites
+- When `logProcessedEvent` fails, skip `resolveDeadLetter` to leave dead-letter pending for retry
+- Idempotency guard recovery path documented in comments
+- Test updated to assert `resolveDeadLetter` NOT called on `logProcessedEvent` failure
+- Commits: `e9046de`, `b3a4224`
+
+**L9: `DeadLetter` Interface Scoped Inside Function Closure**
+- Moved `DeadLetter` interface to module scope and exported from `supabase.ts`
+- `fetchPendingDeadLetters` now returns typed `DeadLetter[]` instead of implicit type
+- Enables external type references
+- Commit: `de048e7`
+
+**L13: Require `customer` Field in Subscription/Invoice Schemas**
+- Changed `customer` from `.optional()` to required `z.string()` in both schemas
+- Rejects malformed payloads earlier at validation boundary
+- Matches Stripe API reality (always present for non-setup-mode objects)
+- Commit: `fe85c77`
+
+### Test Coverage
+
+**L7: Minimal Test Coverage for `handleWebhook` Fetch Handler**
+- Added 6 new tests to `index.test.ts`: invalid signature (400), already-processed skip, handler failure → dead letter, `addDeadLetter` CRITICAL failure, health endpoint, unknown route (404)
+- Webhook handler suite now matches reconciliation suite comprehensiveness
+- Commit: `4e02c0b`
+
+**L8: Missing Unit Tests for Five Public `SupabaseAdmin` Functions**
+- Added 15 tests covering `upsertSubscription`, `linkStripeCustomer`, `updateOrgBillingStatus`, `failDeadLetter`, `addDeadLetter`
+- Mock factories (`mockInsert`, `mockUpdate`, `mockUpsert`) hoisted for reuse
+- Fake timers used for time-dependent assertions
+- Commit: `3b017e9`
+
+**L12: Add Unit Tests for Stripe Schemas**
+- Created `stripe-schemas.test.ts` with 16 tests across all three schemas
+- Covers valid payloads, minimal required fields, required-field rejection, edge cases, and passthrough
+- Tests malformed payloads (missing required fields, type mismatches), null metadata, missing items array
+- Commit: `a59176f`
+
+### UI & Dashboard Refinement
+
+**H2-V02: JWT Leaked into Sentry `extra` Context (Latent Risk)**
+- Added SECURITY doc comment at all four `captureException` call sites in `DashboardService`
+- Warns against logging secrets in untyped `extra` map
+- Prevents future copy-paste exfiltration of tokens to Sentry
+- Commit: `3f0804c`
+
+**M30: `_formatDate` Lacks Telemetry on `DateTime.tryParse` Failure**
+- Added unawaited `captureException` in `BillingStatusData.fromJson` when `tryParse` returns null
+- Surfaces API format drift (e.g., Unix epoch instead of ISO 8601)
+- Developers now alerted if API changes format before seeing wrong data on-screen
+- Commit: `4fb5380`
+
+**M31: `billingStatus` String Type Unvalidated; Wildcard Falls Silent**
+- Added `assert()` in `_statusColor` and `_statusLabel` covering all known billing status values
+- Prevents silent fallthrough to error color + "Inactive" label for new statuses
+- Triggers assertion failure in debug builds on unknown status
+- Commit: `c8e03a2`
+
+**M32: `statusColor`/`statusLabel` Computed in Parent; Duplication Risk**
+- Refactored to pass only `billingStatus` to `_BillingCard`; widget now derives color/label internally
+- Moved `_statusColor` and `_statusLabel` to module-level functions
+- Eliminates duplicate conditional logic and maintenance burden
+- Commit: `a76348b`
+
+**L10: Inline `Container` Decoration Duplicated in Two Cards**
+- Replaced inline `BoxDecoration` in `_BillingCard` (183-189) and `_ErrorCard` (322-328) with `AppDecorations.card()`
+- Centralized gray800 background + gray700 border + radiusMD style
+- Single point of change for design system updates
+- Commit: `d1152ed`
+
+**L11: Missing Doc Comment for `_maxRetries` Constant Semantics**
+- Added doc comment to `DashboardService._maxRetries = 2`: "Max retry attempts (2 retries = 3 total attempts: initial + 2 retries)"
+- Matches clarifying documentation pattern in `ProvisioningService`
+- Commit: `4e1edc0`
+
+**L14: `_ErrorCard` Widget Duplicated Across 5 Files**
+- Extracted shared `_ErrorCard` widget from `billing_status_page.dart`, `quota_status_page.dart`, `entitlements_page.dart`, `usage_summary_page.dart`, `dashboard_page.dart`
+- Single reusable error state card with gray800 background, gray700 border, "Retry" button
+- Eliminates maintenance risk from 5 copies of identical code
+- Commit: `2b281c5`
+
+**L15: `_PlanBadge` Renders Raw `planKey` Without Display Formatting**
+- Added `_formatPlanKey()` function to convert snake_case plan keys to Title Case display format
+- Matches `_MetricTable._formatMetricKey` and `_EntitlementsGrid._formatKey` patterns
+- Applied in `QuotaStatusPage._PlanBadge` render
+- Commit: `b92d558`
+
+---

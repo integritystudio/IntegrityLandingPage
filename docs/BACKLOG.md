@@ -1,6 +1,6 @@
 # Backlog
 
-Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md` and `docs/changelog/1.1/CHANGELOG.md`.
+Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
 **Last Updated:** 2026-03-21 | **Phase:** V02 Flutter Dashboard Feature-Complete (5/8 steps: org switcher, billing status, usage summary, charts, entitlements, polling); H1 Zod Schemas + M25–M33 Code Review Fixes; Medium Priority Items Complete; M34/M35 New Findings; Session Wrap-Up
 
@@ -225,17 +225,6 @@ Deferred security hardening for the two-layer authentication and billing system.
 
 **Status:** Partial — Core health endpoint done. Alerting integration (PagerDuty) deferred.
 
-### L5: Sanitize `auth.email` in ProvisionPage
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer, bootstrap session 2026-03-21
-
-`lib/pages/provision_page.dart:217` — `widget.auth.email` is rendered directly in a `Text()` widget without passing through `SecurityUtils.sanitizeUserInput()`. While Flutter's `Text` does not evaluate HTML, this is an inconsistency with the sanitization standard applied to other server-sourced fields (`org.name`, `org.planKey`) added in the same session. For defense-in-depth and consistency, wrap the email display with `SecurityUtils.sanitizeUserInput(widget.auth.email)`.
-
-**Status:** ✅ Done — commit 02f567a. SecurityUtils.sanitizeUserInput(widget.auth.email) wraps the email display.
-
----
-
----
 
 ### T28: Handle Persistent Storage Data Loss Risk in Quota DO
 
@@ -266,280 +255,7 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
-## Code Review Findings: Stripe Webhook Worker Infrastructure (Session 2026-03-21)
 
-Final full-stack review of M23/M24 commits revealed pre-existing infrastructure issues in the stripe-webhook handlers.
-
----
-
-### H1: Type Safety Lost — Stripe Event Payloads Cast as `any`
-
-**Priority:** P1 | **Severity:** High | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`, `subscription.ts:28, 83`, `invoice.ts:49, 70`. A malformed Stripe payload (truncated body, schema change, corrupt dead-letter payload) causes silent runtime crash at property access rather than handled error return. Dead-letter retry path is especially vulnerable since payloads are stored as `unknown` and re-processed.
-
-**Fix:** Define Zod schemas for each event object type (`CheckoutSession`, `Subscription`, `Invoice`) and parse with `safeParse`. Project has Zod infrastructure in `workers/lib/validation/`.
-
-**Status:** ✅ Done — commit 29a71d1. `CheckoutSessionSchema`, `SubscriptionSchema`, `InvoiceSchema` added to `stripe-schemas.ts`; all `as any` casts replaced with `safeParse` + typed error returns.
-
----
-
-### H2: Missing Subscription Upsert in Checkout Handler
-
-**Priority:** P1 | **Severity:** High | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-`handleCheckoutSessionCompleted` (workers/stripe-webhook/src/handlers/checkout.ts:27-32) calls `db.linkStripeCustomer` but never calls `db.upsertSubscription`. Subscription is only created later by `customer.subscription.updated`, not guaranteed to arrive before `invoice.paid`. Breaks any query joining on `subscriptions` table.
-
-**Fix:** Call `db.upsertSubscription()` after linking customer, mirroring the pattern in other handlers.
-
-**Status:** ✅ Done — commit 64b1387. Stub row with null price_id and status 'active' created after linkStripeCustomer; price populated by subsequent customer.subscription.updated.
-
----
-
-### M25: `HandlerResult` Type Duplicated Across Four Files
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-`type HandlerResult = { ok: true } | { ok: false; error: string }` defined in `index.ts:15`, `checkout.ts:4`, `subscription.ts:12`, `invoice.ts:4`. Should live in `workers/lib/types.ts` and be imported. Drift between definitions is possible.
-
-**Status:** ✅ Done — commit 3e63278. HandlerResult exported from workers/lib/types/index.ts; local definitions removed from all 4 files.
-
----
-
-### M26: Non-Atomic Check-Then-Write in `upsertSubscription`
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-`workers/stripe-webhook/src/supabase.ts:36-65` — Read at line 36 and write at line 49/57 are not atomic. Two overlapping `customer.subscription.updated` events (common with Stripe retries) can both see `queryResult.data === null` and both attempt `insert`, causing duplicate key violation. Table should use true upsert (`ON CONFLICT DO UPDATE`) rather than manual check-then-insert.
-
-**Status:** ✅ Done — commit 867957c. sb.upsert with on_conflict=organization_id,stripe_subscription_id replaces read-then-insert-or-update pattern.
-
----
-
-### M27: Dead Letter Filter Applied in App Code, Not Query
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-`fetchPendingDeadLetters` (workers/stripe-webhook/src/supabase.ts:200) does not include `retry_count < max_retries` in DB query filter set. Rows that hit `max_retries` but still have `status=pending` (bug state from failed status update) are fetched then silently dropped client-side. Wastes round-trip and hides the discard. Push filter into query.
-
-**Status:** ✅ Done — commit 77bd17e. DEAD_LETTER_MAX_RETRIES=5 constant added; retry_count filter pushed into PostgREST query.
-
----
-
-### M28: Wrong HTTP Status Code for Unmatched Webhook Route
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-`index.ts:170` returns `serverError` (HTTP 500) for unmatched routes instead of 404. Causes Stripe dashboard to report webhook delivery failures as 5xx instead of misconfiguration.
-
-**Fix:** Return HTTP 404 with appropriate response for unmatched route.
-
-**Status:** ✅ Done — commit 22794bb. notFound() (HTTP 404) replaces serverError() for unmatched routes.
-
----
-
-### M29: Quota Bump Uses Null Assignment Instead of Monotonic Increment
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-`updateOrgBillingStatus` (workers/stripe-webhook/src/supabase.ts:84) sets `quota_version = null` as the bump mechanism. Null is not monotonic — it resets rather than increments. Two consecutive bumps within same tick both set `null` and second is indistinguishable from first. If polling clients use `quota_version` to detect changes, this breaks change detection.
-
-**Fix:** Use `now()` timestamp or integer increment via RPC, not null.
-
-**Status:** ✅ Done — commit cec8997. quota_version set to new Date().toISOString() — monotonic, unique per bump.
-
----
-
-### L5: Empty `PRICE_TO_PLAN` Map Shipped to Production
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-`workers/stripe-webhook/src/handlers/subscription.ts:8-10` defines empty `PRICE_TO_PLAN` map. Comment says "Example: ..." suggesting placeholder. `planKey` always `undefined` for all subscriptions; every update silently skips plan mapping with no log or error. Price IDs are environment-specific and should come from `env` bindings, not hardcoded map.
-
-**Status:** ✅ Done — `STRIPE_PRICE_TO_PLAN_JSON` env binding added to `Env` interface; `parsePriceToPlan` helper parses it (warns + falls back to `{}` on invalid JSON); subscription handlers accept `priceToPlan: Record<string, PlanKey>` parameter (default `{}`); both `handleWebhook` and `runReconciliation` parse and thread the map through.
-
----
-
-### L6: Magic Number for Initial Retry Delay
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-`addDeadLetter` (workers/stripe-webhook/src/supabase.ts:155) uses hardcoded `60_000` (ms) for initial retry delay. `failDeadLetter` at line 224 uses same logic with `Math.pow(2, retryCount) * 60_000`. Extract to named constant alongside existing `REPLAY_WINDOW_MS` pattern in `workers/constants.ts`.
-
-**Status:** ✅ Done — `DEAD_LETTER_INITIAL_RETRY_DELAY_MS` exported from `workers/constants.ts`; used in `supabase.ts:156,216`.
-
----
-
-### L7: Minimal Test Coverage for `handleWebhook` Fetch Handler
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-`index.test.ts` has only one test for `handleWebhook` (the M23 logProcessedEvent failure case). Missing coverage: invalid signature rejection, already-processed skip (`skipped: true` response), handler failure → dead letter, health endpoint. Reconciliation suite is comprehensive; webhook handler suite is not.
-
-**Status:** ✅ Done — 6 handleWebhook tests added in `index.test.ts`: invalid signature (400), already-processed skip, handler failure → dead letter, addDeadLetter CRITICAL failure, health endpoint, unknown route (404).
-
----
-
-### L8: Missing Unit Tests for Five Public `SupabaseAdmin` Functions
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-`supabase.test.ts` covers only `fetchPendingDeadLetters` and `isEventProcessed`. Missing direct test coverage: `upsertSubscription`, `linkStripeCustomer`, `updateOrgBillingStatus`, `failDeadLetter`, `addDeadLetter`. Given M26 (non-atomic upsert), `upsertSubscription` is highest-priority gap.
-
-**Status:** ✅ Done — commit 3b017e9. 15 tests added covering all 5 functions; mockInsert/mockUpdate/mockUpsert hoisted; fake timers used for time-dependent assertions.
-
----
-
-### L9: `DeadLetter` Interface Scoped Inside Function Closure
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer full-stack review, session 2026-03-21
-
-`workers/stripe-webhook/src/supabase.ts:170-178` — `DeadLetter` interface defined inside `createSupabaseAdmin` closure. Not exported; cannot be referenced externally (e.g., in `index.ts` where `dl` is typed implicitly). Should be exported from module or moved to `workers/lib/types.ts`.
-
-**Status:** ✅ Done — commit de048e7. DeadLetter interface moved to module scope and exported from supabase.ts; fetchPendingDeadLetters returns DeadLetter[].
-
----
-
-### M33: Improve Zod Error Message Formatting in Stripe Webhook Handlers
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer review of H1 fix, session 2026-03-21 (commit 29a71d1)
-
-`parseResult.error.message` on a Zod `ZodError` produces a stringified JSON array of issue objects (e.g., `[{"code":"invalid_type","path":["id"],...}]`), not a human-readable message. This raw output is stored verbatim in the dead-letter queue (via `db.addDeadLetter` in `index.ts`). Using `parseResult.error.issues.map(i => i.message).join('; ')` would produce cleaner error records.
-
-**Files:** `workers/stripe-webhook/src/handlers/checkout.ts:17`, `subscription.ts:31,90`, `invoice.ts:52,77`
-
-**Status:** ✅ Done — commit 9a154ea. issues.map(i => i.message).join('; ') replaces error.message at all 5 call sites.
-
----
-
-### L12: Add Unit Tests for Stripe Schemas
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review of H1 fix, session 2026-03-21 (commit 29a71d1)
-
-`stripe-schemas.ts` (new file, lines 1-28) has no direct unit tests. Schema correctness is only exercised via integration through the handler tests. Add test file `workers/stripe-webhook/src/stripe-schemas.test.ts` covering:
-- Valid Stripe payloads pass safeParse
-- Malformed payloads (missing required fields, type mismatches) fail safeParse
-- Edge cases (null metadata, missing items array, missing price.id)
-
-**Status:** ✅ Done — `stripe-schemas.test.ts` added with 16 tests across CheckoutSessionSchema, SubscriptionSchema, InvoiceSchema; covers valid, minimal, required-field rejection, edge cases, and passthrough.
-
----
-
-### L13: Consider Requiring `customer` Field in Subscription/Invoice Schemas
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review of H1 fix, session 2026-03-21 (commit 29a71d1)
-
-`customer` is marked `.optional()` on `SubscriptionSchema` (line 16) and `InvoiceSchema` (line 22). Based on Stripe's API, `customer` is always present for non-setup-mode objects. A missing-customer payload currently passes `safeParse` successfully and only fails the business-logic guard in the handler. Marking `customer` as required in the schema would reject malformed payloads earlier.
-
-**Files:** `workers/stripe-webhook/src/stripe-schemas.ts:16,22`
-
-**Status:** ✅ Done — commit fe85c77. `customer` is `z.string()` (required) in both `SubscriptionSchema` and `InvoiceSchema`.
-
----
-
-### M34: Subscription Upsert Conflict Key Doesn't Handle Plan Upgrades
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer session, session 2026-03-21 (post-M26 review, commit 867957c)
-
-`upsertSubscription` uses conflict key `(organization_id, stripe_subscription_id)` to handle duplicate `customer.subscription.updated` events. However, the design assumes one subscription per org. Stripe allows plan changes (upgrades/downgrades) within a single subscription ID, which change the `stripe_price_id`. The current key strategy will update an existing row on conflict, which is correct, but the schema and handler logic do not guard against edge cases where a subscription cycles through multiple price IDs in quick succession (e.g., upgrade then downgrade). This is a latent design issue, not a current bug, but should be documented or refactored for clarity.
-
-**Files:** `workers/stripe-webhook/src/supabase.ts:31-50`, `workers/stripe-webhook/src/handlers/subscription.ts:10-60`
-
-**Status:** ✅ Done — commit e9046de. Doc comment added to `upsertSubscription` documenting conflict key semantics: one subscription per org assumption, plan upgrades/downgrades reuse same `stripe_subscription_id` and update `stripe_price_id` on conflict (last-write-wins), no special handling needed.
-
----
-
-### M35: Dead Letter Reconciliation Partial Failure Leaves Inconsistent State
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer session, session 2026-03-21 (post-M27 review)
-
-Dead letter retry loop (`workers/stripe-webhook/src/index.ts:180-210`) calls `db.logProcessedEvent(eventId)` before `db.resolveDeadLetter(id)`. If `logProcessedEvent` succeeds but `resolveDeadLetter` fails (DB error), the event is marked as processed in the webhook_events_log table but the dead-letter row remains with `status='pending'`, creating inconsistent state. A subsequent retry attempt will skip it (already processed) without resolving the dead letter. Reconciliation cron must handle this scenario or queries should use a join to detect orphaned dead-letter rows.
-
-**Files:** `workers/stripe-webhook/src/index.ts:198-206`
-
-**Status:** ✅ Done — commits e9046de, b3a4224. Error logging added to both `resolveDeadLetter` call sites. When `logProcessedEvent` fails, `continue` skips `resolveDeadLetter` to leave dead-letter pending for retry. Idempotency guard recovery path documented in comments. Test updated to assert new correct behavior (resolveDeadLetter NOT called on logProcessedEvent failure).
-
----
-
----
-
-## Code Review Findings: Billing Status Dashboard UI (Session 2026-03-21)
-
-Code-reviewer full-stack review of billing status page (BillingStatusPage + DashboardService) identified 1 fixed High finding, 1 latent High risk, and 4 medium/low findings.
-
----
-
-### H2-V02: JWT Leaked into Sentry `extra` Context (Latent Risk)
-
-**Priority:** P2 | **Severity:** High | **Source:** code-reviewer review, session 2026-03-21 (billing status commits 979ab7c, 60fd1ff)
-
-`DashboardService.fetchBillingStatus` and `fetchUsageSummary` pass `orgId` in `captureException` `extra` map (line 223-226). The JWT flows as a method parameter but is not currently logged. However, the pattern is established (ProvisioningService logs `endpoint`), and future copy-paste into `extra` would silently exfiltrate tokens to Sentry. The `extra` dict is untyped — no guard prevents credential inclusion.
-
-**Mitigation:** Document the `extra` map at call sites as "no credentials" or add JSDoc comment on `captureException` signature warning against logging secrets.
-
-**Status:** ✅ Done — commit 3f0804c. SECURITY comment added at all four captureException call sites in DashboardService.
-
----
-
-### M30: `_formatDate` Lacks Telemetry on `DateTime.tryParse` Failure
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer review, session 2026-03-21
-
-`BillingStatusData.fromJson` (dashboard_service.dart:37) uses `DateTime.tryParse(rawDate)` which silently returns `null` if the API returns a malformed `current_period_end` (e.g., Unix epoch as integer instead of ISO 8601). The `null` case is handled correctly in the UI, but API format drift is undetected. If the API ever changes format, developers won't see an error until data appears wrong on-screen.
-
-**Fix:** Add `if (rawDate != null && rawDate.isNotEmpty) { final parsed = DateTime.tryParse(rawDate); if (parsed == null) { await ErrorTrackingService.captureException(...); } }` to surface format divergence.
-
-**Status:** ✅ Done — commit 4fb5380. unawaited captureException added in BillingStatusData.fromJson when tryParse returns null.
-
----
-
-### M31: `billingStatus` String Type Unvalidated; Wildcard Falls Silent
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer review, session 2026-03-21
-
-`_statusColor` and `_statusLabel` (billing_status_page.dart:82-93) use switch expressions with wildcard default for unknown `billingStatus` values. If the API adds a new status (e.g., `'trialing'`), it silently falls through to `error` color + "Inactive" label, which is inaccurate and alarming to users. A future developer won't know the wildcard exists.
-
-**Fix:** Add assertion in debug builds: `_ => () { assert(false, 'Unknown billing status: $status'); return AppColors.error; }()`.
-
-**Status:** ✅ Done — commit c8e03a2. assert() added in _statusColor and _statusLabel covering all known values.
-
----
-
-### M32: `statusColor`/`statusLabel` Computed in Parent; Duplication Risk
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer review, session 2026-03-21
-
-`_BillingStatusPageState` computes `_statusColor` and `_statusLabel` from `billingStatus`, then passes these derived values down to `_BillingCard` (lines 145-150). The conditional that ensures `statusColor`/`statusLabel` are non-null duplicates the check inside `_BillingCard`. If logic changes, both must be updated in lockstep.
-
-**Fix:** Refactor to pass only `billingStatus` to `_BillingCard` and have the widget derive color/label internally, or extract a dedicated `_buildStatusBadge(String billingStatus)` method.
-
-**Status:** ✅ Done — commit a76348b. _statusColor/_statusLabel moved to module-level functions; _BillingCard computes badge internally from billingStatus data.
-
----
-
-### L10: Inline `Container` Decoration Duplicated in Two Cards
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review, session 2026-03-21
-
-`_BillingCard` (lines 183-189) and `_ErrorCard` (lines 322-328) have identical `BoxDecoration` with gray800 background, gray700 border, radiusMD. Duplicates the style pattern already established in `containers.dart`. If design system card style changes, both need manual update.
-
-**Fix:** Extract to a static method or use `containers.dart` GlassCard widget for consistency.
-
-**Status:** ✅ Done — commit d1152ed. `AppDecorations.card()` replaces inline `BoxDecoration` in `_BillingCard` and `ErrorCard`.
-
----
-
-### L11: Missing Doc Comment for `_maxRetries` Constant Semantics
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review, session 2026-03-21
-
-`DashboardService._maxRetries = 2` (line 139) lacks a doc comment explaining that "2 retries = 3 total attempts". `ProvisioningService` documents this pattern (line 204); `DashboardService` copied the code but not the clarifying comment.
-
-**Fix:** Add line comment: `// Max retry attempts (2 retries = 3 total attempts: initial + 2 retries)`
-
-**Status:** ✅ Done — comment present at `dashboard_service.dart:294`.
-
----
 
 ### V02-Remaining: Org Switcher, Stripe Portal, Polling
 
@@ -554,42 +270,6 @@ V02 Flutter Dashboard UI has 3 remaining components:
 ~~**Usage charts/metrics visualization** — ✅ Done: `_DailyBarChart` (commits c78bbf1, 809496a), `QuotaStatusPage` (commits 9f93f67, e3ff7f3)~~
 
 **Status:** Partially deferred — Entitlements grid and usage charts complete. Remaining 3 tasks are independent.
-
----
-
-## Code Review Findings: V02 Dashboard Pages (Session 2026-03-21)
-
-Code-reviewer session on quota_status_page, entitlements_page, usage_summary_page identified 2 fixed issues and 2 deferred Low-priority items.
-
----
-
-### L14: `_ErrorCard` Widget Duplicated Across 5 Files
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review, session 2026-03-21 (V02 pages)
-
-`_ErrorCard` appears identically in 5 files: `billing_status_page.dart`, `quota_status_page.dart`, `entitlements_page.dart`, `usage_summary_page.dart`, `dashboard_page.dart`. Each file redeclares a `Container` with gray800 background, gray700 border, radiusMD, and "Retry"/"Try again" button. Maintenance risk: any styling change requires updating all 5 copies.
-
-**Fix:** Extract to `lib/widgets/common/error_card.dart` as reusable widget or add to `containers.dart` (which exports GlassCard).
-
-**Files:** `billing_status_page.dart:355-378`, `quota_status_page.dart:324-365`, `entitlements_page.dart:345-385`, `usage_summary_page.dart:614-660`, `dashboard_page.dart:273-301`
-
-**Status:** ✅ Done — commit 2b281c5, code review PASS 2026-03-21.
-
----
-
-### L15: `_PlanBadge` Renders Raw `planKey` Without Display Formatting
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review, session 2026-03-21 (V02 pages)
-
-`QuotaStatusPage._PlanBadge` renders `planKey` directly (e.g., `"starter_monthly"`) as display text. `_MetricTable._formatMetricKey` and `_EntitlementsGrid._formatKey` both apply snake_case → Title Case formatting to server-sourced strings. Plan key inconsistently raw.
-
-**Fix:** Add `_formatPlanKey(planKey)` → split('_').map capitalize.join(' ') or reference shared formatter.
-
-**File:** `lib/pages/quota_status_page.dart:307-310`
-
-**Status:** ✅ Done — commit b92d558, code review PASS 2026-03-21.
-
----
 
 ---
 
@@ -612,32 +292,44 @@ Code-reviewer session on quota_status_page, entitlements_page, usage_summary_pag
 
 ---
 
-### M35: Silent Event Loss When `addDeadLetter` Fails in Webhook Handler
+### L16: Incomplete Scope — Update Remaining Card Containers in Dashboard Pages
 
-**Priority:** P2 | **Severity:** Medium | **Source:** code review analysis, 2026-03-21
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer observation, backlog-implementer session 2026-03-21
 
-In `handleWebhook` (`workers/stripe-webhook/src/index.ts:78–83`): when a handler returns `{ ok: false }`, `addDeadLetter` is called but its result is not checked. If the DB insert fails (network error, connection timeout), `addDeadLetter` resolves with `{ ok: false }` silently. The function still returns HTTP 200 to Stripe, so Stripe will not retry. The failed event is neither in `webhook_events_log` nor in `webhook_dead_letters` — it is permanently lost with no alert.
+L10 refactored `_BillingCard` and `ErrorCard` to use `AppDecorations.card()` (commit d1152ed), but code-reviewer noted that equivalent inline `Container` + `BoxDecoration` patterns remain in:
+- `_QuotaCard` (quota_status_page.dart)
+- `_buildOrgContextCard` (provision_page.dart)
+- Email badge `Container` in ProvisionPage
 
-**Fix:** Check the return value of `addDeadLetter`. On failure, log a critical error with the full event payload for operator recovery. Consider returning HTTP 500 in this path to trigger Stripe's built-in retry, but note the re-delivery tradeoff (handler may be retried without the partial-failure guard).
+This creates inconsistency in design system usage. If the card style changes, developers must remember to update these three locations separately.
 
-**File:** `workers/stripe-webhook/src/index.ts:78–83`, `src/supabase.ts:141–160`
+**Fix:** Apply the same `AppDecorations.card(borderColor: AppColors.gray700)` refactor to the remaining three containers for consistency.
 
-**Status:** ✅ Done — commit 82e488a. `addDeadLetter` result checked; on failure a CRITICAL log is emitted with the full event payload for operator recovery. HTTP 200 still returned to suppress Stripe retry (cron owns retry schedule).
+**Files:** `lib/pages/quota_status_page.dart`, `lib/pages/provision_page.dart` (email badge, _buildOrgContextCard)
 
----
-
-### M36: `handleWebhook` Returns `processed: true` When `logProcessedEvent` Fails
-
-**Priority:** P2 | **Severity:** High | **Source:** code-reviewer final review, backlog-implementer session 2026-03-21
-
-In `handleWebhook` (`workers/stripe-webhook/src/index.ts`), when the handler succeeds but `logProcessedEvent` fails, the function returns HTTP 200 with `{ processed: true }`. The event is NOT in `webhook_events_log`, so the idempotency guard will not detect it as processed on a future Stripe retry — the handler will fire a second time. There is no dead-letter row (handler succeeded, no dead-letter written) and no cron recovery path.
-
-**Fix:** When `logProcessedEvent` fails in `handleWebhook`, insert a dead-letter row (or return `processed: false`) so the cron can retry the log write. Alternatively, mirror the `runReconciliation` pattern: skip the success response and leave the event for retry.
-
-**File:** `workers/stripe-webhook/src/index.ts:96–101`
-
-**Status:** ✅ Done — commit 82e488a + subsequent. When logProcessedEvent fails, addDeadLetter is called to queue for retry; returns processed:false. CRITICAL logged if addDeadLetter also fails.
+**Status:** Open — deferred from L10 scope (low priority, cosmetic).
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer session: L5 (02f567a), L6 (3c39673), L7 (4e02c0b), L9 (de048e7), L10 (d1152ed), L11 (4e1edc0), L12 (a59176f), L13 (fe85c77), L15 (b92d558) done; M34/M35/M36 confirmed done from prior sessions. Remaining: M34 conflict key design decision (design-level, not blocking), V02 Stripe portal link (needs feature-dev + Stripe SDK in api-gateway).*
+### M37: DeadLetter and WebhookDeadLetter Interface Duplication
+
+**Priority:** P3 | **Severity:** Low | **Source:** code review analysis, backlog-implementer session 2026-03-21
+
+Two canonical definitions of the dead-letter interface exist:
+1. `DeadLetter` — module-level export in `workers/stripe-webhook/src/supabase.ts` (lines 6–12), with 6 fields: `id`, `stripe_event_id`, `event_type`, `payload`, `retry_count`, `max_retries`
+2. `WebhookDeadLetter` — Zod schema in `lib/types/schemas.ts`, with 8 fields including `status` and `created_at`
+
+The two interfaces have overlapping but non-identical fields. Code references one or the other depending on context. During L9 implementation, this structural mismatch prevented using `WebhookDeadLetter` as a type for the query result (only 6 fields returned from the DB query, but `WebhookDeadLetter` requires 8).
+
+**Fix options:**
+1. Consolidate into a single schema definition and re-export from both locations
+2. Document which definition is canonical and deprecate the other
+3. Add JSDoc comments explaining the structural differences and use-case for each
+
+**Files:** `workers/stripe-webhook/src/supabase.ts:6–12`, `lib/types/schemas.ts:DeadLetter vs WebhookDeadLetter`
+
+**Status:** Open — requires design decision on consolidation strategy (not blocking, low impact).
+
+---
+
+*Last updated: 2026-03-21 — backlog-implementer session: L5 (02f567a), L6 (3c39673), L7 (4e02c0b), L9 (de048e7), L10 (d1152ed), L11 (4e1edc0), L12 (a59176f), L13 (fe85c77), L15 (b92d558) done; M34/M35/M36 confirmed done. Added L16, M37 from session observations.*
