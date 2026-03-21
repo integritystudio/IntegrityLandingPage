@@ -22,7 +22,7 @@ let jwtIssuerWarned = false;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (!env.SUPABASE_JWT_ISSUER && !jwtIssuerWarned) {
+    if (!jwtIssuerWarned && !env.SUPABASE_JWT_ISSUER) {
       console.warn(
         '[api-gateway] SUPABASE_JWT_ISSUER is not set — JWT iss claim validation (V-02) is disabled.',
       );
@@ -33,15 +33,6 @@ export default {
 
     if (pathname === '/health' && request.method === 'GET') {
       return handleHealthCheck(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, env.QUOTA_DO);
-    }
-
-    if (pathname === '/v1/me' && request.method === 'GET') {
-      return handleMe(request, {
-        jwtSecret: env.SUPABASE_JWT_SECRET,
-        supabaseUrl: env.SUPABASE_URL,
-        serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
-        jwtIssuerUrl: env.SUPABASE_JWT_ISSUER,
-      });
     }
 
     const routeOpts = {
@@ -55,6 +46,10 @@ export default {
       ...routeOpts,
       hmacSecret: env.API_KEY_HMAC_SECRET,
     };
+
+    if (pathname === '/v1/me' && request.method === 'GET') {
+      return handleMe(request, routeOpts);
+    }
 
     if (pathname === '/v1/orgs' && request.method === 'GET') {
       return handleListOrgs(request, routeOpts);
