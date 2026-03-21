@@ -702,7 +702,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **File:** `workers/api-gateway/src/routes/health.ts:54–63`
 
-**Status:** Open
+**Status:** Done — `checkDurableObject` return type narrowed to `'healthy' | 'unhealthy'`; `HealthCheckResult.durableObjects` field typed accordingly (commit 3dd5824)
 
 ---
 
