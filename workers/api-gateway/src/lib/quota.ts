@@ -3,6 +3,10 @@
  */
 
 import { createSupabaseClient } from '../../../lib/supabase';
+import {
+  QuotaCheckResponseSchema,
+  QuotaFlushResultSchema,
+} from '../../../lib/types/schemas';
 import type {
   OrgPlanRow,
   OrgQuotaMiddlewareOptions,
@@ -35,14 +39,17 @@ export async function checkAndReserve(
     }),
   );
 
-  const data = (await response.json()) as QuotaCheckResponse | { error: string };
+  const raw = await response.json();
 
   if (!response.ok && response.status !== 429) {
-    const msg = 'error' in data ? data.error : response.statusText;
+    const msg =
+      raw !== null && typeof raw === 'object' && 'error' in (raw as object)
+        ? String((raw as Record<string, unknown>).error)
+        : response.statusText;
     throw new Error(`Quota check failed: ${msg}`);
   }
 
-  return data as QuotaCheckResponse;
+  return QuotaCheckResponseSchema.parse(raw);
 }
 
 export async function flushUsage(
@@ -60,10 +67,10 @@ export async function flushUsage(
 
   if (!response.ok) {
     const data = (await response.json()) as { error?: string };
-    throw new Error(`Flush failed: ${data.error || response.statusText}`);
+    throw new Error(`Flush failed: ${data.error ?? response.statusText}`);
   }
 
-  return (await response.json()) as QuotaFlushResult;
+  return QuotaFlushResultSchema.parse(await response.json());
 }
 
 export async function getQuotaStatus(
