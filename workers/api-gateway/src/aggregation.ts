@@ -5,6 +5,9 @@ import { MonthlyUsageSummarySchema, type MonthlyUsageSummary } from '../../lib/t
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 // Capped to avoid unbounded memory usage; high-volume orgs should use a DB-side RPC rollup.
 const MAX_EVENTS_PER_ROLLUP = 10_000;
+// 31 days × 100 metric keys — bounded because metric_key cardinality is low by design
+// (predefined keys like 'api_requests', 'data_retention_days'). Adjust if dynamic keys are added.
+const MAX_DAILY_BUCKETS_PER_MONTH = 31 * 100;
 
 interface UsageEventRow extends Record<string, unknown> {
   organization_id: string;
@@ -28,7 +31,7 @@ interface BucketAggregate {
  * (organization_id, bucket_date, metric_key) keeps the latest rollup.
  */
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const YEAR_MONTH_RE = /^\d{4}-\d{2}$/;
+const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export async function rollupDailyBucket(
   orgId: string,
@@ -149,6 +152,7 @@ export async function rollupMonthlyBucket(
       { column: 'bucket_date', operator: 'gte', value: periodStart },
       { column: 'bucket_date', operator: 'lt', value: periodEnd },
     ],
+    limit: MAX_DAILY_BUCKETS_PER_MONTH,
   });
 
   if (!result.ok) {

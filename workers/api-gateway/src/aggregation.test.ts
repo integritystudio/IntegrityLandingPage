@@ -154,7 +154,6 @@ const makeDailyBuckets = (overrides: Partial<{
   total_quantity: number;
   request_count: number;
   avg_latency_ms: number | null;
-  updated_at: string;
 }>[] = []) =>
   overrides.map(o => ({
     organization_id: '00000000-0000-0000-0000-000000000001',
@@ -162,7 +161,6 @@ const makeDailyBuckets = (overrides: Partial<{
     total_quantity: 1,
     request_count: 1,
     avg_latency_ms: null,
-    updated_at: '2026-03-01T00:00:00.000Z',
     ...o,
   }));
 
@@ -272,6 +270,8 @@ describe('rollupMonthlyBucket', () => {
     await expect(rollupMonthlyBucket(ORG_UUID, '2026-3', sb as any)).rejects.toThrow('invalid yearMonth format');
     await expect(rollupMonthlyBucket(ORG_UUID, '2026-03-01', sb as any)).rejects.toThrow('invalid yearMonth format');
     await expect(rollupMonthlyBucket(ORG_UUID, 'bad', sb as any)).rejects.toThrow('invalid yearMonth format');
+    await expect(rollupMonthlyBucket(ORG_UUID, '2026-00', sb as any)).rejects.toThrow('invalid yearMonth format');
+    await expect(rollupMonthlyBucket(ORG_UUID, '2026-13', sb as any)).rejects.toThrow('invalid yearMonth format');
   });
 
   it('throws when usage_buckets_daily query fails', async () => {
