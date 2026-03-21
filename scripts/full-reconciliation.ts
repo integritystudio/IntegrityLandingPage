@@ -263,13 +263,13 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
         // Upsert subscriptions and collect entitlement rebuild targets.
         // The Stripe SDK requires a cast to access expanded `subscriptions` — guard
         // the shape at runtime so a SDK update that changes the structure fails fast.
-        const rawSubs = (customer as Stripe.Customer & { subscriptions?: Stripe.ApiList<Stripe.Subscription> }).subscriptions?.data;
-        if (rawSubs !== undefined && !Array.isArray(rawSubs)) {
+        const subsData = (customer as Stripe.Customer & { subscriptions?: Stripe.ApiList<Stripe.Subscription> }).subscriptions?.data;
+        if (subsData !== undefined && !Array.isArray(subsData)) {
           throw new Error(
-            `Unexpected subscriptions shape for customer ${customer.id}: expected array, got ${typeof rawSubs}`,
+            `Unexpected subscriptions shape for customer ${customer.id}: expected array, got ${typeof subsData}`,
           );
         }
-        const subs = rawSubs ?? [];
+        const subs = subsData ?? [];
 
         for (const sub of subs) {
           const tier = mapPriceToTier(sub.items.data[0]?.price.id);
