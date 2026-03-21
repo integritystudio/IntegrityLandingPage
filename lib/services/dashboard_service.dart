@@ -657,6 +657,8 @@ class DashboardService {
   ///
   /// Calls POST /v1/orgs/:orgId/billing-portal with the provided JWT.
   /// Requires owner or billing_admin role.
+  /// Retries up to [_maxRetries] times on transient network errors
+  /// with exponential backoff (1s, 2s).
   static Future<BillingPortalResponse> fetchBillingPortalUrl({
     required String orgId,
     required String jwt,
@@ -664,46 +666,70 @@ class DashboardService {
     if (orgId.isEmpty || orgId.contains(RegExp(r'[/?#%]'))) {
       return const BillingPortalError(error: _errorUnexpected);
     }
-    try {
-      final response = await _dio.post(
-        '$_apiGatewayUrl/v1/orgs/$orgId/billing-portal',
-        options: Options(
-          headers: {'Authorization': 'Bearer $jwt'},
-          validateStatus: (status) => status != null,
-        ),
-      );
+    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
+      try {
+        final response = await _dio.post(
+          '$_apiGatewayUrl/v1/orgs/$orgId/billing-portal',
+          options: Options(
+            headers: {'Authorization': 'Bearer $jwt'},
+            validateStatus: (status) => status != null,
+          ),
+        );
 
-      final data = response.data is Map<String, dynamic>
-          ? response.data as Map<String, dynamic>
-          : const <String, dynamic>{};
+        final data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : const <String, dynamic>{};
 
-      if (response.statusCode == HttpStatus.ok.code) {
-        final url = data['url'] as String?;
-        if (url == null || url.isEmpty) {
-          return const BillingPortalError(error: _errorUnexpected);
+        if (response.statusCode == HttpStatus.internalServerError.code ||
+            response.statusCode == HttpStatus.gatewayTimeout.code) {
+          if (attempt < _maxRetries) {
+            await retryDelay(Duration(seconds: 1 << attempt));
+            continue;
+          }
+          return const BillingPortalError(error: _errorServer);
         }
-        return BillingPortalSuccess(url: url);
-      }
 
-      return BillingPortalError(
-        error: data['error'] as String? ?? _errorUnexpected,
-      );
-    } on DioException catch (e) {
-      await ErrorTrackingService.captureException(
-        e,
-        stackTrace: e.stackTrace,
-        context: 'DashboardService.fetchBillingPortalUrl',
-        extra: {'orgId': orgId},
-      );
-      if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.receiveTimeout) {
-        return const BillingPortalError(error: _errorTimeout);
+        if (response.statusCode == HttpStatus.ok.code) {
+          final url = data['url'] as String?;
+          if (url == null || url.isEmpty) {
+            return const BillingPortalError(error: _errorUnexpected);
+          }
+          return BillingPortalSuccess(url: url);
+        }
+
+        return BillingPortalError(
+          error: data['error'] as String? ?? _errorUnexpected,
+        );
+      } on DioException catch (e) {
+        final isRetryable =
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+
+        if (isRetryable && attempt < _maxRetries) {
+          await retryDelay(Duration(seconds: 1 << attempt));
+          continue;
+        }
+
+        await ErrorTrackingService.captureException(
+          e,
+          stackTrace: e.stackTrace,
+          context: 'DashboardService.fetchBillingPortalUrl',
+          extra: {'orgId': orgId, 'attempt': attempt + 1},
+        );
+
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          return const BillingPortalError(error: _errorTimeout);
+        }
+        return const BillingPortalError(error: _errorNetwork);
+      } catch (e, stackTrace) {
+        await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+        return const BillingPortalError(error: _errorUnexpected);
       }
-      return const BillingPortalError(error: _errorNetwork);
-    } catch (e, stackTrace) {
-      await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
-      return const BillingPortalError(error: _errorUnexpected);
     }
+
+    return const BillingPortalError(error: _errorUnexpected);
   }
 
   /// Fetch the list of organizations the authenticated user belongs to.
