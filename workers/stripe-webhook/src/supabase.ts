@@ -1,5 +1,6 @@
 import { createSupabaseClient } from '../../lib/supabase';
 import type { BillingStatus, PlanKey } from '../../lib/types';
+import type { WebhookDeadLetter } from '../../lib/types.zod';
 import { DEAD_LETTER_INITIAL_RETRY_DELAY_MS, DEAD_LETTER_MAX_RETRIES } from '../../constants';
 
 type OkVoid = { ok: true };
@@ -159,23 +160,13 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     return toVoidResult(result);
   }
 
-  interface DeadLetter {
-    [key: string]: unknown;
-    id: string;
-    stripe_event_id: string;
-    event_type: string;
-    payload: unknown;
-    retry_count: number;
-    max_retries: number;
-  }
-
   /**
    * Fetch dead letters due for retry (status=pending, next_retry_at <= now, retry_count < max_retries).
    * Filters on next_retry_at to respect exponential backoff timing.
    */
-  async function fetchPendingDeadLetters(limit = 50): Promise<DeadLetter[]> {
+  async function fetchPendingDeadLetters(limit = 50): Promise<WebhookDeadLetter[]> {
     const now = new Date().toISOString();
-    const result = await sb.query<DeadLetter>('webhook_dead_letters', {
+    const result = await sb.query<WebhookDeadLetter>('webhook_dead_letters', {
       select: 'id, stripe_event_id, event_type, payload, retry_count, max_retries',
       filters: [
         { column: 'status', operator: 'eq', value: 'pending' },
