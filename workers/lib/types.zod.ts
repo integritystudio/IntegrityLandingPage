@@ -1,9 +1,34 @@
 import { z } from 'zod';
+import {
+  BillingStatusSchema,
+  PlanKeySchema,
+  OrgRoleSchema,
+  EntitlementSchema as CanonicalEntitlementSchema,
+  StripeEventSchema as CanonicalStripeEventSchema,
+  ApiKeySchema as CanonicalApiKeySchema,
+} from './types/schemas';
+
+// Re-export canonical schemas to consolidate access
+export {
+  BillingStatusSchema,
+  PlanKeySchema,
+  OrgRoleSchema,
+  EntitlementSchema as CanonicalEntitlementSchema,
+} from './types/schemas';
+
+export type BillingStatus = z.infer<typeof BillingStatusSchema>;
+export type PlanKey = z.infer<typeof PlanKeySchema>;
 
 // ============================================================================
 // JWT & Authentication (Two-Layer Architecture)
 // ============================================================================
 
+/**
+ * Enriched JWT from Supabase with custom org claims.
+ * Accepts additional unknown claims via .passthrough() to avoid breaking on
+ * new Supabase claims added during token evolution.
+ * Custom org claims (default_org_*) are optional to handle rollout gracefully.
+ */
 export const JWTPayloadSchema = z.object({
   sub: z.string().uuid('Supabase auth user ID'),
   email: z.string().email(),
@@ -11,41 +36,18 @@ export const JWTPayloadSchema = z.object({
   aud: z.literal('authenticated'),
   iat: z.number().int().positive('Issued at timestamp'),
   exp: z.number().int().positive('Expiration timestamp'),
-  org_ids: z.array(z.string().uuid('Organization ID')),
-  default_org_id: z.string().uuid(),
-  default_org_plan: z.enum(['free', 'growth', 'enterprise']),
-  default_org_role: z.enum(['owner', 'admin', 'member', 'billing_admin', 'viewer']),
-  default_org_billing_status: z.enum(['active', 'past_due', 'cancelled']),
-});
+  org_ids: z.array(z.string().uuid('Organization ID')).optional(),
+  default_org_id: z.string().uuid().optional(),
+  default_org_plan: z.enum(['free', 'growth', 'enterprise']).optional(),
+  default_org_role: z.enum(['owner', 'admin', 'member', 'billing_admin', 'viewer']).optional(),
+  default_org_billing_status: BillingStatusSchema.optional(),
+}).passthrough();
 
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
-
-export const APIKeySchema = z.object({
-  id: z.string().uuid(),
-  organization_id: z.string().uuid(),
-  user_id: z.string().uuid(),
-  prefix: z.string().regex(/^int_live_org_[a-z0-9]{8}$/),
-  hash: z.string().length(64, 'SHA-256 hash must be 64 hex chars'),
-  name: z.string().min(1).max(255),
-  tier: z.enum(['new', 'free', 'growth', 'enterprise']),
-  status: z.enum(['active', 'revoked', 'rotated']),
-  expires_at: z.string().datetime().nullable(),
-  created_at: z.string().datetime(),
-  revoked_at: z.string().datetime().nullable(),
-  last_used_at: z.string().datetime().nullable(),
-});
-
-export type APIKey = z.infer<typeof APIKeySchema>;
 
 // ============================================================================
 // Billing & Subscriptions (Stripe Integration)
 // ============================================================================
-
-export const BillingStatusSchema = z.enum(['active', 'past_due', 'cancelled', 'inactive']);
-export type BillingStatus = z.infer<typeof BillingStatusSchema>;
-
-export const PlanKeySchema = z.enum(['free', 'growth', 'enterprise']);
-export type PlanKey = z.infer<typeof PlanKeySchema>;
 
 export const SubscriptionSchema = z.object({
   id: z.string().uuid(),
@@ -53,7 +55,7 @@ export const SubscriptionSchema = z.object({
   stripe_subscription_id: z.string(),
   stripe_price_id: z.string(),
   status: z.enum(['active', 'trialing', 'past_due', 'canceled', 'unpaid', 'incomplete']),
-  tier: z.string().optional(),
+  tier: PlanKeySchema.optional(), // Use canonical PlanKeySchema, not raw string
   current_period_start: z.string().datetime(),
   current_period_end: z.string().datetime(),
   cancel_at_period_end: z.boolean().default(false),
@@ -63,27 +65,21 @@ export const SubscriptionSchema = z.object({
 
 export type Subscription = z.infer<typeof SubscriptionSchema>;
 
+/**
+ * Entitlement definition: static configuration of a feature's limits per plan.
+ * Allows zero limits for features that are conditionally disabled.
+ */
 export const EntitlementDefSchema = z.object({
-  feature_key: z.string(),
+  feature_key: z.string().min(1),
   enabled: z.boolean(),
-  hard_limit: z.number().int().positive().nullable(),
-  soft_limit: z.number().int().positive().nullable(),
+  hard_limit: z.number().int().nonnegative().nullable(), // Zero is valid (disabled)
+  soft_limit: z.number().int().nonnegative().nullable(),
 });
 
 export type EntitlementDef = z.infer<typeof EntitlementDefSchema>;
 
-export const EntitlementSchema = z.object({
-  id: z.string().uuid(),
-  organization_id: z.string().uuid(),
-  feature_key: z.string(),
-  enabled: z.boolean(),
-  hard_limit: z.number().int().positive().nullable(),
-  soft_limit: z.number().int().positive().nullable(),
-  created_at: z.string().datetime(),
-  updated_at: z.string().datetime(),
-});
-
-export type Entitlement = z.infer<typeof EntitlementSchema>;
+// Entitlement runtime state — use canonical CanonicalEntitlementSchema from schemas.ts
+export type Entitlement = z.infer<typeof CanonicalEntitlementSchema>;
 
 // ============================================================================
 // Stripe Webhook Events
@@ -91,29 +87,34 @@ export type Entitlement = z.infer<typeof EntitlementSchema>;
 
 export const StripeObjectSchema = z.record(z.unknown());
 
-export const StripeEventSchema = z.object({
-  id: z.string(),
+/**
+ * Enhanced Stripe event schema with stricter validation.
+ * Uses canonical StripeEventSchema from schemas.ts for basic structure,
+ * but validates critical fields more strictly for webhook processing.
+ */
+export const EnrichedStripeEventSchema = z.object({
+  id: z.string().min(1, 'Event ID cannot be empty'), // evt_[a-z0-9]+
   object: z.literal('event'),
   api_version: z.string().optional(),
-  created: z.number().int(),
+  created: z.number().int().min(1_000_000_000, 'Event timestamp must be valid Unix time (>= 2001)'),
   data: z.object({
     object: StripeObjectSchema,
     previous_attributes: z.record(z.unknown()).optional(),
   }),
   livemode: z.boolean(),
-  pending_webhooks: z.number().int(),
+  pending_webhooks: z.number().int().nonnegative(),
   request: z.object({
     id: z.string().nullable(),
     idempotency_key: z.string().nullable(),
   }).optional(),
-  type: z.string(),
+  type: z.string().min(1, 'Event type cannot be empty'),
 });
 
-export type StripeEvent = z.infer<typeof StripeEventSchema>;
+export type EnrichedStripeEvent = z.infer<typeof EnrichedStripeEventSchema>;
 
 export const StripeEventRecordSchema = z.object({
   id: z.string(),
-  event_type: z.string(),
+  event_type: z.string().min(1),
   processed_at: z.string().datetime(),
 });
 
@@ -126,19 +127,23 @@ export type StripeEventRecord = z.infer<typeof StripeEventRecordSchema>;
 export const QuotaMetricSchema = z.enum(['api_requests', 'data_retention_days', 'team_members', 'custom_dashboards']);
 export type QuotaMetric = z.infer<typeof QuotaMetricSchema>;
 
+/**
+ * Request to check quota availability. Quantity can be positive or zero,
+ * but not negative (use separate adjustment endpoint for decrements).
+ */
 export const QuotaCheckRequestSchema = z.object({
   org_id: z.string().uuid(),
   metric_key: QuotaMetricSchema,
-  quantity: z.number().int().positive(),
+  quantity: z.number().int().nonnegative(), // Zero is valid (dry-run check)
   plan: PlanKeySchema,
-  quota_version: z.number().int().non_negative(),
+  quota_version: z.number().int().nonnegative(),
 });
 
 export type QuotaCheckRequest = z.infer<typeof QuotaCheckRequestSchema>;
 
 export const QuotaCheckResponseSchema = z.object({
   ok: z.boolean(),
-  remaining: z.number().int().non_negative(),
+  remaining: z.number().int().nonnegative(),
   limit: z.number().int().positive(),
   soft_limit: z.number().int().positive().optional(),
   approaching_limit: z.boolean(),
@@ -161,14 +166,14 @@ export const QuotaStateSchema = z.object({
   metrics: z.record(
     QuotaMetricSchema,
     z.object({
-      used: z.number().int().non_negative(),
+      used: z.number().int().nonnegative(),
       limit: z.number().int().positive(),
       soft_limit: z.number().int().positive().optional(),
       reset_at: z.string().datetime(),
     })
   ),
   plan: PlanKeySchema,
-  quota_version: z.number().int().non_negative(),
+  quota_version: z.number().int().nonnegative(),
   updated_at: z.string().datetime(),
 });
 
@@ -187,14 +192,19 @@ export const HealthCheckResponseSchema = z.object({
 
 export type HealthCheckResponse = z.infer<typeof HealthCheckResponseSchema>;
 
+/**
+ * Webhook dead letter: failed event for retry or manual investigation.
+ * Constraint: retry_count must never exceed max_retries; max_retries can be zero
+ * for events that should not be retried (abandon immediately).
+ */
 export const WebhookDeadLetterSchema = z.object({
   id: z.string().uuid(),
-  stripe_event_id: z.string(),
-  event_type: z.string(),
+  stripe_event_id: z.string().min(1),
+  event_type: z.string().min(1),
   payload: z.record(z.unknown()),
   error_message: z.string().nullable(),
-  retry_count: z.number().int().non_negative(),
-  max_retries: z.number().int().positive(),
+  retry_count: z.number().int().nonnegative(),
+  max_retries: z.number().int().nonnegative(), // Zero = don't retry
   next_retry_at: z.string().datetime().nullable(),
   status: z.enum(['pending', 'processing', 'resolved', 'abandoned']),
   created_at: z.string().datetime(),
@@ -204,17 +214,23 @@ export const WebhookDeadLetterSchema = z.object({
 export type WebhookDeadLetter = z.infer<typeof WebhookDeadLetterSchema>;
 
 // ============================================================================
-// Security & Compliance
+// Security & Compliance (Tooling/Reports — not runtime)
 // ============================================================================
 
+/**
+ * NOTE: SecurityFindingSchema and VulnerabilityReportSchema are for security
+ * audit reports and tooling — NOT runtime worker data. Move to separate package
+ * if bundling becomes an issue.
+ */
+
 export const SecurityFindingSchema = z.object({
-  id: z.string(),
-  title: z.string(),
+  id: z.string().min(1),
+  title: z.string().min(1),
   severity: z.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']),
-  category: z.string(),
-  description: z.string(),
-  impact: z.string(),
-  mitigation: z.string(),
+  category: z.string().min(1),
+  description: z.string().min(1),
+  impact: z.string().min(1),
+  mitigation: z.string().min(1),
   code_example: z.string().optional(),
   references: z.array(z.string().url()).optional(),
   sprint: z.number().int().positive().optional(),
@@ -226,17 +242,17 @@ export const VulnerabilityReportSchema = z.object({
   generated_at: z.string().datetime(),
   findings: z.array(SecurityFindingSchema),
   summary: z.object({
-    critical: z.number().int().non_negative(),
-    high: z.number().int().non_negative(),
-    medium: z.number().int().non_negative(),
-    low: z.number().int().non_negative(),
+    critical: z.number().int().nonnegative(),
+    high: z.number().int().nonnegative(),
+    medium: z.number().int().nonnegative(),
+    low: z.number().int().nonnegative(),
   }),
   remediation_path: z.object({
     sprint_1_hours: z.number().positive(),
     sprint_1_items: z.array(z.string()),
     phases: z.array(z.object({
       phase: z.number().int().positive(),
-      title: z.string(),
+      title: z.string().min(1),
       items: z.array(z.string()),
     })),
   }),
@@ -245,7 +261,7 @@ export const VulnerabilityReportSchema = z.object({
 export type VulnerabilityReport = z.infer<typeof VulnerabilityReportSchema>;
 
 // ============================================================================
-// Request/Response Wrappers
+// Request/Response Wrappers (Generic Factories)
 // ============================================================================
 
 export const SuccessResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
@@ -257,8 +273,8 @@ export const SuccessResponseSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
 
 export const ErrorResponseSchema = z.object({
   ok: z.literal(false),
-  error: z.string(),
-  code: z.string().optional(),
+  error: z.string().min(1),
+  code: z.string().min(1).max(50).optional(), // Machine-consumable error code
   details: z.record(z.unknown()).optional(),
   timestamp: z.string().datetime().optional(),
 });
@@ -269,63 +285,17 @@ export const PaginatedResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =
     data: z.array(itemSchema),
     pagination: z.object({
       limit: z.number().int().positive(),
-      offset: z.number().int().non_negative(),
-      total: z.number().int().non_negative(),
+      offset: z.number().int().nonnegative(),
+      total: z.number().int().nonnegative(),
       has_more: z.boolean(),
     }),
     timestamp: z.string().datetime().optional(),
   });
 
 // ============================================================================
-// Organization & User
+// Summary
 // ============================================================================
-
-export const OrganizationSchema = z.object({
-  id: z.string().uuid(),
-  stripe_customer_id: z.string().nullable(),
-  name: z.string().min(1).max(255),
-  email: z.string().email(),
-  slug: z.string().regex(/^[a-z0-9-]+$/).min(3).max(50),
-  current_plan: PlanKeySchema,
-  billing_status: BillingStatusSchema,
-  quota_version: z.number().int().non_negative(),
-  created_at: z.string().datetime(),
-  updated_at: z.string().datetime(),
-});
-
-export type Organization = z.infer<typeof OrganizationSchema>;
-
-export const OrganizationMembershipSchema = z.object({
-  id: z.string().uuid(),
-  organization_id: z.string().uuid(),
-  user_id: z.string().uuid(),
-  role: z.enum(['owner', 'admin', 'member', 'billing_admin', 'viewer']),
-  created_at: z.string().datetime(),
-  updated_at: z.string().datetime(),
-});
-
-export type OrganizationMembership = z.infer<typeof OrganizationMembershipSchema>;
-
-// ============================================================================
-// Exports for convenience
-// ============================================================================
-
-export const AllSchemas = {
-  JWTPayload: JWTPayloadSchema,
-  APIKey: APIKeySchema,
-  Subscription: SubscriptionSchema,
-  Entitlement: EntitlementSchema,
-  EntitlementDef: EntitlementDefSchema,
-  StripeEvent: StripeEventSchema,
-  StripeEventRecord: StripeEventRecordSchema,
-  QuotaCheckRequest: QuotaCheckRequestSchema,
-  QuotaCheckResponse: QuotaCheckResponseSchema,
-  QuotaCommitRequest: QuotaCommitRequestSchema,
-  QuotaState: QuotaStateSchema,
-  HealthCheckResponse: HealthCheckResponseSchema,
-  WebhookDeadLetter: WebhookDeadLetterSchema,
-  SecurityFinding: SecurityFindingSchema,
-  VulnerabilityReport: VulnerabilityReportSchema,
-  Organization: OrganizationSchema,
-  OrganizationMembership: OrganizationMembershipSchema,
-};
+// Canonical schemas imported from ./schemas (BillingStatusSchema, PlanKeySchema, OrgRoleSchema)
+// New schemas defined in this file (JWT with org claims, Subscriptions, Quota, Webhooks, etc.)
+// Generic response factories (SuccessResponseSchema, ErrorResponseSchema, PaginatedResponseSchema)
+// All types exported via z.infer<> for full type safety

@@ -1,13 +1,11 @@
 # Top 20 most-changed files (last 200 commits)
 # commits  file
-  10 README.md
   10 lib/pages/provision_page.dart
   10 lib/pages/auth_page.dart
-  10 CLAUDE.md
    9 test/services/provisioning_service_test.dart
-   8 lib/pages/features_page.dart
+   8 README.md
+   8 CLAUDE.md
    7 e2e/tests/routing.spec.ts
-   7 e2e/tests/constants.ts
    6 workers/sender-worker/src/index.ts
    6 workers/lib/http/responses.ts
    6 workers/contact-form/src/index.ts
@@ -15,20 +13,15 @@
    6 lib/services/provisioning_service.dart
    6 lib/services/contact_service.dart
    6 lib/pages/contact_page.dart
+   6 e2e/tests/constants.ts
    5 workers/lib/http/request.ts
+   5 workers/api-gateway/src/index.ts
    5 test/services/contact_service_test.dart
    4 workers/receiver-worker/src/index.ts
    4 workers/lib/validation/parse.ts
    4 workers/lib/http/request.test.ts
 
 # Recent commits touching these files
-
-## README.md
-  8759937 2026-03-20 docs: update README and CLAUDE.md for sender-worker UI completion
-  f5369a6 2026-03-20 fix(provisioning): address code-reviewer findings
-  64ec76e 2026-03-20 docs(readme): add provisioning test documentation and npm script
-  0de71fb 2026-03-20 docs: add workers/lib module documentation
-  f7357dd 2026-03-19 docs: update CLAUDE.md and README for API provisioning workers
 
 ## lib/pages/provision_page.dart
   c3b9893 2026-03-20 fix(auth): update password placeholder to show 8-128 range; trailing blank line cleanup (L23/L4)
@@ -44,13 +37,6 @@
   a5767c4 2026-03-20 fix(auth,provision): defer analytics tracking and fix Alert spacing (M16, L19, L20)
   9581ce8 2026-03-20 fix(auth): add max password length validation to prevent DoS (M15)
 
-## CLAUDE.md
-  8759937 2026-03-20 docs: update README and CLAUDE.md for sender-worker UI completion
-  2784e1d 2026-03-20 docs: add session history and analytics debug documentation
-  0de71fb 2026-03-20 docs: add workers/lib module documentation
-  f7357dd 2026-03-19 docs: update CLAUDE.md and README for API provisioning workers
-  4e1eba1 2026-03-15 docs: update all docs for Phase 2/3b completion, test count 2440+, migrate Done items to changelog
-
 ## test/services/provisioning_service_test.dart
   9ea6256 2026-03-20 feat: implement sender-worker UI pages (auth, provision, health)
   4841b8d 2026-03-20 fix(analyzer): comment template code and add missing @override annotations
@@ -58,23 +44,23 @@
   edda3e1 2026-03-20 fix: address final review findings from backlog-implementer session
   5367b9e 2026-03-20 feat(T01): add per-attempt response data to MockProvisioningDio
 
-## lib/pages/features_page.dart
-  738417a 2026-03-19 refactor(#136): extract InfoCard from 4 duplicated card widgets
-  bafeb87 2026-03-17 refactor(#134): consolidate page scaffold into SubPageShell
-  c9d30fa 2026-03-14 refactor(widgets): add iconColor param to GradientPillBadge (L10)
-  671cf0a 2026-03-14 refactor(widgets): extract GradientPillBadge, consolidate 3 hero sections (#Phase3a)
-  40a5698 2026-03-13 fix(features-page): replace magic 100 with AppSpacing.radiusFull (#91)
+## README.md
+  8759937 2026-03-20 docs: update README and CLAUDE.md for sender-worker UI completion
+  f5369a6 2026-03-20 fix(provisioning): address code-reviewer findings
+  64ec76e 2026-03-20 docs(readme): add provisioning test documentation and npm script
+  0de71fb 2026-03-20 docs: add workers/lib module documentation
+  f7357dd 2026-03-19 docs: update CLAUDE.md and README for API provisioning workers
+
+## CLAUDE.md
+  8759937 2026-03-20 docs: update README and CLAUDE.md for sender-worker UI completion
+  2784e1d 2026-03-20 docs: add session history and analytics debug documentation
+  0de71fb 2026-03-20 docs: add workers/lib module documentation
+  f7357dd 2026-03-19 docs: update CLAUDE.md and README for API provisioning workers
+  4e1eba1 2026-03-15 docs: update all docs for Phase 2/3b completion, test count 2440+, migrate Done items to changelog
 
 ## e2e/tests/routing.spec.ts
   6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
   96765db 2026-03-14 docs: append code-reviewer findings to backlog, improve e2e comments and assertions
-  ece4d5d 2026-03-14 refactor(e2e): extract magic values to constants, remove duplicate tests
-  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
-  162cd6e 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
-
-## e2e/tests/constants.ts
-  6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
-  27a0285 2026-03-14 refactor(e2e): extract blog article slugs to constants (L05)
   ece4d5d 2026-03-14 refactor(e2e): extract magic values to constants, remove duplicate tests
   ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
   162cd6e 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
@@ -128,12 +114,26 @@
   6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
   33547c7 2026-03-14 refactor(content): remove Content static facade, migrate to ContentLoader (#106)
 
+## e2e/tests/constants.ts
+  6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
+  27a0285 2026-03-14 refactor(e2e): extract blog article slugs to constants (L05)
+  ece4d5d 2026-03-14 refactor(e2e): extract magic values to constants, remove duplicate tests
+  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
+  162cd6e 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
+
 ## workers/lib/http/request.ts
   74bd32f 2026-03-20 fix(lib): make safeParseJson return unknown type for type safety
   c2762ed 2026-03-20 refactor(lib): simplifier and linter cleanups
   4b67829 2026-03-20 refactor(lib): simplify validation & response code
   2db9223 2026-03-20 fix(lib): address code-reviewer findings
   941e436 2026-03-20 feat(lib): add http/request.ts — JSON parsing, bearer token, query params, method assertion
+
+## workers/api-gateway/src/index.ts
+  a645b8b 2026-03-20 feat(api-gateway): add API key create and revoke routes
+  2a913ba 2026-03-20 feat(api-gateway): add usage/summary and entitlements routes with dual auth
+  1065120 2026-03-20 feat(api-gateway): add org listing, dashboard, and billing-status routes
+  d2bab40 2026-03-20 feat(api-gateway): add GET /v1/me route with JWT auth
+  cf12889 2026-03-20 feat(api-gateway): scaffold worker with health route
 
 ## test/services/contact_service_test.dart
   44a2450 2026-03-17 fix: address code-reviewer findings for #134, M07, #138

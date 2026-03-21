@@ -47,3 +47,53 @@ export {
   type PaginationParams,
   type StripeEventBody,
 } from './types/request-bodies';
+
+// Re-export provisioning schemas
+export {
+  ProvisioningJobTypeSchema,
+  ProvisioningJobSourceSchema,
+  ProvisioningJobStatusSchema,
+  ProvisioningJobSchema,
+  UserCreatedPayloadSchema,
+  UserUpdatedPayloadSchema,
+  MembershipChangedPayloadSchema,
+  SubscriptionChangedPayloadSchema,
+  EntitlementsRecomputedPayloadSchema,
+  QuotaVersionBumpedPayloadSchema,
+} from './types/provisioning';
+
+// Re-export usage schemas
+export {
+  UsageEventSourceSchema,
+  UsageEventSchema,
+  UsageEventIngestionSchema,
+  UsageBucketSchema as UsageBucketDetailSchema,
+  MonthlyUsageSummarySchema,
+  UsageQueryResponseSchema,
+  UsageFlushResultSchema,
+} from './types/usage';
+
+// Re-export Supabase schemas
+export {
+  SupabaseRowSchema,
+  SupabaseQueryResultSchema,
+  SupabaseRpcResultSchema,
+  QueryFilterSchema,
+  QueryOptionsSchema,
+  InsertOptionsSchema,
+  UpdateOptionsSchema,
+  RpcOptionsSchema,
+  FilterOperatorSchema,
+} from './types/supabase';
+
+// Re-export audit/compliance schemas
+export {
+  AuditActionSchema,
+  AuditLogSchema,
+  UserActivitySchema,
+  DeviceTypeSchema,
+  UserSessionSchema,
+  UserSessionsResponseSchema,
+  BillingEventTypeSchema,
+  BillingEventLogSchema,
+} from './types/audit';

@@ -1,3 +1,7 @@
+// ============================================================================
+// Core Types
+// ============================================================================
+
 export type OrgRole = 'owner' | 'admin' | 'member' | 'billing_admin' | 'viewer';
 export type BillingStatus = 'inactive' | 'active' | 'past_due' | 'canceled';
 export type PlanKey = 'free' | 'growth' | 'enterprise';
@@ -94,3 +98,56 @@ export interface UsageBucket {
   request_count: number;
   avg_latency_ms: number | null;
 }
+
+// ============================================================================
+// Re-exports from Zod schema files for convenience
+// ============================================================================
+
+// Provisioning
+export type {
+  ProvisioningJob,
+  ProvisioningJobType,
+  ProvisioningJobSource,
+  ProvisioningJobStatus,
+  UserCreatedPayload,
+  UserUpdatedPayload,
+  MembershipChangedPayload,
+  SubscriptionChangedPayload,
+  EntitlementsRecomputedPayload,
+  QuotaVersionBumpedPayload,
+} from './provisioning';
+
+// Usage
+export type {
+  UsageEvent,
+  UsageEventSource,
+  UsageEventIngestion,
+  MonthlyUsageSummary,
+  UsageQueryResponse,
+  UsageFlushResult,
+} from './usage';
+
+// Supabase
+export type {
+  SupabaseRow,
+  SupabaseQueryResult,
+  SupabaseRpcResult,
+  QueryFilter,
+  QueryOptions,
+  InsertOptions,
+  UpdateOptions,
+  RpcOptions,
+  FilterOperator,
+} from './supabase';
+
+// Audit & Compliance
+export type {
+  AuditLog,
+  AuditAction,
+  UserActivity,
+  UserSession,
+  UserSessionsResponse,
+  BillingEventLog,
+  BillingEventType,
+  DeviceType,
+} from './audit';
