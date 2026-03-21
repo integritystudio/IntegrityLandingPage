@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../theme/decorations.dart';
 import '../../theme/theme.dart';
 import 'buttons.dart';
 
@@ -29,11 +30,7 @@ class ErrorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        border: Border.all(color: AppColors.gray700),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-      ),
+      decoration: AppDecorations.card(borderColor: AppColors.gray700),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
