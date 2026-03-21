@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup & Final Fixes; L16 Design System + M34 Subscription Upsert Complete; 3 commits (5786939, 33aa1a2, cf5059c); 31 items migrated to v1.2 changelog; 4 remaining design-decision items (T25, T28, M38, M39)
+**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup & Final Fixes; M34 Migrated to v1.2; 32 items migrated to v1.2 changelog; 4 remaining design-decision items (T25, T28, M38, M39)
 
 ---
 
@@ -273,23 +273,6 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 ---
 
 ## Code Review Findings: Stripe Webhook — Remaining Medium Items
-
-### M34: Subscription Upsert Conflict Key Does Not Handle Plan Upgrades With New Subscription IDs
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code review analysis, 2026-03-21
-
-`upsertSubscription` uses conflict key `(organization_id, stripe_subscription_id)`. When a customer upgrades from free to paid, Stripe may issue a brand-new `stripe_subscription_id`. This inserts a new row rather than updating the existing one, leaving two rows for the same org in the `subscriptions` table — one from the old plan, one from the new. `organizations.current_plan` is updated separately by `updateOrgBillingStatus` (driven by `customer.subscription.updated`) so direct `orgs` queries remain correct, but any direct query on the `subscriptions` table could return multiple active rows.
-
-**Fix options:**
-1. Before upserting, soft-delete (status='canceled') any existing subscription row for the org where `stripe_subscription_id` differs
-2. Use `organization_id` alone as the conflict key if the business rule is one active subscription per org
-3. Accept multi-row state and always join via `organizations.current_plan` rather than `subscriptions`
-
-**File:** `workers/stripe-webhook/src/supabase.ts:38–58`
-
-**Status:** ✅ Done — Option 1 implemented (commits 33aa1a2, cf5059c). `upsertSubscription` soft-deletes (status='canceled') any active subscription for the org where `stripe_subscription_id` differs before the upsert. Soft-delete filter: org_id eq, sub_id neq, status neq 'canceled' (prevents spurious DB writes on already-canceled rows). Two new tests cover cancellation filter and soft-delete failure propagation (61 tests passing).
-
----
 
 ### M38: Dead Letter Re-run Handler Without Distinguishing "Log-Failed" From Handler Failures
 

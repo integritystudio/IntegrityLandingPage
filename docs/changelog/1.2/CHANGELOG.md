@@ -486,10 +486,12 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - Commit: `9a154ea`
 
 **M34: Subscription Upsert Conflict Key Doesn't Handle Plan Upgrades**
-- Added doc comment to `upsertSubscription` documenting conflict key semantics
-- Clarifies one-subscription-per-org assumption; plan upgrades/downgrades reuse same `stripe_subscription_id`
-- Last-write-wins strategy for `stripe_price_id` on conflict
-- Commit: `e9046de`
+- Phase 1 (doc): Added doc comment to `upsertSubscription` documenting conflict key semantics; clarifies one-subscription-per-org assumption (commit `e9046de`)
+- Phase 2 (fix): Implemented Option 1 — soft-delete prior subscriptions with different `stripe_subscription_id` before upsert
+  - Prevents multi-row state when Stripe issues new subscription ID on free→paid upgrade
+  - Soft-delete filter: `(org_id eq, sub_id neq, status neq 'canceled')` prevents unnecessary rewrites on already-canceled rows
+  - Two new tests: cancellation filter shape, soft-delete failure propagation; 61 stripe-webhook tests passing
+  - Commits: `33aa1a2`, `cf5059c`
 
 **M35-B: Dead Letter Reconciliation Partial Failure Leaves Inconsistent State**
 - Added error logging at both `resolveDeadLetter` call sites
@@ -577,5 +579,17 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - Matches `_MetricTable._formatMetricKey` and `_EntitlementsGrid._formatKey` patterns
 - Applied in `QuotaStatusPage._PlanBadge` render
 - Commit: `b92d558`
+
+**L16: Incomplete Scope — Update Remaining Card Containers in Dashboard Pages**
+- L10 refactored `_BillingCard` and `ErrorCard` to use `AppDecorations.card()`, but three card containers remained inconsistent
+- `_QuotaCard` (quota_status_page.dart), `_buildOrgContextCard` (provision_page.dart), and email badge Container now all use `AppDecorations.card(borderColor: AppColors.gray700)`
+- Single point of change for card styling across dashboard
+
+**M37: DeadLetter and WebhookDeadLetter Interface Duplication**
+- Two canonical definitions existed: `DeadLetter` (module-level in supabase.ts, 6 fields) and `WebhookDeadLetter` (Zod schema, 8 fields)
+- Added JSDoc cross-references documenting the projection vs full-row relationship
+- `DeadLetter` represents query projection (6 fields); `WebhookDeadLetter` schema includes metadata (8 fields)
+- Eliminates confusion on structural differences and appropriate use-case for each
+- Commit: `8fd1d47`
 
 ---
