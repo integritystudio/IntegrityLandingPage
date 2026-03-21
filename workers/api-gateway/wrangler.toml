@@ -1,0 +1,9 @@
+name = "api-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-03-19"
+
+# Secrets (set via: wrangler secret put <NAME>)
+# SUPABASE_URL
+# SUPABASE_SERVICE_ROLE_KEY
+# SUPABASE_JWT_SECRET
+# API_KEY_HMAC_SECRET
