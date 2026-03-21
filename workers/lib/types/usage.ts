@@ -124,6 +124,28 @@ export const UsageQueryResponseSchema = z.object({
 export type UsageQueryResponse = z.infer<typeof UsageQueryResponseSchema>;
 
 /**
+ * OpenTelemetry span (simplified OTLP-compatible shape)
+ * Used by POST /v1/ingest/otel for service telemetry ingestion
+ */
+export const OtelSpanSchema = z.object({
+  trace_id: z.string().min(1).max(64),
+  span_id: z.string().min(1).max(32),
+  name: z.string().min(1).max(256),
+  start_time_ms: z.number().int().nonnegative(),
+  duration_ms: z.number().int().nonnegative(),
+  status: z.enum(['ok', 'error', 'unset']).default('unset'),
+  attributes: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+});
+
+export type OtelSpan = z.infer<typeof OtelSpanSchema>;
+
+export const IngestOtelRequestSchema = z.object({
+  spans: z.array(OtelSpanSchema).min(1).max(1_000),
+});
+
+export type IngestOtelRequest = z.infer<typeof IngestOtelRequestSchema>;
+
+/**
  * Usage flush operation (periodic aggregation)
  * Moves event data from usage_events into usage_buckets_daily and monthly rollups
  */

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { handleIngestEvent } from './ingest';
+import { handleIngestEvent, handleIngestOtel } from './ingest';
 import { hashApiKeySecret } from '../../../lib/api-keys';
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
@@ -169,5 +169,127 @@ describe('POST /v1/ingest/events', () => {
     const req = makeRequest(validBody(), token);
     await handleIngestEvent(req, makeOpts(mockSb), waitUntil);
     expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
+  });
+});
+
+const validSpan = () => ({
+  trace_id: 'abc123def456',
+  span_id: 'span001',
+  name: 'test-span',
+  start_time_ms: 1700000000000,
+  duration_ms: 42,
+});
+
+const makeOtelRequest = (body: unknown, token: string) =>
+  new Request('https://api.test/v1/ingest/otel', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+describe('POST /v1/ingest/otel', () => {
+  it('returns 401 when no auth header', async () => {
+    const req = new Request('https://api.test/v1/ingest/otel', { method: 'POST' });
+    const res = await handleIngestOtel(req, makeOpts(null));
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 when JWT is used instead of API key', async () => {
+    const token = await makeJwt({ sub: USER_ID });
+    const mockSb = makeMockSb();
+    const req = makeOtelRequest({ spans: [validSpan()] }, token);
+    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 422 when spans array is missing', async () => {
+    const secret = 'testsecret32charsminimumvalue000';
+    const apiKeyRow = await makeApiKeyRow();
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    const req = makeOtelRequest({}, `int_live_abc12345_${secret}`);
+    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    expect(res.status).toBe(422);
+  });
+
+  it('returns 422 when spans array is empty', async () => {
+    const secret = 'testsecret32charsminimumvalue000';
+    const apiKeyRow = await makeApiKeyRow();
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    const req = makeOtelRequest({ spans: [] }, `int_live_abc12345_${secret}`);
+    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    expect(res.status).toBe(422);
+  });
+
+  it('returns 202 with request_id and span_count for valid API key', async () => {
+    const secret = 'testsecret32charsminimumvalue000';
+    const apiKeyRow = await makeApiKeyRow();
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    const req = makeOtelRequest({ spans: [validSpan()] }, `int_live_abc12345_${secret}`);
+    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    expect(res.status).toBe(202);
+    const body = await res.json() as any;
+    expect(body.ok).toBe(true);
+    expect(typeof body.request_id).toBe('string');
+    expect(body.span_count).toBe(1);
+  });
+
+  it('inserts usage event with correct fields', async () => {
+    const secret = 'testsecret32charsminimumvalue000';
+    const apiKeyRow = await makeApiKeyRow();
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    const spans = [validSpan(), { ...validSpan(), span_id: 'span002' }];
+    const req = makeOtelRequest({ spans }, `int_live_abc12345_${secret}`);
+    await handleIngestOtel(req, makeOpts(mockSb));
+
+    expect(mockSb.insert).toHaveBeenCalledWith(
+      'usage_events',
+      expect.objectContaining({
+        organization_id: ORG_ID,
+        metric_key: 'otel_events',
+        quantity: 2,
+        source: 'ingest',
+        route: '/v1/ingest/otel',
+        api_key_id: 'key-id-1',
+      }),
+    );
+  });
+
+  it('returns 500 when insert fails', async () => {
+    const secret = 'testsecret32charsminimumvalue000';
+    const apiKeyRow = await makeApiKeyRow();
+    const mockSb = makeMockSb({
+      query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }),
+      insert: vi.fn().mockResolvedValue({ ok: false, error: 'DB error' }),
+    });
+    const req = makeOtelRequest({ spans: [validSpan()] }, `int_live_abc12345_${secret}`);
+    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    expect(res.status).toBe(500);
+  });
+
+  it('calls waitUntil with rollup promise when provided', async () => {
+    const secret = 'testsecret32charsminimumvalue000';
+    const apiKeyRow = await makeApiKeyRow();
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    const waitUntil = vi.fn();
+    const req = makeOtelRequest({ spans: [validSpan()] }, `int_live_abc12345_${secret}`);
+    await handleIngestOtel(req, makeOpts(mockSb), waitUntil);
+    expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
+  });
+
+  it('accepts optional span attributes and status', async () => {
+    const secret = 'testsecret32charsminimumvalue000';
+    const apiKeyRow = await makeApiKeyRow();
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    const spanWithAttrs = {
+      ...validSpan(),
+      status: 'error' as const,
+      attributes: { 'http.method': 'GET', 'http.status_code': 500, 'error': true },
+    };
+    const req = makeOtelRequest({ spans: [spanWithAttrs] }, `int_live_abc12345_${secret}`);
+    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    expect(res.status).toBe(202);
   });
 });

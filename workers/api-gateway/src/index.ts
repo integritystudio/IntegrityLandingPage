@@ -5,7 +5,7 @@ import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBilli
 import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './routes/usage';
 import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
 import { handleHealthCheck } from './routes/health';
-import { handleIngestEvent } from './routes/ingest';
+import { handleIngestEvent, handleIngestOtel } from './routes/ingest';
 import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
 
@@ -78,6 +78,14 @@ export default {
 
     if (pathname === '/v1/ingest/events' && request.method === 'POST') {
       return handleIngestEvent(
+        request,
+        { ...machineRouteOpts },
+        ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
+      );
+    }
+
+    if (pathname === '/v1/ingest/otel' && request.method === 'POST') {
+      return handleIngestOtel(
         request,
         { ...machineRouteOpts },
         ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,

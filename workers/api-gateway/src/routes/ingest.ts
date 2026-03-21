@@ -4,7 +4,7 @@ import { verifyJwt } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership } from '../../../lib/types';
-import { IngestEventRequestSchema, type IngestEventRequest } from '../../../lib/types/usage';
+import { IngestEventRequestSchema, IngestOtelRequestSchema, type IngestEventRequest } from '../../../lib/types/usage';
 import { rollupDailyBucket } from '../aggregation';
 
 type IngestAuth =
@@ -128,4 +128,73 @@ export async function handleIngestEvent(
   }
 
   return json({ ok: true, request_id: requestId }, { status: 202 });
+}
+
+const OTEL_INGEST_ROUTE = '/v1/ingest/otel';
+const OTEL_METRIC_KEY = 'otel_events';
+const OTEL_MAX_SPANS = 1_000;
+
+/**
+ * POST /v1/ingest/otel — OpenTelemetry span ingestion (API key auth only)
+ *
+ * Accepts a batch of simplified OTLP-compatible spans, writes a usage event
+ * with metric_key='otel_events' and quantity=spans.length for quota tracking,
+ * and stores span data in metadata. Fire-and-forget daily rollup via waitUntil.
+ */
+export async function handleIngestOtel(
+  request: Request,
+  opts: IngestHandlerOptions,
+  waitUntil?: (p: Promise<unknown>) => void,
+): Promise<Response> {
+  const tokenResult = requireBearerToken(request);
+  if (!tokenResult.ok) return tokenResult.error;
+
+  const parsedKey = parseApiKey(tokenResult.token);
+  if (!parsedKey.ok) return unauthorized('OTEL ingest requires API key authentication');
+
+  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const keyResult = await verifyApiKey(tokenResult.token, opts.hmacSecret, sb);
+  if (!keyResult.ok) return keyResult.error;
+
+  const bodyResult = await safeParseJson(request);
+  if (!bodyResult.ok) return bodyResult.error;
+
+  const parsed = IngestOtelRequestSchema.safeParse(bodyResult.data);
+  if (!parsed.success) {
+    return unprocessableEntity('Validation failed', parsed.error.flatten().fieldErrors);
+  }
+
+  const { spans } = parsed.data;
+  const orgId = keyResult.organizationId;
+  const requestId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const bucketDate = now.slice(0, 10);
+
+  const insertResult = await sb.insert('usage_events', {
+    organization_id: orgId,
+    user_id: null,
+    api_key_id: keyResult.apiKey.id,
+    metric_key: OTEL_METRIC_KEY,
+    quantity: spans.length,
+    route: OTEL_INGEST_ROUTE,
+    request_id: requestId,
+    source: 'ingest',
+    status_code: null,
+    latency_ms: null,
+    metadata: { span_count: spans.length, spans },
+    created_at: now,
+  });
+
+  if (!insertResult.ok) {
+    return serverError('Failed to store OTEL spans');
+  }
+
+  if (waitUntil) {
+    waitUntil(
+      rollupDailyBucket(orgId, bucketDate, sb)
+        .catch(err => console.error('[ingest/otel] rollup failed', err)),
+    );
+  }
+
+  return json({ ok: true, request_id: requestId, span_count: spans.length }, { status: 202 });
 }
