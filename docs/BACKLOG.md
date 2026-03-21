@@ -272,7 +272,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 **Fix:** Define Zod schemas for each event object type (`CheckoutSession`, `Subscription`, `Invoice`) and parse with `safeParse`. Project has Zod infrastructure in `workers/lib/validation/`.
 
-**Status:** Open
+**Status:** ✅ Done — commit 29a71d1. `CheckoutSessionSchema`, `SubscriptionSchema`, `InvoiceSchema` added to `stripe-schemas.ts`; all `as any` casts replaced with `safeParse` + typed error returns.
 
 ---
 
