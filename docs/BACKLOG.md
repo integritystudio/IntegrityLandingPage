@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md` and `docs/changelog/1.1/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-20 | **Phase:** Sender-Worker UI + Quota Integration Complete
+**Last Updated:** 2026-03-21 | **Phase:** Sender-Worker UI + Quota Integration Complete
 
 ---
 
@@ -533,4 +533,26 @@ Replace unsafe TypeScript `as` casts in `workers/api-gateway/src/lib/quota.ts` w
 
 ---
 
-*Last updated: 2026-03-20 — P01 (Zod DO response validation) Done. Remaining open items: M18 (Partial), T25 (Partial), T24-M4 (Deferred), T28 (Deferred).*
+---
+
+### M23: Log Failures in `handleWebhook` When Recording Processed Events
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21 (T23-M4/H19-M3 final review)
+
+`workers/stripe-webhook/src/index.ts:89` — `logProcessedEvent` result is silently discarded. If the write fails, the event is treated as successfully processed but the idempotency record is never written. A subsequent Stripe retry will reprocess the event. While this maintains eventual consistency (the handler is idempotent), it increases load and latency. Add error logging and consider returning a failure response or retry signal.
+
+**Status:** Done — `logProcessedEvent` result captured; `console.error` on failure in both `handleWebhook` and `runReconciliation`; consoleSpy lifted to beforeEach/afterEach (commits f2b28a1, cc6c88e, 7dee8b3)
+
+---
+
+### M24: Add Error Logging to `fetchPendingDeadLetters` on DB Failure
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21 (T23-M4/H19-M3 final review)
+
+`workers/stripe-webhook/src/supabase.ts:194` — On DB query error, `fetchPendingDeadLetters` silently returns an empty array with no log output. This causes the reconciliation cron to "succeed" and suppress observability of the outage. Add `console.error` logging when `!result.ok` to surface DB failures in monitoring.
+
+**Status:** Done — Split silent guard; `console.error` on `!result.ok`; `DeadLetter` index signature fixed; tests cover DB error and non-array paths (commits f2b28a1, cc6c88e, 7dee8b3)
+
+---
+
+*Last updated: 2026-03-21 — H19-M3 and T23-M4 Done via TDD. M23, M24 Done (session 2026-03-21).*
