@@ -1,12 +1,12 @@
 ## Status: Phase 1-4 COMPLETE
 
-**Last Updated:** 2026-03-20 | **Session Focus:** Usage Ledger Ingestion (V01) & Monthly Aggregation (V03)
-**Build Status:** ✅ All tests passing (2523+ tests, ~94% coverage)
+**Last Updated:** 2026-03-21 | **Session Focus:** Flutter Dashboard UI (V02 usage summary display partial)
+**Build Status:** ✅ All tests passing (2594+ tests, ~94% coverage)
 
 - **Phase 1 (Sender-Worker UI):** ✅ COMPLETE — AuthPage, ProvisionPage, SenderHealthPage, JWT provisioning flow, HMAC-SHA256 signing, CORS preflight
 - **Phase 2 (SaaS Infra):** ✅ COMPLETE — Supabase schema (29 tables, RLS, triggers), Auth0 identity integration, Stripe webhooks, Worker API gateway, Durable Objects per-org quota
 - **Phase 3 (Bootstrap + Webhook Workers):** ✅ COMPLETE — Bootstrap worker (JWT verify → org/membership/entitlements/usage context), Stripe webhook worker (signature verify → subscription sync), shared Zod validation schemas, shared HTTP utilities (CORS, JSON parsing, request/response helpers)
-- **Phase 4 (Database + API Gateway):** ✅ COMPLETE — Full API gateway routes; ✅ V01 (Usage Ledger Ingestion): POST /v1/ingest/events with JWT/API key auth, Zod validation, daily rollup via waitUntil, 83 passing tests; ✅ V03 (Monthly Aggregation): rollupMonthlyBucket with per-metric breakdown, weighted latency, 9 passing tests; ✅ Durable Objects per-org quota fully wired; ✅ JWT issuer validation (V-02), timing-safe HMAC comparisons (H19); **remaining: Flutter dashboard UI**
+- **Phase 4 (Database + API Gateway):** ✅ COMPLETE — Full API gateway routes; ✅ V01 (Usage Ledger Ingestion): POST /v1/ingest/events with JWT/API key auth, Zod validation, daily rollup via waitUntil, 83 passing tests; ✅ V03 (Monthly Aggregation): rollupMonthlyBucket with per-metric breakdown, weighted latency, 9 passing tests; ✅ Durable Objects per-org quota fully wired; ✅ JWT issuer validation (V-02), timing-safe HMAC comparisons (H19); **in progress: V02 (Flutter Dashboard)** — ✅ BillingStatusPage (plan + status + renewal), ✅ UsageSummaryPage (progress bar + per-metric breakdown, commits 55c4a86, e066900), ✅ DashboardService with input validation (orgId path traversal checks); remaining: org switcher, Stripe portal link, real-time polling, entitlements grid
 
 ---
 
