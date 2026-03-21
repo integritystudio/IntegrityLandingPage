@@ -119,7 +119,7 @@ class _UsageSummaryPageState extends State<UsageSummaryPage> {
       body: GradientBackground(
         child: Center(
           child: ResponsiveContainer(
-            maxWidth: 680,
+            maxWidth: 600,
             additionalPadding:
                 EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
             child: Column(
@@ -265,6 +265,9 @@ class _UsageSummaryCard extends StatelessWidget {
 }
 
 class _UsageBar extends StatelessWidget {
+  static const double _dangerThreshold = 0.90;
+  static const double _warningThreshold = 0.75;
+
   final int usedUnits;
   final int quotaUnits;
   final double ratio;
@@ -278,8 +281,8 @@ class _UsageBar extends StatelessWidget {
   });
 
   Color _barColor() {
-    if (ratio >= 0.9) return AppColors.error;
-    if (ratio >= 0.75) return AppColors.warning;
+    if (ratio >= _dangerThreshold) return AppColors.error;
+    if (ratio >= _warningThreshold) return AppColors.warning;
     return AppColors.blue500;
   }
 

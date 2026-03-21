@@ -94,6 +94,19 @@ class UsageSummaryData {
     required this.periodStart,
     required this.buckets,
   });
+
+  factory UsageSummaryData.fromJson(Map<String, dynamic> json) {
+    final bucketsRaw = json['buckets'];
+    return UsageSummaryData(
+      orgId: json['org_id'] as String? ?? '',
+      periodStart: json['period_start'] as String? ?? '',
+      buckets: bucketsRaw is List
+          ? bucketsRaw
+              .map((b) => UsageBucket.fromJson(b as Map<String, dynamic>))
+              .toList()
+          : <UsageBucket>[],
+    );
+  }
 }
 
 /// Usage summary API response.
@@ -260,18 +273,8 @@ class DashboardService {
         }
 
         if (response.statusCode == HttpStatus.ok.code) {
-          final bucketsRaw = data['buckets'];
-          final buckets = bucketsRaw is List
-              ? bucketsRaw
-                  .map((b) => UsageBucket.fromJson(b as Map<String, dynamic>))
-                  .toList()
-              : <UsageBucket>[];
           return UsageSummarySuccess(
-            data: UsageSummaryData(
-              orgId: data['org_id'] as String? ?? orgId,
-              periodStart: data['period_start'] as String? ?? '',
-              buckets: buckets,
-            ),
+            data: UsageSummaryData.fromJson(data),
           );
         }
 
