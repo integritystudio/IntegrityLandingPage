@@ -188,22 +188,50 @@ describe('handleWebhook (fetch handler)', () => {
     expect(response.status).toBe(404);
   });
 
-  it('logProcessedEvent failure → console.error logged, 200 still returned', async () => {
+  it('logProcessedEvent failure → dead letter inserted, processed:false returned', async () => {
     const body = JSON.stringify({ id: 'evt_abc', type: 'checkout.session.completed' });
     const request = await makeWebhookRequest(body);
 
     mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
     mockHandleCheckout.mockResolvedValue({ ok: true });
     mockDb.logProcessedEvent.mockResolvedValue({ ok: false, error: 'DB write failed' });
+    mockDb.addDeadLetter.mockResolvedValue({ ok: true });
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    const json = await response.json<{ ok: boolean; processed: boolean; error: string }>();
+
+    expect(response.status).toBe(200);
+    expect(json.processed).toBe(false);
+    expect(json.error).toBe('Failed to log processed event');
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to log processed event evt_abc'),
+      'DB write failed',
+    );
+    expect(mockDb.addDeadLetter).toHaveBeenCalledWith(
+      'evt_abc',
+      'checkout.session.completed',
+      expect.any(Object),
+      expect.stringContaining('logProcessedEvent failed'),
+    );
+  });
+
+  it('logProcessedEvent failure + addDeadLetter failure → CRITICAL logged, processed:false returned', async () => {
+    const body = JSON.stringify({ id: 'evt_abc2', type: 'checkout.session.completed' });
+    const request = await makeWebhookRequest(body);
+
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleCheckout.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: false, error: 'DB write failed' });
+    mockDb.addDeadLetter.mockResolvedValue({ ok: false, error: 'DB unavailable' });
 
     const response = await worker.fetch(request, MOCK_ENV);
     const json = await response.json<{ ok: boolean; processed: boolean }>();
 
     expect(response.status).toBe(200);
-    expect(json.processed).toBe(true);
+    expect(json.processed).toBe(false);
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Failed to log processed event evt_abc'),
-      'DB write failed',
+      expect.stringContaining('CRITICAL'),
+      'DB unavailable',
     );
   });
 });

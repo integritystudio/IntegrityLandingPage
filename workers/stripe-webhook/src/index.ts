@@ -96,6 +96,22 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   const logResult = await db.logProcessedEvent(event.id, event.type);
   if (!logResult.ok) {
     console.error(`Failed to log processed event ${event.id} (${event.type}):`, logResult.error);
+    // Handler succeeded but idempotency log write failed. Write to dead letter so cron retries
+    // the full sequence (handler + logProcessedEvent). Without a log entry the idempotency guard
+    // cannot protect against Stripe retries replaying the event.
+    const deadLetterResult = await db.addDeadLetter(
+      event.id,
+      event.type,
+      event,
+      `logProcessedEvent failed: ${logResult.error}`,
+    );
+    if (!deadLetterResult.ok) {
+      console.error(
+        `CRITICAL: Failed to dead-letter event ${event.id} after logProcessedEvent failure. Event may be processed again on Stripe retry.`,
+        deadLetterResult.error,
+      );
+    }
+    return ok({ ok: true, processed: false, error: 'Failed to log processed event' });
   }
 
   return ok({ ok: true, processed: true });
