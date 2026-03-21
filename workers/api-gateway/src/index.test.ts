@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import worker from './index';
 import type { Env } from './index';
+import * as quotaLib from './lib/quota';
 
 const makeEnv = (overrides: Partial<Env> = {}): Env => ({
   SUPABASE_URL: 'https://test.supabase.co',
@@ -42,6 +43,62 @@ describe('api-gateway', () => {
     it('returns 404 for unknown path', async () => {
       const res = await worker.fetch(makeRequest('GET', '/unknown'), makeEnv());
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe('quota enforcement on org routes', () => {
+    beforeEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('returns 429 with quota headers when quota is exceeded', async () => {
+      vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({
+        ok: false,
+        response: new Response(
+          JSON.stringify({ error: { message: 'Too Many Requests', reason: 'minute_limit' } }),
+          {
+            status: 429,
+            headers: {
+              'Content-Type': 'application/json',
+              'X-RateLimit-Remaining-Minute': '0',
+            },
+          },
+        ),
+      });
+
+      const res = await worker.fetch(
+        makeRequest('GET', '/v1/orgs/org-123/dashboard'),
+        makeEnv(),
+      );
+
+      expect(res.status).toBe(429);
+      expect(res.headers.get('X-RateLimit-Remaining-Minute')).toBe('0');
+      const body = (await res.json()) as Record<string, unknown>;
+      expect(body).toHaveProperty('error');
+    });
+
+    it('allows through when quota check passes', async () => {
+      vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true });
+
+      // Route still needs auth — expect 401, not 404/429
+      const res = await worker.fetch(
+        makeRequest('GET', '/v1/orgs/org-123/dashboard'),
+        makeEnv(),
+      );
+
+      expect(res.status).toBe(401);
+    });
+
+    it('allows through when quota check fails (fail-open)', async () => {
+      vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true });
+
+      const res = await worker.fetch(
+        makeRequest('GET', '/v1/orgs/org-123/entitlements'),
+        makeEnv(),
+      );
+
+      // Quota passed → route executes → no token → 401
+      expect(res.status).toBe(401);
     });
   });
 });

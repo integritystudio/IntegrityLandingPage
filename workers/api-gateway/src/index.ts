@@ -5,6 +5,7 @@ import { handleUsageSummary, handleOrgEntitlements } from './routes/usage';
 import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
 import { handleHealthCheck } from './routes/health';
 import { QuotaDurableObject } from './durable-objects/quota';
+import { enforceOrgQuota } from './lib/quota';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -53,6 +54,15 @@ export default {
     if (orgMatch) {
       const orgId = orgMatch[1];
       const subPath = orgMatch[2] ?? '';
+
+      const quotaOpts = {
+        doNamespace: env.QUOTA_DO,
+        supabaseUrl: env.SUPABASE_URL,
+        serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+      };
+
+      const quota = await enforceOrgQuota(orgId, quotaOpts);
+      if (!quota.ok) return quota.response;
 
       if (subPath === '/dashboard' && request.method === 'GET') {
         return handleOrgDashboard(request, orgId, routeOpts);
