@@ -291,6 +291,7 @@ class DashboardService {
   static const String _errorNetwork = 'Network error. Please try again.';
   static const String _errorServer = 'Server error. Please try again.';
   static const String _errorUnexpected = 'An unexpected error occurred.';
+  // Max retry attempts (2 retries = 3 total attempts: initial + 2 retries)
   static const int _maxRetries = 2;
 
   static Dio _dio = Dio(BaseOptions(
