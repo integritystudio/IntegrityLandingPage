@@ -810,7 +810,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **File:** `workers/api-gateway/src/aggregation.test.ts`
 
-**Status:** Open
+**Status:** Done — Negative test added; `MonthlyUsageSummarySchema.parse` confirmed to throw on negative `total_quantity` and invalid `organization_id`/`year_month`.
 
 ---
 

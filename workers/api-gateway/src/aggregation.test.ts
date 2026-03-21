@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { rollupDailyBucket, rollupMonthlyBucket } from './aggregation';
+import { MonthlyUsageSummarySchema } from '../../lib/types/usage';
 
 const makeEvents = (overrides: Partial<{
   organization_id: string;
@@ -297,5 +298,19 @@ describe('rollupMonthlyBucket', () => {
     expect(result.year_month).toBe('2026-03');
     expect(typeof result.created_at).toBe('string');
     expect(typeof result.updated_at).toBe('string');
+  });
+
+  it('MonthlyUsageSummarySchema rejects invalid shapes', () => {
+    const invalid = {
+      organization_id: 'not-a-uuid',
+      year_month: '2026-13',
+      total_quantity: -1,
+      total_requests: 0,
+      avg_latency_ms: null,
+      metric_breakdown: {},
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    expect(() => MonthlyUsageSummarySchema.parse(invalid)).toThrow();
   });
 });
