@@ -386,7 +386,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 `supabase.test.ts` covers only `fetchPendingDeadLetters` and `isEventProcessed`. Missing direct test coverage: `upsertSubscription`, `linkStripeCustomer`, `updateOrgBillingStatus`, `failDeadLetter`, `addDeadLetter`. Given M26 (non-atomic upsert), `upsertSubscription` is highest-priority gap.
 
-**Status:** Open
+**Status:** ✅ Done — commit 3b017e9. 15 tests added covering all 5 functions; mockInsert/mockUpdate/mockUpsert hoisted; fake timers used for time-dependent assertions.
 
 ---
 
@@ -591,4 +591,39 @@ Code-reviewer session on quota_status_page, entitlements_page, usage_summary_pag
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer (HARD) session: V02 real-time polling done (f6581fd, d14280c, f77cbb5); V02 org switcher done (91cdae3, 226b568); M29 already done (cec8997); #132/#133 blocked on R2. Remaining: V02 Stripe portal link (needs Stripe SDK in api-gateway), Medium items (M34–M35), Low items (L5–L9, L12–L15).*
+---
+
+## Code Review Findings: Stripe Webhook — Remaining Medium Items
+
+### M34: Subscription Upsert Conflict Key Does Not Handle Plan Upgrades With New Subscription IDs
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code review analysis, 2026-03-21
+
+`upsertSubscription` uses conflict key `(organization_id, stripe_subscription_id)`. When a customer upgrades from free to paid, Stripe may issue a brand-new `stripe_subscription_id`. This inserts a new row rather than updating the existing one, leaving two rows for the same org in the `subscriptions` table — one from the old plan, one from the new. `organizations.current_plan` is updated separately by `updateOrgBillingStatus` (driven by `customer.subscription.updated`) so direct `orgs` queries remain correct, but any direct query on the `subscriptions` table could return multiple active rows.
+
+**Fix options:**
+1. Before upserting, soft-delete (status='canceled') any existing subscription row for the org where `stripe_subscription_id` differs
+2. Use `organization_id` alone as the conflict key if the business rule is one active subscription per org
+3. Accept multi-row state and always join via `organizations.current_plan` rather than `subscriptions`
+
+**File:** `workers/stripe-webhook/src/supabase.ts:38–58`
+
+**Status:** Open — requires design decision on which conflict key strategy fits the billing model.
+
+---
+
+### M35: Silent Event Loss When `addDeadLetter` Fails in Webhook Handler
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code review analysis, 2026-03-21
+
+In `handleWebhook` (`workers/stripe-webhook/src/index.ts:78–83`): when a handler returns `{ ok: false }`, `addDeadLetter` is called but its result is not checked. If the DB insert fails (network error, connection timeout), `addDeadLetter` resolves with `{ ok: false }` silently. The function still returns HTTP 200 to Stripe, so Stripe will not retry. The failed event is neither in `webhook_events_log` nor in `webhook_dead_letters` — it is permanently lost with no alert.
+
+**Fix:** Check the return value of `addDeadLetter`. On failure, log a critical error with the full event payload for operator recovery. Consider returning HTTP 500 in this path to trigger Stripe's built-in retry, but note the re-delivery tradeoff (handler may be retried without the partial-failure guard).
+
+**File:** `workers/stripe-webhook/src/index.ts:78–83`, `src/supabase.ts:141–160`
+
+**Status:** Open — low complexity fix (check return value + log); design question on 500 vs 200 fallback.
+
+---
+
+*Last updated: 2026-03-21 — backlog-implementer (HARDEST) session: L8 done (3b017e9, 20 tests), M34/M35 documented. Remaining: V02 Stripe portal link (needs feature-dev + Stripe SDK in api-gateway), M34/M35 medium items, Low items (L5–L7, L9, L12–L15).*
