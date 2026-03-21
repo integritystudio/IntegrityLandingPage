@@ -593,3 +593,78 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - Commit: `8fd1d47`
 
 ---
+
+## [2026-03-21] - V02 Stripe Portal & Dead Letter Architecture Documentation
+
+### V02: Flutter Dashboard UI — Stripe Customer Portal Link
+
+**Priority:** P1 | **Completed:** 2026-03-21
+
+- `handleBillingPortal` — `POST /v1/orgs/:id/billing-portal` endpoint with role check (owner/billing_admin only)
+- Stripe Customer Portal session creation via `stripe.billingPortal.sessions.create()`
+- Returns `{ url: string }` for direct Stripe-managed billing UI
+- `DashboardService.fetchBillingPortalUrl()` — sealed response types (`BillingPortalSuccess` | `BillingPortalError`)
+- Retry logic with exponential backoff (1s, 2s) — matches all other dashboard service methods
+- `BillingStatusPage._openBillingPortal()` — "Manage Billing" button triggers portal session fetch
+- URL scheme validation — only `https://` URIs allowed before `launchUrl()`
+- 7 unit tests covering 401/403/404/500 + owner + billing_admin happy paths
+- `stripe@^20.4.1` dependency added to api-gateway
+- `STRIPE_SECRET_KEY` + `APP_URL` startup guards with console warnings
+- Commits: `9d4d700`, `88d23bd`, `7c899eb`
+
+### Code Review Security Fixes
+
+**Stripe Portal Client-Side Validation**
+- `uri.scheme == 'https'` guard prevents non-HTTPS portal URLs from launching
+- Defense-in-depth check before `launchUrl(externalApplication)` mode
+- Commit: `7c899eb`
+
+**Environment Configuration Hardening**
+- `APP_URL_FALLBACK` constant extracted to prevent silent staging→production redirect
+- `STRIPE_SECRET_KEY` missing check added (console.error on startup)
+- `APP_URL` missing check added with warning (defaults to production fallback)
+- Patterns match existing `jwtIssuerWarned` precedent for startup diagnostics
+- Commit: `88d23bd`
+
+**DashboardService Consistency**
+- `fetchBillingPortalUrl()` retry loop added (was missing; all other methods have retry logic)
+- Transient error handling via exponential backoff (1s, 2s) on DioExceptionType.connectionTimeout/receiveTimeout
+- Idempotent POST safely retried (Stripe portal sessions are idempotent for same customer)
+- Commit: `7c899eb`
+
+### M38: Dead Letter Re-run Handler Without Distinguishing "Log-Failed" From Handler Failures
+
+**Priority:** P2 | **Severity:** Medium | **Completed:** 2026-03-21
+
+**Documentation-only fix** — Accepted as-is after analysis.
+
+- The reconciliation cron retries dead letters without distinguishing handler failures from logging failures
+- Both failure modes increment `retry_count` identically via `failDeadLetter()`
+- **Decision:** Accept assumption and document in architecture guide
+- **Operator visibility:** Cron logs distinguish handler vs logging errors; operators can inspect logs to understand which subsystem failed
+- Documented in `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md` with:
+  - Current retry behavior (exponential backoff for both modes)
+  - Handler idempotency requirement (handlers must be safe to re-run)
+  - Logging infrastructure failure modes and recovery strategy
+  - When to escalate to engineering (e.g., persistent logging failures)
+- Commits: `4bf3fff`, `4ebe6cb`
+
+### M39: Dead Letter Retry Exhaustion Without Incrementing Retry Count on logProcessedEvent Failure
+
+**Priority:** P3 | **Severity:** Low | **Completed:** 2026-03-21
+
+**Documentation-only fix** — Documented architectural assumption.
+
+- When handler succeeds but `logProcessedEvent` fails, dead letter is retried indefinitely until `max_retries` is exhausted
+- Event processing assumes handler idempotency; if logging infrastructure becomes unavailable, events may be dropped
+- **Assumption:** This is acceptable because webhook handlers are expected to be idempotent and low-cost to re-run
+- **Recovery path documented:**
+  1. Inspect dead letter queue for pattern (e.g., all events from same day)
+  2. Determine if handler or logging failed
+  3. If handler: fix business logic, cron will retry automatically
+  4. If logging: restore logging infra, then re-run cron manually or wait for next retry window
+- **Monitoring:** Recommended alerts on dead letter table for `retry_count` approaching `max_retries` threshold
+- Documented in `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md`
+- Commits: `4bf3fff`, `4ebe6cb`
+
+---
