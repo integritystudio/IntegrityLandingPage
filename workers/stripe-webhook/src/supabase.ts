@@ -33,35 +33,19 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     stripePriceId: string | null,
     status: string,
   ): Promise<VoidResult> {
-    const queryResult = await sb.query('subscriptions', {
-      filters: [
-        { column: 'organization_id', operator: 'eq', value: orgId },
-        { column: 'stripe_subscription_id', operator: 'eq', value: stripeSubscriptionId },
-      ],
-      single: true,
-    });
-
-    if (!queryResult.ok) {
-      return { ok: false, error: queryResult.error };
-    }
-
-    if (queryResult.data) {
-      const result = await sb.update(
-        'subscriptions',
-        { stripe_price_id: stripePriceId, status, updated_at: new Date().toISOString() },
-        [{ column: 'stripe_subscription_id', operator: 'eq', value: stripeSubscriptionId }],
-      );
-      return toVoidResult(result);
-    }
-
-    const result = await sb.insert('subscriptions', {
-      organization_id: orgId,
-      stripe_subscription_id: stripeSubscriptionId,
-      stripe_price_id: stripePriceId,
-      status,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    const now = new Date().toISOString();
+    const result = await sb.upsert(
+      'subscriptions',
+      {
+        organization_id: orgId,
+        stripe_subscription_id: stripeSubscriptionId,
+        stripe_price_id: stripePriceId,
+        status,
+        created_at: now,
+        updated_at: now,
+      },
+      'organization_id,stripe_subscription_id',
+    );
     return toVoidResult(result);
   }
 
