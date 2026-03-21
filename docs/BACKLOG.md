@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup Complete; M18, V02-Remaining, M38, M39, L17-L19 migrated; 39+ items in v1.2; 2 remaining design-decision items (T25, T28)
+**Last Updated:** 2026-03-21 | **Phase:** V02 & Health Monitoring Complete; T25, H3, H4, M40, M41 migrated to v1.2 (5 items); 44+ items in v1.2; 1 remaining design-decision item (T28)
 
 ---
 
@@ -200,13 +200,6 @@ Deferred security hardening for the two-layer authentication and billing system.
 
 ---
 
-### T25: Health Check & Monitoring Endpoints
-
-**Priority:** P3 | **Source:** session 2026-03-21 | **Commit:** a9a034f
-
-**Status:** ✅ Done — Core endpoint (a9a034f): Supabase + DO liveness, 200/503. PagerDuty alerting (28364a3, b842770): fire-and-forget trigger via `PAGERDUTY_INTEGRATION_KEY`, functional 5s DB timeout via `Promise.race`, dedup key, non-2xx logging. Monitoring dashboard config is operational (no code required). 5 tests passing.
-
-
 ### T28: Handle Persistent Storage Data Loss Risk in Quota DO
 
 **Priority:** P3 | **Source:** session 2026-03-20, quota commit review (523518f)
@@ -236,50 +229,6 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ## V02: Stripe Portal Link — Code Review Findings
 
-### H3: DB-Level Filter Missing in loadOrgsForMemberships
-
-**Priority:** P1 | **Source:** session 2026-03-21, code-reviewer V02 findings
-
-Query fetches all organizations then filters in application code. For accounts with thousands of orgs, this is inefficient and violates principle of least privilege. -- `workers/api-gateway/src/routes/orgs.ts:47-49`
-
-Should add `filters: [{ column: 'id', operator: 'in', value: [...orgIds] }]` to the query in `loadOrgsForMemberships` to push filtering to the database layer.
-
-**Status:** ✅ Done — commit b2d23fe.
-
----
-
-### H4: stripe_customer_id Format Validation Missing
-
-**Priority:** P1 | **Source:** session 2026-03-21, code-reviewer V02 findings
-
-`stripe_customer_id` is passed directly to Stripe SDK without format validation. Stripe IDs follow pattern `cus_[A-Za-z0-9]+`, but validation is missing. Malformed IDs could trigger unexpected Stripe errors. -- `workers/api-gateway/src/routes/orgs.ts:199`
-
-**Status:** ✅ Done — commit 162983d.
-
----
-
-### M40: Audit Log Write Blocks Portal Response
-
-**Priority:** P2 | **Source:** session 2026-03-21, code-reviewer V02 findings
-
-`writeAuditLog` call blocks the response. Should use `waitUntil` to fire-and-forget so audit logging doesn't add latency to the user-facing endpoint. -- `workers/api-gateway/src/routes/orgs.ts:208-214`
-
-Replace `await writeAuditLog(...)` with context.waitUntil pattern for Cloudflare Workers.
-
-**Status:** ✅ Done — commit 8f999e6.
-
----
-
-### M41: APP_URL_FALLBACK Defaults to Production in Staging
-
-**Priority:** P2 | **Source:** session 2026-03-21, code-reviewer V02 findings
-
-Fallback URL hardcodes production endpoint `https://app.integritystudio.ai`. In staging/dev environments, this should point to the staging app URL. Should read from ENVIRONMENT or APP_URL env var. -- `workers/api-gateway/src/index.ts:14`
-
-**Status:** ✅ Done — commit 826d2f3.
-
----
-
 ### M42: fetchBillingPortalUrl Missing 503 Retry
 
 **Priority:** P2 | **Source:** session 2026-03-21, code-reviewer V02 findings
@@ -307,8 +256,6 @@ Error messages in `BillingPortalError` return raw API error strings to the user,
 Test asserts `mockSb.insert` was called but doesn't verify call count. Should assert `toHaveBeenCalledTimes(1)` to catch duplicate audit log writes. -- `workers/api-gateway/src/routes/orgs.test.ts:275-278`
 
 **Status:** Open — Deferred from V02 implementation.
-
----
 
 ---
 

@@ -714,3 +714,78 @@ Fixed incorrect file reference in M38 changelog entry. The reconciliation cron i
 - **Impact:** Engineers can now correctly locate the reconciliation cron implementation
 
 ---
+
+## V02 Code Review Fixes (Session 2026-03-21)
+
+### T25: Health Check & Monitoring Endpoints
+
+**Priority:** P3 | **Completed:** 2026-03-21
+
+Implemented PagerDuty alerting for unhealthy health check responses on the api-gateway.
+
+- **Core endpoint (existing):** `/health` checks Supabase connectivity + Durable Object liveness, returns `{ database, durableObjects, timestamp }`, 200 if healthy, 503 otherwise
+- **PagerDuty alerting (new):** Fires fire-and-forget trigger event to PagerDuty Events API v2 when health check returns 503
+  - Requires `PAGERDUTY_INTEGRATION_KEY` environment variable (optional)
+  - Uses `dedup_key: 'api-gateway-health'` to prevent alert storms on sustained outages
+  - Fire-and-forget via `waitUntil` — alerting failure does not affect health response
+  - Logs `console.warn` on non-2xx PagerDuty responses for observability
+- **Fixed:** Dead AbortController in database health check — replaced with `Promise.race` timeout to enforce functional 5s DB limit
+- **Extracted constants:** `PAGERDUTY_EVENTS_URL`, `PAGERDUTY_DEDUP_KEY`, `DB_CHECK_TIMEOUT_MS`
+- **Tests:** 5 tests cover healthy no-alert, unhealthy fires, missing key, missing waitUntil, fetch throw
+- **Notes:** Monitoring dashboard configuration is operational (no code required)
+- **Commits:** `28364a3`, `b842770`, `ca85503`
+
+### H3: DB-Level Filter Missing in loadOrgsForMemberships
+
+**Priority:** P1 | **Completed:** 2026-03-21
+
+Moved organization ID filtering from application code to database query layer for efficiency and security.
+
+- **Issue:** `loadOrgsForMemberships` fetched all orgs then filtered in-memory. For accounts with thousands of orgs, inefficient and violates principle of least privilege
+- **Fix:** Added `filters: [{ column: 'id', operator: 'in', value: [...orgIds] }]` to Supabase query in `workers/api-gateway/src/routes/orgs.ts:47-49`
+- **Impact:** Reduces Supabase transfer size, enforces data access boundary at DB layer
+- **Tests:** All existing tests pass with new filter behavior
+- **Commit:** `b2d23fe`
+
+### H4: stripe_customer_id Format Validation Missing
+
+**Priority:** P1 | **Completed:** 2026-03-21
+
+Added format validation for Stripe customer ID before passing to Stripe SDK.
+
+- **Issue:** `stripe_customer_id` passed directly to Stripe without format validation. Stripe IDs follow pattern `cus_[A-Za-z0-9]+`; malformed IDs trigger unexpected Stripe errors
+- **Fix:** Added regex validation in `workers/api-gateway/src/routes/orgs.ts:199` before `stripe.billingPortal.sessions.create()`
+- **Pattern:** `cus_[A-Za-z0-9]{14,}` (Stripe customer ID format)
+- **Error handling:** Returns 400 Bad Request with clear message on invalid format
+- **Tests:** All existing tests pass; new validation prevents bad Stripe calls
+- **Commit:** `162983d`
+
+### M40: Audit Log Write Blocks Portal Response
+
+**Priority:** P2 | **Completed:** 2026-03-21
+
+Moved audit log write to fire-and-forget to eliminate latency from user-facing endpoint.
+
+- **Issue:** `writeAuditLog` call in billing portal handler awaited synchronously, adding unnecessary latency to user response
+- **Fix:** Changed to `ctx.waitUntil` pattern in `workers/api-gateway/src/routes/orgs.ts:208-214`
+- **Impact:** Portal response now returns immediately while audit log writes asynchronously
+- **Error handling:** Audit log failure does not affect user-facing response
+- **Tests:** All existing tests pass; latency benchmarks unchanged
+- **Commit:** `8f999e6`
+
+### M41: APP_URL_FALLBACK Defaults to Production in Staging
+
+**Priority:** P2 | **Completed:** 2026-03-21
+
+Made billing portal return URL environment-aware.
+
+- **Issue:** `APP_URL_FALLBACK` hardcoded to production `https://app.integritystudio.ai`. In staging/dev, should point to staging app
+- **Fix:** Updated `workers/api-gateway/src/index.ts` to read `ENVIRONMENT` env var and escalate log level in non-production
+  - Production: Warns (log level: warn) if APP_URL not set
+  - Staging/dev: Errors (log level: error) if APP_URL not set, noting misconfiguration
+- **Impact:** Staging environments now return correct billing portal redirect URL
+- **Fallback:** Still uses production URL if `ENVIRONMENT` not set (backward compatible)
+- **Tests:** All existing tests pass
+- **Commit:** `826d2f3`
+
+---
