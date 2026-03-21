@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import '../theme/timings.dart';
@@ -29,12 +31,24 @@ class BillingStatusData {
 
   factory BillingStatusData.fromJson(Map<String, dynamic> json) {
     final rawDate = json['current_period_end'] as String?;
+    DateTime? parsedDate;
+    if (rawDate != null && rawDate.isNotEmpty) {
+      parsedDate = DateTime.tryParse(rawDate);
+      if (parsedDate == null) {
+        unawaited(ErrorTrackingService.captureException(
+          Exception('BillingStatusData: failed to parse current_period_end'),
+          stackTrace: StackTrace.current,
+          context: 'BillingStatusData.fromJson',
+          extra: {'raw_date': rawDate},
+        ));
+      }
+    }
     return BillingStatusData(
       planKey: json['plan_key'] as String? ?? '',
       planDisplayName: json['plan_display_name'] as String? ?? '',
       billingStatus: json['billing_status'] as String? ?? 'inactive',
       cancelAtPeriodEnd: json['cancel_at_period_end'] as bool? ?? false,
-      nextRenewalDate: rawDate != null ? DateTime.tryParse(rawDate) : null,
+      nextRenewalDate: parsedDate,
     );
   }
 }
