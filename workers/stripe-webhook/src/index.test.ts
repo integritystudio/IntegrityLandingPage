@@ -1,9 +1,51 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { verifyStripeSignature } from './verify';
+import worker, { type Env } from './index';
 import { REPLAY_WINDOW_MS } from '../../constants';
 
 // Seconds past the replay window, guaranteeing the timestamp is rejected as stale.
 const STALE_OFFSET_SECONDS = (REPLAY_WINDOW_MS / 1000) * 2;
+
+const { mockDb, mockHandleCheckout } = vi.hoisted(() => ({
+  mockDb: {
+    isEventProcessed: vi.fn(),
+    logProcessedEvent: vi.fn(),
+    addDeadLetter: vi.fn(),
+    fetchPendingDeadLetters: vi.fn(),
+    resolveDeadLetter: vi.fn(),
+    failDeadLetter: vi.fn(),
+    abandonDeadLetter: vi.fn(),
+    linkStripeCustomer: vi.fn(),
+    upsertSubscription: vi.fn(),
+    updateOrgBillingStatus: vi.fn(),
+    findOrgByStripeCustomerId: vi.fn(),
+  },
+  mockHandleCheckout: vi.fn(),
+}));
+
+vi.mock('./supabase', () => ({
+  createSupabaseAdmin: vi.fn(() => mockDb),
+}));
+
+vi.mock('./handlers/checkout', () => ({
+  handleCheckoutSessionCompleted: mockHandleCheckout,
+}));
+
+vi.mock('./handlers/subscription', () => ({
+  handleSubscriptionUpdated: vi.fn(),
+  handleSubscriptionDeleted: vi.fn(),
+}));
+
+vi.mock('./handlers/invoice', () => ({
+  handleInvoicePaid: vi.fn(),
+  handleInvoicePaymentFailed: vi.fn(),
+}));
+
+const MOCK_ENV: Env = {
+  STRIPE_WEBHOOK_SECRET: 'test-secret',
+  SUPABASE_URL: 'https://test.supabase.co',
+  SUPABASE_SERVICE_ROLE_KEY: 'test-key',
+};
 
 async function computeStripeSignature(timestamp: number, body: string, secret: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -48,5 +90,87 @@ describe('Stripe webhook verification', () => {
     if (result.ok) {
       expect(result.timestamp).toBe(timestamp);
     }
+  });
+});
+
+describe('runReconciliation', () => {
+  const checkoutDeadLetter = {
+    id: 'dl_1',
+    stripe_event_id: 'evt_123',
+    event_type: 'checkout.session.completed',
+    payload: { id: 'evt_123', type: 'checkout.session.completed' },
+    retry_count: 0,
+    max_retries: 5,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('retries successfully: logProcessedEvent and resolveDeadLetter called', async () => {
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([checkoutDeadLetter]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleCheckout.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(mockHandleCheckout).toHaveBeenCalledOnce();
+    expect(mockDb.logProcessedEvent).toHaveBeenCalledWith('evt_123', 'checkout.session.completed');
+    expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_1');
+    expect(mockDb.failDeadLetter).not.toHaveBeenCalled();
+  });
+
+  it('idempotency guard: already processed → resolveDeadLetter called, handler skipped', async () => {
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([checkoutDeadLetter]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(mockHandleCheckout).not.toHaveBeenCalled();
+    expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_1');
+    expect(mockDb.logProcessedEvent).not.toHaveBeenCalled();
+  });
+
+  it('handler failure → failDeadLetter increments retry counter', async () => {
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([checkoutDeadLetter]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleCheckout.mockResolvedValue({ ok: false, error: 'DB write failed' });
+    mockDb.failDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(mockDb.failDeadLetter).toHaveBeenCalledWith('dl_1', 0, 5, 'DB write failed');
+    expect(mockDb.resolveDeadLetter).not.toHaveBeenCalled();
+  });
+
+  it('unhandled event type → abandonDeadLetter called', async () => {
+    const unknownDl = { ...checkoutDeadLetter, event_type: 'unknown.event.type' };
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([unknownDl]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockDb.abandonDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(mockDb.abandonDeadLetter).toHaveBeenCalledWith('dl_1');
+    expect(mockHandleCheckout).not.toHaveBeenCalled();
   });
 });
