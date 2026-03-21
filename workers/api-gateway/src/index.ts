@@ -21,6 +21,8 @@ export interface Env {
   STRIPE_SECRET_KEY: string;
   /** App URL used as Stripe billing portal return URL (e.g. https://app.integritystudio.ai). */
   APP_URL?: string;
+  /** Deployment environment: 'production' | 'staging' | 'development'. Controls log severity for missing config. */
+  ENVIRONMENT?: string;
   /** PagerDuty Events API v2 integration key. When set, fires a trigger event on unhealthy health checks. */
   PAGERDUTY_INTEGRATION_KEY?: string;
 }
@@ -45,8 +47,10 @@ export default {
       stripeKeyWarned = true;
     }
     if (!appUrlWarned && !env.APP_URL) {
-      console.warn(
-        '[api-gateway] APP_URL is not set — billing portal return_url defaults to production.',
+      const isNonProd = env.ENVIRONMENT && env.ENVIRONMENT !== 'production';
+      const log = isNonProd ? console.error : console.warn;
+      log(
+        `[api-gateway] APP_URL is not set — billing portal return_url defaults to ${APP_URL_FALLBACK}${isNonProd ? ' (staging/dev misconfiguration)' : ''}.`,
       );
       appUrlWarned = true;
     }
