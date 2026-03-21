@@ -1354,9 +1354,9 @@ Flutter or API client
   -> daily rollup update async
 ```
 
-## 19. v1 Implementation Status (Updated 2026-03-20)
+## 19. v1 Implementation Status (Updated 2026-03-21)
 
-### Completed ✅ (15 core items + 3 recent refinements + 1 Durable Objects + Phase 4 Task 2)
+### Completed ✅ (15 core items + 3 recent refinements + 1 Durable Objects + Phase 4 Task 2 + Phase 4 Task 3 partial)
 
 **Core infrastructure (2026-03-20)**
 1. **Auth pages & JWT flow** — AuthPage, ProvisionPage, SenderHealthPage with JWT-based provisioning
@@ -1374,23 +1374,23 @@ Flutter or API client
 13. **Flutter UI refactoring** — StatusResultPage extraction, TrustBadge improvements, ListCard consolidation (_ChoiceCard + _QueryCard), 76-78% code duplication reduction
 14. **Durable Objects per-org quota** — Complete state machine with minute-level burst control (60-second rolling windows), monthly soft limits, quota version detection (Stripe webhook triggers), type-safe service client (`checkAndReserve()`, `flushUsage()`, `getQuotaStatus()`), Zod schemas, comprehensive architecture documentation. Files: `workers/api-gateway/src/durable-objects/quota.ts` (253 lines), `workers/api-gateway/src/lib/quota.ts` (94 lines), `workers/docs/QUOTA_DURABLE_OBJECTS.md` (359 lines)
 
-**Session work (2026-03-20 — Final Phase 4 push)**
+**Session work (2026-03-20 — Phase 4 Task 2 & Task 3 partial)**
 - **T26: Quota enforcement wiring** — `enforceOrgQuota()` middleware added to `lib/quota.ts`, integrated into all org-specific API gateway routes with fail-open logic and rate-limit headers (commits bb1d810, d58f382, 3483538)
 - **T27: Quota integration tests** — 25 comprehensive tests covering minute/monthly limits, idempotency, plan tiers, enterprise quotas, quota version bumps, storage persistence (commit 6bc3cd8)
-- **Security hardening** — JWT issuer claim validation (V-02, commit 00bfaaf), timing-safe HMAC comparisons with `crypto.subtle.verify()` for API key and Stripe webhook verification (H19, commit 0f9cece)
-- **HTTP utilities refactoring** — Extracted `cors-utils.ts`, organized constants, improved response safety (guard against protocol-relative URLs in redirects)
-- **Validation improvements** — `safeParseJson` return type, simplified validation/response code paths, optimized hot paths
-- **Code review backlog** — 10+ findings addressed; 6 items marked Done (R02-R10 security & TDD documentation); 10+ medium/low findings documented from security review session
-
-**Session work (2026-03-20 — Phase 4 Task 2 complete)**
 - **V01: Usage ledger ingestion** — `POST /v1/ingest/events` with dual JWT/API key auth, fire-and-forget daily bucket rollup via `ctx.waitUntil`, 16 tests (commits 761ab48, d4911ca)
 - **V03: Monthly aggregation** — `rollupMonthlyBucket(orgId, yearMonth, sb)` querying `usage_buckets_daily` with weighted avg_latency_ms; `MonthlyUsageSummarySchema` Zod validation on return; `MAX_DAILY_BUCKETS_PER_MONTH` query cap (3100); month regex rejects 00/13; 17 TDD tests (commits 59402f3, c021f5b, 97d3b74)
+- **V02: Usage summary display** — Flutter UI page with monthly usage breakdown; backend integration with `/v1/orgs/:id/usage/summary`; code review findings addressed (55c4a86, e066900, 03142d1)
+- **Bootstrap flow integration** — Complete client-side orchestration with error sanitization, org context loading, response type safety; code review findings addressed (fda0ada, 963f4d3)
+- **Stripe webhook M23/M24** — Event idempotency validation with DB error path handling (T23-M4, 1ae481d); improved error logging for logProcessedEvent/fetchPendingDeadLetters (f2b28a1); code review fixes (cc6c88e)
+- **Quota refactoring** — Zod validation on DO response boundaries replacing unsafe casts (99d96b9); simplified implementation after parse refactor (1872a13); Zod DO response validation in quota.ts (01f66e7); code review fixes (95f2e51, eb1f928)
+- **Security hardening** — JWT issuer claim validation (V-02, 00bfaaf), timing-safe HMAC comparisons with `crypto.subtle.verify()` for API key and Stripe verification (H19, 0f9cece); bearer token pre-check for quota enforcement (H21, 81f1921); JWT verification before quota enforcement (H21, 70a1556); org quota enforcement require bearer token (H21, aa4abf6); CSP frame-ancestors header for clickjacking protection (S01, 81f1921); IDOR tests for org entitlements (H20, e296e20)
+- **Code review completion** — 22 code review items migrated to v1.2 changelog (77d477e); 9 items migrated to changelog (85ada38); session backlog findings appended (e944bb7); L5 unsanitized auth.email finding from bootstrap session (2b581ed)
 
-**Completion Context:** All major auth, provisioning, API gateway, and quota enforcement infrastructure is production-ready with comprehensive test coverage (2440+ tests, ~94% coverage). Phase 4 quota integration (T26-T27) wired and tested; security fixes (V-02 issuer validation, H19 timing-safe comparisons) applied; sender-worker UI implementation complete with JWT provisioning flow. Per-org Durable Objects quota state machine enforces minute-level burst limits, monthly soft limits, quota version detection, with middleware fail-open logic. Phase 4 Task 2 (usage ingestion + daily/monthly aggregation) complete. Quota documentation with integration guidance available at `workers/docs/QUOTA_DURABLE_OBJECTS.md`.
+**Completion Context:** All major auth, provisioning, API gateway, quota enforcement, usage ingestion/aggregation infrastructure is production-ready with comprehensive test coverage (2440+ tests, ~94% coverage). Phase 4 Task 2 (usage ingestion + daily/monthly aggregation) and Task 3 Flutter dashboard UI components (usage summary display, bootstrap flow integration) complete. Security hardening across auth boundaries (V-02, H19, H20, H21, S01) applied. Per-org Durable Objects quota state machine enforces minute-level burst limits, monthly soft limits, quota version detection with middleware fail-open logic. Bootstrap worker & client orchestration validated end-to-end. Quota and usage documentation with integration guidance available at `workers/docs/QUOTA_DURABLE_OBJECTS.md`.
 
-### Remaining (v1 Phase 4 Task 3 + Polish)
+### Remaining (v1 Phase 4 Task 3 components + Polish)
 
-1. **Phase 4 Task 3: Flutter dashboard UI** — Org switcher, billing status display, usage summary/charts, entitlements display, complete bootstrap flow, quota visualization
+1. **Phase 4 Task 3 (partial)** — Org switcher, billing status display, entitlements display, usage charts, quota visualization
 2. **Polish & observability** — Enhanced error responses, rate limiting integration, audit logging for sensitive operations, telemetry/monitoring setup
 
 This sequence delivers production-grade auth/provisioning infrastructure with clear path to user-facing analytics and usage dashboards, supporting the internal goal of a comprehensible UI for non-technical stakeholders while preserving long-term recurring SaaS architecture.
