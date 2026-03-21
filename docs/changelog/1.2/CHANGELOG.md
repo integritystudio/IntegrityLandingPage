@@ -280,4 +280,123 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - Edge cases: free plan (60 rpm, 10k/month), enterprise (no monthly limit), boundary conditions
 - Commit: `6bc3cd8`
 
+### Code Quality & Security Refinements (2026-03-21)
+
+**H19-M1: Extract `hexToBytes` Utility to Shared Library**
+- Unified hex-to-bytes conversion used for API key and Stripe signature verification
+- Created `workers/lib/hex-utils.ts` with shared export
+- Prevents maintenance drift between independent implementations
+- 7 tests added
+- Commits: `2d4df62`, `5d00632`
+
+**H19-M2: Strict Hex Validation for `hexToBytes`**
+- Changed regex from `*` (zero or more) to `+` (one or more) to reject empty strings
+- Matches `workers/stripe-webhook/src/verify.ts` validation
+- Prevents empty `Uint8Array` from bypassing verification
+- Commit: `5d00632`
+
+**M18-M1: JWT Verification Order — Signature First**
+- Reorder to verify signature → check expiry → check issuer
+- Prevents unverified claim inspection (defense-in-depth)
+- Commits: `fc69dea`, `42faa70`
+
+**M18-M2: JWT Issuer Validation Startup Warning**
+- Module-level flag emits `console.warn` once per isolate if `SUPABASE_JWT_ISSUER` is unset
+- Makes JWT issuer validation status visible in deployment logs
+- Commits: `0932e90`, `ee29f30`
+
+**T23-M1: Idempotency Guard on Dead Letter Reconciliation Retry**
+- Added `isEventProcessed()` check at top of reconciliation loop
+- Prevents duplicate processing of overlapping cron ticks
+- Commits: `fe479cc`, `b352169`
+
+**T23-M2: RLS Configuration for Dead Letter Tables**
+- Documented service-role-only access pattern for `webhook_dead_letters` and `webhook_events_log`
+- Added comment explaining intentional RLS omission
+- Commit: `313cd7f`
+
+**T23-M3: Remove Unused `'processing'` Status from Dead Letter Schema**
+- Removed `'processing'` enum value — never written by code
+- Eliminates confusion around distributed locking (never implemented)
+- Commit: `7da6701`
+
+**T24-M1: Stripe Customer Subscriptions Unsafe Cast Guard**
+- Added `Array.isArray(subs)` guard with error throw on schema mismatch
+- Provides fast-fail on Stripe SDK schema changes
+- Commits: `9bbb550`, `4f03052`
+
+**T24-M2: Maintenance Window Warning for Entitlements Reconciliation**
+- Documented non-atomic delete-then-insert pattern as "nuclear option"
+- Added header warning against concurrent production traffic
+- Commit: `218b4f2`
+
+**T24-M3: Counter Granularity Clarification in Reconciliation**
+- Renamed `entitlementsRebuilt` → `orgEntitlementsRebuilt`
+- Updated log label to clarify count semantics (per-org, not per-entitlement-row)
+- Commit: `1b9c88d`
+
+**T25-M2: Health Check Endpoint DO Response Type**
+- Narrowed `checkDurableObject` return type from `'healthy' | 'degraded' | 'unhealthy'` to `'healthy' | 'unhealthy'`
+- Removed unreachable `'degraded'` (DO 5xx is hard failure, not degradation)
+- Commit: `3dd5824`
+
+**M19: Typo Fix — `entitlementsToRebuild` Variable Naming**
+- Corrected spelling across 5 occurrences in reconciliation script
+- Commit: `7fa808f`
+
+**M20: Org ID Validation in Reconciliation Script**
+- Added explicit `!orgId` guard after Zod parse
+- Returns error if parsed org.id is empty
+- Commit: `005fc5c`
+
+**L1: Redundant `token.split()` in JWT Verification**
+- `parseJwtPayload` now returns parts array in ok result
+- `verifyJwt` destructures from parse result, eliminating second split
+- Commit: `f3cbb38`
+
+**L2: Simplified Issuer Check in JWT**
+- Removed redundant `typeof payload.iss !== 'string'` guard
+- Direct comparison `payload.iss !== opts.issuerUrl` is type-safe
+- Commit: `7fa808f`
+
+**M21: Warning Logs When Aggregation Limits Hit**
+- Added `console.warn` in `rollupDailyBucket` and `rollupMonthlyBucket` when limit reached
+- Surfaces incomplete aggregations in monitoring
+- Commit: `8e8c033`
+
+**M22: Type Enforcement in Monthly Aggregation**
+- Applied `Math.trunc()` to ensure integer semantics for `request_count` and `total_quantity`
+- Added 2 tests verifying float → integer conversion
+- Commit: `1a446fa`
+
+**L3: Zod Schema Rejection Test for Monthly Usage**
+- Added negative test confirming `MonthlyUsageSummarySchema` rejects invalid shapes
+- Tests for negative quantities, invalid org_id, malformed year_month
+- Commit: (test only, no production change)
+
+**L4: Test Factory Refactoring in Aggregation Tests**
+- Extracted `makeMockSupabaseClient` factory with optional mock overrides
+- Eliminated duplication between `makeSb` and `makeMonthSb`
+- Commit: `11049a3`
+
+**P01: Zod Runtime Validation at Quota DO Response Boundaries**
+- Replaced unsafe TypeScript `as` casts with Zod schema parsing
+- `checkAndReserve` → `QuotaCheckResponseSchema.parse()`
+- `flushUsage` → `QuotaFlushResultSchema.parse()`
+- Fixed double-await bug in `flushUsage`; corrected `remainingMinute != null` guard
+- Commits: `99d96b9`, `95f2e51`, `1872a13`, `eb1f928`
+
+**M23: Log Failures in `handleWebhook` When Recording Processed Events**
+- Capture `logProcessedEvent` result; `console.error` on failure
+- Event still processed (200 returned) but failure is now observable
+- Mirrored fix in `runReconciliation` for consistency
+- Tests: Error path + reconciliation path, `consoleSpy` in beforeEach/afterEach
+- Commits: `f2b28a1`, `cc6c88e`, `7dee8b3`
+
+**M24: Add Error Logging to `fetchPendingDeadLetters` on DB Failure**
+- Split silent guard: log `console.error` when `!result.ok` before returning `[]`
+- Fixed pre-existing TS2344 by adding index signature to `DeadLetter` interface
+- Tests: DB error path + non-array data path, spy leak prevention
+- Commits: `f2b28a1`, `cc6c88e`, `7dee8b3`
+
 ---

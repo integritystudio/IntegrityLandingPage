@@ -247,312 +247,138 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
-## Code Review Findings: Security Remediation Session (2026-03-21)
+## Code Review Findings: Stripe Webhook Worker Infrastructure (Session 2026-03-21)
 
-Session completed critical fixes for T23, T24, T25 security remediations. Code-reviewer identified additional medium/low priority issues:
-
----
-
-### H19-M1: Extract `hexToBytes` Utility to Shared Library
-
-**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21 (commit 6287919)
-
-`hexToBytes()` is implemented independently in two places:
-- `workers/lib/api-keys.ts:44–51` (for API key hash verification)
-- `workers/stripe-webhook/src/verify.ts:65–68` (for Stripe signature verification)
-
-Both perform identical hex-to-bytes conversion. This is a maintenance risk: a bug fix to one won't propagate. Extract to `workers/lib/hex-utils.ts` as a shared export and update both call sites.
-
-**Files affected:**
-- `workers/lib/api-keys.ts`
-- `workers/stripe-webhook/src/verify.ts`
-- `workers/lib/hex-utils.ts` (new)
-
-**Status:** Done — `workers/lib/hex-utils.ts` created; both call sites updated; 7 tests added (commits 2d4df62, 5d00632)
+Final full-stack review of M23/M24 commits revealed pre-existing infrastructure issues in the stripe-webhook handlers.
 
 ---
 
-### H19-M2: Strict Validation for `hexToBytes` in `api-keys.ts`
+### H1: Type Safety Lost — Stripe Event Payloads Cast as `any`
 
-**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
+**Priority:** P1 | **Severity:** High | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`workers/lib/api-keys.ts:45` uses regex `/^[0-9a-f]*$/` (zero or more, `*`) which accepts empty strings. Empty `Uint8Array` would pass `crypto.subtle.verify` against itself, potentially bypassing validation if a corrupted row has a blank hash. Change `*` to `+` (one or more) to require at least one byte. `workers/stripe-webhook/src/verify.ts` correctly uses `+` — this is an inconsistency.
+All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`, `subscription.ts:28, 83`, `invoice.ts:49, 70`. A malformed Stripe payload (truncated body, schema change, corrupt dead-letter payload) causes silent runtime crash at property access rather than handled error return. Dead-letter retry path is especially vulnerable since payloads are stored as `unknown` and re-processed.
 
-**File:** `workers/lib/api-keys.ts:45`
+**Fix:** Define Zod schemas for each event object type (`CheckoutSession`, `Subscription`, `Invoice`) and parse with `safeParse`. Project has Zod infrastructure in `workers/lib/validation/`.
 
-**Fix:** Change `!/^[0-9a-f]*$/.test(hex)` to `!/^[0-9a-f]+$/.test(hex)` and add length check `hex.length === 0`.
-
-**Status:** Done — Fixed as part of H19-M1; shared `hexToBytes` in `hex-utils.ts` uses `+` throughout (commits 2d4df62, 5d00632)
+**Status:** Open
 
 ---
 
-### M18-M1: JWT Issuer Claim Validated Before Signature
+### H2: Missing Subscription Upsert in Checkout Handler
 
-**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
+**Priority:** P1 | **Severity:** High | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`workers/lib/auth.ts:59–69` validates JWT issuer claim before verifying the signature. Standard JWT validation order is: parse → **verify signature** → check claims. Validating unverified claims is a defense-in-depth issue (both branches return 401, but order leaks information about invalid vs mismatched issuers).
+`handleCheckoutSessionCompleted` (workers/stripe-webhook/src/handlers/checkout.ts:27-32) calls `db.linkStripeCustomer` but never calls `db.upsertSubscription`. Subscription is only created later by `customer.subscription.updated`, not guaranteed to arrive before `invoice.paid`. Breaks any query joining on `subscriptions` table.
 
-**File:** `workers/lib/auth.ts:40–69`
+**Fix:** Call `db.upsertSubscription()` after linking customer, mirroring the pattern in other handlers.
 
-**Fix:** Reorder to verify signature first, then check expiry, then check issuer.
-
-**Status:** Done — signature verified before exp/iss checks (commits fc69dea, 42faa70)
+**Status:** Open
 
 ---
 
-### M18-M2: No Startup Warning When JWT Issuer Validation Disabled
+### M25: `HandlerResult` Type Duplicated Across Four Files
 
-**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`SUPABASE_JWT_ISSUER` is optional in both Zod schema and Env interface (`workers/api-gateway/src/index.ts:17`, `workers/lib/types/handler-options.ts:29`). If never set in production, V-02 mitigation (`iss` validation) is silently inactive. Add a startup warning (non-blocking) when the env var is absent to make this visible in deployment logs.
+`type HandlerResult = { ok: true } | { ok: false; error: string }` defined in `index.ts:15`, `checkout.ts:4`, `subscription.ts:12`, `invoice.ts:4`. Should live in `workers/lib/types.ts` and be imported. Drift between definitions is possible.
 
-**Files affected:**
-- `workers/api-gateway/src/index.ts` — Add warning in fetch handler
-- Or create startup check function in `workers/lib/startup-checks.ts`
-
-**Status:** Done — module-level `jwtIssuerWarned` flag emits once-per-isolate `console.warn` (commits 0932e90, ee29f30)
+**Status:** Open
 
 ---
 
-### T23-M1: No Idempotency Guard on Dead Letter Reconciliation Retry
+### M26: Non-Atomic Check-Then-Write in `upsertSubscription`
 
-**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`workers/stripe-webhook/src/index.ts:125–127` — The webhook handler calls `isEventProcessed()` before attempting the first process, but the reconciliation cron loop (line 125) does not. If two cron ticks overlap, the same dead letter could be dispatched concurrently, both succeed, and `logProcessedEvent()` attempts a duplicate insert. The UNIQUE constraint on `stripe_event_id` silently fails and the duplicate is ignored.
+`workers/stripe-webhook/src/supabase.ts:36-65` — Read at line 36 and write at line 49/57 are not atomic. Two overlapping `customer.subscription.updated` events (common with Stripe retries) can both see `queryResult.data === null` and both attempt `insert`, causing duplicate key violation. Table should use true upsert (`ON CONFLICT DO UPDATE`) rather than manual check-then-insert.
 
-**File:** `workers/stripe-webhook/src/index.ts:115–135`
-
-**Fix:** Call `isEventProcessed()` at the top of the reconciliation retry block, matching the webhook handler pattern (line 43–44).
-
-**Status:** Done — `isEventProcessed()` guard added at top of reconciliation loop; resolves dead letter and continues on match (commits fe479cc, b352169)
+**Status:** Open
 
 ---
 
-### T23-M2: Dead Letter Queue Schema Missing RLS Policies
+### M27: Dead Letter Filter Applied in App Code, Not Query
 
-**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-21
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`supabase/migrations/20260321000000_add_webhook_dead_letters.sql` — Tables `webhook_dead_letters` and `webhook_events_log` have no `ENABLE ROW LEVEL SECURITY` or `CREATE POLICY` statements. They are accessed only via service-role key (acceptable), but inconsistent with the rest of the schema. Either explicitly enable RLS with a service-role bypass policy, or add a comment explaining why RLS is omitted.
+`fetchPendingDeadLetters` (workers/stripe-webhook/src/supabase.ts:200) does not include `retry_count < max_retries` in DB query filter set. Rows that hit `max_retries` but still have `status=pending` (bug state from failed status update) are fetched then silently dropped client-side. Wastes round-trip and hides the discard. Push filter into query.
 
-**Files affected:**
-- `supabase/migrations/20260321000000_add_webhook_dead_letters.sql`
-
-**Status:** Done — Added comment explaining service-role-only access pattern and why RLS is intentionally omitted (commit 313cd7f)
+**Status:** Open
 
 ---
 
-### T23-M3: Unused `'processing'` Status in Dead Letter Queue Schema
+### M28: Wrong HTTP Status Code for Unmatched Webhook Route
 
-**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-21
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`supabase/migrations/20260321000000_add_webhook_dead_letters.sql` defines CHECK constraint with status enum including `'processing'`. No code ever writes this status. This suggests distributed locking (optimistic claim) was planned and never implemented. Either use `'processing'` or remove it from the CHECK to avoid confusion.
+`index.ts:170` returns `serverError` (HTTP 500) for unmatched routes instead of 404. Causes Stripe dashboard to report webhook delivery failures as 5xx instead of misconfiguration.
 
-**File:** `supabase/migrations/20260321000000_add_webhook_dead_letters.sql:20`
+**Fix:** Return HTTP 404 with appropriate response for unmatched route.
 
-**Status:** Done (commit 7da6701, 2026-03-21)
-
----
-
-### T24-M1: Stripe Customer Subscriptions Accessed via Unsafe Cast
-
-**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
-
-`scripts/full-reconciliation.ts:260` — Unsafe cast to add optional `subscriptions` field to Stripe Customer type:
-```typescript
-const subs = (customer as Stripe.Customer & { subscriptions?: ... }).subscriptions?.data ?? [];
-```
-
-This is the standard workaround for expanded Stripe types, but if the Stripe SDK is updated, the shape could change and fail silently. Add a runtime guard: `Array.isArray(subs) || throw new Error(...)` to fail fast on schema mismatch.
-
-**File:** `scripts/full-reconciliation.ts:260–261`
-
-**Status:** Done — `Array.isArray` guard added; throws with `customer.id` and `typeof subsData` on shape mismatch (commits 9bbb550, 4f03052)
+**Status:** Open
 
 ---
 
-### T24-M2: Entitlements Delete-Then-Insert Not Atomic
+### M29: Quota Bump Uses Null Assignment Instead of Monotonic Increment
 
-**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-21
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`scripts/full-reconciliation.ts:172–192` — `provisionEntitlements()` deletes all existing entitlements, then re-inserts one by one. If the script crashes between delete and insert, the org is left with zero entitlements. For a reconciliation script this is acceptable risk, but should be documented: **Run this during a maintenance window only.**
+`updateOrgBillingStatus` (workers/stripe-webhook/src/supabase.ts:84) sets `quota_version = null` as the bump mechanism. Null is not monotonic — it resets rather than increments. Two consecutive bumps within same tick both set `null` and second is indistinguishable from first. If polling clients use `quota_version` to detect changes, this breaks change detection.
 
-**File:** `scripts/full-reconciliation.ts:164–193`
+**Fix:** Use `now()` timestamp or integer increment via RPC, not null.
 
-**Note:** Document in script header that this is a "nuclear option" and should not run concurrently with production traffic.
-
-**Status:** Done — Maintenance window WARNING added to script header; inline comment added at delete/re-insert call site in `provisionEntitlements` (commit 218b4f2)
+**Status:** Open
 
 ---
 
-### T25-M2: `'degraded'` Status Unreachable in Durable Object Health Check
+### L5: Empty `PRICE_TO_PLAN` Map Shipped to Production
 
-**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-21
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`workers/api-gateway/src/routes/health.ts:59` — The condition `resp.status < 500 ? 'healthy' : 'degraded'` implies a distinction between healthy and degraded for DOs, but in practice a DO returning 5xx is a hard failure, not degraded. The `'degraded'` type is only meaningfully used in the database check. Consider whether this distinction is useful or should collapse to `'healthy'` | `'unhealthy'`.
+`workers/stripe-webhook/src/handlers/subscription.ts:8-10` defines empty `PRICE_TO_PLAN` map. Comment says "Example: ..." suggesting placeholder. `planKey` always `undefined` for all subscriptions; every update silently skips plan mapping with no log or error. Price IDs are environment-specific and should come from `env` bindings, not hardcoded map.
 
-**File:** `workers/api-gateway/src/routes/health.ts:54–63`
-
-**Status:** Done — `checkDurableObject` return type narrowed to `'healthy' | 'unhealthy'`; `HealthCheckResult.durableObjects` field typed accordingly (commit 3dd5824)
+**Status:** Open
 
 ---
 
-### T24-M3: `entitlementsRebuilt` Counter Increments at Wrong Granularity
+### L6: Magic Number for Initial Retry Delay
 
-**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-21
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`scripts/full-reconciliation.ts:303` — Counter increments inside the subscription loop (once per subscription), but the name and placement suggest it counts per-entitlement-row. The summary output is ambiguous: "Entitlements rebuilt: 5" could mean 5 rows or 5 subscriptions. Rename to `subscriptionsProcessed` or clarify the counter semantics in the summary output.
+`addDeadLetter` (workers/stripe-webhook/src/supabase.ts:155) uses hardcoded `60_000` (ms) for initial retry delay. `failDeadLetter` at line 224 uses same logic with `Math.pow(2, retryCount) * 60_000`. Extract to named constant alongside existing `REPLAY_WINDOW_MS` pattern in `workers/constants.ts`.
 
-**File:** `scripts/full-reconciliation.ts:303` and `324–330`
-
-**Status:** Done — Renamed to `orgEntitlementsRebuilt`; log label updated to `"Orgs with entitlements rebuilt:"` (commit 1b9c88d)
+**Status:** Open
 
 ---
 
-### M19: Typo in `entitlements` Variable Name
+### L7: Minimal Test Coverage for `handleWebhook` Fetch Handler
 
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 final review
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`scripts/full-reconciliation.ts:221` — Variable is named `entitlementsToRebuild` but should be `entitlementsToRebuild` (missing 'e'). The name is used consistently throughout the scope so there is no runtime bug, but it will surface in future searches and diffs. Rename to correct spelling.
+`index.test.ts` has only one test for `handleWebhook` (the M23 logProcessedEvent failure case). Missing coverage: invalid signature rejection, already-processed skip (`skipped: true` response), handler failure → dead letter, health endpoint. Reconciliation suite is comprehensive; webhook handler suite is not.
 
-**File:** `scripts/full-reconciliation.ts:221`
-
-**Status:** Done — Renamed across 5 occurrences (commit 7fa808f, 2026-03-20)
+**Status:** Open
 
 ---
 
-### M20: Missing Org ID Validation in Reconciliation Script
+### L8: Missing Unit Tests for Five Public `SupabaseAdmin` Functions
 
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 final review
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`scripts/full-reconciliation.ts:325–351` — The variable `orgs[0].id` is used directly in `provisionEntitlements()` without validating that `id` is a non-empty string. A Supabase row with a null or empty `id` would produce a malformed filter URL. Add a guard: `if (!orgs[0]?.id) throw new Error(...)`.
+`supabase.test.ts` covers only `fetchPendingDeadLetters` and `isEventProcessed`. Missing direct test coverage: `upsertSubscription`, `linkStripeCustomer`, `updateOrgBillingStatus`, `failDeadLetter`, `addDeadLetter`. Given M26 (non-atomic upsert), `upsertSubscription` is highest-priority gap.
 
-**File:** `scripts/full-reconciliation.ts:325–351`
-
-**Status:** Done — Explicit `!orgId` guard added after Zod parse; returns error if id is somehow empty (commit 005fc5c)
+**Status:** Open
 
 ---
 
-### L1: Redundant `token.split()` Calls in JWT Verification
+### L9: `DeadLetter` Interface Scoped Inside Function Closure
 
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-20 final review
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer full-stack review, session 2026-03-21
 
-`workers/lib/auth.ts:52 vs 59` — `parseJwtPayload()` splits the token internally but does not return the parts array. `verifyJwt` then calls `token.split('.')` again on line 59 to verify the signature. Minor redundancy — consider caching the parts result from parse or restructuring to avoid the second split.
+`workers/stripe-webhook/src/supabase.ts:170-178` — `DeadLetter` interface defined inside `createSupabaseAdmin` closure. Not exported; cannot be referenced externally (e.g., in `index.ts` where `dl` is typed implicitly). Should be exported from module or moved to `workers/lib/types.ts`.
 
-**File:** `workers/lib/auth.ts:52–59`
-
-**Status:** Done — `parseJwtPayload` returns `parts` in ok result; `verifyJwt` destructures from parse result, eliminating second split (commit f3cbb38)
+**Status:** Open
 
 ---
 
-### L2: Compound Issuer Check Could Be Simplified
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-20 final review
-
-`workers/lib/auth.ts:95` — The issuer check `typeof payload.iss !== 'string' || payload.iss !== opts.issuerUrl` can be collapsed to `payload.iss !== opts.issuerUrl` since `opts.issuerUrl` is guaranteed to be a `string` by the `!== undefined` guard on the outer `if`. Simplify for readability.
-
-**File:** `workers/lib/auth.ts:95`
-
-**Status:** Done — Removed redundant `typeof` guard; `payload.iss !== opts.issuerUrl` is semantically equivalent (commit 7fa808f, 2026-03-20)
-
----
-
-### M21: Log Warning When Daily/Monthly Query Results Hit Limit
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 (V03 final review, commits 59402f3, c021f5b, 97d3b74)
-
-`workers/api-gateway/src/aggregation.ts:50–52 (rollupDailyBucket), 155–158 (rollupMonthlyBucket)` — Both rollup functions have query limits (`MAX_EVENTS_PER_ROLLUP = 10_000` for daily, `MAX_DAILY_BUCKETS_PER_MONTH = 3100` for monthly) to prevent OOM, but neither logs a warning when the limit is hit. If the limit is reached, data silently truncates and the aggregation is incomplete. Add `if (events.length === MAX_EVENTS_PER_ROLLUP) console.warn(...)` in rollupDailyBucket and `if (buckets.length === MAX_DAILY_BUCKETS_PER_MONTH) console.warn(...)` in rollupMonthlyBucket.
-
-**Files:** `workers/api-gateway/src/aggregation.ts:50–52, 155–158`
-
-**Status:** Done — `console.warn` added in both rollup functions when result count hits the configured limit (commit 8e8c033)
-
----
-
-### M22: Add Int Type Enforcement to DailyBucketRow Interface
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 (V03 final review)
-
-`workers/api-gateway/src/aggregation.ts:110–116 (DailyBucketRow)` — DailyBucketRow is typed as `extends Record<string, unknown>` with numeric fields typed as plain `number`. The monthly aggregation relies on `total_quantity` and `request_count` being integers but does not enforce at the boundary. If a DB row returns floats (e.g., from a faulty migration), the aggregation would compute float sums that fail Zod's `int()` check on parse. Low-risk hardening: use `Math.trunc()` before aggregation, or parse DB rows against `UsageBucketSchema.pick(...)` to enforce type safety at query time.
-
-**File:** `workers/api-gateway/src/aggregation.ts:110–116`
-
-**Status:** Done — `Math.trunc()` applied via `truncatedRequestCount` local var used consistently for both aggregate and latency weight; two tests added (commit 1a446fa)
-
----
-
-### L3: Add Zod Schema Rejection Path Test for MonthlyUsageSummary
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-20 (V03 final review)
-
-`workers/api-gateway/src/aggregation.test.ts` — The test at line 290 (`returns a Zod-validated MonthlyUsageSummary shape`) confirms that a valid shape passes the schema, but there is no negative test confirming that `MonthlyUsageSummarySchema.parse` rejects invalid shapes (e.g., negative `total_quantity`). Add a test that mocks a malformed bucket row and confirms the Zod parse throws. Improves schema coverage beyond happy-path.
-
-**File:** `workers/api-gateway/src/aggregation.test.ts`
-
-**Status:** Done — Negative test added; `MonthlyUsageSummarySchema.parse` confirmed to throw on negative `total_quantity` and invalid `organization_id`/`year_month`.
-
----
-
-### L4: Refactor Test Factories to Reduce Duplication in aggregation.test.ts
-
-**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-20 (V03 final review)
-
-`workers/api-gateway/src/aggregation.test.ts:18–24 (makeSb), 167–173 (makeMonthSb)` — `makeSb` and `makeMonthSb` have duplicate structure (both create mock Supabase clients). The only difference is `makeMonthSb` does not mock `upsert`. Consider extracting a single factory that accepts optional mock overrides, reducing duplication and improving maintainability. Low priority; does not affect correctness.
-
-**File:** `workers/api-gateway/src/aggregation.test.ts:18–24, 167–173`
-
-**Status:** Done — Extracted `makeMockSupabaseClient` factory; `makeSb` and `makeMonthSb` now use single factory with optional mock overrides (commit 11049a3)
-
----
-
-### T24-M4: Replace Delete-Then-Insert with Upsert-Only Pattern in `provisionEntitlements`
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 (follow-up to T24-M2)
-
-`scripts/full-reconciliation.ts:250–272` — T24-M2 documented the non-atomic delete-then-insert pattern in `provisionEntitlements`, but did not schedule the underlying fix. A crash between the delete and re-insert leaves an org with zero entitlements. Replace with an upsert-only approach:
-- Use Supabase RPC or upsert-on-conflict to atomically replace entitlements
-- OR wrap the two calls in a database transaction (if Supabase REST API supports it)
-- OR implement eventual consistency: mark old rows as `deprecated`, insert new rows, then delete old ones in a separate reconciliation step
-
-This is the remediation for the atomicity risk documented in T24-M2.
-
-**File:** `scripts/full-reconciliation.ts:250–272`
-
-**Status:** Deferred — Requires investigation of Supabase transaction/RPC capabilities and risk tolerance (live-data impact during reconciliation runs).
-
----
-
----
-
-### P01: Zod Runtime Validation at Quota DO Response Boundaries
-
-**Priority:** P3 | **Source:** session 2026-03-20 (rate limiting integration polish)
-
-Replace unsafe TypeScript `as` casts in `workers/api-gateway/src/lib/quota.ts` with Zod schema parsing at all Durable Object response boundaries.
-
-**Status:** Done — `checkAndReserve` uses `QuotaCheckResponseSchema.parse()`, `flushUsage` uses `QuotaFlushResultSchema.parse()`, `getQuotaStatus` uses `z.record(z.unknown()).parse()`. Extracted `extractErrorMessage` helper, fixed double-await in `flushUsage`, corrected `remainingMinute != null` guard to prevent `"null"` header emission (commits 99d96b9, 95f2e51, 1872a13, eb1f928).
-
----
-
----
-
-### M23: Log Failures in `handleWebhook` When Recording Processed Events
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21 (T23-M4/H19-M3 final review)
-
-`workers/stripe-webhook/src/index.ts:89` — `logProcessedEvent` result is silently discarded. If the write fails, the event is treated as successfully processed but the idempotency record is never written. A subsequent Stripe retry will reprocess the event. While this maintains eventual consistency (the handler is idempotent), it increases load and latency. Add error logging and consider returning a failure response or retry signal.
-
-**Status:** Done — `logProcessedEvent` result captured; `console.error` on failure in both `handleWebhook` and `runReconciliation`; consoleSpy lifted to beforeEach/afterEach (commits f2b28a1, cc6c88e, 7dee8b3)
-
----
-
-### M24: Add Error Logging to `fetchPendingDeadLetters` on DB Failure
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21 (T23-M4/H19-M3 final review)
-
-`workers/stripe-webhook/src/supabase.ts:194` — On DB query error, `fetchPendingDeadLetters` silently returns an empty array with no log output. This causes the reconciliation cron to "succeed" and suppress observability of the outage. Add `console.error` logging when `!result.ok` to surface DB failures in monitoring.
-
-**Status:** Done — Split silent guard; `console.error` on `!result.ok`; `DeadLetter` index signature fixed; tests cover DB error and non-array paths (commits f2b28a1, cc6c88e, 7dee8b3)
-
----
-
-*Last updated: 2026-03-21 — H19-M3 and T23-M4 Done via TDD. M23, M24 Done (session 2026-03-21).*
+*Last updated: 2026-03-21 — M23, M24 Done. Full-stack review appended H1, H2, M25-M29, L5-L9 (session 2026-03-21).*
