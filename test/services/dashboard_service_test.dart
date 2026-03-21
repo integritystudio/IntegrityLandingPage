@@ -412,8 +412,22 @@ void main() {
       expect(mockDio._postCallCount, 3); // initial + 2 retries
     });
 
-    test('returns BillingPortalError with permission message on 403', () async {
-      mockDio.mockPostResponse({}, statusCode: 403);
+    test('returns sanitized auth message on 401 — does not surface raw API string (L20)', () async {
+      mockDio.mockPostResponse({'error': 'Unauthorized'}, statusCode: 401);
+
+      final result = await DashboardService.fetchBillingPortalUrl(
+        orgId: 'org-1',
+        jwt: 'expired-jwt',
+      );
+
+      expect(result, isA<BillingPortalError>());
+      final err = (result as BillingPortalError).error;
+      expect(err, isNot('Unauthorized'));
+      expect(err, contains('log in'));
+    });
+
+    test('returns sanitized permission message on 403 — does not surface raw API string (L20)', () async {
+      mockDio.mockPostResponse({'error': 'Forbidden: org billing restricted'}, statusCode: 403);
 
       final result = await DashboardService.fetchBillingPortalUrl(
         orgId: 'org-1',
@@ -421,10 +435,40 @@ void main() {
       );
 
       expect(result, isA<BillingPortalError>());
-      expect(
-        (result as BillingPortalError).error,
-        contains('permission'),
+      final err = (result as BillingPortalError).error;
+      expect(err, isNot('Forbidden: org billing restricted'));
+      expect(err, contains('permission'));
+    });
+
+    test('returns sanitized not-found message on 404 — does not surface raw API string (L20)', () async {
+      mockDio.mockPostResponse({'error': 'org_id not in stripe'}, statusCode: 404);
+
+      final result = await DashboardService.fetchBillingPortalUrl(
+        orgId: 'unknown-org',
+        jwt: 'jwt',
       );
+
+      expect(result, isA<BillingPortalError>());
+      final err = (result as BillingPortalError).error;
+      expect(err, isNot('org_id not in stripe'));
+      expect(err, contains('not found'));
+    });
+
+    test('returns generic unexpected error on unrecognized 4xx — does not surface raw API string (L20)', () async {
+      mockDio.mockPostResponse(
+        {'error': 'Stripe internal: cus_invalid param'},
+        statusCode: 422,
+      );
+
+      final result = await DashboardService.fetchBillingPortalUrl(
+        orgId: 'org-1',
+        jwt: 'jwt',
+      );
+
+      expect(result, isA<BillingPortalError>());
+      final err = (result as BillingPortalError).error;
+      expect(err, isNot(contains('Stripe internal')));
+      expect(err, 'An unexpected error occurred.');
     });
 
     test('returns error on invalid orgId', () async {

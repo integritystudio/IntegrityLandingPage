@@ -313,7 +313,8 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
       customer: 'cus_123',
       return_url: 'https://app.integritystudio.ai/#/billing',
     });
-    // Audit log written after successful portal session creation
+    // Audit log written exactly once after successful portal session creation
+    expect(mockSb.insert).toHaveBeenCalledTimes(1);
     expect(mockSb.insert).toHaveBeenCalledWith(
       'audit_log',
       expect.objectContaining({ action: 'billing_portal.accessed', target_type: 'org', target_id: 'org-id-1' }),
