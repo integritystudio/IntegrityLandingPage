@@ -307,7 +307,7 @@ This creates inconsistency in design system usage. If the card style changes, de
 
 **Files:** `lib/pages/quota_status_page.dart`, `lib/pages/provision_page.dart` (email badge, _buildOrgContextCard)
 
-**Status:** Open — deferred from L10 scope (low priority, cosmetic).
+**Status:** ✅ Done — all three card containers already use `AppDecorations.card(borderColor: AppColors.gray700)`. Remaining `BoxDecoration` instances are in `_PlanBadge`, `_StatusBadge`, and plan key badge — intentional colored badges, not card containers.
 
 ---
 
@@ -328,8 +328,61 @@ The two interfaces have overlapping but non-identical fields. Code references on
 
 **Files:** `workers/stripe-webhook/src/supabase.ts:6–12`, `lib/types/schemas.ts:DeadLetter vs WebhookDeadLetter`
 
-**Status:** Open — requires design decision on consolidation strategy (not blocking, low impact).
+**Status:** ✅ Done — added JSDoc cross-references to both `DeadLetter` (supabase.ts) and `WebhookDeadLetterSchema` (types.zod.ts) documenting the projection vs full-row relationship (commit 8fd1d47).
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer + backlog-migrate session complete: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed dead-letter on logProcessedEvent failure (7d86372); L5 moved PRICE_TO_PLAN to env binding with PlanKeySchema validation (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to docs/changelog/1.2/CHANGELOG.md. Remaining: T25, T28, V02-Remaining, M34, L16, M37 (deferred/design-decision-needed). Score: 8/10, all tests passing.*
+### M38: Dead Letter Re-run Handler Without Distinguishing "Log-Failed" From Handler Failures
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code review analysis, session 2026-03-21
+
+**Pre-existing issue.** The reconciliation cron (`workers/reconciliation-cron.ts`) fetches pending dead letters and retries them. When a handler (e.g., `handleCheckoutSessionCompleted`) fails, `failDeadLetter` is called to increment `retry_count` and schedule next retry via exponential backoff.
+
+However, when `logProcessedEvent` fails _after a successful handler run_, the same failure path (`failDeadLetter`) is invoked. This conflates two different failure modes:
+1. Handler logic failed (business error — warrants exponential backoff and operator investigation)
+2. Logging infrastructure failed (transient — likely recovers on next tick)
+
+Currently both increment retry count identically. The cron has no way to distinguish "handler failed" from "handler succeeded but logging failed" when deciding retry strategy.
+
+**Fix options:**
+1. Separate failure paths: `failDeadLetterHandlerError()` vs `failDeadLetterLoggingError()` with different backoff curves
+2. Add `failure_type` column to `webhook_dead_letters` to track which subsystem failed
+3. Document assumption that both failures warrant same exponential backoff (accept as-is)
+
+**Files:** `workers/stripe-webhook/src/index.ts:130–160`, `workers/reconciliation-cron.ts:50–100`
+
+**Status:** Open — requires categorization design decision.
+
+---
+
+### M39: Dead Letter Retry Exhaustion Without Incrementing Retry Count on logProcessedEvent Failure
+
+**Priority:** P3 | **Severity:** Low | **Source:** code review analysis, session 2026-03-21
+
+**Pre-existing architectural assumption.** When a webhook handler succeeds but `logProcessedEvent` fails:
+- Dead letter is created via `addDeadLetter()`
+- Cron will pick it up and retry the handler
+- Handler runs again (idempotent) and succeeds
+- But `logProcessedEvent` was never successfully recorded in either attempt
+
+If `logProcessedEvent` fails N times in a row before the dead letter hits `max_retries`, the retry counter can be exhausted without ever successfully recording the event as processed. The next cron tick will not retry (dead letter is abandoned), and the event is lost.
+
+This is a low-severity pre-existing assumption: handlers are assumed to be safe to call multiple times (idempotent), so re-running them is low-cost. The gap exists because dead-letter retry logic doesn't increment retry_count for the "logging failed" subpath — it relies on handler idempotency to hide the issue.
+
+**Scope:** Document the assumption in `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md` that:
+1. Handlers must be fully idempotent (re-run safely on repeated calls)
+2. Dead letter retries assume handler success; if handler succeeds but logging fails, dead letter is retried until abandoned
+3. If logging infrastructure becomes unavailable, events may be silently dropped after max_retries exhaustion
+
+**Fix options:**
+1. Accept assumption and document
+2. Add separate counter for logging-only retries (separate from handler retries)
+3. Implement atomic handler-then-log pattern with transactional guarantees (not feasible with current architecture)
+
+**Files:** `workers/stripe-webhook/src/index.ts:130–160`, `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md` (new)
+
+**Status:** Open — design decision on documentation vs implementation.
+
+---
+
+*Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to CHANGELOG; CSP test failure diagnosed as stale assertions (checking meta tag for report-uri instead of _headers file where Sentry endpoint actually configured); test fixed (47b4dc3). Test Status: ✅ ALL 2631 TESTS PASSING (was 2630 passing, 1 failing stale CSP test). Remaining: T25, T28, V02-Remaining, M34, L16, M37, M38, M39. Score: 9/10.*
