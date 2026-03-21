@@ -695,7 +695,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **File:** `scripts/full-reconciliation.ts:303` and `324–330`
 
-**Status:** Open
+**Status:** Done — Renamed to `orgEntitlementsRebuilt`; log label updated to `"Orgs with entitlements rebuilt:"` (commit 1b9c88d)
 
 ---
 
