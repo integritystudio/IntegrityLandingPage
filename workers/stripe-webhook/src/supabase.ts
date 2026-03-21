@@ -1,5 +1,6 @@
 import { createSupabaseClient } from '../../lib/supabase';
 import type { BillingStatus, PlanKey } from '../../lib/types';
+import { DEAD_LETTER_MAX_RETRIES } from '../../constants';
 
 type OkVoid = { ok: true };
 type Err = { ok: false; error: string };
@@ -143,7 +144,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
       payload,
       error_message: errorMessage,
       retry_count: 0,
-      max_retries: 5,
+      max_retries: DEAD_LETTER_MAX_RETRIES,
       next_retry_at: nextRetryAt,
       status: 'pending',
       created_at: new Date().toISOString(),
@@ -172,6 +173,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
       filters: [
         { column: 'status', operator: 'eq', value: 'pending' },
         { column: 'next_retry_at', operator: 'lte', value: now },
+        { column: 'retry_count', operator: 'lt', value: DEAD_LETTER_MAX_RETRIES },
       ],
       order: { column: 'created_at', ascending: true },
       limit,
@@ -181,7 +183,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
       return [];
     }
     if (!Array.isArray(result.data)) return [];
-    return result.data.filter((dl) => dl.retry_count < dl.max_retries);
+    return result.data;
   }
 
   /** Mark a dead letter as resolved (successfully retried). */
