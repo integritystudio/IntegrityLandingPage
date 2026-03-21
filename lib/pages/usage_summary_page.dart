@@ -68,6 +68,7 @@ class UsageSummaryPage extends StatefulWidget {
 class _UsageSummaryPageState extends State<UsageSummaryPage>
     with WidgetsBindingObserver {
   bool _isLoading = false;
+  bool _isFetching = false;
   String? _errorMessage;
   UsageSummaryData? _summary;
   Timer? _pollTimer;
@@ -102,29 +103,35 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
   }
 
   Future<void> _fetchSummary() async {
+    if (_isFetching) return;
+    _isFetching = true;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final response = await DashboardService.fetchUsageSummary(
-      orgId: widget.args.orgId,
-      jwt: widget.args.jwt,
-    );
+    try {
+      final response = await DashboardService.fetchUsageSummary(
+        orgId: widget.args.orgId,
+        jwt: widget.args.jwt,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    switch (response) {
-      case UsageSummarySuccess():
-        setState(() {
-          _summary = response.data;
-          _isLoading = false;
-        });
-      case UsageSummaryError():
-        setState(() {
-          _errorMessage = response.error;
-          _isLoading = false;
-        });
+      switch (response) {
+        case UsageSummarySuccess():
+          setState(() {
+            _summary = response.data;
+            _isLoading = false;
+          });
+        case UsageSummaryError():
+          setState(() {
+            _errorMessage = response.error;
+            _isLoading = false;
+          });
+      }
+    } finally {
+      _isFetching = false;
     }
   }
 
