@@ -194,6 +194,32 @@ These issues require **server-side HTTP response header configuration** and cann
 
 ## Open Items
 
+### OTEL Implementation (Session 2026-03-21)
+
+#### L22: Type safety for makeOpts test helper
+
+**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21)
+
+`makeOpts(sbOverride: any) => ...` in `ingest.test.ts:27` defeats type-checking. Should be typed as `SupabaseClient | null` or the minimal interface accepted by the handler. Prevents drift detection if the SupabaseClient interface changes.
+
+#### L23: Rate-limit headers not forwarded on OTEL success response
+
+**Priority:** P3 | **Source:** code-reviewer (session 2026-03-21)
+
+`handleIngestOtel` calls `enforceOrgQuota` but discards the `rateLimitHeaders` (only checks `.ok`). Org-route handlers forward `X-RateLimit-Remaining-*` headers to callers. OTEL endpoint should match this pattern for consistency.
+
+#### L24: start_time_ms lacks upper bound validation
+
+**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21)
+
+`OtelSpanSchema.start_time_ms` is `z.number().int().nonnegative()` with no upper bound. Accepts future timestamps and epoch 0. Consider `.max(Date.now() + 86_400_000)` to catch obviously invalid input. — `workers/lib/types/usage.ts:134`
+
+#### L25: OTEL_INGEST_ROUTE path duplicated between files
+
+**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21)
+
+The literal `'/v1/ingest/otel'` appears in `ingest.ts` (line 133 as `const OTEL_INGEST_ROUTE`) and `index.ts` (line 88 in route match). Should export constant from `ingest.ts` and import in `index.ts` to avoid drift. — `workers/api-gateway/src/routes/ingest.ts:133`
+
 ## Payment Processor Security Remediation
 
 Deferred security hardening for the two-layer authentication and billing system. Findings documented in `docs/security/SECURITY_VULNERABILITY_REPORT.md` and `docs/reports/JWT_COMPLIANCE_REVIEW.md`.
