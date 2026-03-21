@@ -28,3 +28,4 @@ new_classes = ["QuotaDurableObject"]
 # API_KEY_HMAC_SECRET
 # STRIPE_SECRET_KEY
 # APP_URL (optional; defaults to https://app.integritystudio.ai)
+# PAGERDUTY_INTEGRATION_KEY (optional; when set, fires PagerDuty trigger on unhealthy /health responses)

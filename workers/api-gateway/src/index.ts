@@ -21,6 +21,8 @@ export interface Env {
   STRIPE_SECRET_KEY: string;
   /** App URL used as Stripe billing portal return URL (e.g. https://app.integritystudio.ai). */
   APP_URL?: string;
+  /** PagerDuty Events API v2 integration key. When set, fires a trigger event on unhealthy health checks. */
+  PAGERDUTY_INTEGRATION_KEY?: string;
 }
 
 const APP_URL_FALLBACK = 'https://app.integritystudio.ai';
@@ -52,7 +54,10 @@ export default {
     const { pathname } = new URL(request.url);
 
     if (pathname === '/health' && request.method === 'GET') {
-      return handleHealthCheck(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, env.QUOTA_DO);
+      return handleHealthCheck(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, env.QUOTA_DO, {
+        pdKey: env.PAGERDUTY_INTEGRATION_KEY,
+        waitUntil: ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
+      });
     }
 
     const routeOpts = {
