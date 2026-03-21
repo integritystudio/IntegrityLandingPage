@@ -24,6 +24,13 @@ export type {
   QuotaFlushResult,
 };
 
+function extractErrorMessage(raw: unknown, fallback: string): string {
+  if (raw !== null && typeof raw === 'object' && 'error' in raw) {
+    return String((raw as { error: unknown }).error);
+  }
+  return fallback;
+}
+
 export async function checkAndReserve(
   doNamespace: DurableObjectNamespace,
   request: QuotaCheckRequest,
@@ -44,11 +51,7 @@ export async function checkAndReserve(
   if (!response.ok && response.status !== 429) {
     // 429 falls through to parse: the DO always returns a full QuotaCheckResponse body
     // on rate-limit rejections (allowed: false, reason, remainingMinute/remainingMonthly).
-    const msg =
-      raw !== null && typeof raw === 'object' && 'error' in raw
-        ? String((raw as Record<string, unknown>).error)
-        : response.statusText;
-    throw new Error(`Quota check failed: ${msg}`);
+    throw new Error(`Quota check failed: ${extractErrorMessage(raw, response.statusText)}`);
   }
 
   return QuotaCheckResponseSchema.parse(raw);
@@ -67,16 +70,13 @@ export async function flushUsage(
     }),
   );
 
+  const raw = await response.json();
+
   if (!response.ok) {
-    const raw = await response.json();
-    const msg =
-      raw !== null && typeof raw === 'object' && 'error' in raw
-        ? String((raw as Record<string, unknown>).error)
-        : response.statusText;
-    throw new Error(`Flush failed: ${msg}`);
+    throw new Error(`Flush failed: ${extractErrorMessage(raw, response.statusText)}`);
   }
 
-  return QuotaFlushResultSchema.parse(await response.json());
+  return QuotaFlushResultSchema.parse(raw);
 }
 
 export async function getQuotaStatus(
@@ -140,12 +140,12 @@ export async function enforceOrgQuota(
   }
 
   if (!quota.allowed) {
-    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (quota.remainingMinute !== undefined) {
-      (headers as Record<string, string>)['X-RateLimit-Remaining-Minute'] = String(quota.remainingMinute);
+      headers['X-RateLimit-Remaining-Minute'] = String(quota.remainingMinute);
     }
-    if (quota.remainingMonthly !== null && quota.remainingMonthly !== undefined) {
-      (headers as Record<string, string>)['X-RateLimit-Remaining-Monthly'] = String(quota.remainingMonthly);
+    if (quota.remainingMonthly != null) {
+      headers['X-RateLimit-Remaining-Monthly'] = String(quota.remainingMonthly);
     }
     return {
       ok: false,
