@@ -204,12 +204,7 @@ Deferred security hardening for the two-layer authentication and billing system.
 
 **Priority:** P3 | **Source:** session 2026-03-21 | **Commit:** a9a034f
 
-**Partially complete** — Health endpoint upgraded in commit a9a034f:
-- `/health` on api-gateway now checks Supabase connectivity + DO liveness
-- Returns `{ database, durableObjects, timestamp }`, 200 if all healthy, 503 otherwise
-- Still open: PagerDuty integration and monitoring dashboard configuration
-
-**Status:** Partial — Core health endpoint done. Alerting integration (PagerDuty) deferred.
+**Status:** ✅ Done — Core endpoint (a9a034f): Supabase + DO liveness, 200/503. PagerDuty alerting (28364a3, b842770): fire-and-forget trigger via `PAGERDUTY_INTEGRATION_KEY`, functional 5s DB timeout via `Promise.race`, dedup key, non-2xx logging. Monitoring dashboard config is operational (no code required). 5 tests passing.
 
 
 ### T28: Handle Persistent Storage Data Loss Risk in Quota DO
@@ -249,7 +244,7 @@ Query fetches all organizations then filters in application code. For accounts w
 
 Should add `filters: [{ column: 'id', operator: 'in', value: [...orgIds] }]` to the query in `loadOrgsForMemberships` to push filtering to the database layer.
 
-**Status:** Open — Deferred from V02 implementation.
+**Status:** ✅ Done — commit b2d23fe.
 
 ---
 
@@ -259,7 +254,7 @@ Should add `filters: [{ column: 'id', operator: 'in', value: [...orgIds] }]` to 
 
 `stripe_customer_id` is passed directly to Stripe SDK without format validation. Stripe IDs follow pattern `cus_[A-Za-z0-9]+`, but validation is missing. Malformed IDs could trigger unexpected Stripe errors. -- `workers/api-gateway/src/routes/orgs.ts:199`
 
-**Status:** Open — Deferred from V02 implementation.
+**Status:** ✅ Done — commit 162983d.
 
 ---
 
@@ -271,7 +266,7 @@ Should add `filters: [{ column: 'id', operator: 'in', value: [...orgIds] }]` to 
 
 Replace `await writeAuditLog(...)` with context.waitUntil pattern for Cloudflare Workers.
 
-**Status:** Open — Deferred from V02 implementation.
+**Status:** ✅ Done — commit 8f999e6.
 
 ---
 
@@ -281,7 +276,7 @@ Replace `await writeAuditLog(...)` with context.waitUntil pattern for Cloudflare
 
 Fallback URL hardcodes production endpoint `https://app.integritystudio.ai`. In staging/dev environments, this should point to the staging app URL. Should read from ENVIRONMENT or APP_URL env var. -- `workers/api-gateway/src/index.ts:14`
 
-**Status:** Open — Deferred from V02 implementation.
+**Status:** ✅ Done — commit 826d2f3.
 
 ---
 
