@@ -175,9 +175,10 @@ export async function rollupMonthlyBucket(
       weighted_latency_sum: 0,
       weighted_latency_count: 0,
     };
+    // Math.trunc guards against float values from faulty DB migrations; MonthlyUsageSummarySchema requires int().
     aggregates.set(bucket.metric_key, {
-      total_quantity: existing.total_quantity + bucket.total_quantity,
-      request_count: existing.request_count + bucket.request_count,
+      total_quantity: existing.total_quantity + Math.trunc(bucket.total_quantity),
+      request_count: existing.request_count + Math.trunc(bucket.request_count),
       weighted_latency_sum: existing.weighted_latency_sum +
         (bucket.avg_latency_ms !== null ? bucket.avg_latency_ms * bucket.request_count : 0),
       weighted_latency_count: existing.weighted_latency_count +

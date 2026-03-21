@@ -318,4 +318,21 @@ describe('rollupMonthlyBucket', () => {
     expect(MonthlyUsageSummarySchema.safeParse({ ...base, total_quantity: -1 }).success).toBe(false);
     expect(MonthlyUsageSummarySchema.safeParse({ ...base, total_requests: -1 }).success).toBe(false);
   });
+
+  it('truncates float total_quantity and request_count from DB rows to integers', async () => {
+    const buckets = makeDailyBuckets([
+      { total_quantity: 5.7, request_count: 3.9, avg_latency_ms: null },
+      { total_quantity: 2.2, request_count: 1.1, avg_latency_ms: null },
+    ]);
+    const sb = makeMonthSb(buckets);
+    const result = await rollupMonthlyBucket(ORG_UUID, '2026-03', sb as any);
+
+    // Math.trunc(5.7) + Math.trunc(2.2) = 5 + 2 = 7
+    expect(result.total_quantity).toBe(7);
+    // Math.trunc(3.9) + Math.trunc(1.1) = 3 + 1 = 4
+    expect(result.total_requests).toBe(4);
+    // Zod int() check passes — no throw
+    expect(Number.isInteger(result.total_quantity)).toBe(true);
+    expect(Number.isInteger(result.total_requests)).toBe(true);
+  });
 });
