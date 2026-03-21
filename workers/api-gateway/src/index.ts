@@ -4,6 +4,7 @@ import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus } from './ro
 import { handleUsageSummary, handleOrgEntitlements } from './routes/usage';
 import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
 import { handleHealthCheck } from './routes/health';
+import { handleIngestEvent } from './routes/ingest';
 import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
 
@@ -21,7 +22,7 @@ export interface Env {
 let jwtIssuerWarned = false;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     if (!jwtIssuerWarned && !env.SUPABASE_JWT_ISSUER) {
       console.warn(
         '[api-gateway] SUPABASE_JWT_ISSUER is not set — JWT iss claim validation (V-02) is disabled.',
@@ -46,6 +47,14 @@ export default {
       ...routeOpts,
       hmacSecret: env.API_KEY_HMAC_SECRET,
     };
+
+    if (pathname === '/v1/ingest/events' && request.method === 'POST') {
+      return handleIngestEvent(
+        request,
+        { ...machineRouteOpts },
+        ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
+      );
+    }
 
     if (pathname === '/v1/me' && request.method === 'GET') {
       return handleMe(request, routeOpts);

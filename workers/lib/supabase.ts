@@ -165,6 +165,37 @@ export function createSupabaseClient(
     }
   }
 
+  async function upsert<T extends SupabaseRow = SupabaseRow>(
+    table: string,
+    records: T | T[],
+    conflictColumns: string,
+  ): Promise<OkResult<T[] | null> | ErrResult> {
+    try {
+      const url = new URL(`${supabaseUrl}/rest/v1/${table}`);
+      url.searchParams.set('on_conflict', conflictColumns);
+
+      const upsertHeaders = {
+        ...headers,
+        'prefer': 'resolution=merge-duplicates,return=representation',
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: upsertHeaders,
+        body: JSON.stringify(Array.isArray(records) ? records : [records]),
+      });
+
+      if (!response.ok) {
+        return extractHttpError(response);
+      }
+
+      const data = await response.json();
+      return { ok: true, data: Array.isArray(data) ? data : [data] };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  }
+
   async function rpc(
     functionName: string,
     args: Record<string, unknown>,
@@ -186,7 +217,7 @@ export function createSupabaseClient(
     }
   }
 
-  return { query, insert, update, rpc };
+  return { query, insert, update, upsert, rpc };
 }
 
 export type SupabaseClient = ReturnType<typeof createSupabaseClient>;
