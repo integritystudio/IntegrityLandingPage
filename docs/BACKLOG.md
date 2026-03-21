@@ -204,13 +204,13 @@ Deferred security hardening for the two-layer authentication and billing system.
 
 **Priority:** P1 | **Source:** session 2026-03-21, JWT_COMPLIANCE_REVIEW.md findings
 
-**Partially complete** — V-02 (`iss` validation) implemented in commit 00bfaaf. Still open:
+**Substantially complete** — V-01 and V-02 done in this repo. Supabase-side changes still needed.
 
-1. **V-01: Remove mutable claims from JWT** — Remove `billing_status` and `plan` from token; query server-side instead. Requires `supabase/custom-access-token-hook.ts` update (Edge Function, not in this repo).
+1. **V-01: Remove mutable claims from JWT** — ✅ DONE (in-repo). `default_org_plan` and `default_org_billing_status` removed from `JWTPayloadSchema`; comment explains they must be queried server-side (M18 V-01). `.passthrough()` ensures tokens issued before the Supabase hook update still validate. Supabase Custom Access Token Hook update (to stop generating these claims) remains an external dependency — not in this repo.
 2. **V-02: Add `iss` validation** — ✅ DONE (commit 00bfaaf). `verifyJwt` accepts optional `issuerUrl`; api-gateway threads `SUPABASE_JWT_ISSUER` env var through all route opts.
 3. **Normalize RS256** — Requires Supabase project setting change (not code change).
 
-**Status:** Partial — V-02 done. V-01 and RS256 blocked on Supabase project config/hook deployment.
+**Status:** Partial — V-01 (in-repo) and V-02 done. RS256 normalization and Supabase hook update remain external dependencies.
 
 ---
 
@@ -253,8 +253,83 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
+## V02: Stripe Portal Link — Code Review Findings
+
+### H3: DB-Level Filter Missing in loadOrgsForMemberships
+
+**Priority:** P1 | **Source:** session 2026-03-21, code-reviewer V02 findings
+
+Query fetches all organizations then filters in application code. For accounts with thousands of orgs, this is inefficient and violates principle of least privilege. -- `workers/api-gateway/src/routes/orgs.ts:47-49`
+
+Should add `filters: [{ column: 'id', operator: 'in', value: [...orgIds] }]` to the query in `loadOrgsForMemberships` to push filtering to the database layer.
+
+**Status:** Open — Deferred from V02 implementation.
+
 ---
 
+### H4: stripe_customer_id Format Validation Missing
+
+**Priority:** P1 | **Source:** session 2026-03-21, code-reviewer V02 findings
+
+`stripe_customer_id` is passed directly to Stripe SDK without format validation. Stripe IDs follow pattern `cus_[A-Za-z0-9]+`, but validation is missing. Malformed IDs could trigger unexpected Stripe errors. -- `workers/api-gateway/src/routes/orgs.ts:199`
+
+**Status:** Open — Deferred from V02 implementation.
+
+---
+
+### M40: Audit Log Write Blocks Portal Response
+
+**Priority:** P2 | **Source:** session 2026-03-21, code-reviewer V02 findings
+
+`writeAuditLog` call blocks the response. Should use `waitUntil` to fire-and-forget so audit logging doesn't add latency to the user-facing endpoint. -- `workers/api-gateway/src/routes/orgs.ts:208-214`
+
+Replace `await writeAuditLog(...)` with context.waitUntil pattern for Cloudflare Workers.
+
+**Status:** Open — Deferred from V02 implementation.
+
+---
+
+### M41: APP_URL_FALLBACK Defaults to Production in Staging
+
+**Priority:** P2 | **Source:** session 2026-03-21, code-reviewer V02 findings
+
+Fallback URL hardcodes production endpoint `https://app.integritystudio.ai`. In staging/dev environments, this should point to the staging app URL. Should read from ENVIRONMENT or APP_URL env var. -- `workers/api-gateway/src/index.ts:14`
+
+**Status:** Open — Deferred from V02 implementation.
+
+---
+
+### M42: fetchBillingPortalUrl Missing 503 Retry
+
+**Priority:** P2 | **Source:** session 2026-03-21, code-reviewer V02 findings
+
+Retry loop handles 401, 403, 404, 500 but not 503. Stripe API returns 503 during maintenance windows. Should add 503 to retryable status codes. -- `lib/services/dashboard_service.dart` (fetchBillingPortalUrl method)
+
+**Status:** Open — Deferred from V02 implementation.
+
+---
+
+### L20: BillingPortalError Surfaces Raw API Strings
+
+**Priority:** P3 | **Source:** session 2026-03-21, code-reviewer V02 findings
+
+Error messages in `BillingPortalError` return raw API error strings to the user, which may leak implementation details. Should sanitize error messages and provide user-friendly fallbacks. -- `lib/services/dashboard_service.dart` (BillingPortalError handling)
+
+**Status:** Open — Deferred from V02 implementation.
+
+---
+
+### L21: Portal Success Test Undercounts Insert Calls
+
+**Priority:** P3 | **Source:** session 2026-03-21, code-reviewer V02 findings
+
+Test asserts `mockSb.insert` was called but doesn't verify call count. Should assert `toHaveBeenCalledTimes(1)` to catch duplicate audit log writes. -- `workers/api-gateway/src/routes/orgs.test.ts:275-278`
+
+**Status:** Open — Deferred from V02 implementation.
+
+---
+
+---
 
 *Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to v1.2; CSP test failure diagnosed and fixed (47b4dc3); L16 + M37 migrated to v1.2 changelog (2 completed items). Test Status: ✅ ALL 2631 TESTS PASSING. Remaining: T25, T28, V02-Remaining, M34, M38, M39 (6 deferred/design-decision items). Score: 9/10.*
 

@@ -36,9 +36,12 @@ export const JWTPayloadSchema = z.object({
   exp: z.number().int().positive('Expiration timestamp'),
   org_ids: z.array(z.string().uuid('Organization ID')).optional(),
   default_org_id: z.string().uuid().optional(),
-  default_org_plan: z.enum(['free', 'growth', 'enterprise']).optional(),
+  // default_org_plan and default_org_billing_status intentionally omitted:
+  // both are mutable state that must be queried server-side, not read from JWT
+  // (M18 V-01: billing/plan staleness up to 3600s violates SOC 2 CC6.1).
+  // Tokens issued before the Supabase hook update may still include these
+  // fields; .passthrough() ensures they are accepted without failing validation.
   default_org_role: z.enum(['owner', 'admin', 'member', 'billing_admin', 'viewer']).optional(),
-  default_org_billing_status: BillingStatusSchema.optional(),
 }).passthrough();
 
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
