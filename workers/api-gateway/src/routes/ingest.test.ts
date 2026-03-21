@@ -303,4 +303,36 @@ describe('POST /v1/ingest/otel', () => {
     const res = await handleIngestOtel(req, makeOpts(mockSb));
     expect(res.status).toBe(202);
   });
+
+  it('returns 422 when start_time_ms is more than 1 day in the future', async () => {
+    const secret = 'testsecret32charsminimumvalue000';
+    const apiKeyRow = await makeApiKeyRow();
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    const futureSpan = { ...validSpan(), start_time_ms: Date.now() + 7 * 86_400_000 };
+    const req = makeOtelRequest({ spans: [futureSpan] }, `int_live_abc12345_${secret}`);
+    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    expect(res.status).toBe(422);
+  });
+
+  it('forwards rate-limit headers when doNamespace quota check passes', async () => {
+    const secret = 'testsecret32charsminimumvalue000';
+    const apiKeyRow = await makeApiKeyRow();
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    const mockDO = {
+      idFromName: vi.fn().mockReturnValue('do-id'),
+      get: vi.fn().mockReturnValue({
+        fetch: vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({ allowed: true, remainingMinute: 42, remainingMonthly: 999 }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+        ),
+      }),
+    } as unknown as DurableObjectNamespace;
+    const req = makeOtelRequest({ spans: [validSpan()] }, `int_live_abc12345_${secret}`);
+    const res = await handleIngestOtel(req, { ...makeOpts(mockSb), doNamespace: mockDO });
+    expect(res.status).toBe(202);
+    expect(res.headers.get('X-RateLimit-Remaining-Minute')).toBe('42');
+    expect(res.headers.get('X-RateLimit-Remaining-Monthly')).toBe('999');
+  });
 });

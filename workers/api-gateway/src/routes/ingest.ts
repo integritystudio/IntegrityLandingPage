@@ -212,9 +212,15 @@ export async function handleIngestOtel(
     );
   }
 
-  const response = json({ ok: true, request_id: requestId, span_count: spans.length }, { status: 202 });
-  if (Object.keys(rateLimitHeaders).length === 0) return response;
-  const headers = new Headers(response.headers);
-  for (const [k, v] of Object.entries(rateLimitHeaders)) headers.set(k, v);
-  return new Response(response.body, { status: 202, headers });
+  return applyRateLimitHeaders(
+    json({ ok: true, request_id: requestId, span_count: spans.length }, { status: 202 }),
+    rateLimitHeaders,
+  );
+}
+
+function applyRateLimitHeaders(response: Response, headers: Record<string, string>): Response {
+  if (Object.keys(headers).length === 0) return response;
+  const merged = new Headers(response.headers);
+  for (const [k, v] of Object.entries(headers)) merged.set(k, v);
+  return new Response(response.body, { status: response.status, headers: merged });
 }
