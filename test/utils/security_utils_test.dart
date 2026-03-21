@@ -400,6 +400,15 @@ void main() {
         );
       });
 
+      test('returns generic for bare carriage return (\\r alone)', () {
+        // Isolates the raw.contains('\r') guard: \r without \n would pass
+        // the \n check but must still be rejected to prevent header injection.
+        expect(
+          SecurityUtils.sanitizeServerError('line1\rline2'),
+          equals(SecurityUtils.genericErrorMessage),
+        );
+      });
+
       test('returns generic for .cjs file:line stack reference', () {
         const trace = 'Error at fn (worker.cjs:42)';
         expect(
