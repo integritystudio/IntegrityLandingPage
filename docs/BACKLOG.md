@@ -712,7 +712,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 - Handler failure → `failDeadLetter` increments retry counter
 - Unhandled event type → `abandonDeadLetter` called
 
-**Status:** Open
+**Status:** Done — 4 integration tests added covering retry success, idempotency guard, handler failure, and unhandled event type (commit 1ae481d, 2026-03-20).
 
 ---
 
@@ -744,8 +744,8 @@ This is the remediation for the atomicity risk documented in T24-M2.
 
 **File:** `workers/stripe-webhook/src/supabase.ts:119–127`
 
-**Status:** Open
+**Status:** Done — isEventProcessed returns union type; runReconciliation fails-closed on DB error; handleWebhook returns 500 on guard failure. TDD: 3 tests in supabase.test.ts (commit 1ef83d1, 2026-03-20).
 
 ---
 
-*Last updated: 2026-03-20 (backlog-implementer session) — Very Easy items (T23-M1, T24-M2) implemented; code-reviewer identified 3 follow-up items: T23-M4 (test coverage), T24-M4 (upsert fix), H19-M3 (DB error handling).*
+*Last updated: 2026-03-20 (backlog-implementer session) — T23-M4 and H19-M3 implemented via TDD (commits 1ae481d, 1ef83d1). T24-M4 remains deferred.*
