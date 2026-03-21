@@ -2,23 +2,23 @@
 # commits  file
   10 lib/pages/provision_page.dart
   10 lib/pages/auth_page.dart
+   9 workers/api-gateway/src/index.ts
    9 test/services/provisioning_service_test.dart
-   8 README.md
-   8 CLAUDE.md
-   7 e2e/tests/routing.spec.ts
+   7 README.md
    6 workers/sender-worker/src/index.ts
    6 workers/lib/http/responses.ts
    6 workers/contact-form/src/index.ts
-   6 lib/widgets/docs/doc_components.dart
    6 lib/services/provisioning_service.dart
    6 lib/services/contact_service.dart
    6 lib/pages/contact_page.dart
-   6 e2e/tests/constants.ts
+   6 CLAUDE.md
    5 workers/lib/http/request.ts
-   5 workers/api-gateway/src/index.ts
+   5 workers/api-gateway/src/routes/orgs.ts
    5 test/services/contact_service_test.dart
+   5 lib/pages/features_page.dart
    4 workers/receiver-worker/src/index.ts
    4 workers/lib/validation/parse.ts
+   4 workers/lib/types/index.ts
    4 workers/lib/http/request.test.ts
 
 # Recent commits touching these files
@@ -37,6 +37,13 @@
   a5767c4 2026-03-20 fix(auth,provision): defer analytics tracking and fix Alert spacing (M16, L19, L20)
   9581ce8 2026-03-20 fix(auth): add max password length validation to prevent DoS (M15)
 
+## workers/api-gateway/src/index.ts
+  bb1d810 2026-03-20 feat(T26): wire quota checks into API gateway org routes
+  a9a034f 2026-03-20 feat(T25): replace stub health check with real connectivity probes
+  00bfaaf 2026-03-20 security(M18): add JWT iss claim validation to prevent token forgery
+  523518f 2026-03-20 feat(api-gateway): add per-org quota Durable Object
+  a645b8b 2026-03-20 feat(api-gateway): add API key create and revoke routes
+
 ## test/services/provisioning_service_test.dart
   9ea6256 2026-03-20 feat: implement sender-worker UI pages (auth, provision, health)
   4841b8d 2026-03-20 fix(analyzer): comment template code and add missing @override annotations
@@ -50,20 +57,6 @@
   64ec76e 2026-03-20 docs(readme): add provisioning test documentation and npm script
   0de71fb 2026-03-20 docs: add workers/lib module documentation
   f7357dd 2026-03-19 docs: update CLAUDE.md and README for API provisioning workers
-
-## CLAUDE.md
-  8759937 2026-03-20 docs: update README and CLAUDE.md for sender-worker UI completion
-  2784e1d 2026-03-20 docs: add session history and analytics debug documentation
-  0de71fb 2026-03-20 docs: add workers/lib module documentation
-  f7357dd 2026-03-19 docs: update CLAUDE.md and README for API provisioning workers
-  4e1eba1 2026-03-15 docs: update all docs for Phase 2/3b completion, test count 2440+, migrate Done items to changelog
-
-## e2e/tests/routing.spec.ts
-  6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
-  96765db 2026-03-14 docs: append code-reviewer findings to backlog, improve e2e comments and assertions
-  ece4d5d 2026-03-14 refactor(e2e): extract magic values to constants, remove duplicate tests
-  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
-  162cd6e 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
 
 ## workers/sender-worker/src/index.ts
   1768837 2026-03-20 feat(sender-worker): environment-aware CORS origin configuration
@@ -86,13 +79,6 @@
   f5d2c98 2026-03-20 refactor: extract shared CORS utilities into cors-utils.ts
   aefa447 2026-03-19 refactor: use shared constants in contact-form worker
 
-## lib/widgets/docs/doc_components.dart
-  44a2450 2026-03-17 fix: address code-reviewer findings for #134, M07, #138
-  0d30da6 2026-03-17 refactor(#138): extract VerticalIndicatorList from Timeline and DocNumberedList
-  f10c523 2026-03-15 refactor(widgets): consolidate _TimelineCard and _StatBadge into DocStatCard (Phase 3b)
-  6cc9569 2026-03-14 refactor(test): extract doc component constants (feature card width, code font, bullet char)
-  c180d28 2026-03-14 refactor(docs): consolidate _StatCard into DocStatCard (#153)
-
 ## lib/services/provisioning_service.dart
   9ea6256 2026-03-20 feat: implement sender-worker UI pages (auth, provision, health)
   5c35e10 2026-03-19 fix: address code-reviewer findings - critical and medium priority
@@ -114,12 +100,12 @@
   6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
   33547c7 2026-03-14 refactor(content): remove Content static facade, migrate to ContentLoader (#106)
 
-## e2e/tests/constants.ts
-  6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
-  27a0285 2026-03-14 refactor(e2e): extract blog article slugs to constants (L05)
-  ece4d5d 2026-03-14 refactor(e2e): extract magic values to constants, remove duplicate tests
-  ad49c89 2026-03-14 feat(a11y): add Semantics wrappers for mobile nav e2e testing (#117, #114)
-  162cd6e 2026-03-14 refactor(e2e): extract magic strings/numbers to named constants (#114)
+## CLAUDE.md
+  8759937 2026-03-20 docs: update README and CLAUDE.md for sender-worker UI completion
+  2784e1d 2026-03-20 docs: add session history and analytics debug documentation
+  0de71fb 2026-03-20 docs: add workers/lib module documentation
+  f7357dd 2026-03-19 docs: update CLAUDE.md and README for API provisioning workers
+  4e1eba1 2026-03-15 docs: update all docs for Phase 2/3b completion, test count 2440+, migrate Done items to changelog
 
 ## workers/lib/http/request.ts
   74bd32f 2026-03-20 fix(lib): make safeParseJson return unknown type for type safety
@@ -128,12 +114,12 @@
   2db9223 2026-03-20 fix(lib): address code-reviewer findings
   941e436 2026-03-20 feat(lib): add http/request.ts — JSON parsing, bearer token, query params, method assertion
 
-## workers/api-gateway/src/index.ts
-  a645b8b 2026-03-20 feat(api-gateway): add API key create and revoke routes
-  2a913ba 2026-03-20 feat(api-gateway): add usage/summary and entitlements routes with dual auth
+## workers/api-gateway/src/routes/orgs.ts
+  00bfaaf 2026-03-20 security(M18): add JWT iss claim validation to prevent token forgery
+  34b5d73 2026-03-20 revert: restore BILLING_ROLES constant in orgs.ts
+  ef48abd 2026-03-20 refactor(api-gateway): remove unused BILLING_ROLES constant
+  3d31f57 2026-03-20 refactor(api-gateway): extract duplicated helpers to shared module
   1065120 2026-03-20 feat(api-gateway): add org listing, dashboard, and billing-status routes
-  d2bab40 2026-03-20 feat(api-gateway): add GET /v1/me route with JWT auth
-  cf12889 2026-03-20 feat(api-gateway): scaffold worker with health route
 
 ## test/services/contact_service_test.dart
   44a2450 2026-03-17 fix: address code-reviewer findings for #134, M07, #138
@@ -141,6 +127,13 @@
   c4bbe29 2026-03-14 fix(contact): validate retry-after header and prefix synthetic submissionId (M04)
   6248eda 2026-03-14 refactor: fix backlog items L02, L04, M05, L12 and migrate Done entries to changelog
   febb2ca 2026-03-14 fix(contact): handle all HTTP status codes gracefully, fix CSRF retry logic
+
+## lib/pages/features_page.dart
+  0acb140 2026-03-20 refactor(widgets): extract ListCard to consolidate _ChoiceCard and _QueryCard
+  738417a 2026-03-19 refactor(#136): extract InfoCard from 4 duplicated card widgets
+  bafeb87 2026-03-17 refactor(#134): consolidate page scaffold into SubPageShell
+  c9d30fa 2026-03-14 refactor(widgets): add iconColor param to GradientPillBadge (L10)
+  671cf0a 2026-03-14 refactor(widgets): extract GradientPillBadge, consolidate 3 hero sections (#Phase3a)
 
 ## workers/receiver-worker/src/index.ts
   d59a255 2026-03-20 refactor: rename http-constants.ts to http-helpers.ts
@@ -153,6 +146,12 @@
   ec5085c 2026-03-20 refactor(lib): remove zero-value wrappers and optimize hot paths
   bf61a7a 2026-03-20 fix(lib): improve zodValidationError and validation exports
   f3d3f7b 2026-03-20 feat(lib): add validation/ — Zod schemas, requireValidJson, zodValidationError
+
+## workers/lib/types/index.ts
+  f0ba054 2026-03-20 fix(workers): resolve Zod schema compilation errors and deduplication
+  8e8fa5b 2026-03-20 feat(lib): add shared type definitions and Zod schemas for workers
+  7453235 2026-03-20 feat(workers/lib): add API key verification and generation utilities
+  5e65af0 2026-03-20 feat(workers): add Phase 3 bootstrap-worker + stripe-webhook with shared types
 
 ## workers/lib/http/request.test.ts
   74bd32f 2026-03-20 fix(lib): make safeParseJson return unknown type for type safety
