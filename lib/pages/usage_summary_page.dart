@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -63,16 +65,40 @@ class UsageSummaryPage extends StatefulWidget {
   State<UsageSummaryPage> createState() => _UsageSummaryPageState();
 }
 
-class _UsageSummaryPageState extends State<UsageSummaryPage> {
+class _UsageSummaryPageState extends State<UsageSummaryPage>
+    with WidgetsBindingObserver {
   bool _isLoading = false;
   String? _errorMessage;
   UsageSummaryData? _summary;
+  Timer? _pollTimer;
+
+  static const Duration _pollInterval = Duration(seconds: 30);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     AnalyticsService.trackPageView('usage_summary');
     _fetchSummary();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchSummary();
+    }
+  }
+
+  void _startPolling() {
+    _pollTimer = Timer.periodic(_pollInterval, (_) => _fetchSummary());
   }
 
   Future<void> _fetchSummary() async {
