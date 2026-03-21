@@ -98,6 +98,13 @@ async function runReconciliation(env: Env): Promise<void> {
 
   for (const dl of pending) {
     try {
+      // Idempotency guard: skip events already processed to handle overlapping cron ticks.
+      const alreadyProcessed = await db.isEventProcessed(dl.stripe_event_id);
+      if (alreadyProcessed) {
+        await db.resolveDeadLetter(dl.id);
+        continue;
+      }
+
       const event = dl.payload as StripeEvent;
 
       let handlerResult: HandlerResult = { ok: true };
