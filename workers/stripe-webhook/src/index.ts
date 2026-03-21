@@ -42,8 +42,11 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   const db = createSupabaseAdmin(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
   // Idempotency guard: skip events already processed to handle Stripe retries safely.
-  const alreadyProcessed = await db.isEventProcessed(event.id);
-  if (alreadyProcessed) {
+  const guardResult = await db.isEventProcessed(event.id);
+  if (!guardResult.ok) {
+    return serverError('Failed to check idempotency');
+  }
+  if (guardResult.processed) {
     return ok({ ok: true, processed: false, skipped: true, reason: 'already_processed' });
   }
 
@@ -99,8 +102,13 @@ async function runReconciliation(env: Env): Promise<void> {
   for (const dl of pending) {
     try {
       // Idempotency guard: resolve and skip dead letters whose event was already processed (e.g. overlapping cron ticks).
-      const alreadyProcessed = await db.isEventProcessed(dl.stripe_event_id);
-      if (alreadyProcessed) {
+      // Fail-closed on DB error: skip event to prevent double-processing if the outage masks a duplicate.
+      const guardResult = await db.isEventProcessed(dl.stripe_event_id);
+      if (!guardResult.ok) {
+        console.error(`isEventProcessed DB error for ${dl.stripe_event_id}:`, guardResult.error);
+        continue;
+      }
+      if (guardResult.processed) {
         await db.resolveDeadLetter(dl.id);
         continue;
       }

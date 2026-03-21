@@ -115,15 +115,19 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
 
   /**
    * Check whether a Stripe event has already been processed (idempotency guard).
+   * Returns a union to distinguish DB failures from "not yet processed".
    */
-  async function isEventProcessed(stripeEventId: string): Promise<boolean> {
+  async function isEventProcessed(
+    stripeEventId: string,
+  ): Promise<{ ok: true; processed: boolean } | { ok: false; error: string }> {
     const result = await sb.query('webhook_events_log', {
       select: 'id',
       filters: [{ column: 'stripe_event_id', operator: 'eq', value: stripeEventId }],
       limit: 1,
       single: true,
     });
-    return result.ok && result.data !== null;
+    if (!result.ok) return { ok: false, error: result.error };
+    return { ok: true, processed: result.data !== null };
   }
 
   /**
