@@ -45,8 +45,13 @@ export async function verifyStripeSignature(
     return { ok: false, error: unauthorized('Stripe signature timestamp is stale') };
   }
 
-  // Compute expected signature
+  // Verify signature using constant-time HMAC comparison to prevent timing side-channels.
   try {
+    // Validate hex before conversion — Stripe signatures are lowercase hex
+    if (!/^[0-9a-f]+$/.test(signature) || signature.length % 2 !== 0) {
+      return { ok: false, error: unauthorized('Invalid Stripe signature format') };
+    }
+
     const signedContent = `${timestamp}.${rawBody}`;
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
@@ -54,13 +59,16 @@ export async function verifyStripeSignature(
       encoder.encode(webhookSecret),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
-      ['sign'],
+      ['verify'],
     );
 
-    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(signedContent));
-    const expectedHex = Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, '0')).join('');
+    const sigBytes = new Uint8Array(signature.length / 2);
+    for (let i = 0; i < signature.length; i += 2) {
+      sigBytes[i / 2] = parseInt(signature.slice(i, i + 2), 16);
+    }
 
-    if (signature !== expectedHex) {
+    const isValid = await crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(signedContent));
+    if (!isValid) {
       return { ok: false, error: unauthorized('Invalid Stripe signature') };
     }
 

@@ -40,13 +40,42 @@ export async function hashApiKeySecret(secret: string, hmacSecret: string): Prom
   return Array.from(new Uint8Array(signature), (b) => HEX_CHARS[b >> 4] + HEX_CHARS[b & 0xf]).join('');
 }
 
+/** Convert a lowercase hex string to a Uint8Array. Returns null for invalid input. */
+function hexToBytes(hex: string): Uint8Array | null {
+  if (hex.length % 2 !== 0 || !/^[0-9a-f]*$/.test(hex)) return null;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+  }
+  return bytes;
+}
+
+/**
+ * Verify an API key secret against a stored HMAC-SHA256 hash using a
+ * constant-time comparison to prevent timing side-channel attacks.
+ */
 export async function verifyApiKeyHash(
   secret: string,
   storedHash: string,
   hmacSecret: string,
 ): Promise<boolean> {
-  const computed = await hashApiKeySecret(secret, hmacSecret);
-  return computed === storedHash;
+  const storedBytes = hexToBytes(storedHash);
+  if (!storedBytes) return false;
+
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(hmacSecret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify'],
+  );
+
+  try {
+    return await crypto.subtle.verify('HMAC', key, storedBytes, encoder.encode(secret));
+  } catch {
+    return false;
+  }
 }
 
 export type VerifyApiKeyResult =
