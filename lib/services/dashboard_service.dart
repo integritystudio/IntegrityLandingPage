@@ -681,6 +681,7 @@ class DashboardService {
             : const <String, dynamic>{};
 
         if (response.statusCode == HttpStatus.internalServerError.code ||
+            response.statusCode == HttpStatus.serviceUnavailable.code ||
             response.statusCode == HttpStatus.gatewayTimeout.code) {
           if (attempt < _maxRetries) {
             await retryDelay(Duration(seconds: 1 << attempt));

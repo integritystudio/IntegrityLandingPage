@@ -375,6 +375,64 @@ void main() {
       expect((result as QuotaStatusError).error, contains('Server error'));
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // fetchBillingPortalUrl
+  // ---------------------------------------------------------------------------
+
+  group('fetchBillingPortalUrl', () {
+    test('returns BillingPortalSuccess with url on 200', () async {
+      mockDio.mockPostResponse(
+        {'url': 'https://billing.stripe.com/session/abc'},
+        statusCode: 200,
+      );
+
+      final result = await DashboardService.fetchBillingPortalUrl(
+        orgId: 'org-1',
+        jwt: 'jwt',
+      );
+
+      expect(result, isA<BillingPortalSuccess>());
+      expect(
+        (result as BillingPortalSuccess).url,
+        'https://billing.stripe.com/session/abc',
+      );
+    });
+
+    test('retries on 503 and returns server error after max retries (M42)', () async {
+      mockDio.mockPostResponse({}, statusCode: 503);
+
+      final result = await DashboardService.fetchBillingPortalUrl(
+        orgId: 'org-1',
+        jwt: 'jwt',
+      );
+
+      expect(result, isA<BillingPortalError>());
+      expect((result as BillingPortalError).error, contains('Server error'));
+      expect(mockDio._postCallCount, 3); // initial + 2 retries
+    });
+
+    test('returns BillingPortalError on 403', () async {
+      mockDio.mockPostResponse({'error': 'Forbidden'}, statusCode: 403);
+
+      final result = await DashboardService.fetchBillingPortalUrl(
+        orgId: 'org-1',
+        jwt: 'jwt',
+      );
+
+      expect(result, isA<BillingPortalError>());
+      expect((result as BillingPortalError).error, 'Forbidden');
+    });
+
+    test('returns error on invalid orgId', () async {
+      final result = await DashboardService.fetchBillingPortalUrl(
+        orgId: '',
+        jwt: 'jwt',
+      );
+
+      expect(result, isA<BillingPortalError>());
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -387,6 +445,10 @@ class _MockGetDio implements Dio {
   DioExceptionType? _errorType;
   int _callCount = 0;
 
+  Map<String, dynamic> _postResponseData = {};
+  int _postStatusCode = 200;
+  int _postCallCount = 0;
+
   void mockGetResponse(Map<String, dynamic> data, {int statusCode = 200}) {
     _responseData = Map.of(data);
     _statusCode = statusCode;
@@ -397,6 +459,12 @@ class _MockGetDio implements Dio {
   void mockGetError(DioExceptionType type) {
     _errorType = type;
     _callCount = 0;
+  }
+
+  void mockPostResponse(Map<String, dynamic> data, {int statusCode = 200}) {
+    _postResponseData = Map.of(data);
+    _postStatusCode = statusCode;
+    _postCallCount = 0;
   }
 
   @override
@@ -442,13 +510,19 @@ class _MockGetDio implements Dio {
 
   @override
   Future<Response<T>> post<T>(String path,
-          {Object? data,
-          Map<String, dynamic>? queryParameters,
-          Options? options,
-          CancelToken? cancelToken,
-          ProgressCallback? onSendProgress,
-          ProgressCallback? onReceiveProgress}) =>
-      throw UnimplementedError();
+      {Object? data,
+      Map<String, dynamic>? queryParameters,
+      Options? options,
+      CancelToken? cancelToken,
+      ProgressCallback? onSendProgress,
+      ProgressCallback? onReceiveProgress}) async {
+    _postCallCount++;
+    return Response<T>(
+      data: _postResponseData as T,
+      statusCode: _postStatusCode,
+      requestOptions: RequestOptions(path: path),
+    );
+  }
 
   @override
   Future<Response<T>> put<T>(String path,
