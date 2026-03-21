@@ -96,8 +96,12 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
     switch (response) {
       case BillingPortalSuccess():
         final uri = Uri.tryParse(response.url);
-        if (uri != null) {
+        if (uri != null && uri.scheme == 'https') {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invalid billing portal URL.')),
+          );
         }
       case BillingPortalError():
         ScaffoldMessenger.of(context).showSnackBar(
