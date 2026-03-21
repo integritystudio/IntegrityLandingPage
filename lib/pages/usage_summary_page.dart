@@ -9,6 +9,7 @@ import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/common/error_card.dart';
 
 /// Aggregates usage buckets by date, summing totalQuantity across all metrics.
 ///
@@ -102,10 +103,16 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
   Future<void> _fetchSummary() async {
     if (_isFetching) return;
     _isFetching = true;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+
+    // Show spinner only on initial load; background polls refresh silently so
+    // existing data remains visible while the refresh is in-flight.
+    final isInitialLoad = _summary == null;
+    if (isInitialLoad) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final response = await DashboardService.fetchUsageSummary(
@@ -120,11 +127,14 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
           setState(() {
             _summary = response.data;
             _isLoading = false;
+            _errorMessage = null;
           });
         case UsageSummaryError():
           setState(() {
-            _errorMessage = response.error;
             _isLoading = false;
+            // On background poll failure, preserve existing data rather than
+            // replacing the visible summary with an error card.
+            if (isInitialLoad) _errorMessage = response.error;
           });
       }
     } finally {
@@ -190,7 +200,7 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 if (_errorMessage != null)
-                  _ErrorCard(
+                  ErrorCard(
                     message: _errorMessage!,
                     onRetry: _fetchSummary,
                   )
@@ -631,54 +641,6 @@ class _TableRow extends StatelessWidget {
           child: Text(requests, style: style, textAlign: TextAlign.right),
         ),
       ],
-    );
-  }
-}
-
-class _ErrorCard extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _ErrorCard({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        border: Border.all(color: AppColors.gray700),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(LucideIcons.alertCircle, size: 16, color: AppColors.error),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  message,
-                  style: AppTypography.bodySM.copyWith(color: AppColors.error),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: OutlineButton(
-                  onPressed: onRetry,
-                  text: 'Try again',
-                  icon: LucideIcons.rotateCw,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }
