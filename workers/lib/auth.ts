@@ -54,20 +54,9 @@ export async function verifyJwt(
     return { ok: false, error: unauthorized('Invalid JWT format') };
   }
 
-  const { payload } = parseResult;
-
-  const now = Math.floor(Date.now() / 1000);
-  if (typeof payload.exp !== 'number' || payload.exp < now) {
-    return { ok: false, error: unauthorized('JWT expired') };
-  }
-
-  // Validate issuer to prevent token forgery from attacker-controlled JWTs (V-02)
-  if (opts.issuerUrl !== undefined) {
-    if (typeof payload.iss !== 'string' || payload.iss !== opts.issuerUrl) {
-      return { ok: false, error: unauthorized('JWT issuer mismatch') };
-    }
-  }
-
+  // Verify signature first — standard JWT order is: parse → verify → check claims.
+  // Validating claims on an unverified token leaks information about claim structure
+  // and allows attacker-crafted tokens to probe validation logic.
   try {
     const parts = token.split('.');
     const encoder = new TextEncoder();
@@ -90,10 +79,25 @@ export async function verifyJwt(
     if (!isValid) {
       return { ok: false, error: unauthorized('Invalid JWT signature') };
     }
-
-    return { ok: true, payload };
   } catch (err) {
     console.error('JWT verification error:', err);
     return { ok: false, error: unauthorized('JWT verification failed') };
   }
+
+  // Claims validation — only reached after signature is confirmed valid.
+  const { payload } = parseResult;
+
+  const now = Math.floor(Date.now() / 1000);
+  if (typeof payload.exp !== 'number' || payload.exp < now) {
+    return { ok: false, error: unauthorized('JWT expired') };
+  }
+
+  // Validate issuer to prevent token forgery from attacker-controlled JWTs (V-02)
+  if (opts.issuerUrl !== undefined) {
+    if (typeof payload.iss !== 'string' || payload.iss !== opts.issuerUrl) {
+      return { ok: false, error: unauthorized('JWT issuer mismatch') };
+    }
+  }
+
+  return { ok: true, payload };
 }
