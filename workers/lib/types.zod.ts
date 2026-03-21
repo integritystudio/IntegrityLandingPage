@@ -206,7 +206,7 @@ export const WebhookDeadLetterSchema = z.object({
   retry_count: z.number().int().nonnegative(),
   max_retries: z.number().int().nonnegative(), // Zero = don't retry
   next_retry_at: z.string().datetime().nullable(),
-  status: z.enum(['pending', 'processing', 'resolved', 'abandoned']),
+  status: z.enum(['pending', 'resolved', 'abandoned']),
   created_at: z.string().datetime(),
   resolved_at: z.string().datetime().nullable(),
 });

@@ -12,9 +12,9 @@ CREATE TABLE IF NOT EXISTS webhook_dead_letters (
     retry_count     INT NOT NULL DEFAULT 0,
     max_retries     INT NOT NULL DEFAULT 5,
     next_retry_at   TIMESTAMPTZ,
-    -- pending: awaiting retry | processing: in-flight | resolved: handled | abandoned: max retries exceeded
+    -- pending: awaiting retry | resolved: handled | abandoned: max retries exceeded
     status          TEXT NOT NULL DEFAULT 'pending'
-                    CHECK (status IN ('pending', 'processing', 'resolved', 'abandoned')),
+                    CHECK (status IN ('pending', 'resolved', 'abandoned')),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     resolved_at     TIMESTAMPTZ
 );
