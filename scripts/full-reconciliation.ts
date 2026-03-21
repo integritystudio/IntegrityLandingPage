@@ -4,6 +4,11 @@
  * "Nuclear option": rebuilds local billing state from Stripe when the database
  * is out of sync after an extended outage, data corruption, or backup restore.
  *
+ * WARNING: Do NOT run concurrently with production traffic. `provisionEntitlements`
+ * deletes all org entitlements then re-inserts — if the script crashes between
+ * the delete and the insert, the org is left with zero entitlements. Run during
+ * a maintenance window or against a quiesced environment only.
+ *
  * Stripe is the source of truth for billing state. This script:
  *   1. Pages through all Stripe customers (with expanded subscriptions)
  *   2. Upserts organizations and subscriptions in Supabase
@@ -247,7 +252,9 @@ async function provisionEntitlements(
     return { ok: true };
   }
 
-  // Clear existing entitlements for this org and re-insert from plan definition
+  // Non-atomic: deletes all entitlements then re-inserts from plan definition.
+  // A crash between delete and insert leaves the org with zero entitlements.
+  // See script-level WARNING — run during a maintenance window only.
   const deleteResult = await supabaseDelete(
     supabaseUrl, serviceRoleKey,
     'entitlements',
