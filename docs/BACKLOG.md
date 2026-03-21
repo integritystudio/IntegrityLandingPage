@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md` and `docs/changelog/1.1/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** V02 Flutter Dashboard UI Core Pages Complete; Code Review Findings Documented
+**Last Updated:** 2026-03-21 | **Phase:** V02 Flutter Dashboard UI (Quota Viz + Entitlements Done); H1 Zod Schemas Complete; Code Review Cycle Active
 
 ---
 
@@ -19,6 +19,12 @@ Open and deferred items only. Completed items are migrated to `docs/changelog/1.
 - ✅ V02 Dashboard Core Pages — Usage summary page (55c4a86, e066900) + billing status display page (979ab7c, 60fd1ff) with DashboardService
 - ✅ V02 Code Review Findings Documented — Backlog items H2, M30-M32, L10-L11, V02-Remaining 5 components (commit 80b288a)
 - ✅ Roadmap Updated — V02 status reflects complete core pages + code review findings + remaining work (commits 81d3c24, 7f2e699)
+- ✅ H1: Zod Schemas for Stripe Event Payloads — CheckoutSessionSchema, SubscriptionSchema, InvoiceSchema; all `as any` casts replaced with `safeParse` (commit 29a71d1)
+- ✅ V02: Quota Visualization — QuotaStatusPage at `/quota` with minute burst + monthly limits, GET /quota/status endpoint (commits 9f93f67, e3ff7f3)
+- ✅ V02: Usage Charts — Daily bar chart with quota reference line and threshold coloring, fixed shouldRepaint (commits c78bbf1, 809496a)
+- ✅ V02: Entitlements Display — EntitlementsPage at `/entitlements` with auto-generated feature flags (commit 9f93f67)
+- ✅ Code Review Cycle — H1 Zod schema findings documented + code review addressing H1/H2/M4 findings (commits fc91224, e3ff7f3)
+- ✅ Backlog Updated — V02 quota visualization and entitlements display marked done (commit 52a2d4c)
 
 **Remaining for v1 release:**
 
@@ -47,7 +53,7 @@ Implement authenticated dashboard with org switching, billing status, usage summ
 - `lib/widgets/sections/dashboard_section.dart`
 - `lib/services/dashboard_service.dart` (API client wrapper)
 
-**Status:** Core pages complete ✅ — Bootstrap flow complete; ✅ billing status display (step 2) implemented: `BillingStatusPage` at `/billing`, plan name + status badge + renewal date, loading/error states, retry (commits 979ab7c, 60fd1ff); ✅ usage summary display (step 3) implemented: `UsageSummaryPage` at `/usage`, progress bar + per-metric breakdown (commits 55c4a86, e066900). Code review findings: 1 H2 latent, 3 M-level (telemetry/validation/duplication), 2 L-level (decoration/docs) documented (80b288a). ✅ usage charts (step 3 complete) implemented: `_DailyBarChart` with `CustomPainter`, daily bar chart with quota reference line and threshold coloring (commits c78bbf1, 809496a). ✅ quota visualization implemented: `QuotaStatusPage` at `/quota`, minute burst + monthly limits with Unlimited label support, plan badge, fail-open DO handling (commits 9f93f67, e3ff7f3). ✅ entitlements display: `EntitlementsPage` at `/entitlements` (auto-generated, commit 9f93f67). Remaining: org switcher, Stripe portal, real-time polling.
+**Status:** ✅ CORE PAGES + CHARTS COMPLETE — Bootstrap flow complete; ✅ billing status display (step 2): `BillingStatusPage` at `/billing`, plan name + status badge + renewal date, loading/error states, retry (commits 979ab7c, 60fd1ff); ✅ usage summary display (step 3): `UsageSummaryPage` at `/usage`, progress bar + per-metric breakdown (commits 55c4a86, e066900); ✅ usage charts (step 3): `_DailyBarChart` with `CustomPainter`, daily bar chart with quota reference line and threshold coloring (commits c78bbf1, 809496a); ✅ quota visualization (step 3 extended): `QuotaStatusPage` at `/quota`, minute burst + monthly limits with Unlimited label support, plan badge, fail-open DO handling (commits 9f93f67, e3ff7f3); ✅ entitlements display (step 4): `EntitlementsPage` at `/entitlements` with auto-generated feature flags (commit 9f93f67). Code review findings: 1 H2-V02 latent JWT risk, 3 M-level (M30-M32: telemetry/validation/duplication), 2 L-level (L10-L11: decoration/docs) documented (80b288a). Remaining: org switcher (step 1), Stripe portal link (step 5), real-time polling (step 6).
 
 ---
 
@@ -284,7 +290,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 **Fix:** Call `db.upsertSubscription()` after linking customer, mirroring the pattern in other handlers.
 
-**Status:** Open
+**Status:** ✅ Done — commit 64b1387. Stub row with null price_id and status 'active' created after linkStripeCustomer; price populated by subsequent customer.subscription.updated.
 
 ---
 
@@ -294,7 +300,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 `type HandlerResult = { ok: true } | { ok: false; error: string }` defined in `index.ts:15`, `checkout.ts:4`, `subscription.ts:12`, `invoice.ts:4`. Should live in `workers/lib/types.ts` and be imported. Drift between definitions is possible.
 
-**Status:** Open
+**Status:** ✅ Done — commit 3e63278. HandlerResult exported from workers/lib/types/index.ts; local definitions removed from all 4 files.
 
 ---
 
@@ -304,7 +310,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 `workers/stripe-webhook/src/supabase.ts:36-65` — Read at line 36 and write at line 49/57 are not atomic. Two overlapping `customer.subscription.updated` events (common with Stripe retries) can both see `queryResult.data === null` and both attempt `insert`, causing duplicate key violation. Table should use true upsert (`ON CONFLICT DO UPDATE`) rather than manual check-then-insert.
 
-**Status:** Open
+**Status:** ✅ Done — commit 867957c. sb.upsert with on_conflict=organization_id,stripe_subscription_id replaces read-then-insert-or-update pattern.
 
 ---
 
@@ -314,7 +320,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 `fetchPendingDeadLetters` (workers/stripe-webhook/src/supabase.ts:200) does not include `retry_count < max_retries` in DB query filter set. Rows that hit `max_retries` but still have `status=pending` (bug state from failed status update) are fetched then silently dropped client-side. Wastes round-trip and hides the discard. Push filter into query.
 
-**Status:** Open
+**Status:** ✅ Done — commit 77bd17e. DEAD_LETTER_MAX_RETRIES=5 constant added; retry_count filter pushed into PostgREST query.
 
 ---
 
@@ -326,7 +332,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 **Fix:** Return HTTP 404 with appropriate response for unmatched route.
 
-**Status:** Open
+**Status:** ✅ Done — commit 22794bb. notFound() (HTTP 404) replaces serverError() for unmatched routes.
 
 ---
 
@@ -338,7 +344,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 **Fix:** Use `now()` timestamp or integer increment via RPC, not null.
 
-**Status:** Open
+**Status:** ✅ Done — commit cec8997. quota_version set to new Date().toISOString() — monotonic, unique per bump.
 
 ---
 
@@ -348,7 +354,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 `workers/stripe-webhook/src/handlers/subscription.ts:8-10` defines empty `PRICE_TO_PLAN` map. Comment says "Example: ..." suggesting placeholder. `planKey` always `undefined` for all subscriptions; every update silently skips plan mapping with no log or error. Price IDs are environment-specific and should come from `env` bindings, not hardcoded map.
 
-**Status:** Open
+**Status:** Open — Low priority, deferred.
 
 ---
 
@@ -388,7 +394,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 `workers/stripe-webhook/src/supabase.ts:170-178` — `DeadLetter` interface defined inside `createSupabaseAdmin` closure. Not exported; cannot be referenced externally (e.g., in `index.ts` where `dl` is typed implicitly). Should be exported from module or moved to `workers/lib/types.ts`.
 
-**Status:** Open
+**Status:** ✅ Done — commit 9a154ea. issues.map(i => i.message).join('; ') replaces error.message at 5 call sites.
 
 ---
 
@@ -400,7 +406,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 **Files:** `workers/stripe-webhook/src/handlers/checkout.ts:17`, `subscription.ts:31,90`, `invoice.ts:52,77`
 
-**Status:** Open
+**Status:** ✅ Done — commit 9a154ea. issues.map(i => i.message).join('; ') replaces error.message at all 5 call sites.
 
 ---
 
@@ -445,7 +451,7 @@ Code-reviewer full-stack review of billing status page (BillingStatusPage + Dash
 
 **Mitigation:** Document the `extra` map at call sites as "no credentials" or add JSDoc comment on `captureException` signature warning against logging secrets.
 
-**Status:** Open (latent risk, not immediate leak)
+**Status:** ✅ Done — commit 3f0804c. SECURITY comment added at all four captureException call sites in DashboardService.
 
 ---
 
@@ -457,7 +463,7 @@ Code-reviewer full-stack review of billing status page (BillingStatusPage + Dash
 
 **Fix:** Add `if (rawDate != null && rawDate.isNotEmpty) { final parsed = DateTime.tryParse(rawDate); if (parsed == null) { await ErrorTrackingService.captureException(...); } }` to surface format divergence.
 
-**Status:** Open
+**Status:** ✅ Done — commit 4fb5380. unawaited captureException added in BillingStatusData.fromJson when tryParse returns null.
 
 ---
 
@@ -469,7 +475,7 @@ Code-reviewer full-stack review of billing status page (BillingStatusPage + Dash
 
 **Fix:** Add assertion in debug builds: `_ => () { assert(false, 'Unknown billing status: $status'); return AppColors.error; }()`.
 
-**Status:** Open
+**Status:** ✅ Done — commit c8e03a2. assert() added in _statusColor and _statusLabel covering all known values.
 
 ---
 
@@ -481,7 +487,7 @@ Code-reviewer full-stack review of billing status page (BillingStatusPage + Dash
 
 **Fix:** Refactor to pass only `billingStatus` to `_BillingCard` and have the widget derive color/label internally, or extract a dedicated `_buildStatusBadge(String billingStatus)` method.
 
-**Status:** Open
+**Status:** ✅ Done — commit a76348b. _statusColor/_statusLabel moved to module-level functions; _BillingCard computes badge internally from billingStatus data.
 
 ---
 
@@ -526,4 +532,4 @@ Current status: BillingStatusPage + UsageSummaryPage implemented. Remaining 5 ta
 
 ---
 
-*Last updated: 2026-03-21 — V02 core pages complete: billing status display (979ab7c, 60fd1ff) + usage summary (55c4a86, e066900). Code-reviewer findings documented (80b288a): H2 latent JWT risk, M30-M32 (telemetry/validation/duplication), L10-L11 (decoration/docs). V02-Remaining 5 components documented. Roadmap updated (7f2e699).*
+*Last updated: 2026-03-21 — V02 core pages + charts + quota viz + entitlements complete: billing status (979ab7c, 60fd1ff), usage summary (55c4a86, e066900), usage charts (c78bbf1, 809496a), quota viz (9f93f67, e3ff7f3), entitlements (9f93f67). H1 Zod schemas complete (29a71d1); code review cycle active: H1 findings documented (fc91224), quota-status code review addressed (e3ff7f3), backlog updated (52a2d4c). Remaining: org switcher, Stripe portal, real-time polling. Roadmap updated (payments-implementation.md).*
