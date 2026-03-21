@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md` and `docs/changelog/1.1/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** Sender-Worker UI + Quota Integration Complete
+**Last Updated:** 2026-03-21 | **Phase:** V02 Flutter Dashboard UI Core Pages Complete; Code Review Findings Documented
 
 ---
 
@@ -10,12 +10,15 @@ Open and deferred items only. Completed items are migrated to `docs/changelog/1.
 
 **Status:** Phase 1–4 substantially complete as of 2026-03-20.
 
-**Completed in this session (2026-03-20):**
+**Completed in this session (2026-03-20 to 2026-03-21):**
 - ✅ Sender-Worker UI Implementation — AuthPage, ProvisionPage, SenderHealthPage with JWT flow (commit 9ea6256)
 - ✅ Quota Durable Object Integration (T26) — Wire quota checks into API gateway routes with fail-open logic (commits bb1d810, d58f382, 3483538)
 - ✅ Quota Integration Tests (T27) — 25 comprehensive tests covering limits, idempotency, plan tiers (commit 6bc3cd8)
 - ✅ Security Fixes — JWT issuer validation (V-02, commit 00bfaaf), timing-safe hash comparisons H19 (commit 0f9cece)
 - ✅ Code Review — 10+ findings addressed; 6 backlog items marked Done (R02, R04, R07, R08, R09, R10)
+- ✅ V02 Dashboard Core Pages — Usage summary page (55c4a86, e066900) + billing status display page (979ab7c, 60fd1ff) with DashboardService
+- ✅ V02 Code Review Findings Documented — Backlog items H2, M30-M32, L10-L11, V02-Remaining 5 components (commit 80b288a)
+- ✅ Roadmap Updated — V02 status reflects complete core pages + code review findings + remaining work (commits 81d3c24, 7f2e699)
 
 **Remaining for v1 release:**
 
@@ -44,7 +47,7 @@ Implement authenticated dashboard with org switching, billing status, usage summ
 - `lib/widgets/sections/dashboard_section.dart`
 - `lib/services/dashboard_service.dart` (API client wrapper)
 
-**Status:** In progress — Bootstrap flow complete; billing status display (step 2) implemented: `BillingStatusPage` at `/billing`, plan name + status badge + renewal date, loading/error states, retry. Usage summary display (step 3) implemented in commits 55c4a86, e066900: `UsageSummaryPage` at `/usage`, progress bar + per-metric breakdown. Remaining: org switcher, billing link, Stripe portal, real-time polling, entitlements grid.
+**Status:** Core pages complete ✅ — Bootstrap flow complete; ✅ billing status display (step 2) implemented: `BillingStatusPage` at `/billing`, plan name + status badge + renewal date, loading/error states, retry (commits 979ab7c, 60fd1ff); ✅ usage summary display (step 3) implemented: `UsageSummaryPage` at `/usage`, progress bar + per-metric breakdown (commits 55c4a86, e066900). Code review findings: 1 H2 latent, 3 M-level (telemetry/validation/duplication), 2 L-level (decoration/docs) documented (80b288a). Remaining: org switcher, Stripe portal, real-time polling, entitlements grid, usage charts.
 
 ---
 
@@ -486,4 +489,4 @@ Current status: BillingStatusPage + UsageSummaryPage implemented. Remaining 5 ta
 
 ---
 
-*Last updated: 2026-03-21 — Billing status page implemented (commits 979ab7c, 60fd1ff). Code-reviewer findings (session 2026-03-21) appended: H2 (latent JWT risk), M30-M32, L10-L11. V02 remaining 5 components documented.*
+*Last updated: 2026-03-21 — V02 core pages complete: billing status display (979ab7c, 60fd1ff) + usage summary (55c4a86, e066900). Code-reviewer findings documented (80b288a): H2 latent JWT risk, M30-M32 (telemetry/validation/duplication), L10-L11 (decoration/docs). V02-Remaining 5 components documented. Roadmap updated (7f2e699).*
