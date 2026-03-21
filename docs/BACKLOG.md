@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** V02 & Health Monitoring Complete; T25, H3, H4, M40, M41 migrated to v1.2 (5 items); 44+ items in v1.2; 1 remaining design-decision item (T28)
+**Last Updated:** 2026-03-21 | **Phase:** V02 & Health Monitoring Complete; T25, H3, H4, M40, M41, M42, L20, L21 migrated to v1.2 (8 items); 47+ items in v1.2; 1 remaining design-decision item (T28)
 
 ---
 
@@ -228,36 +228,6 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 ---
 
 ## V02: Stripe Portal Link — Code Review Findings
-
-### M42: fetchBillingPortalUrl Missing 503 Retry
-
-**Priority:** P2 | **Source:** session 2026-03-21, code-reviewer V02 findings
-
-Retry loop handles 401, 403, 404, 500 but not 503. Stripe API returns 503 during maintenance windows. Should add 503 to retryable status codes. -- `lib/services/dashboard_service.dart` (fetchBillingPortalUrl method)
-
-**Status:** ✅ Done — 503 added to retryable status codes; HttpStatus enum updated (commits 8b6120f, 51f8ad8, 31d5181).
-
----
-
-### L20: BillingPortalError Surfaces Raw API Strings
-
-**Priority:** P3 | **Source:** session 2026-03-21, code-reviewer V02 findings
-
-Error messages in `BillingPortalError` return raw API error strings to the user, which may leak implementation details. Should sanitize error messages and provide user-friendly fallbacks. -- `lib/services/dashboard_service.dart` (BillingPortalError handling)
-
-**Status:** ✅ Done — Error messages sanitized; user-friendly fallbacks added (commit 32ee699).
-
----
-
-### L21: Portal Success Test Undercounts Insert Calls
-
-**Priority:** P3 | **Source:** session 2026-03-21, code-reviewer V02 findings
-
-Test asserts `mockSb.insert` was called but doesn't verify call count. Should assert `toHaveBeenCalledTimes(1)` to catch duplicate audit log writes. -- `workers/api-gateway/src/routes/orgs.test.ts:275-278`
-
-**Status:** ✅ Done — `toHaveBeenCalledTimes(1)` assertion added (commit 32ee699).
-
----
 
 ### L22: billing_admin Path Lacks Audit Log Call Count Assertion
 

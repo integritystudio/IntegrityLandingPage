@@ -788,4 +788,49 @@ Made billing portal return URL environment-aware.
 - **Tests:** All existing tests pass
 - **Commit:** `826d2f3`
 
+### M42: fetchBillingPortalUrl Missing 503 Retry
+
+**Priority:** P2 | **Completed:** 2026-03-21
+
+Added Stripe Service Unavailable (503) to retryable status codes in billing portal URL fetch.
+
+- **Issue:** Retry loop handled 401, 403, 404, 500, and 504 but not 503. Stripe API returns 503 during maintenance
+- **Fix:** Added `HttpStatus.serviceUnavailable(503)` to enum; updated `fetchBillingPortalUrl` to retry on 503
+  - Matches retry behavior for 500 and 504 (exponential backoff 1s, 2s)
+  - Returns `_errorServer` after max retries exhausted
+- **Enum enhancement:** Also added `HttpStatus.unauthorized(401)` and `HttpStatus.notFound(404)` for consistency
+- **Test coverage:** 30 tests passing; includes 503 retry scenario with call count verification
+- **Commits:** `8b6120f`, `31d5181`
+
+### L20: BillingPortalError Surfaces Raw API Strings
+
+**Priority:** P3 | **Completed:** 2026-03-21
+
+Sanitized error messages in `fetchBillingPortalUrl` to prevent leaking raw API strings.
+
+- **Issue:** `BillingPortalError` returned raw `data['error']` strings from API response, exposing implementation details
+- **Fix:** Added `_billingPortalErrorMessage()` helper that maps HTTP status codes to user-friendly messages
+  - 401 Unauthorized → "Authentication required. Please log in again."
+  - 403 Forbidden → "You don't have permission to manage billing for this organization."
+  - 404 Not Found → "Organization not found."
+  - Other non-200 → "An unexpected error occurred." (fallback)
+- **Impact:** Users no longer see raw API error strings; error types remain debuggable via status codes
+- **Consistency note:** Other `DashboardService` methods (`fetchBillingStatus`, `fetchUsageSummary`, `fetchEntitlements`, `fetchQuotaStatus`) still pass raw `data['error']` strings; L23 tracks this scope expansion
+- **Tests:** Updated test assertions to match sanitized messages using `contains('permission')` pattern
+- **Commit:** `32ee699`
+
+### L21: Portal Success Test Undercounts Insert Calls
+
+**Priority:** P3 | **Completed:** 2026-03-21
+
+Added call count assertion to billing portal success test to catch duplicate audit log writes.
+
+- **Issue:** Test asserted `mockSb.insert` was called but did not verify call count. Regression risk: double-writes would not be detected
+- **Fix:** Added `expect(mockSb.insert).toHaveBeenCalledTimes(1)` assertion on owner success path (`returnPortalUrl for owner with stripe customer`)
+  - Verifies exactly one audit log write per portal session creation
+  - Placed before the call argument assertion for early failure detection
+- **Follow-up:** L22 notes that the `billing_admin` success path also lacks call count assertion (detected by code reviewer)
+- **Tests:** 17 Worker tests passing (orgs.test.ts); includes `not.toHaveBeenCalled()` on Stripe-throws path to verify no audit log on error
+- **Commit:** `32ee699`
+
 ---
