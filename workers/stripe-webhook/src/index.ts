@@ -4,15 +4,13 @@ import { createSupabaseAdmin } from './supabase';
 import { handleCheckoutSessionCompleted } from './handlers/checkout';
 import { handleSubscriptionUpdated, handleSubscriptionDeleted } from './handlers/subscription';
 import { handleInvoicePaid, handleInvoicePaymentFailed } from './handlers/invoice';
-import type { StripeEvent } from '../../lib/types';
+import type { StripeEvent, HandlerResult } from '../../lib/types';
 
 export interface Env {
   STRIPE_WEBHOOK_SECRET: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
 }
-
-type HandlerResult = { ok: true } | { ok: false; error: string };
 
 async function handleWebhook(request: Request, env: Env): Promise<Response> {
   const rawBody = await request.text();

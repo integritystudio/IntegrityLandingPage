@@ -2,6 +2,8 @@
 // Core Types
 // ============================================================================
 
+export type HandlerResult = { ok: true } | { ok: false; error: string };
+
 export type OrgRole = 'owner' | 'admin' | 'member' | 'billing_admin' | 'viewer';
 export type BillingStatus = 'inactive' | 'active' | 'past_due' | 'canceled';
 export type PlanKey = 'free' | 'growth' | 'enterprise';

@@ -1,8 +1,6 @@
 import type { SupabaseAdmin } from '../supabase';
-import type { BillingStatus, StripeEvent } from '../../../lib/types';
+import type { BillingStatus, HandlerResult, StripeEvent } from '../../../lib/types';
 import { InvoiceSchema } from '../stripe-schemas';
-
-type HandlerResult = { ok: true } | { ok: false; error: string };
 
 /**
  * Resolves the org ID for a given Stripe customer ID.

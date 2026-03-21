@@ -1,8 +1,6 @@
 import type { SupabaseAdmin } from '../supabase';
-import type { StripeEvent } from '../../../lib/types';
+import type { StripeEvent, HandlerResult } from '../../../lib/types';
 import { CheckoutSessionSchema } from '../stripe-schemas';
-
-type HandlerResult = { ok: true } | { ok: false; error: string };
 
 /**
  * Handle checkout.session.completed event.

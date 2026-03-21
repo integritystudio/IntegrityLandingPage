@@ -1,5 +1,5 @@
 import type { SupabaseAdmin } from '../supabase';
-import type { BillingStatus, PlanKey, StripeEvent } from '../../../lib/types';
+import type { BillingStatus, HandlerResult, PlanKey, StripeEvent } from '../../../lib/types';
 import { SubscriptionSchema } from '../stripe-schemas';
 
 /**
@@ -9,8 +9,6 @@ import { SubscriptionSchema } from '../stripe-schemas';
 const PRICE_TO_PLAN: Record<string, PlanKey> = {
   // Example: 'price_1Abc...': 'growth'
 };
-
-type HandlerResult = { ok: true } | { ok: false; error: string };
 
 function resolveBillingStatus(stripeStatus: string): BillingStatus {
   if (stripeStatus === 'active') return 'active';
