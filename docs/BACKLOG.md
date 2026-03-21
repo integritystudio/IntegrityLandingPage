@@ -778,4 +778,52 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 ---
 
-*Last updated: 2026-03-20 — Phase 4 substantially complete. Quota Durable Object (T22-T27) fully integrated with API gateway routes; sender-worker UI pages (auth, provision, health) implemented; 10+ code review findings from security session documented; 25 quota integration tests passing. Final review identified 5 additional pre-existing structural and code quality findings (H21, M19, M20, L1, L2).*
+### M21: Log Warning When Daily/Monthly Query Results Hit Limit
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 (V03 final review, commits 59402f3, c021f5b, 97d3b74)
+
+`workers/api-gateway/src/aggregation.ts:50–52 (rollupDailyBucket), 155–158 (rollupMonthlyBucket)` — Both rollup functions have query limits (`MAX_EVENTS_PER_ROLLUP = 10_000` for daily, `MAX_DAILY_BUCKETS_PER_MONTH = 3100` for monthly) to prevent OOM, but neither logs a warning when the limit is hit. If the limit is reached, data silently truncates and the aggregation is incomplete. Add `if (events.length === MAX_EVENTS_PER_ROLLUP) console.warn(...)` in rollupDailyBucket and `if (buckets.length === MAX_DAILY_BUCKETS_PER_MONTH) console.warn(...)` in rollupMonthlyBucket.
+
+**Files:** `workers/api-gateway/src/aggregation.ts:50–52, 155–158`
+
+**Status:** Open
+
+---
+
+### M22: Add Int Type Enforcement to DailyBucketRow Interface
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 (V03 final review)
+
+`workers/api-gateway/src/aggregation.ts:110–116 (DailyBucketRow)` — DailyBucketRow is typed as `extends Record<string, unknown>` with numeric fields typed as plain `number`. The monthly aggregation relies on `total_quantity` and `request_count` being integers but does not enforce at the boundary. If a DB row returns floats (e.g., from a faulty migration), the aggregation would compute float sums that fail Zod's `int()` check on parse. Low-risk hardening: use `Math.trunc()` before aggregation, or parse DB rows against `UsageBucketSchema.pick(...)` to enforce type safety at query time.
+
+**File:** `workers/api-gateway/src/aggregation.ts:110–116`
+
+**Status:** Open
+
+---
+
+### L3: Add Zod Schema Rejection Path Test for MonthlyUsageSummary
+
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-20 (V03 final review)
+
+`workers/api-gateway/src/aggregation.test.ts` — The test at line 290 (`returns a Zod-validated MonthlyUsageSummary shape`) confirms that a valid shape passes the schema, but there is no negative test confirming that `MonthlyUsageSummarySchema.parse` rejects invalid shapes (e.g., negative `total_quantity`). Add a test that mocks a malformed bucket row and confirms the Zod parse throws. Improves schema coverage beyond happy-path.
+
+**File:** `workers/api-gateway/src/aggregation.test.ts`
+
+**Status:** Open
+
+---
+
+### L4: Refactor Test Factories to Reduce Duplication in aggregation.test.ts
+
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-20 (V03 final review)
+
+`workers/api-gateway/src/aggregation.test.ts:18–24 (makeSb), 167–173 (makeMonthSb)` — `makeSb` and `makeMonthSb` have duplicate structure (both create mock Supabase clients). The only difference is `makeMonthSb` does not mock `upsert`. Consider extracting a single factory that accepts optional mock overrides, reducing duplication and improving maintainability. Low priority; does not affect correctness.
+
+**File:** `workers/api-gateway/src/aggregation.test.ts:18–24, 167–173`
+
+**Status:** Open
+
+---
+
+*Last updated: 2026-03-20 — Phase 4 substantially complete. Quota Durable Object (T22-T27) fully integrated with API gateway routes; sender-worker UI pages (auth, provision, health) implemented; Usage Ledger Ingestion (V01) and Monthly Aggregation (V03) completed. Final review of V03 identified 4 medium/low findings (M21–L4) for future hardening and observability improvement.*
