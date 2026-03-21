@@ -1436,8 +1436,8 @@ Flutter or API client
 
 ### Remaining (Polish + Code Review Backlog Items)
 
-1. **Code Review Backlog** — M35 (dead letter partial failure idempotency gap), L6–L19 (low-priority items: sanitization, error card duplication, schema tests, etc.)
-2. **Polish & observability** — Enhanced error responses, telemetry/monitoring setup
+1. **Code Review Backlog** — M35 (dead letter partial failure idempotency gap), L6–L19 (low-priority items: sanitization, error card duplication, schema tests, etc.) — ✅ ALL DONE (see v1.2 changelog)
+2. **Polish & observability** — Enhanced error responses, telemetry/monitoring setup — ✅ `POST /v1/ingest/otel` implemented (commits 1b771e3, c40a1c8)
 
 This sequence delivers production-grade auth/provisioning infrastructure with clear path to user-facing analytics and usage dashboards, supporting the internal goal of a comprehensible UI for non-technical stakeholders while preserving long-term recurring SaaS architecture.
 
