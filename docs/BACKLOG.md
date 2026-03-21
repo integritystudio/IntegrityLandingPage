@@ -615,6 +615,181 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
-*Last updated: 2026-03-20 (Phase 1–4 substantially complete; added Phase 4 remaining items V01, V02; quota DO integration items T26–T28 added; existing security/monitoring items follow below)*
+---
 
-*Session update 2026-03-20: T22 marked ✅ COMPLETE with full Durable Objects implementation (quota.ts 253L, lib client 94L, schemas, docs 359L); T26 and T27 updated as next priorities with P1/P2 status and detailed scope; Zod schemas for quota state and status endpoint added.*
+## Code Review Findings: Security Remediation Session (2026-03-21)
+
+Session completed critical fixes for T23, T24, T25 security remediations. Code-reviewer identified additional medium/low priority issues:
+
+---
+
+### H19-M1: Extract `hexToBytes` Utility to Shared Library
+
+**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21 (commit 6287919)
+
+`hexToBytes()` is implemented independently in two places:
+- `workers/lib/api-keys.ts:44–51` (for API key hash verification)
+- `workers/stripe-webhook/src/verify.ts:65–68` (for Stripe signature verification)
+
+Both perform identical hex-to-bytes conversion. This is a maintenance risk: a bug fix to one won't propagate. Extract to `workers/lib/hex-utils.ts` as a shared export and update both call sites.
+
+**Files affected:**
+- `workers/lib/api-keys.ts`
+- `workers/stripe-webhook/src/verify.ts`
+- `workers/lib/hex-utils.ts` (new)
+
+**Status:** Open
+
+---
+
+### H19-M2: Strict Validation for `hexToBytes` in `api-keys.ts`
+
+**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
+
+`workers/lib/api-keys.ts:45` uses regex `/^[0-9a-f]*$/` (zero or more, `*`) which accepts empty strings. Empty `Uint8Array` would pass `crypto.subtle.verify` against itself, potentially bypassing validation if a corrupted row has a blank hash. Change `*` to `+` (one or more) to require at least one byte. `workers/stripe-webhook/src/verify.ts` correctly uses `+` — this is an inconsistency.
+
+**File:** `workers/lib/api-keys.ts:45`
+
+**Fix:** Change `!/^[0-9a-f]*$/.test(hex)` to `!/^[0-9a-f]+$/.test(hex)` and add length check `hex.length === 0`.
+
+**Status:** Open
+
+---
+
+### M18-M1: JWT Issuer Claim Validated Before Signature
+
+**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
+
+`workers/lib/auth.ts:59–69` validates JWT issuer claim before verifying the signature. Standard JWT validation order is: parse → **verify signature** → check claims. Validating unverified claims is a defense-in-depth issue (both branches return 401, but order leaks information about invalid vs mismatched issuers).
+
+**File:** `workers/lib/auth.ts:40–69`
+
+**Fix:** Reorder to verify signature first, then check expiry, then check issuer.
+
+**Status:** Open
+
+---
+
+### M18-M2: No Startup Warning When JWT Issuer Validation Disabled
+
+**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
+
+`SUPABASE_JWT_ISSUER` is optional in both Zod schema and Env interface (`workers/api-gateway/src/index.ts:17`, `workers/lib/types/handler-options.ts:29`). If never set in production, V-02 mitigation (`iss` validation) is silently inactive. Add a startup warning (non-blocking) when the env var is absent to make this visible in deployment logs.
+
+**Files affected:**
+- `workers/api-gateway/src/index.ts` — Add warning in fetch handler
+- Or create startup check function in `workers/lib/startup-checks.ts`
+
+**Status:** Open
+
+---
+
+### T23-M1: No Idempotency Guard on Dead Letter Reconciliation Retry
+
+**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
+
+`workers/stripe-webhook/src/index.ts:125–127` — The webhook handler calls `isEventProcessed()` before attempting the first process, but the reconciliation cron loop (line 125) does not. If two cron ticks overlap, the same dead letter could be dispatched concurrently, both succeed, and `logProcessedEvent()` attempts a duplicate insert. The UNIQUE constraint on `stripe_event_id` silently fails and the duplicate is ignored.
+
+**File:** `workers/stripe-webhook/src/index.ts:115–135`
+
+**Fix:** Call `isEventProcessed()` at the top of the reconciliation retry block, matching the webhook handler pattern (line 43–44).
+
+**Status:** Open
+
+---
+
+### T23-M2: Dead Letter Queue Schema Missing RLS Policies
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-21
+
+`supabase/migrations/20260321000000_add_webhook_dead_letters.sql` — Tables `webhook_dead_letters` and `webhook_events_log` have no `ENABLE ROW LEVEL SECURITY` or `CREATE POLICY` statements. They are accessed only via service-role key (acceptable), but inconsistent with the rest of the schema. Either explicitly enable RLS with a service-role bypass policy, or add a comment explaining why RLS is omitted.
+
+**Files affected:**
+- `supabase/migrations/20260321000000_add_webhook_dead_letters.sql`
+
+**Status:** Open
+
+---
+
+### T23-M3: Unused `'processing'` Status in Dead Letter Queue Schema
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-21
+
+`supabase/migrations/20260321000000_add_webhook_dead_letters.sql` defines CHECK constraint with status enum including `'processing'`. No code ever writes this status. This suggests distributed locking (optimistic claim) was planned and never implemented. Either use `'processing'` or remove it from the CHECK to avoid confusion.
+
+**File:** `supabase/migrations/20260321000000_add_webhook_dead_letters.sql:20`
+
+**Status:** Open
+
+---
+
+### T24-M1: Stripe Customer Subscriptions Accessed via Unsafe Cast
+
+**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
+
+`scripts/full-reconciliation.ts:260` — Unsafe cast to add optional `subscriptions` field to Stripe Customer type:
+```typescript
+const subs = (customer as Stripe.Customer & { subscriptions?: ... }).subscriptions?.data ?? [];
+```
+
+This is the standard workaround for expanded Stripe types, but if the Stripe SDK is updated, the shape could change and fail silently. Add a runtime guard: `Array.isArray(subs) || throw new Error(...)` to fail fast on schema mismatch.
+
+**File:** `scripts/full-reconciliation.ts:260–261`
+
+**Status:** Open
+
+---
+
+### T24-M2: Entitlements Delete-Then-Insert Not Atomic
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-21
+
+`scripts/full-reconciliation.ts:172–192` — `provisionEntitlements()` deletes all existing entitlements, then re-inserts one by one. If the script crashes between delete and insert, the org is left with zero entitlements. For a reconciliation script this is acceptable risk, but should be documented: **Run this during a maintenance window only.**
+
+**File:** `scripts/full-reconciliation.ts:164–193`
+
+**Note:** Document in script header that this is a "nuclear option" and should not run concurrently with production traffic.
+
+**Status:** Open
+
+---
+
+### T25-M1: Health Check DO Probe Creates Billable Named Durable Object
+
+**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
+
+`workers/api-gateway/src/routes/health.ts:56` — `quotaDO.idFromName('health-probe')` creates (or wakes) a named Durable Object on every health check. This incurs billing for DO requests and storage. A better pattern is to use an existing known-good DO name (e.g., a known org's quota DO) or check the namespace itself. If the probe DO must exist, it should be clearly named and documented.
+
+**File:** `workers/api-gateway/src/routes/health.ts:54–63`
+
+**Alternative approach:** Check an existing "sentinel" org's DO instead of creating a dedicated health-probe DO.
+
+**Status:** Open
+
+---
+
+### T25-M2: `'degraded'` Status Unreachable in Durable Object Health Check
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-21
+
+`workers/api-gateway/src/routes/health.ts:59` — The condition `resp.status < 500 ? 'healthy' : 'degraded'` implies a distinction between healthy and degraded for DOs, but in practice a DO returning 5xx is a hard failure, not degraded. The `'degraded'` type is only meaningfully used in the database check. Consider whether this distinction is useful or should collapse to `'healthy'` | `'unhealthy'`.
+
+**File:** `workers/api-gateway/src/routes/health.ts:54–63`
+
+**Status:** Open
+
+---
+
+### T24-M3: `entitlementsRebuilt` Counter Increments at Wrong Granularity
+
+**Priority:** P4 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-21
+
+`scripts/full-reconciliation.ts:303` — Counter increments inside the subscription loop (once per subscription), but the name and placement suggest it counts per-entitlement-row. The summary output is ambiguous: "Entitlements rebuilt: 5" could mean 5 rows or 5 subscriptions. Rename to `subscriptionsProcessed` or clarify the counter semantics in the summary output.
+
+**File:** `scripts/full-reconciliation.ts:303` and `324–330`
+
+**Status:** Open
+
+---
+
+*Last updated: 2026-03-21 (Security remediation session: 4 critical fixes committed; 10 medium/low issues documented from code review)*
