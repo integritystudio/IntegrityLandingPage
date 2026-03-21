@@ -173,6 +173,10 @@ class DashboardService {
     required String orgId,
     required String jwt,
   }) async {
+    // Reject orgId values that could alter the URL path or query string.
+    if (orgId.isEmpty || orgId.contains(RegExp(r'[/?#%]'))) {
+      return const BillingStatusError(error: _errorUnexpected);
+    }
     for (var attempt = 0; attempt <= _maxRetries; attempt++) {
       try {
         final response = await _dio.get(
@@ -249,6 +253,9 @@ class DashboardService {
     required String orgId,
     required String jwt,
   }) async {
+    if (orgId.isEmpty || orgId.contains(RegExp(r'[/?#%]'))) {
+      return const UsageSummaryError(error: _errorUnexpected);
+    }
     for (var attempt = 0; attempt <= _maxRetries; attempt++) {
       try {
         final response = await _dio.get(
