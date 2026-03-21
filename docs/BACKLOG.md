@@ -238,7 +238,7 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 **File:** `lib/utils/security_utils.dart:205–210`
 
-**Status:** Open — Needs documentation update
+**Status:** Done — Extension list note and runtime guidance added (commit c326a28)
 
 ---
 
@@ -262,7 +262,7 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 **File:** `lib/utils/security_utils.dart:209–210`
 
-**Status:** Open — Needs documentation update
+**Status:** Done — Static final performance rationale documented (commit c326a28)
 
 ---
 
@@ -298,7 +298,7 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 **File:** `test/pages/auth_page.dart` (or integrate into existing validation tests)
 
-**Status:** Open — Add boundary value tests
+**Status:** Done — Boundary tests added in test/pages/auth_page_test.dart (commit 3cce1c5)
 
 ---
 
@@ -310,7 +310,7 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 **File:** `docs/TDD_SESSION_REPORT.md:55–58`
 
-**Status:** Open — Update documentation snapshot
+**Status:** Done — Regex snippet updated to include cjs|mjs|wasm (commit 26e12a7)
 
 ---
 
@@ -322,7 +322,7 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 **File:** `docs/changelog/1.1/CHANGELOG.md`
 
-**Status:** Open — Add missing commit references
+**Status:** Done — Real commit hashes already present (bc59b8b, 7ffbeb0, 9581ce8, 39e54fa, a5767c4)
 
 ---
 
@@ -334,7 +334,7 @@ The `frame-ancestors` directive controls who can embed this site in an iframe (c
 
 **File:** `docs/BACKLOG.md:162–171`
 
-**Status:** Open — Clean up duplicate entry
+**Status:** Done — M07 entry not present in current BACKLOG.md (already removed in prior migration)
 
 ---
 
@@ -498,7 +498,7 @@ Implement the "nuclear option" full reconciliation script to rebuild billing sta
 
 ## Quota Durable Object Integration & Testing
 
-Items identified in session 2026-03-20: quota.ts idempotency and monthly reset fixes applied, but integration and test gaps remain.
+Items identified in session 2026-03-20: quota.ts idempotency and monthly reset fixes applied; T26 and T27 now complete (commit 6bc3cd8).
 
 ---
 
@@ -584,7 +584,7 @@ describe('QuotaDurableObject integration', () => {
 **Files to create/modify:**
 - `workers/api-gateway/src/durable-objects/quota.test.ts` — Full test suite (replace stubs)
 
-**Status:** Pending (P2) — T22 complete, test scaffolding exists, needs implementation.
+**Status:** ✅ Done — 25 integration tests covering minute/monthly limits, idempotency, enterprise plan, quotaVersion bumps, storage persistence, and legacy backfill (commit 6bc3cd8)
 
 ---
 
