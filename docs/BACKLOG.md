@@ -231,7 +231,7 @@ Deferred security hardening for the two-layer authentication and billing system.
 
 `lib/pages/provision_page.dart:217` — `widget.auth.email` is rendered directly in a `Text()` widget without passing through `SecurityUtils.sanitizeUserInput()`. While Flutter's `Text` does not evaluate HTML, this is an inconsistency with the sanitization standard applied to other server-sourced fields (`org.name`, `org.planKey`) added in the same session. For defense-in-depth and consistency, wrap the email display with `SecurityUtils.sanitizeUserInput(widget.auth.email)`.
 
-**Status:** Deferred — Low severity, non-blocking.
+**Status:** ✅ Done — commit 02f567a. SecurityUtils.sanitizeUserInput(widget.auth.email) wraps the email display.
 
 ---
 
@@ -396,7 +396,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 `workers/stripe-webhook/src/supabase.ts:170-178` — `DeadLetter` interface defined inside `createSupabaseAdmin` closure. Not exported; cannot be referenced externally (e.g., in `index.ts` where `dl` is typed implicitly). Should be exported from module or moved to `workers/lib/types.ts`.
 
-**Status:** ✅ Done — commit 9a154ea. issues.map(i => i.message).join('; ') replaces error.message at 5 call sites.
+**Status:** ✅ Done — commit de048e7. DeadLetter interface moved to module scope and exported from supabase.ts; fetchPendingDeadLetters returns DeadLetter[].
 
 ---
 
@@ -636,8 +636,8 @@ In `handleWebhook` (`workers/stripe-webhook/src/index.ts`), when the handler suc
 
 **File:** `workers/stripe-webhook/src/index.ts:96–101`
 
-**Status:** Open — High severity; complements the M35-a fix in runReconciliation.
+**Status:** ✅ Done — commit 82e488a + subsequent. When logProcessedEvent fails, addDeadLetter is called to queue for retry; returns processed:false. CRITICAL logged if addDeadLetter also fails.
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer (Medium) session: M34 documented (e9046de), M35-a fixed (b3a4224), M35-b fixed (82e488a), L14 extracted (2b281c5). Final review PASS (7/10). New finding: M36 (handleWebhook logProcessedEvent failure returns processed: true). Remaining: M34 conflict key design decision, M36, V02 Stripe portal link, Low items (L5–L7, L9, L12–L13, L15).*
+*Last updated: 2026-03-21 — backlog-implementer session: L5 (02f567a), L6 (3c39673), L7 (4e02c0b), L9 (de048e7), L10 (d1152ed), L11 (4e1edc0), L12 (a59176f), L13 (fe85c77), L15 (b92d558) done; M34/M35/M36 confirmed done from prior sessions. Remaining: M34 conflict key design decision (design-level, not blocking), V02 Stripe portal link (needs feature-dev + Stripe SDK in api-gateway).*
