@@ -6,6 +6,22 @@ import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
 
+// Quota thresholds shared by _UsageBar and _DailyBarChart.
+const double _dangerThreshold = 0.90;
+const double _warningThreshold = 0.75;
+
+/// Aggregates usage buckets by date, summing totalQuantity across all metrics.
+///
+/// Returns a map of ISO date string → total quantity for use in [_DailyBarChart].
+/// Exported for testing via @visibleForTesting semantics (accessible from tests).
+Map<String, int> aggregateUsageByDate(List<UsageBucket> buckets) {
+  final daily = <String, int>{};
+  for (final b in buckets) {
+    daily[b.bucketDate] = (daily[b.bucketDate] ?? 0) + b.totalQuantity;
+  }
+  return daily;
+}
+
 /// Arguments passed to UsageSummaryPage via GoRouter state.extra.
 class UsageSummaryArgs {
   final String orgId;
@@ -234,6 +250,14 @@ class _UsageSummaryCard extends StatelessWidget {
               ratio: usageRatio,
               periodLabel: periodLabel,
             ),
+            if (summary!.buckets.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              // Daily bar chart
+              _DailyBarChart(
+                buckets: summary!.buckets,
+                monthlyUnitsQuota: monthlyUnitsQuota,
+              ),
+            ],
             if (totals.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.lg),
               // Per-metric breakdown
@@ -265,9 +289,6 @@ class _UsageSummaryCard extends StatelessWidget {
 }
 
 class _UsageBar extends StatelessWidget {
-  static const double _dangerThreshold = 0.90;
-  static const double _warningThreshold = 0.75;
-
   final int usedUnits;
   final int quotaUnits;
   final double ratio;
@@ -326,6 +347,167 @@ class _UsageBar extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Bar chart showing daily usage totals over the current period.
+///
+/// Groups [UsageBucket] entries by date and renders each day as a vertical bar.
+/// A dashed reference line marks the daily average quota when [monthlyUnitsQuota] > 0.
+class _DailyBarChart extends StatelessWidget {
+  static const double _chartAreaHeight = 120.0;
+  static const double _xLabelAreaHeight = 20.0;
+
+  final List<UsageBucket> buckets;
+  final int monthlyUnitsQuota;
+
+  const _DailyBarChart({
+    required this.buckets,
+    required this.monthlyUnitsQuota,
+  });
+
+  /// Extracts the day number from an ISO-8601 date string ("2026-03-15" → "15").
+  static String _dayLabel(String isoDate) {
+    final parts = isoDate.split('-');
+    if (parts.length < 3) return '';
+    return (int.tryParse(parts[2]) ?? 0).toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final daily = aggregateUsageByDate(buckets);
+    if (daily.isEmpty) return const SizedBox.shrink();
+
+    final sortedDates = daily.keys.toList()..sort();
+    final values = sortedDates.map((d) => daily[d]!).toList();
+    final labels = sortedDates.map(_dayLabel).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Daily usage',
+          style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          height: _chartAreaHeight + _xLabelAreaHeight,
+          child: CustomPaint(
+            painter: _DailyBarChartPainter(
+              values: values,
+              labels: labels,
+              monthlyUnitsQuota: monthlyUnitsQuota,
+            ),
+            size: Size.infinite,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DailyBarChartPainter extends CustomPainter {
+  static const double _xLabelAreaHeight = 20.0;
+  static const double _barGapFraction = 0.3;
+  static const int _gridLineCount = 4;
+  static const double _barCornerRadius = 2.0;
+  static const double _xLabelPaddingTop = 4.0;
+  static const double _dashLength = 4.0;
+  static const double _dashGap = 4.0;
+  static const int _labelIntervalDays = 5;
+  static const int _defaultDaysInMonth = 30;
+  static const double _gridStrokeWidth = 0.5;
+  static const double _quotaLineStrokeWidth = 1.0;
+
+  final List<int> values;
+  final List<String> labels;
+  final int monthlyUnitsQuota;
+
+  const _DailyBarChartPainter({
+    required this.values,
+    required this.labels,
+    required this.monthlyUnitsQuota,
+  });
+
+  Color _barColor(int value) {
+    if (monthlyUnitsQuota <= 0) return AppColors.blue500;
+    final dailyQuota = monthlyUnitsQuota / _defaultDaysInMonth;
+    final ratio = dailyQuota > 0 ? value / dailyQuota : 0.0;
+    if (ratio >= _dangerThreshold) return AppColors.error;
+    if (ratio >= _warningThreshold) return AppColors.warning;
+    return AppColors.blue500;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+    final maxValue = values.reduce((a, b) => a > b ? a : b);
+    if (maxValue == 0) return;
+
+    final chartHeight = size.height - _xLabelAreaHeight;
+    final barCount = values.length;
+    final slotWidth = size.width / barCount;
+    final barWidth = slotWidth * (1 - _barGapFraction);
+
+    // Horizontal grid lines
+    final gridPaint = Paint()
+      ..color = AppColors.gray700
+      ..strokeWidth = _gridStrokeWidth;
+    for (var i = 1; i <= _gridLineCount; i++) {
+      final y = chartHeight * (1 - i / _gridLineCount);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Dashed daily quota reference line
+    if (monthlyUnitsQuota > 0) {
+      final dailyQuota = monthlyUnitsQuota / _defaultDaysInMonth;
+      final qRatio = (dailyQuota / maxValue).clamp(0.0, 1.0);
+      final qY = chartHeight * (1 - qRatio);
+      final quotaPaint = Paint()
+        ..color = AppColors.gray400
+        ..strokeWidth = _quotaLineStrokeWidth;
+      var x = 0.0;
+      while (x < size.width) {
+        final end = (x + _dashLength).clamp(0.0, size.width);
+        canvas.drawLine(Offset(x, qY), Offset(end, qY), quotaPaint);
+        x += _dashLength + _dashGap;
+      }
+    }
+
+    // Bars and X-axis labels
+    final labelStyle = AppTypography.caption.copyWith(
+      color: AppColors.gray400,
+      fontSize: 10,
+    );
+    for (var i = 0; i < barCount; i++) {
+      final value = values[i];
+      final ratio = value / maxValue;
+      final x = i * slotWidth + (slotWidth - barWidth) / 2;
+      final barHeight = chartHeight * ratio;
+      final rect = Rect.fromLTWH(x, chartHeight - barHeight, barWidth, barHeight);
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(_barCornerRadius)),
+        Paint()..color = _barColor(value),
+      );
+
+      // X label: day 1 and every _labelIntervalDays thereafter
+      final day = int.tryParse(labels[i]) ?? 0;
+      if (day == 1 || day % _labelIntervalDays == 0) {
+        final tp = TextPainter(
+          text: TextSpan(text: labels[i], style: labelStyle),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(
+          canvas,
+          Offset(i * slotWidth + slotWidth / 2 - tp.width / 2, chartHeight + _xLabelPaddingTop),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DailyBarChartPainter old) =>
+      values != old.values || monthlyUnitsQuota != old.monthlyUnitsQuota;
 }
 
 class _MetricTable extends StatelessWidget {
