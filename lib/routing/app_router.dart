@@ -12,6 +12,8 @@ import '../pages/signup_page.dart';
 import '../pages/auth_page.dart';
 import '../pages/provision_page.dart';
 import '../pages/sender_health_page.dart';
+import '../pages/billing_status_page.dart';
+import '../pages/usage_summary_page.dart';
 import '../pages/pricing_page.dart';
 import '../services/provisioning_service.dart';
 import '../pages/contact_page.dart';
@@ -178,6 +180,28 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: '/health',
         builder: (context, state) => SenderHealthPage(
+          onBack: _goHome(context),
+        ),
+      ),
+      GoRoute(
+        path: '/billing',
+        redirect: (context, state) {
+          if (state.extra is! BillingStatusArgs) return Routes.signin;
+          return null;
+        },
+        builder: (context, state) => BillingStatusPage(
+          args: state.extra as BillingStatusArgs,
+          onBack: _goHome(context),
+        ),
+      ),
+      GoRoute(
+        path: '/usage',
+        redirect: (context, state) {
+          if (state.extra is! UsageSummaryArgs) return Routes.signin;
+          return null;
+        },
+        builder: (context, state) => UsageSummaryPage(
+          args: state.extra as UsageSummaryArgs,
           onBack: _goHome(context),
         ),
       ),
