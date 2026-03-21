@@ -34,7 +34,7 @@ interface ReconciliationSummary {
   customersProcessed: number;
   orgsUpserted: number;
   subscriptionsUpserted: number;
-  entitlementsRebuilt: number;
+  orgEntitlementsRebuilt: number;
   errors: string[];
 }
 
@@ -211,7 +211,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
     customersProcessed: 0,
     orgsUpserted: 0,
     subscriptionsUpserted: 0,
-    entitlementsRebuilt: 0,
+    orgEntitlementsRebuilt: 0,
     errors: [],
   };
 
@@ -360,7 +360,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
           }
         }
 
-        summary.entitlementsRebuilt++;
+        summary.orgEntitlementsRebuilt++;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         summary.errors.push(`Error rebuilding entitlements for ${stripeCustomerId}: ${message}`);
@@ -383,7 +383,7 @@ runFullReconciliation(dryRun)
     console.log(`  Customers processed:     ${summary.customersProcessed}`);
     console.log(`  Organizations upserted:  ${summary.orgsUpserted}`);
     console.log(`  Subscriptions upserted:  ${summary.subscriptionsUpserted}`);
-    console.log(`  Entitlements rebuilt:    ${summary.entitlementsRebuilt}`);
+    console.log(`  Orgs with entitlements rebuilt: ${summary.orgEntitlementsRebuilt}`);
     if (summary.errors.length > 0) {
       console.error(`  Errors (${summary.errors.length}):`);
       for (const err of summary.errors) {
