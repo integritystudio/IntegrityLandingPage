@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { handleUsageSummary, handleOrgEntitlements } from './usage';
+import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './usage';
 import { hashApiKeySecret } from '../../../lib/api-keys';
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
@@ -194,5 +194,101 @@ describe('GET /v1/orgs/:orgId/entitlements', () => {
     });
     const res = await handleOrgEntitlements(req, 'org-id-1', makeOpts(mockSb));
     expect(res.status).toBe(403);
+  });
+});
+
+describe('GET /v1/orgs/:orgId/quota/status', () => {
+  const makeQuotaOpts = (sbOverride: any, doOverride?: any) => ({
+    ...makeOpts(sbOverride),
+    doNamespace: doOverride ?? {} as DurableObjectNamespace,
+  });
+
+  const makeDoNamespace = (statusPayload: unknown) => ({
+    idFromName: vi.fn().mockReturnValue('stub-id'),
+    get: vi.fn().mockReturnValue({
+      fetch: vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(statusPayload), { status: 200 }),
+      ),
+    }),
+  } as unknown as DurableObjectNamespace);
+
+  it('returns 401 when no auth', async () => {
+    const req = new Request('https://api.test/v1/orgs/org-id-1/quota/status', { method: 'GET' });
+    const res = await handleQuotaStatus(req, 'org-id-1', makeQuotaOpts(null));
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 when JWT user is not a member', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/quota/status', {
+      method: 'GET',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleQuotaStatus(req, 'org-id-1', makeQuotaOpts(mockSb));
+    expect(res.status).toBe(403);
+  });
+
+  it('returns quota status for JWT-authenticated member', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership()] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const quotaPayload = {
+      orgId: 'org-id-1',
+      planKey: 'growth',
+      quotaVersion: 2,
+      minuteLimit: 60,
+      monthlyLimit: 500000,
+      minuteUsed: 5,
+      monthlyUsed: 12345,
+      minuteWindowExpiresIn: 45000,
+    };
+    const mockDo = makeDoNamespace(quotaPayload);
+    const req = new Request('https://api.test/v1/orgs/org-id-1/quota/status', {
+      method: 'GET',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleQuotaStatus(req, 'org-id-1', makeQuotaOpts(mockSb, mockDo));
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.org_id).toBe('org-id-1');
+    expect(body.minuteLimit).toBe(60);
+    expect(body.minuteUsed).toBe(5);
+    expect(body.monthlyLimit).toBe(500000);
+    expect(body.monthlyUsed).toBe(12345);
+    expect(body.minuteWindowExpiresIn).toBe(45000);
+  });
+
+  it('returns quota status with null monthlyLimit for unlimited plan', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership()] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const quotaPayload = {
+      orgId: 'org-id-1',
+      planKey: 'enterprise',
+      quotaVersion: 1,
+      minuteLimit: 120,
+      monthlyLimit: null,
+      minuteUsed: 0,
+      monthlyUsed: 0,
+      minuteWindowExpiresIn: 60000,
+    };
+    const mockDo = makeDoNamespace(quotaPayload);
+    const req = new Request('https://api.test/v1/orgs/org-id-1/quota/status', {
+      method: 'GET',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleQuotaStatus(req, 'org-id-1', makeQuotaOpts(mockSb, mockDo));
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.monthlyLimit).toBeNull();
+    expect(body.minuteLimit).toBe(120);
   });
 });

@@ -128,6 +128,100 @@ class UsageSummaryError extends UsageSummaryResponse {
   const UsageSummaryError({required this.error});
 }
 
+/// Entitlements data for an organization.
+class EntitlementsData {
+  final String orgId;
+  final Map<String, Object?> entitlements;
+
+  const EntitlementsData({
+    required this.orgId,
+    required this.entitlements,
+  });
+
+  factory EntitlementsData.fromJson(Map<String, dynamic> json) {
+    final rawEntitlements = json['entitlements'];
+    final Map<String, Object?> entries;
+    if (rawEntitlements is Map<String, dynamic>) {
+      entries = rawEntitlements.cast<String, Object?>();
+    } else {
+      entries = const {};
+    }
+    return EntitlementsData(
+      orgId: json['org_id'] as String? ?? '',
+      entitlements: entries,
+    );
+  }
+}
+
+/// Entitlements API response.
+sealed class EntitlementsResponse {
+  const EntitlementsResponse();
+}
+
+/// Successful entitlements response.
+class EntitlementsSuccess extends EntitlementsResponse {
+  final EntitlementsData data;
+
+  const EntitlementsSuccess({required this.data});
+}
+
+/// Entitlements error response.
+class EntitlementsError extends EntitlementsResponse {
+  final String error;
+
+  const EntitlementsError({required this.error});
+}
+
+/// Quota state returned from the DO quota status endpoint.
+class QuotaStatusData {
+  final String? planKey;
+  final int minuteLimit;
+  final int minuteUsed;
+  final int? monthlyLimit;
+  final int monthlyUsed;
+
+  /// Milliseconds remaining until the current minute window resets.
+  final int minuteWindowExpiresInMs;
+
+  const QuotaStatusData({
+    this.planKey,
+    required this.minuteLimit,
+    required this.minuteUsed,
+    this.monthlyLimit,
+    required this.monthlyUsed,
+    required this.minuteWindowExpiresInMs,
+  });
+
+  factory QuotaStatusData.fromJson(Map<String, dynamic> json) => QuotaStatusData(
+        planKey: json['planKey'] as String?,
+        minuteLimit: (json['minuteLimit'] as num?)?.toInt() ?? 0,
+        minuteUsed: (json['minuteUsed'] as num?)?.toInt() ?? 0,
+        monthlyLimit: (json['monthlyLimit'] as num?)?.toInt(),
+        monthlyUsed: (json['monthlyUsed'] as num?)?.toInt() ?? 0,
+        minuteWindowExpiresInMs:
+            (json['minuteWindowExpiresIn'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// Quota status API response.
+sealed class QuotaStatusResponse {
+  const QuotaStatusResponse();
+}
+
+/// Successful quota status response.
+class QuotaStatusSuccess extends QuotaStatusResponse {
+  final QuotaStatusData data;
+
+  const QuotaStatusSuccess({required this.data});
+}
+
+/// Quota status error response.
+class QuotaStatusError extends QuotaStatusResponse {
+  final String error;
+
+  const QuotaStatusError({required this.error});
+}
+
 /// API client for dashboard data endpoints.
 class DashboardService {
   DashboardService._();
@@ -321,5 +415,159 @@ class DashboardService {
     }
 
     return const UsageSummaryError(error: _errorUnexpected);
+  }
+
+  /// Fetch feature entitlements for an organization.
+  ///
+  /// Calls GET /v1/orgs/:orgId/entitlements with the provided JWT.
+  /// Retries up to [_maxRetries] times on transient network errors
+  /// with exponential backoff (1s, 2s).
+  static Future<EntitlementsResponse> fetchEntitlements({
+    required String orgId,
+    required String jwt,
+  }) async {
+    if (orgId.isEmpty || orgId.contains(RegExp(r'[/?#%]'))) {
+      return const EntitlementsError(error: _errorUnexpected);
+    }
+    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
+      try {
+        final response = await _dio.get(
+          '$_apiGatewayUrl/v1/orgs/$orgId/entitlements',
+          options: Options(
+            headers: {'Authorization': 'Bearer $jwt'},
+            validateStatus: (status) => status != null,
+          ),
+        );
+
+        final data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : const <String, dynamic>{};
+
+        if (response.statusCode == HttpStatus.internalServerError.code ||
+            response.statusCode == HttpStatus.gatewayTimeout.code) {
+          if (attempt < _maxRetries) {
+            await retryDelay(Duration(seconds: 1 << attempt));
+            continue;
+          }
+          return const EntitlementsError(error: _errorServer);
+        }
+
+        if (response.statusCode == HttpStatus.ok.code) {
+          return EntitlementsSuccess(data: EntitlementsData.fromJson(data));
+        }
+
+        return EntitlementsError(
+          error: data['error'] as String? ?? _errorUnexpected,
+        );
+      } on DioException catch (e) {
+        final isRetryable =
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+
+        if (isRetryable && attempt < _maxRetries) {
+          await retryDelay(Duration(seconds: 1 << attempt));
+          continue;
+        }
+
+        await ErrorTrackingService.captureException(
+          e,
+          stackTrace: e.stackTrace,
+          context: 'DashboardService.fetchEntitlements',
+          extra: {
+            'orgId': orgId,
+            'attempt': attempt + 1,
+          },
+        );
+
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          return const EntitlementsError(error: _errorTimeout);
+        }
+        return const EntitlementsError(error: _errorNetwork);
+      } catch (e, stackTrace) {
+        await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+        return const EntitlementsError(error: _errorUnexpected);
+      }
+    }
+
+    return const EntitlementsError(error: _errorUnexpected);
+  }
+
+  /// Fetch quota status (minute + monthly) for an organization.
+  ///
+  /// Calls GET /v1/orgs/:orgId/quota/status with the provided JWT.
+  /// Retries up to [_maxRetries] times on transient network errors
+  /// with exponential backoff (1s, 2s).
+  static Future<QuotaStatusResponse> fetchQuotaStatus({
+    required String orgId,
+    required String jwt,
+  }) async {
+    if (orgId.isEmpty || orgId.contains(RegExp(r'[/?#%]'))) {
+      return const QuotaStatusError(error: _errorUnexpected);
+    }
+    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
+      try {
+        final response = await _dio.get(
+          '$_apiGatewayUrl/v1/orgs/$orgId/quota/status',
+          options: Options(
+            headers: {'Authorization': 'Bearer $jwt'},
+            validateStatus: (status) => status != null,
+          ),
+        );
+
+        final data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : const <String, dynamic>{};
+
+        if (response.statusCode == HttpStatus.internalServerError.code ||
+            response.statusCode == HttpStatus.gatewayTimeout.code) {
+          if (attempt < _maxRetries) {
+            await retryDelay(Duration(seconds: 1 << attempt));
+            continue;
+          }
+          return const QuotaStatusError(error: _errorServer);
+        }
+
+        if (response.statusCode == HttpStatus.ok.code) {
+          return QuotaStatusSuccess(data: QuotaStatusData.fromJson(data));
+        }
+
+        return QuotaStatusError(
+          error: data['error'] as String? ?? _errorUnexpected,
+        );
+      } on DioException catch (e) {
+        final isRetryable =
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+
+        if (isRetryable && attempt < _maxRetries) {
+          await retryDelay(Duration(seconds: 1 << attempt));
+          continue;
+        }
+
+        await ErrorTrackingService.captureException(
+          e,
+          stackTrace: e.stackTrace,
+          context: 'DashboardService.fetchQuotaStatus',
+          extra: {
+            'orgId': orgId,
+            'attempt': attempt + 1,
+          },
+        );
+
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          return const QuotaStatusError(error: _errorTimeout);
+        }
+        return const QuotaStatusError(error: _errorNetwork);
+      } catch (e, stackTrace) {
+        await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+        return const QuotaStatusError(error: _errorUnexpected);
+      }
+    }
+
+    return const QuotaStatusError(error: _errorUnexpected);
   }
 }

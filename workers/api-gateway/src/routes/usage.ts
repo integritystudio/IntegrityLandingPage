@@ -5,6 +5,7 @@ import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, Entitlement } from '../../../lib/types';
 import { buildEntitlementMap } from '../lib/helpers';
+import { getQuotaStatus } from '../lib/quota';
 import type { AuthResult } from '../../../lib/types/handler-options';
 
 interface UsageHandlerOptions {
@@ -14,6 +15,10 @@ interface UsageHandlerOptions {
   serviceRoleKey: string;
   jwtIssuerUrl?: string;
   _sbOverride?: SupabaseClient;
+}
+
+interface QuotaStatusHandlerOptions extends UsageHandlerOptions {
+  doNamespace: DurableObjectNamespace;
 }
 
 interface UsageBucket extends Record<string, unknown> {
@@ -132,4 +137,21 @@ export async function handleOrgEntitlements(
   );
 
   return ok({ org_id: orgId, entitlements });
+}
+
+export async function handleQuotaStatus(
+  request: Request,
+  orgId: string,
+  opts: QuotaStatusHandlerOptions,
+): Promise<Response> {
+  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+
+  const auth = await resolveAuth(request, opts, sb);
+  if (!auth.ok) return auth.error;
+
+  const access = await assertOrgAccess(auth, orgId, sb);
+  if (!access.ok) return access.error;
+
+  const status = await getQuotaStatus(opts.doNamespace, orgId);
+  return ok({ org_id: orgId, ...status });
 }

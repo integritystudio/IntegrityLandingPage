@@ -2,7 +2,7 @@ import { ok, notFound } from '../../lib/http';
 import { requireBearerToken } from '../../lib/http/request';
 import { handleMe } from './routes/me';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus } from './routes/orgs';
-import { handleUsageSummary, handleOrgEntitlements } from './routes/usage';
+import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './routes/usage';
 import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
 import { handleHealthCheck } from './routes/health';
 import { handleIngestEvent } from './routes/ingest';
@@ -96,6 +96,9 @@ export default {
       }
       if (subPath === '/entitlements' && request.method === 'GET') {
         return handleOrgEntitlements(request, orgId, machineRouteOpts);
+      }
+      if (subPath === '/quota/status' && request.method === 'GET') {
+        return handleQuotaStatus(request, orgId, { ...machineRouteOpts, doNamespace: env.QUOTA_DO });
       }
       if (subPath === '/api-keys' && request.method === 'POST') {
         return handleCreateApiKey(request, orgId, machineRouteOpts);

@@ -13,7 +13,9 @@ import '../pages/auth_page.dart';
 import '../pages/provision_page.dart';
 import '../pages/sender_health_page.dart';
 import '../pages/billing_status_page.dart';
+import '../pages/entitlements_page.dart';
 import '../pages/usage_summary_page.dart';
+import '../pages/quota_status_page.dart';
 import '../pages/pricing_page.dart';
 import '../services/provisioning_service.dart';
 import '../pages/contact_page.dart';
@@ -202,6 +204,28 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
         },
         builder: (context, state) => UsageSummaryPage(
           args: state.extra as UsageSummaryArgs,
+          onBack: _goHome(context),
+        ),
+      ),
+      GoRoute(
+        path: Routes.entitlements,
+        redirect: (context, state) {
+          if (state.extra is! EntitlementsArgs) return Routes.signin;
+          return null;
+        },
+        builder: (context, state) => EntitlementsPage(
+          args: state.extra as EntitlementsArgs,
+          onBack: _goHome(context),
+        ),
+      ),
+      GoRoute(
+        path: Routes.quotaStatus,
+        redirect: (context, state) {
+          if (state.extra is! QuotaStatusArgs) return Routes.signin;
+          return null;
+        },
+        builder: (context, state) => QuotaStatusPage(
+          args: state.extra as QuotaStatusArgs,
           onBack: _goHome(context),
         ),
       ),

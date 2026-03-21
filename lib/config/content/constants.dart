@@ -104,6 +104,8 @@ abstract final class Routes {
   static const String senderHealth = '/health';
   static const String billingStatus = '/billing';
   static const String usageSummary = '/usage';
+  static const String entitlements = '/entitlements';
+  static const String quotaStatus = '/quota';
 
   // Feature pages
   static const String features = '/features';
