@@ -740,6 +740,7 @@ class DashboardService {
   /// Prevents raw API error strings from leaking to callers.
   static String _sanitizeReadError(int? statusCode) {
     if (statusCode == HttpStatus.unauthorized.code) return _errorBillingAuth;
+    if (statusCode == HttpStatus.forbidden.code) return _errorBillingForbidden;
     return _errorUnexpected;
   }
 
@@ -783,7 +784,7 @@ class DashboardService {
         }
 
         return OrgListError(
-          error: data['error'] as String? ?? _errorUnexpected,
+          error: _sanitizeReadError(response.statusCode),
         );
       } on DioException catch (e) {
         final isRetryable =

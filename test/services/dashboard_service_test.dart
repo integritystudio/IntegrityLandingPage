@@ -162,7 +162,7 @@ void main() {
       expect(err, contains('log in'));
     });
 
-    test('returns sanitized error on 403 — does not surface raw API string (L23)', () async {
+    test('returns sanitized permission message on 403 — does not surface raw API string (L23)', () async {
       mockDio.mockGetResponse(
         {'error': 'Forbidden'},
         statusCode: 403,
@@ -174,7 +174,9 @@ void main() {
       );
 
       expect(result, isA<EntitlementsError>());
-      expect((result as EntitlementsError).error, isNot(contains('Forbidden')));
+      final err = (result as EntitlementsError).error;
+      expect(err, isNot('Forbidden'));
+      expect(err, contains('permission'));
     });
 
     test('returns server error message on 500 after retries', () async {
