@@ -531,4 +531,38 @@ V02 Flutter Dashboard UI has 3 remaining components:
 
 ---
 
-*Last updated: 2026-03-21 — V02 core pages + charts + quota viz + entitlements complete: billing status (979ab7c, 60fd1ff), usage summary (55c4a86, e066900), usage charts (c78bbf1, 809496a), quota viz (9f93f67, e3ff7f3), entitlements (9f93f67). H1 Zod schemas complete (29a71d1); code review cycle active: H1 findings documented (fc91224), quota-status code review addressed (e3ff7f3), backlog updated (52a2d4c). Remaining: org switcher, Stripe portal, real-time polling. Roadmap updated (payments-implementation.md).*
+## Code Review Findings: V02 Dashboard Pages (Session 2026-03-21)
+
+Code-reviewer session on quota_status_page, entitlements_page, usage_summary_page identified 2 fixed issues and 2 deferred Low-priority items.
+
+---
+
+### L14: `_ErrorCard` Widget Duplicated Across 5 Files
+
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review, session 2026-03-21 (V02 pages)
+
+`_ErrorCard` appears identically in 5 files: `billing_status_page.dart`, `quota_status_page.dart`, `entitlements_page.dart`, `usage_summary_page.dart`, `dashboard_page.dart`. Each file redeclares a `Container` with gray800 background, gray700 border, radiusMD, and "Retry"/"Try again" button. Maintenance risk: any styling change requires updating all 5 copies.
+
+**Fix:** Extract to `lib/widgets/common/error_card.dart` as reusable widget or add to `containers.dart` (which exports GlassCard).
+
+**Files:** `billing_status_page.dart:355-378`, `quota_status_page.dart:324-365`, `entitlements_page.dart:345-385`, `usage_summary_page.dart:614-660`, `dashboard_page.dart:273-301`
+
+**Status:** Open — Code quality debt, Low priority.
+
+---
+
+### L15: `_PlanBadge` Renders Raw `planKey` Without Display Formatting
+
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review, session 2026-03-21 (V02 pages)
+
+`QuotaStatusPage._PlanBadge` renders `planKey` directly (e.g., `"starter_monthly"`) as display text. `_MetricTable._formatMetricKey` and `_EntitlementsGrid._formatKey` both apply snake_case → Title Case formatting to server-sourced strings. Plan key inconsistently raw.
+
+**Fix:** Add `_formatPlanKey(planKey)` → split('_').map capitalize.join(' ') or reference shared formatter.
+
+**File:** `lib/pages/quota_status_page.dart:307-310`
+
+**Status:** Open — Display inconsistency, Low priority.
+
+---
+
+*Last updated: 2026-03-21 — V02 core pages + charts + quota viz + entitlements complete: billing status (979ab7c, 60fd1ff), usage summary (55c4a86, e066900), usage charts (c78bbf1, 809496a), quota viz (9f93f67, e3ff7f3), entitlements (9f93f67). H1 Zod schemas complete (29a71d1); code review cycle active: H1 findings documented (fc91224), quota-status code review addressed (e3ff7f3), V02 pages code review addressed (fccc88b). Remaining: org switcher, Stripe portal, real-time polling. Deferred: _ErrorCard duplication, _PlanBadge formatting.*
