@@ -1356,7 +1356,7 @@ Flutter or API client
 
 ## 19. v1 Implementation Status (Updated 2026-03-21)
 
-### Completed ✅ (15 core items + 3 recent refinements + 1 Durable Objects + Phase 4 Task 2 + Phase 4 Task 3 + H1/H2/M25–M33 code review fixes)
+### Completed ✅ (15 core items + 3 recent refinements + 1 Durable Objects + Phase 4 Task 2 + Phase 4 Task 3 complete + M34/M37–M39/L5/L16 + H1/H2/M25–M33 code review fixes)
 
 **Core infrastructure (2026-03-20)**
 1. **Auth pages & JWT flow** — AuthPage, ProvisionPage, SenderHealthPage with JWT-based provisioning
@@ -1400,13 +1400,33 @@ Flutter or API client
 - **M33: Zod Error Formatting** — `parseResult.error.issues.map(i => i.message).join('; ')` replaces `error.message` for human-readable dead-letter logging (commit 9a154ea)
 - **H2-V02: JWT Sentry Leak Risk** — SECURITY comment added at all `captureException` call sites in DashboardService (commit 3f0804c)
 
-**Completion Context:** All major auth, provisioning, API gateway, quota enforcement, usage ingestion/aggregation infrastructure is production-ready with comprehensive test coverage (2440+ tests, ~94% coverage). Phase 4 Task 2 (usage ingestion + daily/monthly aggregation) complete. Phase 4 Task 3 Flutter dashboard UI FEATURE-COMPLETE: org switcher dropdown (91cdae3, 226b568), billing status display (979ab7c, 60fd1ff), usage summary + charts (55c4a86, e066900, c78bbf1, 809496a), quota visualization (9f93f67, e3ff7f3), entitlements grid (9f93f67), real-time polling (f6581fd, d14280c); code review findings fixed (H1 type safety, H2 subscription upsert, M25–M33); bootstrap flow integration complete. Security hardening across auth boundaries (V-02, H19, H20, H21, S01) applied. Per-org Durable Objects quota state machine enforces minute-level burst limits, monthly soft limits, quota version detection with middleware fail-open logic. Bootstrap worker & client orchestration validated end-to-end. Quota and usage documentation with integration guidance available at `workers/docs/QUOTA_DURABLE_OBJECTS.md`. Remaining: Stripe Customer Portal link (step 5).
+**Completion Context:** All major auth, provisioning, API gateway, quota enforcement, usage ingestion/aggregation infrastructure is production-ready with comprehensive test coverage (2440+ tests, ~94% coverage). Phase 4 Task 2 (usage ingestion + daily/monthly aggregation) complete. Phase 4 Task 3 Flutter dashboard UI FEATURE-COMPLETE: org switcher dropdown (91cdae3, 226b568), billing status display (979ab7c, 60fd1ff), usage summary + charts (55c4a86, e066900, c78bbf1, 809496a), quota visualization (9f93f67, e3ff7f3), entitlements grid (9f93f67), real-time polling (f6581fd, d14280c); Stripe Customer Portal link complete (9d4d700, c45affd, 88d23bd, 7c899eb); code review findings fixed (H1 type safety, H2 subscription upsert, M25–M33, M34); bootstrap flow integration complete. Security hardening across auth boundaries (V-02, H19, H20, H21, S01) applied. Per-org Durable Objects quota state machine enforces minute-level burst limits, monthly soft limits, quota version detection with middleware fail-open logic. Bootstrap worker & client orchestration validated end-to-end. Quota and usage documentation with integration guidance available at `workers/docs/QUOTA_DURABLE_OBJECTS.md`. All Phase 4 tasks COMPLETE.
 
-### Remaining (v1 Phase 4 Task 3 final + Polish + Code Review Backlog Items)
+**Post-Phase 4 Completions (2026-03-21)**
+- **Phase 4 Task 3 (final)** — Stripe Customer Portal link (step 5) ✅ COMPLETE
+  - `POST /v1/orgs/:id/billing-portal` endpoint for session creation (9d4d700)
+  - Flutter UI integration in BillingCard (c45affd)
+  - APP_URL_FALLBACK constant + startup warnings (88d23bd)
+  - Portal URL retry logic + scheme validation (7c899eb)
+- **M34: Subscription upgrade conflict key** ✅ COMPLETE
+  - Soft-delete prior subscriptions on upsert to prevent multi-row state (33aa1a2)
+  - Skip already-canceled rows in soft-delete filter (cf5059c)
+  - Migrated to v1.2 changelog (afa367f)
+- **L5: Plan key formatting** ✅ COMPLETE
+  - Added parsePriceToPlan integration tests (306ccfc)
+  - Validated STRIPE_PRICE_TO_PLAN_JSON against PlanKeySchema (8cdaa09)
+- **L16: BoxDecoration refactoring** ✅ COMPLETE
+  - Replaced inline BoxDecoration with AppDecorations.card() (5786939)
+- **M37/M38/M39: Dead letter architecture** ✅ COMPLETE
+  - Documented DeadLetter vs WebhookDeadLetter relationship (8fd1d47)
+  - Documented dead letter failure modes and retry assumptions (4bf3fff)
+  - Fixed diagram omissions in architecture doc (4ebe6cb)
+  - Marked M38 and M39 done in BACKLOG (1a51f3f)
 
-1. **Phase 4 Task 3 (final)** — Stripe Customer Portal link (step 5)
-2. **Code Review Backlog** — M34 (subscription upgrade conflict key design issue), M35 (dead letter partial failure idempotency gap), L5–L15 (low-priority items: sanitization, error card duplication, plan key formatting, schema tests, etc.)
-3. **Polish & observability** — Enhanced error responses, rate limiting integration, audit logging for sensitive operations, telemetry/monitoring setup
+### Remaining (Polish + Code Review Backlog Items)
+
+1. **Code Review Backlog** — M35 (dead letter partial failure idempotency gap), L6–L19 (low-priority items: sanitization, error card duplication, schema tests, etc.)
+2. **Polish & observability** — Enhanced error responses, rate limiting integration, audit logging for sensitive operations, telemetry/monitoring setup
 
 This sequence delivers production-grade auth/provisioning infrastructure with clear path to user-facing analytics and usage dashboards, supporting the internal goal of a comprehensible UI for non-technical stakeholders while preserving long-term recurring SaaS architecture.
 

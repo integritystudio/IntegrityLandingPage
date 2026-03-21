@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup & Final Fixes; M34 Migrated to v1.2; 32 items migrated to v1.2 changelog; 2 remaining design-decision items (T25, T28); M38, M39 documented and marked done
+**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup & Final Fixes; V02-Remaining, M38, M39 migrated to v1.2 changelog; 35+ items migrated to v1.2; 2 remaining design-decision items (T25, T28)
 
 ---
 
@@ -252,78 +252,6 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 **Status:** Deferred — Documented but requires risk/latency trade-off decision and monitoring setup.
 
 ---
-
----
-
-
-
-### V02-Remaining: Org Switcher, Stripe Portal, Polling
-
-**Priority:** P1 | **Severity:** Medium | **Source:** session 2026-03-21 (billing status implementation)
-
-~~V02 Flutter Dashboard UI — all 6 steps complete:~~
-~~1. Org switcher dropdown — ✅ Done: `DashboardPage` (commits 91cdae3, 226b568)~~
-~~2. Stripe Customer Portal link — ✅ Done: `POST /v1/orgs/:id/billing-portal`, "Manage Billing" button (7 tests)~~
-~~3. Real-time usage polling — ✅ Done: 30s Timer.periodic (commits f6581fd, d14280c)~~
-~~4. Entitlements grid display — ✅ Done: `EntitlementsPage` (commit 9f93f67)~~
-~~5. Usage charts/metrics visualization — ✅ Done: `_DailyBarChart`, `QuotaStatusPage` (commits c78bbf1, 809496a, 9f93f67, e3ff7f3)~~
-
-**Status:** ✅ Done — All V02 dashboard components complete.
-
----
-
-## Code Review Findings: Stripe Webhook — Remaining Medium Items
-
-### M38: Dead Letter Re-run Handler Without Distinguishing "Log-Failed" From Handler Failures
-
-**Priority:** P2 | **Severity:** Medium | **Source:** code review analysis, session 2026-03-21
-
-**Pre-existing issue.** The reconciliation cron (`workers/reconciliation-cron.ts`) fetches pending dead letters and retries them. When a handler (e.g., `handleCheckoutSessionCompleted`) fails, `failDeadLetter` is called to increment `retry_count` and schedule next retry via exponential backoff.
-
-However, when `logProcessedEvent` fails _after a successful handler run_, the same failure path (`failDeadLetter`) is invoked. This conflates two different failure modes:
-1. Handler logic failed (business error — warrants exponential backoff and operator investigation)
-2. Logging infrastructure failed (transient — likely recovers on next tick)
-
-Currently both increment retry count identically. The cron has no way to distinguish "handler failed" from "handler succeeded but logging failed" when deciding retry strategy.
-
-**Fix options:**
-1. Separate failure paths: `failDeadLetterHandlerError()` vs `failDeadLetterLoggingError()` with different backoff curves
-2. Add `failure_type` column to `webhook_dead_letters` to track which subsystem failed
-3. Document assumption that both failures warrant same exponential backoff (accept as-is)
-
-**Files:** `workers/stripe-webhook/src/index.ts:130–160`, `workers/reconciliation-cron.ts:50–100`
-
-**Status:** ✅ Done — Accepted fix option 3: documented both failure paths, retry behavior, and operator visibility trade-off in `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md` (commits 4bf3fff, 4ebe6cb).
-
----
-
-### M39: Dead Letter Retry Exhaustion Without Incrementing Retry Count on logProcessedEvent Failure
-
-**Priority:** P3 | **Severity:** Low | **Source:** code review analysis, session 2026-03-21
-
-**Pre-existing architectural assumption.** When a webhook handler succeeds but `logProcessedEvent` fails:
-- Dead letter is created via `addDeadLetter()`
-- Cron will pick it up and retry the handler
-- Handler runs again (idempotent) and succeeds
-- But `logProcessedEvent` was never successfully recorded in either attempt
-
-If `logProcessedEvent` fails N times in a row before the dead letter hits `max_retries`, the retry counter can be exhausted without ever successfully recording the event as processed. The next cron tick will not retry (dead letter is abandoned), and the event is lost.
-
-This is a low-severity pre-existing assumption: handlers are assumed to be safe to call multiple times (idempotent), so re-running them is low-cost. The gap exists because dead-letter retry logic doesn't increment retry_count for the "logging failed" subpath — it relies on handler idempotency to hide the issue.
-
-**Scope:** Document the assumption in `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md` that:
-1. Handlers must be fully idempotent (re-run safely on repeated calls)
-2. Dead letter retries assume handler success; if handler succeeds but logging fails, dead letter is retried until abandoned
-3. If logging infrastructure becomes unavailable, events may be silently dropped after max_retries exhaustion
-
-**Fix options:**
-1. Accept assumption and document
-2. Add separate counter for logging-only retries (separate from handler retries)
-3. Implement atomic handler-then-log pattern with transactional guarantees (not feasible with current architecture)
-
-**Files:** `workers/stripe-webhook/src/index.ts:130–160`, `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md` (new)
-
-**Status:** ✅ Done — Accepted fix option 1: documented handler idempotency requirement, indefinite-pending behavior, and 4-step recovery path in `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md` (commits 4bf3fff, 4ebe6cb).
 
 ---
 
