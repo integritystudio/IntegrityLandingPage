@@ -13,6 +13,35 @@ vi.mock('../../lib/supabase', () => ({
   }),
 }));
 
+describe('fetchPendingDeadLetters', () => {
+  let db: ReturnType<typeof createSupabaseAdmin>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+  });
+
+  it('DB error → console.error logged, empty array returned', async () => {
+    mockQuery.mockResolvedValue({ ok: false, error: 'Connection timeout' });
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await db.fetchPendingDeadLetters();
+
+    expect(result).toEqual([]);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'fetchPendingDeadLetters DB error:',
+      'Connection timeout',
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('non-array data → returns empty array without error', async () => {
+    mockQuery.mockResolvedValue({ ok: true, data: null });
+    const result = await db.fetchPendingDeadLetters();
+    expect(result).toEqual([]);
+  });
+});
+
 describe('isEventProcessed', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 

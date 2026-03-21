@@ -86,7 +86,10 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   }
 
   // Record successful processing for idempotency checks on future retries.
-  await db.logProcessedEvent(event.id, event.type);
+  const logResult = await db.logProcessedEvent(event.id, event.type);
+  if (!logResult.ok) {
+    console.error(`Failed to log processed event ${event.id} (${event.type}):`, logResult.error);
+  }
 
   return ok({ ok: true, processed: true });
 }

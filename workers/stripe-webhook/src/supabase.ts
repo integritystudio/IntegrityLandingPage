@@ -168,6 +168,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
   }
 
   interface DeadLetter {
+    [key: string]: unknown;
     id: string;
     stripe_event_id: string;
     event_type: string;
@@ -191,7 +192,11 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
       order: { column: 'created_at', ascending: true },
       limit,
     });
-    if (!result.ok || !Array.isArray(result.data)) return [];
+    if (!result.ok) {
+      console.error('fetchPendingDeadLetters DB error:', result.error);
+      return [];
+    }
+    if (!Array.isArray(result.data)) return [];
     return result.data.filter((dl) => dl.retry_count < dl.max_retries);
   }
 

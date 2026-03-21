@@ -93,6 +93,45 @@ describe('Stripe webhook verification', () => {
   });
 });
 
+describe('handleWebhook (fetch handler)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  async function makeWebhookRequest(body: string, secret = 'test-secret'): Promise<Request> {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const sig = await computeStripeSignature(timestamp, body, secret);
+    return new Request('https://example.com/webhook', {
+      method: 'POST',
+      headers: { 'stripe-signature': sig, 'content-type': 'application/json' },
+      body,
+    });
+  }
+
+  it('logProcessedEvent failure → console.error logged, 200 still returned', async () => {
+    const body = JSON.stringify({ id: 'evt_abc', type: 'checkout.session.completed' });
+    const request = await makeWebhookRequest(body);
+
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleCheckout.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: false, error: 'DB write failed' });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    const json = await response.json<{ ok: boolean; processed: boolean }>();
+
+    expect(response.status).toBe(200);
+    expect(json.processed).toBe(true);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to log processed event evt_abc'),
+      'DB write failed',
+    );
+
+    consoleSpy.mockRestore();
+  });
+});
+
 describe('runReconciliation', () => {
   const checkoutDeadLetter = {
     id: 'dl_1',
