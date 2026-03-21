@@ -145,7 +145,7 @@ void main() {
   });
 
   group('fetchEntitlements — error responses', () {
-    test('returns EntitlementsError with message on 401', () async {
+    test('returns sanitized auth message on 401 — does not surface raw API string (L23)', () async {
       mockDio.mockGetResponse(
         {'error': 'Unauthorized'},
         statusCode: 401,
@@ -157,10 +157,12 @@ void main() {
       );
 
       expect(result, isA<EntitlementsError>());
-      expect((result as EntitlementsError).error, 'Unauthorized');
+      final err = (result as EntitlementsError).error;
+      expect(err, isNot('Unauthorized'));
+      expect(err, contains('log in'));
     });
 
-    test('returns EntitlementsError with message on 403', () async {
+    test('returns sanitized error on 403 — does not surface raw API string (L23)', () async {
       mockDio.mockGetResponse(
         {'error': 'Forbidden'},
         statusCode: 403,
@@ -172,7 +174,7 @@ void main() {
       );
 
       expect(result, isA<EntitlementsError>());
-      expect((result as EntitlementsError).error, 'Forbidden');
+      expect((result as EntitlementsError).error, isNot(contains('Forbidden')));
     });
 
     test('returns server error message on 500 after retries', () async {
@@ -351,7 +353,7 @@ void main() {
   });
 
   group('fetchQuotaStatus — error responses', () {
-    test('returns QuotaStatusError on 401', () async {
+    test('returns sanitized auth message on 401 — does not surface raw API string (L23)', () async {
       mockDio.mockGetResponse({'error': 'Unauthorized'}, statusCode: 401);
 
       final result = await DashboardService.fetchQuotaStatus(
@@ -360,7 +362,9 @@ void main() {
       );
 
       expect(result, isA<QuotaStatusError>());
-      expect((result as QuotaStatusError).error, 'Unauthorized');
+      final err = (result as QuotaStatusError).error;
+      expect(err, isNot('Unauthorized'));
+      expect(err, contains('log in'));
     });
 
     test('returns server error on 500 after retries', () async {

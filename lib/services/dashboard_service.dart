@@ -385,9 +385,7 @@ class DashboardService {
           );
         }
 
-        return BillingStatusError(
-          error: data['error'] as String? ?? _errorUnexpected,
-        );
+        return BillingStatusError(error: _sanitizeReadError(response.statusCode));
       } on DioException catch (e) {
         final isRetryable =
             e.type == DioExceptionType.connectionTimeout ||
@@ -465,9 +463,7 @@ class DashboardService {
           );
         }
 
-        return UsageSummaryError(
-          error: data['error'] as String? ?? _errorUnexpected,
-        );
+        return UsageSummaryError(error: _sanitizeReadError(response.statusCode));
       } on DioException catch (e) {
         final isRetryable =
             e.type == DioExceptionType.connectionTimeout ||
@@ -542,9 +538,7 @@ class DashboardService {
           return EntitlementsSuccess(data: EntitlementsData.fromJson(data));
         }
 
-        return EntitlementsError(
-          error: data['error'] as String? ?? _errorUnexpected,
-        );
+        return EntitlementsError(error: _sanitizeReadError(response.statusCode));
       } on DioException catch (e) {
         final isRetryable =
             e.type == DioExceptionType.connectionTimeout ||
@@ -619,9 +613,7 @@ class DashboardService {
           return QuotaStatusSuccess(data: QuotaStatusData.fromJson(data));
         }
 
-        return QuotaStatusError(
-          error: data['error'] as String? ?? _errorUnexpected,
-        );
+        return QuotaStatusError(error: _sanitizeReadError(response.statusCode));
       } on DioException catch (e) {
         final isRetryable =
             e.type == DioExceptionType.connectionTimeout ||
@@ -741,6 +733,13 @@ class DashboardService {
     if (statusCode == HttpStatus.unauthorized.code) return _errorBillingAuth;
     if (statusCode == HttpStatus.forbidden.code) return _errorBillingForbidden;
     if (statusCode == HttpStatus.notFound.code) return _errorBillingNotFound;
+    return _errorUnexpected;
+  }
+
+  /// Maps non-200 status codes to safe user-facing messages for read endpoints.
+  /// Prevents raw API error strings from leaking to callers.
+  static String _sanitizeReadError(int? statusCode) {
+    if (statusCode == HttpStatus.unauthorized.code) return _errorBillingAuth;
     return _errorUnexpected;
   }
 
