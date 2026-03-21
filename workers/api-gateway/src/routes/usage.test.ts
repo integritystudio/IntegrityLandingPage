@@ -166,4 +166,33 @@ describe('GET /v1/orgs/:orgId/entitlements', () => {
     expect(body.entitlements.monthly_units).toBe(500000);
     expect(body.entitlements.alerts).toBe(false);
   });
+
+  it('returns 403 when JWT user is not a member', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/entitlements', {
+      method: 'GET',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleOrgEntitlements(req, 'org-id-1', makeOpts(mockSb));
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 403 when API key belongs to different org', async () => {
+    const secret = 'testsecret32charsminimumvalue000';
+    const apiKeyRow = await makeApiKeyRow('other-org-id');
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [apiKeyRow] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/entitlements', {
+      method: 'GET',
+      headers: { authorization: `Bearer int_live_abc12345_${secret}` },
+    });
+    const res = await handleOrgEntitlements(req, 'org-id-1', makeOpts(mockSb));
+    expect(res.status).toBe(403);
+  });
 });
