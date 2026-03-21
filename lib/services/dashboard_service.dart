@@ -699,7 +699,7 @@ class DashboardService {
         }
 
         return BillingPortalError(
-          error: data['error'] as String? ?? _errorUnexpected,
+          error: _billingPortalErrorMessage(response.statusCode),
         );
       } on DioException catch (e) {
         final isRetryable =
@@ -731,6 +731,19 @@ class DashboardService {
     }
 
     return const BillingPortalError(error: _errorUnexpected);
+  }
+
+  static const String _errorBillingAuth =
+      'Authentication required. Please log in again.';
+  static const String _errorBillingForbidden =
+      'You don\'t have permission to manage billing for this organization.';
+  static const String _errorBillingNotFound = 'Organization not found.';
+
+  static String _billingPortalErrorMessage(int? statusCode) {
+    if (statusCode == HttpStatus.unauthorized.code) return _errorBillingAuth;
+    if (statusCode == HttpStatus.forbidden.code) return _errorBillingForbidden;
+    if (statusCode == HttpStatus.notFound.code) return _errorBillingNotFound;
+    return _errorUnexpected;
   }
 
   /// Fetch the list of organizations the authenticated user belongs to.

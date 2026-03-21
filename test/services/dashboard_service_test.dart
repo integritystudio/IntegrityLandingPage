@@ -412,8 +412,8 @@ void main() {
       expect(mockDio._postCallCount, 3); // initial + 2 retries
     });
 
-    test('returns BillingPortalError on 403', () async {
-      mockDio.mockPostResponse({'error': 'Forbidden'}, statusCode: 403);
+    test('returns BillingPortalError with permission message on 403', () async {
+      mockDio.mockPostResponse({}, statusCode: 403);
 
       final result = await DashboardService.fetchBillingPortalUrl(
         orgId: 'org-1',
@@ -421,7 +421,10 @@ void main() {
       );
 
       expect(result, isA<BillingPortalError>());
-      expect((result as BillingPortalError).error, 'Forbidden');
+      expect(
+        (result as BillingPortalError).error,
+        contains('permission'),
+      );
     });
 
     test('returns error on invalid orgId', () async {
