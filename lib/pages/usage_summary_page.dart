@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/analytics.dart';
@@ -13,7 +14,7 @@ const double _warningThreshold = 0.75;
 /// Aggregates usage buckets by date, summing totalQuantity across all metrics.
 ///
 /// Returns a map of ISO date string → total quantity for use in [_DailyBarChart].
-/// Exported for testing via @visibleForTesting semantics (accessible from tests).
+@visibleForTesting
 Map<String, int> aggregateUsageByDate(List<UsageBucket> buckets) {
   final daily = <String, int>{};
   for (final b in buckets) {
@@ -366,10 +367,14 @@ class _DailyBarChart extends StatelessWidget {
   });
 
   /// Extracts the day number from an ISO-8601 date string ("2026-03-15" → "15").
+  ///
+  /// Returns empty string for malformed input so no label is rendered.
   static String _dayLabel(String isoDate) {
     final parts = isoDate.split('-');
     if (parts.length < 3) return '';
-    return (int.tryParse(parts[2]) ?? 0).toString();
+    final day = int.tryParse(parts[2]);
+    if (day == null || day == 0) return '';
+    return day.toString();
   }
 
   @override
@@ -507,7 +512,9 @@ class _DailyBarChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DailyBarChartPainter old) =>
-      values != old.values || monthlyUnitsQuota != old.monthlyUnitsQuota;
+      monthlyUnitsQuota != old.monthlyUnitsQuota ||
+      values.length != old.values.length ||
+      !listEquals(values, old.values);
 }
 
 class _MetricTable extends StatelessWidget {
