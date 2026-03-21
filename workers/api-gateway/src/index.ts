@@ -3,6 +3,7 @@ import { handleMe } from './routes/me';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus } from './routes/orgs';
 import { handleUsageSummary, handleOrgEntitlements } from './routes/usage';
 import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
+import { handleHealthCheck } from './routes/health';
 import { QuotaDurableObject } from './durable-objects/quota';
 
 export interface Env {
@@ -20,7 +21,7 @@ export default {
     const { pathname } = new URL(request.url);
 
     if (pathname === '/health' && request.method === 'GET') {
-      return ok({ ok: true, service: 'api-gateway' });
+      return handleHealthCheck(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, env.QUOTA_DO);
     }
 
     if (pathname === '/v1/me' && request.method === 'GET') {

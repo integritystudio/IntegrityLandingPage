@@ -17,12 +17,24 @@ function makeRequest(method: string, path: string, init: RequestInit = {}): Requ
 
 describe('api-gateway', () => {
   describe('GET /health', () => {
-    it('returns 200 with service name', async () => {
-      const res = await worker.fetch(makeRequest('GET', '/health'), makeEnv());
-      expect(res.status).toBe(200);
+    it('returns a health status response with all expected fields', async () => {
+      const mockDOStub = {
+        fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'uninitialized' }), { status: 200 })),
+      };
+      const mockDO = {
+        idFromName: vi.fn().mockReturnValue('health-probe-id'),
+        get: vi.fn().mockReturnValue(mockDOStub),
+      } as unknown as DurableObjectNamespace;
+
+      const res = await worker.fetch(makeRequest('GET', '/health'), makeEnv({ QUOTA_DO: mockDO }));
+      // Status depends on Supabase connectivity; in tests expect 503 (db unreachable).
+      // Key assertion: response is JSON with expected shape.
       const body = (await res.json()) as Record<string, unknown>;
-      expect(body.ok).toBe(true);
-      expect(body.service).toBe('api-gateway');
+      expect(body).toHaveProperty('database');
+      expect(body).toHaveProperty('durableObjects');
+      expect(body).toHaveProperty('timestamp');
+      expect(['healthy', 'degraded', 'unhealthy']).toContain(body.database);
+      expect(['healthy', 'degraded', 'unhealthy']).toContain(body.durableObjects);
     });
   });
 
