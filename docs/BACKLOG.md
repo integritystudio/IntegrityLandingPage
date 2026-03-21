@@ -798,7 +798,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **File:** `workers/api-gateway/src/aggregation.ts:110–116`
 
-**Status:** Open
+**Status:** Done — `Math.trunc()` applied via `truncatedRequestCount` local var used consistently for both aggregate and latency weight; two tests added (commit 1a446fa)
 
 ---
 
