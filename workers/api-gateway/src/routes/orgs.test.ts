@@ -343,6 +343,12 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
     expect(res.status).toBe(200);
     const body = await res.json() as any;
     expect(body.url).toBe('https://billing.stripe.com/session/yyy');
+    // Audit log written exactly once on billing_admin path
+    expect(mockSb.insert).toHaveBeenCalledTimes(1);
+    expect(mockSb.insert).toHaveBeenCalledWith(
+      'audit_log',
+      expect.objectContaining({ action: 'billing_portal.accessed', target_type: 'org', target_id: 'org-id-1' }),
+    );
   });
 
   it('returns 500 when Stripe throws', async () => {
