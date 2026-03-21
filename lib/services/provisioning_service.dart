@@ -559,7 +559,10 @@ class ProvisioningService {
           e,
           stackTrace: e.stackTrace,
           context: 'ProvisioningService.bootstrap',
-          extra: {'attempt': attempt + 1},
+          extra: {
+            'endpoint': _apiGatewayUrl,
+            'attempt': attempt + 1,
+          },
         );
 
         if (e.type == DioExceptionType.connectionTimeout ||

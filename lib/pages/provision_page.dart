@@ -83,8 +83,14 @@ class _ProvisionPageState extends State<ProvisionPage> {
   Future<void> _loadBootstrap() async {
     final result = await ProvisioningService.bootstrap(jwt: widget.auth.jwt);
     if (!mounted) return;
-    if (result is BootstrapSuccess) {
-      setState(() => _bootstrapResult = result);
+    switch (result) {
+      case BootstrapSuccess():
+        setState(() => _bootstrapResult = result);
+      case BootstrapError():
+        await ErrorTrackingService.captureException(
+          Exception(result.error),
+          context: 'ProvisionPage._loadBootstrap',
+        );
     }
   }
 
@@ -92,6 +98,8 @@ class _ProvisionPageState extends State<ProvisionPage> {
     final org = bootstrap.activeOrg;
     final usage = bootstrap.usageSnapshot;
     final entitlements = bootstrap.entitlements;
+    final orgName = SecurityUtils.sanitizeUserInput(org.name);
+    final planKey = SecurityUtils.sanitizeUserInput(org.planKey);
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -106,7 +114,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
             children: [
               Expanded(
                 child: Text(
-                  org.name,
+                  orgName,
                   style: AppTypography.bodySM.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -116,14 +124,14 @@ class _ProvisionPageState extends State<ProvisionPage> {
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.sm,
-                  vertical: 2,
+                  vertical: AppSpacing.xs,
                 ),
                 decoration: BoxDecoration(
                   color: AppColors.gray700,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                 ),
                 child: Text(
-                  org.planKey,
+                  planKey,
                   style: AppTypography.bodySM.copyWith(
                     color: AppColors.gray300,
                   ),
@@ -134,8 +142,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
           if (entitlements.monthlyUnits > 0) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '${usage.monthToDateUnits.toStringAsFixed(0)} / '
-              '${entitlements.monthlyUnits.toStringAsFixed(0)} units this month',
+              '${usage.monthToDateUnits} / ${entitlements.monthlyUnits} units this month',
               style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
             ),
           ],

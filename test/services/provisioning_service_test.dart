@@ -406,6 +406,37 @@ void main() {
       expect(result, isA<BootstrapError>());
     });
 
+    test('returns BootstrapError when organizations key is absent', () async {
+      mockDio.mockPostResponse({'active_org_id': 'org-1'});
+
+      final result = await ProvisioningService.bootstrap(jwt: 'test-jwt');
+
+      expect(result, isA<BootstrapError>());
+    });
+
+    test('uses zero defaults when entitlements key is absent', () async {
+      mockDio.mockPostResponse({
+        'organizations': [
+          {
+            'id': 'org-1',
+            'name': 'Acme',
+            'role': 'member',
+            'plan_key': 'free',
+            'billing_status': 'active',
+          }
+        ],
+        'active_org_id': 'org-1',
+        // no entitlements or usage_snapshot
+      });
+
+      final result = await ProvisioningService.bootstrap(jwt: 'test-jwt');
+
+      expect(result, isA<BootstrapSuccess>());
+      final success = result as BootstrapSuccess;
+      expect(success.entitlements.monthlyUnits, 0);
+      expect(success.usageSnapshot.monthToDateUnits, 0);
+    });
+
     test('returns BootstrapError on 500 after max retries', () async {
       mockDio.mockPostResponse({'error': 'Server error'}, statusCode: 500);
 
