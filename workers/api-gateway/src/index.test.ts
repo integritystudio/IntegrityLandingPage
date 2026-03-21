@@ -75,7 +75,7 @@ describe('api-gateway', () => {
         makeEnv(),
       );
 
-      // JWT auth runs before quota — no token means 401, not 429
+      // Bearer token presence check runs before quota — no token means 401, not 429
       expect(res.status).toBe(401);
       expect(quotaLib.enforceOrgQuota).not.toHaveBeenCalled();
     });

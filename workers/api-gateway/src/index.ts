@@ -1,4 +1,5 @@
 import { ok, notFound } from '../../lib/http';
+import { requireBearerToken } from '../../lib/http/request';
 import { handleMe } from './routes/me';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus } from './routes/orgs';
 import { handleUsageSummary, handleOrgEntitlements } from './routes/usage';
@@ -7,7 +8,6 @@ import { handleHealthCheck } from './routes/health';
 import { handleIngestEvent } from './routes/ingest';
 import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
-import { resolveJwt } from './lib/helpers';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -70,10 +70,11 @@ export default {
       const orgId = orgMatch[1];
       const subPath = orgMatch[2] ?? '';
 
-      // Verify JWT before quota enforcement to prevent unauthenticated callers
-      // from triggering DO reads and leaking org existence via 429 vs 401.
-      const jwtResult = await resolveJwt(request, routeOpts.jwtSecret, routeOpts.jwtIssuerUrl);
-      if (!jwtResult.ok) return jwtResult.error;
+      // Require a bearer token before quota enforcement to prevent unauthenticated
+      // callers from triggering DO reads and leaking org existence via 429 vs 401.
+      // Full auth (JWT or API key) is delegated to each route handler.
+      const tokenResult = requireBearerToken(request);
+      if (!tokenResult.ok) return tokenResult.error;
 
       const quotaOpts = {
         doNamespace: env.QUOTA_DO,
