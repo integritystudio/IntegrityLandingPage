@@ -1356,7 +1356,7 @@ Flutter or API client
 
 ## 19. v1 Implementation Status (Updated 2026-03-20)
 
-### Completed ✅ (15 core items + 3 recent refinements + 1 Durable Objects)
+### Completed ✅ (15 core items + 3 recent refinements + 1 Durable Objects + Phase 4 Task 2)
 
 **Core infrastructure (2026-03-20)**
 1. **Auth pages & JWT flow** — AuthPage, ProvisionPage, SenderHealthPage with JWT-based provisioning
@@ -1382,13 +1382,16 @@ Flutter or API client
 - **Validation improvements** — `safeParseJson` return type, simplified validation/response code paths, optimized hot paths
 - **Code review backlog** — 10+ findings addressed; 6 items marked Done (R02-R10 security & TDD documentation); 10+ medium/low findings documented from security review session
 
-**Completion Context:** All major auth, provisioning, API gateway, and quota enforcement infrastructure is production-ready with comprehensive test coverage (2440+ tests, ~94% coverage). Phase 4 quota integration (T26-T27) wired and tested; security fixes (V-02 issuer validation, H19 timing-safe comparisons) applied; sender-worker UI implementation complete with JWT provisioning flow. Per-org Durable Objects quota state machine enforces minute-level burst limits, monthly soft limits, quota version detection, with middleware fail-open logic. Quota documentation with integration guidance available at `workers/docs/QUOTA_DURABLE_OBJECTS.md`. Code review findings (10+ items) documented in `docs/BACKLOG.md`. See recent commits (gitlog top 20 in `docs/repomix/`) and `docs/SESSION_HISTORY.md` for session details.
+**Session work (2026-03-20 — Phase 4 Task 2 complete)**
+- **V01: Usage ledger ingestion** — `POST /v1/ingest/events` with dual JWT/API key auth, fire-and-forget daily bucket rollup via `ctx.waitUntil`, 16 tests (commits 761ab48, d4911ca)
+- **V03: Monthly aggregation** — `rollupMonthlyBucket(orgId, yearMonth, sb)` querying `usage_buckets_daily` with weighted avg_latency_ms; `MonthlyUsageSummarySchema` Zod validation on return; `MAX_DAILY_BUCKETS_PER_MONTH` query cap (3100); month regex rejects 00/13; 17 TDD tests (commits 59402f3, c021f5b, 97d3b74)
 
-### Remaining (v1 Phase 4 Tasks 2–3)
+**Completion Context:** All major auth, provisioning, API gateway, and quota enforcement infrastructure is production-ready with comprehensive test coverage (2440+ tests, ~94% coverage). Phase 4 quota integration (T26-T27) wired and tested; security fixes (V-02 issuer validation, H19 timing-safe comparisons) applied; sender-worker UI implementation complete with JWT provisioning flow. Per-org Durable Objects quota state machine enforces minute-level burst limits, monthly soft limits, quota version detection, with middleware fail-open logic. Phase 4 Task 2 (usage ingestion + daily/monthly aggregation) complete. Quota documentation with integration guidance available at `workers/docs/QUOTA_DURABLE_OBJECTS.md`.
 
-1. **Phase 4 Task 2: Usage ledger ingestion & aggregation** — Event ingestion at `/v1/ingest/events`, daily bucket rollup to `usage_buckets_daily`, monthly aggregation, integration with Durable Object quota state
-2. **Phase 4 Task 3: Flutter dashboard UI** — Org switcher, billing status display, usage summary/charts, entitlements display, complete bootstrap flow, quota visualization
-3. **Polish & observability** — Enhanced error responses, rate limiting integration, audit logging for sensitive operations, telemetry/monitoring setup
+### Remaining (v1 Phase 4 Task 3 + Polish)
+
+1. **Phase 4 Task 3: Flutter dashboard UI** — Org switcher, billing status display, usage summary/charts, entitlements display, complete bootstrap flow, quota visualization
+2. **Polish & observability** — Enhanced error responses, rate limiting integration, audit logging for sensitive operations, telemetry/monitoring setup
 
 This sequence delivers production-grade auth/provisioning infrastructure with clear path to user-facing analytics and usage dashboards, supporting the internal goal of a comprehensible UI for non-technical stakeholders while preserving long-term recurring SaaS architecture.
 
