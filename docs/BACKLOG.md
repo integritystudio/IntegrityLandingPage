@@ -564,7 +564,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **Note:** Document in script header that this is a "nuclear option" and should not run concurrently with production traffic.
 
-**Status:** Open
+**Status:** Done — Maintenance window WARNING added to script header; inline comment added at delete/re-insert call site in `provisionEntitlements` (commit 218b4f2)
 
 ---
 
