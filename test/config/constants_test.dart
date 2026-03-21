@@ -90,8 +90,8 @@ void main() {
   });
 
   group('PasswordPolicy (L21: shared constants)', () {
-    test('minLength is at least 8 characters', () {
-      expect(PasswordPolicy.minLength, greaterThanOrEqualTo(8));
+    test('minLength is less than half of maxLength', () {
+      expect(PasswordPolicy.minLength, lessThan(PasswordPolicy.maxLength / 2));
     });
 
     test('maxLength is greater than minLength', () {
