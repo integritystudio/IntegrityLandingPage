@@ -54,7 +54,7 @@ test('HTML-escapes special characters in friendly messages', () {
 
 ```dart
 static final _stackTracePattern =
-    RegExp(r' at (?:\d|[/\\(]|\w+\.)|\.(dart|js|ts):\d');
+    RegExp(r' at (?:\d|[/\\(]|\w+\.)|\.(dart|js|ts|cjs|mjs|wasm):\d');
 ```
 
 ### Test Coverage
