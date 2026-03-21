@@ -79,35 +79,6 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
     }
   }
 
-  Color _statusColor(String status) {
-    assert(
-      status == 'active' || status == 'past_due' || status == 'inactive' || status == 'canceled',
-      'Unknown billing status: $status',
-    );
-    return switch (status) {
-      'active' => AppColors.success,
-      'past_due' => AppColors.warning,
-      _ => AppColors.error,
-    };
-  }
-
-  String _statusLabel(String status) {
-    assert(
-      status == 'active' ||
-          status == 'past_due' ||
-          status == 'suspended' ||
-          status == 'inactive' ||
-          status == 'canceled',
-      'Unknown billing status: $status',
-    );
-    return switch (status) {
-      'active' => 'Active',
-      'past_due' => 'Past Due',
-      'suspended' => 'Suspended',
-      _ => 'Inactive',
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
@@ -158,12 +129,6 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
                     billingStatus: _billingStatus,
                     isLoading: _isLoading,
                     onRefresh: _fetchBillingStatus,
-                    statusColor: _billingStatus != null
-                        ? _statusColor(_billingStatus!.billingStatus)
-                        : null,
-                    statusLabel: _billingStatus != null
-                        ? _statusLabel(_billingStatus!.billingStatus)
-                        : null,
                     renewalDateLabel: _billingStatus?.nextRenewalDate != null
                         ? _formatDate(_billingStatus!.nextRenewalDate!)
                         : null,
@@ -177,20 +142,45 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
   }
 }
 
+Color _statusColor(String status) {
+  assert(
+    status == 'active' || status == 'past_due' || status == 'inactive' || status == 'canceled',
+    'Unknown billing status: $status',
+  );
+  return switch (status) {
+    'active' => AppColors.success,
+    'past_due' => AppColors.warning,
+    _ => AppColors.error,
+  };
+}
+
+String _statusLabel(String status) {
+  assert(
+    status == 'active' ||
+        status == 'past_due' ||
+        status == 'suspended' ||
+        status == 'inactive' ||
+        status == 'canceled',
+    'Unknown billing status: $status',
+  );
+  return switch (status) {
+    'active' => 'Active',
+    'past_due' => 'Past Due',
+    'suspended' => 'Suspended',
+    _ => 'Inactive',
+  };
+}
+
 class _BillingCard extends StatelessWidget {
   final BillingStatusData? billingStatus;
   final bool isLoading;
   final VoidCallback onRefresh;
-  final Color? statusColor;
-  final String? statusLabel;
   final String? renewalDateLabel;
 
   const _BillingCard({
     required this.billingStatus,
     required this.isLoading,
     required this.onRefresh,
-    this.statusColor,
-    this.statusLabel,
     this.renewalDateLabel,
   });
 
@@ -218,8 +208,11 @@ class _BillingCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              if (statusLabel != null && statusColor != null)
-                _StatusBadge(label: statusLabel!, color: statusColor!)
+              if (billingStatus != null)
+                _StatusBadge(
+                  label: _statusLabel(billingStatus!.billingStatus),
+                  color: _statusColor(billingStatus!.billingStatus),
+                )
               else if (isLoading)
                 SizedBox(
                   width: 16,
