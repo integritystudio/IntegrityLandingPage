@@ -356,7 +356,7 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 `workers/stripe-webhook/src/handlers/subscription.ts:8-10` defines empty `PRICE_TO_PLAN` map. Comment says "Example: ..." suggesting placeholder. `planKey` always `undefined` for all subscriptions; every update silently skips plan mapping with no log or error. Price IDs are environment-specific and should come from `env` bindings, not hardcoded map.
 
-**Status:** Open — Low priority, deferred.
+**Status:** ✅ Done — `STRIPE_PRICE_TO_PLAN_JSON` env binding added to `Env` interface; `parsePriceToPlan` helper parses it (warns + falls back to `{}` on invalid JSON); subscription handlers accept `priceToPlan: Record<string, PlanKey>` parameter (default `{}`); both `handleWebhook` and `runReconciliation` parse and thread the map through.
 
 ---
 

@@ -77,11 +77,11 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
       break;
 
     case 'customer.subscription.updated':
-      result = await handleSubscriptionUpdated(event, db);
+      result = await handleSubscriptionUpdated(event, db, priceToPlan);
       break;
 
     case 'customer.subscription.deleted':
-      result = await handleSubscriptionDeleted(event, db);
+      result = await handleSubscriptionDeleted(event, db, priceToPlan);
       break;
 
     default:
@@ -136,6 +136,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
  */
 async function runReconciliation(env: Env): Promise<void> {
   const db = createSupabaseAdmin(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  const priceToPlan = parsePriceToPlan(env.STRIPE_PRICE_TO_PLAN_JSON);
   const pending = await db.fetchPendingDeadLetters(50);
 
   for (const dl of pending) {
@@ -171,10 +172,10 @@ async function runReconciliation(env: Env): Promise<void> {
           result = await handleInvoicePaymentFailed(event, db);
           break;
         case 'customer.subscription.updated':
-          result = await handleSubscriptionUpdated(event, db);
+          result = await handleSubscriptionUpdated(event, db, priceToPlan);
           break;
         case 'customer.subscription.deleted':
-          result = await handleSubscriptionDeleted(event, db);
+          result = await handleSubscriptionDeleted(event, db, priceToPlan);
           break;
         default:
           await db.abandonDeadLetter(dl.id);

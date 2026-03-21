@@ -2,13 +2,6 @@ import type { SupabaseAdmin } from '../supabase';
 import type { BillingStatus, HandlerResult, PlanKey, StripeEvent } from '../../../lib/types';
 import { SubscriptionSchema } from '../stripe-schemas';
 
-/**
- * Map Stripe price IDs to plan keys.
- * This should match your pricing setup in Stripe.
- */
-const PRICE_TO_PLAN: Record<string, PlanKey> = {
-  // Example: 'price_1Abc...': 'growth'
-};
 
 function resolveBillingStatus(stripeStatus: string): BillingStatus {
   if (stripeStatus === 'active') return 'active';
@@ -23,6 +16,7 @@ function resolveBillingStatus(stripeStatus: string): BillingStatus {
 export async function handleSubscriptionUpdated(
   event: StripeEvent,
   db: SupabaseAdmin,
+  priceToPlan: Record<string, PlanKey> = {},
 ): Promise<HandlerResult> {
   const parseResult = SubscriptionSchema.safeParse(event.data.object);
   if (!parseResult.success) {
@@ -58,7 +52,7 @@ export async function handleSubscriptionUpdated(
     }
   }
 
-  const planKey = firstItem ? PRICE_TO_PLAN[firstItem.price.id] : undefined;
+  const planKey = firstItem ? priceToPlan[firstItem.price.id] : undefined;
   const billingStatus = resolveBillingStatus(subscription.status);
 
   const updateResult = await db.updateOrgBillingStatus(
@@ -82,6 +76,7 @@ export async function handleSubscriptionUpdated(
 export async function handleSubscriptionDeleted(
   event: StripeEvent,
   db: SupabaseAdmin,
+  _priceToPlan: Record<string, PlanKey> = {},
 ): Promise<HandlerResult> {
   const parseResult = SubscriptionSchema.safeParse(event.data.object);
   if (!parseResult.success) {
