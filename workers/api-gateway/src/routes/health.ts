@@ -56,16 +56,7 @@ async function checkDatabase(supabaseUrl: string, serviceRoleKey: string): Promi
 }
 
 async function checkDurableObject(quotaDO: DurableObjectNamespace): Promise<ComponentStatus> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5_000);
-  try {
-    const stub = quotaDO.get(quotaDO.idFromName('health-probe'));
-    const resp = await stub.fetch('http://do/status', { method: 'GET', signal: controller.signal });
-    // DO returns 200 (initialized) or 200 (uninitialized — {"status":"uninitialized"}) — both are live
-    return resp.status < 500 ? 'healthy' : 'degraded';
-  } catch {
-    return 'unhealthy';
-  } finally {
-    clearTimeout(timer);
-  }
+  // Verify the namespace binding is configured. Avoid idFromName() which creates a
+  // billable named Durable Object on every health check request.
+  return quotaDO != null ? 'healthy' : 'unhealthy';
 }

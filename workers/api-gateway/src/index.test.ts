@@ -19,15 +19,7 @@ function makeRequest(method: string, path: string, init: RequestInit = {}): Requ
 describe('api-gateway', () => {
   describe('GET /health', () => {
     it('returns a health status response with all expected fields', async () => {
-      const mockDOStub = {
-        fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'uninitialized' }), { status: 200 })),
-      };
-      const mockDO = {
-        idFromName: vi.fn().mockReturnValue('health-probe-id'),
-        get: vi.fn().mockReturnValue(mockDOStub),
-      } as unknown as DurableObjectNamespace;
-
-      const res = await worker.fetch(makeRequest('GET', '/health'), makeEnv({ QUOTA_DO: mockDO }));
+      const res = await worker.fetch(makeRequest('GET', '/health'), makeEnv());
       // Status depends on Supabase connectivity; in tests expect 503 (db unreachable).
       // Key assertion: response is JSON with expected shape.
       const body = (await res.json()) as Record<string, unknown>;
