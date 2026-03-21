@@ -298,6 +298,11 @@ class _PlanBadge extends StatelessWidget {
 
   const _PlanBadge({required this.planKey});
 
+  String _formatPlanKey(String key) => key
+      .split('_')
+      .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+      .join(' ');
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -311,7 +316,7 @@ class _PlanBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
       ),
       child: Text(
-        planKey,
+        _formatPlanKey(planKey),
         style: AppTypography.bodySM.copyWith(
           color: AppColors.blue500,
           fontWeight: FontWeight.w500,
