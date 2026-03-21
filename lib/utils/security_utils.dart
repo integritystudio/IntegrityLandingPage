@@ -206,6 +206,14 @@ class SecurityUtils {
   /// file:line references like `.dart:10`, `.js:10`, `.ts:10`, `.cjs:10`, `.mjs:10`.
   /// Avoids matching natural language like "Failed at validation step"
   /// (no dot/digit/path follows the identifier in natural language).
+  ///
+  /// Extension list (dart|js|ts|cjs|mjs|wasm) is intentionally scoped to the
+  /// current deployed runtimes. Extend this list if a new backend runtime is
+  /// added (e.g. `.py`, `.rb`) — do not broaden it speculatively.
+  ///
+  /// Declared `static final` so the [RegExp] is compiled once at class load
+  /// time. [RegExp] compilation is expensive; repeating it per call in a hot
+  /// path would add measurable overhead.
   static final _stackTracePattern =
       RegExp(r' at (?:\d|[/\\(]|\w+\.)|\.(dart|js|ts|cjs|mjs|wasm):\d');
 
