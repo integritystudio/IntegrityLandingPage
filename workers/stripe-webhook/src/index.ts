@@ -5,6 +5,7 @@ import { handleCheckoutSessionCompleted } from './handlers/checkout';
 import { handleSubscriptionUpdated, handleSubscriptionDeleted } from './handlers/subscription';
 import { handleInvoicePaid, handleInvoicePaymentFailed } from './handlers/invoice';
 import type { StripeEvent, HandlerResult, PlanKey } from '../../lib/types';
+import { PlanKeySchema } from '../../lib/types/schemas';
 
 export interface Env {
   STRIPE_WEBHOOK_SECRET: string;
@@ -17,7 +18,17 @@ export interface Env {
 function parsePriceToPlan(jsonStr: string | undefined): Record<string, PlanKey> {
   if (!jsonStr) return {};
   try {
-    return JSON.parse(jsonStr) as Record<string, PlanKey>;
+    const raw = JSON.parse(jsonStr) as Record<string, unknown>;
+    const result: Record<string, PlanKey> = {};
+    for (const [priceId, plan] of Object.entries(raw)) {
+      const parsed = PlanKeySchema.safeParse(plan);
+      if (parsed.success) {
+        result[priceId] = parsed.data;
+      } else {
+        console.warn(`STRIPE_PRICE_TO_PLAN_JSON: invalid plan value "${String(plan)}" for price "${priceId}", skipping`);
+      }
+    }
+    return result;
   } catch {
     console.warn('STRIPE_PRICE_TO_PLAN_JSON is not valid JSON; price-to-plan mapping disabled');
     return {};
