@@ -63,6 +63,13 @@ create table users (
   default_organization_id uuid references organizations(id)
 );
 
+-- Migration bridge: links Supabase auth.users to public.users (for gradual Auth0 migration)
+create table auth_user_links (
+  auth_user_id uuid not null primary key references auth.users(id),
+  app_user_id uuid not null unique references users(id),
+  created_at timestamptz default now()
+);
+
 create table user_profiles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid unique references users(id) on delete cascade,
@@ -186,6 +193,7 @@ create table entitlements (
   hard_limit bigint,
   soft_limit bigint,
   config jsonb default '{}',
+  created_at timestamptz default now(),
   updated_at timestamptz default now(),
   unique (organization_id, feature_key)
 );
@@ -194,7 +202,8 @@ create table entitlements (
 create table api_keys (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id),
-  prefix varchar not null unique,
+  organization_id uuid not null references organizations(id) on delete cascade,
+  prefix varchar not null,
   hash text not null unique,
   name text default 'Default',
   tier text default 'new',
@@ -202,7 +211,8 @@ create table api_keys (
   expires_at timestamptz,
   last_used_at timestamptz,
   created_at timestamptz default now(),
-  revoked_at timestamptz
+  revoked_at timestamptz,
+  unique (organization_id, prefix)
 );
 
 create table usage_events (
@@ -314,6 +324,16 @@ create table provider_oauth_tokens (
   refresh_token text
 );
 ```
+
+### Auth0 vs Supabase Auth migration strategy
+
+The schema includes `auth_user_links` to support a **gradual migration from Supabase Auth to Auth0**:
+
+* **Old flow (Supabase Auth):** auth.users → lookups via `auth_user_links` → app logic on public.users
+* **New flow (Auth0):** Auth0 JWT with `auth0_id` → direct lookup on public.users → no bridge needed
+* **Transition:** Both flows can coexist; set `auth_user_links` to null once all users are migrated to Auth0
+
+This allows rolling migration without downtime — existing Supabase auth users can continue using the old flow while new signups go straight to Auth0.
 
 ### Why this schema fits your internal model
 
@@ -971,23 +991,31 @@ const [scheme, token] = authHeader.split(' ');
 // 2. Extract prefix
 const [prefix, secret] = token.split('_', 2);
 
-// 3. Query for key by prefix (fast)
-const apiKey = await db.api_keys.findOne({ prefix });
+// 3. Extract org_id from prefix (format: int_live_<org_id>_<secret>)
+// Alternative: pass ?org_id=xxx query param or X-Org-ID header
+const orgId = req.headers.get('x-org-id');
+if (!orgId) return 401 Unauthorized;
+
+// 4. Query for key by org_id + prefix (fast, unique per org)
+const apiKey = await db.api_keys.findOne({
+  organization_id: orgId,
+  prefix
+});
 
 if (!apiKey || apiKey.status !== 'active' || (apiKey.expires_at && apiKey.expires_at < now())) {
   return 401 Unauthorized;
 }
 
-// 4. Compare hash
+// 5. Compare hash
 const valid = await bcrypt.compare(secret, apiKey.hash);
 if (!valid) return 401 Unauthorized;
 
-// 5. Resolve user & org context
+// 6. Resolve user & org context
 const user = await db.users.findOne(apiKey.user_id);
-const orgs = await db.organization_memberships.findMany({ user_id: user.id, status: 'active' });
+const org = await db.organizations.findOne(apiKey.organization_id);
+const entitlements = await loadEntitlements(orgId);
 
-// 6. Load entitlements from org
-return { user, orgs, entitlements: await loadEntitlements(orgs[0].organization_id) };
+return { user, org, entitlements };
 ```
 
 ### API key rules
