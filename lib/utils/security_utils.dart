@@ -216,6 +216,11 @@ class SecurityUtils {
   /// Falls back to [genericErrorMessage] for verbose, multi-line, or
   /// stack-trace-containing strings to prevent internal detail leakage.
   static String sanitizeServerError(String raw) {
+    // Defense-in-depth: check \r explicitly because sanitizeUserInput intentionally
+    // preserves carriage returns (codeUnit 13 is excluded from the control-char
+    // strip at line 49). Without this guard, a bare \r or CRLF sequence would
+    // pass through to the UI. The \n check is similarly explicit for the same
+    // reason — neither is stripped downstream.
     if (raw.length > maxServerErrorLength ||
         raw.contains('\n') ||
         raw.contains('\r') ||
