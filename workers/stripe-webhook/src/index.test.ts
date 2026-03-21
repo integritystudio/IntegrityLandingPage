@@ -6,7 +6,7 @@ import { REPLAY_WINDOW_MS } from '../../constants';
 // Seconds past the replay window, guaranteeing the timestamp is rejected as stale.
 const STALE_OFFSET_SECONDS = (REPLAY_WINDOW_MS / 1000) * 2;
 
-const { mockDb, mockHandleCheckout } = vi.hoisted(() => ({
+const { mockDb, mockHandleCheckout, mockHandleSubscriptionUpdated } = vi.hoisted(() => ({
   mockDb: {
     isEventProcessed: vi.fn(),
     logProcessedEvent: vi.fn(),
@@ -21,6 +21,7 @@ const { mockDb, mockHandleCheckout } = vi.hoisted(() => ({
     findOrgByStripeCustomerId: vi.fn(),
   },
   mockHandleCheckout: vi.fn(),
+  mockHandleSubscriptionUpdated: vi.fn(),
 }));
 
 vi.mock('./supabase', () => ({
@@ -32,7 +33,7 @@ vi.mock('./handlers/checkout', () => ({
 }));
 
 vi.mock('./handlers/subscription', () => ({
-  handleSubscriptionUpdated: vi.fn(),
+  handleSubscriptionUpdated: mockHandleSubscriptionUpdated,
   handleSubscriptionDeleted: vi.fn(),
 }));
 
@@ -233,6 +234,95 @@ describe('handleWebhook (fetch handler)', () => {
       expect.stringContaining('CRITICAL'),
       'DB unavailable',
     );
+  });
+});
+
+describe('parsePriceToPlan (via handleWebhook)', () => {
+  let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  async function makeSubUpdatedRequest(secret = 'test-secret'): Promise<Request> {
+    const body = JSON.stringify({ id: 'evt_sub', type: 'customer.subscription.updated', data: { object: {} } });
+    const timestamp = Math.floor(Date.now() / 1000);
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(`${timestamp}.${body}`));
+    const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    return new Request('https://example.com/webhook', {
+      method: 'POST',
+      headers: { 'stripe-signature': `t=${timestamp},v1=${hex}`, 'content-type': 'application/json' },
+      body,
+    });
+  }
+
+  it('valid JSON with valid plan key → priceToPlan map passed to handleSubscriptionUpdated', async () => {
+    const env = { ...MOCK_ENV, STRIPE_PRICE_TO_PLAN_JSON: '{"price_abc":"growth"}' };
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+
+    await worker.fetch(await makeSubUpdatedRequest(), env);
+
+    expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      { price_abc: 'growth' },
+    );
+  });
+
+  it('valid JSON with invalid plan value → entry skipped, warn logged, empty map passed', async () => {
+    const env = { ...MOCK_ENV, STRIPE_PRICE_TO_PLAN_JSON: '{"price_abc":"enterprise","price_xyz":"invalid_plan"}' };
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+
+    await worker.fetch(await makeSubUpdatedRequest(), env);
+
+    expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      { price_abc: 'enterprise' },
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('invalid_plan'));
+  });
+
+  it('invalid JSON → console.warn logged, empty map passed to handler', async () => {
+    const env = { ...MOCK_ENV, STRIPE_PRICE_TO_PLAN_JSON: 'not-valid-json' };
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+
+    await worker.fetch(await makeSubUpdatedRequest(), env);
+
+    expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      {},
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('not valid JSON'));
+  });
+
+  it('missing env var → empty map passed to handler', async () => {
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+
+    await worker.fetch(await makeSubUpdatedRequest(), MOCK_ENV);
+
+    expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      {},
+    );
+    expect(consoleSpy).not.toHaveBeenCalled();
   });
 });
 

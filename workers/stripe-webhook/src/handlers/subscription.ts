@@ -76,6 +76,7 @@ export async function handleSubscriptionUpdated(
 export async function handleSubscriptionDeleted(
   event: StripeEvent,
   db: SupabaseAdmin,
+  // Deletion always downgrades to 'free'; price mapping is unused here.
   _priceToPlan: Record<string, PlanKey> = {},
 ): Promise<HandlerResult> {
   const parseResult = SubscriptionSchema.safeParse(event.data.object);
