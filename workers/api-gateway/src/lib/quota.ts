@@ -42,8 +42,10 @@ export async function checkAndReserve(
   const raw = await response.json();
 
   if (!response.ok && response.status !== 429) {
+    // 429 falls through to parse: the DO always returns a full QuotaCheckResponse body
+    // on rate-limit rejections (allowed: false, reason, remainingMinute/remainingMonthly).
     const msg =
-      raw !== null && typeof raw === 'object' && 'error' in (raw as object)
+      raw !== null && typeof raw === 'object' && 'error' in raw
         ? String((raw as Record<string, unknown>).error)
         : response.statusText;
     throw new Error(`Quota check failed: ${msg}`);
@@ -66,8 +68,12 @@ export async function flushUsage(
   );
 
   if (!response.ok) {
-    const data = (await response.json()) as { error?: string };
-    throw new Error(`Flush failed: ${data.error ?? response.statusText}`);
+    const raw = await response.json();
+    const msg =
+      raw !== null && typeof raw === 'object' && 'error' in raw
+        ? String((raw as Record<string, unknown>).error)
+        : response.statusText;
+    throw new Error(`Flush failed: ${msg}`);
   }
 
   return QuotaFlushResultSchema.parse(await response.json());
