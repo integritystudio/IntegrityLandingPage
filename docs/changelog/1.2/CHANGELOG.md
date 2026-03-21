@@ -135,4 +135,45 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - `PROVISIONING_E2E_RESULTS.md` — Verified working components, test summary
 - `docs/SESSION_HISTORY.md` — Detailed implementation notes and learnings
 
+### Security & Infrastructure Hardening
+
+**H19: Timing-Safe Hash Comparisons (CRITICAL)**
+- Replaced all hash comparisons with constant-time `crypto.subtle.verify()`
+- V-03: API key hash verification in `workers/lib/api-keys.ts:verifyApiKeyHash`
+- V-04: Stripe webhook signature verification in `workers/stripe-webhook/src/verify.ts`
+- Prevents timing attacks on authentication and webhook validation
+- All 22 tests passing
+- Commit: `0f9cece`
+
+**T22: Durable Object Quota Enforcement Implementation**
+- Per-org quota Durable Object with minute-level burst control and monthly soft limits
+- `workers/api-gateway/src/durable-objects/quota.ts` (253 lines) — Full state machine
+- `workers/api-gateway/src/lib/quota.ts` — Type-safe service client with quota operations
+- Zod validation schemas for quota requests/responses
+- Durable Object bindings and migrations configured in `wrangler.toml`
+- Comprehensive documentation in `workers/docs/QUOTA_DURABLE_OBJECTS.md`
+
+**T23: Webhook Resilience & Dead Letter Queue (Phase 1 of DR)**
+- Implemented webhook idempotency and dead letter queue for Stripe events
+- `webhook_dead_letters` table with schema migration (status, next_retry_at indexing)
+- Dead letter insertion on webhook processing failure
+- Reconciliation cron (`workers/reconciliation-cron.ts`) runs every 15 min with exponential backoff
+- Stripe event ID as idempotency key (globally unique)
+- Commit: `71153fc`
+
+**T24: Full Reconciliation Script Implementation**
+- "Nuclear option" script to rebuild billing state from Stripe after data corruption or extended outage
+- `scripts/full-reconciliation.ts` — Pages all Stripe customers and subscriptions
+- Upserts to `organizations` and `subscriptions` tables
+- Rebuilds entitlements from subscription tier via `provisionEntitlements()`
+- Dry-run mode with summary for safety verification before applying changes
+- Commit: `156bec1`
+
+**T25-M1: Health Check DO Probe Billing Fix**
+- Replaced `quotaDO.idFromName('health-probe')` with structural binding check
+- Eliminates per-request DO creation and storage billing
+- Health endpoint verifies namespace binding exists without creating/waking probe DO
+- Async keyword removed for clarity (function now synchronous)
+- Commits: `398545d`, `e1d3e56`
+
 ---

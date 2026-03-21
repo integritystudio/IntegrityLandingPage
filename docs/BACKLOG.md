@@ -369,19 +369,6 @@ Deferred security hardening for the two-layer authentication and billing system.
 
 ---
 
-### H19: Timing-Safe Hash Comparisons (CRITICAL)
-
-**Priority:** P1 | **Source:** session 2026-03-21 | **Commit:** 0f9cece
-
-✅ **DONE** — Both comparison sites replaced with `crypto.subtle.verify()` (constant-time):
-
-1. **V-03: API key hash verification** — `workers/lib/api-keys.ts:verifyApiKeyHash` now uses `crypto.subtle.verify('HMAC', ...)` with hex-to-bytes conversion.
-2. **V-04: Stripe webhook signature verification** — `workers/stripe-webhook/src/verify.ts` validates hex, converts to bytes, uses `crypto.subtle.verify('HMAC', ...)`.
-
-**Status:** ✅ DONE — commit 0f9cece. All 22 tests passing.
-
----
-
 ### H20: IDOR Prevention — Org Membership Authorization (HIGH)
 
 **Priority:** P2 | **Source:** session 2026-03-21, SECURITY_VULNERABILITY_REPORT.md (V-10)
@@ -412,81 +399,6 @@ async function requireOrgMembership(orgId: string, userJWT: string, env: Env) {
 - `workers/routes/api.ts` (integrate middleware)
 
 **Status:** Deferred — Requires middleware layer, testing, and endpoint audit.
-
----
-
-### T22: Durable Object Quota Enforcement Implementation
-
-**Priority:** P2 | **Source:** session 2026-03-21, completed 2026-03-20
-**Estimated:** 8–10 hours | **Actual:** Complete
-
-✅ **COMPLETE** — Per-org quota Durable Object fully implemented with minute-level burst control and monthly soft limits.
-
-**Completed in this session:**
-1. ✅ `workers/api-gateway/src/durable-objects/quota.ts` (253 lines) — Full Durable Object state machine
-   - Minute-level burst control (60-second rolling windows)
-   - Monthly soft limit enforcement
-   - Quota version detection (triggers on Stripe webhook bumps)
-   - Idempotent requestId tracking (5-minute TTL)
-   - Three endpoints: `/check-and-reserve`, `/flush-usage`, `/status`
-2. ✅ `workers/api-gateway/src/lib/quota.ts` (94 lines) — Type-safe service client
-   - `checkAndReserve()` — Check and reserve quota units
-   - `flushUsage()` — Clear monthly counter
-   - `getQuotaStatus()` — Get current quota state
-3. ✅ `workers/lib/types/schemas.ts` — Zod validation schemas
-   - `QuotaCheckRequestSchema`, `QuotaCheckResponseSchema`, `QuotaFlushResultSchema`
-   - `OrganizationQuotaSchema`, `QuotaStatusResponseSchema` (new)
-4. ✅ `wrangler.toml` — Durable Object binding and migrations configured
-5. ✅ `workers/docs/QUOTA_DURABLE_OBJECTS.md` (359 lines) — Comprehensive architecture documentation with integration guidance
-
-**Next steps:** Wire into API gateway routes (T26) and write integration tests (T27).
-
-**Status:** ✅ COMPLETE — Ready for integration into API gateway request handlers.
-
----
-
-### T23: Webhook Resilience & Dead Letter Queue (Phase 1 of DR)
-
-**Priority:** P2 | **Source:** session 2026-03-21 | **Commit:** 71153fc
-
-Implement webhook idempotency and dead letter queue for Stripe webhook processing to prevent missed events during outages.
-
-**Scope:**
-1. Create `webhook_dead_letters` table (schema provided in DR plan)
-2. Update `workers/webhooks/stripe.ts` to:
-   - Store incoming event in dead letter queue on processing failure
-   - Use `stripe_event_id` as idempotency key (Stripe event IDs are globally unique)
-3. Create `workers/reconciliation-cron.ts` — Runs every 15 min to:
-   - Retry pending dead letters with exponential backoff
-   - Detect gaps: fetch recent Stripe events, verify local processing
-4. Add database index on `webhook_dead_letters (status, next_retry_at)`
-
-**Files to create/modify:**
-- `supabase/migrations/20260321000000_add_webhook_dead_letters.sql` (schema)
-- `workers/webhooks/stripe.ts` (update to write dead letters on failure)
-- `workers/reconciliation-cron.ts` (new)
-- `wrangler.toml` (add cron trigger)
-
-**Status:** ✅ DONE — commit 71153fc. Schema migration, idempotency log, dead letter insert on failure, reconciliation cron (every 15 min), wrangler.toml cron trigger.
-
----
-
-### T24: Full Reconciliation Script Implementation
-
-**Priority:** P2 | **Source:** session 2026-03-21, DISASTER_RECOVERY_PLAN.md (Scenario E)
-**Estimated:** 3–4 hours
-
-Implement the "nuclear option" full reconciliation script to rebuild billing state from Stripe after data corruption or extended outage.
-
-**Scope:**
-1. Create `scripts/full-reconciliation.ts` (implementation provided in DR plan)
-2. Script pulls all Stripe customers + subscriptions
-3. Upserts to `organizations` and `subscriptions` tables
-4. Calls `provisionEntitlements()` to rebuild entitlements from tier
-5. Add safety: dry-run mode with summary before applying
-6. Document runbook: when to trigger, what to monitor, expected duration
-
-**Status:** ✅ DONE — commit 156bec1. `scripts/full-reconciliation.ts` with --dry-run mode, pages all Stripe customers, upserts orgs/subscriptions/entitlements.
 
 ---
 
