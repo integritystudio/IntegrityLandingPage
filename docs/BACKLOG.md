@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md` and `docs/changelog/1.1/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** V02 Flutter Dashboard UI (Quota Viz + Entitlements Done); H1 Zod Schemas Complete; Code Review Cycle Active
+**Last Updated:** 2026-03-21 | **Phase:** V02 Flutter Dashboard UI (Org Switcher + All Core Pages Done); H1 Zod Schemas Complete; Code Review Cycle Active
 
 ---
 
@@ -25,6 +25,7 @@ Open and deferred items only. Completed items are migrated to `docs/changelog/1.
 - ✅ V02: Entitlements Display — EntitlementsPage at `/entitlements` with auto-generated feature flags (commit 9f93f67)
 - ✅ Code Review Cycle — H1 Zod schema findings documented + code review addressing H1/H2/M4 findings (commits fc91224, e3ff7f3)
 - ✅ Backlog Updated — V02 quota visualization and entitlements display marked done (commit 52a2d4c)
+- ✅ V02: Org Switcher Dashboard Hub — DashboardPage at `/dashboard`, DropdownButton org switcher, nav cards to billing/usage/quota/entitlements, fetchOrgList GET /v1/orgs with retry (commits 91cdae3, 226b568)
 
 **Remaining for v1 release:**
 
@@ -53,7 +54,7 @@ Implement authenticated dashboard with org switching, billing status, usage summ
 - `lib/widgets/sections/dashboard_section.dart`
 - `lib/services/dashboard_service.dart` (API client wrapper)
 
-**Status:** ✅ CORE PAGES + CHARTS COMPLETE — Bootstrap flow complete; ✅ billing status display (step 2): `BillingStatusPage` at `/billing`, plan name + status badge + renewal date, loading/error states, retry (commits 979ab7c, 60fd1ff); ✅ usage summary display (step 3): `UsageSummaryPage` at `/usage`, progress bar + per-metric breakdown (commits 55c4a86, e066900); ✅ usage charts (step 3): `_DailyBarChart` with `CustomPainter`, daily bar chart with quota reference line and threshold coloring (commits c78bbf1, 809496a); ✅ quota visualization (step 3 extended): `QuotaStatusPage` at `/quota`, minute burst + monthly limits with Unlimited label support, plan badge, fail-open DO handling (commits 9f93f67, e3ff7f3); ✅ entitlements display (step 4): `EntitlementsPage` at `/entitlements` with auto-generated feature flags (commit 9f93f67). Code review findings: 1 H2-V02 latent JWT risk, 3 M-level (M30-M32: telemetry/validation/duplication), 2 L-level (L10-L11: decoration/docs) documented (80b288a). Remaining: org switcher (step 1), Stripe portal link (step 5), real-time polling (step 6).
+**Status:** ✅ CORE PAGES + CHARTS + ORG SWITCHER COMPLETE — Bootstrap flow complete; ✅ org switcher (step 1): `DashboardPage` at `/dashboard`, DropdownButton org switcher + nav cards to all sub-pages (commits 91cdae3, 226b568); ✅ billing status display (step 2): `BillingStatusPage` at `/billing`, plan name + status badge + renewal date, loading/error states, retry (commits 979ab7c, 60fd1ff); ✅ usage summary display (step 3): `UsageSummaryPage` at `/usage`, progress bar + per-metric breakdown (commits 55c4a86, e066900); ✅ usage charts (step 3): `_DailyBarChart` with `CustomPainter`, daily bar chart with quota reference line and threshold coloring (commits c78bbf1, 809496a); ✅ quota visualization (step 3 extended): `QuotaStatusPage` at `/quota`, minute burst + monthly limits with Unlimited label support, plan badge, fail-open DO handling (commits 9f93f67, e3ff7f3); ✅ entitlements display (step 4): `EntitlementsPage` at `/entitlements` with auto-generated feature flags (commit 9f93f67). Code review findings: 1 H2-V02 latent JWT risk, 3 M-level (M30-M32: telemetry/validation/duplication), 2 L-level (L10-L11: decoration/docs) documented (80b288a). Remaining: Stripe portal link (step 5), real-time polling (step 6).
 
 ---
 
