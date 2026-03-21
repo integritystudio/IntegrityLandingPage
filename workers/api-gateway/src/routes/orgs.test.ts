@@ -269,6 +269,22 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
     expect(res.status).toBe(404);
   });
 
+  it('returns 500 when stripe_customer_id has invalid format (H4)', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'owner')] })
+        .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: 'invalid-id' }] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb));
+    expect(res.status).toBe(500);
+  });
+
   it('returns portal URL for owner with stripe customer', async () => {
     const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
     const mockSb = {

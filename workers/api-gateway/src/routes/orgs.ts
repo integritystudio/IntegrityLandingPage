@@ -186,6 +186,11 @@ export async function handleBillingPortal(
     return notFound('No billing account found for this organization');
   }
 
+  const STRIPE_CUSTOMER_ID_PATTERN = /^cus_[A-Za-z0-9]+$/;
+  if (!STRIPE_CUSTOMER_ID_PATTERN.test(String(org.stripe_customer_id))) {
+    return serverError('Invalid billing account configuration');
+  }
+
   let sessionUrl: string;
   try {
     const stripe =
