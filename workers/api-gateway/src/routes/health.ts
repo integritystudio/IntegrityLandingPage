@@ -4,7 +4,8 @@ type ComponentStatus = 'healthy' | 'degraded' | 'unhealthy';
 
 interface HealthCheckResult {
   database: ComponentStatus;
-  durableObjects: ComponentStatus;
+  // DOs are binary: binding is present (healthy) or absent (unhealthy). No degraded state.
+  durableObjects: 'healthy' | 'unhealthy';
   timestamp: string;
 }
 
@@ -55,7 +56,7 @@ async function checkDatabase(supabaseUrl: string, serviceRoleKey: string): Promi
   }
 }
 
-function checkDurableObject(quotaDO: DurableObjectNamespace): ComponentStatus {
+function checkDurableObject(quotaDO: DurableObjectNamespace): 'healthy' | 'unhealthy' {
   // Verify the namespace binding is configured. Avoid idFromName() which creates a
   // billable named Durable Object on every health check request.
   return quotaDO != null ? 'healthy' : 'unhealthy';
