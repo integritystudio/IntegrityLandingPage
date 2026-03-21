@@ -34,12 +34,20 @@ export function parseJwtPayload(token: string): { ok: true; payload: JwtPayload 
   }
 }
 
+export interface VerifyJwtOptions {
+  /** Expected value of the `iss` (issuer) claim. When provided, tokens from
+   *  any other issuer are rejected — prevents forgery via attacker-controlled JWTs.
+   *  Set to your Supabase project auth URL, e.g. https://<ref>.supabase.co/auth/v1 */
+  issuerUrl?: string;
+}
+
 /**
- * Verify a JWT signature (HS256) and expiration against the provided secret.
+ * Verify a JWT signature (HS256), expiration, and optional issuer claim.
  */
 export async function verifyJwt(
   token: string,
   jwtSecret: string,
+  opts: VerifyJwtOptions = {},
 ): Promise<{ ok: true; payload: JwtPayload } | { ok: false; error: Response }> {
   const parseResult = parseJwtPayload(token);
   if (!parseResult.ok) {
@@ -51,6 +59,13 @@ export async function verifyJwt(
   const now = Math.floor(Date.now() / 1000);
   if (typeof payload.exp !== 'number' || payload.exp < now) {
     return { ok: false, error: unauthorized('JWT expired') };
+  }
+
+  // Validate issuer to prevent token forgery from attacker-controlled JWTs (V-02)
+  if (opts.issuerUrl !== undefined) {
+    if (typeof payload.iss !== 'string' || payload.iss !== opts.issuerUrl) {
+      return { ok: false, error: unauthorized('JWT issuer mismatch') };
+    }
   }
 
   try {

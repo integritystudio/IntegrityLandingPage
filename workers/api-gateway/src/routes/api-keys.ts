@@ -9,6 +9,7 @@ interface ApiKeysHandlerOptions {
   hmacSecret: string;
   supabaseUrl: string;
   serviceRoleKey: string;
+  jwtIssuerUrl?: string;
   _sbOverride?: SupabaseClient;
 }
 
@@ -58,7 +59,7 @@ export async function handleCreateApiKey(
   orgId: string,
   opts: ApiKeysHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret);
+  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
@@ -124,7 +125,7 @@ export async function handleRevokeApiKey(
   keyId: string,
   opts: ApiKeysHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret);
+  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);

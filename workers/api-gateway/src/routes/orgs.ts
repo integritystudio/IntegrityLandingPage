@@ -7,6 +7,7 @@ interface OrgsHandlerOptions {
   jwtSecret: string;
   supabaseUrl: string;
   serviceRoleKey: string;
+  jwtIssuerUrl?: string;
   _sbOverride?: SupabaseClient;
 }
 
@@ -51,7 +52,7 @@ export async function handleListOrgs(
   request: Request,
   opts: OrgsHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret);
+  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
@@ -70,7 +71,7 @@ export async function handleOrgDashboard(
   orgId: string,
   opts: OrgsHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret);
+  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
@@ -110,7 +111,7 @@ export async function handleOrgBillingStatus(
   orgId: string,
   opts: OrgsHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret);
+  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);

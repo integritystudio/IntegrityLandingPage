@@ -12,6 +12,7 @@ interface UsageHandlerOptions {
   hmacSecret: string;
   supabaseUrl: string;
   serviceRoleKey: string;
+  jwtIssuerUrl?: string;
   _sbOverride?: SupabaseClient;
 }
 
@@ -43,7 +44,7 @@ async function resolveAuth(
   }
 
   // Otherwise treat as JWT
-  const jwtResult = await verifyJwt(token, opts.jwtSecret);
+  const jwtResult = await verifyJwt(token, opts.jwtSecret, { issuerUrl: opts.jwtIssuerUrl });
   if (!jwtResult.ok) return jwtResult;
   if (!jwtResult.payload.sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
   return { ok: true, type: 'jwt', sub: jwtResult.payload.sub };

@@ -11,6 +11,8 @@ export interface Env {
   SUPABASE_JWT_SECRET: string;
   API_KEY_HMAC_SECRET: string;
   QUOTA_DO: DurableObjectNamespace;
+  /** JWT issuer URL for `iss` claim validation (V-02). Set to Supabase auth URL. */
+  SUPABASE_JWT_ISSUER?: string;
 }
 
 export default {
@@ -26,6 +28,7 @@ export default {
         jwtSecret: env.SUPABASE_JWT_SECRET,
         supabaseUrl: env.SUPABASE_URL,
         serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+        jwtIssuerUrl: env.SUPABASE_JWT_ISSUER,
       });
     }
 
@@ -33,6 +36,7 @@ export default {
       jwtSecret: env.SUPABASE_JWT_SECRET,
       supabaseUrl: env.SUPABASE_URL,
       serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+      jwtIssuerUrl: env.SUPABASE_JWT_ISSUER,
     };
 
     const machineRouteOpts = {

@@ -6,6 +6,8 @@ export const BaseRouteOptionsSchema = z.object({
   jwtSecret: z.string(),
   supabaseUrl: z.string().url(),
   serviceRoleKey: z.string(),
+  /** Expected JWT issuer URL. When set, tokens from other issuers are rejected (V-02). */
+  jwtIssuerUrl: z.string().url().optional(),
 });
 
 export type BaseRouteOptions = z.infer<typeof BaseRouteOptionsSchema>;
@@ -23,6 +25,8 @@ export const EnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string(),
   SUPABASE_JWT_SECRET: z.string(),
   API_KEY_HMAC_SECRET: z.string(),
+  /** JWT issuer URL for `iss` claim validation. Set to Supabase project auth URL. */
+  SUPABASE_JWT_ISSUER: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

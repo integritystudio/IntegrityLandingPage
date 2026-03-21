@@ -6,10 +6,11 @@ import type { Entitlement } from '../../../lib/types';
 export async function resolveJwt(
   request: Request,
   jwtSecret: string,
+  jwtIssuerUrl?: string,
 ): Promise<{ ok: true; sub: string } | { ok: false; error: Response }> {
   const tokenResult = requireBearerToken(request);
   if (!tokenResult.ok) return tokenResult;
-  const jwtResult = await verifyJwt(tokenResult.token, jwtSecret);
+  const jwtResult = await verifyJwt(tokenResult.token, jwtSecret, { issuerUrl: jwtIssuerUrl });
   if (!jwtResult.ok) return jwtResult;
   if (!jwtResult.payload.sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
   return { ok: true, sub: jwtResult.payload.sub };

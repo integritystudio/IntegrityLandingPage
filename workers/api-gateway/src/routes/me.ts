@@ -6,6 +6,7 @@ interface MeHandlerOptions {
   jwtSecret: string;
   supabaseUrl: string;
   serviceRoleKey: string;
+  jwtIssuerUrl?: string;
   /** Injected in tests to skip real HTTP calls. */
   _sbOverride?: SupabaseClient;
 }
@@ -21,7 +22,7 @@ interface UserRow extends Record<string, unknown> {
 }
 
 export async function handleMe(request: Request, opts: MeHandlerOptions): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret);
+  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
