@@ -90,7 +90,7 @@ export async function verifyJwt(
     return { ok: false, error: unauthorized('JWT expired') };
   }
 
-  if (opts.issuerUrl !== undefined && (typeof payload.iss !== 'string' || payload.iss !== opts.issuerUrl)) {
+  if (opts.issuerUrl !== undefined && payload.iss !== opts.issuerUrl) {
     return { ok: false, error: unauthorized('JWT issuer mismatch') };
   }
 

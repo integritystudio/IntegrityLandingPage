@@ -218,7 +218,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
   console.log(`[reconciliation] Starting full reconciliation${dryRun ? ' (DRY RUN — no changes will be written)' : ''}...`);
 
   // Collect stripe_customer_id → tier pairs during first pass for entitlement rebuild in second pass
-  const entitlmentsToRebuild: Array<{ stripeCustomerId: string; tier: PlanKey }> = [];
+  const entitlementsToRebuild: Array<{ stripeCustomerId: string; tier: PlanKey }> = [];
 
   let hasMore = true;
   let startingAfter: string | undefined;
@@ -306,7 +306,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
           summary.subscriptionsUpserted++;
 
           // Collect for entitlement rebuild in second pass
-          entitlmentsToRebuild.push({ stripeCustomerId: customer.id, tier });
+          entitlementsToRebuild.push({ stripeCustomerId: customer.id, tier });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -319,10 +319,10 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
   }
 
   // Second pass: rebuild entitlements (requires org_id lookup)
-  if (entitlmentsToRebuild.length > 0) {
-    console.log(`[reconciliation] Phase 2: rebuilding entitlements for ${entitlmentsToRebuild.length} org(s)...`);
+  if (entitlementsToRebuild.length > 0) {
+    console.log(`[reconciliation] Phase 2: rebuilding entitlements for ${entitlementsToRebuild.length} org(s)...`);
 
-    for (const { stripeCustomerId, tier } of entitlmentsToRebuild) {
+    for (const { stripeCustomerId, tier } of entitlementsToRebuild) {
       try {
         // Query org by stripe_customer_id to get org.id (UUID)
         const orgResp = await fetch(
