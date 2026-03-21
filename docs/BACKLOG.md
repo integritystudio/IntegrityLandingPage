@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** V02 Flutter Dashboard Feature-Complete (5/8 steps: org switcher, billing status, usage summary, charts, entitlements, polling); H1 Zod Schemas + M25–M33 Code Review Fixes; Medium Priority Items Complete; M34/M35 New Findings; Session Wrap-Up
+**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup Complete; M36 Dead-Letter Fix + L5 Env Binding; 27 items migrated to v1.2 changelog; 5 remaining design-decision items + 1 deferred cosmetic item
 
 ---
 
@@ -332,4 +332,4 @@ The two interfaces have overlapping but non-identical fields. Code references on
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer session: L5 (02f567a), L6 (3c39673), L7 (4e02c0b), L9 (de048e7), L10 (d1152ed), L11 (4e1edc0), L12 (a59176f), L13 (fe85c77), L15 (b92d558) done; M34/M35/M36 confirmed done. Added L16, M37 from session observations.*
+*Last updated: 2026-03-21 — backlog-implementer + backlog-migrate session complete: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed dead-letter on logProcessedEvent failure (7d86372); L5 moved PRICE_TO_PLAN to env binding with PlanKeySchema validation (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to docs/changelog/1.2/CHANGELOG.md. Remaining: T25, T28, V02-Remaining, M34, L16, M37 (deferred/design-decision-needed). Score: 8/10, all tests passing.*
