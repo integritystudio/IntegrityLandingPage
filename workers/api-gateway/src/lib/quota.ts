@@ -131,7 +131,7 @@ export async function enforceOrgQuota(
     if (quota.remainingMinute !== undefined) {
       (headers as Record<string, string>)['X-RateLimit-Remaining-Minute'] = String(quota.remainingMinute);
     }
-    if (quota.remainingMonthly != null) {
+    if (quota.remainingMonthly !== null && quota.remainingMonthly !== undefined) {
       (headers as Record<string, string>)['X-RateLimit-Remaining-Monthly'] = String(quota.remainingMonthly);
     }
     return {

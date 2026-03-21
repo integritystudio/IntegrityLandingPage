@@ -96,7 +96,7 @@ export class QuotaDurableObject implements DurableObject {
       const { orgId, metricKey, units, requestId, planKey, quotaVersion } = body;
 
       // Validate required fields
-      if (!orgId || !metricKey || !units || !requestId || !planKey || quotaVersion === undefined) {
+      if (!orgId || !metricKey || units == null || units <= 0 || !requestId || !planKey || quotaVersion === undefined) {
         return new Response(
           JSON.stringify({ error: 'Missing required fields' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } },
