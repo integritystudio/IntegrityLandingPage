@@ -54,12 +54,9 @@ export async function checkAndReserve(
 
   const data = (await response.json()) as QuotaCheckResponse | { error: string };
 
-  if (!response.ok) {
-    if ('error' in data) {
-      throw new Error(`Quota check failed: ${data.error}`);
-    }
-    // 429 is expected for over-quota, return the response
-    return data as QuotaCheckResponse;
+  if (!response.ok && response.status !== 429) {
+    const msg = 'error' in data ? data.error : response.statusText;
+    throw new Error(`Quota check failed: ${msg}`);
   }
 
   return data as QuotaCheckResponse;
