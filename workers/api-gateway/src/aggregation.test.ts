@@ -300,17 +300,20 @@ describe('rollupMonthlyBucket', () => {
     expect(typeof result.updated_at).toBe('string');
   });
 
-  it('MonthlyUsageSummarySchema rejects invalid shapes', () => {
-    const invalid = {
-      organization_id: 'not-a-uuid',
-      year_month: '2026-13',
-      total_quantity: -1,
+  it('MonthlyUsageSummarySchema rejects non-UUID organization_id and negative quantities', () => {
+    const base = {
+      organization_id: ORG_UUID,
+      year_month: '2026-03',
+      total_quantity: 0,
       total_requests: 0,
       avg_latency_ms: null,
       metric_breakdown: {},
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    expect(() => MonthlyUsageSummarySchema.parse(invalid)).toThrow();
+
+    expect(MonthlyUsageSummarySchema.safeParse({ ...base, organization_id: 'not-a-uuid' }).success).toBe(false);
+    expect(MonthlyUsageSummarySchema.safeParse({ ...base, total_quantity: -1 }).success).toBe(false);
+    expect(MonthlyUsageSummarySchema.safeParse({ ...base, total_requests: -1 }).success).toBe(false);
   });
 });
