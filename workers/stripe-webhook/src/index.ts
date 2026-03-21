@@ -141,7 +141,10 @@ async function runReconciliation(env: Env): Promise<void> {
       }
 
       if (result.ok) {
-        await db.logProcessedEvent(dl.stripe_event_id, dl.event_type);
+        const logResult = await db.logProcessedEvent(dl.stripe_event_id, dl.event_type);
+        if (!logResult.ok) {
+          console.error(`Failed to log processed event ${dl.stripe_event_id} (${dl.event_type}):`, logResult.error);
+        }
         await db.resolveDeadLetter(dl.id);
       } else {
         await db.failDeadLetter(dl.id, dl.retry_count, dl.max_retries, result.error);

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { verifyStripeSignature } from './verify';
 import worker, { type Env } from './index';
 import { REPLAY_WINDOW_MS } from '../../constants';
@@ -94,8 +94,15 @@ describe('Stripe webhook verification', () => {
 });
 
 describe('handleWebhook (fetch handler)', () => {
+  let consoleSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
   });
 
   async function makeWebhookRequest(body: string, secret = 'test-secret'): Promise<Request> {
@@ -116,8 +123,6 @@ describe('handleWebhook (fetch handler)', () => {
     mockHandleCheckout.mockResolvedValue({ ok: true });
     mockDb.logProcessedEvent.mockResolvedValue({ ok: false, error: 'DB write failed' });
 
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
     const response = await worker.fetch(request, MOCK_ENV);
     const json = await response.json<{ ok: boolean; processed: boolean }>();
 
@@ -127,8 +132,6 @@ describe('handleWebhook (fetch handler)', () => {
       expect.stringContaining('Failed to log processed event evt_abc'),
       'DB write failed',
     );
-
-    consoleSpy.mockRestore();
   });
 });
 
@@ -235,5 +238,29 @@ describe('runReconciliation', () => {
     expect(mockDb.abandonDeadLetter).not.toHaveBeenCalled();
     // dl_2 processed normally
     expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_2');
+  });
+
+  it('logProcessedEvent failure in reconciliation → console.error logged, resolveDeadLetter still called', async () => {
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([checkoutDeadLetter]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleCheckout.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: false, error: 'Write failed' });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to log processed event evt_123'),
+      'Write failed',
+    );
+    expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_1');
+
+    consoleSpy.mockRestore();
   });
 });

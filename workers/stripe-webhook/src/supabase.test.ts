@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createSupabaseAdmin } from './supabase';
 
 const { mockQuery } = vi.hoisted(() => ({ mockQuery: vi.fn() }));
@@ -15,15 +15,20 @@ vi.mock('../../lib/supabase', () => ({
 
 describe('fetchPendingDeadLetters', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
+  let consoleSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
   });
 
   it('DB error → console.error logged, empty array returned', async () => {
     mockQuery.mockResolvedValue({ ok: false, error: 'Connection timeout' });
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const result = await db.fetchPendingDeadLetters();
 
@@ -32,7 +37,6 @@ describe('fetchPendingDeadLetters', () => {
       'fetchPendingDeadLetters DB error:',
       'Connection timeout',
     );
-    consoleSpy.mockRestore();
   });
 
   it('non-array data → returns empty array without error', async () => {
