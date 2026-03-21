@@ -28,6 +28,11 @@ CREATE INDEX IF NOT EXISTS idx_dead_letters_retry
 CREATE INDEX IF NOT EXISTS idx_dead_letters_event_id
     ON webhook_dead_letters (stripe_event_id);
 
+-- RLS note: webhook_dead_letters and webhook_events_log are intentionally
+-- accessed only via the Supabase service-role key (server-side workers and
+-- reconciliation scripts). No end-user or client-side access is expected.
+-- RLS is therefore omitted; add policies if access patterns change.
+
 -- Webhook events log: records every successfully processed Stripe event for
 -- idempotency checks and gap detection in the reconciliation cron.
 CREATE TABLE IF NOT EXISTS webhook_events_log (
