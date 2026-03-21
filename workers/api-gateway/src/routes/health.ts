@@ -55,7 +55,7 @@ async function checkDatabase(supabaseUrl: string, serviceRoleKey: string): Promi
   }
 }
 
-async function checkDurableObject(quotaDO: DurableObjectNamespace): Promise<ComponentStatus> {
+function checkDurableObject(quotaDO: DurableObjectNamespace): ComponentStatus {
   // Verify the namespace binding is configured. Avoid idFromName() which creates a
   // billable named Durable Object on every health check request.
   return quotaDO != null ? 'healthy' : 'unhealthy';
