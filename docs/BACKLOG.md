@@ -521,4 +521,16 @@ This is the remediation for the atomicity risk documented in T24-M2.
 
 ---
 
-*Last updated: 2026-03-20 — Backlog migration completed. Items S01, H20, H21, T23-M4, H19-M3, V01, V03, T26, T27 migrated to changelog v1.2. Remaining open items: M18 (Partial), T25 (Partial), T24-M4 (Deferred), T28 (Deferred).*
+---
+
+### P01: Zod Runtime Validation at Quota DO Response Boundaries
+
+**Priority:** P3 | **Source:** session 2026-03-20 (rate limiting integration polish)
+
+Replace unsafe TypeScript `as` casts in `workers/api-gateway/src/lib/quota.ts` with Zod schema parsing at all Durable Object response boundaries.
+
+**Status:** Done — `checkAndReserve` uses `QuotaCheckResponseSchema.parse()`, `flushUsage` uses `QuotaFlushResultSchema.parse()`, `getQuotaStatus` uses `z.record(z.unknown()).parse()`. Extracted `extractErrorMessage` helper, fixed double-await in `flushUsage`, corrected `remainingMinute != null` guard to prevent `"null"` header emission (commits 99d96b9, 95f2e51, 1872a13, eb1f928).
+
+---
+
+*Last updated: 2026-03-20 — P01 (Zod DO response validation) Done. Remaining open items: M18 (Partial), T25 (Partial), T24-M4 (Deferred), T28 (Deferred).*
