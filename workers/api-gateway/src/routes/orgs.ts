@@ -10,6 +10,8 @@ interface OrgsHandlerOptions {
   _sbOverride?: SupabaseClient;
 }
 
+const BILLING_ROLES: OrgRole[] = ['owner', 'billing_admin'];
+
 async function loadUserMemberships(
   userId: string,
   sb: SupabaseClient,
