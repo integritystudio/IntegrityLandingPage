@@ -626,4 +626,4 @@ In `handleWebhook` (`workers/stripe-webhook/src/index.ts:78–83`): when a handl
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer (Medium) session: M34 documented (e9046de), M35-a fixed (e9046de, b3a4224 — skip resolveDeadLetter when logProcessedEvent fails), M35-b fixed (82e488a — check addDeadLetter result, CRITICAL log on failure), L14 extracted (2b281c5 — shared ErrorCard widget). Remaining: second M34 (conflict key design decision required), V02 Stripe portal link, Low items (L5–L7, L9, L12–L13, L15).*
+*Last updated: 2026-03-21 — backlog-implementer (HARD) + extended session: M34 documented, M35-a fixed (b3a4224 — skip resolveDeadLetter when logProcessedEvent fails), M35-b fixed (82e488a — check addDeadLetter result, CRITICAL log on failure), L14 extracted (315fb8d — shared ErrorCard widget, review PASS), roadmap updated (dfa23d7 — document status). Test status: 2630 passing, 1 intermittent failure in parallel test runner (timing-related, pre-existing). Remaining: M34 conflict key design decision, V02 Stripe portal link, Low items (L5–L7, L9, L12–L13, L15).*
