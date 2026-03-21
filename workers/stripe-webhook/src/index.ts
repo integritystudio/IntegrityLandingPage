@@ -1,4 +1,4 @@
-import { ok, serverError } from '../../lib/http';
+import { notFound, ok, serverError } from '../../lib/http';
 import { verifyStripeSignature } from './verify';
 import { createSupabaseAdmin } from './supabase';
 import { handleCheckoutSessionCompleted } from './handlers/checkout';
@@ -165,7 +165,7 @@ export default {
       return handleWebhook(request, env);
     }
 
-    return serverError('Not found');
+    return notFound();
   },
 
   async scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
