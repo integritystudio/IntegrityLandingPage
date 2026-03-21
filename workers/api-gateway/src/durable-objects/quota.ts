@@ -35,6 +35,8 @@ interface OrganizationQuota {
   minuteUsedAt: number; // timestamp when minute window started
   minuteUsed: number; // units used in current minute
   monthlyUsed: number; // units used this month (delta before flush)
+  lastMonthlyResetAt: number; // timestamp of last monthly counter reset
+  seenRequestIds: Record<string, number>; // requestId → timestamp for idempotency (5-min TTL)
 }
 
 const DEFAULT_QUOTAS: Record<string, { requestsPerMinute: number; monthlyLimit: number | null }> = {
@@ -117,8 +119,28 @@ export class QuotaDurableObject implements DurableObject {
             minuteUsedAt: Date.now(),
             minuteUsed: 0,
             monthlyUsed: 0,
+            lastMonthlyResetAt: Date.now(),
+            seenRequestIds: {},
           };
         }
+      }
+
+      const now = Date.now();
+
+      // Backfill fields missing from legacy stored state
+      if (!this.quota.lastMonthlyResetAt) {
+        this.quota.lastMonthlyResetAt = 0; // epoch → guaranteed different from current month
+      }
+      if (!this.quota.seenRequestIds) {
+        this.quota.seenRequestIds = {};
+      }
+
+      // Reset monthly counter when the calendar month rolls over
+      const thisMonth = new Date(now).toISOString().slice(0, 7);
+      const lastResetMonth = new Date(this.quota.lastMonthlyResetAt).toISOString().slice(0, 7);
+      if (thisMonth !== lastResetMonth) {
+        this.quota.monthlyUsed = 0;
+        this.quota.lastMonthlyResetAt = now;
       }
 
       // Update quota version if it changed (org plan/billing updated)
@@ -130,11 +152,31 @@ export class QuotaDurableObject implements DurableObject {
         this.quota.monthlyLimit = quotaConfig.monthlyLimit;
         this.quota.minuteUsed = 0;
         this.quota.monthlyUsed = 0;
-        this.quota.minuteUsedAt = Date.now();
+        this.quota.minuteUsedAt = now;
+      }
+
+      // Purge requestIds older than 5 minutes and check idempotency
+      const fiveMinAgo = now - 5 * 60_000;
+      for (const id of Object.keys(this.quota.seenRequestIds)) {
+        if (this.quota.seenRequestIds[id] < fiveMinAgo) {
+          delete this.quota.seenRequestIds[id];
+        }
+      }
+      if (this.quota.seenRequestIds[requestId] !== undefined) {
+        // Duplicate within TTL — return allowed without double-counting
+        return new Response(
+          JSON.stringify({
+            allowed: true,
+            remainingMinute: Math.max(0, this.quota.minuteLimit - this.quota.minuteUsed),
+            remainingMonthly: this.quota.monthlyLimit !== null
+              ? Math.max(0, this.quota.monthlyLimit - this.quota.monthlyUsed)
+              : null,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
       }
 
       // Check minute window expiration
-      const now = Date.now();
       if (now - this.quota.minuteUsedAt >= 60_000) {
         this.quota.minuteUsed = 0;
         this.quota.minuteUsedAt = now;
@@ -166,9 +208,10 @@ export class QuotaDurableObject implements DurableObject {
         });
       }
 
-      // Reserve units
+      // Reserve units and record requestId for idempotency
       this.quota.minuteUsed += units;
       this.quota.monthlyUsed += units;
+      this.quota.seenRequestIds[requestId] = now;
 
       // Periodically persist to storage
       if (now - this.lastSavedAt > 10_000) {

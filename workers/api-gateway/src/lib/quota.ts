@@ -3,39 +3,22 @@
  */
 
 import { createSupabaseClient } from '../../../lib/supabase';
+import type {
+  OrgPlanRow,
+  OrgQuotaMiddlewareOptions,
+  QuotaCheckRequest,
+  QuotaCheckResponse,
+  QuotaFlushResult,
+} from '../../../lib/types/schemas';
 
-interface OrgPlanRow extends Record<string, unknown> {
-  current_plan: string;
-  quota_version: number;
-}
-
-export interface OrgQuotaMiddlewareOptions {
-  doNamespace: DurableObjectNamespace;
-  supabaseUrl: string;
-  serviceRoleKey: string;
-}
-
-export interface QuotaCheckRequest {
-  orgId: string;
-  metricKey: string;
-  units: number;
-  requestId: string;
-  planKey: string;
-  quotaVersion: number;
-}
-
-export interface QuotaCheckResponse {
-  allowed: boolean;
-  reason?: "minute_limit" | "monthly_limit" | "feature_disabled";
-  remainingMinute?: number;
-  remainingMonthly?: number | null;
-}
-
-export interface QuotaFlushResult {
-  orgId: string;
-  monthlyUsedSinceLastFlush: number;
-  flushedAt: string;
-}
+// Re-export for backward compatibility
+export type {
+  OrgPlanRow,
+  OrgQuotaMiddlewareOptions,
+  QuotaCheckRequest,
+  QuotaCheckResponse,
+  QuotaFlushResult,
+};
 
 export async function checkAndReserve(
   doNamespace: DurableObjectNamespace,

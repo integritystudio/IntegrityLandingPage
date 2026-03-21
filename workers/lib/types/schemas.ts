@@ -183,3 +183,23 @@ export const QuotaFlushResultSchema = z.object({
   monthlyUsedSinceLastFlush: z.number().int(),
   flushedAt: z.string().datetime(),
 });
+
+// Org plan data fetched from database
+export const OrgPlanRowSchema = z.object({
+  current_plan: PlanKeySchema,
+  quota_version: z.number().int().nonnegative(),
+});
+
+// Middleware options for quota enforcement
+export const OrgQuotaMiddlewareOptionsSchema = z.object({
+  doNamespace: z.instanceof(Object), // DurableObjectNamespace is non-serializable
+  supabaseUrl: z.string().url(),
+  serviceRoleKey: z.string().min(1),
+});
+
+// Type inference for quota types
+export type QuotaCheckRequest = z.infer<typeof QuotaCheckRequestSchema>;
+export type QuotaCheckResponse = z.infer<typeof QuotaCheckResponseSchema>;
+export type QuotaFlushResult = z.infer<typeof QuotaFlushResultSchema>;
+export type OrgPlanRow = z.infer<typeof OrgPlanRowSchema>;
+export type OrgQuotaMiddlewareOptions = z.infer<typeof OrgQuotaMiddlewareOptionsSchema>;
