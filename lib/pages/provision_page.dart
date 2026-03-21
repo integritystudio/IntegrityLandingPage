@@ -214,7 +214,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Text(
-                        widget.auth.email,
+                        SecurityUtils.sanitizeUserInput(widget.auth.email),
                         style: AppTypography.bodySM.copyWith(
                           color: AppColors.textPrimary,
                         ),
