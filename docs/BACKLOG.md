@@ -689,7 +689,7 @@ Both perform identical hex-to-bytes conversion. This is a maintenance risk: a bu
 - `workers/api-gateway/src/index.ts` — Add warning in fetch handler
 - Or create startup check function in `workers/lib/startup-checks.ts`
 
-**Status:** Open
+**Status:** Done — module-level `jwtIssuerWarned` flag emits once-per-isolate `console.warn` (commits 0932e90, ee29f30)
 
 ---
 
@@ -745,7 +745,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **File:** `scripts/full-reconciliation.ts:260–261`
 
-**Status:** Open
+**Status:** Done — `Array.isArray` guard added; throws with `customer.id` and `typeof subsData` on shape mismatch (commits 9bbb550, 4f03052)
 
 ---
 
@@ -760,20 +760,6 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 **Note:** Document in script header that this is a "nuclear option" and should not run concurrently with production traffic.
 
 **Status:** Open
-
----
-
-### T25-M1: Health Check DO Probe Creates Billable Named Durable Object
-
-**Priority:** P3 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-21
-
-`workers/api-gateway/src/routes/health.ts:56` — `quotaDO.idFromName('health-probe')` creates (or wakes) a named Durable Object on every health check. This incurs billing for DO requests and storage. A better pattern is to use an existing known-good DO name (e.g., a known org's quota DO) or check the namespace itself. If the probe DO must exist, it should be clearly named and documented.
-
-**File:** `workers/api-gateway/src/routes/health.ts:54–63`
-
-**Alternative approach:** Check an existing "sentinel" org's DO instead of creating a dedicated health-probe DO.
-
-**Status:** ✅ DONE — commits 398545d, e1d3e56. Replaced `idFromName('health-probe')/fetch` with a null-check on the binding. Eliminates per-check DO creation/billing.
 
 ---
 
@@ -801,4 +787,64 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 ---
 
-*Last updated: 2026-03-20 — Phase 4 substantially complete. Quota Durable Object (T22-T27) fully integrated with API gateway routes; sender-worker UI pages (auth, provision, health) implemented; 10+ code review findings from security session documented; 25 quota integration tests passing.*
+### H21: Org Quota Enforcement Before JWT Authentication
+
+**Priority:** P1 | **Severity:** High | **Source:** code-reviewer, session 2026-03-20 final review
+
+`workers/api-gateway/src/index.ts:58–70` — `enforceOrgQuota()` is called before JWT authentication on all `/v1/orgs/:orgId/*` sub-routes. An unauthenticated caller who knows (or guesses) a valid `orgId` will trigger a Durable Object read and consume quota I/O before being rejected. This also leaks information: a 429 response reveals the org exists and is active, while a 401/404 signals auth failure. Fix: resolve and verify JWT first, return early on failure, then enforce quota.
+
+**File:** `workers/api-gateway/src/index.ts:58–70`
+
+**Status:** Open
+
+---
+
+### M19: Typo in `entitlements` Variable Name
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 final review
+
+`scripts/full-reconciliation.ts:221` — Variable is named `entitlementsToRebuild` but should be `entitlementsToRebuild` (missing 'e'). The name is used consistently throughout the scope so there is no runtime bug, but it will surface in future searches and diffs. Rename to correct spelling.
+
+**File:** `scripts/full-reconciliation.ts:221`
+
+**Status:** Open
+
+---
+
+### M20: Missing Org ID Validation in Reconciliation Script
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer, session 2026-03-20 final review
+
+`scripts/full-reconciliation.ts:325–351` — The variable `orgs[0].id` is used directly in `provisionEntitlements()` without validating that `id` is a non-empty string. A Supabase row with a null or empty `id` would produce a malformed filter URL. Add a guard: `if (!orgs[0]?.id) throw new Error(...)`.
+
+**File:** `scripts/full-reconciliation.ts:325–351`
+
+**Status:** Open
+
+---
+
+### L1: Redundant `token.split()` Calls in JWT Verification
+
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-20 final review
+
+`workers/lib/auth.ts:52 vs 59` — `parseJwtPayload()` splits the token internally but does not return the parts array. `verifyJwt` then calls `token.split('.')` again on line 59 to verify the signature. Minor redundancy — consider caching the parts result from parse or restructuring to avoid the second split.
+
+**File:** `workers/lib/auth.ts:52–59`
+
+**Status:** Open
+
+---
+
+### L2: Compound Issuer Check Could Be Simplified
+
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer, session 2026-03-20 final review
+
+`workers/lib/auth.ts:95` — The issuer check `typeof payload.iss !== 'string' || payload.iss !== opts.issuerUrl` can be collapsed to `payload.iss !== opts.issuerUrl` since `opts.issuerUrl` is guaranteed to be a `string` by the `!== undefined` guard on the outer `if`. Simplify for readability.
+
+**File:** `workers/lib/auth.ts:95`
+
+**Status:** Open
+
+---
+
+*Last updated: 2026-03-20 — Phase 4 substantially complete. Quota Durable Object (T22-T27) fully integrated with API gateway routes; sender-worker UI pages (auth, provision, health) implemented; 10+ code review findings from security session documented; 25 quota integration tests passing. Final review identified 5 additional pre-existing structural and code quality findings (H21, M19, M20, L1, L2).*
