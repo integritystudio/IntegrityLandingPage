@@ -389,4 +389,101 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 ---
 
-*Last updated: 2026-03-21 — M23, M24 Done. Full-stack review appended H1, H2, M25-M29, L5-L9 (session 2026-03-21).*
+---
+
+## Code Review Findings: Billing Status Dashboard UI (Session 2026-03-21)
+
+Code-reviewer full-stack review of billing status page (BillingStatusPage + DashboardService) identified 1 fixed High finding, 1 latent High risk, and 4 medium/low findings.
+
+---
+
+### H2-V02: JWT Leaked into Sentry `extra` Context (Latent Risk)
+
+**Priority:** P2 | **Severity:** High | **Source:** code-reviewer review, session 2026-03-21 (billing status commits 979ab7c, 60fd1ff)
+
+`DashboardService.fetchBillingStatus` and `fetchUsageSummary` pass `orgId` in `captureException` `extra` map (line 223-226). The JWT flows as a method parameter but is not currently logged. However, the pattern is established (ProvisioningService logs `endpoint`), and future copy-paste into `extra` would silently exfiltrate tokens to Sentry. The `extra` dict is untyped — no guard prevents credential inclusion.
+
+**Mitigation:** Document the `extra` map at call sites as "no credentials" or add JSDoc comment on `captureException` signature warning against logging secrets.
+
+**Status:** Open (latent risk, not immediate leak)
+
+---
+
+### M30: `_formatDate` Lacks Telemetry on `DateTime.tryParse` Failure
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer review, session 2026-03-21
+
+`BillingStatusData.fromJson` (dashboard_service.dart:37) uses `DateTime.tryParse(rawDate)` which silently returns `null` if the API returns a malformed `current_period_end` (e.g., Unix epoch as integer instead of ISO 8601). The `null` case is handled correctly in the UI, but API format drift is undetected. If the API ever changes format, developers won't see an error until data appears wrong on-screen.
+
+**Fix:** Add `if (rawDate != null && rawDate.isNotEmpty) { final parsed = DateTime.tryParse(rawDate); if (parsed == null) { await ErrorTrackingService.captureException(...); } }` to surface format divergence.
+
+**Status:** Open
+
+---
+
+### M31: `billingStatus` String Type Unvalidated; Wildcard Falls Silent
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer review, session 2026-03-21
+
+`_statusColor` and `_statusLabel` (billing_status_page.dart:82-93) use switch expressions with wildcard default for unknown `billingStatus` values. If the API adds a new status (e.g., `'trialing'`), it silently falls through to `error` color + "Inactive" label, which is inaccurate and alarming to users. A future developer won't know the wildcard exists.
+
+**Fix:** Add assertion in debug builds: `_ => () { assert(false, 'Unknown billing status: $status'); return AppColors.error; }()`.
+
+**Status:** Open
+
+---
+
+### M32: `statusColor`/`statusLabel` Computed in Parent; Duplication Risk
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer review, session 2026-03-21
+
+`_BillingStatusPageState` computes `_statusColor` and `_statusLabel` from `billingStatus`, then passes these derived values down to `_BillingCard` (lines 145-150). The conditional that ensures `statusColor`/`statusLabel` are non-null duplicates the check inside `_BillingCard`. If logic changes, both must be updated in lockstep.
+
+**Fix:** Refactor to pass only `billingStatus` to `_BillingCard` and have the widget derive color/label internally, or extract a dedicated `_buildStatusBadge(String billingStatus)` method.
+
+**Status:** Open
+
+---
+
+### L10: Inline `Container` Decoration Duplicated in Two Cards
+
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review, session 2026-03-21
+
+`_BillingCard` (lines 183-189) and `_ErrorCard` (lines 322-328) have identical `BoxDecoration` with gray800 background, gray700 border, radiusMD. Duplicates the style pattern already established in `containers.dart`. If design system card style changes, both need manual update.
+
+**Fix:** Extract to a static method or use `containers.dart` GlassCard widget for consistency.
+
+**Status:** Open
+
+---
+
+### L11: Missing Doc Comment for `_maxRetries` Constant Semantics
+
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review, session 2026-03-21
+
+`DashboardService._maxRetries = 2` (line 139) lacks a doc comment explaining that "2 retries = 3 total attempts". `ProvisioningService` documents this pattern (line 204); `DashboardService` copied the code but not the clarifying comment.
+
+**Fix:** Add line comment: `// Max retry attempts (2 retries = 3 total attempts: initial + 2 retries)`
+
+**Status:** Open
+
+---
+
+### V02-Remaining: Org Switcher, Entitlements Grid, Polling
+
+**Priority:** P1 | **Severity:** Medium | **Source:** session 2026-03-21 (billing status implementation)
+
+V02 Flutter Dashboard UI has 5 remaining components per BACKLOG.md item:
+1. **Org switcher dropdown** — Select active org from list, update local state
+2. **Entitlements grid display** — Show feature flags (usage_dashboard, alerts, compliance_summary, etc.) with enabled/disabled toggles
+3. **Stripe Customer Portal link** — Button linking to Stripe-managed subscription UI
+4. **Real-time usage polling** — Refresh usage every 30s or on window focus (via `visibilitychange` event)
+5. **Usage charts/metrics visualization** — Plot historical usage over time (requires time-series queries or backfill)
+
+Current status: BillingStatusPage + UsageSummaryPage implemented. Remaining 5 tasks are independent and can be implemented in parallel or sequenced.
+
+**Status:** Deferred — Scaffolding ready; UI implementation deferred to next session.
+
+---
+
+*Last updated: 2026-03-21 — Billing status page implemented (commits 979ab7c, 60fd1ff). Code-reviewer findings (session 2026-03-21) appended: H2 (latent JWT risk), M30-M32, L10-L11. V02 remaining 5 components documented.*
