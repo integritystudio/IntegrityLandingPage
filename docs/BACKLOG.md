@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup Complete; V02-Remaining, M38, M39, L17-L19 migrated/resolved; 38+ items in v1.2; 2 remaining design-decision items (T25, T28)
+**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup Complete; M18, V02-Remaining, M38, M39, L17-L19 migrated; 39+ items in v1.2; 2 remaining design-decision items (T25, T28)
 
 ---
 
@@ -197,20 +197,6 @@ These issues require **server-side HTTP response header configuration** and cann
 ## Payment Processor Security Remediation
 
 Deferred security hardening for the two-layer authentication and billing system. Findings documented in `docs/security/SECURITY_VULNERABILITY_REPORT.md` and `docs/reports/JWT_COMPLIANCE_REVIEW.md`.
-
----
-
-### M18: JWT Phase 1 Remediation (CRITICAL)
-
-**Priority:** P1 | **Source:** session 2026-03-21, JWT_COMPLIANCE_REVIEW.md findings
-
-**Substantially complete** — V-01 and V-02 done in this repo. Supabase-side changes still needed.
-
-1. **V-01: Remove mutable claims from JWT** — ✅ DONE (in-repo). `default_org_plan` and `default_org_billing_status` removed from `JWTPayloadSchema`; comment explains they must be queried server-side (M18 V-01). `.passthrough()` ensures tokens issued before the Supabase hook update still validate. Supabase Custom Access Token Hook update (to stop generating these claims) remains an external dependency — not in this repo.
-2. **V-02: Add `iss` validation** — ✅ DONE (commit 00bfaaf). `verifyJwt` accepts optional `issuerUrl`; api-gateway threads `SUPABASE_JWT_ISSUER` env var through all route opts.
-3. **Normalize RS256** — Requires Supabase project setting change (not code change).
-
-**Status:** Partial — V-01 (in-repo) and V-02 done. RS256 normalization and Supabase hook update remain external dependencies.
 
 ---
 

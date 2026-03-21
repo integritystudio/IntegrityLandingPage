@@ -667,6 +667,21 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - Documented in `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md`
 - Commits: `4bf3fff`, `4ebe6cb`
 
+### M18-V01: Remove Mutable JWT Claims (Phase 1 Remediation)
+
+**Priority:** P1 | **Severity:** Critical | **Completed:** 2026-03-21
+
+Removed mutable Stripe billing state claims from JWT payload schema to eliminate stale-read access control vulnerabilities. Both `default_org_plan` and `default_org_billing_status` can change asynchronously (Stripe webhooks) but JWT reflects values from token issuance time (up to 3600s stale).
+
+- **Removed from schema:** `default_org_plan` and `default_org_billing_status` from `JWTPayloadSchema` in `workers/lib/types.zod.ts`
+- **Rationale:** Access decisions already query `billing_status` and `current_plan` from database (orgs.ts). JWT claims must not be used for time-sensitive access decisions.
+- **Backward compatibility:** `.passthrough()` ensures tokens issued before Supabase Custom Access Token Hook update still validate without error
+- **External dependency:** Supabase Custom Access Token Hook must be updated to stop generating these claims (out of this repo)
+- **Compliance:** Addresses SOC 2 CC6.1 (system monitoring) — no longer silently using stale billing state for access control
+- **Commit:** `312070b`
+
+---
+
 ## Documentation Cleanup (Session 2026-03-21)
 
 ### L17: Fix M39 Problem Statement — Clarify Indefinite Pending vs Exhaustion
