@@ -392,6 +392,43 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 ---
 
+### M33: Improve Zod Error Message Formatting in Stripe Webhook Handlers
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer review of H1 fix, session 2026-03-21 (commit 29a71d1)
+
+`parseResult.error.message` on a Zod `ZodError` produces a stringified JSON array of issue objects (e.g., `[{"code":"invalid_type","path":["id"],...}]`), not a human-readable message. This raw output is stored verbatim in the dead-letter queue (via `db.addDeadLetter` in `index.ts`). Using `parseResult.error.issues.map(i => i.message).join('; ')` would produce cleaner error records.
+
+**Files:** `workers/stripe-webhook/src/handlers/checkout.ts:17`, `subscription.ts:31,90`, `invoice.ts:52,77`
+
+**Status:** Open
+
+---
+
+### L12: Add Unit Tests for Stripe Schemas
+
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review of H1 fix, session 2026-03-21 (commit 29a71d1)
+
+`stripe-schemas.ts` (new file, lines 1-28) has no direct unit tests. Schema correctness is only exercised via integration through the handler tests. Add test file `workers/stripe-webhook/src/stripe-schemas.test.ts` covering:
+- Valid Stripe payloads pass safeParse
+- Malformed payloads (missing required fields, type mismatches) fail safeParse
+- Edge cases (null metadata, missing items array, missing price.id)
+
+**Status:** Open
+
+---
+
+### L13: Consider Requiring `customer` Field in Subscription/Invoice Schemas
+
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer review of H1 fix, session 2026-03-21 (commit 29a71d1)
+
+`customer` is marked `.optional()` on `SubscriptionSchema` (line 16) and `InvoiceSchema` (line 22). Based on Stripe's API, `customer` is always present for non-setup-mode objects. A missing-customer payload currently passes `safeParse` successfully and only fails the business-logic guard in the handler. Marking `customer` as required in the schema would reject malformed payloads earlier.
+
+**Files:** `workers/stripe-webhook/src/stripe-schemas.ts:16,22`
+
+**Status:** Open (semantic issue, not a correctness bug)
+
+---
+
 ---
 
 ## Code Review Findings: Billing Status Dashboard UI (Session 2026-03-21)
