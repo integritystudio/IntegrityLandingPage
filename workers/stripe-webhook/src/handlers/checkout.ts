@@ -1,5 +1,6 @@
 import type { SupabaseAdmin } from '../supabase';
 import type { StripeEvent } from '../../../lib/types';
+import { CheckoutSessionSchema } from '../stripe-schemas';
 
 type HandlerResult = { ok: true } | { ok: false; error: string };
 
@@ -11,7 +12,11 @@ export async function handleCheckoutSessionCompleted(
   event: StripeEvent,
   db: SupabaseAdmin,
 ): Promise<HandlerResult> {
-  const session = event.data.object as any;
+  const parseResult = CheckoutSessionSchema.safeParse(event.data.object);
+  if (!parseResult.success) {
+    return { ok: false, error: `Invalid checkout session payload: ${parseResult.error.message}` };
+  }
+  const session = parseResult.data;
 
   if (!session.customer || !session.subscription) {
     return { ok: false, error: 'Missing customer or subscription in checkout session' };

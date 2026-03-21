@@ -1,5 +1,6 @@
 import type { SupabaseAdmin } from '../supabase';
 import type { BillingStatus, PlanKey, StripeEvent } from '../../../lib/types';
+import { SubscriptionSchema } from '../stripe-schemas';
 
 /**
  * Map Stripe price IDs to plan keys.
@@ -25,7 +26,11 @@ export async function handleSubscriptionUpdated(
   event: StripeEvent,
   db: SupabaseAdmin,
 ): Promise<HandlerResult> {
-  const subscription = event.data.object as any;
+  const parseResult = SubscriptionSchema.safeParse(event.data.object);
+  if (!parseResult.success) {
+    return { ok: false, error: `Invalid subscription payload: ${parseResult.error.message}` };
+  }
+  const subscription = parseResult.data;
 
   if (!subscription.customer) {
     return { ok: false, error: 'Subscription missing customer' };
@@ -80,7 +85,11 @@ export async function handleSubscriptionDeleted(
   event: StripeEvent,
   db: SupabaseAdmin,
 ): Promise<HandlerResult> {
-  const subscription = event.data.object as any;
+  const parseResult = SubscriptionSchema.safeParse(event.data.object);
+  if (!parseResult.success) {
+    return { ok: false, error: `Invalid subscription payload: ${parseResult.error.message}` };
+  }
+  const subscription = parseResult.data;
 
   if (!subscription.customer) {
     return { ok: false, error: 'Subscription missing customer' };

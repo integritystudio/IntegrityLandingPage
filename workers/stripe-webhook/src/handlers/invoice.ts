@@ -1,5 +1,6 @@
 import type { SupabaseAdmin } from '../supabase';
 import type { BillingStatus, StripeEvent } from '../../../lib/types';
+import { InvoiceSchema } from '../stripe-schemas';
 
 type HandlerResult = { ok: true } | { ok: false; error: string };
 
@@ -46,7 +47,11 @@ export async function handleInvoicePaid(
   event: StripeEvent,
   db: SupabaseAdmin,
 ): Promise<HandlerResult> {
-  const invoice = event.data.object as any;
+  const parseResult = InvoiceSchema.safeParse(event.data.object);
+  if (!parseResult.success) {
+    return { ok: false, error: `Invalid invoice payload: ${parseResult.error.message}` };
+  }
+  const invoice = parseResult.data;
 
   if (!invoice.subscription || !invoice.customer) {
     return { ok: false, error: 'Invoice missing subscription or customer' };
@@ -67,7 +72,11 @@ export async function handleInvoicePaymentFailed(
   event: StripeEvent,
   db: SupabaseAdmin,
 ): Promise<HandlerResult> {
-  const invoice = event.data.object as any;
+  const parseResult = InvoiceSchema.safeParse(event.data.object);
+  if (!parseResult.success) {
+    return { ok: false, error: `Invalid invoice payload: ${parseResult.error.message}` };
+  }
+  const invoice = parseResult.data;
 
   if (!invoice.customer) {
     return { ok: false, error: 'Invoice missing customer' };
