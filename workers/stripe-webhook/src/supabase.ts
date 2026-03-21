@@ -30,7 +30,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
   async function upsertSubscription(
     orgId: string,
     stripeSubscriptionId: string,
-    stripePriceId: string,
+    stripePriceId: string | null,
     status: string,
   ): Promise<VoidResult> {
     const queryResult = await sb.query('subscriptions', {

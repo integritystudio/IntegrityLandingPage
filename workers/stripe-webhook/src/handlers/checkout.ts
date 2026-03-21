@@ -34,5 +34,12 @@ export async function handleCheckoutSessionCompleted(
     return { ok: false, error: `Failed to link Stripe customer: ${linkResult.error}` };
   }
 
+  // Create a stub subscription row so invoice.paid queries don't miss it.
+  // stripe_price_id starts null; customer.subscription.updated fires next and populates it.
+  const upsertResult = await db.upsertSubscription(orgId, session.subscription, null, 'active');
+  if (!upsertResult.ok) {
+    return { ok: false, error: `Failed to upsert subscription: ${upsertResult.error}` };
+  }
+
   return { ok: true };
 }
