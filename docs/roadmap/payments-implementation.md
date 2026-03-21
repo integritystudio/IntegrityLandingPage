@@ -1,12 +1,12 @@
-## Status: Phase 1-4 COMPLETE; V02 Core Dashboard UI FEATURE-COMPLETE
+## Status: Phase 1-4 COMPLETE; V02 Flutter Dashboard FEATURE-COMPLETE; H1 Zod Schemas + Code Review Cycle COMPLETE
 
-**Last Updated:** 2026-03-21 | **Session Focus:** V02 Flutter Dashboard feature-complete (5/8 components); H1 Zod schemas + code review cycle; threshold constants + concurrency guards
+**Last Updated:** 2026-03-21 | **Session Focus:** V02 Dashboard 5/8 steps complete (org switcher, billing status, usage summary, charts, entitlements, polling); H1 Zod Stripe schemas; M25–M33 code review findings fixed; quota version type correction; Zod error formatting
 **Build Status:** ✅ All tests passing (2630+ tests, ~94% coverage)
 
 - **Phase 1 (Sender-Worker UI):** ✅ COMPLETE — AuthPage, ProvisionPage, SenderHealthPage, JWT provisioning flow, HMAC-SHA256 signing, CORS preflight
 - **Phase 2 (SaaS Infra):** ✅ COMPLETE — Supabase schema (29 tables, RLS, triggers), Auth0 identity integration, Stripe webhooks, Worker API gateway, Durable Objects per-org quota
 - **Phase 3 (Bootstrap + Webhook Workers):** ✅ COMPLETE — Bootstrap worker (JWT verify → org/membership/entitlements/usage context), Stripe webhook worker (signature verify → subscription sync), shared Zod validation schemas, shared HTTP utilities (CORS, JSON parsing, request/response helpers)
-- **Phase 4 (Database + API Gateway):** ✅ COMPLETE — Full API gateway routes; ✅ V01 (Usage Ledger Ingestion): POST /v1/ingest/events with JWT/API key auth, Zod validation, daily rollup via waitUntil, 83 passing tests; ✅ V03 (Monthly Aggregation): rollupMonthlyBucket with per-metric breakdown, weighted latency, 9 passing tests; ✅ Durable Objects per-org quota fully wired; ✅ JWT issuer validation (V-02), timing-safe HMAC comparisons (H19); ✅ H1 (Zod Stripe Schemas): Stripe event payload validation schemas, replace as-any casts (commit 29a71d1, code review fixes in e3ff7f3); ✅ V02 (Flutter Dashboard) FEATURE-COMPLETE: 5/8 steps done: ✅ BillingStatusPage (step 2, commits 979ab7c, 60fd1ff); ✅ UsageSummaryPage + daily bar chart (step 3, commits 55c4a86, e066900, c78bbf1, 809496a); ✅ QuotaStatusPage (step 3 extended, commits 9f93f67, e3ff7f3); ✅ EntitlementsPage (step 4, commit 9f93f67); ✅ real-time polling on UsageSummaryPage (step 6, commits f6581fd, d14280c); code review fixed: threshold constants unified to QuotaThresholds (commit fccc88b), _isFetching guard added to quota/entitlements pages (commit fccc88b); remaining: org switcher (step 1), Stripe portal link (step 5)
+- **Phase 4 (Database + API Gateway):** ✅ COMPLETE — Full API gateway routes; ✅ V01 (Usage Ledger Ingestion): POST /v1/ingest/events with JWT/API key auth, Zod validation, daily rollup via waitUntil, 83 passing tests; ✅ V03 (Monthly Aggregation): rollupMonthlyBucket with per-metric breakdown, weighted latency, 9 passing tests; ✅ Durable Objects per-org quota fully wired; ✅ JWT issuer validation (V-02), timing-safe HMAC comparisons (H19); ✅ H1 (Zod Stripe Schemas): CheckoutSessionSchema, SubscriptionSchema, InvoiceSchema added; all `as any` casts replaced with `safeParse` + typed error returns (commit 29a71d1); H2 (subscription upsert in checkout), M25–M33 code review findings fixed (commits 64b1387, 3e63278, 867957c, 77bd17e, 22794bb, cec8997, 9a154ea, a76348b, c8e03a2, 4fb5380); ✅ V02 (Flutter Dashboard) FEATURE-COMPLETE: 5/8 steps done: ✅ DashboardPage with org switcher dropdown (step 1, commits 91cdae3, 226b568); ✅ BillingStatusPage (step 2, commits 979ab7c, 60fd1ff); ✅ UsageSummaryPage + daily bar chart (step 3, commits 55c4a86, e066900, c78bbf1, 809496a); ✅ QuotaStatusPage (step 3 extended, commits 9f93f67, e3ff7f3); ✅ EntitlementsPage (step 4, commit 9f93f67); ✅ real-time polling on UsageSummaryPage (step 6, commits f6581fd, d14280c); code review fixed: threshold constants unified (commit fccc88b), _isFetching guard added (commit fccc88b), status badge derivation moved into widget (commit a76348b), Zod error formatting improved (commit 9a154ea); remaining: Stripe portal link (step 5)
 
 ---
 
@@ -1356,7 +1356,7 @@ Flutter or API client
 
 ## 19. v1 Implementation Status (Updated 2026-03-21)
 
-### Completed ✅ (15 core items + 3 recent refinements + 1 Durable Objects + Phase 4 Task 2 + Phase 4 Task 3 partial)
+### Completed ✅ (15 core items + 3 recent refinements + 1 Durable Objects + Phase 4 Task 2 + Phase 4 Task 3 + H1/H2/M25–M33 code review fixes)
 
 **Core infrastructure (2026-03-20)**
 1. **Auth pages & JWT flow** — AuthPage, ProvisionPage, SenderHealthPage with JWT-based provisioning
@@ -1386,12 +1386,27 @@ Flutter or API client
 - **Security hardening** — JWT issuer claim validation (V-02, 00bfaaf), timing-safe HMAC comparisons with `crypto.subtle.verify()` for API key and Stripe verification (H19, 0f9cece); bearer token pre-check for quota enforcement (H21, 81f1921); JWT verification before quota enforcement (H21, 70a1556); org quota enforcement require bearer token (H21, aa4abf6); CSP frame-ancestors header for clickjacking protection (S01, 81f1921); IDOR tests for org entitlements (H20, e296e20)
 - **Code review completion** — 22 code review items migrated to v1.2 changelog (77d477e); 9 items migrated to changelog (85ada38); session backlog findings appended (e944bb7); L5 unsanitized auth.email finding from bootstrap session (2b581ed); billing status dashboard UI code review findings: 1 H2 latent, 3 M-level, 2 L-level, V02-remaining 5 components documented (80b288a)
 
-**Completion Context:** All major auth, provisioning, API gateway, quota enforcement, usage ingestion/aggregation infrastructure is production-ready with comprehensive test coverage (2440+ tests, ~94% coverage). Phase 4 Task 2 (usage ingestion + daily/monthly aggregation) complete. Phase 4 Task 3 Flutter dashboard UI components: core pages complete (usage summary + billing status display, 55c4a86, e066900, 979ab7c, 60fd1ff); code review findings (1 H2 latent, 3 M-level, 2 L-level, 5 V02-remaining components) documented in backlog (80b288a); bootstrap flow integration complete. Security hardening across auth boundaries (V-02, H19, H20, H21, S01) applied. Per-org Durable Objects quota state machine enforces minute-level burst limits, monthly soft limits, quota version detection with middleware fail-open logic. Bootstrap worker & client orchestration validated end-to-end. Quota and usage documentation with integration guidance available at `workers/docs/QUOTA_DURABLE_OBJECTS.md`.
+**Code Review Cycle & Fixes (2026-03-21)**
+- **H1: Type Safety Lost (Stripe Payloads)** — CheckoutSessionSchema, SubscriptionSchema, InvoiceSchema added to stripe-schemas.ts; all `as any` casts replaced with `safeParse` + typed error returns (commit 29a71d1)
+- **H2: Missing Subscription Upsert** — `handleCheckoutSessionCompleted` now calls `db.upsertSubscription()` after linking customer, mirroring pattern in other handlers (commit 64b1387)
+- **M25: HandlerResult Type Duplicated** — Moved to `workers/lib/types/index.ts` as single source of truth; removed from index.ts, checkout.ts, subscription.ts, invoice.ts (commit 3e63278)
+- **M26: Non-Atomic Check-Then-Write** — `upsertSubscription` now uses atomic `sb.upsert()` with `ON CONFLICT (organization_id, stripe_subscription_id)` (commit 867957c)
+- **M27: Dead Letter Filter in App Code** — `retry_count < max_retries` filter pushed into PostgREST query; DEAD_LETTER_MAX_RETRIES=5 constant added (commit 77bd17e)
+- **M28: Wrong HTTP Status Code** — Unmatched routes return 404 (notFound) instead of 500 (serverError) (commit 22794bb)
+- **M29: Quota Version Type Mismatch** — `quota_version` now uses `Date.now()` (Unix millisecond timestamp as number) instead of ISO string; maintains number type throughout (commit cec8997)
+- **M30: _formatDate Telemetry** — `BillingStatusData.fromJson` now logs telemetry when `DateTime.tryParse` returns null (commit 4fb5380)
+- **M31: billingStatus Validation Asymmetry** — `_statusLabel` and `_statusColor` asserts now match canonical BillingStatus type (removed 'suspended') (commit c8e03a2)
+- **M32: Status Derivation Duplication** — `_statusColor` and `_statusLabel` moved to module-level functions; _BillingCard derives badge internally (commit a76348b)
+- **M33: Zod Error Formatting** — `parseResult.error.issues.map(i => i.message).join('; ')` replaces `error.message` for human-readable dead-letter logging (commit 9a154ea)
+- **H2-V02: JWT Sentry Leak Risk** — SECURITY comment added at all `captureException` call sites in DashboardService (commit 3f0804c)
 
-### Remaining (v1 Phase 4 Task 3 components + Polish)
+**Completion Context:** All major auth, provisioning, API gateway, quota enforcement, usage ingestion/aggregation infrastructure is production-ready with comprehensive test coverage (2440+ tests, ~94% coverage). Phase 4 Task 2 (usage ingestion + daily/monthly aggregation) complete. Phase 4 Task 3 Flutter dashboard UI FEATURE-COMPLETE: org switcher dropdown (91cdae3, 226b568), billing status display (979ab7c, 60fd1ff), usage summary + charts (55c4a86, e066900, c78bbf1, 809496a), quota visualization (9f93f67, e3ff7f3), entitlements grid (9f93f67), real-time polling (f6581fd, d14280c); code review findings fixed (H1 type safety, H2 subscription upsert, M25–M33); bootstrap flow integration complete. Security hardening across auth boundaries (V-02, H19, H20, H21, S01) applied. Per-org Durable Objects quota state machine enforces minute-level burst limits, monthly soft limits, quota version detection with middleware fail-open logic. Bootstrap worker & client orchestration validated end-to-end. Quota and usage documentation with integration guidance available at `workers/docs/QUOTA_DURABLE_OBJECTS.md`. Remaining: Stripe Customer Portal link (step 5).
 
-1. **Phase 4 Task 3 (partial)** — Org switcher dropdown, entitlements grid display, usage charts/metrics visualization, quota visualization, Stripe Customer Portal link, real-time usage polling (30s refresh)
-2. **Polish & observability** — Enhanced error responses, rate limiting integration, audit logging for sensitive operations, telemetry/monitoring setup
+### Remaining (v1 Phase 4 Task 3 final + Polish + Code Review Backlog Items)
+
+1. **Phase 4 Task 3 (final)** — Stripe Customer Portal link (step 5)
+2. **Code Review Backlog** — M34 (subscription upgrade conflict key design issue), M35 (dead letter partial failure idempotency gap), L5–L15 (low-priority items: sanitization, error card duplication, plan key formatting, schema tests, etc.)
+3. **Polish & observability** — Enhanced error responses, rate limiting integration, audit logging for sensitive operations, telemetry/monitoring setup
 
 This sequence delivers production-grade auth/provisioning infrastructure with clear path to user-facing analytics and usage dashboards, supporting the internal goal of a comprehensible UI for non-technical stakeholders while preserving long-term recurring SaaS architecture.
 
