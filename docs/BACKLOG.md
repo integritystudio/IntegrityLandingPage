@@ -36,7 +36,7 @@ Implement event ingestion pipeline for metered usage tracking:
 - `workers/api-gateway/src/aggregation.ts` — daily bucket rollup task
 - Supabase integration for writes
 
-**Status:** Deferred — Core infrastructure complete, ingest endpoint not yet wired.
+**Status:** Done — Implemented in commit 761ab48 (2026-03-20). Endpoint wired, 16 tests passing.
 
 ---
 
@@ -719,7 +719,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **File:** `scripts/full-reconciliation.ts:221`
 
-**Status:** Open
+**Status:** Done — Renamed across 5 occurrences (commit 7fa808f, 2026-03-20)
 
 ---
 
@@ -755,7 +755,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **File:** `workers/lib/auth.ts:95`
 
-**Status:** Open
+**Status:** Done — Removed redundant `typeof` guard; `payload.iss !== opts.issuerUrl` is semantically equivalent (commit 7fa808f, 2026-03-20)
 
 ---
 
