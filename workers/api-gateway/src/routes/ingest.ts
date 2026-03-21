@@ -133,7 +133,7 @@ export async function handleIngestEvent(
   return json({ ok: true, request_id: requestId }, { status: 202 });
 }
 
-const OTEL_INGEST_ROUTE = '/v1/ingest/otel';
+export const OTEL_INGEST_ROUTE = '/v1/ingest/otel';
 const OTEL_METRIC_KEY = 'otel_events';
 const OTEL_MAX_SPANS = 1_000;
 

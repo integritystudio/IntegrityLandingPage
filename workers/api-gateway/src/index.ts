@@ -5,7 +5,7 @@ import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBilli
 import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './routes/usage';
 import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
 import { handleHealthCheck } from './routes/health';
-import { handleIngestEvent, handleIngestOtel } from './routes/ingest';
+import { handleIngestEvent, handleIngestOtel, OTEL_INGEST_ROUTE } from './routes/ingest';
 import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
 
@@ -84,7 +84,7 @@ export default {
       );
     }
 
-    if (pathname === '/v1/ingest/otel' && request.method === 'POST') {
+    if (pathname === OTEL_INGEST_ROUTE && request.method === 'POST') {
       return handleIngestOtel(
         request,
         { ...machineRouteOpts, doNamespace: env.QUOTA_DO },
