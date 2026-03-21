@@ -3,10 +3,13 @@ import { requireBearerToken } from '../../../lib/http/request';
 import { verifyJwt } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
-import type { OrgMembership, Entitlement } from '../../../lib/types';
+import type { OrgMembership, Entitlement, UsageBucket as UsageBucketBase } from '../../../lib/types';
 import { buildEntitlementMap } from '../lib/helpers';
 import { getQuotaStatus } from '../lib/quota';
 import type { AuthResult } from '../../../lib/types/handler-options';
+
+// SupabaseRow requires an index signature; UsageBucketBase does not include one.
+type UsageBucket = UsageBucketBase & Record<string, unknown>;
 
 interface UsageHandlerOptions {
   jwtSecret: string;
@@ -21,14 +24,6 @@ interface QuotaStatusHandlerOptions extends UsageHandlerOptions {
   doNamespace: DurableObjectNamespace;
 }
 
-interface UsageBucket extends Record<string, unknown> {
-  organization_id: string;
-  bucket_date: string;
-  metric_key: string;
-  total_quantity: number;
-  request_count: number;
-  avg_latency_ms: number | null;
-}
 
 async function resolveAuth(
   request: Request,

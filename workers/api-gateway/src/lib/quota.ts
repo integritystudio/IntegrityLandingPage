@@ -2,11 +2,11 @@
  * Quota service: Client for Durable Object quota checks
  */
 
-import { z } from 'zod';
 import { createSupabaseClient } from '../../../lib/supabase';
 import {
   QuotaCheckResponseSchema,
   QuotaFlushResultSchema,
+  QuotaStatusResponseSchema,
 } from '../../../lib/types/schemas';
 import type {
   OrgPlanRow,
@@ -14,6 +14,7 @@ import type {
   QuotaCheckRequest,
   QuotaCheckResponse,
   QuotaFlushResult,
+  QuotaStatusResponse,
 } from '../../../lib/types/schemas';
 
 // Re-export for backward compatibility
@@ -23,6 +24,7 @@ export type {
   QuotaCheckRequest,
   QuotaCheckResponse,
   QuotaFlushResult,
+  QuotaStatusResponse,
 };
 
 function extractErrorMessage(raw: unknown, fallback: string): string {
@@ -83,7 +85,7 @@ export async function flushUsage(
 export async function getQuotaStatus(
   doNamespace: DurableObjectNamespace,
   orgId: string,
-): Promise<Record<string, unknown>> {
+): Promise<QuotaStatusResponse> {
   const id = doNamespace.idFromName(orgId);
   const obj = doNamespace.get(id);
 
@@ -97,7 +99,7 @@ export async function getQuotaStatus(
     throw new Error(`Status check failed: ${response.statusText}`);
   }
 
-  return z.record(z.unknown()).parse(await response.json());
+  return QuotaStatusResponseSchema.parse(await response.json());
 }
 
 /**

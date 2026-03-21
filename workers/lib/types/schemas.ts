@@ -197,6 +197,30 @@ export const OrgQuotaMiddlewareOptionsSchema = z.object({
   serviceRoleKey: z.string().min(1),
 });
 
+// Quota Durable Object /status endpoint response
+// Returned by handleStatus() in quota.ts and consumed by getQuotaStatus() in lib/quota.ts.
+const QuotaStatusInitializedSchema = z.object({
+  orgId: z.string(),
+  planKey: z.string(),
+  quotaVersion: z.number().int().nonnegative(),
+  minuteLimit: z.number().int().nonnegative(),
+  monthlyLimit: z.number().int().nonnegative().nullable(),
+  minuteUsed: z.number().int().nonnegative(),
+  monthlyUsed: z.number().int().nonnegative(),
+  minuteWindowExpiresIn: z.number().int(),
+});
+
+const QuotaStatusUninitializedSchema = z.object({
+  status: z.literal('uninitialized'),
+});
+
+export const QuotaStatusResponseSchema = z.union([
+  QuotaStatusInitializedSchema,
+  QuotaStatusUninitializedSchema,
+]);
+
+export type QuotaStatusResponse = z.infer<typeof QuotaStatusResponseSchema>;
+
 // Type inference for quota types
 export type QuotaCheckRequest = z.infer<typeof QuotaCheckRequestSchema>;
 export type QuotaCheckResponse = z.infer<typeof QuotaCheckResponseSchema>;
