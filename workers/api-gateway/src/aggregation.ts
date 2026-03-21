@@ -57,7 +57,7 @@ export async function rollupDailyBucket(
   }
 
   const events: UsageEventRow[] = Array.isArray(result.data) ? result.data : [];
-  if (events.length === MAX_EVENTS_PER_ROLLUP) {
+  if (events.length >= MAX_EVENTS_PER_ROLLUP) {
     console.warn(`[aggregation] rollupDailyBucket: event query hit limit (${MAX_EVENTS_PER_ROLLUP}) for org=${orgId} date=${date}; aggregation may be incomplete`);
   }
 
@@ -163,7 +163,7 @@ export async function rollupMonthlyBucket(
   }
 
   const buckets: DailyBucketRow[] = Array.isArray(result.data) ? result.data : [];
-  if (buckets.length === MAX_DAILY_BUCKETS_PER_MONTH) {
+  if (buckets.length >= MAX_DAILY_BUCKETS_PER_MONTH) {
     console.warn(`[aggregation] rollupMonthlyBucket: bucket query hit limit (${MAX_DAILY_BUCKETS_PER_MONTH}) for org=${orgId} yearMonth=${yearMonth}; aggregation may be incomplete`);
   }
 
