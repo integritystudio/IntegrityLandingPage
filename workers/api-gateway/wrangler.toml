@@ -26,3 +26,5 @@ new_classes = ["QuotaDurableObject"]
 # SUPABASE_SERVICE_ROLE_KEY
 # SUPABASE_JWT_SECRET
 # API_KEY_HMAC_SECRET
+# STRIPE_SECRET_KEY
+# APP_URL (optional; defaults to https://app.integritystudio.ai)

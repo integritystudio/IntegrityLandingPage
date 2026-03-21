@@ -11,6 +11,7 @@ const makeEnv = (overrides: Partial<Env> = {}): Env => ({
   SUPABASE_JWT_SECRET: JWT_SECRET,
   API_KEY_HMAC_SECRET: 'hmac-secret-at-least-32-chars-long!',
   QUOTA_DO: {} as DurableObjectNamespace,
+  STRIPE_SECRET_KEY: 'sk_test_placeholder',
   ...overrides,
 });
 

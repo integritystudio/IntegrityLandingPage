@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus } from './orgs';
+import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal } from './orgs';
 import type { Organization, OrgRole } from '../../../lib/types';
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
@@ -179,5 +179,140 @@ describe('GET /v1/orgs/:orgId/billing-status', () => {
     const body = await res.json() as any;
     expect(body.billing_status).toBe('active');
     expect(body.current_plan).toBe('growth');
+  });
+});
+
+const makePortalOpts = (sbOverride: any, stripeOverride?: any) => ({
+  jwtSecret: JWT_SECRET,
+  supabaseUrl: 'https://test.supabase.co',
+  serviceRoleKey: 'key',
+  stripeSecretKey: 'sk_test_xxx',
+  returnUrl: 'https://app.integritystudio.ai/#/billing',
+  _sbOverride: sbOverride,
+  _stripeOverride: stripeOverride,
+});
+
+describe('POST /v1/orgs/:id/billing-portal', () => {
+  it('returns 401 when no bearer token', async () => {
+    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', { method: 'POST' });
+    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(null));
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 when user is not a member', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb));
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 403 when user role is not owner or billing_admin', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'member')] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb));
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 when org has no stripe_customer_id', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'owner')] })
+        .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: null }] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb));
+    expect(res.status).toBe(404);
+  });
+
+  it('returns portal URL for owner with stripe customer', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'owner')] })
+        .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: 'cus_123' }] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const mockStripe = {
+      billingPortal: {
+        sessions: {
+          create: vi.fn().mockResolvedValue({ url: 'https://billing.stripe.com/session/xxx' }),
+        },
+      },
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb, mockStripe));
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.url).toBe('https://billing.stripe.com/session/xxx');
+    expect(mockStripe.billingPortal.sessions.create).toHaveBeenCalledWith({
+      customer: 'cus_123',
+      return_url: 'https://app.integritystudio.ai/#/billing',
+    });
+  });
+
+  it('returns portal URL for billing_admin role', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'billing_admin')] })
+        .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: 'cus_456' }] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const mockStripe = {
+      billingPortal: {
+        sessions: { create: vi.fn().mockResolvedValue({ url: 'https://billing.stripe.com/session/yyy' }) },
+      },
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb, mockStripe));
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.url).toBe('https://billing.stripe.com/session/yyy');
+  });
+
+  it('returns 500 when Stripe throws', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'owner')] })
+        .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: 'cus_123' }] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const mockStripe = {
+      billingPortal: {
+        sessions: { create: vi.fn().mockRejectedValue(new Error('Stripe API error')) },
+      },
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb, mockStripe));
+    expect(res.status).toBe(500);
   });
 });

@@ -17,5 +17,8 @@
   },
   "optionalDependencies": {
     "@rollup/rollup-darwin-arm64": "^4.55.1"
+  },
+  "dependencies": {
+    "stripe": "^20.4.1"
   }
 }

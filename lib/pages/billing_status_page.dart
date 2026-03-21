@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
@@ -33,6 +34,7 @@ class BillingStatusPage extends StatefulWidget {
 
 class _BillingStatusPageState extends State<BillingStatusPage> {
   bool _isLoading = false;
+  bool _isPortalLoading = false;
   String? _errorMessage;
   BillingStatusData? _billingStatus;
 
@@ -77,6 +79,30 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
           _errorMessage = response.error;
           _isLoading = false;
         });
+    }
+  }
+
+  Future<void> _openBillingPortal() async {
+    setState(() => _isPortalLoading = true);
+
+    final response = await DashboardService.fetchBillingPortalUrl(
+      orgId: widget.args.orgId,
+      jwt: widget.args.jwt,
+    );
+
+    if (!mounted) return;
+    setState(() => _isPortalLoading = false);
+
+    switch (response) {
+      case BillingPortalSuccess():
+        final uri = Uri.tryParse(response.url);
+        if (uri != null) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      case BillingPortalError():
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response.error)),
+        );
     }
   }
 
@@ -129,7 +155,9 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
                   _BillingCard(
                     billingStatus: _billingStatus,
                     isLoading: _isLoading,
+                    isPortalLoading: _isPortalLoading,
                     onRefresh: _fetchBillingStatus,
+                    onManageBilling: _openBillingPortal,
                     renewalDateLabel: _billingStatus?.nextRenewalDate != null
                         ? _formatDate(_billingStatus!.nextRenewalDate!)
                         : null,
@@ -170,13 +198,17 @@ String _statusLabel(String status) {
 class _BillingCard extends StatelessWidget {
   final BillingStatusData? billingStatus;
   final bool isLoading;
+  final bool isPortalLoading;
   final VoidCallback onRefresh;
+  final VoidCallback onManageBilling;
   final String? renewalDateLabel;
 
   const _BillingCard({
     required this.billingStatus,
     required this.isLoading,
+    required this.isPortalLoading,
     required this.onRefresh,
+    required this.onManageBilling,
     this.renewalDateLabel,
   });
 
@@ -243,6 +275,14 @@ class _BillingCard extends StatelessWidget {
                   onPressed: isLoading ? null : onRefresh,
                   text: 'Refresh',
                   icon: LucideIcons.rotateCw,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: GradientButton(
+                  onPressed: (isLoading || isPortalLoading) ? null : onManageBilling,
+                  isLoading: isPortalLoading,
+                  text: 'Manage Billing',
                 ),
               ),
             ],

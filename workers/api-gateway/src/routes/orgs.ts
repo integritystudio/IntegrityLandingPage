@@ -1,3 +1,4 @@
+import Stripe from 'stripe';
 import { ok, forbidden, notFound, serverError } from '../../../lib/http';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { Organization, OrgRole, OrgMembership, Entitlement } from '../../../lib/types';
@@ -9,6 +10,12 @@ interface OrgsHandlerOptions {
   serviceRoleKey: string;
   jwtIssuerUrl?: string;
   _sbOverride?: SupabaseClient;
+}
+
+interface BillingPortalHandlerOptions extends OrgsHandlerOptions {
+  stripeSecretKey: string;
+  returnUrl: string;
+  _stripeOverride?: Stripe;
 }
 
 const BILLING_ROLES: OrgRole[] = ['owner', 'billing_admin'];
@@ -138,4 +145,63 @@ export async function handleOrgBillingStatus(
     quota_version: org.quota_version,
     role: membership.role,
   });
+}
+
+/**
+ * POST /v1/orgs/:id/billing-portal
+ * Creates a Stripe Customer Portal session and returns the session URL.
+ * Requires owner or billing_admin role.
+ */
+export async function handleBillingPortal(
+  request: Request,
+  orgId: string,
+  opts: BillingPortalHandlerOptions,
+): Promise<Response> {
+  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
+  if (!auth.ok) return auth.error;
+
+  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const memberships = await loadUserMemberships(auth.sub, sb);
+  const membership = memberships.find((m) => m.organization_id === orgId);
+  if (!membership) return forbidden('Not a member of this organization');
+
+  if (!BILLING_ROLES.includes(membership.role)) {
+    return forbidden('Billing portal requires owner or billing_admin role');
+  }
+
+  const orgResult = await sb.query<{ id: string; stripe_customer_id: string | null }>(
+    'organizations',
+    {
+      select: 'id, stripe_customer_id',
+      filters: [{ column: 'id', operator: 'eq', value: orgId }],
+      limit: 1,
+    },
+  );
+
+  if (!orgResult.ok || !Array.isArray(orgResult.data) || orgResult.data.length === 0) {
+    return notFound('Organization not found');
+  }
+
+  const org = orgResult.data[0];
+  if (!org.stripe_customer_id) {
+    return notFound('No billing account found for this organization');
+  }
+
+  try {
+    const stripe =
+      opts._stripeOverride ??
+      new Stripe(opts.stripeSecretKey, {
+        httpClient: Stripe.createFetchHttpClient(),
+      });
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: org.stripe_customer_id,
+      return_url: opts.returnUrl,
+    });
+
+    return ok({ url: session.url });
+  } catch (e) {
+    console.error('[billing-portal] Stripe error:', e);
+    return serverError('Failed to create billing portal session');
+  }
 }

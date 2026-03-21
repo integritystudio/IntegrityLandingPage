@@ -283,6 +283,25 @@ class OrgListError extends OrgListResponse {
   const OrgListError({required this.error});
 }
 
+/// Billing portal URL response.
+sealed class BillingPortalResponse {
+  const BillingPortalResponse();
+}
+
+/// Successful billing portal URL response.
+class BillingPortalSuccess extends BillingPortalResponse {
+  final String url;
+
+  const BillingPortalSuccess({required this.url});
+}
+
+/// Billing portal error response.
+class BillingPortalError extends BillingPortalResponse {
+  final String error;
+
+  const BillingPortalError({required this.error});
+}
+
 /// API client for dashboard data endpoints.
 class DashboardService {
   DashboardService._();
@@ -632,6 +651,59 @@ class DashboardService {
     }
 
     return const QuotaStatusError(error: _errorUnexpected);
+  }
+
+  /// Fetch a Stripe Customer Portal URL for an organization.
+  ///
+  /// Calls POST /v1/orgs/:orgId/billing-portal with the provided JWT.
+  /// Requires owner or billing_admin role.
+  static Future<BillingPortalResponse> fetchBillingPortalUrl({
+    required String orgId,
+    required String jwt,
+  }) async {
+    if (orgId.isEmpty || orgId.contains(RegExp(r'[/?#%]'))) {
+      return const BillingPortalError(error: _errorUnexpected);
+    }
+    try {
+      final response = await _dio.post(
+        '$_apiGatewayUrl/v1/orgs/$orgId/billing-portal',
+        options: Options(
+          headers: {'Authorization': 'Bearer $jwt'},
+          validateStatus: (status) => status != null,
+        ),
+      );
+
+      final data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : const <String, dynamic>{};
+
+      if (response.statusCode == HttpStatus.ok.code) {
+        final url = data['url'] as String?;
+        if (url == null || url.isEmpty) {
+          return const BillingPortalError(error: _errorUnexpected);
+        }
+        return BillingPortalSuccess(url: url);
+      }
+
+      return BillingPortalError(
+        error: data['error'] as String? ?? _errorUnexpected,
+      );
+    } on DioException catch (e) {
+      await ErrorTrackingService.captureException(
+        e,
+        stackTrace: e.stackTrace,
+        context: 'DashboardService.fetchBillingPortalUrl',
+        extra: {'orgId': orgId},
+      );
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        return const BillingPortalError(error: _errorTimeout);
+      }
+      return const BillingPortalError(error: _errorNetwork);
+    } catch (e, stackTrace) {
+      await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+      return const BillingPortalError(error: _errorUnexpected);
+    }
   }
 
   /// Fetch the list of organizations the authenticated user belongs to.

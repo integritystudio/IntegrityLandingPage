@@ -55,7 +55,7 @@ Implement authenticated dashboard with org switching, billing status, usage summ
 - `lib/widgets/sections/dashboard_section.dart`
 - `lib/services/dashboard_service.dart` (API client wrapper)
 
-**Status:** ✅ CORE PAGES + CHARTS + ORG SWITCHER + POLLING COMPLETE — Bootstrap flow complete; ✅ org switcher (step 1): `DashboardPage` at `/dashboard`, DropdownButton org switcher + nav cards to all sub-pages (commits 91cdae3, 226b568); ✅ billing status display (step 2): `BillingStatusPage` at `/billing`, plan name + status badge + renewal date, loading/error states, retry (commits 979ab7c, 60fd1ff); ✅ usage summary display (step 3): `UsageSummaryPage` at `/usage`, progress bar + per-metric breakdown (commits 55c4a86, e066900); ✅ usage charts (step 3): `_DailyBarChart` with `CustomPainter`, daily bar chart with quota reference line and threshold coloring (commits c78bbf1, 809496a); ✅ quota visualization (step 3 extended): `QuotaStatusPage` at `/quota`, minute burst + monthly limits with Unlimited label support, plan badge, fail-open DO handling (commits 9f93f67, e3ff7f3); ✅ entitlements display (step 4): `EntitlementsPage` at `/entitlements` with auto-generated feature flags (commit 9f93f67); ✅ real-time polling (step 6): 30s Timer.periodic + app-resume refresh on UsageSummaryPage, in-flight guard (commits f6581fd, d14280c). Code review findings: 1 H2-V02 latent JWT risk, 3 M-level (M30-M32: telemetry/validation/duplication), 2 L-level (L10-L11: decoration/docs) documented (80b288a). Remaining: Stripe portal link (step 5) — deferred, requires Stripe SDK in api-gateway.
+**Status:** ✅ ALL STEPS COMPLETE — Bootstrap flow complete; ✅ org switcher (step 1): `DashboardPage` at `/dashboard`, DropdownButton org switcher + nav cards to all sub-pages (commits 91cdae3, 226b568); ✅ billing status display (step 2): `BillingStatusPage` at `/billing`, plan name + status badge + renewal date, loading/error states, retry (commits 979ab7c, 60fd1ff); ✅ usage summary display (step 3): `UsageSummaryPage` at `/usage`, progress bar + per-metric breakdown (commits 55c4a86, e066900); ✅ usage charts (step 3): `_DailyBarChart` with `CustomPainter`, daily bar chart with quota reference line and threshold coloring (commits c78bbf1, 809496a); ✅ quota visualization (step 3 extended): `QuotaStatusPage` at `/quota`, minute burst + monthly limits with Unlimited label support, plan badge, fail-open DO handling (commits 9f93f67, e3ff7f3); ✅ entitlements display (step 4): `EntitlementsPage` at `/entitlements` with auto-generated feature flags (commit 9f93f67); ✅ Stripe Customer Portal link (step 5): `POST /v1/orgs/:id/billing-portal` with role check (owner/billing_admin), Stripe session creation, `fetchBillingPortalUrl` in DashboardService, "Manage Billing" button on BillingStatusPage (7 tests); ✅ real-time polling (step 6): 30s Timer.periodic + app-resume refresh on UsageSummaryPage, in-flight guard (commits f6581fd, d14280c). Code review findings: 1 H2-V02 latent JWT risk, 3 M-level (M30-M32: telemetry/validation/duplication), 2 L-level (L10-L11: decoration/docs) documented (80b288a).
 
 ---
 
@@ -261,15 +261,14 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 **Priority:** P1 | **Severity:** Medium | **Source:** session 2026-03-21 (billing status implementation)
 
-V02 Flutter Dashboard UI has 3 remaining components:
-1. **Org switcher dropdown** — Select active org from list, update local state
-2. **Stripe Customer Portal link** — Button linking to Stripe-managed subscription UI
-3. **Real-time usage polling** — Refresh usage every 30s or on window focus (via `visibilitychange` event)
+~~V02 Flutter Dashboard UI — all 6 steps complete:~~
+~~1. Org switcher dropdown — ✅ Done: `DashboardPage` (commits 91cdae3, 226b568)~~
+~~2. Stripe Customer Portal link — ✅ Done: `POST /v1/orgs/:id/billing-portal`, "Manage Billing" button (7 tests)~~
+~~3. Real-time usage polling — ✅ Done: 30s Timer.periodic (commits f6581fd, d14280c)~~
+~~4. Entitlements grid display — ✅ Done: `EntitlementsPage` (commit 9f93f67)~~
+~~5. Usage charts/metrics visualization — ✅ Done: `_DailyBarChart`, `QuotaStatusPage` (commits c78bbf1, 809496a, 9f93f67, e3ff7f3)~~
 
-~~**Entitlements grid display** — ✅ Done: `EntitlementsPage` at `/entitlements` (commit 9f93f67)~~
-~~**Usage charts/metrics visualization** — ✅ Done: `_DailyBarChart` (commits c78bbf1, 809496a), `QuotaStatusPage` (commits 9f93f67, e3ff7f3)~~
-
-**Status:** Partially deferred — Entitlements grid and usage charts complete. Remaining 3 tasks are independent.
+**Status:** ✅ Done — All V02 dashboard components complete.
 
 ---
 

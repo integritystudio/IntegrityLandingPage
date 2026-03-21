@@ -1,7 +1,7 @@
 import { ok, notFound } from '../../lib/http';
 import { requireBearerToken } from '../../lib/http/request';
 import { handleMe } from './routes/me';
-import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus } from './routes/orgs';
+import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal } from './routes/orgs';
 import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './routes/usage';
 import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
 import { handleHealthCheck } from './routes/health';
@@ -17,6 +17,10 @@ export interface Env {
   QUOTA_DO: DurableObjectNamespace;
   /** JWT issuer URL for `iss` claim validation (V-02). Set to Supabase auth URL. */
   SUPABASE_JWT_ISSUER?: string;
+  /** Stripe secret key for billing portal session creation. */
+  STRIPE_SECRET_KEY: string;
+  /** App URL used as Stripe billing portal return URL (e.g. https://app.integritystudio.ai). */
+  APP_URL?: string;
 }
 
 // Emitted at most once per isolate so production logs are not flooded.
@@ -99,6 +103,13 @@ export default {
       }
       if (subPath === '/quota/status' && request.method === 'GET') {
         return handleQuotaStatus(request, orgId, { ...machineRouteOpts, doNamespace: env.QUOTA_DO });
+      }
+      if (subPath === '/billing-portal' && request.method === 'POST') {
+        return handleBillingPortal(request, orgId, {
+          ...routeOpts,
+          stripeSecretKey: env.STRIPE_SECRET_KEY,
+          returnUrl: env.APP_URL ? `${env.APP_URL}/#/billing` : 'https://app.integritystudio.ai/#/billing',
+        });
       }
       if (subPath === '/api-keys' && request.method === 'POST') {
         return handleCreateApiKey(request, orgId, machineRouteOpts);
