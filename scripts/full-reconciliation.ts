@@ -51,7 +51,7 @@ interface DbResult {
 const EnvSchema = z.object({
   STRIPE_SECRET_KEY: z.string().regex(/^sk_(test|live)_/, 'must start with sk_test_ or sk_live_'),
   SUPABASE_URL: z.string().url(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().regex(/^eyJ/, 'must be a JWT (expected to start with eyJ)'),
 });
 
 const SupabaseErrorSchema = z.object({
@@ -59,7 +59,7 @@ const SupabaseErrorSchema = z.object({
   code: z.string().optional(),
 });
 
-const OrgRowSchema = z.array(z.object({ id: z.string().uuid() }));
+const OrgRowSchema = z.array(z.object({ id: z.string().uuid() })).min(1);
 
 // ---------------------------------------------------------------------------
 // Price → plan mapping
@@ -99,6 +99,15 @@ function mapStripeStatusToBillingStatus(status: Stripe.Subscription.Status): Bil
 // Supabase HTTP client (minimal — avoids SDK dependency in scripts)
 // ---------------------------------------------------------------------------
 
+/** Parse response body safely, returning undefined if JSON is malformed. */
+async function parseJsonSafe(resp: Response): Promise<unknown> {
+  try {
+    return await resp.json();
+  } catch {
+    return undefined;
+  }
+}
+
 function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
   return {
     'apikey': serviceRoleKey,
@@ -130,9 +139,11 @@ async function supabaseUpsert(
   );
 
   if (!resp.ok) {
-    const body = await resp.json();
+    const body = await parseJsonSafe(resp);
     const parseResult = SupabaseErrorSchema.safeParse(body);
-    const message = parseResult.success ? parseResult.data.message : `HTTP ${resp.status}`;
+    const message = parseResult.success
+      ? parseResult.data.message
+      : `HTTP ${resp.status}: ${JSON.stringify(body)}`;
     return { ok: false, error: message };
   }
 
@@ -154,9 +165,11 @@ async function supabaseDelete(
   });
 
   if (!resp.ok) {
-    const body = await resp.json();
+    const body = await parseJsonSafe(resp);
     const parseResult = SupabaseErrorSchema.safeParse(body);
-    const message = parseResult.success ? parseResult.data.message : `HTTP ${resp.status}`;
+    const message = parseResult.success
+      ? parseResult.data.message
+      : `HTTP ${resp.status}: ${JSON.stringify(body)}`;
     return { ok: false, error: message };
   }
 
@@ -174,19 +187,18 @@ async function supabaseLookupOrgId(
   );
 
   if (!resp.ok) {
-    const body = await resp.json();
+    const body = await parseJsonSafe(resp);
     const parseResult = SupabaseErrorSchema.safeParse(body);
-    const message = parseResult.success ? parseResult.data.message : `HTTP ${resp.status}`;
+    const message = parseResult.success
+      ? parseResult.data.message
+      : `HTTP ${resp.status}: ${JSON.stringify(body)}`;
     return { error: message };
   }
 
-  const orgsResult = OrgRowSchema.safeParse(await resp.json());
+  const body = await parseJsonSafe(resp);
+  const orgsResult = OrgRowSchema.safeParse(body);
   if (!orgsResult.success) {
-    return { error: `Unexpected org lookup response: ${orgsResult.error.message}` };
-  }
-
-  if (orgsResult.data.length === 0) {
-    return { error: `No org found for stripe_customer_id ${stripeCustomerId}` };
+    return { error: `Unexpected org lookup response: ${orgsResult.error.flatten().formErrors[0] ?? JSON.stringify(body)}` };
   }
 
   return { orgId: orgsResult.data[0].id };
