@@ -1,5 +1,6 @@
 import { ok, notFound } from '../../lib/http';
 import { handleMe } from './routes/me';
+import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus } from './routes/orgs';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -22,6 +23,29 @@ export default {
         supabaseUrl: env.SUPABASE_URL,
         serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
       });
+    }
+
+    const routeOpts = {
+      jwtSecret: env.SUPABASE_JWT_SECRET,
+      supabaseUrl: env.SUPABASE_URL,
+      serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+    };
+
+    if (pathname === '/v1/orgs' && request.method === 'GET') {
+      return handleListOrgs(request, routeOpts);
+    }
+
+    const orgMatch = pathname.match(/^\/v1\/orgs\/([^/]+)(\/.*)?$/);
+    if (orgMatch) {
+      const orgId = orgMatch[1];
+      const subPath = orgMatch[2] ?? '';
+
+      if (subPath === '/dashboard' && request.method === 'GET') {
+        return handleOrgDashboard(request, orgId, routeOpts);
+      }
+      if (subPath === '/billing-status' && request.method === 'GET') {
+        return handleOrgBillingStatus(request, orgId, routeOpts);
+      }
     }
 
     return notFound('Not found');
