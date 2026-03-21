@@ -834,7 +834,9 @@ async function simulateSync(ctx: MockDOContext, request: Request): Promise<Respo
   state.entitlements = body.entitlements;
 
   if (body.resetCounters) {
-    state.counters = {};
+    for (const key of Object.keys(state.counters)) {
+      state.counters[key] = 0;
+    }
     state.concurrentJobs = 0;
   }
 
@@ -847,8 +849,21 @@ async function simulateSync(ctx: MockDOContext, request: Request): Promise<Respo
   });
 }
 
+function createDefaultState(): QuotaState {
+  return {
+    quotaVersion: 0,
+    plan: 'free',
+    billingPeriodStart: '',
+    billingPeriodEnd: '',
+    entitlements: {},
+    counters: {},
+    concurrentJobs: 0,
+    lastFlushedAt: 0,
+  };
+}
+
 async function simulateSnapshot(ctx: MockDOContext): Promise<Response> {
-  const state = await ctx.storage.get<QuotaState>('quota_state') || createMockState();
+  const state = await ctx.storage.get<QuotaState>('quota_state') || createDefaultState();
 
   const snapshot: Record<
     string,
