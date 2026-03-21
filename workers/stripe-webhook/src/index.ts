@@ -4,12 +4,24 @@ import { createSupabaseAdmin } from './supabase';
 import { handleCheckoutSessionCompleted } from './handlers/checkout';
 import { handleSubscriptionUpdated, handleSubscriptionDeleted } from './handlers/subscription';
 import { handleInvoicePaid, handleInvoicePaymentFailed } from './handlers/invoice';
-import type { StripeEvent, HandlerResult } from '../../lib/types';
+import type { StripeEvent, HandlerResult, PlanKey } from '../../lib/types';
 
 export interface Env {
   STRIPE_WEBHOOK_SECRET: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
+  /** JSON object mapping Stripe price IDs to plan keys, e.g. '{"price_123":"growth"}' */
+  STRIPE_PRICE_TO_PLAN_JSON?: string;
+}
+
+function parsePriceToPlan(jsonStr: string | undefined): Record<string, PlanKey> {
+  if (!jsonStr) return {};
+  try {
+    return JSON.parse(jsonStr) as Record<string, PlanKey>;
+  } catch {
+    console.warn('STRIPE_PRICE_TO_PLAN_JSON is not valid JSON; price-to-plan mapping disabled');
+    return {};
+  }
 }
 
 async function handleWebhook(request: Request, env: Env): Promise<Response> {
@@ -38,6 +50,7 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   }
 
   const db = createSupabaseAdmin(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  const priceToPlan = parsePriceToPlan(env.STRIPE_PRICE_TO_PLAN_JSON);
 
   // Idempotency guard: skip events already processed to handle Stripe retries safely.
   const guardResult = await db.isEventProcessed(event.id);
@@ -185,7 +198,10 @@ async function runReconciliation(env: Env): Promise<void> {
           console.error(`Failed to resolve dead letter ${dl.id} for event ${dl.stripe_event_id}:`, resolveResult.error);
         }
       } else {
-        await db.failDeadLetter(dl.id, dl.retry_count, dl.max_retries, result.error);
+        const failResult = await db.failDeadLetter(dl.id, dl.retry_count, dl.max_retries, result.error);
+        if (!failResult.ok) {
+          console.error(`Failed to increment retry count for dead letter ${dl.id}:`, failResult.error);
+        }
       }
     } catch (err) {
       console.error(`Reconciliation error for dead letter ${dl.id}:`, err);
