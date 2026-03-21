@@ -41,6 +41,24 @@ export interface BootstrapResponse {
   };
 }
 
+export type ApiKeyStatus = 'active' | 'revoked' | 'expired';
+export type ApiKeyTier = 'new' | 'free' | 'growth' | 'enterprise';
+
+export interface ApiKey extends Record<string, unknown> {
+  id: string;
+  user_id: string;
+  organization_id: string;
+  prefix: string;
+  hash: string;
+  name: string;
+  tier: ApiKeyTier;
+  status: ApiKeyStatus;
+  expires_at: string | null;
+  last_used_at: string | null;
+  created_at: string;
+  revoked_at: string | null;
+}
+
 export interface StripeEvent {
   id: string;
   type: string;
