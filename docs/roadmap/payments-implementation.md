@@ -1,12 +1,12 @@
-## Status: Phase 1-4 Substantially Complete
+## Status: Phase 1-4 COMPLETE
 
-**Last Updated:** 2026-03-20 | **Session Focus:** Quota Integration (T26-T27), Sender-Worker UI, Security Hardening
-**Build Status:** ✅ All tests passing (2440+ tests, ~94% coverage)
+**Last Updated:** 2026-03-20 | **Session Focus:** Usage Ledger Ingestion (V01) & Monthly Aggregation (V03)
+**Build Status:** ✅ All tests passing (2523+ tests, ~94% coverage)
 
 - **Phase 1 (Sender-Worker UI):** ✅ COMPLETE — AuthPage, ProvisionPage, SenderHealthPage, JWT provisioning flow, HMAC-SHA256 signing, CORS preflight
 - **Phase 2 (SaaS Infra):** ✅ COMPLETE — Supabase schema (29 tables, RLS, triggers), Auth0 identity integration, Stripe webhooks, Worker API gateway, Durable Objects per-org quota
 - **Phase 3 (Bootstrap + Webhook Workers):** ✅ COMPLETE — Bootstrap worker (JWT verify → org/membership/entitlements/usage context), Stripe webhook worker (signature verify → subscription sync), shared Zod validation schemas, shared HTTP utilities (CORS, JSON parsing, request/response helpers)
-- **Phase 4 (Database + API Gateway):** ✅ SUBSTANTIALLY COMPLETE — Full API gateway routes (`GET /v1/me`, `GET /v1/orgs`, `GET /v1/orgs/:id/dashboard`, `GET /v1/orgs/:id/billing-status`, `GET /v1/orgs/:id/usage/summary`, `GET /v1/orgs/:id/entitlements`, `POST/POST /v1/orgs/:id/api-keys` with create/revoke); ✅ Durable Objects per-org quota fully wired into request handler (`enforceOrgQuota()` middleware, fail-open logic, rate-limit headers); ✅ 25 quota integration tests passing; ✅ JWT issuer validation (V-02), timing-safe HMAC comparisons (H19); **remaining: usage ledger ingestion & aggregation, Flutter dashboard UI**
+- **Phase 4 (Database + API Gateway):** ✅ COMPLETE — Full API gateway routes; ✅ V01 (Usage Ledger Ingestion): POST /v1/ingest/events with JWT/API key auth, Zod validation, daily rollup via waitUntil, 83 passing tests; ✅ V03 (Monthly Aggregation): rollupMonthlyBucket with per-metric breakdown, weighted latency, 9 passing tests; ✅ Durable Objects per-org quota fully wired; ✅ JWT issuer validation (V-02), timing-safe HMAC comparisons (H19); **remaining: Flutter dashboard UI**
 
 ---
 
