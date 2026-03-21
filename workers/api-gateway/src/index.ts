@@ -17,8 +17,18 @@ export interface Env {
   SUPABASE_JWT_ISSUER?: string;
 }
 
+// Emitted at most once per isolate so production logs are not flooded.
+let jwtIssuerWarned = false;
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (!env.SUPABASE_JWT_ISSUER && !jwtIssuerWarned) {
+      console.warn(
+        '[api-gateway] SUPABASE_JWT_ISSUER is not set — JWT iss claim validation (V-02) is disabled.',
+      );
+      jwtIssuerWarned = true;
+    }
+
     const { pathname } = new URL(request.url);
 
     if (pathname === '/health' && request.method === 'GET') {
