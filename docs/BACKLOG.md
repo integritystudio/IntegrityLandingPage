@@ -44,7 +44,7 @@ Implement authenticated dashboard with org switching, billing status, usage summ
 - `lib/widgets/sections/dashboard_section.dart`
 - `lib/services/dashboard_service.dart` (API client wrapper)
 
-**Status:** In progress — Bootstrap flow complete: `BootstrapResponse` models, `ProvisioningService.bootstrap()`, org context shown on ProvisionPage after provisioning (7 tests). Remaining: org switcher, billing display, usage charts, entitlements grid.
+**Status:** In progress — Bootstrap flow complete; usage summary display (step 3) implemented in commits 55c4a86, e066900: `UsageSummaryPage` at `/usage`, `DashboardService.fetchUsageSummary`, progress bar + per-metric breakdown. Remaining: org switcher, billing link, Stripe portal, real-time polling, entitlements grid.
 
 ---
 
