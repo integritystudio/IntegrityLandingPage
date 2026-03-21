@@ -45,11 +45,10 @@ export async function rollupDailyBucket(
   });
 
   if (!result.ok) {
-    console.error('[aggregation] usage_events query failed', result.error);
+    throw new Error(`[aggregation] usage_events query failed: ${String(result.error)}`);
   }
 
-  const events: UsageEventRow[] =
-    result.ok && Array.isArray(result.data) ? result.data : [];
+  const events: UsageEventRow[] = Array.isArray(result.data) ? result.data : [];
 
   const aggregates = new Map<string, BucketAggregate>();
   for (const event of events) {

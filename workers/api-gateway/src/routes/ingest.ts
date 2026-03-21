@@ -1,4 +1,4 @@
-import { forbidden, unauthorized } from '../../../lib/http';
+import { forbidden, unauthorized, unprocessableEntity, serverError, json } from '../../../lib/http';
 import { requireBearerToken, safeParseJson } from '../../../lib/http/request';
 import { verifyJwt } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
@@ -71,9 +71,9 @@ function validateBody(data: unknown): { ok: true; value: IngestEventBody } | { o
       metric_key: d.metric_key,
       quantity,
       source: source as EventSource,
-      route: typeof d.route === 'string' ? d.route : undefined,
-      status_code: typeof d.status_code === 'number' ? d.status_code : undefined,
-      latency_ms: typeof d.latency_ms === 'number' ? d.latency_ms : undefined,
+      route: d.route as string | undefined,
+      status_code: d.status_code as number | undefined,
+      latency_ms: d.latency_ms as number | undefined,
       metadata: d.metadata && typeof d.metadata === 'object' && !Array.isArray(d.metadata)
         ? d.metadata as Record<string, unknown>
         : undefined,
@@ -147,10 +147,7 @@ export async function handleIngestEvent(
 
   const validation = validateBody(bodyResult.data);
   if (!validation.ok) {
-    return new Response(JSON.stringify({ error: validation.error }), {
-      status: 422,
-      headers: { 'content-type': 'application/json' },
-    });
+    return unprocessableEntity(validation.error);
   }
 
   const body = validation.value;
@@ -177,18 +174,15 @@ export async function handleIngestEvent(
   });
 
   if (!insertResult.ok) {
-    return new Response(JSON.stringify({ error: 'Failed to store usage event' }), {
-      status: 500,
-      headers: { 'content-type': 'application/json' },
-    });
+    return serverError('Failed to store usage event');
   }
 
-  const rollup = rollupDailyBucket(body.org_id, bucketDate, sb)
-    .catch(err => console.error('[ingest] rollup failed', err));
-  if (waitUntil) waitUntil(rollup);
+  if (waitUntil) {
+    waitUntil(
+      rollupDailyBucket(body.org_id, bucketDate, sb)
+        .catch(err => console.error('[ingest] rollup failed', err)),
+    );
+  }
 
-  return new Response(JSON.stringify({ ok: true, request_id: requestId }), {
-    status: 202,
-    headers: { 'content-type': 'application/json' },
-  });
+  return json({ ok: true, request_id: requestId }, { status: 202 });
 }

@@ -133,4 +133,17 @@ describe('rollupDailyBucket', () => {
     expect(result.events_processed).toBe(1);
     expect(result.buckets_updated).toBe(0);
   });
+
+  it('throws when usage_events query fails', async () => {
+    const sb = {
+      query: vi.fn().mockResolvedValue({ ok: false, error: 'DB connection error' }),
+      insert: vi.fn(),
+      update: vi.fn(),
+      upsert: vi.fn(),
+      rpc: vi.fn(),
+    };
+    await expect(rollupDailyBucket('org-1', '2026-03-20', sb as any)).rejects.toThrow(
+      'usage_events query failed',
+    );
+  });
 });
