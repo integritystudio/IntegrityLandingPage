@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '../../lib/supabase';
 import type { UsageFlushResult } from '../../lib/types/usage';
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+// Capped to avoid unbounded memory usage; high-volume orgs should use a DB-side RPC rollup.
+const MAX_EVENTS_PER_ROLLUP = 10_000;
+
 interface UsageEventRow extends Record<string, unknown> {
   organization_id: string;
   metric_key: string;
@@ -28,7 +32,7 @@ export async function rollupDailyBucket(
   sb: SupabaseClient,
 ): Promise<UsageFlushResult> {
   const periodStart = new Date(`${date}T00:00:00.000Z`);
-  const periodEnd = new Date(periodStart.getTime() + 24 * 60 * 60 * 1000);
+  const periodEnd = new Date(periodStart.getTime() + MS_PER_DAY);
 
   const result = await sb.query<UsageEventRow>('usage_events', {
     select: 'organization_id, metric_key, quantity, latency_ms',
@@ -37,7 +41,12 @@ export async function rollupDailyBucket(
       { column: 'created_at', operator: 'gte', value: periodStart.toISOString() },
       { column: 'created_at', operator: 'lt', value: periodEnd.toISOString() },
     ],
+    limit: MAX_EVENTS_PER_ROLLUP,
   });
+
+  if (!result.ok) {
+    console.error('[aggregation] usage_events query failed', result.error);
+  }
 
   const events: UsageEventRow[] =
     result.ok && Array.isArray(result.data) ? result.data : [];
@@ -71,14 +80,8 @@ export async function rollupDailyBucket(
 
   let bucketsUpdated = 0;
   if (buckets.length > 0) {
-    const upsertResult = await sb.upsert(
-      'usage_buckets_daily',
-      buckets,
-      'organization_id,bucket_date,metric_key',
-    );
-    if (upsertResult.ok) {
-      bucketsUpdated = buckets.length;
-    }
+    const upsertResult = await sb.upsert('usage_buckets_daily', buckets, 'organization_id,bucket_date,metric_key');
+    if (upsertResult.ok) bucketsUpdated = buckets.length;
   }
 
   return {

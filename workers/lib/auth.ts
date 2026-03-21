@@ -54,11 +54,12 @@ export async function verifyJwt(
     return { ok: false, error: unauthorized('Invalid JWT format') };
   }
 
+  const { payload } = parseResult;
+  const parts = token.split('.');
+  const encoder = new TextEncoder();
+
   // Verify signature before claims — avoids leaking claim structure to attacker-crafted tokens.
   try {
-    const parts = token.split('.');
-    const encoder = new TextEncoder();
-
     const key = await crypto.subtle.importKey(
       'raw',
       encoder.encode(jwtSecret),
@@ -83,14 +84,12 @@ export async function verifyJwt(
   }
 
   // Claims validation.
-  const { payload } = parseResult;
-
   const now = Math.floor(Date.now() / 1000);
-  if (typeof payload.exp !== 'number' || payload.exp < now) {
+  if (payload.exp < now) {
     return { ok: false, error: unauthorized('JWT expired') };
   }
 
-  if (opts.issuerUrl !== undefined && payload.iss !== opts.issuerUrl) {
+  if (opts.issuerUrl != null && payload.iss !== opts.issuerUrl) {
     return { ok: false, error: unauthorized('JWT issuer mismatch') };
   }
 

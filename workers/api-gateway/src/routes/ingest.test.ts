@@ -70,6 +70,18 @@ const makeRequest = (body: unknown, token: string) =>
     body: JSON.stringify(body),
   });
 
+const makeMockSb = (overrides: Partial<{
+  query: ReturnType<typeof vi.fn>;
+  insert: ReturnType<typeof vi.fn>;
+  upsert: ReturnType<typeof vi.fn>;
+}> = {}) => ({
+  query: overrides.query ?? vi.fn().mockResolvedValue({ ok: true, data: [makeMembership()] }),
+  insert: overrides.insert ?? vi.fn().mockResolvedValue({ ok: true, data: null }),
+  update: vi.fn(),
+  upsert: overrides.upsert ?? vi.fn().mockResolvedValue({ ok: true, data: null }),
+  rpc: vi.fn(),
+});
+
 describe('POST /v1/ingest/events', () => {
   it('returns 401 when no auth header', async () => {
     const req = new Request('https://api.test/v1/ingest/events', { method: 'POST' });
@@ -79,13 +91,7 @@ describe('POST /v1/ingest/events', () => {
 
   it('returns 422 when body is missing required fields', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = {
-      query: vi.fn().mockResolvedValue({ ok: true, data: [makeMembership()] }),
-      insert: vi.fn(),
-      update: vi.fn(),
-      upsert: vi.fn().mockResolvedValue({ ok: true, data: null }),
-      rpc: vi.fn(),
-    };
+    const mockSb = makeMockSb();
     const req = makeRequest({ org_id: ORG_ID }, token); // missing metric_key
     const res = await handleIngestEvent(req, makeOpts(mockSb));
     expect(res.status).toBe(422);
@@ -93,13 +99,7 @@ describe('POST /v1/ingest/events', () => {
 
   it('returns 403 when JWT user is not a member', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = {
-      query: vi.fn().mockResolvedValue({ ok: true, data: [] }), // no membership
-      insert: vi.fn(),
-      update: vi.fn(),
-      upsert: vi.fn(),
-      rpc: vi.fn(),
-    };
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [] }) });
     const req = makeRequest(validBody(), token);
     const res = await handleIngestEvent(req, makeOpts(mockSb));
     expect(res.status).toBe(403);
@@ -107,13 +107,7 @@ describe('POST /v1/ingest/events', () => {
 
   it('returns 202 and request_id for valid JWT ingest', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = {
-      query: vi.fn().mockResolvedValue({ ok: true, data: [makeMembership()] }),
-      insert: vi.fn().mockResolvedValue({ ok: true, data: null }),
-      update: vi.fn(),
-      upsert: vi.fn().mockResolvedValue({ ok: true, data: null }),
-      rpc: vi.fn(),
-    };
+    const mockSb = makeMockSb();
     const req = makeRequest(validBody(), token);
     const res = await handleIngestEvent(req, makeOpts(mockSb));
     expect(res.status).toBe(202);
@@ -124,13 +118,7 @@ describe('POST /v1/ingest/events', () => {
 
   it('inserts event with correct fields', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = {
-      query: vi.fn().mockResolvedValue({ ok: true, data: [makeMembership()] }),
-      insert: vi.fn().mockResolvedValue({ ok: true, data: null }),
-      update: vi.fn(),
-      upsert: vi.fn().mockResolvedValue({ ok: true, data: null }),
-      rpc: vi.fn(),
-    };
+    const mockSb = makeMockSb();
     const payload = { ...validBody(), latency_ms: 120, status_code: 200 };
     const req = makeRequest(payload, token);
     await handleIngestEvent(req, makeOpts(mockSb));
@@ -151,13 +139,7 @@ describe('POST /v1/ingest/events', () => {
   it('returns 202 for valid API key ingest', async () => {
     const secret = 'testsecret32charsminimumvalue000';
     const apiKeyRow = await makeApiKeyRow();
-    const mockSb = {
-      query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }),
-      insert: vi.fn().mockResolvedValue({ ok: true, data: null }),
-      update: vi.fn(),
-      upsert: vi.fn().mockResolvedValue({ ok: true, data: null }),
-      rpc: vi.fn(),
-    };
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
     const req = makeRequest(validBody(), `int_live_abc12345_${secret}`);
     const res = await handleIngestEvent(req, makeOpts(mockSb));
     expect(res.status).toBe(202);
@@ -166,13 +148,7 @@ describe('POST /v1/ingest/events', () => {
   it('returns 403 when API key belongs to different org', async () => {
     const secret = 'testsecret32charsminimumvalue000';
     const apiKeyRow = await makeApiKeyRow('different-org-id-0000000000000');
-    const mockSb = {
-      query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }),
-      insert: vi.fn(),
-      update: vi.fn(),
-      upsert: vi.fn(),
-      rpc: vi.fn(),
-    };
+    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
     const req = makeRequest(validBody(), `int_live_abc12345_${secret}`);
     const res = await handleIngestEvent(req, makeOpts(mockSb));
     expect(res.status).toBe(403);
@@ -180,13 +156,7 @@ describe('POST /v1/ingest/events', () => {
 
   it('returns 500 when insert fails', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = {
-      query: vi.fn().mockResolvedValue({ ok: true, data: [makeMembership()] }),
-      insert: vi.fn().mockResolvedValue({ ok: false, error: 'DB error' }),
-      update: vi.fn(),
-      upsert: vi.fn(),
-      rpc: vi.fn(),
-    };
+    const mockSb = makeMockSb({ insert: vi.fn().mockResolvedValue({ ok: false, error: 'DB error' }) });
     const req = makeRequest(validBody(), token);
     const res = await handleIngestEvent(req, makeOpts(mockSb));
     expect(res.status).toBe(500);
@@ -194,13 +164,7 @@ describe('POST /v1/ingest/events', () => {
 
   it('calls waitUntil with rollup promise when provided', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = {
-      query: vi.fn().mockResolvedValue({ ok: true, data: [makeMembership()] }),
-      insert: vi.fn().mockResolvedValue({ ok: true, data: null }),
-      update: vi.fn(),
-      upsert: vi.fn().mockResolvedValue({ ok: true, data: null }),
-      rpc: vi.fn(),
-    };
+    const mockSb = makeMockSb();
     const waitUntil = vi.fn();
     const req = makeRequest(validBody(), token);
     await handleIngestEvent(req, makeOpts(mockSb), waitUntil);

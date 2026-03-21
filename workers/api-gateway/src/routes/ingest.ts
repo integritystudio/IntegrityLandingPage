@@ -4,12 +4,18 @@ import { verifyJwt } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership } from '../../../lib/types';
-import type { AuthResult } from '../../../lib/types/handler-options';
 import { rollupDailyBucket } from '../aggregation';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_SOURCES = ['api', 'ingest', 'job', 'internal', 'migration'] as const;
+const METRIC_KEY_MAX_LENGTH = 128;
+const LATENCY_MS_MAX = 300_000; // 5 minutes ceiling
 type EventSource = typeof VALID_SOURCES[number];
+
+type IngestAuth =
+  | { ok: true; type: 'jwt'; sub: string; keyId: null }
+  | { ok: true; type: 'api_key'; userId: string; organizationId: string; keyId: string }
+  | { ok: false; error: Response };
 
 interface IngestEventBody {
   org_id: string;
@@ -40,22 +46,22 @@ function validateBody(data: unknown): { ok: true; value: IngestEventBody } | { o
   if (typeof d.org_id !== 'string' || !UUID_RE.test(d.org_id)) {
     return { ok: false, error: 'org_id must be a valid UUID' };
   }
-  if (typeof d.metric_key !== 'string' || d.metric_key.length === 0) {
-    return { ok: false, error: 'metric_key is required' };
+  if (typeof d.metric_key !== 'string' || d.metric_key.length === 0 || d.metric_key.length > METRIC_KEY_MAX_LENGTH) {
+    return { ok: false, error: `metric_key is required and must be <= ${METRIC_KEY_MAX_LENGTH} chars` };
   }
-  const quantity = d.quantity === undefined ? 1 : d.quantity;
+  const quantity = d.quantity ?? 1;
   if (typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity < 1) {
     return { ok: false, error: 'quantity must be a positive integer' };
   }
-  const source = d.source === undefined ? 'api' : d.source;
+  const source = d.source ?? 'api';
   if (!VALID_SOURCES.includes(source as EventSource)) {
     return { ok: false, error: `source must be one of: ${VALID_SOURCES.join(', ')}` };
   }
   if (d.status_code !== undefined && (typeof d.status_code !== 'number' || d.status_code < 100 || d.status_code > 599)) {
     return { ok: false, error: 'status_code must be 100–599' };
   }
-  if (d.latency_ms !== undefined && (typeof d.latency_ms !== 'number' || d.latency_ms < 0)) {
-    return { ok: false, error: 'latency_ms must be a non-negative number' };
+  if (d.latency_ms !== undefined && (typeof d.latency_ms !== 'number' || d.latency_ms < 0 || d.latency_ms > LATENCY_MS_MAX)) {
+    return { ok: false, error: `latency_ms must be 0–${LATENCY_MS_MAX}` };
   }
 
   return {
@@ -63,7 +69,7 @@ function validateBody(data: unknown): { ok: true; value: IngestEventBody } | { o
     value: {
       org_id: d.org_id,
       metric_key: d.metric_key,
-      quantity: quantity as number,
+      quantity,
       source: source as EventSource,
       route: typeof d.route === 'string' ? d.route : undefined,
       status_code: typeof d.status_code === 'number' ? d.status_code : undefined,
@@ -79,7 +85,7 @@ async function resolveAuth(
   request: Request,
   opts: IngestHandlerOptions,
   sb: SupabaseClient,
-): Promise<AuthResult> {
+): Promise<IngestAuth> {
   const tokenResult = requireBearerToken(request);
   if (!tokenResult.ok) return tokenResult;
 
@@ -89,25 +95,24 @@ async function resolveAuth(
   if (parsedKey.ok) {
     const keyResult = await verifyApiKey(token, opts.hmacSecret, sb);
     if (!keyResult.ok) return keyResult;
-    return { ok: true, type: 'api_key', userId: keyResult.userId, organizationId: keyResult.organizationId };
+    return { ok: true, type: 'api_key', userId: keyResult.userId, organizationId: keyResult.organizationId, keyId: keyResult.apiKey.id };
   }
 
   const jwtResult = await verifyJwt(token, opts.jwtSecret, { issuerUrl: opts.jwtIssuerUrl });
   if (!jwtResult.ok) return jwtResult;
   if (!jwtResult.payload.sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
-  return { ok: true, type: 'jwt', sub: jwtResult.payload.sub };
+  return { ok: true, type: 'jwt', sub: jwtResult.payload.sub, keyId: null };
 }
 
 async function assertOrgAccess(
-  auth: AuthResult & { ok: true },
+  auth: IngestAuth & { ok: true },
   orgId: string,
   sb: SupabaseClient,
 ): Promise<{ ok: true } | { ok: false; error: Response }> {
   if (auth.type === 'api_key') {
-    if (auth.organizationId !== orgId) {
-      return { ok: false, error: forbidden('API key does not belong to this organization') };
-    }
-    return { ok: true };
+    return auth.organizationId === orgId
+      ? { ok: true }
+      : { ok: false, error: forbidden('API key does not belong to this organization') };
   }
 
   const result = await sb.query<OrgMembership>('organization_memberships', {
@@ -154,12 +159,12 @@ export async function handleIngestEvent(
 
   const requestId = crypto.randomUUID();
   const now = new Date().toISOString();
-  const bucketDate = now.slice(0, 10); // YYYY-MM-DD
+  const bucketDate = now.slice(0, 10);
 
   const insertResult = await sb.insert('usage_events', {
     organization_id: body.org_id,
     user_id: auth.type === 'jwt' ? auth.sub : null,
-    api_key_id: null,
+    api_key_id: auth.keyId,
     metric_key: body.metric_key,
     quantity: body.quantity,
     route: body.route ?? null,
@@ -178,10 +183,9 @@ export async function handleIngestEvent(
     });
   }
 
-  const rollup = rollupDailyBucket(body.org_id, bucketDate, sb);
-  if (waitUntil) {
-    waitUntil(rollup);
-  }
+  const rollup = rollupDailyBucket(body.org_id, bucketDate, sb)
+    .catch(err => console.error('[ingest] rollup failed', err));
+  if (waitUntil) waitUntil(rollup);
 
   return new Response(JSON.stringify({ ok: true, request_id: requestId }), {
     status: 202,
