@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** V02 & Health Monitoring Complete; T25, H3, H4, M40, M41, M42, L20, L21 migrated to v1.2 (8 items); 47+ items in v1.2; 1 remaining design-decision item (T28)
+**Last Updated:** 2026-03-21 | **Phase:** V02 & Health Monitoring Complete; OTEL Implementation (L22-L25) migrated to v1.2 (4 items); 51+ items in v1.2; 1 remaining design-decision item (T28)
 
 ---
 
@@ -214,24 +214,6 @@ These issues require **server-side HTTP response header configuration** and cann
 ---
 
 ## Open Items
-
-### OTEL Implementation (Session 2026-03-21)
-
-#### L22: Type safety for makeOpts test helper
-
-**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21) | **Status:** ✅ Done (ce4c563)
-
-#### L23: Rate-limit headers not forwarded on OTEL success response
-
-**Priority:** P3 | **Source:** code-reviewer (session 2026-03-21) | **Status:** ✅ Done (e743c68)
-
-#### L24: start_time_ms lacks upper bound validation
-
-**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21) | **Status:** ✅ Done (32658b9)
-
-#### L25: OTEL_INGEST_ROUTE path duplicated between files
-
-**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21) | **Status:** ✅ Done (2aa30eb)
 
 ## Payment Processor Security Remediation
 

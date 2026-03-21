@@ -154,6 +154,29 @@ export const IngestOtelRequestSchema = z.object({
 export type IngestOtelRequest = z.infer<typeof IngestOtelRequestSchema>;
 
 /**
+ * OTEL span metadata stored in usage event
+ * Denormalized span data for telemetry analysis
+ */
+export const IngestOtelMetadataSchema = z.object({
+  span_count: z.number().int().nonnegative(),
+  spans: z.array(OtelSpanSchema),
+});
+
+export type IngestOtelMetadata = z.infer<typeof IngestOtelMetadataSchema>;
+
+/**
+ * Ingest OTEL response (fire-and-forget)
+ * Includes span count for client quota tracking
+ */
+export const IngestOtelResponseSchema = z.object({
+  ok: z.literal(true),
+  request_id: z.string().uuid(),
+  span_count: z.number().int().positive(),
+});
+
+export type IngestOtelResponse = z.infer<typeof IngestOtelResponseSchema>;
+
+/**
  * Usage flush operation (periodic aggregation)
  * Moves event data from usage_events into usage_buckets_daily and monthly rollups
  */

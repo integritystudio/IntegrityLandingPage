@@ -864,4 +864,72 @@ Extended L20 error sanitization to all `DashboardService` read-endpoint methods.
 - **Coverage:** All 33 dashboard service tests passing (100% of test suite)
 - **Commit:** `15da535`
 
+## OTEL Implementation (Session 2026-03-21)
+
+### L22: Type Safety for makeOpts Test Helper
+
+**Priority:** P4 | **Completed:** 2026-03-21
+
+Added type safety to the `makeOpts` test helper to catch configuration errors at compile time.
+
+- **Issue:** `makeOpts` test helper accepted any object, masking configuration errors that would only surface at runtime
+  - Reduced test effectiveness for catching invalid SupabaseClient configurations
+- **Fix:** Typed `makeOpts` parameter as `SupabaseClient | undefined` to enforce correct fixture setup
+  - Prevents tests from accidentally passing malformed options
+  - Catches initialization errors early in test setup phase
+- **Impact:** Improved test infrastructure reliability; helper now validates its own inputs
+- **Tests:** Updated test suite to use correctly-typed options
+- **Commit:** `ce4c563`
+
+### L23: Rate-Limit Headers Not Forwarded on OTEL Success Response
+
+**Priority:** P3 | **Completed:** 2026-03-21
+
+Fixed rate-limit headers missing from successful OTEL ingest responses, breaking client quota tracking.
+
+- **Issue:** `/v1/ingest/otel` endpoint returned rate-limit headers only on errors (4xx/5xx), not on successful (200) responses
+  - Clients could not track remaining quota after successful submissions
+  - Inconsistent with REST API patterns (headers should always be present)
+- **Fix:** Extracted `applyRateLimitHeaders` helper to apply headers uniformly across all response paths
+  - Success path (200): headers applied before response return
+  - Error paths (4xx/5xx): headers applied consistently
+  - Tested boundary conditions: rate limit at 0, 1, and n remaining
+- **Tests:** Added boundary tests for rate-limit state transitions
+  - Verifies headers present on both success and error responses
+- **Impact:** Clients now have full quota visibility; enables better load-shedding strategies
+- **Commits:** `e743c68`, `5e5d2c4` (helper extraction + boundary tests)
+
+### L24: start_time_ms Lacks Upper Bound Validation
+
+**Priority:** P4 | **Completed:** 2026-03-21
+
+Added upper bound validation to OTEL span `start_time_ms` to reject clearly invalid timestamps.
+
+- **Issue:** `OtelSpanSchema` accepted any positive integer for `start_time_ms`, allowing timestamps far in the future
+  - Invalid data could corrupt quota accounting and telemetry analysis
+  - No defense against malformed client submissions
+- **Fix:** Added `.refine()` constraint to `OtelSpanSchema` requiring `start_time_ms <= now() + 1 second`
+  - Allows 1-second clock skew tolerance for client time sync issues
+  - Rejects timestamps more than 1 second in the future
+  - Applied consistently to all span submissions
+- **Tests:** Validation tests verify acceptance of current/past times and rejection of far-future times
+- **Impact:** Protects telemetry pipeline from malformed timestamps; improves data quality
+- **Commit:** `32658b9`
+
+### L25: OTEL_INGEST_ROUTE Path Duplicated Between Files
+
+**Priority:** P4 | **Completed:** 2026-03-21
+
+Eliminated string duplication of OTEL ingest route path by exporting constant.
+
+- **Issue:** `/v1/ingest/otel` route path string appeared in multiple files (route handler + tests)
+  - Risk of path drift if one location updated but others missed
+  - Harder to change endpoint path in future
+- **Fix:** Exported `OTEL_INGEST_ROUTE` constant from `lib/` shared module
+  - Route handler imports and uses constant instead of inline string
+  - Tests import same constant; ensures consistency
+  - Single source of truth for route path
+- **Impact:** Reduced maintenance burden; prevents route path regressions
+- **Commit:** `2aa30eb`
+
 ---
