@@ -171,6 +171,7 @@ export async function handleIngestOtel(
   const orgId = keyResult.organizationId;
 
   // Enforce org quota before writing. Fail-open when doNamespace is absent (e.g., tests).
+  let rateLimitHeaders: Record<string, string> = {};
   if (opts.doNamespace) {
     const quota = await enforceOrgQuota(orgId, {
       doNamespace: opts.doNamespace,
@@ -178,6 +179,7 @@ export async function handleIngestOtel(
       serviceRoleKey: opts.serviceRoleKey,
     });
     if (!quota.ok) return quota.response;
+    rateLimitHeaders = quota.rateLimitHeaders;
   }
 
   const requestId = crypto.randomUUID();
@@ -210,5 +212,9 @@ export async function handleIngestOtel(
     );
   }
 
-  return json({ ok: true, request_id: requestId, span_count: spans.length }, { status: 202 });
+  const response = json({ ok: true, request_id: requestId, span_count: spans.length }, { status: 202 });
+  if (Object.keys(rateLimitHeaders).length === 0) return response;
+  const headers = new Headers(response.headers);
+  for (const [k, v] of Object.entries(rateLimitHeaders)) headers.set(k, v);
+  return new Response(response.body, { status: 202, headers });
 }
