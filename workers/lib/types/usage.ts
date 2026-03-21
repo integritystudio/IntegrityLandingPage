@@ -131,7 +131,10 @@ export const OtelSpanSchema = z.object({
   trace_id: z.string().min(1).max(64),
   span_id: z.string().min(1).max(32),
   name: z.string().min(1).max(256),
-  start_time_ms: z.number().int().nonnegative(),
+  start_time_ms: z.number().int().nonnegative().refine(
+    v => v <= Date.now() + 86_400_000,
+    { message: 'start_time_ms must not be more than 1 day in the future' },
+  ),
   duration_ms: z.number().int().nonnegative(),
   status: z.enum(['ok', 'error', 'unset']).default('unset'),
   attributes: z.record(
