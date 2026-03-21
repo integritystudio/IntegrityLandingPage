@@ -89,7 +89,7 @@ void main() {
     });
   });
 
-  group('PasswordPolicy (L21: shared constants)', () {
+  group('PasswordPolicy', () {
     test('minLength is less than half of maxLength', () {
       expect(PasswordPolicy.minLength, lessThan(PasswordPolicy.maxLength / 2));
     });
