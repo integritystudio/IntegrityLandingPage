@@ -5,8 +5,8 @@ import '../config/content/constants.dart';
 import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
-import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
+import '../widgets/common/error_card.dart';
 import '../widgets/common/containers.dart';
 import 'billing_status_page.dart';
 import 'entitlements_page.dart';
@@ -180,7 +180,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 if (_isLoading)
                   const Center(child: CircularProgressIndicator())
                 else if (_errorMessage != null)
-                  _ErrorCard(message: _errorMessage!, onRetry: _fetchOrgs)
+                  ErrorCard(message: _errorMessage!, onRetry: _fetchOrgs)
                 else if (_orgs.isEmpty)
                   Text(
                     'No organizations found.',
@@ -283,36 +283,6 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ErrorCard extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _ErrorCard({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        border: Border.all(color: AppColors.gray700),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            message,
-            style: AppTypography.bodyMD.copyWith(color: AppColors.error),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          OutlineButton(text: 'Retry', onPressed: onRetry),
-        ],
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
+import '../widgets/common/error_card.dart';
 
 /// Arguments passed to BillingStatusPage via GoRouter state.extra.
 class BillingStatusArgs {
@@ -120,7 +121,7 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 if (_errorMessage != null)
-                  _ErrorCard(
+                  ErrorCard(
                     message: _errorMessage!,
                     onRetry: _fetchBillingStatus,
                   )
@@ -311,54 +312,6 @@ class _InfoRow extends StatelessWidget {
           style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
         ),
       ],
-    );
-  }
-}
-
-class _ErrorCard extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _ErrorCard({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        border: Border.all(color: AppColors.gray700),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(LucideIcons.alertCircle, size: 16, color: AppColors.error),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  message,
-                  style: AppTypography.bodySM.copyWith(color: AppColors.error),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: OutlineButton(
-                  onPressed: onRetry,
-                  text: 'Try again',
-                  icon: LucideIcons.rotateCw,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }
