@@ -3,6 +3,8 @@ import { createSupabaseClient } from '../../../lib/supabase';
 type ComponentStatus = 'healthy' | 'degraded' | 'unhealthy';
 
 const PAGERDUTY_EVENTS_URL = 'https://events.pagerduty.com/v2/enqueue';
+const PAGERDUTY_DEDUP_KEY = 'api-gateway-health';
+const DB_CHECK_TIMEOUT_MS = 5_000;
 
 interface HealthCheckResult {
   database: ComponentStatus;
@@ -53,19 +55,18 @@ export async function handleHealthCheck(
 }
 
 async function checkDatabase(supabaseUrl: string, serviceRoleKey: string): Promise<ComponentStatus> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 5_000);
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('db health check timeout')), DB_CHECK_TIMEOUT_MS),
+  );
   try {
     const sb = createSupabaseClient(supabaseUrl, serviceRoleKey);
-    const result = await sb.query('organizations', {
-      select: 'id',
-      limit: 1,
-    });
+    const result = await Promise.race([
+      sb.query('organizations', { select: 'id', limit: 1 }),
+      timeout,
+    ]);
     return result.ok ? 'healthy' : 'degraded';
   } catch {
     return 'unhealthy';
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -86,7 +87,7 @@ async function firePagerDutyAlert(pdKey: string, result: HealthCheckResult): Pro
   const body = {
     routing_key: pdKey,
     event_action: 'trigger',
-    dedup_key: 'api-gateway-health',
+    dedup_key: PAGERDUTY_DEDUP_KEY,
     payload: {
       summary: `api-gateway health check failed: ${unhealthyComponents}`,
       severity: 'critical',
@@ -97,11 +98,14 @@ async function firePagerDutyAlert(pdKey: string, result: HealthCheckResult): Pro
   };
 
   try {
-    await fetch(PAGERDUTY_EVENTS_URL, {
+    const res = await fetch(PAGERDUTY_EVENTS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    if (!res.ok) {
+      console.warn('[health] PagerDuty alert rejected:', res.status);
+    }
   } catch {
     // Fire-and-forget: alerting failure must not affect the health response.
   }
