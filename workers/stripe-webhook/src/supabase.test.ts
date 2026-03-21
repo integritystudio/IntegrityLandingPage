@@ -123,6 +123,7 @@ describe('upsertSubscription', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    mockUpdate.mockResolvedValue({ ok: true }); // soft-delete step succeeds by default
   });
 
   it('returns { ok: true } and calls upsert with correct conflict key', async () => {
@@ -162,6 +163,30 @@ describe('upsertSubscription', () => {
     const result = await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', 'active');
 
     expect(result).toEqual({ ok: false, error: 'Duplicate key violation' });
+  });
+
+  it('soft-deletes prior subscriptions with a different ID before upsert', async () => {
+    mockUpsert.mockResolvedValue({ ok: true });
+
+    await db.upsertSubscription('org-1', 'sub_new', 'price_xyz', 'active');
+
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'subscriptions',
+      expect.objectContaining({ status: 'canceled' }),
+      [
+        { column: 'organization_id', operator: 'eq', value: 'org-1' },
+        { column: 'stripe_subscription_id', operator: 'neq', value: 'sub_new' },
+      ],
+    );
+  });
+
+  it('returns { ok: false } when soft-delete update fails', async () => {
+    mockUpdate.mockResolvedValue({ ok: false, error: 'DB connection error' });
+
+    const result = await db.upsertSubscription('org-1', 'sub_new', 'price_xyz', 'active');
+
+    expect(result).toEqual({ ok: false, error: 'DB connection error' });
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 });
 

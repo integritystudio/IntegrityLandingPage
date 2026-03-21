@@ -52,6 +52,9 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
    * - Plan upgrades/downgrades reuse the same stripe_subscription_id and only change
    *   stripe_price_id. The upsert correctly overwrites the price on conflict — no special
    *   handling is needed for rapid price changes; the final event's price wins.
+   * - Free→paid upgrades may issue a new stripe_subscription_id. Any prior subscription
+   *   for this org with a different subscription ID is soft-deleted (status='canceled')
+   *   before upsert to prevent multi-row state in the subscriptions table.
    */
   async function upsertSubscription(
     orgId: string,
@@ -60,6 +63,18 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     status: string,
   ): Promise<VoidResult> {
     const now = new Date().toISOString();
+    // Soft-delete prior subscriptions with a different ID (free→paid upgrade path).
+    const cancelResult = await sb.update(
+      'subscriptions',
+      { status: 'canceled', updated_at: now },
+      [
+        { column: 'organization_id', operator: 'eq', value: orgId },
+        { column: 'stripe_subscription_id', operator: 'neq', value: stripeSubscriptionId },
+      ],
+    );
+    if (!cancelResult.ok) {
+      return { ok: false, error: cancelResult.error };
+    }
     const result = await sb.upsert(
       'subscriptions',
       {

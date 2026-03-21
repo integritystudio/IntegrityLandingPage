@@ -288,7 +288,7 @@ V02 Flutter Dashboard UI has 3 remaining components:
 
 **File:** `workers/stripe-webhook/src/supabase.ts:38–58`
 
-**Status:** Open — requires design decision on which conflict key strategy fits the billing model.
+**Status:** ✅ Done — Option 1 implemented. `upsertSubscription` now soft-deletes (status='canceled') any existing subscription for the org where `stripe_subscription_id` differs before the upsert. Two new tests added covering cancellation and soft-delete failure propagation (61 tests passing).
 
 ---
 
@@ -307,7 +307,7 @@ This creates inconsistency in design system usage. If the card style changes, de
 
 **Files:** `lib/pages/quota_status_page.dart`, `lib/pages/provision_page.dart` (email badge, _buildOrgContextCard)
 
-**Status:** ✅ Done — all three card containers already use `AppDecorations.card(borderColor: AppColors.gray700)`. Remaining `BoxDecoration` instances are in `_PlanBadge`, `_StatusBadge`, and plan key badge — intentional colored badges, not card containers.
+**Status:** ✅ Done — commit 5786939. All three card containers migrated to `AppDecorations.card(borderColor: AppColors.gray700)`. Remaining `BoxDecoration` instances are intentional colored badges, not card containers.
 
 ---
 
