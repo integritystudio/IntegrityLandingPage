@@ -175,7 +175,7 @@ void main() {
 
       expect(result, isA<EntitlementsError>());
       final err = (result as EntitlementsError).error;
-      expect(err, isNot('Forbidden'));
+      expect(err, isNot(contains('Forbidden')));
       expect(err, contains('permission'));
     });
 
@@ -379,6 +379,34 @@ void main() {
 
       expect(result, isA<QuotaStatusError>());
       expect((result as QuotaStatusError).error, contains('Server error'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // fetchOrgList error responses (L23)
+  // ---------------------------------------------------------------------------
+
+  group('fetchOrgList — error responses (L23)', () {
+    test('returns sanitized auth message on 401 — does not surface raw API string', () async {
+      mockDio.mockGetResponse({'error': 'Unauthorized'}, statusCode: 401);
+
+      final result = await DashboardService.fetchOrgList(jwt: 'expired-jwt');
+
+      expect(result, isA<OrgListError>());
+      final err = (result as OrgListError).error;
+      expect(err, isNot(contains('Unauthorized')));
+      expect(err, contains('log in'));
+    });
+
+    test('returns sanitized permission message on 403 — does not surface raw API string', () async {
+      mockDio.mockGetResponse({'error': 'Forbidden'}, statusCode: 403);
+
+      final result = await DashboardService.fetchOrgList(jwt: 'jwt');
+
+      expect(result, isA<OrgListError>());
+      final err = (result as OrgListError).error;
+      expect(err, isNot(contains('Forbidden')));
+      expect(err, contains('permission'));
     });
   });
 
