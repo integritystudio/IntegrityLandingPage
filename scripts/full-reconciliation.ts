@@ -201,7 +201,12 @@ async function supabaseLookupOrgId(
     return { error: `Unexpected org lookup response: ${orgsResult.error.flatten().formErrors[0] ?? JSON.stringify(body)}` };
   }
 
-  return { orgId: orgsResult.data[0].id };
+  // Zod schema enforces .uuid() so id is non-empty; guard is defence-in-depth.
+  const orgId = orgsResult.data[0].id;
+  if (!orgId) {
+    return { error: `Empty org ID returned for stripe_customer_id: ${stripeCustomerId}` };
+  }
+  return { orgId };
 }
 
 // ---------------------------------------------------------------------------
