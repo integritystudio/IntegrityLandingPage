@@ -2,6 +2,7 @@
  * Quota service: Client for Durable Object quota checks
  */
 
+import { z } from 'zod';
 import { createSupabaseClient } from '../../../lib/supabase';
 import {
   QuotaCheckResponseSchema,
@@ -96,7 +97,7 @@ export async function getQuotaStatus(
     throw new Error(`Status check failed: ${response.statusText}`);
   }
 
-  return (await response.json()) as Record<string, unknown>;
+  return z.record(z.unknown()).parse(await response.json());
 }
 
 /**
@@ -141,7 +142,7 @@ export async function enforceOrgQuota(
 
   if (!quota.allowed) {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (quota.remainingMinute !== undefined) {
+    if (quota.remainingMinute != null) {
       headers['X-RateLimit-Remaining-Minute'] = String(quota.remainingMinute);
     }
     if (quota.remainingMonthly != null) {
