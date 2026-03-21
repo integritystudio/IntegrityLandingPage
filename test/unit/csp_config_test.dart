@@ -2,19 +2,31 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Tests for Content Security Policy configuration in web/index.html.
+/// Tests for Content Security Policy configuration in web/index.html
+/// and web/_headers.
 ///
 /// Validates that CSP directives are properly configured for security
 /// monitoring and compliance.
+///
+/// Note: report-uri and frame-ancestors are only effective in HTTP response
+/// headers, not meta tags. They are configured in web/_headers (Cloudflare
+/// Pages) using the modern Reporting API (Report-To / Reporting-Endpoints).
 void main() {
   late String indexHtml;
+  late String headersFile;
 
   setUpAll(() {
-    final file = File('web/index.html');
-    if (!file.existsSync()) {
+    final htmlFile = File('web/index.html');
+    if (!htmlFile.existsSync()) {
       fail('web/index.html not found');
     }
-    indexHtml = file.readAsStringSync();
+    indexHtml = htmlFile.readAsStringSync();
+
+    final hFile = File('web/_headers');
+    if (!hFile.existsSync()) {
+      fail('web/_headers not found');
+    }
+    headersFile = hFile.readAsStringSync();
   });
 
   group('CSP Configuration', () {
@@ -26,24 +38,30 @@ void main() {
       );
     });
 
-    test('has report-uri directive for CSP violation reporting', () {
+    test('has Sentry reporting endpoint configured in _headers', () {
+      // report-uri only works in HTTP headers, not meta tags.
+      // The Reporting API (Report-To / Reporting-Endpoints) is used instead,
+      // configured in web/_headers for Cloudflare Pages deployments.
       expect(
-        indexHtml.contains('report-uri'),
+        headersFile.contains('ingest.sentry.io') ||
+            headersFile.contains('ingest.us.sentry.io'),
         isTrue,
-        reason: 'CSP should have report-uri directive for violation reporting',
+        reason:
+            '_headers should configure a Sentry ingest endpoint for CSP violation reporting',
       );
     });
 
-    test('report-uri points to Sentry security endpoint', () {
+    test('Sentry reporting endpoint in _headers uses valid DSN key', () {
       // Sentry security endpoint format: https://*.ingest.sentry.io/api/PROJECT_ID/security/
       // sentry_key is a 32-character hex string (public DSN key)
-      final reportUriPattern = RegExp(
-        r'report-uri\s+https://[a-z0-9]+\.ingest\.(us\.)?sentry\.io/api/\d+/security/\?sentry_key=[a-f0-9]{32}',
+      final sentryPattern = RegExp(
+        r'https://[a-z0-9]+\.ingest\.(us\.)?sentry\.io/api/\d+/security/\?sentry_key=[a-f0-9]{32}',
       );
       expect(
-        reportUriPattern.hasMatch(indexHtml),
+        sentryPattern.hasMatch(headersFile),
         isTrue,
-        reason: 'report-uri should point to Sentry security endpoint with 32-char hex key',
+        reason:
+            '_headers should contain a Sentry security endpoint URL with a valid 32-char hex DSN key',
       );
     });
 
