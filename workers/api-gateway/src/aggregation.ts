@@ -167,6 +167,8 @@ export async function rollupMonthlyBucket(
     console.warn(`[aggregation] rollupMonthlyBucket: bucket query hit limit (${MAX_DAILY_BUCKETS_PER_MONTH}) for org=${orgId} yearMonth=${yearMonth}; aggregation may be incomplete`);
   }
 
+  // Math.trunc guards against float values from faulty DB migrations; MonthlyUsageSummarySchema requires int().
+  // The truncated request_count is used as the latency weight to keep all arithmetic consistent.
   const aggregates = new Map<string, MonthlyMetricAgg>();
   for (const bucket of buckets) {
     const existing = aggregates.get(bucket.metric_key) ?? {
@@ -175,31 +177,29 @@ export async function rollupMonthlyBucket(
       weighted_latency_sum: 0,
       weighted_latency_count: 0,
     };
-    // Math.trunc guards against float values from faulty DB migrations; MonthlyUsageSummarySchema requires int().
-    // Use the truncated count as the latency weight to keep all arithmetic consistent.
-    const truncatedRequestCount = Math.trunc(bucket.request_count);
+    const reqCount = Math.trunc(bucket.request_count);
     aggregates.set(bucket.metric_key, {
       total_quantity: existing.total_quantity + Math.trunc(bucket.total_quantity),
-      request_count: existing.request_count + truncatedRequestCount,
+      request_count: existing.request_count + reqCount,
       weighted_latency_sum: existing.weighted_latency_sum +
-        (bucket.avg_latency_ms !== null ? bucket.avg_latency_ms * truncatedRequestCount : 0),
+        (bucket.avg_latency_ms !== null ? bucket.avg_latency_ms * reqCount : 0),
       weighted_latency_count: existing.weighted_latency_count +
-        (bucket.avg_latency_ms !== null ? truncatedRequestCount : 0),
+        (bucket.avg_latency_ms !== null ? reqCount : 0),
     });
   }
 
   const now = new Date().toISOString();
   let total_quantity = 0;
   let total_requests = 0;
-  let total_weighted_latency = 0;
-  let total_latency_count = 0;
+  let weightedLatencySum = 0;
+  let weightedLatencyCount = 0;
   const metric_breakdown: Record<string, { quantity: number; requests: number; avg_latency_ms: number | null }> = {};
 
   for (const [metric_key, agg] of aggregates.entries()) {
     total_quantity += agg.total_quantity;
     total_requests += agg.request_count;
-    total_weighted_latency += agg.weighted_latency_sum;
-    total_latency_count += agg.weighted_latency_count;
+    weightedLatencySum += agg.weighted_latency_sum;
+    weightedLatencyCount += agg.weighted_latency_count;
     metric_breakdown[metric_key] = {
       quantity: agg.total_quantity,
       requests: agg.request_count,
@@ -216,7 +216,7 @@ export async function rollupMonthlyBucket(
     total_requests,
     // Cross-metric weighted mean — meaningful only for homogeneous metric sets.
     // Prefer metric_breakdown[key].avg_latency_ms for per-metric analysis.
-    avg_latency_ms: total_latency_count > 0 ? total_weighted_latency / total_latency_count : null,
+    avg_latency_ms: weightedLatencyCount > 0 ? weightedLatencySum / weightedLatencyCount : null,
     metric_breakdown,
     created_at: now,
     updated_at: now,
