@@ -29,18 +29,45 @@ export type UsageEvent = z.infer<typeof UsageEventSchema>;
 
 /**
  * Request to ingest a usage event
- * Minimal shape for edge worker ingestion
+ * Minimal shape for edge worker ingestion (without org_id)
  */
 export const UsageEventIngestionSchema = z.object({
-  metric_key: z.string().min(1),
+  metric_key: z.string().min(1).max(128),
   quantity: z.number().int().positive().default(1),
   route: z.string().min(1).optional(),
   status_code: z.number().int().min(100).max(599).optional(),
-  latency_ms: z.number().int().nonnegative().optional(),
+  latency_ms: z.number().int().min(0).max(300_000).optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 
 export type UsageEventIngestion = z.infer<typeof UsageEventIngestionSchema>;
+
+/**
+ * Ingest request payload with organization context
+ * Used by POST /v1/ingest/events endpoint
+ */
+export const IngestEventRequestSchema = z.object({
+  org_id: z.string().uuid(),
+  metric_key: z.string().min(1).max(128),
+  quantity: z.number().int().positive().default(1),
+  source: UsageEventSourceSchema.default('api'),
+  route: z.string().min(1).optional(),
+  status_code: z.number().int().min(100).max(599).optional(),
+  latency_ms: z.number().int().min(0).max(300_000).optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export type IngestEventRequest = z.infer<typeof IngestEventRequestSchema>;
+
+/**
+ * Ingest response (fire-and-forget)
+ */
+export const IngestEventResponseSchema = z.object({
+  ok: z.boolean(),
+  request_id: z.string().uuid(),
+});
+
+export type IngestEventResponse = z.infer<typeof IngestEventResponseSchema>;
 
 /**
  * Daily usage bucket (aggregated metrics)

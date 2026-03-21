@@ -122,6 +122,8 @@ export type {
   UsageEvent,
   UsageEventSource,
   UsageEventIngestion,
+  IngestEventRequest,
+  IngestEventResponse,
   MonthlyUsageSummary,
   UsageQueryResponse,
   UsageFlushResult,
