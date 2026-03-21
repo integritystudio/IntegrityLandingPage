@@ -289,7 +289,7 @@ async function requireOrgMembership(orgId: string, userJWT: string, env: Env) {
 - `workers/middleware/org-auth.ts` (new)
 - `workers/routes/api.ts` (integrate middleware)
 
-**Status:** Deferred — Requires middleware layer, testing, and endpoint audit.
+**Status:** Done — All org-scoped routes already enforce membership/access before returning data. `handleOrgDashboard` and `handleOrgBillingStatus` check via `loadUserMemberships`; `handleUsageSummary` and `handleOrgEntitlements` use `assertOrgAccess` (JWT membership or API key org match); `handleCreateApiKey` and `handleRevokeApiKey` use `assertOrgMembership`. All paths have 403 tests covering the IDOR scenario. Endpoint audit (2026-03-20) confirms full coverage across all 6 org-scoped routes.
 
 ---
 
@@ -598,7 +598,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **File:** `workers/api-gateway/src/index.ts:58–70`
 
-**Status:** Done — JWT verified via `resolveJwt()` before `enforceOrgQuota()` at lines 75–76; comment explains ordering rationale.
+**Status:** Done — `requireBearerToken` check added before `enforceOrgQuota` in the orgMatch block; completely unauthenticated callers return 401 before the DO is touched. Full auth (JWT or API key) remains delegated to route handlers so machine routes accepting API keys are not broken (commit aa4abf6).
 
 ---
 
