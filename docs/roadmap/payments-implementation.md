@@ -1,12 +1,12 @@
-## Status: Phase 1-4 COMPLETE
+## Status: Phase 1-4 COMPLETE; V02 Core Dashboard UI FEATURE-COMPLETE
 
-**Last Updated:** 2026-03-21 | **Session Focus:** Billing status display completion; code review findings documented in backlog
-**Build Status:** ✅ All tests passing (2594+ tests, ~94% coverage)
+**Last Updated:** 2026-03-21 | **Session Focus:** V02 Flutter Dashboard feature-complete (5/8 components); H1 Zod schemas + code review cycle; threshold constants + concurrency guards
+**Build Status:** ✅ All tests passing (2630+ tests, ~94% coverage)
 
 - **Phase 1 (Sender-Worker UI):** ✅ COMPLETE — AuthPage, ProvisionPage, SenderHealthPage, JWT provisioning flow, HMAC-SHA256 signing, CORS preflight
 - **Phase 2 (SaaS Infra):** ✅ COMPLETE — Supabase schema (29 tables, RLS, triggers), Auth0 identity integration, Stripe webhooks, Worker API gateway, Durable Objects per-org quota
 - **Phase 3 (Bootstrap + Webhook Workers):** ✅ COMPLETE — Bootstrap worker (JWT verify → org/membership/entitlements/usage context), Stripe webhook worker (signature verify → subscription sync), shared Zod validation schemas, shared HTTP utilities (CORS, JSON parsing, request/response helpers)
-- **Phase 4 (Database + API Gateway):** ✅ COMPLETE — Full API gateway routes; ✅ V01 (Usage Ledger Ingestion): POST /v1/ingest/events with JWT/API key auth, Zod validation, daily rollup via waitUntil, 83 passing tests; ✅ V03 (Monthly Aggregation): rollupMonthlyBucket with per-metric breakdown, weighted latency, 9 passing tests; ✅ Durable Objects per-org quota fully wired; ✅ JWT issuer validation (V-02), timing-safe HMAC comparisons (H19); ✅ V02 (Flutter Dashboard): BillingStatusPage + UsageSummaryPage with DashboardService (commits 979ab7c, 60fd1ff, 55c4a86, e066900); code review findings documented (80b288a); remaining: org switcher, entitlements grid, Stripe portal link, real-time polling, usage charts
+- **Phase 4 (Database + API Gateway):** ✅ COMPLETE — Full API gateway routes; ✅ V01 (Usage Ledger Ingestion): POST /v1/ingest/events with JWT/API key auth, Zod validation, daily rollup via waitUntil, 83 passing tests; ✅ V03 (Monthly Aggregation): rollupMonthlyBucket with per-metric breakdown, weighted latency, 9 passing tests; ✅ Durable Objects per-org quota fully wired; ✅ JWT issuer validation (V-02), timing-safe HMAC comparisons (H19); ✅ H1 (Zod Stripe Schemas): Stripe event payload validation schemas, replace as-any casts (commit 29a71d1, code review fixes in e3ff7f3); ✅ V02 (Flutter Dashboard) FEATURE-COMPLETE: 5/8 steps done: ✅ BillingStatusPage (step 2, commits 979ab7c, 60fd1ff); ✅ UsageSummaryPage + daily bar chart (step 3, commits 55c4a86, e066900, c78bbf1, 809496a); ✅ QuotaStatusPage (step 3 extended, commits 9f93f67, e3ff7f3); ✅ EntitlementsPage (step 4, commit 9f93f67); ✅ real-time polling on UsageSummaryPage (step 6, commits f6581fd, d14280c); code review fixed: threshold constants unified to QuotaThresholds (commit fccc88b), _isFetching guard added to quota/entitlements pages (commit fccc88b); remaining: org switcher (step 1), Stripe portal link (step 5)
 
 ---
 
