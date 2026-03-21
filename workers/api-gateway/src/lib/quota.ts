@@ -109,7 +109,7 @@ export async function getQuotaStatus(
 export async function enforceOrgQuota(
   orgId: string,
   opts: OrgQuotaMiddlewareOptions,
-): Promise<{ ok: true } | { ok: false; response: Response }> {
+): Promise<{ ok: true; rateLimitHeaders: Record<string, string> } | { ok: false; response: Response }> {
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
   const orgResult = await sb.query<OrgPlanRow>('organizations', {
@@ -138,26 +138,27 @@ export async function enforceOrgQuota(
       quotaVersion,
     });
   } catch {
-    // Fail-open: if DO is unavailable, allow request through
-    return { ok: true };
+    // Fail-open: if DO is unavailable, allow request through with no rate limit headers
+    return { ok: true, rateLimitHeaders: {} };
+  }
+
+  const rateLimitHeaders: Record<string, string> = {};
+  if (quota.remainingMinute != null) {
+    rateLimitHeaders['X-RateLimit-Remaining-Minute'] = String(quota.remainingMinute);
+  }
+  if (quota.remainingMonthly != null) {
+    rateLimitHeaders['X-RateLimit-Remaining-Monthly'] = String(quota.remainingMonthly);
   }
 
   if (!quota.allowed) {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (quota.remainingMinute != null) {
-      headers['X-RateLimit-Remaining-Minute'] = String(quota.remainingMinute);
-    }
-    if (quota.remainingMonthly != null) {
-      headers['X-RateLimit-Remaining-Monthly'] = String(quota.remainingMonthly);
-    }
     return {
       ok: false,
       response: new Response(
         JSON.stringify({ error: { message: 'Too Many Requests', reason: quota.reason } }),
-        { status: 429, headers },
+        { status: 429, headers: { 'Content-Type': 'application/json', ...rateLimitHeaders } },
       ),
     };
   }
 
-  return { ok: true };
+  return { ok: true, rateLimitHeaders };
 }

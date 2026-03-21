@@ -103,35 +103,43 @@ export default {
       const quota = await enforceOrgQuota(orgId, quotaOpts);
       if (!quota.ok) return quota.response;
 
+      const withRateLimitHeaders = (response: Response): Response => {
+        const rl = quota.rateLimitHeaders;
+        if (Object.keys(rl).length === 0) return response;
+        const headers = new Headers(response.headers);
+        for (const [k, v] of Object.entries(rl)) headers.set(k, v);
+        return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+      };
+
       if (subPath === '/dashboard' && request.method === 'GET') {
-        return handleOrgDashboard(request, orgId, routeOpts);
+        return withRateLimitHeaders(await handleOrgDashboard(request, orgId, routeOpts));
       }
       if (subPath === '/billing-status' && request.method === 'GET') {
-        return handleOrgBillingStatus(request, orgId, routeOpts);
+        return withRateLimitHeaders(await handleOrgBillingStatus(request, orgId, routeOpts));
       }
       if (subPath === '/usage/summary' && request.method === 'GET') {
-        return handleUsageSummary(request, orgId, machineRouteOpts);
+        return withRateLimitHeaders(await handleUsageSummary(request, orgId, machineRouteOpts));
       }
       if (subPath === '/entitlements' && request.method === 'GET') {
-        return handleOrgEntitlements(request, orgId, machineRouteOpts);
+        return withRateLimitHeaders(await handleOrgEntitlements(request, orgId, machineRouteOpts));
       }
       if (subPath === '/quota/status' && request.method === 'GET') {
-        return handleQuotaStatus(request, orgId, { ...machineRouteOpts, doNamespace: env.QUOTA_DO });
+        return withRateLimitHeaders(await handleQuotaStatus(request, orgId, { ...machineRouteOpts, doNamespace: env.QUOTA_DO }));
       }
       if (subPath === '/billing-portal' && request.method === 'POST') {
-        return handleBillingPortal(request, orgId, {
+        return withRateLimitHeaders(await handleBillingPortal(request, orgId, {
           ...routeOpts,
           stripeSecretKey: env.STRIPE_SECRET_KEY,
           returnUrl: `${env.APP_URL ?? APP_URL_FALLBACK}/#/billing`,
-        });
+        }));
       }
       if (subPath === '/api-keys' && request.method === 'POST') {
-        return handleCreateApiKey(request, orgId, machineRouteOpts);
+        return withRateLimitHeaders(await handleCreateApiKey(request, orgId, machineRouteOpts));
       }
 
       const revokeMatch = subPath.match(/^\/api-keys\/([^/]+)\/revoke$/);
       if (revokeMatch && request.method === 'POST') {
-        return handleRevokeApiKey(request, orgId, revokeMatch[1], machineRouteOpts);
+        return withRateLimitHeaders(await handleRevokeApiKey(request, orgId, revokeMatch[1], machineRouteOpts));
       }
     }
 

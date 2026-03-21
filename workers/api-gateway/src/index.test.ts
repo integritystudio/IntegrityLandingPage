@@ -111,7 +111,7 @@ describe('api-gateway', () => {
     });
 
     it('allows through to route handler when jwt and quota both pass', async () => {
-      vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true });
+      vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true, rateLimitHeaders: {} });
 
       const token = await makeJwt({ sub: 'user-123', email: 'user@example.com' }, JWT_SECRET);
       const res = await worker.fetch(
@@ -127,7 +127,7 @@ describe('api-gateway', () => {
     });
 
     it('allows through (fail-open) when quota DO is unavailable', async () => {
-      vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true });
+      vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true, rateLimitHeaders: {} });
 
       const token = await makeJwt({ sub: 'user-123', email: 'user@example.com' }, JWT_SECRET);
       const res = await worker.fetch(
@@ -139,6 +139,28 @@ describe('api-gateway', () => {
 
       // Quota fail-open → route executes → Supabase unreachable → non-429 response
       expect(res.status).not.toBe(429);
+    });
+
+    it('forwards X-RateLimit-Remaining-Minute and X-RateLimit-Remaining-Monthly on successful org responses', async () => {
+      vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({
+        ok: true,
+        rateLimitHeaders: {
+          'X-RateLimit-Remaining-Minute': '55',
+          'X-RateLimit-Remaining-Monthly': '980',
+        },
+      });
+
+      const token = await makeJwt({ sub: 'user-123', email: 'user@example.com' }, JWT_SECRET);
+      const res = await worker.fetch(
+        makeRequest('GET', '/v1/orgs/org-123/billing-status', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        makeEnv(),
+      );
+
+      // Rate limit headers are forwarded regardless of route handler status
+      expect(res.headers.get('X-RateLimit-Remaining-Minute')).toBe('55');
+      expect(res.headers.get('X-RateLimit-Remaining-Monthly')).toBe('980');
     });
   });
 });
