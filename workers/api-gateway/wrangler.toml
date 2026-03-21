@@ -2,6 +2,25 @@ name = "api-gateway"
 main = "src/index.ts"
 compatibility_date = "2026-03-19"
 
+[env.production]
+routes = [
+  { pattern = "api.integritystudio.ai/v1/*", zone_name = "integritystudio.ai" }
+]
+
+[env.staging]
+routes = [
+  { pattern = "staging-api.integritystudio.ai/v1/*", zone_name = "integritystudio.ai" }
+]
+
+# Durable Objects
+[[durable_objects.bindings]]
+name = "QUOTA_DO"
+class_name = "QuotaDurableObject"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["QuotaDurableObject"]
+
 # Secrets (set via: wrangler secret put <NAME>)
 # SUPABASE_URL
 # SUPABASE_SERVICE_ROLE_KEY

@@ -160,3 +160,26 @@ export const RevokeApiKeyResponseSchema = z.object({
   status: z.literal('revoked'),
   revoked_at: z.string().datetime(),
 });
+
+// Quota Check
+export const QuotaCheckRequestSchema = z.object({
+  orgId: z.string().uuid(),
+  metricKey: z.string(),
+  units: z.number().int().positive(),
+  requestId: z.string(),
+  planKey: PlanKeySchema,
+  quotaVersion: z.number().int(),
+});
+
+export const QuotaCheckResponseSchema = z.object({
+  allowed: z.boolean(),
+  reason: z.enum(['minute_limit', 'monthly_limit', 'feature_disabled']).optional(),
+  remainingMinute: z.number().int().nullable().optional(),
+  remainingMonthly: z.number().int().nullable().optional(),
+});
+
+export const QuotaFlushResultSchema = z.object({
+  orgId: z.string().uuid(),
+  monthlyUsedSinceLastFlush: z.number().int(),
+  flushedAt: z.string().datetime(),
+});

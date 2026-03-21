@@ -3,12 +3,14 @@ import { handleMe } from './routes/me';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus } from './routes/orgs';
 import { handleUsageSummary, handleOrgEntitlements } from './routes/usage';
 import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
+import { QuotaDurableObject } from './durable-objects/quota';
 
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   SUPABASE_JWT_SECRET: string;
   API_KEY_HMAC_SECRET: string;
+  QUOTA_DO: DurableObjectNamespace;
 }
 
 export default {
@@ -72,3 +74,5 @@ export default {
     return notFound('Not found');
   },
 };
+
+export { QuotaDurableObject };

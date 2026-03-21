@@ -1,10 +1,10 @@
-## Status: Phase 1-3 Complete, Phase 4 In Progress
+## Status: Phase 1-4 Substantially Complete
 
 **Last Updated:** 2026-03-20
 - Phase 1 (Sender-Worker UI): ✅ COMPLETE — AuthPage, ProvisionPage, JWT provisioning, workers lib, CORS
 - Phase 2 (SaaS Infra): ✅ COMPLETE — Supabase OAuth, billing schema, Stripe webhooks, Worker API gateway, Durable Objects
 - Phase 3 (Bootstrap + Webhook Workers): ✅ COMPLETE — Bootstrap worker (JWT verify → org context), Stripe webhook worker (signature verify → subscription sync), shared Zod schemas, shared Supabase REST client
-- Phase 4 (Database + API Gateway): 🔄 IN PROGRESS — Supabase schema deployment complete, RLS enabled, triggers/indexes active; next: Durable Objects, API gateway routes, usage ledger, Flutter dashboard
+- Phase 4 (Database + API Gateway): ✅ SUBSTANTIALLY COMPLETE — Supabase schema (29 tables), RLS (14 tables), triggers, indexes; API gateway routes fully implemented (`/v1/me`, `/v1/orgs/*`, `/v1/*/api-keys`); Durable Objects quota exported; remaining: usage ledger ingestion, Flutter dashboard UI
 
 ---
 
@@ -780,38 +780,42 @@ if (job.status === 'pending') {
 
 Internally, you've already described a system using secure Cloudflare tunnels and authentication between many microservices to prevent raw internal API abuse. This Worker layer becomes the public control plane that makes that model consistent.
 
-### Public routes
+### Public routes — ✅ Implemented
 
 ```text
-POST   /bootstrap
-GET    /v1/orgs
-GET    /v1/orgs/:orgId/dashboard
-GET    /v1/orgs/:orgId/usage/summary
-GET    /v1/orgs/:orgId/entitlements
-GET    /v1/orgs/:orgId/billing-status
-POST   /v1/orgs/:orgId/api-keys
-POST   /v1/orgs/:orgId/api-keys/:keyId/revoke
-GET    /v1/me
+GET    /v1/me                                    — Authenticated user context
+GET    /v1/orgs                                  — List user's organizations
+GET    /v1/orgs/:orgId/dashboard                — Org summary (subscription, usage, entitlements)
+GET    /v1/orgs/:orgId/billing-status           — Billing and plan status
+GET    /v1/orgs/:orgId/usage/summary            — Usage metrics and quota state
+GET    /v1/orgs/:orgId/entitlements             — Feature flags and soft/hard limits
+POST   /v1/orgs/:orgId/api-keys                 — Create new API key
+POST   /v1/orgs/:orgId/api-keys/:keyId/revoke   — Revoke existing key
 ```
 
-### Machine/API routes
+**Authentication:** Bearer JWT (from Auth0 or Supabase)
+
+### Machine/API routes — 🔄 In Progress
 
 ```text
-POST   /v1/ingest/events
-POST   /v1/ingest/otel
-POST   /v1/jobs/run
-POST   /v1/evaluate
+POST   /v1/ingest/events                        — Ingest metered usage events
+POST   /v1/ingest/otel                          — OpenTelemetry span ingestion
+POST   /v1/jobs/run                             — Trigger async job (placeholder)
+POST   /v1/evaluate                             — Run policy evaluation (placeholder)
 ```
 
-### Internal routes
+**Authentication:** API key (prefix + secret, org-scoped)
+
+### Internal routes — ✅ Implemented (via separate workers)
 
 ```text
-POST   /internal/stripe/webhook
-POST   /internal/provision/user-created
-POST   /internal/provision/user-updated
-POST   /internal/provision/membership-changed
-POST   /internal/usage/flush
+POST   /internal/stripe/webhook                 — Stripe event subscription sync (stripe webhook worker)
+POST   /internal/provision/user-created         — Bootstrap Worker user provisioning
+POST   /internal/provision/membership-changed   — Bootstrap Worker membership sync
+POST   /internal/usage/flush                    — Usage aggregation flush (scheduled worker)
 ```
+
+**Authentication:** Signed service token (HMAC) or IP allowlist
 
 ## 7. Edge auth and authorization flow
 
@@ -1364,13 +1368,14 @@ Flutter or API client
 10. **Supabase REST client** — Lightweight fetch-based client for edge Workers, query/insert/update/rpc helpers
 11. **Flutter UI refactoring** — StatusResultPage component extraction, TrustBadge improvements, 76-78% code duplication reduction
 12. **Supabase database setup** — 29-table schema, RLS policies (14 tables), `update_timestamp()` triggers, performance indexes, OAuth integration, plans + orgs seeded
+13. **API gateway routes** — `GET /v1/me`, `GET /v1/orgs`, `GET /v1/orgs/:id/dashboard`, `GET /v1/orgs/:id/billing-status`, `GET /v1/orgs/:id/usage/summary`, `GET /v1/orgs/:id/entitlements`, `POST /v1/orgs/:id/api-keys`, `POST /v1/orgs/:id/api-keys/:keyId/revoke`
+14. **Durable Objects quota** — QuotaDurableObject exported, quota namespace binding configured
 
-### Remaining (v1 Phase 4)
+### Remaining (v1 Phase 4+)
 
-1. **Durable Objects** — Per-org quota state machine, checkAndReserve(), flushUsage(), current-minute counters
-2. **API gateway expansion** — Route implementations (`/v1/orgs/:id/...`, `/v1/ingest/...`), API key verification, JWT verification, rate limiting
-3. **Usage ledger** — Event ingestion, daily bucket aggregation, monthly rollups
-4. **Flutter dashboard** — Org switcher, billing status UI, usage summary/charts, entitlements display, complete bootstrap flow
+1. **Usage ledger ingestion & aggregation** — Event ingestion at `/v1/ingest/events`, daily bucket rollup, monthly aggregation
+2. **Flutter dashboard UI** — Org switcher, billing status display, usage summary/charts, entitlements display, complete bootstrap flow
+3. **API gateway completions** — Error handling refinement, rate limiting integration, audit logging for sensitive operations
 
 That sequence supports the internal goal of getting a useful, comprehensible UI in front of non-technical stakeholders while preserving the long-term architecture needed for a sticky recurring SaaS product.
 

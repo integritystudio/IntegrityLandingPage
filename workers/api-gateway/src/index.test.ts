@@ -7,6 +7,7 @@ const makeEnv = (overrides: Partial<Env> = {}): Env => ({
   SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
   SUPABASE_JWT_SECRET: 'jwt-secret-at-least-32-chars-long!!',
   API_KEY_HMAC_SECRET: 'hmac-secret-at-least-32-chars-long!',
+  QUOTA_DO: {} as DurableObjectNamespace,
   ...overrides,
 });
 
@@ -17,9 +18,9 @@ function makeRequest(method: string, path: string, init: RequestInit = {}): Requ
 describe('api-gateway', () => {
   describe('GET /health', () => {
     it('returns 200 with service name', async () => {
-      const res = await worker.fetch(makeRequest('GET', '/health'), makeEnv(), {} as any);
+      const res = await worker.fetch(makeRequest('GET', '/health'), makeEnv());
       expect(res.status).toBe(200);
-      const body = await res.json() as any;
+      const body = (await res.json()) as Record<string, unknown>;
       expect(body.ok).toBe(true);
       expect(body.service).toBe('api-gateway');
     });
@@ -27,7 +28,7 @@ describe('api-gateway', () => {
 
   describe('unknown routes', () => {
     it('returns 404 for unknown path', async () => {
-      const res = await worker.fetch(makeRequest('GET', '/unknown'), makeEnv(), {} as any);
+      const res = await worker.fetch(makeRequest('GET', '/unknown'), makeEnv());
       expect(res.status).toBe(404);
     });
   });
