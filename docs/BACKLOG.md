@@ -2,13 +2,22 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md` and `docs/changelog/1.1/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-20
+**Last Updated:** 2026-03-20 | **Phase:** Sender-Worker UI + Quota Integration Complete
 
 ---
 
 ## Phase 4 Remaining Items (Substantially Complete)
 
-**Status:** Phase 1–4 substantially complete as of 2026-03-20. These items are essential for v1 release completion:
+**Status:** Phase 1–4 substantially complete as of 2026-03-20.
+
+**Completed in this session (2026-03-20):**
+- ✅ Sender-Worker UI Implementation — AuthPage, ProvisionPage, SenderHealthPage with JWT flow (commit 9ea6256)
+- ✅ Quota Durable Object Integration (T26) — Wire quota checks into API gateway routes with fail-open logic (commits bb1d810, d58f382, 3483538)
+- ✅ Quota Integration Tests (T27) — 25 comprehensive tests covering limits, idempotency, plan tiers (commit 6bc3cd8)
+- ✅ Security Fixes — JWT issuer validation (V-02, commit 00bfaaf), timing-safe hash comparisons H19 (commit 0f9cece)
+- ✅ Code Review — 10+ findings addressed; 6 backlog items marked Done (R02, R04, R07, R08, R09, R10)
+
+**Remaining for v1 release:**
 
 ### V01: Usage Ledger Ingestion
 
@@ -638,7 +647,7 @@ Both perform identical hex-to-bytes conversion. This is a maintenance risk: a bu
 - `workers/stripe-webhook/src/verify.ts`
 - `workers/lib/hex-utils.ts` (new)
 
-**Status:** Open
+**Status:** Done — `workers/lib/hex-utils.ts` created; both call sites updated; 7 tests added (commits 2d4df62, 5d00632)
 
 ---
 
@@ -652,7 +661,7 @@ Both perform identical hex-to-bytes conversion. This is a maintenance risk: a bu
 
 **Fix:** Change `!/^[0-9a-f]*$/.test(hex)` to `!/^[0-9a-f]+$/.test(hex)` and add length check `hex.length === 0`.
 
-**Status:** Open
+**Status:** Done — Fixed as part of H19-M1; shared `hexToBytes` in `hex-utils.ts` uses `+` throughout (commits 2d4df62, 5d00632)
 
 ---
 
@@ -666,7 +675,7 @@ Both perform identical hex-to-bytes conversion. This is a maintenance risk: a bu
 
 **Fix:** Reorder to verify signature first, then check expiry, then check issuer.
 
-**Status:** Open
+**Status:** Done — signature verified before exp/iss checks (commits fc69dea, 42faa70)
 
 ---
 
@@ -764,7 +773,7 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 **Alternative approach:** Check an existing "sentinel" org's DO instead of creating a dedicated health-probe DO.
 
-**Status:** Open
+**Status:** ✅ DONE — commits 398545d, e1d3e56. Replaced `idFromName('health-probe')/fetch` with a null-check on the binding. Eliminates per-check DO creation/billing.
 
 ---
 
@@ -792,4 +801,4 @@ This is the standard workaround for expanded Stripe types, but if the Stripe SDK
 
 ---
 
-*Last updated: 2026-03-21 (Security remediation session: 4 critical fixes committed; 10 medium/low issues documented from code review)*
+*Last updated: 2026-03-20 — Phase 4 substantially complete. Quota Durable Object (T22-T27) fully integrated with API gateway routes; sender-worker UI pages (auth, provision, health) implemented; 10+ code review findings from security session documented; 25 quota integration tests passing.*
