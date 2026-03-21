@@ -214,6 +214,14 @@ Deferred security hardening for the two-layer authentication and billing system.
 
 **Status:** Partial — Core health endpoint done. Alerting integration (PagerDuty) deferred.
 
+### L5: Sanitize `auth.email` in ProvisionPage
+
+**Priority:** P3 | **Severity:** Low | **Source:** code-reviewer, bootstrap session 2026-03-21
+
+`lib/pages/provision_page.dart:217` — `widget.auth.email` is rendered directly in a `Text()` widget without passing through `SecurityUtils.sanitizeUserInput()`. While Flutter's `Text` does not evaluate HTML, this is an inconsistency with the sanitization standard applied to other server-sourced fields (`org.name`, `org.planKey`) added in the same session. For defense-in-depth and consistency, wrap the email display with `SecurityUtils.sanitizeUserInput(widget.auth.email)`.
+
+**Status:** Deferred — Low severity, non-blocking.
+
 ---
 
 ---
