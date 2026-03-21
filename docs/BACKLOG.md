@@ -233,9 +233,7 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 **Priority:** P3 | **Source:** session 2026-03-21, code-reviewer post-implementation review
 
-The `billing_admin` success path in the billing portal endpoint test asserts the returned URL but does not verify audit log write count. Regression risk: if a change causes double-writes or no write on the `billing_admin` path, the test would not catch it. -- `workers/api-gateway/src/routes/orgs.test.ts:324`
-
-**Status:** Open — Deferred from L21 implementation (partial assertion gap).
+**Status:** Done — `toHaveBeenCalledTimes(1)` and `CalledWith` assertions added for billing_admin path (commit 15da535).
 
 ---
 
@@ -243,9 +241,7 @@ The `billing_admin` success path in the billing portal endpoint test asserts the
 
 **Priority:** P3 | **Source:** session 2026-03-21, code-reviewer post-implementation review
 
-The L20 fix sanitized `fetchBillingPortalUrl` error messages, but four other methods in `DashboardService` still surface raw `data['error']` strings from API responses, creating an inconsistency. Methods affected: `fetchBillingStatus` (line 384), `fetchUsageSummary` (line 464), `fetchEntitlements` (line 541), `fetchQuotaStatus` (line 619). -- `lib/services/dashboard_service.dart:384,464,541,619`
-
-**Status:** Open — Pre-existing pattern not introduced by L20; represents scope creep from L20 fix.
+**Status:** Done — `_sanitizeReadError` helper added; applied to fetchBillingStatus, fetchUsageSummary, fetchEntitlements, fetchQuotaStatus (commit 15da535).
 
 ---
 
