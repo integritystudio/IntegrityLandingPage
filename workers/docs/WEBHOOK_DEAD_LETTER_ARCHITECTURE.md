@@ -73,6 +73,7 @@ Stripe POST /webhook
 verifyStripeSignature()
   ↓
 isEventProcessed(eventId)         ← idempotency guard
+  ├─ DB error → 500 serverError   ← NOTE: only case where Stripe retry is NOT suppressed
   ├─ already processed → 200 skipped
   └─ not processed → continue
       ↓
@@ -83,6 +84,8 @@ isEventProcessed(eventId)         ← idempotency guard
             └─ ok: true → 200 {processed: true}                            [Success]
 ```
 
+**Note on Stripe retry suppression:** All paths except `isEventProcessed` DB error return HTTP 200. The 500 on idempotency check failure is the sole case where Stripe's built-in retry takes over.
+
 ### Reconciliation cron (every 15 min)
 
 ```
@@ -92,12 +95,15 @@ for each dead letter:
   ↓
   isEventProcessed(stripe_event_id)
     ├─ DB error → skip (fail-closed, no double-process)
-    ├─ processed → resolveDeadLetter()   ← orphan cleanup
+    ├─ processed → resolveDeadLetter()   ← orphan cleanup (e.g. prior resolveDeadLetter failed)
     └─ not processed → handler(event, db)
+          ├─ unknown event_type → abandonDeadLetter() ← removed from retry queue immediately
           ├─ ok: false → failDeadLetter() (retry_count++)              [Path A retry]
           └─ ok: true → logProcessedEvent()
                 ├─ ok: false → continue (retry_count unchanged)        [Path B retry]
-                └─ ok: true → resolveDeadLetter()                      [Resolved]
+                └─ ok: true → resolveDeadLetter()
+                      └─ if resolveDeadLetter fails: leave pending; next run's isEventProcessed
+                         guard detects event as processed and calls resolveDeadLetter again
 ```
 
 ---
