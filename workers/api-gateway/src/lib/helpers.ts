@@ -15,9 +15,13 @@ export interface AuditLogEntry {
 }
 
 export async function writeAuditLog(sb: SupabaseClient, entry: AuditLogEntry): Promise<void> {
-  const result = await sb.insert('audit_log', entry as unknown as Record<string, unknown>);
-  if (!result.ok) {
-    console.error('[audit] Failed to write audit log for action', entry.action, result.error);
+  try {
+    const result = await sb.insert('audit_log', entry as unknown as Record<string, unknown>);
+    if (!result.ok) {
+      console.error('[audit] Failed to write audit log for action', entry.action, result.error);
+    }
+  } catch (e) {
+    console.error('[audit] Exception writing audit log for action', entry.action, e);
   }
 }
 

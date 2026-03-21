@@ -187,6 +187,7 @@ export async function handleBillingPortal(
     return notFound('No billing account found for this organization');
   }
 
+  let sessionUrl: string;
   try {
     const stripe =
       opts._stripeOverride ??
@@ -198,18 +199,19 @@ export async function handleBillingPortal(
       customer: org.stripe_customer_id,
       return_url: opts.returnUrl,
     });
-
-    await writeAuditLog(sb, {
-      organization_id: orgId,
-      action: 'billing_portal.accessed',
-      target_type: 'org',
-      target_id: orgId,
-      metadata: { actor_auth0_id: auth.sub },
-    });
-
-    return ok({ url: session.url });
+    sessionUrl = session.url;
   } catch (e) {
     console.error('[billing-portal] Stripe error:', e);
     return serverError('Failed to create billing portal session');
   }
+
+  await writeAuditLog(sb, {
+    organization_id: orgId,
+    action: 'billing_portal.accessed',
+    target_type: 'org',
+    target_id: orgId,
+    metadata: { actor_auth0_id: auth.sub },
+  });
+
+  return ok({ url: sessionUrl });
 }
