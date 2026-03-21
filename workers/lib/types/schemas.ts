@@ -55,3 +55,108 @@ export const StripeEventSchema = z.object({
     previous_attributes: z.record(z.unknown()).optional(),
   }),
 });
+
+// JWT & Authentication
+export const JwtPayloadSchema = z.object({
+  sub: z.string(),
+  email: z.string().email(),
+  iat: z.number(),
+  exp: z.number(),
+}).passthrough();
+
+export const UserRowSchema = z.object({
+  id: z.string().uuid(),
+  auth0_id: z.string(),
+  email: z.string().email(),
+  name: z.string().nullable(),
+  tier: z.string(),
+  default_organization_id: z.string().uuid().nullable(),
+  created_at: z.string().datetime(),
+});
+
+// API Response Bodies
+export const MeResponseSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string().nullable(),
+  tier: z.string(),
+  default_organization_id: z.string().uuid().nullable(),
+  created_at: z.string().datetime(),
+});
+
+export const ListOrgsResponseSchema = z.object({
+  organizations: z.array(
+    OrganizationSchema.extend({ role: OrgRoleSchema }),
+  ),
+});
+
+export const OrgDashboardResponseSchema = z.object({
+  org: OrganizationSchema,
+  role: OrgRoleSchema,
+  entitlements: z.record(z.union([z.boolean(), z.number(), z.null()])),
+});
+
+export const OrgBillingStatusResponseSchema = z.object({
+  org_id: z.string().uuid(),
+  billing_status: BillingStatusSchema,
+  current_plan: PlanKeySchema,
+  quota_version: z.number(),
+  role: OrgRoleSchema,
+});
+
+// Usage & Buckets
+export const UsageBucketSchema = z.object({
+  organization_id: z.string().uuid(),
+  bucket_date: z.string(),
+  metric_key: z.string(),
+  total_quantity: z.number(),
+  request_count: z.number(),
+  avg_latency_ms: z.number().nullable(),
+});
+
+export const UsageSummaryResponseSchema = z.object({
+  org_id: z.string().uuid(),
+  period_start: z.string(),
+  buckets: z.array(UsageBucketSchema),
+});
+
+export const OrgEntitlementsResponseSchema = z.object({
+  org_id: z.string().uuid(),
+  entitlements: z.record(z.union([z.boolean(), z.number(), z.null()])),
+});
+
+// API Keys
+export const ApiKeyStatusSchema = z.enum(['active', 'revoked', 'expired']);
+export const ApiKeyTierSchema = z.enum(['new', 'free', 'growth', 'enterprise']);
+
+export const ApiKeySchema = z.object({
+  id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  prefix: z.string(),
+  hash: z.string(),
+  name: z.string(),
+  tier: ApiKeyTierSchema,
+  status: ApiKeyStatusSchema,
+  expires_at: z.string().datetime().nullable(),
+  last_used_at: z.string().datetime().nullable(),
+  created_at: z.string().datetime(),
+  revoked_at: z.string().datetime().nullable(),
+});
+
+export const CreateApiKeyResponseSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  prefix: z.string(),
+  tier: ApiKeyTierSchema,
+  status: ApiKeyStatusSchema,
+  expires_at: z.string().datetime().nullable(),
+  created_at: z.string().datetime(),
+  token: z.string(),
+});
+
+export const RevokeApiKeyResponseSchema = z.object({
+  id: z.string().uuid(),
+  status: z.literal('revoked'),
+  revoked_at: z.string().datetime(),
+});

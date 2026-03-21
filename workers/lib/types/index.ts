@@ -2,6 +2,8 @@ export type OrgRole = 'owner' | 'admin' | 'member' | 'billing_admin' | 'viewer';
 export type BillingStatus = 'inactive' | 'active' | 'past_due' | 'canceled';
 export type PlanKey = 'free' | 'growth' | 'enterprise';
 export type OrgMembershipStatus = 'active' | 'invited' | 'suspended';
+export type ApiKeyStatus = 'active' | 'revoked' | 'expired';
+export type ApiKeyTier = 'new' | 'free' | 'growth' | 'enterprise';
 
 export interface Organization {
   id: string;
@@ -41,9 +43,6 @@ export interface BootstrapResponse {
   };
 }
 
-export type ApiKeyStatus = 'active' | 'revoked' | 'expired';
-export type ApiKeyTier = 'new' | 'free' | 'growth' | 'enterprise';
-
 export interface ApiKey extends Record<string, unknown> {
   id: string;
   user_id: string;
@@ -67,4 +66,31 @@ export interface StripeEvent {
     object: Record<string, unknown>;
     previous_attributes?: Record<string, unknown>;
   };
+}
+
+export interface JwtPayload {
+  sub: string;
+  email: string;
+  iat: number;
+  exp: number;
+  [key: string]: unknown;
+}
+
+export interface UserRow {
+  id: string;
+  auth0_id: string;
+  email: string;
+  name: string | null;
+  tier: string;
+  default_organization_id: string | null;
+  created_at: string;
+}
+
+export interface UsageBucket {
+  organization_id: string;
+  bucket_date: string;
+  metric_key: string;
+  total_quantity: number;
+  request_count: number;
+  avg_latency_ms: number | null;
 }
