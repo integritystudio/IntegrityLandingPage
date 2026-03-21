@@ -293,7 +293,7 @@ Currently both increment retry count identically. The cron has no way to disting
 
 **Files:** `workers/stripe-webhook/src/index.ts:130–160`, `workers/reconciliation-cron.ts:50–100`
 
-**Status:** Open — requires categorization design decision.
+**Status:** ✅ Done — Accepted fix option 3: documented both failure paths, retry behavior, and operator visibility trade-off in `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md` (commits 4bf3fff, 4ebe6cb).
 
 ---
 
@@ -323,7 +323,7 @@ This is a low-severity pre-existing assumption: handlers are assumed to be safe 
 
 **Files:** `workers/stripe-webhook/src/index.ts:130–160`, `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md` (new)
 
-**Status:** Open — design decision on documentation vs implementation.
+**Status:** ✅ Done — Accepted fix option 1: documented handler idempotency requirement, indefinite-pending behavior, and 4-step recovery path in `workers/docs/WEBHOOK_DEAD_LETTER_ARCHITECTURE.md` (commits 4bf3fff, 4ebe6cb).
 
 ---
 
