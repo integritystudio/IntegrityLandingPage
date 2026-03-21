@@ -91,7 +91,7 @@ async function supabaseUpsert(
 ): Promise<{ ok: boolean; error?: string }> {
   if (dryRun) return { ok: true };
 
-  const resp = await fetch(`${supabaseUrl}/rest/v1/${table}?on_conflict=${onConflict}`, {
+  const resp = await fetch(`${supabaseUrl}/rest/v1/${table}?on_conflict=${encodeURIComponent(onConflict)}`, {
     method: 'POST',
     headers: {
       'apikey': serviceRoleKey,
@@ -217,9 +217,13 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
 
   console.log(`[reconciliation] Starting full reconciliation${dryRun ? ' (DRY RUN — no changes will be written)' : ''}...`);
 
+  // Collect stripe_customer_id → tier pairs during first pass for entitlement rebuild in second pass
+  const entitlmentsToRebuild: Array<{ stripeCustomerId: string; tier: PlanKey }> = [];
+
   let hasMore = true;
   let startingAfter: string | undefined;
 
+  // First pass: upsert orgs and subscriptions, collect entitlement rebuild targets
   while (hasMore) {
     const customers = await stripe.customers.list({
       limit: 100,
@@ -256,7 +260,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
 
         summary.orgsUpserted++;
 
-        // Upsert subscriptions
+        // Upsert subscriptions and collect entitlement rebuild targets
         const subs = (customer as Stripe.Customer & { subscriptions?: Stripe.ApiList<Stripe.Subscription> }).subscriptions?.data ?? [];
 
         for (const sub of subs) {
@@ -293,14 +297,8 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
 
           summary.subscriptionsUpserted++;
 
-          // Note: entitlement rebuild requires org_id (UUID from organizations table),
-          // not the stripe_customer_id. In dry-run, we log intent. In live mode,
-          // run a follow-up query after all upserts to rebuild entitlements by org_id.
-          if (dryRun) {
-            console.log(`  [dry-run] Would rebuild entitlements for org (stripe_customer_id=${customer.id}, tier=${tier})`);
-          }
-
-          summary.entitlementsRebuilt++;
+          // Collect for entitlement rebuild in second pass
+          entitlmentsToRebuild.push({ stripeCustomerId: customer.id, tier });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -310,6 +308,56 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
 
     hasMore = customers.has_more;
     startingAfter = customers.data[customers.data.length - 1]?.id;
+  }
+
+  // Second pass: rebuild entitlements (requires org_id lookup)
+  if (entitlmentsToRebuild.length > 0) {
+    console.log(`[reconciliation] Phase 2: rebuilding entitlements for ${entitlmentsToRebuild.length} org(s)...`);
+
+    for (const { stripeCustomerId, tier } of entitlmentsToRebuild) {
+      try {
+        // Query org by stripe_customer_id to get org.id (UUID)
+        const orgResp = await fetch(
+          `${supabaseUrl}/rest/v1/organizations?stripe_customer_id=eq.${encodeURIComponent(stripeCustomerId)}&select=id`,
+          {
+            method: 'GET',
+            headers: {
+              'apikey': serviceRoleKey,
+              'Authorization': `Bearer ${serviceRoleKey}`,
+            },
+          },
+        );
+
+        if (!orgResp.ok) {
+          const err = await orgResp.json() as SupabaseError;
+          summary.errors.push(`Failed to lookup org for ${stripeCustomerId}: ${err.message}`);
+          continue;
+        }
+
+        const orgs = await orgResp.json() as Array<{ id: string }>;
+        if (orgs.length === 0) {
+          summary.errors.push(`No org found for stripe_customer_id ${stripeCustomerId}`);
+          continue;
+        }
+
+        const orgId = orgs[0].id;
+
+        if (dryRun) {
+          console.log(`  [dry-run] Would rebuild entitlements for org ${orgId} (tier=${tier})`);
+        } else {
+          const entResult = await provisionEntitlements(supabaseUrl, serviceRoleKey, orgId, tier, dryRun);
+          if (!entResult.ok) {
+            summary.errors.push(`Entitlement rebuild failed for org ${orgId}: ${entResult.error}`);
+            continue;
+          }
+        }
+
+        summary.entitlementsRebuilt++;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        summary.errors.push(`Error rebuilding entitlements for ${stripeCustomerId}: ${message}`);
+      }
+    }
   }
 
   return summary;
