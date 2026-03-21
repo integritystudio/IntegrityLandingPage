@@ -12,6 +12,13 @@ const _senderWorkerUrl = String.fromEnvironment(
   defaultValue: 'https://sender-worker.example.workers.dev',
 );
 
+/// API Gateway endpoint.
+/// Configurable via --dart-define for staging/development.
+const _apiGatewayUrl = String.fromEnvironment(
+  'API_GATEWAY_URL',
+  defaultValue: 'https://api-gateway.example.workers.dev',
+);
+
 /// Provisioning event payload.
 class ProvisioningEvent {
   final String userId;
@@ -79,6 +86,101 @@ class ProvisioningError extends ProvisioningResponse {
   final String error;
 
   const ProvisioningError({required this.error});
+}
+
+/// Bootstrap API response.
+sealed class BootstrapResponse {
+  const BootstrapResponse();
+}
+
+/// Organization from bootstrap response.
+class BootstrapOrg {
+  final String id;
+  final String name;
+  final String role;
+  final String planKey;
+  final String billingStatus;
+
+  const BootstrapOrg({
+    required this.id,
+    required this.name,
+    required this.role,
+    required this.planKey,
+    required this.billingStatus,
+  });
+
+  factory BootstrapOrg.fromJson(Map<String, dynamic> json) => BootstrapOrg(
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        role: json['role'] as String? ?? '',
+        planKey: json['plan_key'] as String? ?? '',
+        billingStatus: json['billing_status'] as String? ?? '',
+      );
+}
+
+/// Feature entitlements from bootstrap response.
+class BootstrapEntitlements {
+  final bool usageDashboard;
+  final bool alerts;
+  final bool complianceSummary;
+  final int monthlyUnits;
+  final int requestsPerMinute;
+
+  const BootstrapEntitlements({
+    required this.usageDashboard,
+    required this.alerts,
+    required this.complianceSummary,
+    required this.monthlyUnits,
+    required this.requestsPerMinute,
+  });
+
+  factory BootstrapEntitlements.fromJson(Map<String, dynamic> json) =>
+      BootstrapEntitlements(
+        usageDashboard: json['usage_dashboard'] as bool? ?? false,
+        alerts: json['alerts'] as bool? ?? false,
+        complianceSummary: json['compliance_summary'] as bool? ?? false,
+        monthlyUnits: json['monthly_units'] as int? ?? 0,
+        requestsPerMinute: json['requests_per_minute'] as int? ?? 0,
+      );
+}
+
+/// Current-period usage snapshot from bootstrap response.
+class BootstrapUsageSnapshot {
+  final int monthToDateUnits;
+  final int currentMinuteRemaining;
+
+  const BootstrapUsageSnapshot({
+    required this.monthToDateUnits,
+    required this.currentMinuteRemaining,
+  });
+
+  factory BootstrapUsageSnapshot.fromJson(Map<String, dynamic> json) =>
+      BootstrapUsageSnapshot(
+        monthToDateUnits: json['month_to_date_units'] as int? ?? 0,
+        currentMinuteRemaining: json['current_minute_remaining'] as int? ?? 0,
+      );
+}
+
+/// Successful bootstrap response.
+class BootstrapSuccess extends BootstrapResponse {
+  final BootstrapOrg activeOrg;
+  final List<BootstrapOrg> organizations;
+  final BootstrapEntitlements entitlements;
+  final BootstrapUsageSnapshot usageSnapshot;
+
+  const BootstrapSuccess({
+    required this.activeOrg,
+    required this.organizations,
+    required this.entitlements,
+    required this.usageSnapshot,
+  });
+}
+
+/// Bootstrap error response.
+class BootstrapError extends BootstrapResponse {
+  final String error;
+
+  const BootstrapError({required this.error});
 }
 
 /// API client for the Sender Worker.
@@ -367,5 +469,111 @@ class ProvisioningService {
 
     // Unreachable, but satisfies the return type
     return false;
+  }
+
+  /// Load org context, entitlements, and usage snapshot from the API Gateway.
+  ///
+  /// Should be called after sign-in with the Auth JWT.
+  /// Retries up to [_maxRetries] times on transient network errors
+  /// with exponential backoff (1s, 2s).
+  static Future<BootstrapResponse> bootstrap({required String jwt}) async {
+    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
+      try {
+        final response = await _dio.post(
+          '$_apiGatewayUrl/bootstrap',
+          options: Options(
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $jwt',
+            },
+            validateStatus: (status) => status != null,
+          ),
+        );
+
+        final data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : const <String, dynamic>{};
+
+        // Retryable server errors (500, 504)
+        if (response.statusCode == HttpStatus.internalServerError.code ||
+            response.statusCode == HttpStatus.gatewayTimeout.code) {
+          if (attempt < _maxRetries) {
+            await retryDelay(Duration(seconds: 1 << attempt));
+            continue;
+          }
+          return const BootstrapError(error: _errorServer);
+        }
+
+        if (response.statusCode == HttpStatus.ok.code) {
+          final orgsRaw = data['organizations'];
+          if (orgsRaw is! List || orgsRaw.isEmpty) {
+            return const BootstrapError(error: _errorUnexpected);
+          }
+          final orgs = orgsRaw
+              .map((o) => BootstrapOrg.fromJson(o as Map<String, dynamic>))
+              .toList();
+          final activeOrgId = data['active_org_id'] as String?;
+          final activeOrg = orgs.firstWhere(
+            (o) => o.id == activeOrgId,
+            orElse: () => orgs.first,
+          );
+          return BootstrapSuccess(
+            activeOrg: activeOrg,
+            organizations: orgs,
+            entitlements: data['entitlements'] is Map<String, dynamic>
+                ? BootstrapEntitlements.fromJson(
+                    data['entitlements'] as Map<String, dynamic>)
+                : const BootstrapEntitlements(
+                    usageDashboard: false,
+                    alerts: false,
+                    complianceSummary: false,
+                    monthlyUnits: 0,
+                    requestsPerMinute: 0,
+                  ),
+            usageSnapshot: data['usage_snapshot'] is Map<String, dynamic>
+                ? BootstrapUsageSnapshot.fromJson(
+                    data['usage_snapshot'] as Map<String, dynamic>)
+                : const BootstrapUsageSnapshot(
+                    monthToDateUnits: 0,
+                    currentMinuteRemaining: 0,
+                  ),
+          );
+        }
+
+        // Non-retryable: 401, 403, or unexpected status
+        return BootstrapError(
+          error: data['error'] as String? ?? _errorUnexpected,
+        );
+      } on DioException catch (e) {
+        final isRetryable =
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+
+        if (isRetryable && attempt < _maxRetries) {
+          await retryDelay(Duration(seconds: 1 << attempt));
+          continue;
+        }
+
+        await ErrorTrackingService.captureException(
+          e,
+          stackTrace: e.stackTrace,
+          context: 'ProvisioningService.bootstrap',
+          extra: {'attempt': attempt + 1},
+        );
+
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          return const BootstrapError(error: _errorTimeout);
+        }
+        return const BootstrapError(error: _errorNetwork);
+      } catch (e, stackTrace) {
+        await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+        return const BootstrapError(error: _errorUnexpected);
+      }
+    }
+
+    // Unreachable, but satisfies the return type
+    return const BootstrapError(error: _errorUnexpected);
   }
 }

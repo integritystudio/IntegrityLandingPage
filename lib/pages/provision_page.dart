@@ -33,6 +33,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
   bool _isLoading = false;
   String? _errorMessage;
   String? _apiKey;
+  BootstrapSuccess? _bootstrapResult;
   bool _pageViewTracked = false;
 
   @override
@@ -70,12 +71,77 @@ class _ProvisionPageState extends State<ProvisionPage> {
           _isLoading = false;
         });
         AnalyticsService.trackEvent(eventName: 'api_key_provisioned');
+        _loadBootstrap();
       case ProvisioningError():
         setState(() {
           _errorMessage = SecurityUtils.sanitizeServerError(response.error);
           _isLoading = false;
         });
     }
+  }
+
+  Future<void> _loadBootstrap() async {
+    final result = await ProvisioningService.bootstrap(jwt: widget.auth.jwt);
+    if (!mounted) return;
+    if (result is BootstrapSuccess) {
+      setState(() => _bootstrapResult = result);
+    }
+  }
+
+  Widget _buildOrgContextCard(BootstrapSuccess bootstrap) {
+    final org = bootstrap.activeOrg;
+    final usage = bootstrap.usageSnapshot;
+    final entitlements = bootstrap.entitlements;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.gray800,
+        border: Border.all(color: AppColors.gray700),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  org.name,
+                  style: AppTypography.bodySM.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.gray700,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                ),
+                child: Text(
+                  org.planKey,
+                  style: AppTypography.bodySM.copyWith(
+                    color: AppColors.gray300,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (entitlements.monthlyUnits > 0) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              '${usage.monthToDateUnits.toStringAsFixed(0)} / '
+              '${entitlements.monthlyUnits.toStringAsFixed(0)} units this month',
+              style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -161,6 +227,10 @@ class _ProvisionPageState extends State<ProvisionPage> {
                     label: 'Your API Key',
                     code: _apiKey!,
                   ),
+                  if (_bootstrapResult != null) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    _buildOrgContextCard(_bootstrapResult!),
+                  ],
                   const SizedBox(height: AppSpacing.lg),
                 ] else ...[
                   // Provision button

@@ -44,7 +44,7 @@ Implement authenticated dashboard with org switching, billing status, usage summ
 - `lib/widgets/sections/dashboard_section.dart`
 - `lib/services/dashboard_service.dart` (API client wrapper)
 
-**Status:** Deferred — API gateway ready, Flutter UI scaffolding only.
+**Status:** In progress — Bootstrap flow complete: `BootstrapResponse` models, `ProvisioningService.bootstrap()`, org context shown on ProvisionPage after provisioning (7 tests). Remaining: org switcher, billing display, usage charts, entitlements grid.
 
 ---
 

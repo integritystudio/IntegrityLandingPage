@@ -328,6 +328,117 @@ void main() {
 
   });
 
+  group('bootstrap', () {
+    final bootstrapPayload = {
+      'organizations': [
+        {
+          'id': 'org-1',
+          'name': 'Integrity Studio',
+          'role': 'owner',
+          'plan_key': 'growth',
+          'billing_status': 'active',
+        }
+      ],
+      'active_org_id': 'org-1',
+      'entitlements': {
+        'usage_dashboard': true,
+        'alerts': true,
+        'compliance_summary': false,
+        'monthly_units': 500000,
+        'requests_per_minute': 600,
+      },
+      'usage_snapshot': {
+        'month_to_date_units': 182044,
+        'current_minute_remaining': 412,
+      },
+    };
+
+    test('returns BootstrapSuccess with org, entitlements, usage on 200',
+        () async {
+      mockDio.mockPostResponse(bootstrapPayload);
+
+      final result = await ProvisioningService.bootstrap(jwt: 'test-jwt');
+
+      expect(result, isA<BootstrapSuccess>());
+      final success = result as BootstrapSuccess;
+      expect(success.activeOrg.id, 'org-1');
+      expect(success.activeOrg.name, 'Integrity Studio');
+      expect(success.activeOrg.planKey, 'growth');
+      expect(success.organizations, hasLength(1));
+      expect(success.entitlements.monthlyUnits, 500000);
+      expect(success.entitlements.usageDashboard, true);
+      expect(success.usageSnapshot.monthToDateUnits, 182044);
+      expect(success.usageSnapshot.currentMinuteRemaining, 412);
+    });
+
+    test('falls back to first org when active_org_id has no match', () async {
+      mockDio.mockPostResponse({
+        ...bootstrapPayload,
+        'active_org_id': 'org-unknown',
+      });
+
+      final result = await ProvisioningService.bootstrap(jwt: 'test-jwt');
+
+      expect(result, isA<BootstrapSuccess>());
+      expect((result as BootstrapSuccess).activeOrg.id, 'org-1');
+    });
+
+    test('returns BootstrapError on 401', () async {
+      mockDio.mockPostResponse(
+        {'error': 'Unauthorized'},
+        statusCode: 401,
+      );
+
+      final result = await ProvisioningService.bootstrap(jwt: 'bad-jwt');
+
+      expect(result, isA<BootstrapError>());
+      expect((result as BootstrapError).error, 'Unauthorized');
+    });
+
+    test('returns BootstrapError when organizations list is empty', () async {
+      mockDio.mockPostResponse({
+        'organizations': <dynamic>[],
+        'active_org_id': null,
+      });
+
+      final result = await ProvisioningService.bootstrap(jwt: 'test-jwt');
+
+      expect(result, isA<BootstrapError>());
+    });
+
+    test('returns BootstrapError on 500 after max retries', () async {
+      mockDio.mockPostResponse({'error': 'Server error'}, statusCode: 500);
+
+      final result = await ProvisioningService.bootstrap(jwt: 'test-jwt');
+
+      expect(result, isA<BootstrapError>());
+      expect(mockDio.postCallCount, 3);
+    });
+
+    test('retries on connectionTimeout and succeeds', () async {
+      mockDio.mockPostError(DioExceptionType.connectionTimeout,
+          attemptNumber: 0);
+      mockDio.mockPostResponse(bootstrapPayload, attemptNumber: 1);
+
+      final result = await ProvisioningService.bootstrap(jwt: 'test-jwt');
+
+      expect(result, isA<BootstrapSuccess>());
+      expect(mockDio.postCallCount, 2);
+    });
+
+    test('returns BootstrapError on connectionError after max retries',
+        () async {
+      mockDio.mockPostError(DioExceptionType.connectionError);
+
+      final result = await ProvisioningService.bootstrap(jwt: 'test-jwt');
+
+      expect(result, isA<BootstrapError>());
+      expect((result as BootstrapError).error,
+          'Network error. Please try again.');
+      expect(mockDio.postCallCount, 3);
+    });
+  });
+
   group('MockProvisioningDio per-attempt response data', () {
     test('post returns per-attempt data when attemptNumber matches', () async {
       // Attempt 0: connection error (triggers retry), attempt 1: success
