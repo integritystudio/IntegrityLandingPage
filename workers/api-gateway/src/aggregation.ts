@@ -26,11 +26,14 @@ interface BucketAggregate {
  * Safe to call multiple times for the same org/date — upsert on
  * (organization_id, bucket_date, metric_key) keeps the latest rollup.
  */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function rollupDailyBucket(
   orgId: string,
-  date: string, // YYYY-MM-DD
+  date: string, // YYYY-MM-DD UTC
   sb: SupabaseClient,
 ): Promise<UsageFlushResult> {
+  if (!DATE_RE.test(date)) throw new Error(`[aggregation] invalid date format: ${date}`);
   const periodStart = new Date(`${date}T00:00:00.000Z`);
   const periodEnd = new Date(periodStart.getTime() + MS_PER_DAY);
 
@@ -80,7 +83,11 @@ export async function rollupDailyBucket(
   let bucketsUpdated = 0;
   if (buckets.length > 0) {
     const upsertResult = await sb.upsert('usage_buckets_daily', buckets, 'organization_id,bucket_date,metric_key');
-    if (upsertResult.ok) bucketsUpdated = buckets.length;
+    if (upsertResult.ok) {
+      bucketsUpdated = buckets.length;
+    } else {
+      console.error('[aggregation] usage_buckets_daily upsert failed', upsertResult.error);
+    }
   }
 
   return {

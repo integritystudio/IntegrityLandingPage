@@ -156,7 +156,9 @@ export async function handleIngestEvent(
 
   const requestId = crypto.randomUUID();
   const now = new Date().toISOString();
-  const bucketDate = now.slice(0, 10);
+  // Derive bucket date from created_at, not server wall-clock, so that a
+  // waitUntil rollup scheduled near midnight still targets the correct day.
+  const bucketDate = now.slice(0, 10); // YYYY-MM-DD UTC
 
   const insertResult = await sb.insert('usage_events', {
     organization_id: body.org_id,
