@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup & Final Fixes; V02-Remaining, M38, M39, L17-L19 migrated to v1.2 changelog; 38+ items migrated to v1.2; 2 remaining design-decision items (T25, T28)
+**Last Updated:** 2026-03-21 | **Phase:** Backlog Cleanup Complete; V02-Remaining, M38, M39, L17-L19 migrated/resolved; 38+ items in v1.2; 2 remaining design-decision items (T25, T28)
 
 ---
 
