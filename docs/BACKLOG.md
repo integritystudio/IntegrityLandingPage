@@ -541,7 +541,7 @@ if (!quotaCheck.allowed) {
 - `workers/api-gateway/src/index.ts` — Add quota check middleware
 - `workers/api-gateway/src/routes/*.ts` — Wire middleware into all protected routes
 
-**Status:** Pending (P1) — T22 complete, ready to integrate.
+**Status:** ✅ Done — `enforceOrgQuota()` added to `lib/quota.ts`; wired into all org-specific routes in `index.ts` (commits bb1d810, d58f382). Fetches org plan from DB, calls `checkAndReserve()`, returns 429 with `X-RateLimit-Remaining-*` headers. Fail-open if DO unavailable.
 
 ---
 
