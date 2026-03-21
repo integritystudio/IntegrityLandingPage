@@ -235,7 +235,7 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 Retry loop handles 401, 403, 404, 500 but not 503. Stripe API returns 503 during maintenance windows. Should add 503 to retryable status codes. -- `lib/services/dashboard_service.dart` (fetchBillingPortalUrl method)
 
-**Status:** Open — Deferred from V02 implementation.
+**Status:** ✅ Done — 503 added to retryable status codes; HttpStatus enum updated (commits 8b6120f, 51f8ad8, 31d5181).
 
 ---
 
@@ -245,7 +245,7 @@ Retry loop handles 401, 403, 404, 500 but not 503. Stripe API returns 503 during
 
 Error messages in `BillingPortalError` return raw API error strings to the user, which may leak implementation details. Should sanitize error messages and provide user-friendly fallbacks. -- `lib/services/dashboard_service.dart` (BillingPortalError handling)
 
-**Status:** Open — Deferred from V02 implementation.
+**Status:** ✅ Done — Error messages sanitized; user-friendly fallbacks added (commit 32ee699).
 
 ---
 
@@ -255,7 +255,7 @@ Error messages in `BillingPortalError` return raw API error strings to the user,
 
 Test asserts `mockSb.insert` was called but doesn't verify call count. Should assert `toHaveBeenCalledTimes(1)` to catch duplicate audit log writes. -- `workers/api-gateway/src/routes/orgs.test.ts:275-278`
 
-**Status:** Open — Deferred from V02 implementation.
+**Status:** ✅ Done — `toHaveBeenCalledTimes(1)` assertion added (commit 32ee699).
 
 ---
 
