@@ -173,12 +173,17 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
   }
 
   /**
-   * Fetch dead letters due for retry (status=pending, retry_count < max_retries).
+   * Fetch dead letters due for retry (status=pending, next_retry_at <= now, retry_count < max_retries).
+   * Filters on next_retry_at to respect exponential backoff timing.
    */
   async function fetchPendingDeadLetters(limit = 50): Promise<DeadLetter[]> {
+    const now = new Date().toISOString();
     const result = await sb.query<DeadLetter>('webhook_dead_letters', {
       select: 'id, stripe_event_id, event_type, payload, retry_count, max_retries',
-      filters: [{ column: 'status', operator: 'eq', value: 'pending' }],
+      filters: [
+        { column: 'status', operator: 'eq', value: 'pending' },
+        { column: 'next_retry_at', operator: 'lte', value: now },
+      ],
       order: { column: 'created_at', ascending: true },
       limit,
     });
@@ -200,10 +205,18 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
   async function failDeadLetter(id: string, retryCount: number, maxRetries: number, errorMessage: string): Promise<VoidResult> {
     const newCount = retryCount + 1;
     const newStatus = newCount >= maxRetries ? 'abandoned' : 'pending';
-    const nextRetryAt = new Date(Date.now() + Math.pow(2, retryCount) * 60_000).toISOString();
+    const updates: Record<string, unknown> = {
+      retry_count: newCount,
+      error_message: errorMessage,
+      status: newStatus,
+    };
+    // Only set next_retry_at if still pending (not abandoned)
+    if (newStatus === 'pending') {
+      updates.next_retry_at = new Date(Date.now() + Math.pow(2, retryCount) * 60_000).toISOString();
+    }
     const result = await sb.update(
       'webhook_dead_letters',
-      { retry_count: newCount, next_retry_at: nextRetryAt, error_message: errorMessage, status: newStatus },
+      updates,
       [{ column: 'id', operator: 'eq', value: id }],
     );
     return toVoidResult(result);
