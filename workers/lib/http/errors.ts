@@ -59,7 +59,7 @@ export function withErrorHandling(
 ) {
   return async (request: Request): Promise<Response> => {
     try {
-      return await handler(request);
+      return await Promise.resolve(handler(request));
     } catch (error) {
       if (onError) return onError(error);
       console.error('Unhandled request error', error);

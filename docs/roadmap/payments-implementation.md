@@ -1,12 +1,12 @@
 ## Status: Phase 1-4 Substantially Complete
 
-**Last Updated:** 2026-03-20 (Durable Objects completion added)
+**Last Updated:** 2026-03-20 | **Session Focus:** Quota Integration (T26-T27), Sender-Worker UI, Security Hardening
 **Build Status:** ✅ All tests passing (2440+ tests, ~94% coverage)
 
 - **Phase 1 (Sender-Worker UI):** ✅ COMPLETE — AuthPage, ProvisionPage, SenderHealthPage, JWT provisioning flow, HMAC-SHA256 signing, CORS preflight
 - **Phase 2 (SaaS Infra):** ✅ COMPLETE — Supabase schema (29 tables, RLS, triggers), Auth0 identity integration, Stripe webhooks, Worker API gateway, Durable Objects per-org quota
 - **Phase 3 (Bootstrap + Webhook Workers):** ✅ COMPLETE — Bootstrap worker (JWT verify → org/membership/entitlements/usage context), Stripe webhook worker (signature verify → subscription sync), shared Zod validation schemas, shared HTTP utilities (CORS, JSON parsing, request/response helpers)
-- **Phase 4 (Database + API Gateway):** ✅ SUBSTANTIALLY COMPLETE — Full API gateway routes (`GET /v1/me`, `GET /v1/orgs`, `GET /v1/orgs/:id/dashboard`, `GET /v1/orgs/:id/billing-status`, `GET /v1/orgs/:id/usage/summary`, `GET /v1/orgs/:id/entitlements`, `POST/POST /v1/orgs/:id/api-keys` with create/revoke); ✅ Durable Objects per-org quota state machine (minute-level burst limits, monthly soft limits, quota version detection); **remaining: usage ledger ingestion & aggregation, Flutter dashboard UI**
+- **Phase 4 (Database + API Gateway):** ✅ SUBSTANTIALLY COMPLETE — Full API gateway routes (`GET /v1/me`, `GET /v1/orgs`, `GET /v1/orgs/:id/dashboard`, `GET /v1/orgs/:id/billing-status`, `GET /v1/orgs/:id/usage/summary`, `GET /v1/orgs/:id/entitlements`, `POST/POST /v1/orgs/:id/api-keys` with create/revoke); ✅ Durable Objects per-org quota fully wired into request handler (`enforceOrgQuota()` middleware, fail-open logic, rate-limit headers); ✅ 25 quota integration tests passing; ✅ JWT issuer validation (V-02), timing-safe HMAC comparisons (H19); **remaining: usage ledger ingestion & aggregation, Flutter dashboard UI**
 
 ---
 
@@ -1374,12 +1374,15 @@ Flutter or API client
 13. **Flutter UI refactoring** — StatusResultPage extraction, TrustBadge improvements, ListCard consolidation (_ChoiceCard + _QueryCard), 76-78% code duplication reduction
 14. **Durable Objects per-org quota** — Complete state machine with minute-level burst control (60-second rolling windows), monthly soft limits, quota version detection (Stripe webhook triggers), type-safe service client (`checkAndReserve()`, `flushUsage()`, `getQuotaStatus()`), Zod schemas, comprehensive architecture documentation. Files: `workers/api-gateway/src/durable-objects/quota.ts` (253 lines), `workers/api-gateway/src/lib/quota.ts` (94 lines), `workers/docs/QUOTA_DURABLE_OBJECTS.md` (359 lines)
 
-**Recent refinements (2026-03-20)**
+**Session work (2026-03-20 — Final Phase 4 push)**
+- **T26: Quota enforcement wiring** — `enforceOrgQuota()` middleware added to `lib/quota.ts`, integrated into all org-specific API gateway routes with fail-open logic and rate-limit headers (commits bb1d810, d58f382, 3483538)
+- **T27: Quota integration tests** — 25 comprehensive tests covering minute/monthly limits, idempotency, plan tiers, enterprise quotas, quota version bumps, storage persistence (commit 6bc3cd8)
+- **Security hardening** — JWT issuer claim validation (V-02, commit 00bfaaf), timing-safe HMAC comparisons with `crypto.subtle.verify()` for API key and Stripe webhook verification (H19, commit 0f9cece)
 - **HTTP utilities refactoring** — Extracted `cors-utils.ts`, organized constants, improved response safety (guard against protocol-relative URLs in redirects)
 - **Validation improvements** — `safeParseJson` return type, simplified validation/response code paths, optimized hot paths
-- **Code review findings** — Addressed 10+ findings across auth, provision, provisioning service, and workers code
+- **Code review backlog** — 10+ findings addressed; 6 items marked Done (R02-R10 security & TDD documentation); 10+ medium/low findings documented from security review session
 
-**Completion Context:** All major auth, provisioning, API gateway, and quota enforcement infrastructure is production-ready with comprehensive test coverage (2440+ tests, ~94% coverage). Inter-worker HMAC signing, Zod validation, Flutter provisioning UX, and per-org Durable Objects quota state machine have been thoroughly tested and reviewed. Quota documentation with integration guidance available at `workers/docs/QUOTA_DURABLE_OBJECTS.md`. See recent commits and `docs/SESSION_HISTORY.md` for details.
+**Completion Context:** All major auth, provisioning, API gateway, and quota enforcement infrastructure is production-ready with comprehensive test coverage (2440+ tests, ~94% coverage). Phase 4 quota integration (T26-T27) wired and tested; security fixes (V-02 issuer validation, H19 timing-safe comparisons) applied; sender-worker UI implementation complete with JWT provisioning flow. Per-org Durable Objects quota state machine enforces minute-level burst limits, monthly soft limits, quota version detection, with middleware fail-open logic. Quota documentation with integration guidance available at `workers/docs/QUOTA_DURABLE_OBJECTS.md`. Code review findings (10+ items) documented in `docs/BACKLOG.md`. See recent commits (gitlog top 20 in `docs/repomix/`) and `docs/SESSION_HISTORY.md` for session details.
 
 ### Remaining (v1 Phase 4 Tasks 2–3)
 
