@@ -194,6 +194,11 @@ export type HealthCheckResponse = z.infer<typeof HealthCheckResponseSchema>;
  * Webhook dead letter: failed event for retry or manual investigation.
  * Constraint: retry_count must never exceed max_retries; max_retries can be zero
  * for events that should not be retried (abandon immediately).
+ *
+ * This is the canonical full-row schema. `stripe-webhook/src/supabase.ts`
+ * defines `DeadLetter`, a 6-field projection for DB queries that selects only
+ * the fields needed at retry time. Use `WebhookDeadLetter` for validation and
+ * API responses; use `DeadLetter` for internal retry-loop processing.
  */
 export const WebhookDeadLetterSchema = z.object({
   id: z.string().uuid(),

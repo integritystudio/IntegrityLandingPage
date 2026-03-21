@@ -2,6 +2,15 @@ import { createSupabaseClient } from '../../lib/supabase';
 import type { BillingStatus, PlanKey } from '../../lib/types';
 import { DEAD_LETTER_INITIAL_RETRY_DELAY_MS, DEAD_LETTER_MAX_RETRIES } from '../../constants';
 
+/**
+ * Projection of the `webhook_dead_letters` row used by fetchPendingDeadLetters.
+ * Contains only the 6 columns selected in the DB query. The canonical full-row
+ * schema is `WebhookDeadLetter` in `workers/lib/types.zod.ts`, which includes
+ * additional fields: `error_message`, `next_retry_at`, `status`, `created_at`,
+ * `resolved_at`. `payload` is typed as `unknown` here because the Supabase
+ * client returns JSON as unknown; `WebhookDeadLetter` narrows it to
+ * `Record<string, unknown>` for validation contexts.
+ */
 export interface DeadLetter {
   id: string;
   stripe_event_id: string;
