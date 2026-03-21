@@ -249,7 +249,8 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
       query: vi.fn()
         .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'owner')] })
         .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: 'cus_123' }] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+      insert: vi.fn().mockResolvedValue({ ok: true, data: [] }),
+      update: vi.fn(), rpc: vi.fn(),
     };
     const mockStripe = {
       billingPortal: {
@@ -270,6 +271,11 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
       customer: 'cus_123',
       return_url: 'https://app.integritystudio.ai/#/billing',
     });
+    // Audit log written after successful portal session creation
+    expect(mockSb.insert).toHaveBeenCalledWith(
+      'audit_log',
+      expect.objectContaining({ action: 'billing_portal.accessed', target_type: 'org', target_id: 'org-id-1' }),
+    );
   });
 
   it('returns portal URL for billing_admin role', async () => {
@@ -278,7 +284,8 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
       query: vi.fn()
         .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'billing_admin')] })
         .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: 'cus_456' }] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+      insert: vi.fn().mockResolvedValue({ ok: true, data: [] }),
+      update: vi.fn(), rpc: vi.fn(),
     };
     const mockStripe = {
       billingPortal: {

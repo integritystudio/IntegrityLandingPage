@@ -96,6 +96,35 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
     expect(body.name).toBe('CI Key');
     // Hash is NOT returned — only the token (shown once)
     expect(body.hash).toBeUndefined();
+    // Audit log written: first call is membership check, second is user lookup, third is audit_log insert
+    expect(mockSb.insert).toHaveBeenCalledWith(
+      'audit_log',
+      expect.objectContaining({ action: 'api_key.created', target_type: 'api_key', actor_user_id: 'user-id-1' }),
+    );
+  });
+
+  it('writes audit log even when audit insert fails, and still returns 201', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const insertedKey = { id: 'new-key-id', prefix: 'WILLBESET', user_id: 'user-id-1', organization_id: 'org-id-1' };
+
+    const mockSb = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
+        .mockResolvedValueOnce({ ok: true, data: [makeUser()] }),
+      insert: vi.fn()
+        .mockResolvedValueOnce({ ok: true, data: [insertedKey] })
+        .mockResolvedValueOnce({ ok: false, error: 'db error' }),
+      update: vi.fn(), rpc: vi.fn(),
+    };
+
+    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'CI Key' }),
+    });
+
+    const res = await handleCreateApiKey(req, 'org-id-1', makeOpts(mockSb));
+    expect(res.status).toBe(201);
   });
 
   it('accepts optional expires_at for key creation', async () => {
@@ -174,7 +203,7 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
       query: vi.fn()
         .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
         .mockResolvedValueOnce({ ok: true, data: [existingKey] }),
-      insert: vi.fn(),
+      insert: vi.fn().mockResolvedValue({ ok: true, data: [] }),
       update: vi.fn().mockResolvedValue({ ok: true, data: [{ ...existingKey, status: 'revoked', revoked_at: '2026-03-20T00:00:00Z' }] }),
       rpc: vi.fn(),
     };
@@ -194,6 +223,11 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
       expect.objectContaining({ status: 'revoked' }),
       expect.any(Array),
       expect.anything(),
+    );
+    // Audit log written for revoke
+    expect(mockSb.insert).toHaveBeenCalledWith(
+      'audit_log',
+      expect.objectContaining({ action: 'api_key.revoked', target_type: 'api_key', target_id: 'key-id' }),
     );
   });
 });

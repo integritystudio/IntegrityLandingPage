@@ -2,7 +2,7 @@ import Stripe from 'stripe';
 import { ok, forbidden, notFound, serverError } from '../../../lib/http';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { Organization, OrgRole, OrgMembership, Entitlement } from '../../../lib/types';
-import { resolveJwt, buildEntitlementMap } from '../lib/helpers';
+import { resolveJwt, buildEntitlementMap, writeAuditLog } from '../lib/helpers';
 
 interface OrgsHandlerOptions {
   jwtSecret: string;
@@ -197,6 +197,14 @@ export async function handleBillingPortal(
     const session = await stripe.billingPortal.sessions.create({
       customer: org.stripe_customer_id,
       return_url: opts.returnUrl,
+    });
+
+    await writeAuditLog(sb, {
+      organization_id: orgId,
+      action: 'billing_portal.accessed',
+      target_type: 'org',
+      target_id: orgId,
+      metadata: { actor_auth0_id: auth.sub },
     });
 
     return ok({ url: session.url });

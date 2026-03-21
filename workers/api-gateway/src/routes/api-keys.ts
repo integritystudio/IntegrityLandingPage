@@ -2,7 +2,7 @@ import { ok, created, forbidden, notFound, serverError, badRequest } from '../..
 import { generateApiKey, hashApiKeySecret } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, ApiKey } from '../../../lib/types';
-import { resolveJwt } from '../lib/helpers';
+import { resolveJwt, writeAuditLog } from '../lib/helpers';
 
 interface ApiKeysHandlerOptions {
   jwtSecret: string;
@@ -106,6 +106,15 @@ export async function handleCreateApiKey(
 
   const inserted = insertResult.data[0];
 
+  await writeAuditLog(sb, {
+    organization_id: orgId,
+    actor_user_id: user.id,
+    action: 'api_key.created',
+    target_type: 'api_key',
+    target_id: String(inserted.id),
+    new_values: { name: keyName, tier: 'free', prefix },
+  });
+
   return created({
     id: inserted.id,
     name: keyName,
@@ -157,6 +166,15 @@ export async function handleRevokeApiKey(
   if (!updateResult.ok) {
     return serverError('Failed to revoke API key');
   }
+
+  await writeAuditLog(sb, {
+    organization_id: orgId,
+    action: 'api_key.revoked',
+    target_type: 'api_key',
+    target_id: keyId,
+    new_values: { status: 'revoked', revoked_at: revokedAt },
+    metadata: { actor_auth0_id: auth.sub },
+  });
 
   return ok({ id: keyId, status: 'revoked', revoked_at: revokedAt });
 }
