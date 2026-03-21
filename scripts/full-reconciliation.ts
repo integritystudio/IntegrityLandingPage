@@ -22,6 +22,7 @@
  */
 
 import Stripe from 'stripe';
+import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,6 +43,23 @@ interface DbResult {
   ok: boolean;
   error?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Zod schemas
+// ---------------------------------------------------------------------------
+
+const EnvSchema = z.object({
+  STRIPE_SECRET_KEY: z.string().regex(/^sk_(test|live)_/, 'must start with sk_test_ or sk_live_'),
+  SUPABASE_URL: z.string().url(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+});
+
+const SupabaseErrorSchema = z.object({
+  message: z.string(),
+  code: z.string().optional(),
+});
+
+const OrgRowSchema = z.array(z.object({ id: z.string().uuid() }));
 
 // ---------------------------------------------------------------------------
 // Price → plan mapping
@@ -81,11 +99,6 @@ function mapStripeStatusToBillingStatus(status: Stripe.Subscription.Status): Bil
 // Supabase HTTP client (minimal — avoids SDK dependency in scripts)
 // ---------------------------------------------------------------------------
 
-interface SupabaseError {
-  message: string;
-  code?: string;
-}
-
 function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
   return {
     'apikey': serviceRoleKey,
@@ -117,8 +130,10 @@ async function supabaseUpsert(
   );
 
   if (!resp.ok) {
-    const err = await resp.json() as SupabaseError;
-    return { ok: false, error: err.message ?? `HTTP ${resp.status}` };
+    const body = await resp.json();
+    const parseResult = SupabaseErrorSchema.safeParse(body);
+    const message = parseResult.success ? parseResult.data.message : `HTTP ${resp.status}`;
+    return { ok: false, error: message };
   }
 
   return { ok: true };
@@ -139,8 +154,10 @@ async function supabaseDelete(
   });
 
   if (!resp.ok) {
-    const err = await resp.json() as SupabaseError;
-    return { ok: false, error: err.message ?? `HTTP ${resp.status}` };
+    const body = await resp.json();
+    const parseResult = SupabaseErrorSchema.safeParse(body);
+    const message = parseResult.success ? parseResult.data.message : `HTTP ${resp.status}`;
+    return { ok: false, error: message };
   }
 
   return { ok: true };
@@ -157,16 +174,22 @@ async function supabaseLookupOrgId(
   );
 
   if (!resp.ok) {
-    const err = await resp.json() as SupabaseError;
-    return { error: err.message };
+    const body = await resp.json();
+    const parseResult = SupabaseErrorSchema.safeParse(body);
+    const message = parseResult.success ? parseResult.data.message : `HTTP ${resp.status}`;
+    return { error: message };
   }
 
-  const orgs = await resp.json() as Array<{ id: string }>;
-  if (orgs.length === 0) {
+  const orgsResult = OrgRowSchema.safeParse(await resp.json());
+  if (!orgsResult.success) {
+    return { error: `Unexpected org lookup response: ${orgsResult.error.message}` };
+  }
+
+  if (orgsResult.data.length === 0) {
     return { error: `No org found for stripe_customer_id ${stripeCustomerId}` };
   }
 
-  return { orgId: orgs[0].id };
+  return { orgId: orgsResult.data[0].id };
 }
 
 // ---------------------------------------------------------------------------
@@ -320,13 +343,13 @@ async function processCustomer(
 // ---------------------------------------------------------------------------
 
 async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSummary> {
-  const stripeKey = process.env.STRIPE_SECRET_KEY;
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!stripeKey || !supabaseUrl || !serviceRoleKey) {
-    throw new Error('Missing required env vars: STRIPE_SECRET_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
+  const envResult = EnvSchema.safeParse(process.env);
+  if (!envResult.success) {
+    const issues = envResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+    throw new Error(`Invalid environment: ${issues}`);
   }
+
+  const { STRIPE_SECRET_KEY: stripeKey, SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey } = envResult.data;
 
   const stripe = new Stripe(stripeKey, { apiVersion: '2025-02-24.acacia' });
 
