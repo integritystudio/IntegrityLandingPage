@@ -77,3 +77,6 @@ dist/
 !workers/**/*.ts
 !workers/**/package.json
 !workers/**/vitest.config.ts
+
+# Allow scripts/ TypeScript source (runbooks, admin utilities)
+!scripts/*.ts
