@@ -225,7 +225,7 @@ These issues require **server-side HTTP response header configuration** and cann
 
 **Priority:** P1 | **Source:** session 2026-03-20, code-reviewer (commit ec1fc78)
 
-**Status:** Done — `Content-Security-Policy: frame-ancestors 'self'` present in `web/_headers:13`, delivered as HTTP response header via Cloudflare Pages.
+**Status:** Done — `Content-Security-Policy: frame-ancestors 'self'` present in `web/_headers:13`, delivered as HTTP response header via Cloudflare Pages (commit 81f1921, 2026-03-20).
 
 The `frame-ancestors` directive controls who can embed this site in an iframe (clickjacking defense). The directive is currently missing from **both** the HTTP response headers and the `<meta>` CSP tag. CSP directives in `<meta>` tags are silently ignored for `frame-ancestors` — it **must** be delivered via HTTP response header.
 
@@ -289,7 +289,7 @@ async function requireOrgMembership(orgId: string, userJWT: string, env: Env) {
 - `workers/middleware/org-auth.ts` (new)
 - `workers/routes/api.ts` (integrate middleware)
 
-**Status:** Done — All org-scoped routes already enforce membership/access before returning data. `handleOrgDashboard` and `handleOrgBillingStatus` check via `loadUserMemberships`; `handleUsageSummary` and `handleOrgEntitlements` use `assertOrgAccess` (JWT membership or API key org match); `handleCreateApiKey` and `handleRevokeApiKey` use `assertOrgMembership`. All paths have 403 tests covering the IDOR scenario. Endpoint audit (2026-03-20) confirms full coverage across all 6 org-scoped routes.
+**Status:** Done — All org-scoped routes already enforce membership/access before returning data. `handleOrgDashboard` and `handleOrgBillingStatus` check via `loadUserMemberships`; `handleUsageSummary` and `handleOrgEntitlements` use `assertOrgAccess` (JWT membership or API key org match); `handleCreateApiKey` and `handleRevokeApiKey` use `assertOrgMembership`. All paths have 403 tests covering the IDOR scenario. Endpoint audit (2026-03-20) confirms full coverage across all 6 org-scoped routes (test coverage: commit e296e20).
 
 ---
 
@@ -748,4 +748,4 @@ This is the remediation for the atomicity risk documented in T24-M2.
 
 ---
 
-*Last updated: 2026-03-20 (backlog-implementer session) — T23-M4 and H19-M3 implemented via TDD (commits 1ae481d, 1ef83d1). T24-M4 remains deferred.*
+*Last updated: 2026-03-20 — T23-M4 and H19-M3 completed via TDD with full test coverage (commits 1ae481d, 1ef83d1, 264a4b0). S01 and H20 marked Done with commit refs (81f1921, e296e20). T24-M4 remains deferred.*
