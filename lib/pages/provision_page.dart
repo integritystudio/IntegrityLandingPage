@@ -102,11 +102,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
     final planKey = SecurityUtils.sanitizeUserInput(org.planKey);
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        border: Border.all(color: AppColors.gray700),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-      ),
+      decoration: AppDecorations.card(borderColor: AppColors.gray700),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -200,11 +196,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
                     horizontal: AppSpacing.md,
                     vertical: AppSpacing.sm,
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.gray800,
-                    border: Border.all(color: AppColors.gray700),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                  ),
+                  decoration: AppDecorations.card(borderColor: AppColors.gray700),
                   child: Row(
                     children: [
                       const Icon(
