@@ -205,6 +205,8 @@ export async function rollupMonthlyBucket(
     year_month: yearMonth,
     total_quantity,
     total_requests,
+    // Cross-metric weighted mean — meaningful only for homogeneous metric sets.
+    // Prefer metric_breakdown[key].avg_latency_ms for per-metric analysis.
     avg_latency_ms: total_latency_count > 0 ? total_weighted_latency / total_latency_count : null,
     metric_breakdown,
     created_at: now,

@@ -91,7 +91,7 @@ export type UsageBucket = z.infer<typeof UsageBucketSchema>;
  */
 export const MonthlyUsageSummarySchema = z.object({
   organization_id: z.string().uuid(),
-  year_month: z.string().regex(/^\d{4}-\d{2}$/, 'Date must be YYYY-MM'),
+  year_month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Date must be YYYY-MM (month 01–12)'),
   total_quantity: z.number().int().nonnegative(),
   total_requests: z.number().int().nonnegative(),
   avg_latency_ms: z.number().nonnegative().nullable(),
