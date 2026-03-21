@@ -209,56 +209,74 @@ class _DashboardPageState extends State<DashboardPage> {
                     label: 'Billing',
                     icon: LucideIcons.creditCard,
                     description: 'Plan, billing status, renewal date',
-                    onTap: () => _navigateTo(
-                      Routes.billingStatus,
-                      BillingStatusArgs(
-                        orgId: org!.orgId,
-                        jwt: widget.args.jwt,
-                      ),
-                    ),
+                    onTap: () {
+                      final current = _activeOrg;
+                      if (current == null) return;
+                      _navigateTo(
+                        Routes.billingStatus,
+                        BillingStatusArgs(
+                          orgId: current.orgId,
+                          jwt: widget.args.jwt,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: AppSpacing.md),
                   _buildNavCard(
                     label: 'Usage',
                     icon: LucideIcons.barChart2,
                     description: 'Monthly usage summary by metric',
-                    onTap: () => _navigateTo(
-                      Routes.usageSummary,
-                      UsageSummaryArgs(
-                        orgId: org!.orgId,
-                        orgName: org.name,
-                        jwt: widget.args.jwt,
-                        monthlyUnitsQuota: 0,
-                      ),
-                    ),
+                    onTap: () {
+                      final current = _activeOrg;
+                      if (current == null) return;
+                      // monthlyUnitsQuota: quota reference line; 0 = disabled
+                      // until per-org quota is loaded via QuotaStatusPage.
+                      _navigateTo(
+                        Routes.usageSummary,
+                        UsageSummaryArgs(
+                          orgId: current.orgId,
+                          orgName: current.name,
+                          jwt: widget.args.jwt,
+                          monthlyUnitsQuota: 0,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: AppSpacing.md),
                   _buildNavCard(
                     label: 'Quota',
                     icon: LucideIcons.gauge,
                     description: 'Minute burst and monthly quota limits',
-                    onTap: () => _navigateTo(
-                      Routes.quotaStatus,
-                      QuotaStatusArgs(
-                        orgId: org!.orgId,
-                        orgName: org.name,
-                        jwt: widget.args.jwt,
-                      ),
-                    ),
+                    onTap: () {
+                      final current = _activeOrg;
+                      if (current == null) return;
+                      _navigateTo(
+                        Routes.quotaStatus,
+                        QuotaStatusArgs(
+                          orgId: current.orgId,
+                          orgName: current.name,
+                          jwt: widget.args.jwt,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: AppSpacing.md),
                   _buildNavCard(
                     label: 'Entitlements',
                     icon: LucideIcons.shieldCheck,
                     description: 'Feature flags for your plan',
-                    onTap: () => _navigateTo(
-                      Routes.entitlements,
-                      EntitlementsArgs(
-                        orgId: org!.orgId,
-                        orgName: org.name,
-                        jwt: widget.args.jwt,
-                      ),
-                    ),
+                    onTap: () {
+                      final current = _activeOrg;
+                      if (current == null) return;
+                      _navigateTo(
+                        Routes.entitlements,
+                        EntitlementsArgs(
+                          orgId: current.orgId,
+                          orgName: current.name,
+                          jwt: widget.args.jwt,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ],
