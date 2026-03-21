@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md` and `docs/changelog/1.1/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** V02 Flutter Dashboard UI Feature-Complete (5/8 components, code review PASS); H1 Zod Schemas Complete; Session Wrap-Up
+**Last Updated:** 2026-03-21 | **Phase:** V02 Flutter Dashboard Feature-Complete (5/8 steps: org switcher, billing status, usage summary, charts, entitlements, polling); H1 Zod Schemas + M25–M33 Code Review Fixes; Medium Priority Items Complete; M34/M35 New Findings; Session Wrap-Up
 
 ---
 
@@ -26,6 +26,7 @@ Open and deferred items only. Completed items are migrated to `docs/changelog/1.
 - ✅ Code Review Cycle — H1 Zod schema findings documented + code review addressing H1/H2/M4 findings (commits fc91224, e3ff7f3)
 - ✅ Backlog Updated — V02 quota visualization and entitlements display marked done (commit 52a2d4c)
 - ✅ V02: Org Switcher Dashboard Hub — DashboardPage at `/dashboard`, DropdownButton org switcher, nav cards to billing/usage/quota/entitlements, fetchOrgList GET /v1/orgs with retry (commits 91cdae3, 226b568)
+- ✅ V02: Real-time Usage Polling — 30s Timer.periodic + WidgetsBindingObserver resume refresh on UsageSummaryPage; in-flight guard prevents overlapping fetches (commits f6581fd, d14280c)
 
 **Remaining for v1 release:**
 
@@ -54,7 +55,7 @@ Implement authenticated dashboard with org switching, billing status, usage summ
 - `lib/widgets/sections/dashboard_section.dart`
 - `lib/services/dashboard_service.dart` (API client wrapper)
 
-**Status:** ✅ CORE PAGES + CHARTS + ORG SWITCHER COMPLETE — Bootstrap flow complete; ✅ org switcher (step 1): `DashboardPage` at `/dashboard`, DropdownButton org switcher + nav cards to all sub-pages (commits 91cdae3, 226b568); ✅ billing status display (step 2): `BillingStatusPage` at `/billing`, plan name + status badge + renewal date, loading/error states, retry (commits 979ab7c, 60fd1ff); ✅ usage summary display (step 3): `UsageSummaryPage` at `/usage`, progress bar + per-metric breakdown (commits 55c4a86, e066900); ✅ usage charts (step 3): `_DailyBarChart` with `CustomPainter`, daily bar chart with quota reference line and threshold coloring (commits c78bbf1, 809496a); ✅ quota visualization (step 3 extended): `QuotaStatusPage` at `/quota`, minute burst + monthly limits with Unlimited label support, plan badge, fail-open DO handling (commits 9f93f67, e3ff7f3); ✅ entitlements display (step 4): `EntitlementsPage` at `/entitlements` with auto-generated feature flags (commit 9f93f67). Code review findings: 1 H2-V02 latent JWT risk, 3 M-level (M30-M32: telemetry/validation/duplication), 2 L-level (L10-L11: decoration/docs) documented (80b288a). Remaining: Stripe portal link (step 5), real-time polling (step 6).
+**Status:** ✅ CORE PAGES + CHARTS + ORG SWITCHER + POLLING COMPLETE — Bootstrap flow complete; ✅ org switcher (step 1): `DashboardPage` at `/dashboard`, DropdownButton org switcher + nav cards to all sub-pages (commits 91cdae3, 226b568); ✅ billing status display (step 2): `BillingStatusPage` at `/billing`, plan name + status badge + renewal date, loading/error states, retry (commits 979ab7c, 60fd1ff); ✅ usage summary display (step 3): `UsageSummaryPage` at `/usage`, progress bar + per-metric breakdown (commits 55c4a86, e066900); ✅ usage charts (step 3): `_DailyBarChart` with `CustomPainter`, daily bar chart with quota reference line and threshold coloring (commits c78bbf1, 809496a); ✅ quota visualization (step 3 extended): `QuotaStatusPage` at `/quota`, minute burst + monthly limits with Unlimited label support, plan badge, fail-open DO handling (commits 9f93f67, e3ff7f3); ✅ entitlements display (step 4): `EntitlementsPage` at `/entitlements` with auto-generated feature flags (commit 9f93f67); ✅ real-time polling (step 6): 30s Timer.periodic + app-resume refresh on UsageSummaryPage, in-flight guard (commits f6581fd, d14280c). Code review findings: 1 H2-V02 latent JWT risk, 3 M-level (M30-M32: telemetry/validation/duplication), 2 L-level (L10-L11: decoration/docs) documented (80b288a). Remaining: Stripe portal link (step 5) — deferred, requires Stripe SDK in api-gateway.
 
 ---
 
@@ -436,6 +437,30 @@ All event handlers immediately cast `event.data.object as any`: `checkout.ts:14`
 
 ---
 
+### M34: Subscription Upsert Conflict Key Doesn't Handle Plan Upgrades
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer session, session 2026-03-21 (post-M26 review, commit 867957c)
+
+`upsertSubscription` uses conflict key `(organization_id, stripe_subscription_id)` to handle duplicate `customer.subscription.updated` events. However, the design assumes one subscription per org. Stripe allows plan changes (upgrades/downgrades) within a single subscription ID, which change the `stripe_price_id`. The current key strategy will update an existing row on conflict, which is correct, but the schema and handler logic do not guard against edge cases where a subscription cycles through multiple price IDs in quick succession (e.g., upgrade then downgrade). This is a latent design issue, not a current bug, but should be documented or refactored for clarity.
+
+**Files:** `workers/stripe-webhook/src/supabase.ts:31-50`, `workers/stripe-webhook/src/handlers/subscription.ts:10-60`
+
+**Status:** Open — Design-level issue, not blocking current implementation.
+
+---
+
+### M35: Dead Letter Reconciliation Partial Failure Leaves Inconsistent State
+
+**Priority:** P2 | **Severity:** Medium | **Source:** code-reviewer session, session 2026-03-21 (post-M27 review)
+
+Dead letter retry loop (`workers/stripe-webhook/src/index.ts:180-210`) calls `db.logProcessedEvent(eventId)` before `db.resolveDeadLetter(id)`. If `logProcessedEvent` succeeds but `resolveDeadLetter` fails (DB error), the event is marked as processed in the webhook_events_log table but the dead-letter row remains with `status='pending'`, creating inconsistent state. A subsequent retry attempt will skip it (already processed) without resolving the dead letter. Reconciliation cron must handle this scenario or queries should use a join to detect orphaned dead-letter rows.
+
+**Files:** `workers/stripe-webhook/src/index.ts:198-206`
+
+**Status:** Open — Low-severity idempotency gap; affects cleanup/monitoring more than event processing correctness.
+
+---
+
 ---
 
 ## Code Review Findings: Billing Status Dashboard UI (Session 2026-03-21)
@@ -566,4 +591,4 @@ Code-reviewer session on quota_status_page, entitlements_page, usage_summary_pag
 
 ---
 
-*Last updated: 2026-03-21 — backlog-implementer session: 11 items implemented (H2, M25–M33, H2-V02), 12 commits (64b1387–0af1f0c), code review PASS. Remaining open: Low items (L5–L9, L12–L13), V02 org switcher/portal/polling.*
+*Last updated: 2026-03-21 — backlog-implementer session: 11 items implemented (H1, H2, M25–M33, H2-V02), 12 commits (64b1387–0af1f0c), code review PASS. New findings added: M34 (subscription upgrade conflict key design), M35 (dead letter partial failure idempotency gap). Remaining open: Medium items (M34–M35), Low items (L5–L9, L12–L15), V02 org switcher/portal/polling.*
