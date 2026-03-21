@@ -21,7 +21,7 @@
        - 'unsafe-inline' retained in style-src (required by Flutter for dynamic styles)
 
        NOTE: frame-ancestors and report-uri directives removed from meta tag as they only work
-       in HTTP headers (not meta tags). These should be set via server CSP header in production.
+       in HTTP headers (not meta tags). frame-ancestors 'self' is set via web/_headers (S01).
   -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';

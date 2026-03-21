@@ -6,10 +6,11 @@
 # If environment-specific reporting is needed, use a build script to replace the DSN.
 
 /*
-  X-Frame-Options: DENY
+  X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
+  Content-Security-Policy: frame-ancestors 'self'
   Report-To: {"group":"csp-endpoint","max_age":10886400,"endpoints":[{"url":"https://o4509224386420736.ingest.us.sentry.io/api/4509224390418432/security/?sentry_key=f33ee5bcaaa03614df1bb2b0d0ce88ad"}]}
   Reporting-Endpoints: csp-endpoint="https://o4509224386420736.ingest.us.sentry.io/api/4509224390418432/security/?sentry_key=f33ee5bcaaa03614df1bb2b0d0ce88ad"
 
