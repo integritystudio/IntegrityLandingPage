@@ -328,6 +328,7 @@ class DashboardService {
           continue;
         }
 
+        // SECURITY: never add jwt or other credentials to extra — Sentry stores this unredacted.
         await ErrorTrackingService.captureException(
           e,
           stackTrace: e.stackTrace,
