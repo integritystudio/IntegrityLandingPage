@@ -37,6 +37,7 @@ class EntitlementsPage extends StatefulWidget {
 
 class _EntitlementsPageState extends State<EntitlementsPage> {
   bool _isLoading = false;
+  bool _isFetching = false;
   String? _errorMessage;
   EntitlementsData? _data;
 
@@ -48,29 +49,35 @@ class _EntitlementsPageState extends State<EntitlementsPage> {
   }
 
   Future<void> _fetchEntitlements() async {
+    if (_isFetching) return;
+    _isFetching = true;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final response = await DashboardService.fetchEntitlements(
-      orgId: widget.args.orgId,
-      jwt: widget.args.jwt,
-    );
+    try {
+      final response = await DashboardService.fetchEntitlements(
+        orgId: widget.args.orgId,
+        jwt: widget.args.jwt,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    switch (response) {
-      case EntitlementsSuccess():
-        setState(() {
-          _data = response.data;
-          _isLoading = false;
-        });
-      case EntitlementsError():
-        setState(() {
-          _errorMessage = response.error;
-          _isLoading = false;
-        });
+      switch (response) {
+        case EntitlementsSuccess():
+          setState(() {
+            _data = response.data;
+            _isLoading = false;
+          });
+        case EntitlementsError():
+          setState(() {
+            _errorMessage = response.error;
+            _isLoading = false;
+          });
+      }
+    } finally {
+      _isFetching = false;
     }
   }
 

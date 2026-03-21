@@ -3,15 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../config/content/constants.dart';
 import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
-
-// Quota thresholds shared by _UsageBar and _DailyBarChart.
-const double _dangerThreshold = 0.90;
-const double _warningThreshold = 0.75;
 
 /// Aggregates usage buckets by date, summing totalQuantity across all metrics.
 ///
@@ -336,8 +333,8 @@ class _UsageBar extends StatelessWidget {
   });
 
   Color _barColor() {
-    if (ratio >= _dangerThreshold) return AppColors.error;
-    if (ratio >= _warningThreshold) return AppColors.warning;
+    if (ratio >= QuotaThresholds.danger) return AppColors.error;
+    if (ratio >= QuotaThresholds.warning) return AppColors.warning;
     return AppColors.blue500;
   }
 
@@ -470,8 +467,8 @@ class _DailyBarChartPainter extends CustomPainter {
     if (monthlyUnitsQuota <= 0) return AppColors.blue500;
     final dailyQuota = monthlyUnitsQuota / _defaultDaysInMonth;
     final ratio = dailyQuota > 0 ? value / dailyQuota : 0.0;
-    if (ratio >= _dangerThreshold) return AppColors.error;
-    if (ratio >= _warningThreshold) return AppColors.warning;
+    if (ratio >= QuotaThresholds.danger) return AppColors.error;
+    if (ratio >= QuotaThresholds.warning) return AppColors.warning;
     return AppColors.blue500;
   }
 

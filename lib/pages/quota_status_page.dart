@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../config/content/constants.dart';
 import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
@@ -36,6 +37,7 @@ class QuotaStatusPage extends StatefulWidget {
 
 class _QuotaStatusPageState extends State<QuotaStatusPage> {
   bool _isLoading = false;
+  bool _isFetching = false;
   String? _errorMessage;
   QuotaStatusData? _data;
 
@@ -47,29 +49,35 @@ class _QuotaStatusPageState extends State<QuotaStatusPage> {
   }
 
   Future<void> _fetchQuotaStatus() async {
+    if (_isFetching) return;
+    _isFetching = true;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final response = await DashboardService.fetchQuotaStatus(
-      orgId: widget.args.orgId,
-      jwt: widget.args.jwt,
-    );
+    try {
+      final response = await DashboardService.fetchQuotaStatus(
+        orgId: widget.args.orgId,
+        jwt: widget.args.jwt,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    switch (response) {
-      case QuotaStatusSuccess():
-        setState(() {
-          _data = response.data;
-          _isLoading = false;
-        });
-      case QuotaStatusError():
-        setState(() {
-          _errorMessage = response.error;
-          _isLoading = false;
-        });
+      switch (response) {
+        case QuotaStatusSuccess():
+          setState(() {
+            _data = response.data;
+            _isLoading = false;
+          });
+        case QuotaStatusError():
+          setState(() {
+            _errorMessage = response.error;
+            _isLoading = false;
+          });
+      }
+    } finally {
+      _isFetching = false;
     }
   }
 
@@ -224,9 +232,6 @@ class _QuotaCard extends StatelessWidget {
 }
 
 class _QuotaRow extends StatelessWidget {
-  static const double _dangerThreshold = 0.90;
-  static const double _warningThreshold = 0.75;
-
   final IconData icon;
   final String label;
   final int used;
@@ -251,9 +256,9 @@ class _QuotaRow extends StatelessWidget {
     final ratio = limit != null && limit! > 0
         ? (used / limit!).clamp(0.0, 1.0)
         : 0.0;
-    final barColor = ratio >= _dangerThreshold
+    final barColor = ratio >= QuotaThresholds.danger
         ? AppColors.error
-        : ratio >= _warningThreshold
+        : ratio >= QuotaThresholds.warning
             ? AppColors.warning
             : AppColors.blue500;
 

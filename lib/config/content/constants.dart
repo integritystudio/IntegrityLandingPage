@@ -102,6 +102,7 @@ abstract final class Routes {
   static const String signin = '/signin';
   static const String provision = '/provision';
   static const String senderHealth = '/health';
+  static const String dashboard = '/dashboard';
   static const String billingStatus = '/billing';
   static const String usageSummary = '/usage';
   static const String entitlements = '/entitlements';
@@ -227,6 +228,22 @@ abstract final class FormMessages {
 abstract final class PasswordPolicy {
   static const int minLength = 8;
   static const int maxLength = 128;
+}
+
+// =============================================================================
+// QUOTA THRESHOLDS
+// =============================================================================
+
+/// Ratio thresholds for quota/usage progress bar coloring.
+///
+/// Shared by UsageSummaryPage (_UsageBar, _DailyBarChartPainter) and
+/// QuotaStatusPage (_QuotaRow) to ensure consistent color semantics.
+abstract final class QuotaThresholds {
+  /// At or above this ratio, show danger color (e.g. AppColors.error).
+  static const double danger = 0.90;
+
+  /// At or above this ratio (but below [danger]), show warning color.
+  static const double warning = 0.75;
 }
 
 // =============================================================================
