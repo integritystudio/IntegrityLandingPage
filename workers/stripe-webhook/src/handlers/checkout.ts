@@ -12,7 +12,7 @@ export async function handleCheckoutSessionCompleted(
 ): Promise<HandlerResult> {
   const parseResult = CheckoutSessionSchema.safeParse(event.data.object);
   if (!parseResult.success) {
-    return { ok: false, error: `Invalid checkout session payload: ${parseResult.error.message}` };
+    return { ok: false, error: `Invalid checkout session payload: ${parseResult.error.issues.map((i) => i.message).join('; ')}` };
   }
   const session = parseResult.data;
 

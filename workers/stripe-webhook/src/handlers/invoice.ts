@@ -47,7 +47,7 @@ export async function handleInvoicePaid(
 ): Promise<HandlerResult> {
   const parseResult = InvoiceSchema.safeParse(event.data.object);
   if (!parseResult.success) {
-    return { ok: false, error: `Invalid invoice payload: ${parseResult.error.message}` };
+    return { ok: false, error: `Invalid invoice payload: ${parseResult.error.issues.map((i) => i.message).join('; ')}` };
   }
   const invoice = parseResult.data;
 
@@ -72,7 +72,7 @@ export async function handleInvoicePaymentFailed(
 ): Promise<HandlerResult> {
   const parseResult = InvoiceSchema.safeParse(event.data.object);
   if (!parseResult.success) {
-    return { ok: false, error: `Invalid invoice payload: ${parseResult.error.message}` };
+    return { ok: false, error: `Invalid invoice payload: ${parseResult.error.issues.map((i) => i.message).join('; ')}` };
   }
   const invoice = parseResult.data;
 

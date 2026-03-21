@@ -26,7 +26,7 @@ export async function handleSubscriptionUpdated(
 ): Promise<HandlerResult> {
   const parseResult = SubscriptionSchema.safeParse(event.data.object);
   if (!parseResult.success) {
-    return { ok: false, error: `Invalid subscription payload: ${parseResult.error.message}` };
+    return { ok: false, error: `Invalid subscription payload: ${parseResult.error.issues.map((i) => i.message).join('; ')}` };
   }
   const subscription = parseResult.data;
 
@@ -85,7 +85,7 @@ export async function handleSubscriptionDeleted(
 ): Promise<HandlerResult> {
   const parseResult = SubscriptionSchema.safeParse(event.data.object);
   if (!parseResult.success) {
-    return { ok: false, error: `Invalid subscription payload: ${parseResult.error.message}` };
+    return { ok: false, error: `Invalid subscription payload: ${parseResult.error.issues.map((i) => i.message).join('; ')}` };
   }
   const subscription = parseResult.data;
 
