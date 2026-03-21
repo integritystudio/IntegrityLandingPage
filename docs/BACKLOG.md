@@ -101,6 +101,27 @@ Sentry `ingest.sentry.io` endpoint shared across staging and prod. CSP allows on
 
 ---
 
+### M18-V01: Mutable JWT Claims (Phase 1 Remediation)
+
+**Severity:** CRITICAL (partially remediated)
+**Category:** Security — Access Control Staleness
+**File:** `workers/lib/types.zod.ts:39-45` | Commit: `312070b`
+
+JWT tokens from Supabase included mutable billing state claims (`default_org_plan` and `default_org_billing_status`) that reflect values at token issuance time (up to 3600s stale). When these values change via Stripe webhooks, JWT claims remain immutable, violating SOC 2 CC6.1 (system monitoring) and creating stale-read access control vulnerabilities.
+
+**Remediation completed:**
+- ✅ Removed both claims from `JWTPayloadSchema`
+- ✅ Code already queries fresh values from database (`orgs.ts`)
+- ✅ Added `.passthrough()` for backward compatibility with old tokens
+
+**External dependency pending:**
+- Supabase Custom Access Token Hook must be updated to stop generating these claims
+- Current code is safe; old tokens are gracefully accepted but claims are not used
+
+**Status:** Implemented in app code. Awaiting Supabase configuration update to prevent claim generation.
+
+---
+
 ## Deferred: Chrome Platform Tests (#77)
 
 ### #77: `flutter test --platform chrome` Hangs Indefinitely
@@ -198,27 +219,19 @@ These issues require **server-side HTTP response header configuration** and cann
 
 #### L22: Type safety for makeOpts test helper
 
-**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21)
-
-`makeOpts(sbOverride: any) => ...` in `ingest.test.ts:27` defeats type-checking. Should be typed as `SupabaseClient | null` or the minimal interface accepted by the handler. Prevents drift detection if the SupabaseClient interface changes.
+**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21) | **Status:** ✅ Done (ce4c563)
 
 #### L23: Rate-limit headers not forwarded on OTEL success response
 
-**Priority:** P3 | **Source:** code-reviewer (session 2026-03-21)
-
-`handleIngestOtel` calls `enforceOrgQuota` but discards the `rateLimitHeaders` (only checks `.ok`). Org-route handlers forward `X-RateLimit-Remaining-*` headers to callers. OTEL endpoint should match this pattern for consistency.
+**Priority:** P3 | **Source:** code-reviewer (session 2026-03-21) | **Status:** ✅ Done (e743c68)
 
 #### L24: start_time_ms lacks upper bound validation
 
-**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21)
-
-`OtelSpanSchema.start_time_ms` is `z.number().int().nonnegative()` with no upper bound. Accepts future timestamps and epoch 0. Consider `.max(Date.now() + 86_400_000)` to catch obviously invalid input. — `workers/lib/types/usage.ts:134`
+**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21) | **Status:** ✅ Done (32658b9)
 
 #### L25: OTEL_INGEST_ROUTE path duplicated between files
 
-**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21)
-
-The literal `'/v1/ingest/otel'` appears in `ingest.ts` (line 133 as `const OTEL_INGEST_ROUTE`) and `index.ts` (line 88 in route match). Should export constant from `ingest.ts` and import in `index.ts` to avoid drift. — `workers/api-gateway/src/routes/ingest.ts:133`
+**Priority:** P4 | **Source:** code-reviewer (session 2026-03-21) | **Status:** ✅ Done (2aa30eb)
 
 ## Payment Processor Security Remediation
 
