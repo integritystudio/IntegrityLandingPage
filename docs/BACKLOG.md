@@ -55,7 +55,7 @@ Implement monthly rollup that aggregates `usage_buckets_daily` rows into `Monthl
 - `workers/api-gateway/src/aggregation.ts` — add `rollupMonthlyBucket`
 - `workers/api-gateway/src/aggregation.test.ts` — monthly tests (TDD)
 
-**Status:** Open
+**Status:** Done — Implemented in commits 59402f3, c021f5b (2026-03-20). 17 tests passing (TDD). Zod-validated return via MonthlyUsageSummarySchema.
 
 ---
 
