@@ -38,8 +38,6 @@ class _AuthPageState extends State<AuthPage> {
   String _email = '';
   String _password = '';
   String _confirmPassword = '';
-  bool _showPassword = false;
-  bool _showConfirmPassword = false;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -105,8 +103,6 @@ class _AuthPageState extends State<AuthPage> {
       _errorMessage = null;
       _password = '';
       _confirmPassword = '';
-      _showPassword = false;
-      _showConfirmPassword = false;
       // _email is intentionally preserved so the user does not have to re-type
       // it after switching between sign-up and sign-in modes.
     });

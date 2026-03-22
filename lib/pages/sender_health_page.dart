@@ -3,7 +3,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../services/analytics.dart';
 import '../services/provisioning_service.dart';
 import '../theme/theme.dart';
-import '../theme/timings.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
 

@@ -524,7 +524,6 @@ class _MockGetDio implements Dio {
   Map<String, dynamic> _responseData = {};
   int _statusCode = 200;
   DioExceptionType? _errorType;
-  int _callCount = 0;
 
   Map<String, dynamic> _postResponseData = {};
   int _postStatusCode = 200;
@@ -534,12 +533,10 @@ class _MockGetDio implements Dio {
     _responseData = Map.of(data);
     _statusCode = statusCode;
     _errorType = null;
-    _callCount = 0;
   }
 
   void mockGetError(DioExceptionType type) {
     _errorType = type;
-    _callCount = 0;
   }
 
   void mockPostResponse(Map<String, dynamic> data, {int statusCode = 200}) {
@@ -557,7 +554,6 @@ class _MockGetDio implements Dio {
     CancelToken? cancelToken,
     ProgressCallback? onReceiveProgress,
   }) async {
-    _callCount++;
     if (_errorType != null) {
       throw DioException(
         type: _errorType!,
