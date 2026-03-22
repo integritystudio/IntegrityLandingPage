@@ -135,11 +135,13 @@ Future<void> _initializeWithSentry() async {
 
       // Performance monitoring
       options.tracesSampleRate = SentryConfig.tracesSampleRate;
+      // ignore: experimental_member_use
       options.profilesSampleRate = SentryConfig.profilesSampleRate;
       options.enableAutoPerformanceTracing = true;
 
       // Error capture enhancements
       options.attachScreenshot = true;
+      // ignore: experimental_member_use
       options.attachViewHierarchy = true;
       options.reportSilentFlutterErrors = true;
 

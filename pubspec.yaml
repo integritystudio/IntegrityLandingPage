@@ -35,7 +35,7 @@ dependencies:
   go_router: ^17.0.1
 
   # Error Tracking
-  sentry_flutter: ^9.9.2
+  sentry_flutter: ^9.15.0
 
   # Web Interop (for GTM/Analytics)
   web: ^1.0.0
