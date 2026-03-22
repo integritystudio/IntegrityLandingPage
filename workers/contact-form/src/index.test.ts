@@ -21,13 +21,18 @@ interface SuccessResponse {
 type ApiResponse = ErrorResponse | SuccessResponse;
 
 // Mock Resend
-vi.mock('resend', () => ({
-  Resend: vi.fn().mockImplementation(() => ({
+vi.mock('resend', () => {
+  const mockInstance = {
     emails: {
       send: vi.fn(),
     },
-  })),
-}));
+  };
+  return {
+    Resend: vi.fn(function() {
+      return mockInstance;
+    }),
+  };
+});
 
 import { Resend } from 'resend';
 
@@ -113,7 +118,9 @@ describe('Contact Form Worker', () => {
       },
     };
     (Resend as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-      () => mockResendInstance
+      function() {
+        return mockResendInstance;
+      }
     );
   });
 
