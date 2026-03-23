@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { waitForFlutter, assertFlutterRendering, navigateAndWaitForFlutter } from './helpers';
+import { FLUTTER_BOOTSTRAP_SCRIPT } from './constants';
 
 /**
  * E2E tests for footer link destinations and navigation.
@@ -38,21 +39,14 @@ test.describe('Footer Link Destinations', () => {
 
   for (const route of footerRoutes) {
     test(`${route.name} (${route.path}) loads Flutter app`, async ({ page }) => {
-      const response = await page.goto(route.path, {
-        waitUntil: 'domcontentloaded',
-      });
-
+      const response = await page.goto(route.path, { waitUntil: 'domcontentloaded' });
       expect(response?.status()).toBe(200);
-
-      const content = await page.content();
-      expect(content).toContain('flutter_bootstrap.js');
-
+      expect(await page.content()).toContain(FLUTTER_BOOTSTRAP_SCRIPT);
       await waitForFlutter(page);
       await assertFlutterRendering(page);
     });
   }
 
-  // Bottom bar legal links
   const legalRoutes = [
     { path: '/privacy', name: 'Privacy Policy' },
     { path: '/terms', name: 'Terms of Service' },
@@ -62,10 +56,7 @@ test.describe('Footer Link Destinations', () => {
 
   for (const route of legalRoutes) {
     test(`${route.name} (${route.path}) loads Flutter app`, async ({ page }) => {
-      const response = await page.goto(route.path, {
-        waitUntil: 'domcontentloaded',
-      });
-
+      const response = await page.goto(route.path, { waitUntil: 'domcontentloaded' });
       expect(response?.status()).toBe(200);
       await waitForFlutter(page);
       await assertFlutterRendering(page);
@@ -74,15 +65,10 @@ test.describe('Footer Link Destinations', () => {
 
   test('anchor route #features navigates to home page', async ({ page }) => {
     // #53 regression: Features link changed from /features to #features
-    // Anchor links navigate to home in the footer handler
     await navigateAndWaitForFlutter(page, '/');
     await assertFlutterRendering(page);
 
-    // Navigate with hash — should still serve home page SPA
-    // Note: hash-only navigation may return null response (client-side only)
-    const response = await page.goto('/#features', {
-      waitUntil: 'domcontentloaded',
-    });
+    const response = await page.goto('/#features', { waitUntil: 'domcontentloaded' });
     if (response) {
       expect(response.status()).toBe(200);
     }

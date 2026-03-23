@@ -18,30 +18,16 @@ test.describe('Redirect Rules', () => {
     test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
   });
 
-  // -------------------------------------------------------------------------
-  // GoRouter redirects (app_router.dart:242-246)
-  // -------------------------------------------------------------------------
-
   test.describe('GoRouter redirects', () => {
     test('/docs/security/audit-trails redirects to /docs/tracing', async ({ page }) => {
-      // GoRouter redirects this client-side to /docs/tracing.
-      // On production, /docs/tracing serves static HTML (#104), not Flutter SPA.
-      // Test only validates the redirect destination returns 200.
-      const response = await page.goto('/docs/security/audit-trails', {
-        waitUntil: 'domcontentloaded',
-      });
+      const response = await page.goto('/docs/security/audit-trails', { waitUntil: 'domcontentloaded' });
       expect(response?.status()).toBe(HTTP_OK);
-      // GoRouter redirect is client-side; wait for URL change or check content
-      // Since /docs/tracing may be static HTML (#104), we verify the response
-      // content contains either Flutter SPA or the tracing page content.
       const html = await page.content();
-      const isFlutter = html.includes('flutter_bootstrap.js');
-      const isStaticTracing = html.includes('Tracing') || html.includes('tracing');
-      expect(isFlutter || isStaticTracing).toBe(true);
+      expect(html.includes('flutter_bootstrap.js') || html.includes('Tracing') || html.includes('tracing')).toBe(true);
     });
 
     test('/reports/anything redirects to /docs', async ({ page }) => {
-      test.slow(); // GoRouter redirect requires full Flutter init + route change
+      test.slow();
       await page.goto('/reports/quarterly-review', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
       await waitForRoute(page, /\/docs/);
@@ -50,16 +36,11 @@ test.describe('Redirect Rules', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Unknown routes (errorBuilder → landing page)
-  // -------------------------------------------------------------------------
-
   test.describe('unknown route fallback', () => {
     test('unknown route renders landing page (not blank)', async ({ page }) => {
       await page.goto('/this-route-does-not-exist', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
       await assertFlutterRendering(page);
-      // errorBuilder sends to LandingPage, so URL stays but Flutter renders home
     });
 
     test('deeply nested unknown route still renders', async ({ page }) => {
@@ -68,10 +49,6 @@ test.describe('Redirect Rules', () => {
       await assertFlutterRendering(page);
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Query parameter and fragment preservation
-  // -------------------------------------------------------------------------
 
   test.describe('query parameter preservation', () => {
     test('/?section=pricing preserves section param', async ({ page }) => {
@@ -89,15 +66,9 @@ test.describe('Redirect Rules', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Redirect chain validation (#115)
-  // Multi-hop redirect chains and loop prevention
-  // -------------------------------------------------------------------------
-
   test.describe('redirect chain validation', () => {
     test('/reports/foo → /docs chain reaches /docs', async ({ page }) => {
-      test.slow(); // GoRouter redirect requires full Flutter init
-      // /reports/* is a GoRouter redirect to /docs (app_router.dart)
+      test.slow();
       await page.goto('/reports/old-quarterly', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
       await waitForRoute(page, /\/docs/);
@@ -106,15 +77,12 @@ test.describe('Redirect Rules', () => {
     });
 
     test('/docs/security/audit-trails → /docs/tracing returns 200 (no loop)', async ({ request }) => {
-      // maxRedirects: 5 fails fast if a redirect loop is present rather than
-      // relying on the test timeout to surface it.
       const response = await request.get('/docs/security/audit-trails', { maxRedirects: 5 });
       expect(response.status()).toBe(HTTP_OK);
     });
 
     test('trailing slash on /pricing/ does not loop', async ({ request }) => {
       const response = await request.get('/pricing/', { maxRedirects: 5 });
-      // Cloudflare may redirect /pricing/ → /pricing or serve 200 directly
       expect([HTTP_OK, ...VALID_REDIRECT_STATUSES]).toContain(response.status());
     });
 

@@ -16,12 +16,22 @@ import {
 /**
  * E2E tests for mobile navigation and responsive behavior.
  *
- * Covers gaps identified in mobile testing:
+ * Covers:
  * - Legal pages on mobile viewports
  * - Docs pages on mobile viewports
  * - Mobile scroll behavior across page types
  * - Auth pages on mobile viewports
  */
+
+async function waitForSemanticsOrSkip(page: Parameters<typeof waitForSemantics>[0], label: RegExp): Promise<boolean> {
+  try {
+    await waitForSemantics(page, label, SEMANTICS_TIMEOUT_MS);
+    return true;
+  } catch {
+    test.skip(true, 'Flutter semantics tree not available (Flutter #151929)');
+    return false;
+  }
+}
 
 test.describe('Mobile Navigation', () => {
   test.use({
@@ -32,10 +42,6 @@ test.describe('Mobile Navigation', () => {
   test.beforeEach(async ({ browserName }) => {
     test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
   });
-
-  // -------------------------------------------------------------------------
-  // Legal pages on mobile (previously untested on mobile viewports)
-  // -------------------------------------------------------------------------
 
   test.describe('legal pages on mobile', () => {
     const legalRoutes = ['/privacy', '/terms', '/cookies', '/accessibility'];
@@ -49,10 +55,6 @@ test.describe('Mobile Navigation', () => {
     }
   });
 
-  // -------------------------------------------------------------------------
-  // Docs pages on mobile (previously untested on mobile viewports)
-  // -------------------------------------------------------------------------
-
   test.describe('docs pages on mobile', () => {
     const docsRoutes = ['/docs', '/docs/quickstart', '/api'];
 
@@ -64,10 +66,6 @@ test.describe('Mobile Navigation', () => {
       });
     }
   });
-
-  // -------------------------------------------------------------------------
-  // Auth pages on mobile (previously untested on mobile viewports)
-  // -------------------------------------------------------------------------
 
   test.describe('auth pages on mobile', () => {
     test('/signup loads on mobile', async ({ page }) => {
@@ -83,15 +81,10 @@ test.describe('Mobile Navigation', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Mobile scroll on different page types
-  // -------------------------------------------------------------------------
-
   test.describe('mobile scroll behavior', () => {
     test('legal page scrolls without crash', async ({ page }) => {
       await navigateAndWaitForFlutter(page, '/privacy');
       await assertFlutterRendering(page);
-
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       await page.waitForTimeout(SCROLL_SETTLE_MS);
       await assertFlutterRendering(page);
@@ -100,16 +93,11 @@ test.describe('Mobile Navigation', () => {
     test('docs page scrolls without crash', async ({ page }) => {
       await navigateAndWaitForFlutter(page, '/docs');
       await assertFlutterRendering(page);
-
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       await page.waitForTimeout(SCROLL_SETTLE_MS);
       await assertFlutterRendering(page);
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Pricing page on mobile (#110)
-  // -------------------------------------------------------------------------
 
   test.describe('pricing page on mobile', () => {
     test('/pricing loads on mobile', async ({ page }) => {
@@ -121,16 +109,11 @@ test.describe('Mobile Navigation', () => {
     test('/pricing scrolls without crash on mobile', async ({ page }) => {
       await navigateAndWaitForFlutter(page, '/pricing');
       await assertFlutterRendering(page);
-
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       await page.waitForTimeout(SCROLL_SETTLE_MS);
       await assertFlutterRendering(page);
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Hamburger menu interactions via semantics (#117)
-  // -------------------------------------------------------------------------
 
   test.describe('hamburger menu interactions (semantics)', () => {
     test.setTimeout(TEST_TIMEOUT_MS);
@@ -138,45 +121,25 @@ test.describe('Mobile Navigation', () => {
     test('hamburger menu is detectable via semantics', async ({ page }) => {
       await navigateAndWaitForFlutter(page, '/');
       await enableFlutterSemantics(page);
-
-      try {
-        await waitForSemantics(page, /navigation menu/i, SEMANTICS_TIMEOUT_MS);
-      } catch {
-        test.skip(true, 'Flutter semantics tree not available (Flutter #151929)');
-        return;
-      }
-
+      if (!await waitForSemanticsOrSkip(page, /navigation menu/i)) return;
       await expect(page.getByLabel(/navigation menu/i).first()).toBeAttached();
     });
 
     test('hamburger menu opens and shows nav items', async ({ page }) => {
       await navigateAndWaitForFlutter(page, '/');
       await enableFlutterSemantics(page);
-
-      try {
-        await waitForSemantics(page, /navigation menu/i, SEMANTICS_TIMEOUT_MS);
-      } catch {
-        test.skip(true, 'Flutter semantics tree not available (Flutter #151929)');
-        return;
-      }
+      if (!await waitForSemanticsOrSkip(page, /navigation menu/i)) return;
 
       await page.getByLabel(/navigation menu/i).first().click();
       await page.waitForTimeout(CLICK_SETTLE_MS);
 
-      const navItems = page.getByLabel(/navigate to/i);
-      await expect(navItems.first()).toBeAttached({ timeout: SEMANTICS_TIMEOUT_MS });
+      await expect(page.getByLabel(/navigate to/i).first()).toBeAttached({ timeout: SEMANTICS_TIMEOUT_MS });
     });
 
     test('hamburger menu item navigates to route', async ({ page }) => {
       await navigateAndWaitForFlutter(page, '/');
       await enableFlutterSemantics(page);
-
-      try {
-        await waitForSemantics(page, /navigation menu/i, SEMANTICS_TIMEOUT_MS);
-      } catch {
-        test.skip(true, 'Flutter semantics tree not available (Flutter #151929)');
-        return;
-      }
+      if (!await waitForSemanticsOrSkip(page, /navigation menu/i)) return;
 
       await page.getByLabel(/navigation menu/i).first().click();
       await page.waitForTimeout(CLICK_SETTLE_MS);
@@ -190,32 +153,20 @@ test.describe('Mobile Navigation', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Tablet viewport (iPad)
-  // -------------------------------------------------------------------------
-
   test.describe('tablet viewport', () => {
     test.use({
       viewport: devices['iPad Mini'].viewport,
       userAgent: devices['iPad Mini'].userAgent,
     });
 
-    test('/features loads on tablet', async ({ page }) => {
-      await navigateAndWaitForFlutter(page, '/features');
-      expect(page.url()).toContain('/features');
-      await assertFlutterRendering(page);
-    });
+    const tabletRoutes = ['/features', '/eu-ai-act', '/pricing'] as const;
 
-    test('/eu-ai-act loads on tablet', async ({ page }) => {
-      await navigateAndWaitForFlutter(page, '/eu-ai-act');
-      expect(page.url()).toContain('/eu-ai-act');
-      await assertFlutterRendering(page);
-    });
-
-    test('/pricing loads on tablet', async ({ page }) => {
-      await navigateAndWaitForFlutter(page, '/pricing');
-      expect(page.url()).toContain('/pricing');
-      await assertFlutterRendering(page);
-    });
+    for (const path of tabletRoutes) {
+      test(`${path} loads on tablet`, async ({ page }) => {
+        await navigateAndWaitForFlutter(page, path);
+        expect(page.url()).toContain(path);
+        await assertFlutterRendering(page);
+      });
+    }
   });
 });

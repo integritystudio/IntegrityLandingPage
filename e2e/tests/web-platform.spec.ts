@@ -12,23 +12,33 @@ import {
  *
  * These cover Dart branches that native widget tests cannot reach because
  * `kIsWeb` is a compile-time constant that evaluates to `false` outside a
- * browser.  Running in a real Chromium browser via Playwright exercises the
+ * browser. Running in a real Chromium browser via Playwright exercises the
  * web-only code and provides regression coverage for:
  *
  * - #76: `_initializeTracking` — consent → GTM / GA4 / Facebook Pixel
  * - #75: `_launchUrl` — footer external links via `url_launcher` web impl
  *
- * Upstream context (BACKLOG.md §Blocked: Chrome Platform Tests #77):
- * `flutter test --platform chrome` is blocked by two upstream bugs (Flutter
- * #162798, #182618). These Playwright tests are the workaround until Flutter
- * 3.44 stable ships the fixes (~May 2026).
+ * Upstream context: `flutter test --platform chrome` is blocked by upstream
+ * bugs (Flutter #162798, #182618) until Flutter 3.44 stable (~May 2026).
  */
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+const UNHANDLED_ERROR_PATTERNS = ['Uncaught', 'Unhandled', 'unhandled', 'EXCEPTION'] as const;
 
-/** Check whether `window.dataLayer` exists and has entries. */
+function isUnhandledError(msg: string): boolean {
+  return UNHANDLED_ERROR_PATTERNS.some((p) => msg.includes(p));
+}
+
+function isKnownFlutterError(msg: string): boolean {
+  return (
+    msg.includes('service-worker') ||
+    msg.includes('CanvasKit') ||
+    msg.includes('Failed to load resource') ||
+    msg.includes('net::ERR_') ||
+    msg.includes('Content Security Policy directive') ||
+    msg.includes('is ignored when delivered via a <meta>')
+  );
+}
+
 async function getDataLayerLength(page: Page): Promise<number> {
   return page.evaluate(() => {
     const dl = (window as unknown as { dataLayer?: unknown[] }).dataLayer;
@@ -36,7 +46,6 @@ async function getDataLayerLength(page: Page): Promise<number> {
   });
 }
 
-/** Check whether a <script> tag with the given src substring exists. */
 async function hasScriptSrc(page: Page, srcSubstring: string): Promise<boolean> {
   return page.evaluate((sub) => {
     return Array.from(document.querySelectorAll('script[src]'))
@@ -44,10 +53,6 @@ async function hasScriptSrc(page: Page, srcSubstring: string): Promise<boolean> 
   }, srcSubstring);
 }
 
-/**
- * Build a ConsentPreferences-compatible JSON string.
- * Matches the format from consent_preferences.dart toJson().
- */
 function consentJson(analytics: boolean, marketing: boolean): string {
   return JSON.stringify({
     essential: true,
@@ -58,10 +63,6 @@ function consentJson(analytics: boolean, marketing: boolean): string {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 test.describe('Web Platform: Tracking Initialization (#76)', () => {
   test.beforeEach(async ({ browserName }) => {
     test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
@@ -70,57 +71,33 @@ test.describe('Web Platform: Tracking Initialization (#76)', () => {
   test('dataLayer exists after Flutter loads', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
-
-    // gtm-init.js (loaded in index.html) sets up window.dataLayer and gtag fn
-    const dlLength = await getDataLayerLength(page);
-    expect(dlLength).toBeGreaterThan(0);
+    expect(await getDataLayerLength(page)).toBeGreaterThan(0);
   });
 
   test('GTM script is NOT injected before consent (GDPR)', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
-
-    // dataLayer exists (from gtm-init.js) but GTM should NOT be loaded yet
-    const dlLength = await getDataLayerLength(page);
-    expect(dlLength).toBeGreaterThan(0);
-
-    const hasGTM = await hasScriptSrc(page, `gtm.js?id=${GTM_CONTAINER_ID}`);
-    expect(hasGTM).toBe(false);
+    expect(await getDataLayerLength(page)).toBeGreaterThan(0);
+    expect(await hasScriptSrc(page, `gtm.js?id=${GTM_CONTAINER_ID}`)).toBe(false);
   });
 
   test('no console errors during tracking initialization', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        consoleErrors.push(msg.text());
-      }
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
     await page.waitForTimeout(GTM_INJECT_SETTLE_MS);
 
-    // Filter known non-app errors (network, service worker, CanvasKit, CSP meta warnings)
-    const trackingErrors = consoleErrors.filter(
-      (e) =>
-        !e.includes('service-worker') &&
-        !e.includes('CanvasKit') &&
-        !e.includes('Failed to load resource') &&
-        !e.includes('net::ERR_') &&
-        !e.includes('Content Security Policy directive') &&
-        !e.includes('is ignored when delivered via a <meta>'),
-    );
-
-    expect(trackingErrors).toHaveLength(0);
+    expect(consoleErrors.filter((e) => !isKnownFlutterError(e))).toHaveLength(0);
   });
 
   test('meta-pixel.js is loaded in page', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
-
-    // meta-pixel.js is included in index.html (noscript img fallback too)
-    const hasMetaPixel = await hasScriptSrc(page, 'meta-pixel.js');
-    expect(hasMetaPixel).toBe(true);
+    expect(await hasScriptSrc(page, 'meta-pixel.js')).toBe(true);
   });
 });
 
@@ -132,25 +109,15 @@ test.describe('Web Platform: External Links (#75)', () => {
   test('page loads without crash after scrolling to footer region', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
-
-    // Scroll to bottom where footer lives
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(SCROLL_SETTLE_MS);
-
-    // Flutter should still be rendering (no crash from kIsWeb branches)
     await assertFlutterRendering(page);
   });
 
   test('window.open is available for url_launcher web impl', async ({ page }) => {
-    // On web, _launchUrl uses LaunchMode.platformDefault which delegates to
-    // window.open. Verify the web platform API is available.
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
-
-    const hasWindowOpen = await page.evaluate(() => typeof window.open === 'function');
-    expect(hasWindowOpen).toBe(true);
-
-    // Verify Flutter is rendering in web context (kIsWeb = true)
+    expect(await page.evaluate(() => typeof window.open === 'function')).toBe(true);
     await assertFlutterRendering(page);
   });
 
@@ -158,7 +125,6 @@ test.describe('Web Platform: External Links (#75)', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
 
-    // Scroll to bottom to ensure footer is in view
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(SCROLL_SETTLE_MS);
 
@@ -169,10 +135,8 @@ test.describe('Web Platform: External Links (#75)', () => {
       (window as unknown as { _restoreOpen: typeof window.open })._restoreOpen = original;
     });
 
-    // App should still be rendering after intercepting window.open
     await assertFlutterRendering(page);
 
-    // Cleanup
     await page.evaluate(() => {
       const w = window as unknown as { _restoreOpen?: typeof window.open };
       if (w._restoreOpen) {
@@ -183,21 +147,11 @@ test.describe('Web Platform: External Links (#75)', () => {
   });
 
   test('footer renders without crash under poisoned window.open environment (#75)', async ({ page }) => {
-    // Smoke test for #75: verifies the footer section and Flutter app render
-    // successfully even when window.open is configured to throw.
-    //
-    // On web, url_launcher delegates to window.open. By poisoning window.open
-    // before Flutter loads we confirm that Flutter's initialization and kIsWeb
-    // widget tree setup do not crash when the URL-launch mechanism is broken.
-    // Direct invocation of _launchUrl is not possible from Playwright because
-    // Flutter CanvasKit renders to <canvas>, not DOM elements; full catch-block
-    // unit coverage requires flutter test --platform chrome (#77).
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
 
-    // Poison window.open before Flutter loads
     await page.addInitScript(() => {
       window.open = (..._args: Parameters<typeof window.open>): null => {
         throw new Error('Simulated url_launcher failure');
@@ -207,21 +161,11 @@ test.describe('Web Platform: External Links (#75)', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
 
-    // Scroll to footer to trigger footer widget render in kIsWeb context
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(SCROLL_SETTLE_MS);
 
     await assertFlutterRendering(page);
-
-    // No unhandled exceptions from initialization under poisoned window.open
-    const unhandledErrors = consoleErrors.filter(
-      (e) =>
-        e.includes('Uncaught') ||
-        e.includes('Unhandled') ||
-        e.includes('unhandled') ||
-        e.includes('EXCEPTION'),
-    );
-    expect(unhandledErrors).toHaveLength(0);
+    expect(consoleErrors.filter(isUnhandledError)).toHaveLength(0);
   });
 });
 
@@ -233,7 +177,6 @@ test.describe('Web Platform: Consent Manager Web Storage (#76)', () => {
   });
 
   test.afterEach(async ({ page }) => {
-    // Clean up consent storage after each test
     await page.evaluate((key) => localStorage.removeItem(key), KEY);
   });
 
@@ -241,7 +184,6 @@ test.describe('Web Platform: Consent Manager Web Storage (#76)', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
 
-    // ConsentManager uses localStorage on web (kIsWeb branch)
     const storageAvailable = await page.evaluate(() => {
       try {
         localStorage.setItem('__test__', '1');
@@ -258,15 +200,14 @@ test.describe('Web Platform: Consent Manager Web Storage (#76)', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
 
-    // Write consent matching ConsentPreferences.toJson() format
-    const data = consentJson(true, false);
-    await page.evaluate(({ key, val }) => localStorage.setItem(key, val), { key: KEY, val: data });
+    await page.evaluate(
+      ({ key, val }) => localStorage.setItem(key, val),
+      { key: KEY, val: consentJson(true, false) },
+    );
 
-    // Reload — _initializeTracking should read stored consent
     await page.reload({ waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
 
-    // Verify consent data persisted
     const consent = await page.evaluate((key) => {
       const raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : null;
@@ -275,7 +216,6 @@ test.describe('Web Platform: Consent Manager Web Storage (#76)', () => {
     expect(consent.analytics).toBe(true);
     expect(consent.marketing).toBe(false);
 
-    // App should still render (no crash in _initializeTracking)
     await assertFlutterRendering(page);
   });
 
@@ -283,57 +223,35 @@ test.describe('Web Platform: Consent Manager Web Storage (#76)', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
 
-    // Write invalid JSON to consent key
-    await page.evaluate(
-      ({ key }) => localStorage.setItem(key, '{invalid json!!!}'),
-      { key: KEY },
-    );
+    await page.evaluate(({ key }) => localStorage.setItem(key, '{invalid json!!!}'), { key: KEY });
 
-    // Reload — _initializeTracking try/catch should handle the parse error
     const consoleErrors: string[] = [];
     page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        consoleErrors.push(msg.text());
-      }
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
     await page.waitForTimeout(GTM_INJECT_SETTLE_MS);
 
-    // App should still render — error caught by _initializeTracking
     await assertFlutterRendering(page);
-
-    // No unhandled errors (the try/catch in _initializeTracking handles it)
-    const unhandledErrors = consoleErrors.filter(
-      (e) =>
-        e.includes('Uncaught') ||
-        e.includes('Unhandled') ||
-        e.includes('unhandled') ||
-        e.includes('EXCEPTION'),
-    );
-    expect(unhandledErrors).toHaveLength(0);
+    expect(consoleErrors.filter(isUnhandledError)).toHaveLength(0);
   });
 
   test('GTM injects after consent with analytics=true', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
 
-    // Pre-set consent with analytics + marketing enabled
-    const data = consentJson(true, true);
-    await page.evaluate(({ key, val }) => localStorage.setItem(key, val), { key: KEY, val: data });
+    await page.evaluate(
+      ({ key, val }) => localStorage.setItem(key, val),
+      { key: KEY, val: consentJson(true, true) },
+    );
 
-    // Reload to trigger _initializeTracking with stored consent
     await page.reload({ waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
     await page.waitForTimeout(GTM_INJECT_SETTLE_MS);
 
-    // GTM script should be injected after consent-based initialization.
-    // consentJson() matches ConsentPreferences.fromJson() exactly:
-    // {essential, analytics, marketing, timestamp, consentVersion}
-    const hasGTM = await hasScriptSrc(page, `gtm.js?id=${GTM_CONTAINER_ID}`);
-    expect(hasGTM).toBe(true);
-
+    expect(await hasScriptSrc(page, `gtm.js?id=${GTM_CONTAINER_ID}`)).toBe(true);
     await assertFlutterRendering(page);
   });
 });

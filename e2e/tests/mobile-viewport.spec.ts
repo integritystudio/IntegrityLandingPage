@@ -5,8 +5,7 @@ import { waitForFlutter, assertFlutterRendering } from './helpers';
  * E2E tests for mobile viewport behavior.
  *
  * Validates that the Flutter web app loads and functions correctly
- * on mobile device viewports. Tests responsive behavior critical
- * for enterprise users accessing the site on mobile devices.
+ * on mobile device viewports.
  */
 test.describe('Mobile Viewport', () => {
   const mobileViewports = [
@@ -15,50 +14,27 @@ test.describe('Mobile Viewport', () => {
     { name: 'iPad Mini', ...devices['iPad Mini'] },
   ];
 
+  const mobileRoutes = ['/', '/pricing', '/contact'] as const;
+
   for (const device of mobileViewports) {
-    test.describe(`${device.name}`, () => {
+    test.describe(device.name, () => {
       test.use({ viewport: device.viewport, userAgent: device.userAgent });
 
-      test('homepage loads on mobile viewport', async ({ page, browserName }) => {
-        test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
-        const response = await page.goto('/', {
-          waitUntil: 'domcontentloaded',
+      for (const path of mobileRoutes) {
+        test(`${path} loads on ${device.name} viewport`, async ({ page, browserName }) => {
+          test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
+          const response = await page.goto(path, { waitUntil: 'domcontentloaded' });
+          expect(response?.status()).toBe(200);
+          await waitForFlutter(page);
+          await assertFlutterRendering(page);
         });
-
-        expect(response?.status()).toBe(200);
-        await waitForFlutter(page);
-        await assertFlutterRendering(page);
-      });
-
-      test('pricing page loads on mobile viewport', async ({ page, browserName }) => {
-        test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
-        const response = await page.goto('/pricing', {
-          waitUntil: 'domcontentloaded',
-        });
-
-        expect(response?.status()).toBe(200);
-        await waitForFlutter(page);
-        await assertFlutterRendering(page);
-      });
-
-      test('contact page loads on mobile viewport', async ({ page, browserName }) => {
-        test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
-        const response = await page.goto('/contact', {
-          waitUntil: 'domcontentloaded',
-        });
-
-        expect(response?.status()).toBe(200);
-        await waitForFlutter(page);
-        await assertFlutterRendering(page);
-      });
+      }
     });
   }
 
   test.describe('viewport meta tag', () => {
     test('has correct viewport meta for mobile', async ({ request }) => {
-      const response = await request.get('/');
-      const html = await response.text();
-
+      const html = await (await request.get('/')).text();
       expect(html).toContain('name="viewport"');
       expect(html).toContain('width=device-width');
       expect(html).toContain('initial-scale=1.0');
@@ -76,11 +52,7 @@ test.describe('Mobile Viewport', () => {
       test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
       await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
-
-      // Simulate mobile scroll
       await page.evaluate(() => window.scrollBy(0, 500));
-
-      // App should still be functional after scroll
       await assertFlutterRendering(page);
     });
   });

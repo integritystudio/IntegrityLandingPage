@@ -16,10 +16,6 @@ test.describe('Auth & Post-Submission Flows', () => {
     test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
   });
 
-  // -------------------------------------------------------------------------
-  // Request success/failure pages
-  // -------------------------------------------------------------------------
-
   test.describe('Request Success Page', () => {
     test('/request_success loads and renders Flutter', async ({ page }) => {
       await navigateAndWaitForFlutter(page, '/request_success');
@@ -28,8 +24,7 @@ test.describe('Auth & Post-Submission Flows', () => {
     });
 
     test('/request_success returns 200', async ({ request }) => {
-      const response = await request.get('/request_success');
-      expect(response.status()).toBe(200);
+      expect((await request.get('/request_success')).status()).toBe(200);
     });
   });
 
@@ -41,14 +36,9 @@ test.describe('Auth & Post-Submission Flows', () => {
     });
 
     test('/request_failure returns 200', async ({ request }) => {
-      const response = await request.get('/request_failure');
-      expect(response.status()).toBe(200);
+      expect((await request.get('/request_failure')).status()).toBe(200);
     });
   });
-
-  // -------------------------------------------------------------------------
-  // OAuth callback
-  // -------------------------------------------------------------------------
 
   test.describe('OAuth Callback', () => {
     test('/oauth/callback loads with no params (bare route)', async ({ page }) => {
@@ -81,10 +71,6 @@ test.describe('Auth & Post-Submission Flows', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Signup with tier variations
-  // -------------------------------------------------------------------------
-
   test.describe('Signup Tier Variations', () => {
     const tiers = ['Starter', 'Professional', 'Enterprise'];
 
@@ -109,10 +95,6 @@ test.describe('Auth & Post-Submission Flows', () => {
       await assertFlutterRendering(page);
     });
   });
-
-  // -------------------------------------------------------------------------
-  // Support / Help Center
-  // -------------------------------------------------------------------------
 
   test.describe('Support Route', () => {
     test('/support loads and renders Flutter', async ({ page }) => {

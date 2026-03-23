@@ -11,43 +11,33 @@ import { KEY_SETTLE_MS } from './constants';
  * and Flutter's accessibility tree when enabled.
  */
 test.describe('Accessibility', () => {
+  let html: string;
+
+  test.beforeAll(async ({ request }) => {
+    html = await (await request.get('/')).text();
+  });
+
   test.describe('HTML structure', () => {
-    test('page has lang attribute', async ({ request }) => {
-      const response = await request.get('/');
-      const html = await response.text();
+    test('page has lang attribute', async () => {
       expect(html).toMatch(/<html[^>]*lang="en"/);
     });
 
-    test('page has title', async ({ request }) => {
-      const response = await request.get('/');
-      const html = await response.text();
+    test('page has title', async () => {
       expect(html).toMatch(/<title>[^<]+<\/title>/);
     });
 
-    test('page has meta description', async ({ request }) => {
-      const response = await request.get('/');
-      const html = await response.text();
+    test('page has meta description', async () => {
       expect(html).toContain('name="description"');
     });
 
-    test('loading spinner has aria attributes', async ({ request }) => {
-      const response = await request.get('/');
-      const html = await response.text();
-
-      // Loading container should have aria-label
+    test('loading spinner has aria attributes', async () => {
       expect(html).toContain('aria-label="Loading application"');
-
-      // Spinner should have progressbar role
       expect(html).toContain('role="progressbar"');
     });
   });
 
   test.describe('noscript fallback', () => {
-    test('noscript content has semantic HTML', async ({ request }) => {
-      const response = await request.get('/');
-      const html = await response.text();
-
-      // Noscript block should use semantic elements
+    test('noscript content has semantic HTML', async () => {
       expect(html).toContain('<noscript>');
       expect(html).toMatch(/<main[^>]*>/);
       expect(html).toMatch(/<header[^>]*>/);
@@ -55,11 +45,7 @@ test.describe('Accessibility', () => {
       expect(html).toMatch(/<footer[^>]*>/);
     });
 
-    test('noscript content has heading hierarchy', async ({ request }) => {
-      const response = await request.get('/');
-      const html = await response.text();
-
-      // Should have h1 and h2 in noscript content
+    test('noscript content has heading hierarchy', async () => {
       expect(html).toContain('<h1');
       expect(html).toContain('<h2');
     });
@@ -71,13 +57,11 @@ test.describe('Accessibility', () => {
       await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
 
-      // Tab should work without errors — let Flutter settle between presses
       await page.keyboard.press('Tab');
       await page.waitForTimeout(KEY_SETTLE_MS);
       await page.keyboard.press('Tab');
       await page.waitForTimeout(KEY_SETTLE_MS);
 
-      // Page should still be functional after keyboard interaction
       await assertFlutterRendering(page);
     });
 
@@ -90,7 +74,6 @@ test.describe('Accessibility', () => {
         await page.goto(route, { waitUntil: 'domcontentloaded' });
         await waitForFlutter(page);
 
-        // Press Tab 3 times — Flutter intercepts, page must not crash
         for (let i = 0; i < 3; i++) {
           await page.keyboard.press('Tab');
         }
@@ -102,25 +85,17 @@ test.describe('Accessibility', () => {
   });
 
   test.describe('color and contrast', () => {
-    test('theme color meta tag is present', async ({ request }) => {
-      const response = await request.get('/');
-      const html = await response.text();
+    test('theme color meta tag is present', async () => {
       expect(html).toContain('name="theme-color"');
     });
   });
 
   test.describe('images and media', () => {
-    test('og:image has alt text', async ({ request }) => {
-      const response = await request.get('/');
-      const html = await response.text();
+    test('og:image has alt text', async () => {
       expect(html).toContain('og:image:alt');
     });
 
-    test('noscript img has display:none style', async ({ request }) => {
-      const response = await request.get('/');
-      const html = await response.text();
-
-      // Meta pixel noscript image should be hidden
+    test('noscript img has display:none style', async () => {
       expect(html).toMatch(/<img[^>]*style="display:none"/);
     });
   });

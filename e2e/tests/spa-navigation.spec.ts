@@ -9,21 +9,16 @@ import { waitForFlutter, assertFlutterRendering, navigateAndWaitForFlutter, wait
  * - Browser back/forward functionality
  * - Direct URL navigation
  * - Deep linking
- *
- * Critical for enterprise to ensure consistent navigation experience.
  */
 test.describe('SPA Navigation', () => {
-  // Collect console errors for debugging
   const consoleErrors: string[] = [];
 
   test.beforeEach(async ({ page, browserName }) => {
     test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
-    consoleErrors.length = 0; // Reset for each test
+    consoleErrors.length = 0;
 
     page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        consoleErrors.push(msg.text());
-      }
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -47,41 +42,25 @@ test.describe('SPA Navigation', () => {
   });
 
   test('browser back/forward navigation works', async ({ page }) => {
-    test.slow(); // beforeEach + 2 navigations + back/forward
-    // Navigate to pricing
+    test.slow();
     await navigateAndWaitForFlutter(page, '/pricing');
-
-    // Navigate to contact
     await navigateAndWaitForFlutter(page, '/contact');
 
-    // Go back to pricing
     await page.goBack();
     await waitForRoute(page, /\/pricing/);
-
-    // URL should be pricing
     expect(page.url()).toContain('/pricing');
 
-    // Go forward to contact
     await page.goForward();
     await waitForRoute(page, /\/contact/);
-
-    // URL should be contact
     expect(page.url()).toContain('/contact');
   });
 
   test('page refresh maintains current route', async ({ page }) => {
-    test.slow(); // beforeEach + navigation + reload
-    // Navigate to pricing
+    test.slow();
     await navigateAndWaitForFlutter(page, '/pricing');
-
-    // Refresh the page
     await page.reload();
     await waitForFlutter(page);
-
-    // URL should still be pricing
     expect(page.url()).toContain('/pricing');
-
-    // Flutter should be rendered
     await assertFlutterRendering(page);
   });
 
@@ -92,10 +71,8 @@ test.describe('SPA Navigation', () => {
   });
 
   test('app remains functional after multiple navigations', async ({ page }) => {
-    test.slow(); // 5 full page navigations, each reloads Flutter
-    const routes = ['/pricing', '/contact', '/about', '/features', '/'];
-
-    for (const route of routes) {
+    test.slow();
+    for (const route of ['/pricing', '/contact', '/about', '/features', '/']) {
       await navigateAndWaitForFlutter(page, route);
       await assertFlutterRendering(page);
     }
@@ -108,13 +85,8 @@ test.describe('Navigation URL Handling', () => {
   });
 
   test('trailing slash is handled correctly', async ({ page }) => {
-    // Navigate with trailing slash
     const response = await page.goto('/pricing/', { waitUntil: 'domcontentloaded' });
-
-    // Should still work (either redirect or serve)
     expect(response?.status()).toBe(200);
-
-    // Flutter should load
     await waitForFlutter(page);
     await assertFlutterRendering(page);
   });
@@ -122,11 +94,8 @@ test.describe('Navigation URL Handling', () => {
   test('query parameters are preserved', async ({ page }) => {
     await page.goto('/demo?source=test&campaign=e2e', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
-
-    // URL should contain query parameters
-    const url = page.url();
-    expect(url).toContain('source=test');
-    expect(url).toContain('campaign=e2e');
+    expect(page.url()).toContain('source=test');
+    expect(page.url()).toContain('campaign=e2e');
   });
 
   test('hash fragments are handled', async ({ page }) => {
@@ -135,10 +104,6 @@ test.describe('Navigation URL Handling', () => {
     await assertFlutterRendering(page);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Anchor / deep-link navigation within doc sections (#119)
-// ---------------------------------------------------------------------------
 
 test.describe('Doc Section Anchor Navigation', () => {
   test.beforeEach(async ({ browserName }) => {
@@ -163,7 +128,6 @@ test.describe('Doc Section Anchor Navigation', () => {
   test('anchor in URL is preserved on load', async ({ page }) => {
     await page.goto('/pricing#enterprise', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
-    // URL hash should still contain the fragment
     expect(page.url()).toContain('#enterprise');
     await assertFlutterRendering(page);
   });

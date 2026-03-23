@@ -9,25 +9,34 @@ import { SITE_URL, SITE_NAME } from './constants';
  * SEO crawlers rely on this static HTML for indexing and social previews.
  */
 
-// ---------------------------------------------------------------------------
-// Constants (must match web/index.html values)
-// ---------------------------------------------------------------------------
-
 const OG_IMAGE_PATH = '/images/og-image.png';
+
+/** Extract meta content attribute value by property or name. */
+const extractMeta = (html: string, attr: string, value: string): string | null => {
+  const match = html.match(new RegExp(`${attr}="${value}"\\s+content="([^"]+)"`));
+  return match?.[1] ?? null;
+};
+
+/** Extract canonical href. */
+const extractCanonical = (html: string): string | null =>
+  html.match(/rel="canonical"\s+href="([^"]+)"/)?.[1] ?? null;
+
+/** Extract <title> text. */
+const extractTitle = (html: string): string | null =>
+  html.match(/<title>([^<]+)<\/title>/)?.[1] ?? null;
+
+/** Extract parsed JSON-LD from HTML. */
+function extractJsonLd(html: string): Record<string, unknown> {
+  const match = html.match(/<script\s+type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/);
+  expect(match).not.toBeNull();
+  return JSON.parse(match![1]);
+}
 
 test.describe('SEO Meta Tags', () => {
   let html: string;
 
-  /**
-   * `beforeAll` fetches the home page HTML once and shares it across all tests
-   * in this describe block. This saves one HTTP round-trip per test (~10 tests).
-   * Trade-off: tests depend on shared mutable state and a fixed fetch order.
-   * Risk is low because this spec is the only consumer of `html`, and Playwright
-   * does not reorder tests within a describe block.
-   */
   test.beforeAll(async ({ request }) => {
-    const response = await request.get('/');
-    html = await response.text();
+    html = await (await request.get('/')).text();
   });
 
   test.describe('primary meta tags', () => {
@@ -36,12 +45,10 @@ test.describe('SEO Meta Tags', () => {
     });
 
     test('has meta description with meaningful content', async () => {
-      const match = html.match(/<meta\s+name="description"\s+content="([^"]+)"/);
-      expect(match).not.toBeNull();
-      // 50-160 chars is the optimal SEO range; Google truncates beyond 160.
-      const description = match![1];
-      expect(description.length).toBeGreaterThanOrEqual(50);
-      expect(description.length).toBeLessThanOrEqual(160);
+      const description = extractMeta(html, 'name', 'description');
+      expect(description).not.toBeNull();
+      expect(description!.length).toBeGreaterThanOrEqual(50);
+      expect(description!.length).toBeLessThanOrEqual(160);
     });
 
     test('has meta keywords', async () => {
@@ -67,15 +74,15 @@ test.describe('SEO Meta Tags', () => {
     });
 
     test('og:title is present and non-empty', async () => {
-      const match = html.match(/property="og:title"\s+content="([^"]+)"/);
-      expect(match).not.toBeNull();
-      expect(match![1].length).toBeGreaterThan(10);
+      const title = extractMeta(html, 'property', 'og:title');
+      expect(title).not.toBeNull();
+      expect(title!.length).toBeGreaterThan(10);
     });
 
     test('og:description is present and non-empty', async () => {
-      const match = html.match(/property="og:description"\s+content="([^"]+)"/);
-      expect(match).not.toBeNull();
-      expect(match![1].length).toBeGreaterThan(10);
+      const description = extractMeta(html, 'property', 'og:description');
+      expect(description).not.toBeNull();
+      expect(description!.length).toBeGreaterThan(10);
     });
 
     test('og:image is absolute URL with correct dimensions', async () => {
@@ -135,31 +142,24 @@ test.describe('SEO Meta Tags', () => {
     });
 
     test('JSON-LD is valid JSON with @context', async () => {
-      const match = html.match(/<script\s+type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/);
-      expect(match).not.toBeNull();
-      const jsonld = JSON.parse(match![1]);
-      expect(jsonld['@context']).toBe('https://schema.org');
+      expect(extractJsonLd(html)['@context']).toBe('https://schema.org');
     });
 
     test('JSON-LD contains Organization entity', async () => {
-      const match = html.match(/<script\s+type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/);
-      expect(match).not.toBeNull();
-      const jsonld = JSON.parse(match![1]);
-      const graph = jsonld['@graph'] ?? [jsonld];
-      const org = graph.find((n: { '@type': string }) => n['@type'] === 'Organization');
+      const jsonld = extractJsonLd(html);
+      const graph = (jsonld['@graph'] as Array<{ '@type': string; name?: string; url?: string }>) ?? [jsonld];
+      const org = graph.find((n) => n['@type'] === 'Organization');
       expect(org).toBeDefined();
-      expect(org.name).toBe(SITE_NAME);
-      expect(org.url).toBe(SITE_URL);
+      expect(org!.name).toBe(SITE_NAME);
+      expect(org!.url).toBe(SITE_URL);
     });
 
     test('JSON-LD contains WebSite entity with search action', async () => {
-      const match = html.match(/<script\s+type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/);
-      expect(match).not.toBeNull();
-      const jsonld = JSON.parse(match![1]);
-      const graph = jsonld['@graph'] ?? [jsonld];
-      const website = graph.find((n: { '@type': string }) => n['@type'] === 'WebSite');
+      const jsonld = extractJsonLd(html);
+      const graph = (jsonld['@graph'] as Array<{ '@type': string; url?: string }>) ?? [jsonld];
+      const website = graph.find((n) => n['@type'] === 'WebSite');
       expect(website).toBeDefined();
-      expect(website.url).toBe(SITE_URL);
+      expect(website!.url).toBe(SITE_URL);
     });
   });
 
@@ -167,58 +167,31 @@ test.describe('SEO Meta Tags', () => {
     test('og:image URL returns 200 with image content type', async ({ request }) => {
       const response = await request.get(OG_IMAGE_PATH);
       expect(response.status()).toBe(200);
-      const contentType = response.headers()['content-type'];
-      expect(contentType).toContain('image/');
+      expect(response.headers()['content-type']).toContain('image/');
     });
   });
 });
-
-// ---------------------------------------------------------------------------
-// Per-Route SEO Meta Tags (#116)
-// Validates CF Pages Function middleware injects route-specific meta tags.
-// ---------------------------------------------------------------------------
-
-/** Extract meta content attribute value by property or name. */
-const extractMeta = (html: string, attr: string, value: string): string | null => {
-  const re = new RegExp(`${attr}="${value}"\\s+content="([^"]+)"`);
-  const match = html.match(re);
-  return match?.[1] ?? null;
-};
-
-/** Extract canonical href. */
-const extractCanonical = (html: string): string | null => {
-  const match = html.match(/rel="canonical"\s+href="([^"]+)"/);
-  return match?.[1] ?? null;
-};
-
-/** Extract <title> text. */
-const extractTitle = (html: string): string | null => {
-  const match = html.match(/<title>([^<]+)<\/title>/);
-  return match?.[1] ?? null;
-};
 
 /**
  * Per-route SEO tests require the CF Pages Function middleware to be deployed.
  * When running against production before the middleware is live, /about returns
  * the homepage title. Detect this and skip the suite gracefully.
  */
-const isMiddlewareActive = async (
+async function isMiddlewareActive(
   request: { get: (url: string) => Promise<{ text: () => Promise<string> }> },
-): Promise<boolean> => {
+): Promise<boolean> {
   const html = await (await request.get('/about')).text();
   const title = extractTitle(html);
   return title !== null && title.includes('About');
-};
+}
 
 test.describe('per-route SEO meta tags (#116)', () => {
-  // Store homepage description for comparison
   let homepageDescription: string | null;
   let middlewareActive = false;
 
   test.beforeAll(async ({ request }) => {
     middlewareActive = await isMiddlewareActive(request);
-    const html = await (await request.get('/')).text();
-    homepageDescription = extractMeta(html, 'name', 'description');
+    homepageDescription = extractMeta(await (await request.get('/')).text(), 'name', 'description');
   });
 
   const ROUTE_TESTS = [
@@ -271,11 +244,9 @@ test.describe('per-route SEO meta tags (#116)', () => {
 
   test('unknown route falls back to homepage meta', async ({ request }) => {
     test.skip(!middlewareActive, 'CF Pages Function middleware not deployed');
-    const html = await (await request.get('/some-unknown-route-xyz')).text();
-    const title = extractTitle(html);
+    const unknownHtml = await (await request.get('/some-unknown-route-xyz')).text();
+    const title = extractTitle(unknownHtml);
     expect(title).toContain('Integrity Studio');
-    // Should match homepage title (unchanged by middleware)
-    const homepageHtml = await (await request.get('/')).text();
-    expect(title).toBe(extractTitle(homepageHtml));
+    expect(title).toBe(extractTitle(await (await request.get('/')).text()));
   });
 });
