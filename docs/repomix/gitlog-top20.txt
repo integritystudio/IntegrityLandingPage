@@ -1,161 +1,165 @@
 # Top 20 most-changed files (last 200 commits)
 # commits  file
-  11 workers/api-gateway/src/index.ts
-  10 lib/pages/provision_page.dart
-  10 lib/pages/auth_page.dart
-   9 test/services/provisioning_service_test.dart
-   6 workers/sender-worker/src/index.ts
-   6 workers/lib/http/responses.ts
-   6 workers/contact-form/src/index.ts
-   6 README.md
-   6 lib/services/provisioning_service.dart
-   5 workers/lib/http/request.ts
-   5 workers/api-gateway/src/routes/orgs.ts
-   5 workers/api-gateway/src/lib/quota.ts
-   5 workers/api-gateway/src/index.test.ts
-   5 scripts/full-reconciliation.ts
-   5 lib/utils/security_utils.dart
-   5 CLAUDE.md
-   4 workers/stripe-webhook/src/verify.ts
-   4 workers/receiver-worker/src/index.ts
-   4 workers/lib/validation/parse.ts
-   4 workers/lib/types/schemas.ts
+  15 lib/services/dashboard_service.dart
+  14 workers/stripe-webhook/src/supabase.ts
+  14 workers/stripe-webhook/src/index.ts
+  12 workers/api-gateway/src/index.ts
+  10 workers/stripe-webhook/src/index.test.ts
+   8 test/services/dashboard_service_test.dart
+   8 lib/pages/usage_summary_page.dart
+   8 lib/pages/billing_status_page.dart
+   7 workers/stripe-webhook/src/supabase.test.ts
+   7 workers/api-gateway/src/routes/orgs.test.ts
+   7 workers/api-gateway/src/aggregation.ts
+   6 workers/api-gateway/src/routes/orgs.ts
+   6 workers/api-gateway/src/lib/quota.ts
+   6 workers/api-gateway/src/aggregation.test.ts
+   6 lib/pages/quota_status_page.dart
+   5 workers/stripe-webhook/src/handlers/subscription.ts
+   5 workers/lib/types/usage.ts
+   5 workers/api-gateway/src/routes/ingest.ts
+   5 lib/pages/provision_page.dart
+   4 workers/stripe-webhook/src/handlers/checkout.ts
 
 # Recent commits touching these files
 
+## lib/services/dashboard_service.dart
+  c586ee8 2026-03-21 fix(L23): add 403 branch to _sanitizeReadError and apply to fetchOrgList
+  15da535 2026-03-21 fix(L22,L23): audit log count on billing_admin path + sanitize read endpoint errors
+  7a34cf7 2026-03-21 refactor: move billing error constants to class top and add Stripe-error negative assertion
+  51f8ad8 2026-03-21 fix(M42): correct 403 test assertion to match _billingPortalErrorMessage output
+  8b6120f 2026-03-21 fix(M42): add 503 to retryable status codes in fetchBillingPortalUrl
+
+## workers/stripe-webhook/src/supabase.ts
+  cf5059c 2026-03-21 fix(M34): skip already-canceled rows in soft-delete filter
+  33aa1a2 2026-03-21 fix(M34): soft-delete prior subscriptions on upsert to prevent multi-row state
+  8fd1d47 2026-03-21 docs(M37): document DeadLetter vs WebhookDeadLetter relationship
+  de048e7 2026-03-21 refactor(L9): move DeadLetter interface to module scope, export it
+  c7f8bc6 2026-03-21 refactor(L9): replace closure-scoped DeadLetter interface with WebhookDeadLetter
+
+## workers/stripe-webhook/src/index.ts
+  8cdaa09 2026-03-21 fix(L5): validate STRIPE_PRICE_TO_PLAN_JSON values against PlanKeySchema
+  5c7a443 2026-03-21 fix(L5): move PRICE_TO_PLAN from empty static map to STRIPE_PRICE_TO_PLAN_JSON env binding
+  c80b6e8 2026-03-21 fix: check failDeadLetter return value in runReconciliation
+  7d86372 2026-03-21 fix(M36): insert dead letter when logProcessedEvent fails in handleWebhook
+  82e488a 2026-03-21 fix(M35-b): check addDeadLetter return value; log CRITICAL on failure
+
 ## workers/api-gateway/src/index.ts
-  ee29f30 2026-03-20 refactor(simplifier): check flag before env in warn guard; dedupe handleMe opts
-  0932e90 2026-03-20 fix(M18-M2): warn once per isolate when SUPABASE_JWT_ISSUER is unset
-  bb1d810 2026-03-20 feat(T26): wire quota checks into API gateway org routes
-  a9a034f 2026-03-20 feat(T25): replace stub health check with real connectivity probes
-  00bfaaf 2026-03-20 security(M18): add JWT iss claim validation to prevent token forgery
+  2aa30eb 2026-03-21 fix(L25): export OTEL_INGEST_ROUTE and import in index.ts
+  c40a1c8 2026-03-21 fix(otel): add quota enforcement and bound attribute payload size
+  1b771e3 2026-03-21 feat(otel): add POST /v1/ingest/otel OpenTelemetry span ingestion endpoint
+  826d2f3 2026-03-21 fix(M41): escalate APP_URL missing log to error in non-production environments
+  28364a3 2026-03-21 feat(T25): PagerDuty alerting on unhealthy health check responses
 
-## lib/pages/provision_page.dart
-  c3b9893 2026-03-20 fix(auth): update password placeholder to show 8-128 range; trailing blank line cleanup (L23/L4)
-  d7b597e 2026-03-20 refactor(provision): remove empty initState override; track M17/L21 in backlog
-  9f826b2 2026-03-20 refactor(auth,provision): implement M15/M16/L19/L20 and centralize error sanitization
-  a5767c4 2026-03-20 fix(auth,provision): defer analytics tracking and fix Alert spacing (M16, L19, L20)
-  bc59b8b 2026-03-20 feat(provision): replace SelectableText API key with CopyableCodeField (M14)
+## workers/stripe-webhook/src/index.test.ts
+  306ccfc 2026-03-21 test(L5): add parsePriceToPlan integration tests; document _priceToPlan param
+  7d86372 2026-03-21 fix(M36): insert dead letter when logProcessedEvent fails in handleWebhook
+  c9926a9 2026-03-21 fix(L7): correct test title 400→401 for invalid signature rejection
+  4e02c0b 2026-03-21 test(L7): expand handleWebhook test coverage (6 new tests)
+  b3a4224 2026-03-21 fix(M35): skip resolveDeadLetter when logProcessedEvent fails; update test
 
-## lib/pages/auth_page.dart
-  e8ab121 2026-03-20 refactor(auth): move password length constraints to shared PasswordPolicy (L21)
-  c3b9893 2026-03-20 fix(auth): update password placeholder to show 8-128 range; trailing blank line cleanup (L23/L4)
-  9f826b2 2026-03-20 refactor(auth,provision): implement M15/M16/L19/L20 and centralize error sanitization
-  a5767c4 2026-03-20 fix(auth,provision): defer analytics tracking and fix Alert spacing (M16, L19, L20)
-  9581ce8 2026-03-20 fix(auth): add max password length validation to prevent DoS (M15)
+## test/services/dashboard_service_test.dart
+  1e91334 2026-03-22 fix(lint): resolve flutter analyze warnings
+  2ece18a 2026-03-21 test(L23): add fetchOrgList 401/403 tests and strengthen 403 assertion
+  c586ee8 2026-03-21 fix(L23): add 403 branch to _sanitizeReadError and apply to fetchOrgList
+  15da535 2026-03-21 fix(L22,L23): audit log count on billing_admin path + sanitize read endpoint errors
+  32ee699 2026-03-21 fix(L20,L21): sanitize billing portal errors and assert audit log call count
 
-## test/services/provisioning_service_test.dart
-  9ea6256 2026-03-20 feat: implement sender-worker UI pages (auth, provision, health)
-  4841b8d 2026-03-20 fix(analyzer): comment template code and add missing @override annotations
-  6bc576f 2026-03-20 fix(test): remove invalid @override annotations in MockProvisioningDio
-  edda3e1 2026-03-20 fix: address final review findings from backlog-implementer session
-  5367b9e 2026-03-20 feat(T01): add per-attempt response data to MockProvisioningDio
+## lib/pages/usage_summary_page.dart
+  f77cbb5 2026-03-21 fix(usage): silent background polls — preserve data on error, no spinner flicker
+  fccc88b 2026-03-21 fix(V02): address code-reviewer findings — threshold constants + isFetching guard
+  d14280c 2026-03-21 fix(usage): add in-flight guard to prevent concurrent fetch races
+  f6581fd 2026-03-21 feat(usage): add real-time polling to UsageSummaryPage (V02-Remaining)
+  809496a 2026-03-21 fix(V02): fix shouldRepaint list equality and day-0 label leak in usage chart
 
-## workers/sender-worker/src/index.ts
-  1768837 2026-03-20 feat(sender-worker): environment-aware CORS origin configuration
-  d59a255 2026-03-20 refactor: rename http-constants.ts to http-helpers.ts
-  3a858b5 2026-03-20 refactor: create http-constants.ts and organize HTTP-related constants
-  f5d2c98 2026-03-20 refactor: extract shared CORS utilities into cors-utils.ts
-  e0b9858 2026-03-20 feat(M08): add CORS headers and OPTIONS preflight to sender-worker
+## lib/pages/billing_status_page.dart
+  c45affd 2026-03-21 feat(V02): add Stripe Customer Portal link to billing dashboard
+  9d4d700 2026-03-21 feat(V02): Stripe Customer Portal link — POST /v1/orgs/:id/billing-portal
+  d1152ed 2026-03-21 fix(L10): replace inline BoxDecoration with AppDecorations.card() in _BillingCard and ErrorCard
+  2b281c5 2026-03-21 refactor(L14): extract shared ErrorCard widget from 5 dashboard pages
+  0af1f0c 2026-03-21 fix(review): correct quota_version type and align billing status assert
 
-## workers/lib/http/responses.ts
-  a441c89 2026-03-20 fix(lib): guard against protocol-relative URLs in redirect()
-  c2762ed 2026-03-20 refactor(lib): simplifier and linter cleanups
-  ec5085c 2026-03-20 refactor(lib): remove zero-value wrappers and optimize hot paths
-  2db9223 2026-03-20 fix(lib): address code-reviewer findings
-  bf61a7a 2026-03-20 fix(lib): improve zodValidationError and validation exports
+## workers/stripe-webhook/src/supabase.test.ts
+  cf5059c 2026-03-21 fix(M34): skip already-canceled rows in soft-delete filter
+  33aa1a2 2026-03-21 fix(M34): soft-delete prior subscriptions on upsert to prevent multi-row state
+  2cb93ed 2026-03-21 fix(L8): address code-reviewer findings on supabase.test.ts
+  3b017e9 2026-03-21 test(L8): add unit tests for 5 SupabaseAdmin functions
+  cc6c88e 2026-03-21 fix(stripe-webhook): address code-reviewer findings from M23/M24
 
-## workers/contact-form/src/index.ts
-  457819e 2026-03-20 feat(contact-form): apply Zod schemas for validation
-  d59a255 2026-03-20 refactor: rename http-constants.ts to http-helpers.ts
-  3a858b5 2026-03-20 refactor: create http-constants.ts and organize HTTP-related constants
-  f5d2c98 2026-03-20 refactor: extract shared CORS utilities into cors-utils.ts
-  aefa447 2026-03-19 refactor: use shared constants in contact-form worker
+## workers/api-gateway/src/routes/orgs.test.ts
+  4ef1781 2026-03-21 test(L22): assert audit log written exactly once on billing_admin portal path
+  7a34cf7 2026-03-21 refactor: move billing error constants to class top and add Stripe-error negative assertion
+  32ee699 2026-03-21 fix(L20,L21): sanitize billing portal errors and assert audit log call count
+  162983d 2026-03-21 fix(H4): validate stripe_customer_id format before Stripe API call
+  b2d23fe 2026-03-21 fix(H3): push org ID filter to DB layer in loadOrgsForMemberships
 
-## README.md
-  8759937 2026-03-20 docs: update README and CLAUDE.md for sender-worker UI completion
-  f5369a6 2026-03-20 fix(provisioning): address code-reviewer findings
-  64ec76e 2026-03-20 docs(readme): add provisioning test documentation and npm script
-  0de71fb 2026-03-20 docs: add workers/lib module documentation
-  f7357dd 2026-03-19 docs: update CLAUDE.md and README for API provisioning workers
-
-## lib/services/provisioning_service.dart
-  9ea6256 2026-03-20 feat: implement sender-worker UI pages (auth, provision, health)
-  5c35e10 2026-03-19 fix: address code-reviewer findings - critical and medium priority
-  d0cfbe0 2026-03-19 fix: remaining code review findings - medium and low priority
-  aff8df8 2026-03-19 fix: address code review findings from provisioning feature implementation
-  bf42385 2026-03-19 refactor: extract timing constants to AppTimings class
-
-## workers/lib/http/request.ts
-  74bd32f 2026-03-20 fix(lib): make safeParseJson return unknown type for type safety
-  c2762ed 2026-03-20 refactor(lib): simplifier and linter cleanups
-  4b67829 2026-03-20 refactor(lib): simplify validation & response code
-  2db9223 2026-03-20 fix(lib): address code-reviewer findings
-  941e436 2026-03-20 feat(lib): add http/request.ts — JSON parsing, bearer token, query params, method assertion
+## workers/api-gateway/src/aggregation.ts
+  fac14e8 2026-03-20 refactor(M22): simplify rollupMonthlyBucket local variable names
+  1a446fa 2026-03-20 fix(M22): truncate float DB values in rollupMonthlyBucket to enforce int semantics
+  7a1d326 2026-03-20 fix(M22): truncate float DB values in rollupMonthlyBucket to enforce int semantics
+  190e56e 2026-03-20 fix(aggregation): use >= for limit-hit warning conditions (M21 follow-up)
+  8e8c033 2026-03-20 fix(aggregation): warn when rollup queries hit row limits (M21)
 
 ## workers/api-gateway/src/routes/orgs.ts
-  00bfaaf 2026-03-20 security(M18): add JWT iss claim validation to prevent token forgery
-  34b5d73 2026-03-20 revert: restore BILLING_ROLES constant in orgs.ts
-  ef48abd 2026-03-20 refactor(api-gateway): remove unused BILLING_ROLES constant
-  3d31f57 2026-03-20 refactor(api-gateway): extract duplicated helpers to shared module
-  1065120 2026-03-20 feat(api-gateway): add org listing, dashboard, and billing-status routes
+  8f999e6 2026-03-21 fix(M40): fire-and-forget audit log write in billing portal handler
+  162983d 2026-03-21 fix(H4): validate stripe_customer_id format before Stripe API call
+  b2d23fe 2026-03-21 fix(H3): push org ID filter to DB layer in loadOrgsForMemberships
+  6954ae6 2026-03-21 feat(audit): add audit logging for billing portal and API key operations
+  f8bec9b 2026-03-21 feat(audit): write audit_log entries for sensitive operations
 
 ## workers/api-gateway/src/lib/quota.ts
-  3483538 2026-03-20 fix(quota): address code review findings from final review
-  6bc3cd8 2026-03-20 feat(T26/T27): wire quota DO into api-gateway and add integration tests
-  d58f382 2026-03-20 fix(T26): explicit 429-passthrough in checkAndReserve error guard
-  bb1d810 2026-03-20 feat(T26): wire quota checks into API gateway org routes
-  523518f 2026-03-20 feat(api-gateway): add per-org quota Durable Object
+  e783954 2026-03-21 feat(rate-limit): expose X-RateLimit-Remaining headers on successful org responses
+  0767a64 2026-03-21 feat(zod): QuotaStatusResponseSchema; type getQuotaStatus; fix UsageBucket import
+  eb1f928 2026-03-20 fix(quota): address final code-reviewer findings
+  1872a13 2026-03-20 refactor(quota): simplify quota.ts after Zod parse changes
+  95f2e51 2026-03-20 fix(quota): address code-reviewer findings from Zod parse refactor
 
-## workers/api-gateway/src/index.test.ts
-  398545d 2026-03-20 fix(T25-M1): replace billable health-probe DO with binding existence check
-  bb1d810 2026-03-20 feat(T26): wire quota checks into API gateway org routes
-  a9a034f 2026-03-20 feat(T25): replace stub health check with real connectivity probes
-  523518f 2026-03-20 feat(api-gateway): add per-org quota Durable Object
-  cf12889 2026-03-20 feat(api-gateway): scaffold worker with health route
+## workers/api-gateway/src/aggregation.test.ts
+  1a446fa 2026-03-20 fix(M22): truncate float DB values in rollupMonthlyBucket to enforce int semantics
+  7a1d326 2026-03-20 fix(M22): truncate float DB values in rollupMonthlyBucket to enforce int semantics
+  11049a3 2026-03-20 refactor(L4): extract shared mock factory to eliminate test factory duplication
+  fb588cc 2026-03-20 refactor(L3): simplify schema rejection test per code-simplifier
+  5f733de 2026-03-20 test(L3): add MonthlyUsageSummarySchema rejection path test
 
-## scripts/full-reconciliation.ts
-  1b9c88d 2026-03-20 refactor(T24-M3): rename entitlementsRebuilt to orgEntitlementsRebuilt
-  4f03052 2026-03-20 refactor(simplifier): rename rawSubs to subsData to match Stripe SDK naming
-  9bbb550 2026-03-20 fix(T24-M1): add runtime guard for expanded Stripe subscriptions cast
-  533a679 2026-03-20 fix(reconciliation): implement entitlements rebuild and fix URL encoding
-  156bec1 2026-03-20 feat(T24): add full reconciliation script for post-outage billing restore
+## lib/pages/quota_status_page.dart
+  5786939 2026-03-21 refactor(L16): replace inline BoxDecoration with AppDecorations.card()
+  b92d558 2026-03-21 fix(L15): format planKey in _PlanBadge with snake_case → Title Case
+  2b281c5 2026-03-21 refactor(L14): extract shared ErrorCard widget from 5 dashboard pages
+  fccc88b 2026-03-21 fix(V02): address code-reviewer findings — threshold constants + isFetching guard
+  e3ff7f3 2026-03-21 fix(quota-status): address code-reviewer findings H1, H2, M4
 
-## lib/utils/security_utils.dart
-  c326a28 2026-03-20 docs(R02/R04): document _stackTracePattern extension list scope and static final rationale
-  d186f1d 2026-03-20 docs(security_utils): clarify \r guard is not redundant with sanitizeUserInput
-  00d7127 2026-03-20 chore(backlog): mark M17, L21, L22 as Done
-  4554f81 2026-03-20 fix(security): narrow stack-trace heuristic and HTML-escape server errors (M17, L22)
-  9f826b2 2026-03-20 refactor(auth,provision): implement M15/M16/L19/L20 and centralize error sanitization
+## workers/stripe-webhook/src/handlers/subscription.ts
+  306ccfc 2026-03-21 test(L5): add parsePriceToPlan integration tests; document _priceToPlan param
+  5c7a443 2026-03-21 fix(L5): move PRICE_TO_PLAN from empty static map to STRIPE_PRICE_TO_PLAN_JSON env binding
+  9a154ea 2026-03-21 fix(M33): use Zod issues array for human-readable error messages
+  3e63278 2026-03-21 refactor(M25): consolidate HandlerResult type into workers/lib/types
+  29a71d1 2026-03-21 fix(H1): add Zod schemas for Stripe event payloads, replace as-any casts
 
-## CLAUDE.md
-  8759937 2026-03-20 docs: update README and CLAUDE.md for sender-worker UI completion
-  2784e1d 2026-03-20 docs: add session history and analytics debug documentation
-  0de71fb 2026-03-20 docs: add workers/lib module documentation
-  f7357dd 2026-03-19 docs: update CLAUDE.md and README for API provisioning workers
-  4e1eba1 2026-03-15 docs: update all docs for Phase 2/3b completion, test count 2440+, migrate Done items to changelog
+## workers/lib/types/usage.ts
+  df798ec 2026-03-21 feat(types): add IngestOtelResponseSchema and IngestOtelMetadataSchema
+  32658b9 2026-03-21 fix(L24): add upper bound refine to OtelSpan start_time_ms
+  c40a1c8 2026-03-21 fix(otel): add quota enforcement and bound attribute payload size
+  1b771e3 2026-03-21 feat(otel): add POST /v1/ingest/otel OpenTelemetry span ingestion endpoint
+  97d3b74 2026-03-20 fix(V03): tighten MonthlyUsageSummarySchema year_month regex and clarify cross-metric avg
 
-## workers/stripe-webhook/src/verify.ts
-  5d00632 2026-03-20 refactor(simplifier): clarify hexToBytes JSDoc; scope try/catch to crypto only
-  2d4df62 2026-03-20 refactor(H19-M1,H19-M2): extract hexToBytes to shared workers/lib/hex-utils
-  0f9cece 2026-03-20 security(H19): replace string equality with timing-safe HMAC verify
+## workers/api-gateway/src/routes/ingest.ts
+  5e5d2c4 2026-03-21 fix(otel): extract applyRateLimitHeaders helper; add boundary tests
+  2aa30eb 2026-03-21 fix(L25): export OTEL_INGEST_ROUTE and import in index.ts
+  e743c68 2026-03-21 fix(L23): forward rate-limit headers on OTEL ingest success response
+  c40a1c8 2026-03-21 fix(otel): add quota enforcement and bound attribute payload size
+  1b771e3 2026-03-21 feat(otel): add POST /v1/ingest/otel OpenTelemetry span ingestion endpoint
+
+## lib/pages/provision_page.dart
+  1e91334 2026-03-22 fix(lint): resolve flutter analyze warnings
+  5786939 2026-03-21 refactor(L16): replace inline BoxDecoration with AppDecorations.card()
+  02f567a 2026-03-21 fix(L5): sanitize auth.email in ProvisionPage display
+  963f4d3 2026-03-21 fix(bootstrap): address code-reviewer findings
+  fda0ada 2026-03-21 feat(bootstrap): complete bootstrap flow integration
+
+## workers/stripe-webhook/src/handlers/checkout.ts
+  9a154ea 2026-03-21 fix(M33): use Zod issues array for human-readable error messages
+  3e63278 2026-03-21 refactor(M25): consolidate HandlerResult type into workers/lib/types
+  64b1387 2026-03-21 fix(H2): upsert stub subscription row in checkout handler
+  29a71d1 2026-03-21 fix(H1): add Zod schemas for Stripe event payloads, replace as-any casts
   5e65af0 2026-03-20 feat(workers): add Phase 3 bootstrap-worker + stripe-webhook with shared types
-
-## workers/receiver-worker/src/index.ts
-  d59a255 2026-03-20 refactor: rename http-constants.ts to http-helpers.ts
-  3a858b5 2026-03-20 refactor: create http-constants.ts and organize HTTP-related constants
-  b68ac63 2026-03-19 refactor: move receiver-worker constants to shared workers/constants.ts
-  7ca4853 2026-03-19 feat: add receiver-worker with HMAC-signed inbox endpoint
-
-## workers/lib/validation/parse.ts
-  c2762ed 2026-03-20 refactor(lib): simplifier and linter cleanups
-  ec5085c 2026-03-20 refactor(lib): remove zero-value wrappers and optimize hot paths
-  bf61a7a 2026-03-20 fix(lib): improve zodValidationError and validation exports
-  f3d3f7b 2026-03-20 feat(lib): add validation/ — Zod schemas, requireValidJson, zodValidationError
-
-## workers/lib/types/schemas.ts
-  6bc3cd8 2026-03-20 feat(T26/T27): wire quota DO into api-gateway and add integration tests
-  523518f 2026-03-20 feat(api-gateway): add per-org quota Durable Object
-  8e8fa5b 2026-03-20 feat(lib): add shared type definitions and Zod schemas for workers
-  0eab293 2026-03-20 feat(types): add Zod schemas for all Phase 3 types
 
