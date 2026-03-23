@@ -127,3 +127,19 @@ export async function waitForSemantics(
 ): Promise<void> {
   await page.getByLabel(label).first().waitFor({ state: 'attached', timeout });
 }
+
+/**
+ * Build a ConsentPreferences-compatible JSON string (consent_preferences.dart).
+ *
+ * @param analytics - Whether analytics consent is given
+ * @param marketing - Whether marketing consent is given
+ */
+export function consentJson(analytics: boolean, marketing: boolean): string {
+  return JSON.stringify({
+    essential: true,
+    analytics,
+    marketing,
+    timestamp: new Date().toISOString(),
+    consentVersion: '1.0',
+  });
+}

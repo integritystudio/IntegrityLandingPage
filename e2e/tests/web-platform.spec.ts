@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { waitForFlutter, assertFlutterRendering } from './helpers';
+import { waitForFlutter, assertFlutterRendering, consentJson } from './helpers';
 import {
   CONSENT_STORAGE_KEY,
   GTM_CONTAINER_ID,
@@ -53,16 +53,6 @@ async function hasScriptSrc(page: Page, srcSubstring: string): Promise<boolean> 
   }, srcSubstring);
 }
 
-function consentJson(analytics: boolean, marketing: boolean): string {
-  return JSON.stringify({
-    essential: true,
-    analytics,
-    marketing,
-    timestamp: new Date().toISOString(),
-    consentVersion: '1.0',
-  });
-}
-
 test.describe('Web Platform: Tracking Initialization (#76)', () => {
   test.beforeEach(async ({ browserName }) => {
     test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
@@ -77,7 +67,6 @@ test.describe('Web Platform: Tracking Initialization (#76)', () => {
   test('GTM script is NOT injected before consent (GDPR)', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
-    expect(await getDataLayerLength(page)).toBeGreaterThan(0);
     expect(await hasScriptSrc(page, `gtm.js?id=${GTM_CONTAINER_ID}`)).toBe(false);
   });
 

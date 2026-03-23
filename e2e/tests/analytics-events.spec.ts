@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { waitForFlutter, navigateAndWaitForFlutter } from './helpers';
+import { waitForFlutter, navigateAndWaitForFlutter, consentJson } from './helpers';
 import {
   CONSENT_STORAGE_KEY,
   GTM_CONTAINER_ID,
@@ -18,17 +18,6 @@ import {
  * These tests require consent pre-set to analytics=true.
  * They do NOT intercept third-party beacons (only validate dataLayer pushes).
  */
-
-/** Build a ConsentPreferences-compatible JSON string (consent_preferences.dart). */
-function consentJson(analytics: boolean, marketing: boolean): string {
-  return JSON.stringify({
-    essential: true,
-    analytics,
-    marketing,
-    timestamp: new Date().toISOString(),
-    consentVersion: '1.0',
-  });
-}
 
 /** Read the full window.dataLayer array. */
 async function getDataLayer(page: Page): Promise<unknown[]> {
