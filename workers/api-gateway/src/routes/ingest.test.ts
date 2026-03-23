@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { handleIngestEvent, handleIngestOtel } from './ingest';
 import { hashApiKeySecret } from '../../../lib/api-keys';
+import { MS_PER_DAY } from '../../../lib/constants';
 import type { SupabaseClient } from '../../../lib/supabase';
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
@@ -308,7 +309,7 @@ describe('POST /v1/ingest/otel', () => {
     const secret = 'testsecret32charsminimumvalue000';
     const apiKeyRow = await makeApiKeyRow();
     const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
-    const futureSpan = { ...validSpan(), start_time_ms: Date.now() + 7 * 86_400_000 };
+    const futureSpan = { ...validSpan(), start_time_ms: Date.now() + 7 * MS_PER_DAY };
     const req = makeOtelRequest({ spans: [futureSpan] }, `int_live_abc12345_${secret}`);
     const res = await handleIngestOtel(req, makeOpts(mockSb));
     expect(res.status).toBe(422);

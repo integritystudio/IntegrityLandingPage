@@ -2,6 +2,9 @@
 export * from './types/index';
 export * from './types/handler-options';
 
+// Re-export constants
+export * from './constants';
+
 // Re-export all schemas
 export {
   // Enums
@@ -67,6 +70,12 @@ export {
   UsageEventSourceSchema,
   UsageEventSchema,
   UsageEventIngestionSchema,
+  IngestEventRequestSchema,
+  IngestEventResponseSchema,
+  OtelSpanSchema,
+  IngestOtelRequestSchema,
+  IngestOtelMetadataSchema,
+  IngestOtelResponseSchema,
   UsageBucketSchema as UsageBucketDetailSchema,
   MonthlyUsageSummarySchema,
   UsageQueryResponseSchema,

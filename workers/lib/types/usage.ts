@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MS_PER_DAY } from '../constants';
 
 /**
  * Usage Event Tracking
@@ -132,7 +133,7 @@ export const OtelSpanSchema = z.object({
   span_id: z.string().min(1).max(32),
   name: z.string().min(1).max(256),
   start_time_ms: z.number().int().nonnegative().refine(
-    v => v <= Date.now() + 86_400_000,
+    v => v <= Date.now() + MS_PER_DAY,
     { message: 'start_time_ms must not be more than 1 day in the future' },
   ),
   duration_ms: z.number().int().nonnegative(),

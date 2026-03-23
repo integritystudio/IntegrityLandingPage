@@ -1,8 +1,7 @@
 import type { SupabaseClient } from '../../lib/supabase';
 import type { UsageFlushResult } from '../../lib/types/usage';
 import { MonthlyUsageSummarySchema, type MonthlyUsageSummary } from '../../lib/types/usage';
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+import { MS_PER_DAY } from '../../lib/constants';
 // Capped to avoid unbounded memory usage; high-volume orgs should use a DB-side RPC rollup.
 const MAX_EVENTS_PER_ROLLUP = 10_000;
 // 31 days × 100 metric keys — bounded because metric_key cardinality is low by design

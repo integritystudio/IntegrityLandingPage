@@ -21,18 +21,15 @@ interface SuccessResponse {
 type ApiResponse = ErrorResponse | SuccessResponse;
 
 // Mock Resend
-vi.mock('resend', () => {
-  const mockInstance = {
-    emails: {
-      send: vi.fn(),
-    },
-  };
-  return {
-    Resend: vi.fn(function() {
-      return mockInstance;
-    }),
-  };
-});
+vi.mock('resend', () => ({
+  Resend: vi.fn(function() {
+    return {
+      emails: {
+        send: vi.fn(),
+      },
+    };
+  }),
+}));
 
 import { Resend } from 'resend';
 

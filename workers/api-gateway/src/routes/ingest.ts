@@ -219,8 +219,9 @@ export async function handleIngestOtel(
 }
 
 function applyRateLimitHeaders(response: Response, headers: Record<string, string>): Response {
-  if (Object.keys(headers).length === 0) return response;
+  const entries = Object.entries(headers);
+  if (entries.length === 0) return response;
   const merged = new Headers(response.headers);
-  for (const [k, v] of Object.entries(headers)) merged.set(k, v);
-  return new Response(response.body, { status: response.status, headers: merged });
+  entries.forEach(([k, v]) => merged.set(k, v));
+  return new Response(response.clone().body, { status: response.status, headers: merged });
 }
