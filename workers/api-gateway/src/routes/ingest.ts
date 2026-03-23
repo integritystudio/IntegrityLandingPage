@@ -223,5 +223,6 @@ function applyRateLimitHeaders(response: Response, headers: Record<string, strin
   if (entries.length === 0) return response;
   const merged = new Headers(response.headers);
   entries.forEach(([k, v]) => merged.set(k, v));
+  // Precondition: response body must be unconsumed. Safe here since json() creates fresh Response.
   return new Response(response.clone().body, { status: response.status, headers: merged });
 }

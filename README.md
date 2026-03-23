@@ -6,7 +6,7 @@
 Enterprise AI Observability Platform landing page built with Flutter Web.
 
 **Production**: https://integritystudio.ai
-**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning workers live, 2440+ tests passing
+**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest workers live, 2440+ Flutter + 193 worker tests passing, code quality refactored
 
 ## Quick Start
 
@@ -20,9 +20,10 @@ flutter build web        # Production build
 ### Workers
 
 **Shared Library** (`workers/lib/`)
+- Time constants: MS_PER_DAY
 - HTTP utilities: CORS, request parsing, response factories, error handling
-- Validation: Zod-based with typed result unions
-- Tests: 79 passing, ~94% coverage
+- Zod schemas: usage events, OTEL spans, audit logs, provisioning, Supabase queries
+- Validation: typed result unions, formatted error responses
 
 ```bash
 cd workers/lib && npm install && npm test
@@ -32,9 +33,22 @@ cd workers/lib && npm install && npm test
 - Email submissions via Resend
 - KV-based rate limiting
 - CSRF protection, idempotency keys
+- Tests: 71 passing, ~94% coverage
 
 ```bash
 cd workers/contact-form
+npm install && npx wrangler dev   # Local dev
+npx vitest run                    # Tests
+```
+
+**API Gateway Worker** (`workers/api-gateway/`)
+- Usage event ingest, aggregation, and rollup (daily → monthly)
+- OpenTelemetry span ingestion with quota enforcement
+- Org quota tracking via Durable Objects
+- Tests: 122 passing, ~94% coverage
+
+```bash
+cd workers/api-gateway
 npm install && npx wrangler dev   # Local dev
 npx vitest run                    # Tests
 ```
@@ -71,11 +85,11 @@ npm run test:provisioning         # Interactive test guide
 ## Testing
 
 ```bash
-flutter test                           # All tests
-flutter test --coverage                # With coverage (~94%)
+flutter test                           # All Flutter tests (~2440, ~94% coverage)
+flutter test --coverage                # With coverage report
 flutter test test/pages/               # Page tests only
-cd workers/lib && npm test             # Shared library tests
-cd workers/contact-form && npm test    # Contact form worker tests
+cd workers/contact-form && npm test    # Contact form worker tests (71 passing)
+cd workers/api-gateway && npm test     # API Gateway worker tests (122 passing)
 cd workers/receiver-worker && npm test # Receiver worker tests
 cd workers/sender-worker && npm test   # Sender worker tests
 

@@ -2,10 +2,10 @@
 
 ## Current Status
 
-**Phase**: Sender-Worker UI Implementation ✅ COMPLETE
-**Last Updated**: 2026-03-20
+**Phase**: Workers Refactoring & Code Quality ✅ COMPLETE
+**Last Updated**: 2026-03-23
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ All tests passing (2440+ tests, ~94% coverage)
+**Test Status**: ✅ All tests passing (2440+ tests, ~94% coverage; workers: 193 tests)
 
 ### Recent Work (See [SESSION_HISTORY.md](docs/SESSION_HISTORY.md) for details)
 - ✅ Sender-Worker UI pages: AuthPage, ProvisionPage, SenderHealthPage with JWT flow
@@ -14,6 +14,7 @@
 - ✅ Zod Validation: Applied to contact-form worker submissions
 - ✅ CORS: Environment-aware sender-worker configuration
 - ✅ Code Review: Addressed 10+ findings across auth, provision, provisioning service
+- ✅ Workers Code Simplification: Extract MS_PER_DAY constant, fix applyRateLimitHeaders efficiency, export ingest schemas
 
 ### Known Issues
 - Contact form CORS blocks localhost (by design, needs config update for dev testing)
@@ -45,10 +46,13 @@ lib/
 └── main.dart         # Entry point
 
 workers/
-├── lib/              # Shared HTTP + validation utilities (79 tests)
+├── lib/              # Shared constants, HTTP utilities, validation, schemas
+│   ├── constants.ts  # Time constants (MS_PER_DAY)
 │   ├── http/         # CORS, request parsing, responses, error handling
-│   └── validation/   # Zod schemas, requireValidJson, zodValidationError
+│   ├── types/        # Zod schemas (usage, OTEL, audit, provisioning, Supabase)
+│   └── validation/   # Validation helpers, error formatting
 ├── contact-form/     # Contact form worker (Resend email, KV rate limiting, CSRF)
+├── api-gateway/      # API Gateway worker (ingest, usage aggregation, auth, quota)
 ├── sender-worker/    # Provisioning sender (HMAC-SHA256 auth)
 └── receiver-worker/  # Provisioning receiver (signature verification, replay protection)
 
@@ -60,9 +64,11 @@ test/                 # Unit + widget tests (2440+ passing, ~94% coverage)
 ## Workers
 
 **Shared Library**
-- [workers/lib/](workers/lib/) — Shared HTTP and validation utilities (79 tests, ~94% coverage)
+- [workers/lib/](workers/lib/) — Shared HTTP, validation, and constants (shared test suite)
+  - `constants.ts` — Shared time constants (MS_PER_DAY)
   - `http/` — CORS, request parsing (JSON, bearer token, query params, method assertion), response factories, error handling
-  - `validation/` — Zod-based validation with typed result unions, formatted error responses
+  - `types/` — Zod schemas (usage events, OTEL spans, audit logs, provisioning, Supabase)
+  - `validation/` — Typed validation helpers, formatted error responses
 
 **Workers**
 - [workers/contact-form/](workers/contact-form/) — Cloudflare Worker handling contact form submissions (Resend email, KV rate limiting, CSRF, idempotency)
