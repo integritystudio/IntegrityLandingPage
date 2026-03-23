@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { IS_LOCAL_DEV, SKIP_REASON_CLOUDFLARE_HEADERS } from './constants';
 
 /**
  * E2E tests for cache header validation.
@@ -8,6 +9,9 @@ import { test, expect } from '@playwright/test';
  * ensuring content updates propagate correctly.
  */
 test.describe('Cache Headers', () => {
+  test.beforeEach(() => {
+    test.skip(IS_LOCAL_DEV, SKIP_REASON_CLOUDFLARE_HEADERS);
+  });
   test.describe('HTML pages', () => {
     test('index.html prevents long-term caching', async ({ request }) => {
       const response = await request.get('/');

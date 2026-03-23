@@ -11,7 +11,13 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
+    "e2e": "cd e2e && playwright test",
+    "e2e:headed": "cd e2e && playwright test --headed",
+    "e2e:ui": "cd e2e && playwright test --ui",
+    "report": "cd e2e && playwright show-report",
     "repomix": "bash scripts/repomix/repomix-regen.sh",
     "test:provisioning": "bash test-provisioning-e2e.sh"
   }
 }
+
+ 

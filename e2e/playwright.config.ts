@@ -5,6 +5,7 @@ import {
   ACTION_TIMEOUT_MS,
   NAVIGATION_TIMEOUT_MS,
   WEB_SERVER_STARTUP_TIMEOUT_MS,
+  IS_LOCAL_DEV,
 } from './tests/constants';
 
 /**
@@ -18,7 +19,6 @@ import {
  * Multi-browser testing runs on nightly schedule (MULTI_BROWSER=true).
  */
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const isLocalDev = !process.env.BASE_URL;
 const isMultiBrowser = !!process.env.MULTI_BROWSER;
 
 export default defineConfig({
@@ -44,7 +44,7 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        bypassCSP: isLocalDev,
+        bypassCSP: IS_LOCAL_DEV,
       },
     },
     // Multi-browser only on nightly schedule or explicit opt-in
@@ -68,7 +68,7 @@ export default defineConfig({
       : []),
   ],
   // Only start local server if not testing against production
-  ...(isLocalDev
+  ...(IS_LOCAL_DEV
     ? {
         webServer: {
           command: 'flutter run -d chrome --web-port=3000',

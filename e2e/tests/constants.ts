@@ -154,6 +154,22 @@ export const CONTACT_WORKER_URL =
   'https://integrity-studio-contact.alyshia-b38.workers.dev';
 
 // ---------------------------------------------------------------------------
+// Environment detection
+// ---------------------------------------------------------------------------
+
+/** True when BASE_URL is not set — running against local dev server, not production. */
+export const IS_LOCAL_DEV = !process.env['BASE_URL'];
+
+/**
+ * Skip reason for tests that require Cloudflare Pages _headers rules.
+ * Cache-Control and security headers are injected by the CDN edge and are absent
+ * from both local dev server and direct-origin requests. These tests only run
+ * when BASE_URL points to a deployed Cloudflare Pages site.
+ */
+export const SKIP_REASON_CLOUDFLARE_HEADERS =
+  'Cloudflare Pages headers only on production';
+
+// ---------------------------------------------------------------------------
 // Consent / Tracking (must match Dart-side values)
 // ---------------------------------------------------------------------------
 
