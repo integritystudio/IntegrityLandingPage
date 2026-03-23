@@ -43,9 +43,7 @@ test.describe('Analytics Event Payload Validation (#112)', () => {
     test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
   });
 
-  test.afterEach(async ({ page, browserName }) => {
-    // Guard: skip cleanup on non-Chromium where beforeEach skipped the test
-    if (browserName !== 'chromium') return;
+  test.afterEach(async ({ page }) => {
     await page.evaluate((key) => localStorage.removeItem(key), CONSENT_STORAGE_KEY);
   });
 
@@ -54,22 +52,12 @@ test.describe('Analytics Event Payload Validation (#112)', () => {
   // -------------------------------------------------------------------------
 
   test.describe('dataLayer structure', () => {
-    test('dataLayer is an array after page load', async ({ page }) => {
+    test('dataLayer is initialized with entries after page load', async ({ page }) => {
       await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
 
       const dl = await getDataLayer(page);
       expect(Array.isArray(dl)).toBe(true);
-      expect(dl.length).toBeGreaterThan(0);
-    });
-
-    test('dataLayer contains gtag config push', async ({ page }) => {
-      await page.goto('/', { waitUntil: 'domcontentloaded' });
-      await waitForFlutter(page);
-
-      const dl = await getDataLayer(page);
-      // gtag('config', ...) pushes {0: 'config', 1: 'GA_ID'} or similar command array
-      // The gtm-init.js pushes at minimum the JS initialization entry
       expect(dl.length).toBeGreaterThan(0);
       // First entry should be an object or array (gtm.js default dataLayer push)
       expect(dl[0]).toBeTruthy();
@@ -113,9 +101,7 @@ test.describe('Analytics Event Payload Validation (#112)', () => {
       await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
 
-      // GTM script should not be loaded without consent
-      const gtmLoaded = analyticsRequests.some((u) => u.includes('gtm.js'));
-      expect(gtmLoaded).toBe(false);
+      expect(analyticsRequests.some((u) => u.includes('gtm.js'))).toBe(false);
     });
   });
 
@@ -124,18 +110,18 @@ test.describe('Analytics Event Payload Validation (#112)', () => {
   // -------------------------------------------------------------------------
 
   test.describe('dataLayer events on route change', () => {
-    test('dataLayer is populated after navigating to second route', async ({ page }) => {
+    test('dataLayer re-initializes after navigating to second route', async ({ page }) => {
       await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
 
-      const homeLength = await getDataLayer(page).then((dl) => dl.length);
+      const homeLength = (await getDataLayer(page)).length;
       expect(homeLength).toBeGreaterThan(0);
 
       // navigateAndWaitForFlutter does a full page.goto (not SPA nav),
       // so dataLayer resets. Verify it re-initializes on the new route.
       await navigateAndWaitForFlutter(page, '/pricing');
 
-      const pricingLength = await getDataLayer(page).then((dl) => dl.length);
+      const pricingLength = (await getDataLayer(page)).length;
       expect(pricingLength).toBeGreaterThan(0);
     });
   });
