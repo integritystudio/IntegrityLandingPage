@@ -54,16 +54,17 @@ interface EnrichedJWT {
   iat: number;                    // issued at
   exp: number;                    // expires in 3600s
 
-  // Custom org claims (added by hook, stable + non-mutable)
+  // Custom org claims (added by hook, stable identity references only)
   org_ids: string[];              // all orgs user belongs to
   default_org_id: string;         // primary org for this user
-  default_org_plan: string;       // "free" | "growth" | "enterprise"
   default_org_role: string;       // "owner" | "admin" | "member" | "billing_admin" | "viewer"
-  default_org_billing_status: string; // "active" | "past_due" | "cancelled"
+  // NOTE: default_org_plan and default_org_billing_status are intentionally
+  // absent. Both are mutable state queried server-side at runtime (M18-V01).
+  // Embedding them caused up to 3600s stale reads, violating SOC 2 CC6.1.
 }
 ```
 
-**Key design rule:** JWT claims are **immutable references only**. Dynamic state (remaining credits, current usage, subscription status) is queried server-side via `/bootstrap` and `/snapshot`.
+**Key design rule:** JWT claims are **immutable references only**. Dynamic state (plan, billing status, remaining credits, current usage) is queried server-side via `/bootstrap` and `/snapshot`.
 
 ### Auth User Links Bridge
 

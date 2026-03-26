@@ -103,22 +103,21 @@ Sentry `ingest.sentry.io` endpoint shared across staging and prod. CSP allows on
 
 ### M18-V01: Mutable JWT Claims (Phase 1 Remediation)
 
-**Severity:** CRITICAL (partially remediated)
+**Severity:** CRITICAL — ✅ FULLY REMEDIATED
 **Category:** Security — Access Control Staleness
 **File:** `workers/lib/types.zod.ts:39-45` | Commit: `312070b`
 
 JWT tokens from Supabase included mutable billing state claims (`default_org_plan` and `default_org_billing_status`) that reflect values at token issuance time (up to 3600s stale). When these values change via Stripe webhooks, JWT claims remain immutable, violating SOC 2 CC6.1 (system monitoring) and creating stale-read access control vulnerabilities.
 
 **Remediation completed:**
-- ✅ Removed both claims from `JWTPayloadSchema`
+- ✅ Removed both claims from `JWTPayloadSchema` (commit `312070b`)
 - ✅ Code already queries fresh values from database (`orgs.ts`)
 - ✅ Added `.passthrough()` for backward compatibility with old tokens
+- ✅ Supabase Custom Access Token Hook updated via migration `20260326000000_update_custom_access_token_hook.sql` — hook now emits only `org_ids`, `default_org_id`, `default_org_role`
+- ✅ Hook enabled in `supabase/config.toml`
+- ✅ `TWO_LAYER_AUTH_ARCHITECTURE.md` updated to reflect compliant JWT claims
 
-**External dependency pending:**
-- Supabase Custom Access Token Hook must be updated to stop generating these claims
-- Current code is safe; old tokens are gracefully accepted but claims are not used
-
-**Status:** Implemented in app code. Awaiting Supabase configuration update to prevent claim generation.
+**Status:** ✅ Complete.
 
 ---
 

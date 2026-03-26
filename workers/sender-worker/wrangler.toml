@@ -2,16 +2,14 @@ name = "sender-worker"
 main = "src/index.ts"
 compatibility_date = "2026-03-19"
 
-[vars]
-# Receiver Worker URL (set to receiver-worker deployment URL)
-RECEIVER_WORKER_URL = "https://receiver-worker.alyshia-b38.workers.dev"
+# Service binding — routes worker-to-worker calls internally (avoids same-subdomain fetch restriction)
+[[services]]
+binding = "PROVISIONING_RECEIVER"
+service = "api-provisioning-receiver"
 
-# HMAC signing key (set via: wrangler secret put SHARED_SECRET)
-# Must match SHARED_SECRET in receiver-worker
-# Generate a secure random secret: openssl rand -base64 32
-
-# CORS Origins (optional JSON array of allowed origins)
-# If not set, defaults to ["https://integritystudio.ai", "https://www.integritystudio.ai"]
-# For development/staging, set via:
-#   wrangler deploy --var ALLOWED_ORIGINS_JSON='["http://localhost:8081","https://staging.integritystudio.ai","https://integritystudio.ai","https://www.integritystudio.ai"]'
-# ALLOWED_ORIGINS_JSON = '["https://integritystudio.ai", "https://www.integritystudio.ai"]'
+# Secrets (set via wrangler secret put or doppler):
+#   SHARED_SECRET              — HMAC key; must match provisioning receiver
+#   SUPABASE_URL               — Supabase project URL
+#   SUPABASE_ANON_KEY          — Supabase anon key
+#   SUPABASE_SERVICE_ROLE_KEY  — Supabase service role key
+#   CORS_ORIGIN (optional)     — allowed CORS origin; if unset, origin header is not set
