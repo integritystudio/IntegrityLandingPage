@@ -6,6 +6,7 @@ import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/common/error_card.dart';
+import '../widgets/common/status_badge.dart';
 
 /// Arguments passed to EntitlementsPage via GoRouter state.extra.
 class EntitlementsArgs {
@@ -299,7 +300,7 @@ class _EntitlementRow extends StatelessWidget {
             flex: 2,
             child: Align(
               alignment: Alignment.centerRight,
-              child: _ValueBadge(
+              child: StatusBadge(
                 label: displayValue,
                 color: isEnabled! ? AppColors.success : AppColors.gray500,
               ),
@@ -311,35 +312,6 @@ class _EntitlementRow extends StatelessWidget {
             child: Text(displayValue, style: style, textAlign: TextAlign.right),
           ),
       ],
-    );
-  }
-}
-
-class _ValueBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _ValueBadge({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withAlpha(25),
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-      ),
-      child: Text(
-        label,
-        style: AppTypography.bodySM.copyWith(
-          color: color,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
     );
   }
 }

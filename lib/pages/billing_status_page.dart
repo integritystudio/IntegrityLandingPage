@@ -7,6 +7,7 @@ import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/common/error_card.dart';
+import '../widgets/common/status_badge.dart';
 
 /// Arguments passed to BillingStatusPage via GoRouter state.extra.
 class BillingStatusArgs {
@@ -237,7 +238,7 @@ class _BillingCard extends StatelessWidget {
                 ),
               ),
               if (billingStatus != null)
-                _StatusBadge(
+                StatusBadge(
                   label: _statusLabel(billingStatus!.billingStatus),
                   color: _statusColor(billingStatus!.billingStatus),
                 )
@@ -292,35 +293,6 @@ class _BillingCard extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _StatusBadge({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withAlpha(25),
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-      ),
-      child: Text(
-        label,
-        style: AppTypography.bodySM.copyWith(
-          color: color,
-          fontWeight: FontWeight.w500,
-        ),
       ),
     );
   }

@@ -10,14 +10,14 @@
    8 lib/pages/billing_status_page.dart
    7 workers/stripe-webhook/src/supabase.test.ts
    7 workers/api-gateway/src/routes/orgs.test.ts
-   7 workers/api-gateway/src/aggregation.ts
+   7 workers/api-gateway/src/routes/ingest.ts
    6 workers/api-gateway/src/routes/orgs.ts
    6 workers/api-gateway/src/lib/quota.ts
-   6 workers/api-gateway/src/aggregation.test.ts
    6 lib/pages/quota_status_page.dart
    5 workers/stripe-webhook/src/handlers/subscription.ts
    5 workers/lib/types/usage.ts
-   5 workers/api-gateway/src/routes/ingest.ts
+   5 workers/api-gateway/src/routes/ingest.test.ts
+   5 workers/api-gateway/src/aggregation.ts
    5 lib/pages/provision_page.dart
    4 workers/stripe-webhook/src/handlers/checkout.ts
 
@@ -93,12 +93,12 @@
   162983d 2026-03-21 fix(H4): validate stripe_customer_id format before Stripe API call
   b2d23fe 2026-03-21 fix(H3): push org ID filter to DB layer in loadOrgsForMemberships
 
-## workers/api-gateway/src/aggregation.ts
-  fac14e8 2026-03-20 refactor(M22): simplify rollupMonthlyBucket local variable names
-  1a446fa 2026-03-20 fix(M22): truncate float DB values in rollupMonthlyBucket to enforce int semantics
-  7a1d326 2026-03-20 fix(M22): truncate float DB values in rollupMonthlyBucket to enforce int semantics
-  190e56e 2026-03-20 fix(aggregation): use >= for limit-hit warning conditions (M21 follow-up)
-  8e8c033 2026-03-20 fix(aggregation): warn when rollup queries hit row limits (M21)
+## workers/api-gateway/src/routes/ingest.ts
+  0cd5dbf 2026-03-23 docs: update project status, workers documentation, and code precondition
+  993058b 2026-03-23 refactor(workers): extract MS_PER_DAY constant, fix applyRateLimitHeaders, export ingest schemas
+  5e5d2c4 2026-03-21 fix(otel): extract applyRateLimitHeaders helper; add boundary tests
+  2aa30eb 2026-03-21 fix(L25): export OTEL_INGEST_ROUTE and import in index.ts
+  e743c68 2026-03-21 fix(L23): forward rate-limit headers on OTEL ingest success response
 
 ## workers/api-gateway/src/routes/orgs.ts
   8f999e6 2026-03-21 fix(M40): fire-and-forget audit log write in billing portal handler
@@ -113,13 +113,6 @@
   eb1f928 2026-03-20 fix(quota): address final code-reviewer findings
   1872a13 2026-03-20 refactor(quota): simplify quota.ts after Zod parse changes
   95f2e51 2026-03-20 fix(quota): address code-reviewer findings from Zod parse refactor
-
-## workers/api-gateway/src/aggregation.test.ts
-  1a446fa 2026-03-20 fix(M22): truncate float DB values in rollupMonthlyBucket to enforce int semantics
-  7a1d326 2026-03-20 fix(M22): truncate float DB values in rollupMonthlyBucket to enforce int semantics
-  11049a3 2026-03-20 refactor(L4): extract shared mock factory to eliminate test factory duplication
-  fb588cc 2026-03-20 refactor(L3): simplify schema rejection test per code-simplifier
-  5f733de 2026-03-20 test(L3): add MonthlyUsageSummarySchema rejection path test
 
 ## lib/pages/quota_status_page.dart
   5786939 2026-03-21 refactor(L16): replace inline BoxDecoration with AppDecorations.card()
@@ -136,18 +129,25 @@
   29a71d1 2026-03-21 fix(H1): add Zod schemas for Stripe event payloads, replace as-any casts
 
 ## workers/lib/types/usage.ts
+  993058b 2026-03-23 refactor(workers): extract MS_PER_DAY constant, fix applyRateLimitHeaders, export ingest schemas
   df798ec 2026-03-21 feat(types): add IngestOtelResponseSchema and IngestOtelMetadataSchema
   32658b9 2026-03-21 fix(L24): add upper bound refine to OtelSpan start_time_ms
   c40a1c8 2026-03-21 fix(otel): add quota enforcement and bound attribute payload size
   1b771e3 2026-03-21 feat(otel): add POST /v1/ingest/otel OpenTelemetry span ingestion endpoint
-  97d3b74 2026-03-20 fix(V03): tighten MonthlyUsageSummarySchema year_month regex and clarify cross-metric avg
 
-## workers/api-gateway/src/routes/ingest.ts
+## workers/api-gateway/src/routes/ingest.test.ts
+  993058b 2026-03-23 refactor(workers): extract MS_PER_DAY constant, fix applyRateLimitHeaders, export ingest schemas
   5e5d2c4 2026-03-21 fix(otel): extract applyRateLimitHeaders helper; add boundary tests
-  2aa30eb 2026-03-21 fix(L25): export OTEL_INGEST_ROUTE and import in index.ts
-  e743c68 2026-03-21 fix(L23): forward rate-limit headers on OTEL ingest success response
+  ce4c563 2026-03-21 fix(L22): type makeOpts helper as SupabaseClient | undefined
   c40a1c8 2026-03-21 fix(otel): add quota enforcement and bound attribute payload size
   1b771e3 2026-03-21 feat(otel): add POST /v1/ingest/otel OpenTelemetry span ingestion endpoint
+
+## workers/api-gateway/src/aggregation.ts
+  993058b 2026-03-23 refactor(workers): extract MS_PER_DAY constant, fix applyRateLimitHeaders, export ingest schemas
+  fac14e8 2026-03-20 refactor(M22): simplify rollupMonthlyBucket local variable names
+  1a446fa 2026-03-20 fix(M22): truncate float DB values in rollupMonthlyBucket to enforce int semantics
+  7a1d326 2026-03-20 fix(M22): truncate float DB values in rollupMonthlyBucket to enforce int semantics
+  190e56e 2026-03-20 fix(aggregation): use >= for limit-hit warning conditions (M21 follow-up)
 
 ## lib/pages/provision_page.dart
   1e91334 2026-03-22 fix(lint): resolve flutter analyze warnings

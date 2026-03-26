@@ -4,6 +4,8 @@ import {
   SUPABASE_PREFER,
   HEADER_NAMES,
   CONTENT_TYPES,
+  PERSONAL_ORG_SLUG_PREFIX,
+  PERSONAL_ORG_DEFAULTS,
 } from "./types.js";
 
 /**
@@ -35,11 +37,76 @@ export async function supabaseAdminCreateUser(
   return { userId };
 }
 
+/**
+ * Create a personal (single-user) default organization for a new user.
+ *
+ * Personal orgs are distinguished from team/company organizations by their slug prefix
+ * (`personal-{userId}`), which allows them to be identified programmatically
+ * (e.g. `SELECT * FROM organizations WHERE slug LIKE 'personal-%'`).
+ *
+ * The owner membership is created immediately so the user has full access to their org.
+ *
+ * @returns organizationId — UUID of the newly created personal org
+ */
+export async function supabaseCreatePersonalOrg(
+  url: string,
+  serviceKey: string,
+  userId: string,
+  email: string,
+): Promise<{ organizationId: string }> {
+  const serviceHeaders = {
+    [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
+    [SUPABASE_HEADER_NAMES.API_KEY]: serviceKey,
+    [HEADER_NAMES.AUTHORIZATION]: `Bearer ${serviceKey}`,
+    [SUPABASE_HEADER_NAMES.PREFER]: "return=representation",
+  };
+
+  // Slug encodes the userId so it is unique and queryable
+  const slug = `${PERSONAL_ORG_SLUG_PREFIX}${userId}`;
+  // Name uses the email local-part for human readability
+  const localPart = email.split("@")[0] ?? email;
+  const name = `${localPart} (personal)`;
+
+  const orgRes = await fetch(`${url}${SUPABASE_PATHS.TABLE_ORGANIZATIONS}`, {
+    method: "POST",
+    headers: serviceHeaders,
+    body: JSON.stringify({
+      slug,
+      name,
+      ...PERSONAL_ORG_DEFAULTS,
+    }),
+  });
+  if (!orgRes.ok) {
+    const err = await orgRes.text();
+    throw new Error(`Create personal org failed: ${orgRes.status} ${err}`);
+  }
+  const [org] = await orgRes.json() as Array<{ id?: string }>;
+  const organizationId = org?.id;
+  if (!organizationId) throw new Error("Create personal org returned no id");
+
+  const memberRes = await fetch(`${url}${SUPABASE_PATHS.TABLE_ORG_MEMBERSHIPS}`, {
+    method: "POST",
+    headers: { ...serviceHeaders, [SUPABASE_HEADER_NAMES.PREFER]: SUPABASE_PREFER.RETURN_MINIMAL },
+    body: JSON.stringify({
+      organization_id: organizationId,
+      user_id: userId,
+      role: "owner",
+    }),
+  });
+  if (!memberRes.ok) {
+    const err = await memberRes.text();
+    throw new Error(`Create org membership failed: ${memberRes.status} ${err}`);
+  }
+
+  return { organizationId };
+}
+
 export async function supabaseInsertUser(
   url: string,
   serviceKey: string,
   userId: string,
   email: string,
+  organizationId: string,
 ): Promise<void> {
   const res = await fetch(`${url}${SUPABASE_PATHS.TABLE_USERS}`, {
     method: "POST",
@@ -54,7 +121,7 @@ export async function supabaseInsertUser(
       email,
       auth0_id: userId,
       tier: "new",
-      default_organization_id: "29edb193-ae7f-4863-9bb6-e245da74ec1f",
+      default_organization_id: organizationId,
     }),
   });
   if (!res.ok) {

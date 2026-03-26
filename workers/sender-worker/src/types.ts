@@ -45,6 +45,17 @@ export const SUPABASE_PATHS = {
   SIGNIN_PASSWORD: "/auth/v1/token?grant_type=password",
   ADMIN_USERS: "/auth/v1/admin/users",
   TABLE_USERS: "/rest/v1/users",
+  TABLE_ORGANIZATIONS: "/rest/v1/organizations",
+  TABLE_ORG_MEMBERSHIPS: "/rest/v1/organization_memberships",
+} as const;
+
+/** Slug prefix that identifies a personal (single-user) default organization. */
+export const PERSONAL_ORG_SLUG_PREFIX = "personal-" as const;
+
+/** Default plan and billing state for auto-created personal organizations. */
+export const PERSONAL_ORG_DEFAULTS = {
+  current_plan: "free",
+  billing_status: "inactive",
 } as const;
 
 export const SUPABASE_HEADER_NAMES = {
