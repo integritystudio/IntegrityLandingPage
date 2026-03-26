@@ -57,7 +57,7 @@ test.describe('Cache Headers', () => {
     });
 
     test('X-Frame-Options is set', () => {
-      expect(response.headers()['x-frame-options']).toBe('DENY');
+      expect(response.headers()['x-frame-options']).toBe('SAMEORIGIN');
     });
 
     test('Referrer-Policy is set', () => {

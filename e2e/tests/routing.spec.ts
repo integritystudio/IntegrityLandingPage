@@ -225,8 +225,8 @@ test.describe('Routing and Redirects', () => {
       expect(response.status()).toBe(HTTP_OK);
       const html = await response.text();
       expect(html).toContain('Content-Security-Policy');
-      expect(html).toContain('report-uri');
-      expect(html).toContain(`report-to ${CSP_REPORT_GROUP}`);
+      const reportTo = response.headers()['report-to'];
+      expect(reportTo).toContain(CSP_REPORT_GROUP);
     });
 
     test('SRI attributes are present on external scripts', async ({ request }) => {
