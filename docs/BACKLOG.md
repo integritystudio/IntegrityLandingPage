@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-21 | **Phase:** V02 & Health Monitoring Complete; OTEL Implementation (L22-L25) migrated to v1.2 (4 items); 51+ items in v1.2; 1 remaining design-decision item (T28)
+**Last Updated:** 2026-03-25 | **Phase:** V02 & Health Monitoring Complete; OTEL Implementation (L22-L25) migrated to v1.2 (4 items); 51+ items in v1.2; 1 remaining design-decision item (T28); 1 new performance optimization item added (W01: Valibot migration)
 
 ---
 
@@ -245,6 +245,45 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 - `workers/docs/QUOTA_DURABLE_OBJECTS.md` — Document durability guarantees and trade-offs
 
 **Status:** Deferred — Documented but requires risk/latency trade-off decision and monitoring setup.
+
+---
+
+## Performance: Migrate Cloudflare Workers Validation from Zod to Valibot
+
+### W01: Replace Zod with Valibot for Edge Function Validation
+
+**Priority:** P2 | **Source:** session 2026-03-25, performance analysis
+**Estimated:** 4–6 hours
+**Context:** `functions/src/` Cloudflare Workers use Zod for validation. Valibot is significantly faster and smaller for edge functions.
+
+**Analysis:** See `docs/VALIBOT_ANALYSIS.md` for full comparison. Key findings:
+- **Bundle size:** Valibot 1.91 KB vs Zod 16.57 KB (90% reduction)
+- **Startup:** Valibot 54 μs vs Zod ~864 μs (16x faster cold starts)
+- **Impact:** Every KB shipped globally to edge datacenters; smaller bundle = faster parsing = lower CPU milliseconds billed
+- **Trade-off:** Valibot slower on invalid data (exception-based), but Zod remains better for server-side Node.js (keep in api-gateway)
+
+**Scope:**
+1. Audit validation schemas in `functions/src/` — identify all Zod usage
+2. Migrate schemas to Valibot API (mostly 1:1 mapping)
+3. Update type exports: `z.infer<typeof S>` → `v.infer<typeof S>`
+4. Benchmark with Wrangler: measure bundle size reduction and cold start improvement
+5. Update `functions/package.json` to add Valibot + remove Zod dependency (if not shared with api-gateway)
+6. Run `npm test` in functions/ directory to verify no regressions
+7. Document in `functions/MIGRATION.md` if Valibot is adopted long-term
+
+**Files to modify:**
+- `functions/src/` (all validation schemas)
+- `functions/package.json` (add valibot dependency)
+- `functions/tsconfig.json` (if needed for types)
+
+**Decision point:** Should api-gateway continue using Zod (server-side, better ecosystem) while functions/ uses Valibot (edge, better perf)?
+- **Recommendation:** Yes — different contexts. Keep Zod in api-gateway (Node.js), migrate functions/ to Valibot (edge).
+
+**Files to check:**
+- `functions/src/_middleware.ts` — entry point; check if validates requests
+- `functions/src/` — all TypeScript files for `z.` references
+
+**Status:** Open — awaiting implementation. Analysis completed and documented in `docs/VALIBOT_ANALYSIS.md`.
 
 ---
 
