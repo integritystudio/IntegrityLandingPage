@@ -75,13 +75,22 @@ const validSendPayload = {
   tier: 'starter',
 };
 
+// Shape returned by receiver-worker after full provisioning (steps 8-9 in wire doc)
+const validApiKeyResponse = {
+  ok: true,
+  token: `obtk_${'a'.repeat(64)}`,
+  keyId: 'key-uuid-1234',
+  prefix: 'obtk_',
+  tier: 'starter',
+};
+
 describe('Sender Worker', () => {
   describe('POST /send — valid provision_api_key requests', () => {
     it('forwards provision_api_key payload to receiver-worker with HMAC signature', async () => {
       const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ ok: true, received: validSendPayload }),
-          { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } },
+          JSON.stringify(validApiKeyResponse),
+          { status: 201, headers: { 'content-type': 'application/json; charset=utf-8' } },
         ),
       );
 
@@ -93,13 +102,40 @@ describe('Sender Worker', () => {
 
       const response = await worker.fetch(request, mockEnv);
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(201);
       expect(fetchSpy).toHaveBeenCalled();
       const callArgs = fetchSpy.mock.calls[0];
       expect(callArgs[0]).toBe(`${mockEnv.RECEIVER_WORKER_URL}/inbox`);
       const fetchRequest = callArgs[1] as RequestInit;
       expect(fetchRequest.headers).toHaveProperty('x-timestamp');
       expect(fetchRequest.headers).toHaveProperty('x-signature');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('proxies API key response body (token, keyId, prefix, tier) with 201 status unchanged', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(
+          JSON.stringify(validApiKeyResponse),
+          { status: 201, headers: { 'content-type': 'application/json; charset=utf-8' } },
+        ),
+      );
+
+      const request = new Request('https://worker.test/send', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(validSendPayload),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(201);
+      const data = await response.json() as typeof validApiKeyResponse;
+      expect(data.ok).toBe(true);
+      expect(data.token).toBe(validApiKeyResponse.token);
+      expect(data.keyId).toBe(validApiKeyResponse.keyId);
+      expect(data.prefix).toBe(validApiKeyResponse.prefix);
+      expect(data.tier).toBe(validApiKeyResponse.tier);
 
       fetchSpy.mockRestore();
     });

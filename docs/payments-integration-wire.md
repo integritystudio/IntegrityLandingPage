@@ -323,3 +323,71 @@ Content-Type: application/json
   "org_name": "Example Corp"
 }
 ```
+
+---
+
+## API Key Provisioning Flow
+
+_Last updated: 2026-03-27_
+
+### Architecture
+
+```
+Flutter App
+  └─→ Sender Worker
+      └─→ Receiver Worker
+          ├─→ Auth0 (/userinfo)
+          ├─→ Supabase REST (user lookup, org upsert, membership)
+          └─→ Supabase Edge Function (api-keys-create)
+```
+
+### Step-by-step
+
+**1. Sender** — builds `{action, jwt, name, email, tier?, org_name?}`, signs `HMAC-SHA256(timestamp.body)`, `POST /inbox`
+
+**2. Receiver transport validation**
+
+| Check | Error |
+|-------|-------|
+| `x-timestamp` + `x-signature` present | 401 `MISSING_AUTH_HEADERS` |
+| Timestamp ±5 min window | 401 `INVALID_TIMESTAMP` |
+| HMAC constant-time match | 401 `INVALID_SIGNATURE` |
+| Valid JSON body | 400 `JSON_PARSE_ERROR` |
+
+**3. Receiver payload validation**
+- `inboxPayloadSchema` discriminated union on `action`
+- Email domain + MX check (Cloudflare DoH, fail-open, 2 retries) → 400 `INVALID_EMAIL_DOMAIN`
+
+**4. Auth0 `/userinfo`** — confirms JWT live + unexpired; cross-checks email claim
+
+**5. Supabase** — `GET /rest/v1/users?auth0_id=eq.{sub}` → Supabase UUID
+
+**6. Supabase** — `POST /rest/v1/organizations {domain, name, type:'team', current_plan:tier}`
+- 201 → new org; 409+23505 → existing org; else propagates
+
+**7. Supabase** — `POST /rest/v1/organization_memberships`
+- 204 → added; 409+23505 → already member; else propagates
+
+**8. Edge fn `api-keys-create`** — `POST {SUPABASE_URL}/functions/v1/api-keys-create`
+
+Response: `{ token: /^obtk_[0-9a-f]{64}$/, keyId, prefix, tier }`
+
+**9. Response** — transparent proxy
+- Sender reads `receiverRes.text()`, re-emits same status + `content-type`
+- No parsing or transformation
+- CORS: `access-control-allow-origin` added if origin in `ALLOWED_ORIGINS_JSON` (fallback: `integritystudio.ai`, `www.integritystudio.ai`); 403 for others
+- Error paths:
+
+| Condition | Response |
+|-----------|----------|
+| `RECEIVER_WORKER_URL` invalid | 500 `INTERNAL_ERROR` |
+| `SHARED_SECRET` missing | 500 `INTERNAL_ERROR` |
+| `SendRequestSchema` fails | 400/401 field-specific |
+| `fetch TypeError` (network) | 502 "receiver-worker unreachable" |
+| Other thrown error | 500 "send failed" |
+
+### Key schemas
+
+All in `src/lib/validation/api-schemas.ts` (receiver-worker):
+
+`inboxPayloadSchema`, `actionSchema`, `auth0UserinfoSchema`, `provisionApiKeyResultSchema`, `apiKeyTierSchema`, `emailToRegistrableDomainSchema`
