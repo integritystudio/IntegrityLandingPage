@@ -285,7 +285,7 @@ const RECEIVER_URL = "https://receiver.e2e.test";
 
 const validSendPayload = {
   action: "provision_api_key",
-  jwt: "test.jwt.token",
+  jwt: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
   name: "My API Key",
   email: "user@example.com",
   tier: "starter",
@@ -369,14 +369,14 @@ describe("POST /send — validation", () => {
     expect((await res.json() as { error: string }).error).toContain("unknown action");
   });
 
-  it("returns 400 when jwt is missing", async () => {
+  it("returns 401 when jwt is missing", async () => {
     const { jwt: _j, ...noJwt } = validSendPayload;
     const res = await SELF.fetch("https://worker.test/send", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(noJwt),
     });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
     expect((await res.json() as { error: string }).error).toContain("jwt");
   });
 

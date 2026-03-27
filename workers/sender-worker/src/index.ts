@@ -8,10 +8,8 @@ import {
   CORS_HEADERS,
   RECEIVER_PATHS,
   SERVICE_NAME,
-  ACTIONS,
-  VALID_TIERS,
-  DEFAULT_TIER,
-  type ApiKeyTier,
+  EMAIL_REGEX,
+  SendRequestSchema,
   type Env,
 } from "./types.js";
 import { json, errorResponse } from "./utils.js";
@@ -24,7 +22,6 @@ import {
 } from "./supabase.js";
 import { VERSION } from "./version.js";
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const HARDCODED_ALLOWED_ORIGINS = [
   "https://integritystudio.ai",
@@ -101,48 +98,33 @@ function handleSignin(_env: Env, _req: Record<string, unknown>): Response {
 }
 
 async function handleSend(env: Env, req: Record<string, unknown>): Promise<Response> {
-  if (!env.RECEIVER_WORKER_URL) {
+  try {
+    new URL(env.RECEIVER_WORKER_URL);
+  } catch {
     return errorResponse("RECEIVER_WORKER_URL not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
   if (!env.SHARED_SECRET) {
     return errorResponse("SHARED_SECRET not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
 
-  // Validate action
-  if (req.action !== ACTIONS.PROVISION_API_KEY) {
-    return errorResponse(`unknown action: ${req.action}`, ERROR_CODE.UNKNOWN_ACTION, HTTP_STATUS.BAD_REQUEST);
+  const parsed = SendRequestSchema.safeParse(req);
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path[0] ?? "request";
+    if (field === "action") {
+      return errorResponse("unknown action", ERROR_CODE.UNKNOWN_ACTION, HTTP_STATUS.BAD_REQUEST);
+    }
+    if (field === "jwt") {
+      return errorResponse("invalid or expired jwt", ERROR_CODE.INVALID_AUTH, HTTP_STATUS.UNAUTHORIZED);
+    }
+    const code = field === "email" ? ERROR_CODE.INVALID_EMAIL : ERROR_CODE.MISSING_FIELDS;
+    return errorResponse(`invalid ${field}`, code, HTTP_STATUS.BAD_REQUEST);
   }
 
-  // Validate provision_api_key required fields
-  if (!req.jwt || typeof req.jwt !== "string") {
-    return errorResponse("missing or invalid jwt", ERROR_CODE.INVALID_AUTH, HTTP_STATUS.BAD_REQUEST);
-  }
-  if (!req.name || typeof req.name !== "string") {
-    return errorResponse("missing name", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
-  }
-  if (!req.email || typeof req.email !== "string") {
-    return errorResponse("missing email", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
-  }
-  if (!EMAIL_REGEX.test(req.email)) {
-    return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
-  }
+  const { action, jwt, name, email, tier, org_name } = parsed.data;
 
-  // Normalize tier: default to starter if absent or invalid
-  const tier: ApiKeyTier = (VALID_TIERS as readonly string[]).includes(req.tier as string)
-    ? (req.tier as ApiKeyTier)
-    : DEFAULT_TIER;
 
-  // Build the normalized payload the receiver expects
-  const payload: Record<string, unknown> = {
-    action: req.action,
-    email: req.email,
-    jwt: req.jwt,
-    name: req.name,
-    tier,
-  };
-  if (req.org_name && typeof req.org_name === "string") {
-    payload["org_name"] = req.org_name;
-  }
+  const resolvedOrgName = org_name ?? email.split("@")[1];
+  const payload: Record<string, unknown> = { action, email, jwt, name, tier, org_name: resolvedOrgName };
 
   try {
     const ts = Date.now().toString();
@@ -158,9 +140,10 @@ async function handleSend(env: Env, req: Record<string, unknown>): Promise<Respo
       body: bodyStr,
     });
     const receiverBody = await receiverRes.text();
+    const contentType = receiverRes.headers.get(HEADER_NAMES.CONTENT_TYPE) ?? CONTENT_TYPES.JSON;
     return new Response(receiverBody, {
       status: receiverRes.status,
-      headers: { [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON },
+      headers: { [HEADER_NAMES.CONTENT_TYPE]: contentType },
     });
   } catch (err) {
     if (err instanceof TypeError) {

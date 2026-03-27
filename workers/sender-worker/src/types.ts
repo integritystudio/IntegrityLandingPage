@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export const ROUTES = {
   HEALTH: "/health",
   SIGNUP: "/signup",
@@ -85,13 +87,23 @@ export const CONTENT_TYPES = {
   JSON: "application/json; charset=utf-8",
 } as const;
 
-export const ACTIONS = {
-  PROVISION_API_KEY: "provision_api_key",
-} as const;
+export const ActionSchema = z.enum(["provision_api_key"]);
+export type Action = z.infer<typeof ActionSchema>;
 
-export const VALID_TIERS = ["starter", "growth", "enterprise"] as const;
-export type ApiKeyTier = typeof VALID_TIERS[number];
+export const ApiKeyTierSchema = z.enum(["starter", "growth", "enterprise"]);
+export type ApiKeyTier = z.infer<typeof ApiKeyTierSchema>;
 export const DEFAULT_TIER: ApiKeyTier = "starter";
+
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const SendRequestSchema = z.object({
+  action: ActionSchema,
+  jwt: z.string().jwt(),
+  name: z.string().min(1),
+  email: z.string().email(),
+  tier: ApiKeyTierSchema.catch(DEFAULT_TIER),
+  org_name: z.coerce.string().optional(),
+});
 
 export const SERVICE_NAME = "api-provisioning-sender";
 

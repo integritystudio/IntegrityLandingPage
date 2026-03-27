@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+
 interface SuccessResponse {
   ok: boolean;
   received: Record<string, unknown>;
@@ -68,7 +69,7 @@ async function computeSignature(
 
 const validSendPayload = {
   action: 'provision_api_key',
-  jwt: 'test.jwt.token',
+  jwt: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIn0.signature',
   name: 'My API Key',
   email: 'user@example.com',
   tier: 'starter',
@@ -226,7 +227,7 @@ describe('Sender Worker', () => {
       fetchSpy.mockRestore();
     });
 
-    it('omits org_name from forwarded payload when not provided', async () => {
+    it('defaults org_name to email domain when not provided', async () => {
       let forwardedPayload: Record<string, unknown> | null = null;
 
       const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (_url, init) => {
@@ -245,7 +246,7 @@ describe('Sender Worker', () => {
 
       await worker.fetch(request, mockEnv);
 
-      expect(Object.keys(forwardedPayload!)).not.toContain('org_name');
+      expect(forwardedPayload!['org_name']).toBe('example.com');
       fetchSpy.mockRestore();
     });
 
@@ -296,7 +297,7 @@ describe('Sender Worker', () => {
       expect((await response.json() as ErrorResponse).error).toContain('unknown action');
     });
 
-    it('returns 400 with INVALID_AUTH when jwt is missing', async () => {
+    it('returns 401 when jwt is missing', async () => {
       const { jwt: _j, ...noJwt } = validSendPayload;
       const request = new Request('https://worker.test/send', {
         method: 'POST',
@@ -304,7 +305,7 @@ describe('Sender Worker', () => {
         body: JSON.stringify(noJwt),
       });
       const response = await worker.fetch(request, mockEnv);
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(401);
       expect((await response.json() as ErrorResponse).error).toContain('jwt');
     });
 
@@ -374,8 +375,11 @@ describe('Sender Worker', () => {
   });
 
   describe('POST /send — missing configuration', () => {
-    it('returns 500 when RECEIVER_WORKER_URL is not configured', async () => {
-      const envMissingReceiver: Env = { SHARED_SECRET: 'secret', RECEIVER_WORKER_URL: '' };
+    it.each([
+      ['empty string', ''],
+      ['invalid URL', 'not-a-url'],
+    ])('returns 500 when RECEIVER_WORKER_URL is %s', async (_label, url) => {
+      const envMissingReceiver: Env = { ...mockEnv, RECEIVER_WORKER_URL: url };
       const request = new Request('https://worker.test/send', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
