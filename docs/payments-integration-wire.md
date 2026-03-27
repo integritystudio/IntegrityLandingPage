@@ -4,30 +4,40 @@ Documents the current state of the signup/payments flow and the intended target 
 
 ---
 
-## Current Flow: Lead Capture via Resend
+## ~~Current Flow: Lead Capture via Resend~~ (replaced 2026-03-27)
 
-**Bottom line: the current flow does NOT create a user account. It sends an email.**
+~~**Bottom line: the current flow does NOT create a user account. It sends an email.**~~
+
+This flow has been replaced. `SignupPage` no longer calls `ContactService.submitForm()`. See **Current Flow** below.
+
+---
+
+## Current Flow: Auth0 Account Creation
 
 ```
 /signup?tier=starter  →  click "Start Free Trial"
          ↓
-SignupPage collects: name, email, company, terms checkbox
+SignupPage collects: name, email, password, terms checkbox
          ↓
-ContactService.submitForm() — fetches CSRF token, POSTs to contact-form worker
+ProvisioningService.signUp(email, password) — POSTs to sender-worker /signup
          ↓
-contact-form worker: rate limit → CSRF validate → idempotency → Zod validate → Resend API
+sender-worker: auth0CreateUser() — calls Auth0 Management API (client credentials grant)
          ↓
-Resend sends email to RECIPIENT_EMAIL with message: "Signup request for starter tier"
+Auth0: creates user, returns auth0_id (sub)
          ↓
-Navigate to /request_success ("We'll respond within 24 hours")
+sender-worker: supabaseCreatePersonalOrg → supabaseInsertUser → supabaseAddOrgOwner
+         ↓
+sender-worker returns 201 { jwt }
+         ↓
+SignupPage receives AuthSuccess(jwt, email) → Navigate to /provision
 ```
 
 ### Key Observations
 
-- The `tier` param is only used for display text and is embedded in the email message body as a string — not stored in a dedicated field anywhere
-- The sender-worker (`/signup` route with Supabase `adminCreateUser`) is never called from this flow — it exists but is not wired to the UI yet
-- The signup form is effectively a lead capture / waitlist form routed through the contact-form worker, not an actual account creation flow
-- No user row, org, or JWT is created — just an email to the support team
+- `tier` param is displayed in the UI badge but not yet passed to the backend at signup; plan defaults to `starter` in `supabaseCreatePersonalOrg`
+- Auth0 post-registration webhook is not yet configured — Supabase provisioning is currently triggered inline by the sender-worker `/signup` handler
+- Name field is collected in the UI but not forwarded to the sender-worker (not yet wired)
+- On `AuthError`, the error message is shown inline; no redirect to `/request_failure`
 
 ### Involved Files
 
@@ -35,15 +45,16 @@ Navigate to /request_success ("We'll respond within 24 hours")
 |-------|------|
 | Router | `lib/routing/app_router.dart` |
 | UI | `lib/pages/signup_page.dart` |
-| Service | `lib/services/contact_service.dart` |
-| Worker | `workers/contact-form/src/index.ts` |
-| Email | Resend API (`resend.emails.send`) |
+| Service | `lib/services/provisioning_service.dart` |
+| Worker | `workers/sender-worker/src/index.ts` (`POST /signup`) |
+| Auth | Auth0 Management API (`auth0CreateUser`) |
+| Supabase | `workers/sender-worker/src/supabase.ts` |
 
 ---
 
-## Target Flow: Real Account Creation
+## Target Flow: Auth0 Webhook-Driven Provisioning
 
-Auth0 is the identity provider. User identity is created in Auth0 first; Supabase provisioning is triggered by the Auth0 post-registration webhook. The sender-worker's current `supabaseAdminCreateUser` call is incorrect for this architecture and must be replaced.
+Auth0 is the identity provider. Supabase provisioning should be triggered by the Auth0 post-registration webhook rather than inline in the sender-worker. The current inline provisioning is a temporary arrangement.
 
 ```
 /signup?tier=starter  →  click "Start Free Trial"
@@ -73,9 +84,11 @@ Navigate to dashboard (authenticated)
 ### What Needs to Be Built
 
 - ~~Remove `supabaseAdminCreateUser` call from sender-worker; replace with Auth0 Management API call~~ ✅ Done — `auth0CreateUser` now uses client credentials grant (`AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_AUDIENCE`) to obtain a management token, then calls `POST /api/v2/users`
-- Configure Auth0 post-registration webhook to trigger provisioning (Supabase row inserts)
-- Replace `ContactService.submitForm()` in `signup_page.dart` with Auth0 signup
-- Store Auth0 JWT and route to authenticated dashboard on success
+- ~~Replace `ContactService.submitForm()` in `signup_page.dart` with Auth0 signup~~ ✅ Done — `ProvisioningService.signUp(email, password)` is now called; on `AuthSuccess` routes to `/provision`
+- Configure Auth0 post-registration webhook to trigger provisioning (replace inline Supabase calls in sender-worker `/signup`)
+- Forward `name` field from `SignupPage` to sender-worker `/signup` for use in org display name
+- Pass `tier` from `SignupPage` to sender-worker so `supabaseCreatePersonalOrg` sets the correct initial plan
+- Store Auth0 JWT in secure storage and route directly to authenticated dashboard post-provision
 - Wire Stripe checkout for paid tiers (`growth`, `enterprise`) post-signup
 
 ### Involved Files (target)
@@ -84,10 +97,10 @@ Navigate to dashboard (authenticated)
 |-------|------|
 | Router | `lib/routing/app_router.dart` |
 | UI | `lib/pages/signup_page.dart` |
-| Service | `lib/services/provisioning_service.dart` (to be created) |
-| Auth | Auth0 Management API + post-registration webhook |
-| Worker | `workers/sender-worker/src/index.ts` (needs Auth0 API call, not Supabase Admin) |
-| Supabase | `workers/sender-worker/src/supabase.ts` (remove `supabaseAdminCreateUser`) |
+| Service | `lib/services/provisioning_service.dart` |
+| Auth | Auth0 Management API + post-registration webhook (webhook not yet configured) |
+| Worker | `workers/sender-worker/src/index.ts` |
+| Supabase | `workers/sender-worker/src/supabase.ts` |
 
 ---
 

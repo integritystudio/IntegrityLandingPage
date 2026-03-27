@@ -49,6 +49,9 @@ class FormTextField extends StatelessWidget {
   /// Autocomplete hint.
   final String? autofillHint;
 
+  /// Whether to obscure the field value (for passwords).
+  final bool obscureText;
+
   /// Whether the field is enabled.
   final bool enabled;
 
@@ -72,6 +75,7 @@ class FormTextField extends StatelessWidget {
     this.errorText,
     this.helpText,
     this.autofillHint,
+    this.obscureText = false,
     this.enabled = true,
     this.focusNode,
     this.onEditingComplete,
@@ -114,6 +118,7 @@ class FormTextField extends StatelessWidget {
           initialValue: value,
           onChanged: onChanged,
           keyboardType: _keyboardType,
+          obscureText: obscureText,
           enabled: enabled,
           focusNode: focusNode,
           onEditingComplete: onEditingComplete,

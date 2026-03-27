@@ -3,9 +3,9 @@
 ## Current Status
 
 **Phase**: Billing & Dashboard ✅ COMPLETE
-**Last Updated**: 2026-03-26
+**Last Updated**: 2026-03-27
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ All tests passing (2440+ tests, ~94% coverage; workers: 291 tests — sender-worker has 15 known failures)
+**Test Status**: ✅ All tests passing (2440+ tests, ~94% coverage; workers: 310 tests)
 
 See [docs/changelog/1.2/CHANGELOG.md](docs/changelog/1.2/CHANGELOG.md) for recent changes.
 

@@ -10,6 +10,7 @@ import '../widgets/common/cards.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/common/form_fields.dart';
 import '../services/contact_service.dart';
+import '../services/provisioning_service.dart';
 
 /// Signup page with tier selection.
 ///
@@ -30,10 +31,15 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
+  static const int _minPasswordLength = 8;
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _companyController = TextEditingController();
+
+  bool get _isEnterprise => widget.tier.toLowerCase() == 'enterprise';
 
   bool _isSubmitting = false;
   bool _agreedToTerms = false;
@@ -51,6 +57,7 @@ class _SignupPageState extends State<SignupPage> {
   void dispose() {
     _emailController.dispose();
     _nameController.dispose();
+    _passwordController.dispose();
     _companyController.dispose();
     super.dispose();
   }
@@ -235,13 +242,24 @@ class _SignupPageState extends State<SignupPage> {
             ),
             const SizedBox(height: AppSpacing.md),
 
-            // Company field
-            FormTextField(
-              label: 'Company Name',
-              value: _companyController.text,
-              onChanged: (value) => _companyController.text = value,
-              errorText: _fieldErrors['company'],
-            ),
+            // Enterprise: company field; others: password field
+            if (_isEnterprise)
+              FormTextField(
+                label: 'Company Name',
+                value: _companyController.text,
+                onChanged: (value) => _companyController.text = value,
+                errorText: _fieldErrors['company'],
+              )
+            else
+              FormTextField(
+                label: 'Password',
+                value: _passwordController.text,
+                onChanged: (value) => _passwordController.text = value,
+                obscureText: true,
+                required: true,
+                autofillHint: AutofillHints.newPassword,
+                errorText: _fieldErrors['password'],
+              ),
             const SizedBox(height: AppSpacing.lg),
 
             // Terms checkbox
@@ -292,7 +310,9 @@ class _SignupPageState extends State<SignupPage> {
 
             // Submit button
             GradientButton(
-              text: _isSubmitting ? 'Creating Account...' : 'Start Free Trial',
+              text: _isSubmitting
+                  ? (_isEnterprise ? 'Sending Request...' : 'Creating Account...')
+                  : (_isEnterprise ? 'Contact Sales' : 'Start Free Trial'),
               icon: _isSubmitting ? null : LucideIcons.arrowRight,
               onPressed: _isSubmitting ? null : _handleSubmit,
               fullWidth: true,
@@ -360,6 +380,17 @@ class _SignupPageState extends State<SignupPage> {
       hasError = true;
     }
 
+    if (!_isEnterprise) {
+      if (_passwordController.text.isEmpty) {
+        _fieldErrors['password'] = 'Please enter a password';
+        hasError = true;
+      } else if (_passwordController.text.length < _minPasswordLength) {
+        _fieldErrors['password'] =
+            'Password must be at least $_minPasswordLength characters';
+        hasError = true;
+      }
+    }
+
     if (!_agreedToTerms) {
       _errorMessage = 'Please agree to the Terms of Service and Privacy Policy';
       hasError = true;
@@ -372,43 +403,59 @@ class _SignupPageState extends State<SignupPage> {
 
     setState(() => _isSubmitting = true);
 
-    // Track signup
     AnalyticsService.trackFormSubmission(formType: 'signup_form', success: true);
     FacebookPixelService.trackLead(email: _emailController.text);
 
-    try {
-      final response = await ContactService.submitForm(
-        ContactFormPayload(
-          formData: ContactFormData(
-            name: _nameController.text.trim(),
-            email: _emailController.text.trim(),
-            organization: _companyController.text.trim().isNotEmpty
-                ? _companyController.text.trim()
-                : null,
-            message: 'Signup request for ${widget.tier} tier',
-          ),
+    if (_isEnterprise) {
+      await _handleEnterpriseSubmit();
+    } else {
+      await _handleAuthSubmit();
+    }
+  }
+
+  Future<void> _handleEnterpriseSubmit() async {
+    final response = await ContactService.submitForm(
+      ContactFormPayload(
+        formData: ContactFormData(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          organization: _companyController.text.trim().isNotEmpty
+              ? _companyController.text.trim()
+              : null,
+          message: 'Signup request for ${widget.tier} tier',
         ),
-      );
+      ),
+    );
 
-      if (!mounted) return;
-      setState(() => _isSubmitting = false);
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
 
-      switch (response) {
-        case ContactFormSuccess():
-          context.go('/request_success');
-        case ContactFormError(:final fieldErrors):
-          if (fieldErrors != null) {
-            // Validation errors — show inline so user can fix
-            setState(() => _fieldErrors.addAll(fieldErrors));
-          } else {
-            // Network/server error — redirect to failure page
-            context.go('/request_failure');
-          }
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isSubmitting = false);
-      context.go('/request_failure');
+    switch (response) {
+      case ContactFormSuccess():
+        context.go('/request_success');
+      case ContactFormError(:final fieldErrors):
+        if (fieldErrors != null) {
+          setState(() => _fieldErrors.addAll(fieldErrors));
+        } else {
+          context.go('/request_failure');
+        }
+    }
+  }
+
+  Future<void> _handleAuthSubmit() async {
+    final result = await ProvisioningService.signUp(
+      _emailController.text.trim(),
+      _passwordController.text,
+    );
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    switch (result) {
+      case AuthSuccess():
+        context.go('/provision', extra: result);
+      case AuthError(:final error):
+        setState(() => _errorMessage = error);
     }
   }
 
