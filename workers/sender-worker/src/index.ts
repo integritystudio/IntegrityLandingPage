@@ -121,10 +121,7 @@ async function handleSend(env: Env, req: Record<string, unknown>): Promise<Respo
   }
 
   const { action, jwt, name, email, tier, org_name } = parsed.data;
-
-
-  const resolvedOrgName = org_name ?? email.split("@")[1];
-  const payload: Record<string, unknown> = { action, email, jwt, name, tier, org_name: resolvedOrgName };
+  const payload: Record<string, unknown> = { action, email, jwt, name, tier, org_name };
 
   try {
     const ts = Date.now().toString();

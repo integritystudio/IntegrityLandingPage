@@ -103,7 +103,10 @@ export const SendRequestSchema = z.object({
   email: z.string().email(),
   tier: ApiKeyTierSchema.catch(DEFAULT_TIER),
   org_name: z.coerce.string().optional(),
-});
+}).transform((data) => ({
+  ...data,
+  org_name: data.org_name ?? data.email.split("@")[1],
+}));
 
 export const SERVICE_NAME = "api-provisioning-sender";
 
