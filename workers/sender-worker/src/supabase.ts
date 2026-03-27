@@ -44,7 +44,9 @@ export async function supabaseAdminCreateUser(
  * (`personal-{userId}`), which allows them to be identified programmatically
  * (e.g. `SELECT * FROM organizations WHERE slug LIKE 'personal-%'`).
  *
- * The owner membership is created immediately so the user has full access to their org.
+ * Call this BEFORE inserting the user row into public.users so the org ID is available
+ * for the `default_organization_id` FK. Then call `supabaseAddOrgOwner` AFTER the user
+ * row exists (organization_memberships.user_id FKs to public.users).
  *
  * @returns organizationId — UUID of the newly created personal org
  */
@@ -54,14 +56,7 @@ export async function supabaseCreatePersonalOrg(
   userId: string,
   email: string,
 ): Promise<{ organizationId: string }> {
-  const serviceHeaders = {
-    [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
-    [SUPABASE_HEADER_NAMES.API_KEY]: serviceKey,
-    [HEADER_NAMES.AUTHORIZATION]: `Bearer ${serviceKey}`,
-    [SUPABASE_HEADER_NAMES.PREFER]: "return=representation",
-  };
-
-  // Slug encodes the userId so it is unique and queryable
+  // Slug encodes the userId so it is unique and queryable via LIKE 'personal-%'
   const slug = `${PERSONAL_ORG_SLUG_PREFIX}${userId}`;
   // Name uses the email local-part for human readability
   const localPart = email.split("@")[0] ?? email;
@@ -69,12 +64,13 @@ export async function supabaseCreatePersonalOrg(
 
   const orgRes = await fetch(`${url}${SUPABASE_PATHS.TABLE_ORGANIZATIONS}`, {
     method: "POST",
-    headers: serviceHeaders,
-    body: JSON.stringify({
-      slug,
-      name,
-      ...PERSONAL_ORG_DEFAULTS,
-    }),
+    headers: {
+      [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
+      [SUPABASE_HEADER_NAMES.API_KEY]: serviceKey,
+      [HEADER_NAMES.AUTHORIZATION]: `Bearer ${serviceKey}`,
+      [SUPABASE_HEADER_NAMES.PREFER]: "return=representation",
+    },
+    body: JSON.stringify({ slug, name, ...PERSONAL_ORG_DEFAULTS }),
   });
   if (!orgRes.ok) {
     const err = await orgRes.text();
@@ -83,22 +79,33 @@ export async function supabaseCreatePersonalOrg(
   const [org] = await orgRes.json() as Array<{ id?: string }>;
   const organizationId = org?.id;
   if (!organizationId) throw new Error("Create personal org returned no id");
+  return { organizationId };
+}
 
+/**
+ * Add the user as owner of their personal org.
+ * Must be called AFTER the user row exists in public.users (FK requirement).
+ */
+export async function supabaseAddOrgOwner(
+  url: string,
+  serviceKey: string,
+  organizationId: string,
+  userId: string,
+): Promise<void> {
   const memberRes = await fetch(`${url}${SUPABASE_PATHS.TABLE_ORG_MEMBERSHIPS}`, {
     method: "POST",
-    headers: { ...serviceHeaders, [SUPABASE_HEADER_NAMES.PREFER]: SUPABASE_PREFER.RETURN_MINIMAL },
-    body: JSON.stringify({
-      organization_id: organizationId,
-      user_id: userId,
-      role: "owner",
-    }),
+    headers: {
+      [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
+      [SUPABASE_HEADER_NAMES.API_KEY]: serviceKey,
+      [HEADER_NAMES.AUTHORIZATION]: `Bearer ${serviceKey}`,
+      [SUPABASE_HEADER_NAMES.PREFER]: SUPABASE_PREFER.RETURN_MINIMAL,
+    },
+    body: JSON.stringify({ organization_id: organizationId, user_id: userId, role: "owner" }),
   });
   if (!memberRes.ok) {
     const err = await memberRes.text();
-    throw new Error(`Create org membership failed: ${memberRes.status} ${err}`);
+    throw new Error(`Add org owner failed: ${memberRes.status} ${err}`);
   }
-
-  return { organizationId };
 }
 
 export async function supabaseInsertUser(

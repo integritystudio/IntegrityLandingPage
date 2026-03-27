@@ -14,6 +14,7 @@ import { signMessage } from "./crypto.js";
 import {
   supabaseAdminCreateUser,
   supabaseCreatePersonalOrg,
+  supabaseAddOrgOwner,
   supabaseInsertUser,
   supabaseSignIn,
 } from "./supabase.js";
@@ -48,6 +49,12 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
       req.email as string,
       organizationId,
     );
+    await supabaseAddOrgOwner(
+      env.SUPABASE_URL,
+      env.SUPABASE_SERVICE_ROLE_KEY,
+      organizationId,
+      userId,
+    );
     const signInResult = await supabaseSignIn(
       env.SUPABASE_URL,
       env.SUPABASE_ANON_KEY,
@@ -61,7 +68,7 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[signup]", msg);
-    return errorResponse(`signup failed: ${msg}`, ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return errorResponse("signup failed", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
 }
 
