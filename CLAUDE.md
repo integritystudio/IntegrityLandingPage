@@ -5,16 +5,9 @@
 **Phase**: Workers Refactoring & Code Quality ✅ COMPLETE
 **Last Updated**: 2026-03-23
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ All tests passing (2440+ tests, ~94% coverage; workers: 193 tests)
+**Test Status**: ✅ All tests passing (2440+ tests, ~94% coverage; workers: 291 tests — sender-worker has 15 known failures)
 
-### Recent Work (See [SESSION_HISTORY.md](docs/SESSION_HISTORY.md) for details)
-- ✅ Sender-Worker UI pages: AuthPage, ProvisionPage, SenderHealthPage with JWT flow
-- ✅ API Provisioning Workers: sender-worker (HMAC signing), receiver-worker (verification + replay protection)
-- ✅ Password Policy: Shared PasswordPolicy class (8-128 chars) with centralized validation
-- ✅ Zod Validation: Applied to contact-form worker submissions
-- ✅ CORS: Environment-aware sender-worker configuration
-- ✅ Code Review: Addressed 10+ findings across auth, provision, provisioning service
-- ✅ Workers Code Simplification: Extract MS_PER_DAY constant, fix applyRateLimitHeaders efficiency, export ingest schemas
+See [docs/changelog/1.2/CHANGELOG.md](docs/changelog/1.2/CHANGELOG.md) for recent changes.
 
 ### Known Issues
 - Contact form CORS blocks localhost (by design, needs config update for dev testing)
@@ -29,9 +22,9 @@ lib/
 ├── config/content/   # Static content definitions (content.yaml models)
 ├── controllers/      # Business logic controllers
 ├── models/           # Data models
-├── pages/            # Page widgets (29 pages)
+├── pages/            # Page widgets (38 pages)
 ├── routing/          # GoRouter configuration (33 routes)
-├── services/         # External integrations (analytics, consent, contact)
+├── services/         # External integrations (analytics, consent, contact, dashboard, provisioning)
 ├── theme/            # Design system (colors, decorations, spacing, typography)
 ├── utils/            # Utility functions
 ├── widgets/          # Reusable components
@@ -54,7 +47,8 @@ workers/
 ├── contact-form/     # Contact form worker (Resend email, KV rate limiting, CSRF)
 ├── api-gateway/      # API Gateway worker (ingest, usage aggregation, auth, quota)
 ├── sender-worker/    # Provisioning sender (HMAC-SHA256 auth)
-└── receiver-worker/  # Provisioning receiver (signature verification, replay protection)
+├── receiver-worker/  # Provisioning receiver (signature verification, replay protection)
+└── stripe-webhook/   # Stripe event handler (subscription lifecycle, checkout, dead-letter, Supabase sync)
 
 scripts/              # Build/dev tooling, repomix generation
 docs/                 # Architecture, routes, changelog, backlog
@@ -74,6 +68,7 @@ test/                 # Unit + widget tests (2440+ passing, ~94% coverage)
 - [workers/contact-form/](workers/contact-form/) — Cloudflare Worker handling contact form submissions (Resend email, KV rate limiting, CSRF, idempotency)
 - [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker that signs and forwards provisioning events to receiver-worker (HMAC-SHA256 inter-service auth, TDD-tested)
 - [workers/receiver-worker/](workers/receiver-worker/) — Cloudflare Worker that verifies signed requests and stores provisioning data (signature verification, replay protection)
+- [workers/stripe-webhook/](workers/stripe-webhook/) — Cloudflare Worker handling Stripe events (subscription lifecycle, checkout sessions, dead-letter queue, Supabase sync)
 
 ## Flutter Canvas Limitations (E2E Testing)
 

@@ -6,7 +6,7 @@
 Enterprise AI Observability Platform landing page built with Flutter Web.
 
 **Production**: https://integritystudio.ai
-**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest workers live, 2440+ Flutter + 193 worker tests passing, code quality refactored
+**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, 2440+ Flutter + 291 worker tests (15 known failures in sender-worker)
 
 ## Quick Start
 
@@ -71,6 +71,19 @@ npm run test:provisioning         # Interactive test guide
 # Or read: PROVISIONING_MANUAL_TEST.md for detailed steps
 ```
 
+**Stripe Webhook Worker** (`workers/stripe-webhook/`)
+- Stripe event verification and routing
+- Subscription lifecycle (create, update, cancel) and checkout session handling
+- Dead-letter queue for failed events with reconciliation
+- Supabase sync: subscriptions, plan mapping via `STRIPE_PRICE_TO_PLAN_JSON`
+- Tests: 61 passing
+
+```bash
+cd workers/stripe-webhook
+npm install && npx wrangler dev   # Local dev
+npx vitest run                    # Tests
+```
+
 ## Documentation
 
 - [Architecture](docs/architecture.md) — tech stack, patterns, directory structure
@@ -90,8 +103,9 @@ flutter test --coverage                # With coverage report
 flutter test test/pages/               # Page tests only
 cd workers/contact-form && npm test    # Contact form worker tests (71 passing)
 cd workers/api-gateway && npm test     # API Gateway worker tests (122 passing)
-cd workers/receiver-worker && npm test # Receiver worker tests
-cd workers/sender-worker && npm test   # Sender worker tests
+cd workers/receiver-worker && npm test  # Receiver worker tests (16)
+cd workers/sender-worker && npm test    # Sender worker tests (21, 15 known failures)
+cd workers/stripe-webhook && npm test   # Stripe webhook tests (61)
 
 # Manual provisioning E2E test (interactive, do NOT use in CI)
 SHARED_SECRET=your-test-secret npm run test:provisioning

@@ -5,9 +5,9 @@
   14 workers/stripe-webhook/src/index.ts
   12 workers/api-gateway/src/index.ts
   10 workers/stripe-webhook/src/index.test.ts
+   9 lib/pages/billing_status_page.dart
    8 test/services/dashboard_service_test.dart
    8 lib/pages/usage_summary_page.dart
-   8 lib/pages/billing_status_page.dart
    7 workers/stripe-webhook/src/supabase.test.ts
    7 workers/api-gateway/src/routes/orgs.test.ts
    7 workers/api-gateway/src/routes/ingest.ts
@@ -58,6 +58,13 @@
   4e02c0b 2026-03-21 test(L7): expand handleWebhook test coverage (6 new tests)
   b3a4224 2026-03-21 fix(M35): skip resolveDeadLetter when logProcessedEvent fails; update test
 
+## lib/pages/billing_status_page.dart
+  a9f122d 2026-03-26 feat(sender-worker): auto-provision personal org on signup
+  c45affd 2026-03-21 feat(V02): add Stripe Customer Portal link to billing dashboard
+  9d4d700 2026-03-21 feat(V02): Stripe Customer Portal link — POST /v1/orgs/:id/billing-portal
+  d1152ed 2026-03-21 fix(L10): replace inline BoxDecoration with AppDecorations.card() in _BillingCard and ErrorCard
+  2b281c5 2026-03-21 refactor(L14): extract shared ErrorCard widget from 5 dashboard pages
+
 ## test/services/dashboard_service_test.dart
   1e91334 2026-03-22 fix(lint): resolve flutter analyze warnings
   2ece18a 2026-03-21 test(L23): add fetchOrgList 401/403 tests and strengthen 403 assertion
@@ -71,13 +78,6 @@
   d14280c 2026-03-21 fix(usage): add in-flight guard to prevent concurrent fetch races
   f6581fd 2026-03-21 feat(usage): add real-time polling to UsageSummaryPage (V02-Remaining)
   809496a 2026-03-21 fix(V02): fix shouldRepaint list equality and day-0 label leak in usage chart
-
-## lib/pages/billing_status_page.dart
-  c45affd 2026-03-21 feat(V02): add Stripe Customer Portal link to billing dashboard
-  9d4d700 2026-03-21 feat(V02): Stripe Customer Portal link — POST /v1/orgs/:id/billing-portal
-  d1152ed 2026-03-21 fix(L10): replace inline BoxDecoration with AppDecorations.card() in _BillingCard and ErrorCard
-  2b281c5 2026-03-21 refactor(L14): extract shared ErrorCard widget from 5 dashboard pages
-  0af1f0c 2026-03-21 fix(review): correct quota_version type and align billing status assert
 
 ## workers/stripe-webhook/src/supabase.test.ts
   cf5059c 2026-03-21 fix(M34): skip already-canceled rows in soft-delete filter
