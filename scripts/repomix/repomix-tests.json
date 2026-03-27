@@ -1,0 +1,28 @@
+{
+  "$schema": "https://repomix.com/schemas/latest/schema.json",
+  "output": {
+    "parsableStyle": true,
+    "showLineNumbers": true,
+    "compress": true,
+    "fileSummary": true,
+    "directoryStructure": true,
+    "instructionFilePath": "scripts/repomix/instructions/tests.md"
+  },
+  "include": [
+    "test/**/*",
+    "integration_test/**/*",
+    "workers/contact-form/src/**/*.test.ts",
+    "workers/api-gateway/src/**/*.test.ts",
+    "workers/sender-worker/src/**/*.test.ts",
+    "workers/receiver-worker/src/**/*.test.ts",
+    "workers/stripe-webhook/src/**/*.test.ts",
+    "workers/lib/**/*.test.ts"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "test/**/*.inactive"
+    ]
+  }
+}
