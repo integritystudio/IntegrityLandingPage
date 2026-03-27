@@ -352,6 +352,36 @@ Set up alerts for:
 
 ---
 
+## Durability Guarantee (T28 Decision)
+
+**Decided:** 2026-03-27
+
+### Strategy: Hybrid lazy persistence (accepted)
+
+Quota state is persisted every **10 seconds** (`lastSavedAt` check). On DO eviction or crash between saves, up to 10 seconds of quota usage is silently dropped — counters revert to their last saved values.
+
+**Risk appetite decision:** Acceptable for current plan tiers. Rationale:
+- Quota enforcement is a soft limit (protect against abuse, not billing precision)
+- Monthly usage is also tracked in `usage_events` table (separate audit trail)
+- `flushUsage()` syncs totals to database; short-term DO loss does not affect billing
+- Strict synchronous saves (on every reserve) would add ~5ms storage latency per request
+
+**Consistency SLA:**
+- Minute burst counter: eventually consistent within 10s window
+- Monthly usage counter: eventually consistent within 10s; exact totals recovered from `usage_events` flush
+- Idempotency deduplication window: 5 minutes (exact; stored and persisted at same cadence)
+
+**Acceptable loss window:** ≤10 seconds of quota usage on DO eviction. Low-traffic orgs are evicted after ~15 min idle; high-traffic orgs persist indefinitely.
+
+**Cold-start safety:** `constructor` calls `state.blockConcurrencyWhile` to load storage before any `fetch()` is dispatched. Prevents two concurrent cold-start requests both seeing `quota=null` and discarding persisted state.
+
+**If higher durability is required in future:**
+- Change `10_000` to `0` in `quota.ts:217` for synchronous per-request saves (~5ms latency cost)
+- Or implement a hybrid: save synchronously only when `monthlyUsed` crosses a billing threshold
+- Add Cloudflare DO metrics dashboard to track eviction rate and loss frequency
+
+---
+
 ## References
 
 - [Cloudflare Durable Objects Docs](https://developers.cloudflare.com/durable-objects/)

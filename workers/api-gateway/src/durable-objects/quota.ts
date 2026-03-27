@@ -61,9 +61,21 @@ export class QuotaDurableObject implements DurableObject {
 
   constructor(state: DurableObjectState) {
     this.state = state;
+    // blockConcurrencyWhile ensures storage is loaded before the first fetch()
+    // call is dispatched. Without this, two concurrent cold-start requests could
+    // both see quota=null and both initialize from DEFAULT_QUOTAS, discarding any
+    // previously persisted state for the DO's lifetime.
+    this.state.blockConcurrencyWhile(async () => {
+      const stored = await this.state.storage.get<OrganizationQuota>('quota');
+      if (stored) {
+        this.quota = stored;
+        this.lastSavedAt = Date.now();
+      }
+    });
   }
 
   async initialize(): Promise<void> {
+    if (this.quota !== null) return; // already loaded by blockConcurrencyWhile
     const stored = await this.state.storage.get<OrganizationQuota>('quota');
     if (stored) {
       this.quota = stored;
