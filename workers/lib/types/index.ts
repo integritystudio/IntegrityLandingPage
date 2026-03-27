@@ -10,7 +10,7 @@ export type OrgMembershipStatus = 'active' | 'invited' | 'suspended';
 export type ApiKeyStatus = 'active' | 'revoked' | 'expired';
 export type ApiKeyTier = 'starter' | 'growth' | 'enterprise';
 
-export interface Organization {
+export interface Organization extends Record<string, unknown> {
   id: string;
   slug: string;
   name: string;

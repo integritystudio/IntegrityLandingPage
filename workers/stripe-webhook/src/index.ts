@@ -236,7 +236,7 @@ export default {
     return notFound();
   },
 
-  async scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
+  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
     await runReconciliation(env);
   },
 };

@@ -104,7 +104,7 @@ export async function handleCreateApiKey(
     return serverError('Failed to create API key');
   }
 
-  const inserted = insertResult.data[0];
+  const inserted = insertResult.data[0] as ApiKey;
 
   await writeAuditLog(sb, {
     organization_id: orgId,

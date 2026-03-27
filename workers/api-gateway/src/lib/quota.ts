@@ -123,13 +123,13 @@ export async function enforceOrgQuota(
       ? orgResult.data[0]
       : null;
 
-  const planKey: string = org?.current_plan ?? 'starter';
+  const planKey = (org?.current_plan ?? 'starter') as 'starter' | 'growth' | 'enterprise';
   const quotaVersion: number = org?.quota_version ?? 0;
   const requestId = crypto.randomUUID();
 
   let quota: QuotaCheckResponse;
   try {
-    quota = await checkAndReserve(opts.doNamespace, {
+    quota = await checkAndReserve(opts.doNamespace as DurableObjectNamespace, {
       orgId,
       metricKey: 'requests',
       units: 1,

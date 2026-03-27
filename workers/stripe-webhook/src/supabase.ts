@@ -11,7 +11,7 @@ import { DEAD_LETTER_INITIAL_RETRY_DELAY_MS, DEAD_LETTER_MAX_RETRIES } from '../
  * client returns JSON as unknown; `WebhookDeadLetter` narrows it to
  * `Record<string, unknown>` for validation contexts.
  */
-export interface DeadLetter {
+export interface DeadLetter extends Record<string, unknown> {
   id: string;
   stripe_event_id: string;
   event_type: string;

@@ -6,6 +6,9 @@ export const BillingStatusSchema = z.enum(['inactive', 'active', 'past_due', 'ca
 
 export const OrgMembershipStatusSchema = z.enum(['active', 'invited', 'suspended']);
 
+export const ApiKeyStatusSchema = z.enum(['active', 'revoked', 'expired']);
+export const ApiKeyTierSchema = z.enum(['starter', 'growth', 'enterprise']);
+
 export const OrganizationSchema = z.object({
   id: z.string(),
   slug: z.string(),
@@ -124,9 +127,6 @@ export const OrgEntitlementsResponseSchema = z.object({
 });
 
 // API Keys
-export const ApiKeyStatusSchema = z.enum(['active', 'revoked', 'expired']);
-export const ApiKeyTierSchema = z.enum(['starter', 'growth', 'enterprise']);
-
 export const ApiKeySchema = z.object({
   id: z.string().uuid(),
   user_id: z.string().uuid(),

@@ -20,7 +20,7 @@ function withContentType(init: ResponseInit, contentType: string): Headers {
   return headers;
 }
 
-export function json(data: JsonValue | JsonObject, init: ResponseInit = {}): Response {
+export function json(data: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(data), {
     ...init,
     headers: withContentType(init, CONTENT_TYPES.json),
@@ -35,11 +35,11 @@ export function html(body: string, init: ResponseInit = {}): Response {
   return new Response(body, { ...init, headers: withContentType(init, CONTENT_TYPES.html) });
 }
 
-export function ok(data: JsonValue | JsonObject, init: ResponseInit = {}): Response {
+export function ok(data: unknown, init: ResponseInit = {}): Response {
   return json(data, { ...init, status: 200 });
 }
 
-export function created(data: JsonValue | JsonObject, init: ResponseInit = {}): Response {
+export function created(data: unknown, init: ResponseInit = {}): Response {
   return json(data, { ...init, status: 201 });
 }
 
