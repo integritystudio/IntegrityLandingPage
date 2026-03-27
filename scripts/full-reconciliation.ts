@@ -336,8 +336,8 @@ async function processCustomer(
       status: sub.status,
       tier,
       billing_status: billingStatus,
-      current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+      current_period_start: new Date((sub.items.data[0]?.current_period_start ?? 0) * 1000).toISOString(),
+      current_period_end: new Date((sub.items.data[0]?.current_period_end ?? 0) * 1000).toISOString(),
       cancel_at_period_end: sub.cancel_at_period_end,
       updated_at: now,
     };
@@ -375,7 +375,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
 
   const { STRIPE_SECRET_KEY: stripeKey, SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey } = envResult.data;
 
-  const stripe = new Stripe(stripeKey, { apiVersion: '2025-02-24.acacia' });
+  const stripe = new Stripe(stripeKey, { apiVersion: '2026-03-25.dahlia' });
 
   const summary: ReconciliationSummary = {
     customersProcessed: 0,

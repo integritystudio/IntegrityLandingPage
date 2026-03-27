@@ -1,14 +1,16 @@
 {
   "type": "module",
   "devDependencies": {
-    "@supabase/supabase-js": "^2.45.0",
-    "@types/node": "^25.3.3",
-    "repomix": "^1.12.0",
-    "supabase": "^1.212.1",
-    "wrangler": "^4.35.0"
+    "@supabase/supabase-js": "^2.100.1",
+    "@types/node": "^25.5.0",
+    "repomix": "^1.13.1",
+    "stripe": "^21.0.1",
+    "supabase": "^2.84.4",
+    "vitest": "^4.1.2",
+    "wrangler": "^4.77.0"
   },
   "dependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.2"
   },
   "scripts": {
     "dedup": "bash scripts/find_duplication.sh",
@@ -20,5 +22,3 @@
     "test:provisioning": "bash test-provisioning-e2e.sh"
   }
 }
-
- 
