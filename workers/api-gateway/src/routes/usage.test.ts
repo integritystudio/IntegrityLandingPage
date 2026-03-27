@@ -43,7 +43,7 @@ const makeApiKeyRow = async (orgId = 'org-id-1', prefix = 'abc12345', secret = '
   prefix,
   hash: await hashApiKeySecret(secret, HMAC_SECRET),
   name: 'Default',
-  tier: 'free',
+  tier: 'starter',
   status: 'active',
   expires_at: null,
   last_used_at: null,

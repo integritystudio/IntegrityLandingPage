@@ -123,7 +123,7 @@ export async function enforceOrgQuota(
       ? orgResult.data[0]
       : null;
 
-  const planKey: string = org?.current_plan ?? 'free';
+  const planKey: string = org?.current_plan ?? 'starter';
   const quotaVersion: number = org?.quota_version ?? 0;
   const requestId = crypto.randomUUID();
 

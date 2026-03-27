@@ -1,11 +1,15 @@
 name = "sender-worker"
 main = "src/index.ts"
 compatibility_date = "2026-03-19"
+compatibility_flags = ["nodejs_compat"]
 
 # Secrets (set via wrangler secret put or doppler):
 #   SHARED_SECRET              — HMAC key; must match provisioning receiver
 #   RECEIVER_WORKER_URL        — URL of the provisioning receiver worker
 #   SUPABASE_URL               — Supabase project URL
-#   SUPABASE_ANON_KEY          — Supabase anon key
 #   SUPABASE_SERVICE_ROLE_KEY  — Supabase service role key
+#   AUTH0_DOMAIN               — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com); source: Doppler integrity-studio/prd VITE_AUTH0_DOMAIN
+#   AUTH0_CLIENT_ID            — Auth0 M2M app client ID; source: Doppler VITE_AUTH0_CLIENT_ID
+#   AUTH0_CLIENT_SECRET        — Auth0 M2M app client secret; source: Doppler VITE_AUTH0_CLIENT_SECRET
+#   AUTH0_AUDIENCE             — Auth0 API audience (https://api.integritystudio.dev); source: Doppler VITE_AUTH0_AUDIENCE
 #   ALLOWED_ORIGINS_JSON       — JSON array of allowed CORS origins (optional; defaults to integritystudio.ai)

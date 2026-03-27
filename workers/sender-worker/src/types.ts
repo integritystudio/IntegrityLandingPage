@@ -26,10 +26,6 @@ export const HTTP_STATUS = {
 export const ERROR_CODE = {
   MISSING_FIELDS: "MISSING_FIELDS",
   JSON_PARSE_ERROR: "JSON_PARSE_ERROR",
-  SUPABASE_SIGNUP_ERROR: "SUPABASE_SIGNUP_ERROR",
-  SUPABASE_CONFIRM_ERROR: "SUPABASE_CONFIRM_ERROR",
-  SUPABASE_INSERT_ERROR: "SUPABASE_INSERT_ERROR",
-  SUPABASE_SIGNIN_ERROR: "SUPABASE_SIGNIN_ERROR",
   UNKNOWN_ACTION: "UNKNOWN_ACTION",
   RECEIVER_ERROR: "RECEIVER_ERROR",
   FORBIDDEN: "forbidden",
@@ -44,12 +40,14 @@ export const CORS_HEADERS = {
 } as const;
 
 export const SUPABASE_PATHS = {
-  SIGNUP: "/auth/v1/signup",
-  SIGNIN_PASSWORD: "/auth/v1/token?grant_type=password",
-  ADMIN_USERS: "/auth/v1/admin/users",
   TABLE_USERS: "/rest/v1/users",
   TABLE_ORGANIZATIONS: "/rest/v1/organizations",
   TABLE_ORG_MEMBERSHIPS: "/rest/v1/organization_memberships",
+} as const;
+
+export const AUTH0_PATHS = {
+  TOKEN: "/oauth/token",
+  USERS: "/api/v2/users",
 } as const;
 
 /** Slug prefix that identifies a personal (single-user) default organization. */
@@ -57,7 +55,7 @@ export const PERSONAL_ORG_SLUG_PREFIX = "personal-" as const;
 
 /** Default plan and billing state for auto-created personal organizations. */
 export const PERSONAL_ORG_DEFAULTS = {
-  current_plan: "free",
+  current_plan: "starter",
   billing_status: "inactive",
 } as const;
 
@@ -91,7 +89,10 @@ export interface Env {
   SHARED_SECRET: string;
   RECEIVER_WORKER_URL: string;
   SUPABASE_URL: string;
-  SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
+  AUTH0_DOMAIN: string;
+  AUTH0_CLIENT_ID: string;
+  AUTH0_CLIENT_SECRET: string;
+  AUTH0_AUDIENCE: string;
   ALLOWED_ORIGINS_JSON?: string;
 }

@@ -52,7 +52,7 @@ describe('GET /v1/me', () => {
           auth0_id: 'user-id-1',
           email: 'user@example.com',
           name: 'Test User',
-          tier: 'free',
+          tier: 'starter',
           default_organization_id: 'org-id-1',
           created_at: '2026-01-01T00:00:00Z',
         }],

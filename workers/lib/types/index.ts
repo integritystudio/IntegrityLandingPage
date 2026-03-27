@@ -6,17 +6,16 @@ export type HandlerResult = { ok: true } | { ok: false; error: string };
 
 export type OrgRole = 'owner' | 'admin' | 'member' | 'billing_admin' | 'viewer';
 export type BillingStatus = 'inactive' | 'active' | 'past_due' | 'canceled';
-export type PlanKey = 'free' | 'growth' | 'enterprise';
 export type OrgMembershipStatus = 'active' | 'invited' | 'suspended';
 export type ApiKeyStatus = 'active' | 'revoked' | 'expired';
-export type ApiKeyTier = 'new' | 'free' | 'growth' | 'enterprise';
+export type ApiKeyTier = 'starter' | 'growth' | 'enterprise';
 
 export interface Organization {
   id: string;
   slug: string;
   name: string;
   billing_status: BillingStatus;
-  current_plan: PlanKey;
+  current_plan: ApiKeyTier;
   quota_version: number;
 }
 

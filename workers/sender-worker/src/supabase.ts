@@ -1,5 +1,6 @@
 import {
   SUPABASE_PATHS,
+  AUTH0_PATHS,
   SUPABASE_HEADER_NAMES,
   SUPABASE_PREFER,
   HEADER_NAMES,
@@ -9,32 +10,71 @@ import {
 } from "./types.js";
 
 /**
- * Create user via admin API — no email sent, no rate limit.
- * Sets email_confirm: true to bypass email confirmation entirely.
+ * Obtain a short-lived Management API token via the client credentials grant.
+ * Called once per signup; the token is not cached (Workers are ephemeral).
  */
-export async function supabaseAdminCreateUser(
-  url: string,
-  serviceKey: string,
-  email: string,
-  password: string,
-): Promise<{ userId: string }> {
-  const res = await fetch(`${url}${SUPABASE_PATHS.ADMIN_USERS}`, {
+async function auth0GetMgmtToken(
+  domain: string,
+  clientId: string,
+  clientSecret: string,
+  audience: string,
+): Promise<string> {
+  const res = await fetch(`https://${domain}${AUTH0_PATHS.TOKEN}`, {
     method: "POST",
-    headers: {
-      [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
-      [SUPABASE_HEADER_NAMES.API_KEY]: serviceKey,
-      [HEADER_NAMES.AUTHORIZATION]: `Bearer ${serviceKey}`,
-    },
-    body: JSON.stringify({ email, password, email_confirm: true }),
+    headers: { [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON },
+    body: JSON.stringify({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+      audience,
+    }),
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Admin createUser failed: ${res.status} ${err}`);
+    throw new Error(`Auth0 token exchange failed: ${res.status} ${err}`);
   }
-  const data = await res.json() as { id?: string };
-  const userId = data.id;
-  if (!userId) throw new Error("Admin createUser returned no user id");
-  return { userId };
+  const data = await res.json() as { access_token?: string };
+  if (!data.access_token) throw new Error("Auth0 token exchange returned no access_token");
+  return data.access_token;
+}
+
+/**
+ * Create a user via the Auth0 Management API.
+ * Performs the client credentials token exchange internally before the user create call.
+ * Returns the Auth0 `sub` (user_id), which must be stored as `auth0_id` in Supabase.
+ *
+ * The connection "Username-Password-Authentication" is Auth0's default DB connection name.
+ */
+export async function auth0CreateUser(
+  domain: string,
+  clientId: string,
+  clientSecret: string,
+  audience: string,
+  email: string,
+  password: string,
+): Promise<{ auth0Sub: string }> {
+  const mgmtToken = await auth0GetMgmtToken(domain, clientId, clientSecret, audience);
+  const res = await fetch(`https://${domain}${AUTH0_PATHS.USERS}`, {
+    method: "POST",
+    headers: {
+      [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
+      [HEADER_NAMES.AUTHORIZATION]: `Bearer ${mgmtToken}`,
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      connection: "Username-Password-Authentication",
+      email_verified: false,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Auth0 createUser failed: ${res.status} ${err}`);
+  }
+  const data = await res.json() as { user_id?: string };
+  const auth0Sub = data.user_id;
+  if (!auth0Sub) throw new Error("Auth0 createUser returned no user_id");
+  return { auth0Sub };
 }
 
 /**
@@ -108,10 +148,17 @@ export async function supabaseAddOrgOwner(
   }
 }
 
+/**
+ * Insert a row into public.users.
+ *
+ * @param userId - UUID for the Supabase users.id column (caller-generated)
+ * @param auth0Sub - Auth0 user_id (e.g. "auth0|abc123"); stored in auth0_id column
+ */
 export async function supabaseInsertUser(
   url: string,
   serviceKey: string,
   userId: string,
+  auth0Sub: string,
   email: string,
   organizationId: string,
 ): Promise<void> {
@@ -126,8 +173,8 @@ export async function supabaseInsertUser(
     body: JSON.stringify({
       id: userId,
       email,
-      auth0_id: userId,
-      tier: "new",
+      auth0_id: auth0Sub,
+      tier: "starter",
       default_organization_id: organizationId,
     }),
   });
@@ -137,27 +184,3 @@ export async function supabaseInsertUser(
   }
 }
 
-export async function supabaseSignIn(
-  url: string,
-  anonKey: string,
-  email: string,
-  password: string,
-): Promise<{ jwt: string; userId: string }> {
-  const res = await fetch(`${url}${SUPABASE_PATHS.SIGNIN_PASSWORD}`, {
-    method: "POST",
-    headers: {
-      [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
-      [SUPABASE_HEADER_NAMES.API_KEY]: anonKey,
-    },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`SignIn failed: ${res.status} ${err}`);
-  }
-  const data = await res.json() as { access_token?: string; user?: { id?: string } };
-  const jwt = data.access_token;
-  const userId = data.user?.id;
-  if (!jwt || !userId) throw new Error("SignIn returned no access token or user id");
-  return { jwt, userId };
-}

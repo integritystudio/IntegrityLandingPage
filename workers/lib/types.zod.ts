@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import {
   BillingStatusSchema,
-  PlanKeySchema,
+  ApiKeyTierSchema,
   OrgRoleSchema,
   EntitlementSchema as CanonicalEntitlementSchema,
 } from './types/schemas';
@@ -9,13 +9,12 @@ import {
 // Re-export canonical schemas to consolidate access
 export {
   BillingStatusSchema,
-  PlanKeySchema,
+  ApiKeyTierSchema,
   OrgRoleSchema,
   EntitlementSchema as CanonicalEntitlementSchema,
 } from './types/schemas';
 
 export type BillingStatus = z.infer<typeof BillingStatusSchema>;
-export type PlanKey = z.infer<typeof PlanKeySchema>;
 
 // ============================================================================
 // JWT & Authentication (Two-Layer Architecture)
@@ -56,7 +55,7 @@ export const SubscriptionSchema = z.object({
   stripe_subscription_id: z.string(),
   stripe_price_id: z.string(),
   status: z.enum(['active', 'trialing', 'past_due', 'canceled', 'unpaid', 'incomplete']),
-  tier: PlanKeySchema.optional(), // Use canonical PlanKeySchema, not raw string
+  tier: ApiKeyTierSchema.optional(), // Use canonical ApiKeyTierSchema, not raw string
   current_period_start: z.string().datetime(),
   current_period_end: z.string().datetime(),
   cancel_at_period_end: z.boolean().default(false),
@@ -136,7 +135,7 @@ export const QuotaCheckRequestSchema = z.object({
   org_id: z.string().uuid(),
   metric_key: QuotaMetricSchema,
   quantity: z.number().int().nonnegative(), // Zero is valid (dry-run check)
-  plan: PlanKeySchema,
+  plan: ApiKeyTierSchema,
   quota_version: z.number().int().nonnegative(),
 });
 
@@ -173,7 +172,7 @@ export const QuotaStateSchema = z.object({
       reset_at: z.string().datetime(),
     })
   ),
-  plan: PlanKeySchema,
+  plan: ApiKeyTierSchema,
   quota_version: z.number().int().nonnegative(),
   updated_at: z.string().datetime(),
 });
@@ -301,7 +300,7 @@ export const PaginatedResponseSchema = <T extends z.ZodTypeAny>(itemSchema: T) =
 // ============================================================================
 // Summary
 // ============================================================================
-// Canonical schemas imported from ./schemas (BillingStatusSchema, PlanKeySchema, OrgRoleSchema)
+// Canonical schemas imported from ./schemas (BillingStatusSchema, ApiKeyTierSchema, OrgRoleSchema)
 // New schemas defined in this file (JWT with org claims, Subscriptions, Quota, Webhooks, etc.)
 // Generic response factories (SuccessResponseSchema, ErrorResponseSchema, PaginatedResponseSchema)
 // All types exported via z.infer<> for full type safety

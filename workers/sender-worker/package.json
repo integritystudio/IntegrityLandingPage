@@ -7,7 +7,9 @@
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "doppler run --project integrity-studio --config dev -- vitest run --config vitest.e2e.config.ts",
+    "test:live": "doppler run --project integrity-studio --config dev -- vitest run --config vitest.live.config.ts"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.5.0",

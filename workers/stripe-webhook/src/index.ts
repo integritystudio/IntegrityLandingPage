@@ -4,8 +4,8 @@ import { createSupabaseAdmin } from './supabase';
 import { handleCheckoutSessionCompleted } from './handlers/checkout';
 import { handleSubscriptionUpdated, handleSubscriptionDeleted } from './handlers/subscription';
 import { handleInvoicePaid, handleInvoicePaymentFailed } from './handlers/invoice';
-import type { StripeEvent, HandlerResult, PlanKey } from '../../lib/types';
-import { PlanKeySchema } from '../../lib/types/schemas';
+import type { StripeEvent, HandlerResult, ApiKeyTier } from '../../lib/types';
+import { ApiKeyTierSchema } from '../../lib/types/schemas';
 
 export interface Env {
   STRIPE_WEBHOOK_SECRET: string;
@@ -15,13 +15,13 @@ export interface Env {
   STRIPE_PRICE_TO_PLAN_JSON?: string;
 }
 
-function parsePriceToPlan(jsonStr: string | undefined): Record<string, PlanKey> {
+function parsePriceToPlan(jsonStr: string | undefined): Record<string, ApiKeyTier> {
   if (!jsonStr) return {};
   try {
     const raw = JSON.parse(jsonStr) as Record<string, unknown>;
-    const result: Record<string, PlanKey> = {};
+    const result: Record<string, ApiKeyTier> = {};
     for (const [priceId, plan] of Object.entries(raw)) {
-      const parsed = PlanKeySchema.safeParse(plan);
+      const parsed = ApiKeyTierSchema.safeParse(plan);
       if (parsed.success) {
         result[priceId] = parsed.data;
       } else {

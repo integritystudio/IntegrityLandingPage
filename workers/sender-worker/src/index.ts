@@ -13,11 +13,10 @@ import {
 import { json, errorResponse } from "./utils.js";
 import { signMessage } from "./crypto.js";
 import {
-  supabaseAdminCreateUser,
+  auth0CreateUser,
   supabaseCreatePersonalOrg,
   supabaseAddOrgOwner,
   supabaseInsertUser,
-  supabaseSignIn,
 } from "./supabase.js";
 import { VERSION } from "./version.js";
 
@@ -51,12 +50,16 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
     return errorResponse("invalid email format", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
   }
   try {
-    const { userId } = await supabaseAdminCreateUser(
-      env.SUPABASE_URL,
-      env.SUPABASE_SERVICE_ROLE_KEY,
+    const { auth0Sub } = await auth0CreateUser(
+      env.AUTH0_DOMAIN,
+      env.AUTH0_CLIENT_ID,
+      env.AUTH0_CLIENT_SECRET,
+      env.AUTH0_AUDIENCE,
       req.email as string,
       req.password as string,
     );
+    // Generate a UUID for the Supabase users.id column (separate from the Auth0 sub)
+    const userId = crypto.randomUUID();
     const { organizationId } = await supabaseCreatePersonalOrg(
       env.SUPABASE_URL,
       env.SUPABASE_SERVICE_ROLE_KEY,
@@ -67,6 +70,7 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
       env.SUPABASE_URL,
       env.SUPABASE_SERVICE_ROLE_KEY,
       userId,
+      auth0Sub,
       req.email as string,
       organizationId,
     );
@@ -76,14 +80,8 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
       organizationId,
       userId,
     );
-    const signInResult = await supabaseSignIn(
-      env.SUPABASE_URL,
-      env.SUPABASE_ANON_KEY,
-      req.email as string,
-      req.password as string,
-    );
     return json(
-      { jwt: signInResult.jwt, userId: signInResult.userId, email: req.email },
+      { auth0Sub, userId, email: req.email },
       { status: HTTP_STATUS.CREATED },
     );
   } catch (err) {
@@ -93,25 +91,9 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
   }
 }
 
-async function handleSignin(env: Env, req: Record<string, unknown>): Promise<Response> {
-  if (!req.email || !req.password) {
-    return errorResponse("missing email or password", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
-  }
-  if (!EMAIL_REGEX.test(req.email as string)) {
-    return errorResponse("invalid email format", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
-  }
-  try {
-    const result = await supabaseSignIn(
-      env.SUPABASE_URL,
-      env.SUPABASE_ANON_KEY,
-      req.email as string,
-      req.password as string,
-    );
-    return json({ jwt: result.jwt, userId: result.userId, email: req.email });
-  } catch (err) {
-    console.error("[signin]", err instanceof Error ? err.message : err);
-    return errorResponse("signin failed", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
+// Sign-in is handled by Auth0 directly; this route is intentionally not implemented.
+function handleSignin(_env: Env, _req: Record<string, unknown>): Response {
+  return errorResponse("sign-in is handled by Auth0", ERROR_CODE.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
 }
 
 async function handleSend(env: Env, req: Record<string, unknown>): Promise<Response> {

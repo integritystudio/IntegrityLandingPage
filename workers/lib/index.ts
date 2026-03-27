@@ -10,7 +10,6 @@ export {
   // Enums
   OrgRoleSchema,
   BillingStatusSchema,
-  PlanKeySchema,
   OrgMembershipStatusSchema,
   ApiKeyStatusSchema,
   ApiKeyTierSchema,

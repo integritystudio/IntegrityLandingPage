@@ -4,8 +4,6 @@ export const OrgRoleSchema = z.enum(['owner', 'admin', 'member', 'billing_admin'
 
 export const BillingStatusSchema = z.enum(['inactive', 'active', 'past_due', 'canceled']);
 
-export const PlanKeySchema = z.enum(['free', 'growth', 'enterprise']);
-
 export const OrgMembershipStatusSchema = z.enum(['active', 'invited', 'suspended']);
 
 export const OrganizationSchema = z.object({
@@ -13,7 +11,7 @@ export const OrganizationSchema = z.object({
   slug: z.string(),
   name: z.string(),
   billing_status: BillingStatusSchema,
-  current_plan: PlanKeySchema,
+  current_plan: ApiKeyTierSchema,
   quota_version: z.number(),
 });
 
@@ -99,7 +97,7 @@ export const OrgDashboardResponseSchema = z.object({
 export const OrgBillingStatusResponseSchema = z.object({
   org_id: z.string().uuid(),
   billing_status: BillingStatusSchema,
-  current_plan: PlanKeySchema,
+  current_plan: ApiKeyTierSchema,
   quota_version: z.number(),
   role: OrgRoleSchema,
 });
@@ -127,7 +125,7 @@ export const OrgEntitlementsResponseSchema = z.object({
 
 // API Keys
 export const ApiKeyStatusSchema = z.enum(['active', 'revoked', 'expired']);
-export const ApiKeyTierSchema = z.enum(['new', 'free', 'growth', 'enterprise']);
+export const ApiKeyTierSchema = z.enum(['starter', 'growth', 'enterprise']);
 
 export const ApiKeySchema = z.object({
   id: z.string().uuid(),
@@ -167,7 +165,7 @@ export const QuotaCheckRequestSchema = z.object({
   metricKey: z.string(),
   units: z.number().int().positive(),
   requestId: z.string(),
-  planKey: PlanKeySchema,
+  planKey: ApiKeyTierSchema,
   quotaVersion: z.number().int(),
 });
 
@@ -186,7 +184,7 @@ export const QuotaFlushResultSchema = z.object({
 
 // Org plan data fetched from database
 export const OrgPlanRowSchema = z.object({
-  current_plan: PlanKeySchema,
+  current_plan: ApiKeyTierSchema,
   quota_version: z.number().int().nonnegative(),
 });
 

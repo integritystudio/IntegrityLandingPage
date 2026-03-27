@@ -1,5 +1,5 @@
 import { createSupabaseClient } from '../../lib/supabase';
-import type { BillingStatus, PlanKey } from '../../lib/types';
+import type { BillingStatus, ApiKeyTier } from '../../lib/types';
 import { DEAD_LETTER_INITIAL_RETRY_DELAY_MS, DEAD_LETTER_MAX_RETRIES } from '../../constants';
 
 /**
@@ -97,7 +97,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
   async function updateOrgBillingStatus(
     orgId: string,
     billingStatus: BillingStatus,
-    planKey?: PlanKey,
+    planKey?: ApiKeyTier,
     bumpQuotaVersion?: boolean,
   ): Promise<VoidResult> {
     const updates: Record<string, unknown> = { billing_status: billingStatus };

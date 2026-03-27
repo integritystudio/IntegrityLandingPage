@@ -87,7 +87,7 @@ describe('api-keys', () => {
       prefix: 'abc12345',
       hash: '',
       name: 'Default',
-      tier: 'free',
+      tier: 'starter',
       status: 'active',
       expires_at: null,
       last_used_at: null,

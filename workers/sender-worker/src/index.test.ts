@@ -21,6 +21,12 @@ type ApiResponse = SuccessResponse | ErrorResponse;
 interface Env {
   SHARED_SECRET: string;
   RECEIVER_WORKER_URL: string;
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
+  AUTH0_DOMAIN: string;
+  AUTH0_CLIENT_ID: string;
+  AUTH0_CLIENT_SECRET: string;
+  AUTH0_AUDIENCE: string;
   ALLOWED_ORIGINS_JSON?: string;
 }
 
@@ -30,6 +36,12 @@ import worker from './index';
 const mockEnv: Env = {
   SHARED_SECRET: 'test-shared-secret-key',
   RECEIVER_WORKER_URL: 'https://receiver.test',
+  SUPABASE_URL: 'https://supabase.test',
+  SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
+  AUTH0_DOMAIN: 'test.auth0.com',
+  AUTH0_CLIENT_ID: 'test-client-id',
+  AUTH0_CLIENT_SECRET: 'test-client-secret',
+  AUTH0_AUDIENCE: 'https://api.test',
 };
 
 // Helper to compute HMAC-SHA256 signature (matches receiver verification)
@@ -373,6 +385,240 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(403);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toBe('forbidden');
+    });
+  });
+
+  describe('POST /signup — Auth0 user creation', () => {
+    it('calls Auth0 Management API and returns auth0Sub + userId on success', async () => {
+      const auth0Sub = 'auth0|test-user-id';
+      const generatedUserId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+      const orgId = 'org-uuid-1234';
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: auth0Sub }), {
+            status: 201,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/organizations')) {
+          return new Response(JSON.stringify([{ id: orgId }]), {
+            status: 201,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        // users insert and org_memberships insert — return minimal
+        return new Response('', { status: 201 });
+      });
+
+      // crypto.randomUUID is not available in all test environments; stub it
+      const uuidSpy = vi.spyOn(crypto, 'randomUUID').mockReturnValue(generatedUserId as `${string}-${string}-${string}-${string}-${string}`);
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(201);
+      const data = await response.json() as { auth0Sub: string; userId: string; email: string };
+      expect(data.auth0Sub).toBe(auth0Sub);
+      expect(data.userId).toBe(generatedUserId);
+      expect(data.email).toBe('user@example.com');
+
+      fetchSpy.mockRestore();
+      uuidSpy.mockRestore();
+    });
+
+    it('sends Auth0 token exchange and user create to the configured domain', async () => {
+      const auth0Sub = 'auth0|abc123';
+      const orgId = 'org-uuid-5678';
+      let capturedTokenUrl = '';
+      let capturedUsersUrl = '';
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          capturedTokenUrl = urlStr;
+          return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          capturedUsersUrl = urlStr;
+          return new Response(JSON.stringify({ user_id: auth0Sub }), {
+            status: 201,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/organizations')) {
+          return new Response(JSON.stringify([{ id: orgId }]), {
+            status: 201,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(capturedTokenUrl).toBe(`https://${mockEnv.AUTH0_DOMAIN}/oauth/token`);
+      expect(capturedUsersUrl).toBe(`https://${mockEnv.AUTH0_DOMAIN}/api/v2/users`);
+
+      fetchSpy.mockRestore();
+    });
+
+    it('stores auth0Sub (not userId) as auth0_id in the Supabase users insert', async () => {
+      const auth0Sub = 'auth0|unique-sub-xyz';
+      const orgId = 'org-uuid-9999';
+      let capturedUsersBody: Record<string, unknown> | null = null;
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: auth0Sub }), {
+            status: 201,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/organizations')) {
+          return new Response(JSON.stringify([{ id: orgId }]), {
+            status: 201,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/users')) {
+          capturedUsersBody = JSON.parse(init?.body as string) as Record<string, unknown>;
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(capturedUsersBody).not.toBeNull();
+      expect(capturedUsersBody!['auth0_id']).toBe(auth0Sub);
+      expect(capturedUsersBody!['auth0_id']).not.toBe(capturedUsersBody!['id']);
+
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 400 when email is missing', async () => {
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password: 'S3cur3!pass' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as { error: string };
+      expect(data.error).toContain('email');
+    });
+
+    it('returns 400 when password is missing', async () => {
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as { error: string };
+      expect(data.error).toContain('password');
+    });
+
+    it('returns 400 for invalid email format', async () => {
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'not-an-email', password: 'S3cur3!pass' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as { error: string };
+      expect(data.error).toContain('email');
+    });
+
+    it('returns 500 when Auth0 createUser fails', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ message: 'conflict' }), {
+            status: 409,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(500);
+      const data = await response.json() as { error: string };
+      expect(data.error).toBe('signup failed');
+
+      fetchSpy.mockRestore();
+    });
+  });
+
+  describe('POST /signin — not implemented (Auth0 handles auth)', () => {
+    it('returns 404 for /signin route', async () => {
+      const request = new Request('https://worker.test/signin', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'pass' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(404);
+      const data = await response.json() as { error: string };
+      expect(data.error).toContain('Auth0');
     });
   });
 

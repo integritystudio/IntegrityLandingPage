@@ -92,7 +92,7 @@ export async function handleCreateApiKey(
       prefix,
       hash,
       name: keyName,
-      tier: 'free',
+      tier: 'starter',
       status: 'active',
       expires_at: body.expires_at ?? null,
     },
@@ -112,14 +112,14 @@ export async function handleCreateApiKey(
     action: 'api_key.created',
     target_type: 'api_key',
     target_id: String(inserted.id),
-    new_values: { name: keyName, tier: 'free', prefix },
+    new_values: { name: keyName, tier: 'starter', prefix },
   });
 
   return created({
     id: inserted.id,
     name: keyName,
     prefix,
-    tier: 'free',
+    tier: 'starter',
     status: 'active',
     expires_at: body.expires_at ?? null,
     created_at: inserted.created_at,

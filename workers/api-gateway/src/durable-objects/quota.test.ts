@@ -48,7 +48,7 @@ function makeDO(): { do_: QuotaDurableObject; storage: MockStorage } {
 async function seedQuota(storage: MockStorage, overrides: Partial<QuotaState> = {}): Promise<void> {
   const base: QuotaState = {
     orgId: 'org-1',
-    planKey: 'free',
+    planKey: 'starter',
     quotaVersion: 1,
     minuteLimit: 60,
     monthlyLimit: 10000,
@@ -80,7 +80,7 @@ function checkReq(overrides: Partial<{
     metricKey: 'requests',
     units: 1,
     requestId: crypto.randomUUID(),
-    planKey: 'free',
+    planKey: 'starter',
     quotaVersion: 1,
     ...overrides,
   };
@@ -139,7 +139,7 @@ describe('QuotaDurableObject', () => {
   describe('checkAndReserve — default quota initialisation', () => {
     it('initialises free plan from DEFAULT_QUOTAS when org is new', async () => {
       const { do_ } = makeDO();
-      const res = await do_.fetch(checkReq({ planKey: 'free' }));
+      const res = await do_.fetch(checkReq({ planKey: 'starter' }));
       expect(res.status).toBe(200);
       const body = await res.json() as { allowed: boolean; remainingMinute: number; remainingMonthly: number };
       expect(body.allowed).toBe(true);
@@ -325,7 +325,7 @@ describe('QuotaDurableObject', () => {
       const { do_, storage } = makeDO();
       // Seed: exhausted free plan at version 1.
       await seedQuota(storage, {
-        planKey: 'free',
+        planKey: 'starter',
         quotaVersion: 1,
         minuteLimit: 60,
         monthlyLimit: 10000,
@@ -404,7 +404,7 @@ describe('QuotaDurableObject', () => {
         monthlyUsed: number;
       };
       expect(body.orgId).toBe('org-1');
-      expect(body.planKey).toBe('free');
+      expect(body.planKey).toBe('starter');
       expect(body.minuteLimit).toBe(60);
       expect(body.monthlyLimit).toBe(10000);
       expect(body.minuteUsed).toBe(3);
@@ -424,7 +424,7 @@ describe('QuotaDurableObject', () => {
       // First instance seeds and flushes (flush always persists to storage).
       const do1 = new QuotaDurableObject(makeState());
       await storage.put('quota', {
-        orgId: 'org-1', planKey: 'free', quotaVersion: 1,
+        orgId: 'org-1', planKey: 'starter', quotaVersion: 1,
         minuteLimit: 60, monthlyLimit: 10000,
         minuteUsedAt: Date.now() - 70_000, minuteUsed: 0,
         monthlyUsed: 42, lastMonthlyResetAt: Date.now(), seenRequestIds: {},
@@ -443,7 +443,7 @@ describe('QuotaDurableObject', () => {
       const storage = new MockStorage();
       // Simulate stored state without lastMonthlyResetAt or seenRequestIds.
       await storage.put('quota', {
-        orgId: 'org-1', planKey: 'free', quotaVersion: 1,
+        orgId: 'org-1', planKey: 'starter', quotaVersion: 1,
         minuteLimit: 60, monthlyLimit: 10000,
         minuteUsedAt: Date.now() - 70_000, minuteUsed: 0, monthlyUsed: 0,
       });

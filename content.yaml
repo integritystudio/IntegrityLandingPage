@@ -125,10 +125,10 @@ pricing_constants:
   monthly_label: "Monthly"
   annual_label: "Annual"
   tiers:
-    free:
+    starter:
       traces_limit: "50K traces/month"
       retention: "7-day retention"
-    team:
+    growth:
       traces_limit: "500K traces/month"
       retention: "30-day retention"
     enterprise:
@@ -273,7 +273,7 @@ pricing:
   subtitle: "Start free, scale as you grow"
 
   tiers:
-    - name: "Starter"
+    - name: "Free"
       monthly_price: "Free"
       annual_price: "Free"
       description: "For individual developers"
@@ -285,7 +285,7 @@ pricing:
         - "Email support"
         - "Community access"
 
-    - name: "Team"
+    - name: "Growth"
       monthly_price: "$99"
       annual_price: "$79"
       period: "/month"

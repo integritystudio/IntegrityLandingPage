@@ -373,7 +373,7 @@ describe('OrgQuotaDO', () => {
         method: 'POST',
         body: JSON.stringify({
           quotaVersion: 3, // older than current 5
-          plan: 'free',
+          plan: 'starter',
           billingPeriodStart: '2026-03-01T00:00:00Z',
           billingPeriodEnd: '2026-04-01T00:00:00Z',
           entitlements: {},
@@ -421,7 +421,7 @@ describe('OrgQuotaDO', () => {
         method: 'POST',
         body: JSON.stringify({
           quotaVersion: 2,
-          plan: 'free',
+          plan: 'starter',
           billingPeriodStart: '2026-04-01T00:00:00Z',
           billingPeriodEnd: '2026-05-01T00:00:00Z',
           entitlements: {
@@ -443,7 +443,7 @@ describe('OrgQuotaDO', () => {
       await simulateSync(ctx, request);
 
       const updated = await ctx.storage.get<QuotaState>('quota_state');
-      expect(updated?.plan).toBe('free');
+      expect(updated?.plan).toBe('starter');
       expect(updated?.entitlements.monthly_units.hardLimit).toBe(10000);
       expect(updated?.entitlements.seats.enabled).toBe(false);
     });
@@ -654,7 +654,7 @@ describe('OrgQuotaDO', () => {
       const result = await response.json();
 
       // Should have default/empty state
-      expect(result.orgPlan).toBe('free');
+      expect(result.orgPlan).toBe('starter');
       expect(result.quotaVersion).toBe(0);
     });
   });
@@ -852,7 +852,7 @@ async function simulateSync(ctx: MockDOContext, request: Request): Promise<Respo
 function createDefaultState(): QuotaState {
   return {
     quotaVersion: 0,
-    plan: 'free',
+    plan: 'starter',
     billingPeriodStart: '',
     billingPeriodEnd: '',
     entitlements: {},

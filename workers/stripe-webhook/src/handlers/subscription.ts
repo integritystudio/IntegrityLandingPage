@@ -1,5 +1,5 @@
 import type { SupabaseAdmin } from '../supabase';
-import type { BillingStatus, HandlerResult, PlanKey, StripeEvent } from '../../../lib/types';
+import type { BillingStatus, HandlerResult, ApiKeyTier, StripeEvent } from '../../../lib/types';
 import { SubscriptionSchema } from '../stripe-schemas';
 
 
@@ -16,7 +16,7 @@ function resolveBillingStatus(stripeStatus: string): BillingStatus {
 export async function handleSubscriptionUpdated(
   event: StripeEvent,
   db: SupabaseAdmin,
-  priceToPlan: Record<string, PlanKey> = {},
+  priceToPlan: Record<string, ApiKeyTier> = {},
 ): Promise<HandlerResult> {
   const parseResult = SubscriptionSchema.safeParse(event.data.object);
   if (!parseResult.success) {
@@ -76,8 +76,8 @@ export async function handleSubscriptionUpdated(
 export async function handleSubscriptionDeleted(
   event: StripeEvent,
   db: SupabaseAdmin,
-  // Deletion always downgrades to 'free'; price mapping is unused here.
-  _priceToPlan: Record<string, PlanKey> = {},
+  // Deletion always downgrades to 'starter'; price mapping is unused here.
+  _priceToPlan: Record<string, ApiKeyTier> = {},
 ): Promise<HandlerResult> {
   const parseResult = SubscriptionSchema.safeParse(event.data.object);
   if (!parseResult.success) {
@@ -115,7 +115,7 @@ export async function handleSubscriptionDeleted(
   const updateResult = await db.updateOrgBillingStatus(
     findResult.orgId,
     'canceled',
-    'free',
+    'starter',
     true, // bump quota version
   );
 

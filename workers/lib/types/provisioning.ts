@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ApiKeyTierSchema } from './schemas';
 
 /**
  * Provisioning Job Types
@@ -97,7 +98,7 @@ export type SubscriptionChangedPayload = z.infer<typeof SubscriptionChangedPaylo
 
 export const EntitlementsRecomputedPayloadSchema = z.object({
   organization_id: z.string().uuid(),
-  plan_key: z.enum(['free', 'growth', 'enterprise']),
+  plan_key: ApiKeyTierSchema,
   reason: z.enum(['subscription_change', 'manual_override']),
 });
 
