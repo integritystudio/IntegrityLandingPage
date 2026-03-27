@@ -77,15 +77,16 @@ SignupPage receives Auth0 JWT
 Navigate to dashboard (authenticated)
 ```
 
-### Known Mismatch in sender-worker
-
-`sender-worker/src/supabase.ts` currently calls `supabaseAdminCreateUser` (Supabase Auth) and stores the resulting Supabase UUID as `auth0_id`. This is wrong — the `auth0_id` column must hold the Auth0 `sub`, not a Supabase Auth UUID. The API gateway's user lookups (`me.ts`, `api-keys.ts`) use `auth.sub` from the Auth0 JWT to query `auth0_id`; if the stored value is a Supabase UUID, those lookups will never match.
-
 ### What Needs to Be Built
 
-- ~~Remove `supabaseAdminCreateUser` call from sender-worker; replace with Auth0 Management API call~~ ✅ Done — `auth0CreateUser` now uses client credentials grant (`AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_AUDIENCE`) to obtain a management token, then calls `POST /api/v2/users`
+- ~~Remove `supabaseAdminCreateUser` call from sender-worker; replace with Auth0 Management API call~~ ✅ Done — `auth0CreateUser` now uses client credentials grant
 - ~~Replace `ContactService.submitForm()` in `signup_page.dart` with Auth0 signup~~ ✅ Done — `ProvisioningService.signUp(email, password)` is now called; on `AuthSuccess` routes to `/provision`
-- Configure Auth0 post-registration webhook to trigger provisioning (replace inline Supabase calls in sender-worker `/signup`)
+- Implement receiver-worker provisioning pipeline (steps 2–8 in API Key Provisioning Flow above):
+  - `inboxPayloadSchema` discriminated union + email domain/MX validation
+  - Auth0 `/userinfo` JWT verification
+  - Supabase user lookup by `auth0_id`
+  - Supabase org upsert + membership upsert
+  - Call `api-keys-create` edge function; return `{ ok, token, keyId, prefix, tier }`
 - Forward `name` field from `SignupPage` to sender-worker `/signup` for use in org display name
 - Pass `tier` from `SignupPage` to sender-worker so `supabaseCreatePersonalOrg` sets the correct initial plan
 - Store Auth0 JWT in secure storage and route directly to authenticated dashboard post-provision
