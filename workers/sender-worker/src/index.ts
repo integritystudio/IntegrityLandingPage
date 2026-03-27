@@ -8,6 +8,10 @@ import {
   CORS_HEADERS,
   RECEIVER_PATHS,
   SERVICE_NAME,
+  ACTIONS,
+  VALID_TIERS,
+  DEFAULT_TIER,
+  type ApiKeyTier,
   type Env,
 } from "./types.js";
 import { json, errorResponse } from "./utils.js";
@@ -47,7 +51,7 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
     return errorResponse("missing email or password", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
   }
   if (!EMAIL_REGEX.test(req.email as string)) {
-    return errorResponse("invalid email format", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
+    return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
   }
   try {
     const { auth0Sub } = await auth0CreateUser(
@@ -103,11 +107,47 @@ async function handleSend(env: Env, req: Record<string, unknown>): Promise<Respo
   if (!env.SHARED_SECRET) {
     return errorResponse("SHARED_SECRET not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
+
+  // Validate action
+  if (req.action !== ACTIONS.PROVISION_API_KEY) {
+    return errorResponse(`unknown action: ${req.action}`, ERROR_CODE.UNKNOWN_ACTION, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  // Validate provision_api_key required fields
+  if (!req.jwt || typeof req.jwt !== "string") {
+    return errorResponse("missing or invalid jwt", ERROR_CODE.INVALID_AUTH, HTTP_STATUS.BAD_REQUEST);
+  }
+  if (!req.name || typeof req.name !== "string") {
+    return errorResponse("missing name", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
+  }
+  if (!req.email || typeof req.email !== "string") {
+    return errorResponse("missing email", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
+  }
+  if (!EMAIL_REGEX.test(req.email)) {
+    return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  // Normalize tier: default to starter if absent or invalid
+  const tier: ApiKeyTier = (VALID_TIERS as readonly string[]).includes(req.tier as string)
+    ? (req.tier as ApiKeyTier)
+    : DEFAULT_TIER;
+
+  // Build the normalized payload the receiver expects
+  const payload: Record<string, unknown> = {
+    action: req.action,
+    email: req.email,
+    jwt: req.jwt,
+    name: req.name,
+    tier,
+  };
+  if (req.org_name && typeof req.org_name === "string") {
+    payload["org_name"] = req.org_name;
+  }
+
   try {
     const ts = Date.now().toString();
-    const bodyStr = JSON.stringify(req);
-    const message = `${ts}.${bodyStr}`;
-    const signature = await signMessage(env.SHARED_SECRET, message);
+    const bodyStr = JSON.stringify(payload);
+    const signature = await signMessage(env.SHARED_SECRET, `${ts}.${bodyStr}`);
     const receiverRes = await fetch(`${env.RECEIVER_WORKER_URL}${RECEIVER_PATHS.INBOX}`, {
       method: HTTP_METHODS.POST,
       headers: {

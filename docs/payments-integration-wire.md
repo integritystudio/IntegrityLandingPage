@@ -72,7 +72,7 @@ Navigate to dashboard (authenticated)
 
 ### What Needs to Be Built
 
-- Remove `supabaseAdminCreateUser` call from sender-worker; replace with Auth0 Management API call
+- ~~Remove `supabaseAdminCreateUser` call from sender-worker; replace with Auth0 Management API call~~ ✅ Done — `auth0CreateUser` now uses client credentials grant (`AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_AUDIENCE`) to obtain a management token, then calls `POST /api/v2/users`
 - Configure Auth0 post-registration webhook to trigger provisioning (Supabase row inserts)
 - Replace `ContactService.submitForm()` in `signup_page.dart` with Auth0 signup
 - Store Auth0 JWT and route to authenticated dashboard on success
@@ -233,6 +233,29 @@ If the Quota Durable Object is unavailable, `enforceOrgQuota` returns `ok: true`
 | Supabase writes | `workers/stripe-webhook/src/supabase.ts` |
 | Quota enforcement | `workers/api-gateway/src/lib/quota.ts` |
 | Quota Durable Object | `workers/api-gateway/src/durable-objects/quota.ts` |
+
+---
+
+## Sender Worker API: `/send`
+
+The Flutter app calls `POST /send` on the sender-worker. The sender validates the payload, then signs and forwards it to the receiver-worker's `/inbox`.
+
+### Validation (sender-side)
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `action` | string | yes | Must be `provision_api_key`; any other value (including absent) → 400 `UNKNOWN_ACTION` |
+| `jwt` | string | yes | Auth0 JWT for the authenticated user |
+| `name` | string | yes | Display name for the API key |
+| `email` | string | yes | Must pass email regex; invalid → 400 `INVALID_EMAIL` |
+| `tier` | `'starter' \| 'growth' \| 'enterprise'` | no | Invalid/absent values silently default to `'starter'` |
+| `org_name` | string | no | Forwarded as-is if present, omitted otherwise |
+
+The sender normalizes the payload (applies `tier` default, strips unknown fields) before signing.
+
+### HMAC signing
+
+`x-signature = HMAC-SHA256(SHARED_SECRET, "{x-timestamp}.{normalizedBody}")` as hex.
 
 ---
 

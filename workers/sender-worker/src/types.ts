@@ -25,6 +25,8 @@ export const HTTP_STATUS = {
 
 export const ERROR_CODE = {
   MISSING_FIELDS: "MISSING_FIELDS",
+  INVALID_EMAIL: "INVALID_EMAIL",
+  INVALID_AUTH: "INVALID_AUTH",
   JSON_PARSE_ERROR: "JSON_PARSE_ERROR",
   UNKNOWN_ACTION: "UNKNOWN_ACTION",
   RECEIVER_ERROR: "RECEIVER_ERROR",
@@ -82,6 +84,14 @@ export const HEADER_NAMES = {
 export const CONTENT_TYPES = {
   JSON: "application/json; charset=utf-8",
 } as const;
+
+export const ACTIONS = {
+  PROVISION_API_KEY: "provision_api_key",
+} as const;
+
+export const VALID_TIERS = ["starter", "growth", "enterprise"] as const;
+export type ApiKeyTier = typeof VALID_TIERS[number];
+export const DEFAULT_TIER: ApiKeyTier = "starter";
 
 export const SERVICE_NAME = "api-provisioning-sender";
 

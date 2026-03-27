@@ -279,6 +279,140 @@ describe("GET /health", () => {
   });
 });
 
+// ─── POST /send — provision_api_key ─────────────────────────────────────────
+
+const RECEIVER_URL = "https://receiver.e2e.test";
+
+const validSendPayload = {
+  action: "provision_api_key",
+  jwt: "test.jwt.token",
+  name: "My API Key",
+  email: "user@example.com",
+  tier: "starter",
+};
+
+function mockReceiverSuccess(): void {
+  fetchMock
+    .get(RECEIVER_URL)
+    .intercept({ path: "/inbox", method: "POST" })
+    .reply(200, JSON.stringify({ ok: true, received: validSendPayload }), {
+      headers: { "content-type": "application/json" },
+    });
+}
+
+describe("POST /send — valid provision_api_key", () => {
+  it("forwards to receiver /inbox and returns 200", async () => {
+    mockReceiverSuccess();
+    const res = await SELF.fetch("https://worker.test/send", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(validSendPayload),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json() as { ok: boolean };
+    expect(body.ok).toBe(true);
+  });
+
+  it("defaults tier to starter when absent", async () => {
+    fetchMock
+      .get(RECEIVER_URL)
+      .intercept({ path: "/inbox", method: "POST" })
+      .reply(200, JSON.stringify({ ok: true }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const { tier: _t, ...noTier } = validSendPayload;
+    const res = await SELF.fetch("https://worker.test/send", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(noTier),
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("includes org_name when provided", async () => {
+    fetchMock
+      .get(RECEIVER_URL)
+      .intercept({ path: "/inbox", method: "POST" })
+      .reply(200, JSON.stringify({ ok: true }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/send", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...validSendPayload, org_name: "Acme Corp" }),
+    });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("POST /send — validation", () => {
+  it("returns 400 when action is missing (treated as unknown action)", async () => {
+    const { action: _a, ...noAction } = validSendPayload;
+    const res = await SELF.fetch("https://worker.test/send", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(noAction),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error: string }).error).toContain("unknown action");
+  });
+
+  it("returns 400 for unknown action", async () => {
+    const res = await SELF.fetch("https://worker.test/send", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...validSendPayload, action: "bad_action" }),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error: string }).error).toContain("unknown action");
+  });
+
+  it("returns 400 when jwt is missing", async () => {
+    const { jwt: _j, ...noJwt } = validSendPayload;
+    const res = await SELF.fetch("https://worker.test/send", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(noJwt),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error: string }).error).toContain("jwt");
+  });
+
+  it("returns 400 when name is missing", async () => {
+    const { name: _n, ...noName } = validSendPayload;
+    const res = await SELF.fetch("https://worker.test/send", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(noName),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error: string }).error).toContain("name");
+  });
+
+  it("returns 400 when email is missing", async () => {
+    const { email: _e, ...noEmail } = validSendPayload;
+    const res = await SELF.fetch("https://worker.test/send", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(noEmail),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error: string }).error).toContain("email");
+  });
+
+  it("returns 400 for invalid email format", async () => {
+    const res = await SELF.fetch("https://worker.test/send", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...validSendPayload, email: "not-an-email" }),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error: string }).error).toContain("email");
+  });
+});
+
 // ─── CORS — preflight ────────────────────────────────────────────────────────
 
 describe("CORS — OPTIONS preflight", () => {
