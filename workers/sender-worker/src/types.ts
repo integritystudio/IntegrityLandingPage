@@ -17,8 +17,10 @@ export const HTTP_STATUS = {
   NO_CONTENT: 204,
   BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
   NOT_FOUND: 404,
   INTERNAL_SERVER_ERROR: 500,
+  BAD_GATEWAY: 502,
 } as const;
 
 export const ERROR_CODE = {
@@ -30,6 +32,7 @@ export const ERROR_CODE = {
   SUPABASE_SIGNIN_ERROR: "SUPABASE_SIGNIN_ERROR",
   UNKNOWN_ACTION: "UNKNOWN_ACTION",
   RECEIVER_ERROR: "RECEIVER_ERROR",
+  FORBIDDEN: "forbidden",
   NOT_FOUND: "NOT_FOUND",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 } as const;
@@ -86,9 +89,9 @@ export const SERVICE_NAME = "api-provisioning-sender";
 
 export interface Env {
   SHARED_SECRET: string;
-  PROVISIONING_RECEIVER: { fetch: typeof fetch };
+  RECEIVER_WORKER_URL: string;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
-  CORS_ORIGIN?: string;
+  ALLOWED_ORIGINS_JSON?: string;
 }

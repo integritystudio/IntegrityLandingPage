@@ -5,11 +5,12 @@ import {
   ERROR_CODE,
   HEADER_NAMES,
   CONTENT_TYPES,
+  CORS_HEADERS,
   RECEIVER_PATHS,
   SERVICE_NAME,
   type Env,
 } from "./types.js";
-import { json, errorResponse, corsPreflightResponse } from "./utils.js";
+import { json, errorResponse } from "./utils.js";
 import { signMessage } from "./crypto.js";
 import {
   supabaseAdminCreateUser,
@@ -21,6 +22,26 @@ import {
 import { VERSION } from "./version.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const HARDCODED_ALLOWED_ORIGINS = [
+  "https://integritystudio.ai",
+  "https://www.integritystudio.ai",
+];
+
+function getAllowedOrigins(env: Env): string[] {
+  if (env.ALLOWED_ORIGINS_JSON) {
+    try {
+      return JSON.parse(env.ALLOWED_ORIGINS_JSON) as string[];
+    } catch {
+      return HARDCODED_ALLOWED_ORIGINS;
+    }
+  }
+  return HARDCODED_ALLOWED_ORIGINS;
+}
+
+function isOriginAllowed(origin: string, env: Env): boolean {
+  return getAllowedOrigins(env).includes(origin);
+}
 
 async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Response> {
   if (!req.email || !req.password) {
@@ -94,32 +115,35 @@ async function handleSignin(env: Env, req: Record<string, unknown>): Promise<Res
 }
 
 async function handleSend(env: Env, req: Record<string, unknown>): Promise<Response> {
-  if (!req.action || !req.jwt) {
-    return errorResponse("missing action or jwt", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
+  if (!env.RECEIVER_WORKER_URL) {
+    return errorResponse("RECEIVER_WORKER_URL not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
+  if (!env.SHARED_SECRET) {
+    return errorResponse("SHARED_SECRET not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
   try {
     const ts = Date.now().toString();
     const bodyStr = JSON.stringify(req);
     const message = `${ts}.${bodyStr}`;
     const signature = await signMessage(env.SHARED_SECRET, message);
-    const receiverRes = await env.PROVISIONING_RECEIVER.fetch(
-      new Request(`https://internal${RECEIVER_PATHS.INBOX}`, {
-        method: HTTP_METHODS.POST,
-        headers: {
-          [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
-          [HEADER_NAMES.TIMESTAMP]: ts,
-          [HEADER_NAMES.SIGNATURE]: signature,
-        },
-        body: bodyStr,
-      }),
-    );
-    if (!receiverRes.ok) {
-      const errorMsg = `Receiver returned ${receiverRes.status}`;
-      return errorResponse(errorMsg, ERROR_CODE.RECEIVER_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-    }
-    const receiverBody = await receiverRes.json();
-    return json({ ok: true, ...(receiverBody as object) });
+    const receiverRes = await fetch(`${env.RECEIVER_WORKER_URL}${RECEIVER_PATHS.INBOX}`, {
+      method: HTTP_METHODS.POST,
+      headers: {
+        [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
+        [HEADER_NAMES.TIMESTAMP]: ts,
+        [HEADER_NAMES.SIGNATURE]: signature,
+      },
+      body: bodyStr,
+    });
+    const receiverBody = await receiverRes.text();
+    return new Response(receiverBody, {
+      status: receiverRes.status,
+      headers: { [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON },
+    });
   } catch (err) {
+    if (err instanceof TypeError) {
+      return errorResponse("receiver-worker unreachable", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.BAD_GATEWAY);
+    }
     console.error("[send]", err instanceof Error ? err.message : err);
     return errorResponse("send failed", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
@@ -127,10 +151,6 @@ async function handleSend(env: Env, req: Record<string, unknown>): Promise<Respo
 
 async function routeRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-
-  if (request.method === HTTP_METHODS.OPTIONS) {
-    return corsPreflightResponse();
-  }
 
   if (request.method === HTTP_METHODS.GET && url.pathname === ROUTES.HEALTH) {
     return json({
@@ -176,10 +196,29 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const origin = request.headers.get("origin");
+    const originAllowed = origin !== null && isOriginAllowed(origin, env);
+
+    if (request.method === HTTP_METHODS.OPTIONS) {
+      const headers: Record<string, string> = { ...CORS_HEADERS };
+      if (originAllowed) {
+        headers["access-control-allow-origin"] = origin;
+      }
+      return new Response(null, { status: HTTP_STATUS.NO_CONTENT, headers });
+    }
+
+    if (origin !== null && !originAllowed) {
+      return errorResponse("forbidden", ERROR_CODE.FORBIDDEN, HTTP_STATUS.FORBIDDEN);
+    }
+
     const res = await routeRequest(request, env);
-    if (!env.CORS_ORIGIN) return res;
-    const headers = new Headers(res.headers);
-    headers.set("access-control-allow-origin", env.CORS_ORIGIN);
-    return new Response(res.body, { status: res.status, headers });
+
+    if (originAllowed) {
+      const headers = new Headers(res.headers);
+      headers.set("access-control-allow-origin", origin);
+      return new Response(res.body, { status: res.status, headers });
+    }
+
+    return res;
   },
 };

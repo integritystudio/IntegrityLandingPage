@@ -2,14 +2,10 @@ name = "sender-worker"
 main = "src/index.ts"
 compatibility_date = "2026-03-19"
 
-# Service binding — routes worker-to-worker calls internally (avoids same-subdomain fetch restriction)
-[[services]]
-binding = "PROVISIONING_RECEIVER"
-service = "api-provisioning-receiver"
-
 # Secrets (set via wrangler secret put or doppler):
 #   SHARED_SECRET              — HMAC key; must match provisioning receiver
+#   RECEIVER_WORKER_URL        — URL of the provisioning receiver worker
 #   SUPABASE_URL               — Supabase project URL
 #   SUPABASE_ANON_KEY          — Supabase anon key
 #   SUPABASE_SERVICE_ROLE_KEY  — Supabase service role key
-#   CORS_ORIGIN (optional)     — allowed CORS origin; if unset, origin header is not set
+#   ALLOWED_ORIGINS_JSON       — JSON array of allowed CORS origins (optional; defaults to integritystudio.ai)
