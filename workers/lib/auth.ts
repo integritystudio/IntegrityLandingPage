@@ -40,6 +40,11 @@ export interface VerifyJwtOptions {
    *  any other issuer are rejected — prevents forgery via attacker-controlled JWTs.
    *  Set to your Supabase project auth URL, e.g. https://<ref>.supabase.co/auth/v1 */
   issuerUrl?: string;
+  /** Expected value of the `aud` (audience) claim (RFC 7519 §4.1.3).
+   *  When provided, tokens missing this audience or containing a different one
+   *  are rejected — prevents tokens issued for one service from being replayed
+   *  against another. Set to your API identifier, e.g. https://api.example.com */
+  audience?: string;
 }
 
 /**
@@ -91,6 +96,23 @@ export async function verifyJwt(
 
   if (opts.issuerUrl != null && payload.iss !== opts.issuerUrl) {
     return { ok: false, error: unauthorized('JWT issuer mismatch') };
+  }
+
+  // RFC 7519 §4.1.5 — nbf (Not Before): reject tokens used before their validity window.
+  // Allow 30s of clock skew to tolerate minor time drift between services.
+  if (typeof payload.nbf === 'number' && payload.nbf > now + 30) {
+    return { ok: false, error: unauthorized('JWT not yet valid') };
+  }
+
+  // RFC 7519 §4.1.3 — aud (Audience): reject tokens not intended for this service.
+  if (opts.audience != null) {
+    const aud = payload.aud;
+    const audOk =
+      aud === opts.audience ||
+      (Array.isArray(aud) && (aud as unknown[]).includes(opts.audience));
+    if (!audOk) {
+      return { ok: false, error: unauthorized('JWT audience mismatch') };
+    }
   }
 
   return { ok: true, payload };
