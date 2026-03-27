@@ -139,11 +139,11 @@ void main() {
 
         final section = find.byKey(const Key('pricing-tiers-section'));
         expect(
-          find.descendant(of: section, matching: find.text('Starter')),
-          findsOneWidget,
+          find.descendant(of: section, matching: find.text('Free')),
+          findsAtLeastNWidgets(1),
         );
         expect(
-          find.descendant(of: section, matching: find.text('Team')),
+          find.descendant(of: section, matching: find.text('Growth')),
           findsOneWidget,
         );
         expect(
@@ -537,7 +537,7 @@ void main() {
 
       test('Team tier is marked as popular', () {
         final pricing = AppContent.pricing;
-        final teamTier = pricing.tiers.firstWhere((t) => t.name == 'Team');
+        final teamTier = pricing.tiers.firstWhere((t) => t.name == 'Growth');
         expect(teamTier.isPopular, isTrue);
       });
     });

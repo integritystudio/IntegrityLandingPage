@@ -64,7 +64,7 @@ void main() {
       // Verify form fields by label
       expect(find.textContaining('Full Name'), findsOneWidget);
       expect(find.textContaining('Work Email'), findsOneWidget);
-      expect(find.textContaining('Company Name'), findsOneWidget);
+      expect(find.textContaining('Password'), findsOneWidget);
 
       // Verify terms checkbox exists
       expect(find.textContaining('Terms of Service'), findsOneWidget);

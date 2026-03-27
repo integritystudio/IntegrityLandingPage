@@ -776,6 +776,201 @@ describe('Sender Worker', () => {
 
       fetchSpy.mockRestore();
     });
+
+    it('uses provided name as Supabase org name', async () => {
+      const orgId = 'org-uuid-name-test';
+      let capturedOrgBody: Record<string, unknown> | null = null;
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|abc' }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          capturedOrgBody = JSON.parse(init?.body as string) as Record<string, unknown>;
+          return new Response(JSON.stringify([{ id: orgId }]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass', name: 'Acme Corp' }),
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(capturedOrgBody).not.toBeNull();
+      expect(capturedOrgBody!['name']).toBe('Acme Corp');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('falls back to email local-part when name is absent', async () => {
+      const orgId = 'org-uuid-no-name';
+      let capturedOrgBody: Record<string, unknown> | null = null;
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|def' }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          capturedOrgBody = JSON.parse(init?.body as string) as Record<string, unknown>;
+          return new Response(JSON.stringify([{ id: orgId }]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'alice@example.com', password: 'S3cur3!pass' }),
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(capturedOrgBody).not.toBeNull();
+      expect(capturedOrgBody!['name']).toBe('alice (personal)');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('sets current_plan from tier when provided', async () => {
+      const orgId = 'org-uuid-tier-test';
+      let capturedOrgBody: Record<string, unknown> | null = null;
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|ghi' }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          capturedOrgBody = JSON.parse(init?.body as string) as Record<string, unknown>;
+          return new Response(JSON.stringify([{ id: orgId }]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass', tier: 'growth' }),
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(capturedOrgBody).not.toBeNull();
+      expect(capturedOrgBody!['current_plan']).toBe('growth');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('defaults current_plan to starter when tier is absent', async () => {
+      const orgId = 'org-uuid-default-tier';
+      let capturedOrgBody: Record<string, unknown> | null = null;
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|jkl' }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          capturedOrgBody = JSON.parse(init?.body as string) as Record<string, unknown>;
+          return new Response(JSON.stringify([{ id: orgId }]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(capturedOrgBody).not.toBeNull();
+      expect(capturedOrgBody!['current_plan']).toBe('starter');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('defaults current_plan to starter when tier is invalid', async () => {
+      const orgId = 'org-uuid-invalid-tier';
+      let capturedOrgBody: Record<string, unknown> | null = null;
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|mno' }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          capturedOrgBody = JSON.parse(init?.body as string) as Record<string, unknown>;
+          return new Response(JSON.stringify([{ id: orgId }]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass', tier: 'bogus' }),
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(capturedOrgBody).not.toBeNull();
+      expect(capturedOrgBody!['current_plan']).toBe('starter');
+
+      fetchSpy.mockRestore();
+    });
   });
 
   describe('POST /signin — not implemented (Auth0 handles auth)', () => {

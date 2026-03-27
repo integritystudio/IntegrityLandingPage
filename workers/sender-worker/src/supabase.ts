@@ -7,6 +7,7 @@ import {
   CONTENT_TYPES,
   PERSONAL_ORG_SLUG_PREFIX,
   PERSONAL_ORG_DEFAULTS,
+  type ApiKeyTier,
 } from "./types.js";
 
 /**
@@ -95,12 +96,14 @@ export async function supabaseCreatePersonalOrg(
   serviceKey: string,
   userId: string,
   email: string,
+  displayName?: string,
+  tier?: ApiKeyTier,
 ): Promise<{ organizationId: string }> {
   // Slug encodes the userId so it is unique and queryable via LIKE 'personal-%'
   const slug = `${PERSONAL_ORG_SLUG_PREFIX}${userId}`;
-  // Name uses the email local-part for human readability
   const localPart = email.split("@")[0] ?? email;
-  const name = `${localPart} (personal)`;
+  const name = displayName ?? `${localPart} (personal)`;
+  const current_plan = tier ?? PERSONAL_ORG_DEFAULTS.current_plan;
 
   const orgRes = await fetch(`${url}${SUPABASE_PATHS.TABLE_ORGANIZATIONS}`, {
     method: "POST",
@@ -110,7 +113,7 @@ export async function supabaseCreatePersonalOrg(
       [HEADER_NAMES.AUTHORIZATION]: `Bearer ${serviceKey}`,
       [SUPABASE_HEADER_NAMES.PREFER]: "return=representation",
     },
-    body: JSON.stringify({ slug, name, ...PERSONAL_ORG_DEFAULTS }),
+    body: JSON.stringify({ slug, name, ...PERSONAL_ORG_DEFAULTS, current_plan }),
   });
   if (!orgRes.ok) {
     const err = await orgRes.text();

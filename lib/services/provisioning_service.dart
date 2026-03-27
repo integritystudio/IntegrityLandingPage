@@ -237,13 +237,20 @@ class ProvisioningService {
   /// Sign up with email and password.
   ///
   /// Returns AuthSuccess (201) with JWT token or AuthError.
-  static Future<AuthResponse> signUp(String email, String password) async {
+  static Future<AuthResponse> signUp(
+    String email,
+    String password, {
+    String? name,
+    String tier = 'starter',
+  }) async {
     try {
       final response = await _dio.post(
         '$_senderWorkerUrl/signup',
         data: jsonEncode({
           'email': email,
           'password': password,
+          if (name != null && name.isNotEmpty) 'name': name,
+          'tier': tier,
         }),
         options: Options(
           headers: {'Content-Type': 'application/json'},

@@ -10,6 +10,9 @@ import {
   SERVICE_NAME,
   EMAIL_REGEX,
   SendRequestSchema,
+  ApiKeyTierSchema,
+  DEFAULT_TIER,
+  type ApiKeyTier,
   type Env,
 } from "./types.js";
 import { json, errorResponse } from "./utils.js";
@@ -50,6 +53,10 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
   if (!EMAIL_REGEX.test(req.email as string)) {
     return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
   }
+  const trimmedName = typeof req.name === "string" ? req.name.trim() : "";
+  const name = trimmedName || undefined;
+  const tier = ApiKeyTierSchema.safeParse(req.tier).success ? (req.tier as ApiKeyTier) : DEFAULT_TIER;
+
   try {
     const { auth0Sub } = await auth0CreateUser(
       env.AUTH0_DOMAIN,
@@ -66,6 +73,8 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
       env.SUPABASE_SERVICE_ROLE_KEY,
       userId,
       req.email as string,
+      name,
+      tier,
     );
     await supabaseInsertUser(
       env.SUPABASE_URL,

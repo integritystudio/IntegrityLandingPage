@@ -446,6 +446,8 @@ class _SignupPageState extends State<SignupPage> {
     final result = await ProvisioningService.signUp(
       _emailController.text.trim(),
       _passwordController.text,
+      name: _nameController.text.trim(),
+      tier: widget.tier,
     );
 
     if (!mounted) return;
@@ -454,8 +456,8 @@ class _SignupPageState extends State<SignupPage> {
     switch (result) {
       case AuthSuccess():
         context.go('/provision', extra: result);
-      case AuthError(:final error):
-        setState(() => _errorMessage = error);
+      case AuthError():
+        context.go('/request_failure');
     }
   }
 

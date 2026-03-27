@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/services/provisioning_service.dart';
@@ -470,6 +472,95 @@ void main() {
     });
   });
 
+  group('signUp', () {
+    test('sends email and password in POST body', () async {
+      mockDio.mockPostResponse({'jwt': 'test.jwt.token'}, statusCode: 201);
+
+      await ProvisioningService.signUp('user@example.com', 'secret123');
+
+      final body = mockDio.lastPostBody;
+      expect(body, isNotNull);
+      expect(body!['email'], 'user@example.com');
+      expect(body['password'], 'secret123');
+    });
+
+    test('returns AuthSuccess with jwt on 201', () async {
+      mockDio.mockPostResponse({'jwt': 'test.jwt.token'}, statusCode: 201);
+
+      final result = await ProvisioningService.signUp('user@example.com', 'secret123');
+
+      expect(result, isA<AuthSuccess>());
+      expect((result as AuthSuccess).jwt, 'test.jwt.token');
+      expect(result.email, 'user@example.com');
+    });
+
+    test('includes name in POST body when provided', () async {
+      mockDio.mockPostResponse({'jwt': 'tok'}, statusCode: 201);
+
+      await ProvisioningService.signUp(
+        'user@example.com',
+        'secret123',
+        name: 'Acme Corp',
+      );
+
+      final body = mockDio.lastPostBody;
+      expect(body, isNotNull);
+      expect(body!['name'], 'Acme Corp');
+    });
+
+    test('omits name from POST body when not provided', () async {
+      mockDio.mockPostResponse({'jwt': 'tok'}, statusCode: 201);
+
+      await ProvisioningService.signUp('user@example.com', 'secret123');
+
+      final body = mockDio.lastPostBody;
+      expect(body, isNotNull);
+      expect(body!.containsKey('name'), isFalse);
+    });
+
+    test('omits name from POST body when empty string', () async {
+      mockDio.mockPostResponse({'jwt': 'tok'}, statusCode: 201);
+
+      await ProvisioningService.signUp('user@example.com', 'secret123', name: '');
+
+      final body = mockDio.lastPostBody;
+      expect(body, isNotNull);
+      expect(body!.containsKey('name'), isFalse);
+    });
+
+    test('includes tier in POST body', () async {
+      mockDio.mockPostResponse({'jwt': 'tok'}, statusCode: 201);
+
+      await ProvisioningService.signUp(
+        'user@example.com',
+        'secret123',
+        tier: 'growth',
+      );
+
+      final body = mockDio.lastPostBody;
+      expect(body, isNotNull);
+      expect(body!['tier'], 'growth');
+    });
+
+    test('defaults tier to starter when not provided', () async {
+      mockDio.mockPostResponse({'jwt': 'tok'}, statusCode: 201);
+
+      await ProvisioningService.signUp('user@example.com', 'secret123');
+
+      final body = mockDio.lastPostBody;
+      expect(body, isNotNull);
+      expect(body!['tier'], 'starter');
+    });
+
+    test('returns AuthError on non-201 response', () async {
+      mockDio.mockPostResponse({'error': 'signup failed'}, statusCode: 500);
+
+      final result = await ProvisioningService.signUp('user@example.com', 'secret123');
+
+      expect(result, isA<AuthError>());
+    });
+  });
+
   group('MockProvisioningDio per-attempt response data', () {
     test('post returns per-attempt data when attemptNumber matches', () async {
       // Attempt 0: connection error (triggers retry), attempt 1: success
@@ -552,6 +643,9 @@ class MockProvisioningDio implements Dio {
 
   int postCallCount = 0;
   int getCallCount = 0;
+
+  /// The decoded JSON body of the most recent POST call (for assertion in tests).
+  Map<String, dynamic>? lastPostBody;
 
   void mockPostResponse(
     Map<String, dynamic> data, {
@@ -649,6 +743,9 @@ class MockProvisioningDio implements Dio {
     ProgressCallback? onSendProgress,
     ProgressCallback? onReceiveProgress,
   }) async {
+    if (data is String) {
+      lastPostBody = jsonDecode(data) as Map<String, dynamic>;
+    }
     final currentAttempt = postCallCount;
     postCallCount++;
 

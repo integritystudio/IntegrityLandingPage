@@ -506,7 +506,7 @@ void main() {
         expect(find.text('provision_page'), findsOneWidget);
       });
 
-      testWidgets('shows error message inline on failed signup', (tester) async {
+      testWidgets('routes to /request_failure on failed signup', (tester) async {
         setLargeViewport(tester);
         mockProvisioningDio.mockPostResponse(
           {'error': 'Email already in use'},
@@ -530,7 +530,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
 
-        expect(find.text('Email already in use'), findsOneWidget);
+        expect(find.text('request_failure_page'), findsOneWidget);
         expect(find.text('provision_page'), findsNothing);
       });
     });

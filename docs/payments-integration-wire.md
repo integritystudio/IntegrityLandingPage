@@ -19,25 +19,23 @@ This flow has been replaced. `SignupPage` no longer calls `ContactService.submit
          ↓
 SignupPage collects: name, email, password, terms checkbox
          ↓
-ProvisioningService.signUp(email, password) — POSTs to sender-worker /signup
+ProvisioningService.signUp(email, password, name:, tier:) — POSTs to sender-worker /signup
          ↓
 sender-worker: auth0CreateUser() — calls Auth0 Management API (client credentials grant)
          ↓
 Auth0: creates user, returns auth0_id (sub)
          ↓
-sender-worker: supabaseCreatePersonalOrg → supabaseInsertUser → supabaseAddOrgOwner
+sender-worker: supabaseCreatePersonalOrg(name, tier) → supabaseInsertUser → supabaseAddOrgOwner
          ↓
 sender-worker returns 201 { jwt }
          ↓
 SignupPage receives AuthSuccess(jwt, email) → Navigate to /provision
+SignupPage receives AuthError → Navigate to /request_failure
 ```
 
 ### Key Observations
 
-- `tier` param is displayed in the UI badge but not yet passed to the backend at signup; plan defaults to `starter` in `supabaseCreatePersonalOrg`
 - Auth0 post-registration webhook is not yet configured — Supabase provisioning is currently triggered inline by the sender-worker `/signup` handler
-- Name field is collected in the UI but not forwarded to the sender-worker (not yet wired)
-- On `AuthError`, the error message is shown inline; no redirect to `/request_failure`
 
 ### Involved Files
 
@@ -81,14 +79,9 @@ Navigate to dashboard (authenticated)
 
 - ~~Remove `supabaseAdminCreateUser` call from sender-worker; replace with Auth0 Management API call~~ ✅ Done — `auth0CreateUser` now uses client credentials grant
 - ~~Replace `ContactService.submitForm()` in `signup_page.dart` with Auth0 signup~~ ✅ Done — `ProvisioningService.signUp(email, password)` is now called; on `AuthSuccess` routes to `/provision`
-- Implement receiver-worker provisioning pipeline (steps 2–8 in API Key Provisioning Flow above):
-  - `inboxPayloadSchema` discriminated union + email domain/MX validation
-  - Auth0 `/userinfo` JWT verification
-  - Supabase user lookup by `auth0_id`
-  - Supabase org upsert + membership upsert
-  - Call `api-keys-create` edge function; return `{ ok, token, keyId, prefix, tier }`
-- Forward `name` field from `SignupPage` to sender-worker `/signup` for use in org display name
-- Pass `tier` from `SignupPage` to sender-worker so `supabaseCreatePersonalOrg` sets the correct initial plan
+- ~~Forward `name` field from `SignupPage` to sender-worker `/signup` for use in org display name~~ ✅ Done — `ProvisioningService.signUp(name:, tier:)` passes both; sender-worker forwards to `supabaseCreatePersonalOrg`
+- ~~Pass `tier` from `SignupPage` to sender-worker so `supabaseCreatePersonalOrg` sets the correct initial plan~~ ✅ Done — `current_plan` is now set from the request `tier`; invalid/absent values default to `starter`
+- ~~On `AuthError`, error shown inline with no redirect~~ ✅ Done — `AuthError` now navigates to `/request_failure`
 - Store Auth0 JWT in secure storage and route directly to authenticated dashboard post-provision
 - Wire Stripe checkout for paid tiers (`growth`, `enterprise`) post-signup
 
@@ -329,7 +322,7 @@ Content-Type: application/json
 
 ## API Key Provisioning Flow
 
-_Last updated: 2026-03-27_
+_Last updated: 2026-03-27 (signup gap fixes: name, tier, AuthError redirect)_
 
 ### Architecture
 
