@@ -183,6 +183,33 @@ class BootstrapError extends BootstrapResponse {
   const BootstrapError({required this.error});
 }
 
+/// Arguments passed to CheckoutPage.
+class CheckoutArgs {
+  final String email;
+  final String tier;
+
+  const CheckoutArgs({required this.email, required this.tier});
+}
+
+/// Checkout API response.
+sealed class CheckoutResponse {
+  const CheckoutResponse();
+}
+
+/// Successful checkout response with Stripe session URL.
+class CheckoutSuccess extends CheckoutResponse {
+  final String checkoutUrl;
+
+  const CheckoutSuccess({required this.checkoutUrl});
+}
+
+/// Checkout error response.
+class CheckoutError extends CheckoutResponse {
+  final String error;
+
+  const CheckoutError({required this.error});
+}
+
 /// API client for the Sender Worker.
 ///
 /// Sends provisioning events via POST to the Sender Worker,
@@ -262,10 +289,10 @@ class ProvisioningService {
           ? response.data as Map<String, dynamic>
           : const <String, dynamic>{};
 
-      if (response.statusCode == 201 && data['jwt'] != null) {
+      if (response.statusCode == 201) {
         return AuthSuccess(
-          jwt: data['jwt'] as String,
-          email: email,
+          jwt: data['jwt'] as String? ?? '',
+          email: data['email'] as String? ?? email,
         );
       }
 
@@ -314,6 +341,40 @@ class ProvisioningService {
       await ErrorTrackingService.captureException(e,
           stackTrace: stackTrace);
       return const AuthError(error: _errorUnexpected);
+    }
+  }
+
+  /// Create a Stripe checkout session for a paid tier.
+  ///
+  /// Returns CheckoutSuccess with the Stripe-hosted checkout URL, or CheckoutError.
+  static Future<CheckoutResponse> createCheckoutSession({
+    required String email,
+    required String tier,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '$_senderWorkerUrl/create-checkout-session',
+        data: jsonEncode({'email': email, 'tier': tier}),
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+          validateStatus: (status) => status != null,
+        ),
+      );
+
+      final data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : const <String, dynamic>{};
+
+      if (response.statusCode == 200 && data['checkoutUrl'] != null) {
+        return CheckoutSuccess(checkoutUrl: data['checkoutUrl'] as String);
+      }
+
+      return CheckoutError(
+        error: data['error'] as String? ?? _errorUnexpected,
+      );
+    } catch (e, stackTrace) {
+      await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+      return const CheckoutError(error: _errorUnexpected);
     }
   }
 

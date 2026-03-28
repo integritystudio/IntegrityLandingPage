@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
+import '../services/oauth_service.dart';
 import '../utils/security_utils.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/status_icon.dart';
@@ -42,17 +43,35 @@ class OAuthCallbackPage extends StatefulWidget {
 class _OAuthCallbackPageState extends State<OAuthCallbackPage> {
   final ScrollController _scrollController = ScrollController();
 
+  /// Result of CSRF state validation; null = no code/state received yet.
+  bool? _stateValid;
+
   @override
   void initState() {
     super.initState();
     AnalyticsService.trackPageView('oauth_callback');
-    _logOAuthCallback();
+    _validateAndLog();
   }
 
-  /// Log OAuth callback events to Sentry and analytics for monitoring.
-  void _logOAuthCallback() {
+  /// Validate CSRF state (RFC 6749 §10.12) then log callback events.
+  ///
+  /// When an authorization code arrives, the returned [state] is compared
+  /// against the value stored in sessionStorage by [OAuthService]. A mismatch
+  /// indicates a CSRF attack and must be treated as an error.
+  void _validateAndLog() {
     if (widget.error != null) {
-      // Log OAuth error to Sentry for monitoring
+      // Error case: validate state if present, log regardless.
+      if (widget.state != null) {
+        _stateValid = OAuthService.validateCallback(returnedState: widget.state!);
+        if (_stateValid == false) {
+          ErrorTrackingService.captureMessage(
+            'OAuth CSRF: state mismatch on error callback',
+            severity: ErrorSeverity.error,
+            extra: {'error': widget.error},
+          );
+        }
+      }
+
       ErrorTrackingService.captureMessage(
         'OAuth callback error: ${widget.error}',
         severity: ErrorSeverity.warning,
@@ -61,31 +80,43 @@ class _OAuthCallbackPageState extends State<OAuthCallbackPage> {
           'error_description': widget.errorDescription,
           'has_state': widget.state != null,
           'has_code': widget.code != null,
+          'state_valid': _stateValid,
         },
       );
 
-      // Track for analytics
       AnalyticsService.trackEvent(
         eventName: 'oauth_callback_error',
         parameters: {
           'error_type': widget.error ?? 'unknown',
         },
       );
+    } else if (widget.code != null && widget.state != null) {
+      // Authorization code received — validate CSRF state before proceeding.
+      _stateValid = OAuthService.validateCallback(returnedState: widget.state!);
+
+      if (_stateValid == false) {
+        // State mismatch: potential CSRF attack. Log and refuse to exchange code.
+        ErrorTrackingService.captureMessage(
+          'OAuth CSRF: state mismatch on code callback — rejecting',
+          severity: ErrorSeverity.error,
+          extra: {
+            'has_code': true,
+            'state_length': widget.state!.length,
+          },
+        );
+        AnalyticsService.trackEvent(eventName: 'oauth_csrf_rejected');
+      } else {
+        // State valid — safe to exchange code for tokens (backend handles this).
+        AnalyticsService.trackEvent(
+          eventName: 'oauth_callback_code_received',
+          parameters: {'state_valid': true},
+        );
+      }
     } else if (widget.success) {
-      // Track confirmed authentication (backend completed token exchange)
+      // Track confirmed authentication (backend completed token exchange).
       AnalyticsService.trackEvent(
         eventName: 'oauth_callback_success',
-        parameters: {
-          'has_state': widget.state != null,
-        },
-      );
-    } else if (widget.code != null) {
-      // Track code received (token exchange pending)
-      AnalyticsService.trackEvent(
-        eventName: 'oauth_callback_code_received',
-        parameters: {
-          'has_state': widget.state != null,
-        },
+        parameters: {'has_state': widget.state != null},
       );
     }
   }
@@ -112,6 +143,7 @@ class _OAuthCallbackPageState extends State<OAuthCallbackPage> {
                 error: widget.error,
                 errorDescription: widget.errorDescription,
                 success: widget.success,
+                stateValid: _stateValid,
               ),
             ),
             SliverToBoxAdapter(
@@ -135,12 +167,16 @@ class _OAuthCallbackContent extends StatelessWidget {
   /// True only when the backend has confirmed successful token exchange.
   final bool success;
 
+  /// Null = no code/state received; true = CSRF state matched; false = mismatch.
+  final bool? stateValid;
+
   const _OAuthCallbackContent({
     this.code,
     this.state,
     this.error,
     this.errorDescription,
     this.success = false,
+    this.stateValid,
   });
 
   @override
@@ -167,6 +203,10 @@ class _OAuthCallbackContent extends StatelessWidget {
   Widget _buildBody(BuildContext context, bool isMobile) {
     if (error != null) return _buildErrorState(context, isMobile);
     if (success) return _buildSuccessState(context, isMobile);
+    // CSRF check: code received but state is invalid — reject.
+    if (code != null && stateValid == false) {
+      return _buildCsrfErrorState(context, isMobile);
+    }
     // Auth code received but token exchange not yet confirmed — do not show success.
     if (code != null) return _buildPendingExchangeState(context, isMobile);
     return _buildProcessingState(context, isMobile);
@@ -239,6 +279,46 @@ class _OAuthCallbackContent extends StatelessWidget {
           'Authorization code received. Completing sign-in with our servers — this will only take a moment.',
           style: AppTypography.bodyLG.copyWith(color: AppColors.gray300),
           textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  /// Shown when the returned OAuth state does not match sessionStorage — CSRF.
+  Widget _buildCsrfErrorState(BuildContext context, bool isMobile) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const StatusIcon.error(),
+        const SizedBox(height: AppSpacing.xl),
+        Text(
+          'Authentication Failed',
+          style: (isMobile ? AppTypography.headingLG : AppTypography.headingXL)
+              .copyWith(color: Colors.white),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Security check failed: the request state did not match. '
+          'This may indicate a CSRF attack. Please start the sign-in process again.',
+          style: AppTypography.bodyLG.copyWith(color: AppColors.gray300),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.md,
+          children: [
+            OutlineButton(
+              text: 'Back to Home',
+              onPressed: () => context.go('/'),
+            ),
+            GradientButton(
+              text: 'Try Again',
+              onPressed: () => context.go('/signin'),
+            ),
+          ],
         ),
       ],
     );

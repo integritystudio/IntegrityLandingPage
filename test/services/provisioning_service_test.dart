@@ -561,6 +561,68 @@ void main() {
     });
   });
 
+  group('createCheckoutSession', () {
+    test('returns CheckoutSuccess with checkoutUrl on 200', () async {
+      mockDio.mockPostResponse(
+        {'checkoutUrl': 'https://checkout.stripe.com/pay/cs_test_abc'},
+        statusCode: 200,
+      );
+
+      final result = await ProvisioningService.createCheckoutSession(
+        email: 'user@example.com',
+        tier: 'growth',
+      );
+
+      expect(result, isA<CheckoutSuccess>());
+      expect(
+        (result as CheckoutSuccess).checkoutUrl,
+        'https://checkout.stripe.com/pay/cs_test_abc',
+      );
+    });
+
+    test('sends email and tier in POST body', () async {
+      mockDio.mockPostResponse(
+        {'checkoutUrl': 'https://checkout.stripe.com/pay/cs_test'},
+        statusCode: 200,
+      );
+
+      await ProvisioningService.createCheckoutSession(
+        email: 'buyer@example.com',
+        tier: 'growth',
+      );
+
+      final body = mockDio.lastPostBody;
+      expect(body, isNotNull);
+      expect(body!['email'], 'buyer@example.com');
+      expect(body['tier'], 'growth');
+    });
+
+    test('returns CheckoutError when checkoutUrl is absent', () async {
+      mockDio.mockPostResponse({}, statusCode: 200);
+
+      final result = await ProvisioningService.createCheckoutSession(
+        email: 'user@example.com',
+        tier: 'growth',
+      );
+
+      expect(result, isA<CheckoutError>());
+    });
+
+    test('returns CheckoutError on 500', () async {
+      mockDio.mockPostResponse(
+        {'error': 'Stripe not configured'},
+        statusCode: 500,
+      );
+
+      final result = await ProvisioningService.createCheckoutSession(
+        email: 'user@example.com',
+        tier: 'growth',
+      );
+
+      expect(result, isA<CheckoutError>());
+    });
+  });
+
   group('MockProvisioningDio per-attempt response data', () {
     test('post returns per-attempt data when attemptNumber matches', () async {
       // Attempt 0: connection error (triggers retry), attempt 1: success

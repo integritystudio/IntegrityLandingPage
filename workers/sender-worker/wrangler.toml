@@ -13,3 +13,6 @@ compatibility_flags = ["nodejs_compat"]
 #   AUTH0_CLIENT_SECRET        — Auth0 M2M app client secret; source: Doppler VITE_AUTH0_CLIENT_SECRET
 #   AUTH0_AUDIENCE             — Auth0 API audience (https://api.integritystudio.dev); source: Doppler VITE_AUTH0_AUDIENCE
 #   ALLOWED_ORIGINS_JSON       — JSON array of allowed CORS origins (optional; defaults to integritystudio.ai)
+#   STRIPE_SECRET_KEY          — Stripe secret key (sk_live_... or sk_test_...)
+#   STRIPE_PLAN_TO_PRICE_JSON  — JSON map of plan → Stripe price ID, e.g. {"growth":"price_xxx","enterprise":"price_yyy"}
+#   APP_BASE_URL               — Base URL for Stripe success/cancel redirects (optional; defaults to https://integritystudio.ai)

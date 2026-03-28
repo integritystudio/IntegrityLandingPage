@@ -40,6 +40,8 @@ import '../pages/request_success_page.dart';
 import '../pages/request_failure_page.dart';
 import '../pages/oauth_callback_page.dart';
 import '../pages/dashboard_page.dart';
+import '../pages/checkout_page.dart';
+import '../pages/checkout_success_page.dart';
 
 /// Returns a callback that navigates to the home route.
 /// Used to avoid repeating `() => context.go(Routes.home)` across every route.
@@ -172,13 +174,48 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: '/provision',
         redirect: (context, state) {
-          if (state.extra is! AuthSuccess) return Routes.signin;
+          if (state.extra is AuthSuccess) return null;
+          final jwt = state.uri.queryParameters['jwt'];
+          final email = state.uri.queryParameters['email'];
+          if (jwt != null && email != null) return null;
+          return Routes.signin;
+        },
+        builder: (context, state) {
+          if (state.extra is AuthSuccess) {
+            return ProvisionPage(
+              auth: state.extra as AuthSuccess,
+              onBack: _goHome(context),
+            );
+          }
+          return ProvisionPage(
+            auth: AuthSuccess(
+              jwt: state.uri.queryParameters['jwt']!,
+              email: state.uri.queryParameters['email']!,
+            ),
+            onBack: _goHome(context),
+          );
+        },
+      ),
+      GoRoute(
+        path: Routes.checkout,
+        redirect: (context, state) {
+          if (state.extra is! CheckoutArgs) return Routes.home;
           return null;
         },
-        builder: (context, state) => ProvisionPage(
-          auth: state.extra as AuthSuccess,
-          onBack: _goHome(context),
+        builder: (context, state) => CheckoutPage(
+          args: state.extra as CheckoutArgs,
         ),
+      ),
+      GoRoute(
+        path: Routes.checkoutSuccess,
+        builder: (context, state) {
+          final params = state.uri.queryParameters;
+          return CheckoutSuccessPage(
+            email: params['email'] ?? '',
+            tier: params['tier'] ?? 'growth',
+            onBack: _goHome(context),
+          );
+        },
       ),
       GoRoute(
         path: Routes.dashboard,

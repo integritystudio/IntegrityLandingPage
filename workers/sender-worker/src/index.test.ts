@@ -22,13 +22,16 @@ type ApiResponse = SuccessResponse | ErrorResponse;
 interface Env {
   SHARED_SECRET: string;
   RECEIVER_WORKER_URL: string;
-  SUPABASE_URL: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
   AUTH0_DOMAIN: string;
   AUTH0_CLIENT_ID: string;
   AUTH0_CLIENT_SECRET: string;
   AUTH0_AUDIENCE: string;
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
   ALLOWED_ORIGINS_JSON?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_PLAN_TO_PRICE_JSON?: string;
+  APP_BASE_URL?: string;
 }
 
 import worker from './index';
@@ -37,12 +40,12 @@ import worker from './index';
 const mockEnv: Env = {
   SHARED_SECRET: 'test-shared-secret-key',
   RECEIVER_WORKER_URL: 'https://receiver.test',
-  SUPABASE_URL: 'https://supabase.test',
-  SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
   AUTH0_DOMAIN: 'test.auth0.com',
   AUTH0_CLIENT_ID: 'test-client-id',
   AUTH0_CLIENT_SECRET: 'test-client-secret',
   AUTH0_AUDIENCE: 'https://api.test',
+  SUPABASE_URL: 'https://supabase.test',
+  SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
 };
 
 // Helper to compute HMAC-SHA256 signature (matches receiver verification)
@@ -973,6 +976,96 @@ describe('Sender Worker', () => {
     });
   });
 
+  describe('POST /signup — ROPC token exchange', () => {
+    it('returns jwt in 201 response from ROPC token exchange', async () => {
+      let oauthCallCount = 0;
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          oauthCallCount++;
+          const token = oauthCallCount === 1 ? 'test-mgmt-token' : 'test-user-jwt';
+          return new Response(JSON.stringify({ access_token: token }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|test-sub' }), {
+            status: 201,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          return new Response(JSON.stringify([{ id: 'org-uuid-ropc' }]), {
+            status: 201,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(201);
+      const data = await response.json() as { jwt: string; auth0Sub: string; email: string };
+      expect(data.jwt).toBe('test-user-jwt');
+      expect(data.auth0Sub).toBe('auth0|test-sub');
+      expect(data.email).toBe('user@example.com');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('calls /oauth/token twice — once for mgmt token then once for ROPC', async () => {
+      const oauthCalls: string[] = [];
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          const body = JSON.parse((init?.body as string) ?? '{}') as { grant_type?: string };
+          oauthCalls.push(body.grant_type ?? 'unknown');
+          return new Response(JSON.stringify({ access_token: 'token' }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|test' }), {
+            status: 201,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          return new Response(JSON.stringify([{ id: 'org-uuid-ropc-2' }]), {
+            status: 201,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(oauthCalls).toHaveLength(2);
+      expect(oauthCalls[0]).toBe('client_credentials');
+      expect(oauthCalls[1]).toBe('password');
+
+      fetchSpy.mockRestore();
+    });
+  });
+
   describe('POST /signin — not implemented (Auth0 handles auth)', () => {
     it('returns 404 for /signin route', async () => {
       const request = new Request('https://worker.test/signin', {
@@ -986,6 +1079,144 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(404);
       const data = await response.json() as { error: string };
       expect(data.error).toContain('Auth0');
+    });
+  });
+
+  describe('POST /create-checkout-session — Stripe checkout', () => {
+    const stripeEnv: Env = {
+      ...mockEnv,
+      STRIPE_SECRET_KEY: 'sk_test_abc123',
+      STRIPE_PLAN_TO_PRICE_JSON: JSON.stringify({ growth: 'price_growth_monthly', enterprise: 'price_enterprise_annual' }),
+      APP_BASE_URL: 'https://integritystudio.ai',
+    };
+
+    it('returns 200 with checkoutUrl on success', async () => {
+      const checkoutUrl = 'https://checkout.stripe.com/pay/cs_test_abc123';
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ url: checkoutUrl }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+
+      const response = await worker.fetch(request, stripeEnv);
+
+      expect(response.status).toBe(200);
+      const data = await response.json() as { checkoutUrl: string };
+      expect(data.checkoutUrl).toBe(checkoutUrl);
+      fetchSpy.mockRestore();
+    });
+
+    it('calls Stripe API with correct price and mode', async () => {
+      let capturedBody = '';
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (_url, init) => {
+        capturedBody = init?.body as string;
+        return new Response(JSON.stringify({ url: 'https://checkout.stripe.com/pay/test' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      });
+
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+
+      await worker.fetch(request, stripeEnv);
+
+      const params = new URLSearchParams(capturedBody);
+      expect(params.get('mode')).toBe('subscription');
+      expect(params.get('line_items[0][price]')).toBe('price_growth_monthly');
+      expect(params.get('line_items[0][quantity]')).toBe('1');
+      expect(params.get('customer_email')).toBe('user@example.com');
+      expect(params.get('success_url')).toContain('/checkout-success');
+      expect(params.get('cancel_url')).toContain('/signup?tier=growth');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 when STRIPE_SECRET_KEY is not configured', async () => {
+      const noStripeEnv: Env = { ...mockEnv };
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+
+      const response = await worker.fetch(request, noStripeEnv);
+
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('Stripe not configured');
+    });
+
+    it('returns 500 when tier has no configured price', async () => {
+      const noPriceEnv: Env = {
+        ...mockEnv,
+        STRIPE_SECRET_KEY: 'sk_test_abc123',
+        STRIPE_PLAN_TO_PRICE_JSON: JSON.stringify({}),
+      };
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+
+      const response = await worker.fetch(request, noPriceEnv);
+
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('growth');
+    });
+
+    it('returns 400 when email is missing', async () => {
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tier: 'growth' }),
+      });
+
+      const response = await worker.fetch(request, stripeEnv);
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 when tier is missing', async () => {
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com' }),
+      });
+
+      const response = await worker.fetch(request, stripeEnv);
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 500 when Stripe API fails', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { message: 'Invalid API key' } }), {
+          status: 401,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+
+      const response = await worker.fetch(request, stripeEnv);
+
+      expect(response.status).toBe(500);
+      fetchSpy.mockRestore();
     });
   });
 

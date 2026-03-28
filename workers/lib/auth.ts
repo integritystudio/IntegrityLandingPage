@@ -1,10 +1,17 @@
 import { unauthorized } from './http';
 
+/** Seconds of clock-skew tolerance applied to the `nbf` (Not Before) check. */
+const NBF_CLOCK_SKEW_SECONDS = 30;
+
 export interface JwtPayload {
   sub: string;
   email: string;
   iat: number;
   exp: number;
+  /** RFC 7519 §4.1.5 — Not Before. Optional; validated when present. */
+  nbf?: number;
+  /** RFC 7519 §4.1.3 — Audience. Optional; validated when VerifyJwtOptions.audience is set. */
+  aud?: string | string[];
   [key: string]: unknown;
 }
 
@@ -88,7 +95,6 @@ export async function verifyJwt(
     return { ok: false, error: unauthorized('JWT verification failed') };
   }
 
-  // Claims validation.
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp < now) {
     return { ok: false, error: unauthorized('JWT expired') };
@@ -99,8 +105,8 @@ export async function verifyJwt(
   }
 
   // RFC 7519 §4.1.5 — nbf (Not Before): reject tokens used before their validity window.
-  // Allow 30s of clock skew to tolerate minor time drift between services.
-  if (typeof payload.nbf === 'number' && payload.nbf > now + 30) {
+  // NBF_CLOCK_SKEW_SECONDS tolerates minor time drift between services.
+  if (typeof payload.nbf === 'number' && payload.nbf > now + NBF_CLOCK_SKEW_SECONDS) {
     return { ok: false, error: unauthorized('JWT not yet valid') };
   }
 
@@ -109,7 +115,7 @@ export async function verifyJwt(
     const aud = payload.aud;
     const audOk =
       aud === opts.audience ||
-      (Array.isArray(aud) && (aud as unknown[]).includes(opts.audience));
+      (Array.isArray(aud) && aud.includes(opts.audience));
     if (!audOk) {
       return { ok: false, error: unauthorized('JWT audience mismatch') };
     }

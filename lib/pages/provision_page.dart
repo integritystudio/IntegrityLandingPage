@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../config/content/constants.dart';
 import '../services/analytics.dart';
+import '../services/auth_storage.dart';
 import '../services/provisioning_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/alert.dart';
@@ -64,6 +67,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
 
     switch (response) {
       case ProvisioningSuccess():
+        AuthStorage.saveJwt(widget.auth.jwt);
         setState(() {
           _apiKey = response.apiKey;
           _isLoading = false;
@@ -76,6 +80,12 @@ class _ProvisionPageState extends State<ProvisionPage> {
           _isLoading = false;
         });
     }
+  }
+
+  Future<void> _goToDashboard() async {
+    final encoded = Uri.encodeQueryComponent(widget.auth.jwt);
+    final uri = Uri.parse('${ExternalUrls.dashboardApp}?access_token=$encoded');
+    await launchUrl(uri);
   }
 
   Future<void> _loadBootstrap() async {
@@ -229,6 +239,10 @@ class _ProvisionPageState extends State<ProvisionPage> {
                     _buildOrgContextCard(_bootstrapResult!),
                   ],
                   const SizedBox(height: AppSpacing.lg),
+                  GradientButton(
+                    onPressed: _goToDashboard,
+                    text: 'Go to Dashboard',
+                  ),
                 ] else ...[
                   // Provision button
                   GradientButton(

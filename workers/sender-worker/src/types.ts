@@ -5,6 +5,7 @@ export const ROUTES = {
   SIGNUP: "/signup",
   SIGNIN: "/signin",
   SEND: "/send",
+  CREATE_CHECKOUT_SESSION: "/create-checkout-session",
 } as const;
 
 export const HTTP_METHODS = {
@@ -43,37 +44,19 @@ export const CORS_HEADERS = {
   "access-control-max-age": "86400",
 } as const;
 
-export const SUPABASE_PATHS = {
-  TABLE_USERS: "/rest/v1/users",
-  TABLE_ORGANIZATIONS: "/rest/v1/organizations",
-  TABLE_ORG_MEMBERSHIPS: "/rest/v1/organization_memberships",
-} as const;
-
 export const AUTH0_PATHS = {
   TOKEN: "/oauth/token",
   USERS: "/api/v2/users",
 } as const;
 
-/** Slug prefix that identifies a personal (single-user) default organization. */
-export const PERSONAL_ORG_SLUG_PREFIX = "personal-" as const;
-
-/** Default plan and billing state for auto-created personal organizations. */
-export const PERSONAL_ORG_DEFAULTS = {
-  current_plan: "starter",
-  billing_status: "inactive",
-} as const;
-
-export const SUPABASE_HEADER_NAMES = {
-  API_KEY: "apikey",
-  PREFER: "prefer",
-} as const;
-
-export const SUPABASE_PREFER = {
-  RETURN_MINIMAL: "return=minimal",
-} as const;
-
 export const RECEIVER_PATHS = {
   INBOX: "/inbox",
+} as const;
+
+export const SUPABASE_PATHS = {
+  ORGANIZATIONS: "/rest/v1/organizations",
+  USERS: "/rest/v1/users",
+  ORG_MEMBERSHIPS: "/rest/v1/organization_memberships",
 } as const;
 
 export const HEADER_NAMES = {
@@ -108,16 +91,25 @@ export const SendRequestSchema = z.object({
   org_name: data.org_name ?? data.email.split("@")[1],
 }));
 
+export const CreateCheckoutSessionSchema = z.object({
+  email: z.string().email(),
+  tier: ApiKeyTierSchema,
+});
+export type CreateCheckoutSession = z.infer<typeof CreateCheckoutSessionSchema>;
+
 export const SERVICE_NAME = "api-provisioning-sender";
 
 export interface Env {
   SHARED_SECRET: string;
   RECEIVER_WORKER_URL: string;
-  SUPABASE_URL: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
   AUTH0_DOMAIN: string;
   AUTH0_CLIENT_ID: string;
   AUTH0_CLIENT_SECRET: string;
   AUTH0_AUDIENCE: string;
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
   ALLOWED_ORIGINS_JSON?: string;
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_PLAN_TO_PRICE_JSON?: string;
+  APP_BASE_URL?: string;
 }

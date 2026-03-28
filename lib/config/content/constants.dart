@@ -67,6 +67,9 @@ abstract final class ExternalUrls {
   // Status page (from content.yaml: urls.external.status_page)
   static String get statusPage => ContentLoader.statusPageUrl;
 
+  // Dashboard app (authenticated product)
+  static const String dashboardApp = 'https://integritystudio.dev';
+
   // Documentation
   static const String euAiAct = 'https://integritystudio.ai/docs/tracing#eu-ai-act';
 
@@ -101,6 +104,8 @@ abstract final class Routes {
   static const String signupTeam = '/signup?tier=Team';
   static const String signin = '/signin';
   static const String provision = '/provision';
+  static const String checkout = '/checkout';
+  static const String checkoutSuccess = '/checkout-success';
   static const String senderHealth = '/health';
   static const String dashboard = '/dashboard';
   static const String billingStatus = '/billing';
