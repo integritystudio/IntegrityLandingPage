@@ -82,8 +82,9 @@ Navigate to dashboard (authenticated)
 - ~~Forward `name` field from `SignupPage` to sender-worker `/signup` for use in org display name~~ ✅ Done — `ProvisioningService.signUp(name:, tier:)` passes both; sender-worker forwards to `supabaseCreatePersonalOrg`
 - ~~Pass `tier` from `SignupPage` to sender-worker so `supabaseCreatePersonalOrg` sets the correct initial plan~~ ✅ Done — `current_plan` is now set from the request `tier`; invalid/absent values default to `starter`
 - ~~On `AuthError`, error shown inline with no redirect~~ ✅ Done — `AuthError` now navigates to `/request_failure`
-- Store Auth0 JWT in secure storage and route directly to authenticated dashboard post-provision
-- Wire Stripe checkout for paid tiers (`growth`, `enterprise`) post-signup
+- ~~Store Auth0 JWT in secure storage and route directly to authenticated dashboard post-provision~~ ✅ Done — ROPC exchange in sender-worker `/signup` returns real JWT; `AuthStorage` saves it to `localStorage`; `ProvisionPage` shows "Go to Dashboard" → opens `integritystudio.dev?access_token=JWT`
+- ~~Wire Stripe checkout for `growth` tier post-signup~~ ✅ Done — `POST /create-checkout-session` on sender-worker; `CheckoutPage` redirects to Stripe; `CheckoutSuccessPage` prompts sign-in to activate
+- Wire Stripe checkout for `enterprise` tier — pending (enterprise uses contact-sales flow with no Auth0 signup; requires reworking that path first)
 
 ### Involved Files (target)
 

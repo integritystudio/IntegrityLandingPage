@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:integrity_studio_ai/pages/signup_page.dart';
-import 'package:integrity_studio_ai/services/contact_service.dart';
 import 'package:integrity_studio_ai/services/provisioning_service.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import 'package:integrity_studio_ai/widgets/common/form_fields.dart';
@@ -281,15 +280,23 @@ void main() {
         expect(find.text('Company Name'), findsOneWidget);
       });
 
-      testWidgets('enterprise does not show password field', (tester) async {
+      testWidgets('enterprise shows password field', (tester) async {
         setLargeViewport(tester);
         await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
         await tester.pump();
 
-        expect(find.text('Password *'), findsNothing);
+        expect(find.text('Password *'), findsOneWidget);
       });
 
-      testWidgets('password field is obscured on non-enterprise', (tester) async {
+      testWidgets('enterprise has 4 form fields (name, email, company, password)', (tester) async {
+        setLargeViewport(tester);
+        await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
+        await tester.pump();
+
+        expect(find.byType(FormTextField), findsNWidgets(4));
+      });
+
+      testWidgets('password field is obscured on all tiers', (tester) async {
         setLargeViewport(tester);
         await tester.pumpWidget(buildSignupPage(tier: 'starter'));
         await tester.pump();
@@ -314,12 +321,12 @@ void main() {
         expect(find.text('Start Free Trial'), findsOneWidget);
       });
 
-      testWidgets('enterprise shows Contact Sales', (tester) async {
+      testWidgets('enterprise shows Create Account', (tester) async {
         setLargeViewport(tester);
         await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
         await tester.pump();
 
-        expect(find.text('Contact Sales'), findsOneWidget);
+        expect(find.text('Create Account'), findsOneWidget);
       });
     });
 
@@ -431,16 +438,19 @@ void main() {
         expect(find.text('Please enter your email'), findsOneWidget);
       });
 
-      testWidgets('enterprise does not show password error', (tester) async {
+      testWidgets('enterprise shows password required error', (tester) async {
         setLargeViewport(tester);
         await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
         await tester.pump();
 
+        // Fill name, email, company but not password
+        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
+        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
+        await tester.enterText(find.byType(TextFormField).at(2), 'Acme Corp');
         await tester.tap(find.byType(GradientButton));
         await tester.pump();
 
-        expect(find.text('Please enter a password'), findsNothing);
-        expect(find.text('Password must be at least 8 characters'), findsNothing);
+        expect(find.text('Please enter a password'), findsOneWidget);
       });
 
       testWidgets('enterprise shows terms error when not agreed', (tester) async {
@@ -448,8 +458,11 @@ void main() {
         await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
         await tester.pump();
 
+        // Enterprise: at(0)=name, at(1)=email, at(2)=company, at(3)=password
         await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
         await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
+        await tester.enterText(find.byType(TextFormField).at(2), 'Acme Corp');
+        await tester.enterText(find.byType(TextFormField).at(3), 'password123');
         await tester.tap(find.byType(GradientButton));
         await tester.pump();
 
@@ -533,44 +546,74 @@ void main() {
         expect(find.text('request_failure_page'), findsOneWidget);
         expect(find.text('provision_page'), findsNothing);
       });
+
+      testWidgets('routes to /checkout for growth tier on success', (tester) async {
+        setLargeViewport(tester);
+        mockProvisioningDio.mockPostResponse(
+          {'jwt': 'test-jwt-456', 'email': 'user@example.com'},
+          statusCode: 201,
+        );
+
+        final router = _makeSignupRouterWithCheckout('growth');
+        await tester.pumpWidget(MaterialApp.router(
+          theme: testTheme,
+          routerConfig: router,
+        ));
+        await tester.pump();
+
+        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
+        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
+        await tester.enterText(find.byType(TextFormField).at(2), 'password123');
+        await tester.tap(find.byType(Checkbox));
+        await tester.pump();
+
+        await tester.tap(find.byType(GradientButton));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('checkout_page'), findsOneWidget);
+        expect(find.text('provision_page'), findsNothing);
+      });
     });
 
     // -------------------------------------------------------------------------
-    // Submission — enterprise (GoRouter + mocked ContactService)
+    // Submission — enterprise (GoRouter + mocked ProvisioningService)
     // -------------------------------------------------------------------------
 
     group('submission — enterprise', () {
-      late _MockContactDio mockContactDio;
+      late _MockProvisioningDio mockProvisioningDio;
 
       setUp(() {
-        mockContactDio = _MockContactDio();
-        ContactService.setDioForTesting(mockContactDio);
-        ContactService.retryDelay = (_) async {};
+        mockProvisioningDio = _MockProvisioningDio();
+        ProvisioningService.setDioForTesting(mockProvisioningDio);
+        ProvisioningService.retryDelay = (_) async {};
       });
 
       tearDown(() {
-        ContactService.resetDio();
-        ContactService.resetRetryDelay();
+        ProvisioningService.resetDio();
+        ProvisioningService.resetRetryDelay();
       });
 
-      testWidgets('does not require password field', (tester) async {
+      testWidgets('routes to /checkout on successful enterprise signup', (tester) async {
         setLargeViewport(tester);
-        mockContactDio.mockGetResponse({'csrfToken': 'test-csrf'});
-        mockContactDio.mockPostResponse({
-          'success': true,
-          'message': 'ok',
-          'submissionId': 'sub_test',
-        });
+        mockProvisioningDio.mockPostResponse(
+          {'jwt': 'test-jwt-789', 'email': 'corp@bigco.com'},
+          statusCode: 201,
+        );
 
-        final router = _makeSignupRouter('enterprise');
+        final router = _makeSignupRouterWithCheckout('enterprise');
         await tester.pumpWidget(MaterialApp.router(
           theme: testTheme,
           routerConfig: router,
         ));
         await tester.pump();
 
+        // Enterprise: at(0)=name, at(1)=email, at(2)=company, at(3)=password
         await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
+        await tester.enterText(find.byType(TextFormField).at(1), 'corp@bigco.com');
+        await tester.enterText(find.byType(TextFormField).at(2), 'Big Co Inc');
+        await tester.enterText(find.byType(TextFormField).at(3), 'password123');
         await tester.tap(find.byType(Checkbox));
         await tester.pump();
 
@@ -579,20 +622,18 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         await tester.pump(const Duration(milliseconds: 100));
 
-        expect(find.text('Please enter a password'), findsNothing);
-        expect(find.text('request_success_page'), findsOneWidget);
+        expect(find.text('checkout_page'), findsOneWidget);
+        expect(find.text('provision_page'), findsNothing);
       });
 
-      testWidgets('routes to /request_success on successful submission', (tester) async {
+      testWidgets('routes to /request_failure on failed enterprise signup', (tester) async {
         setLargeViewport(tester);
-        mockContactDio.mockGetResponse({'csrfToken': 'test-csrf'});
-        mockContactDio.mockPostResponse({
-          'success': true,
-          'message': 'ok',
-          'submissionId': 'sub_test',
-        });
+        mockProvisioningDio.mockPostResponse(
+          {'error': 'Email already in use'},
+          statusCode: 409,
+        );
 
-        final router = _makeSignupRouter('enterprise');
+        final router = _makeSignupRouterWithCheckout('enterprise');
         await tester.pumpWidget(MaterialApp.router(
           theme: testTheme,
           routerConfig: router,
@@ -600,41 +641,18 @@ void main() {
         await tester.pump();
 
         await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
+        await tester.enterText(find.byType(TextFormField).at(1), 'corp@bigco.com');
+        await tester.enterText(find.byType(TextFormField).at(2), 'Big Co Inc');
+        await tester.enterText(find.byType(TextFormField).at(3), 'password123');
         await tester.tap(find.byType(Checkbox));
         await tester.pump();
 
         await tester.tap(find.byType(GradientButton));
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
-
-        expect(find.text('request_success_page'), findsOneWidget);
-      });
-
-      testWidgets('routes to /request_failure on network error', (tester) async {
-        setLargeViewport(tester);
-        mockContactDio.mockGetResponse({'csrfToken': 'test-csrf'});
-        mockContactDio.mockPostError(DioExceptionType.connectionError);
-
-        final router = _makeSignupRouter('enterprise');
-        await tester.pumpWidget(MaterialApp.router(
-          theme: testTheme,
-          routerConfig: router,
-        ));
-        await tester.pump();
-
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
-        await tester.tap(find.byType(Checkbox));
-        await tester.pump();
-
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
         await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.text('request_failure_page'), findsOneWidget);
+        expect(find.text('checkout_page'), findsNothing);
       });
     });
   });
@@ -653,6 +671,31 @@ GoRouter _makeSignupRouter(String tier) => GoRouter(
         GoRoute(
           path: '/provision',
           builder: (_, __) => const Scaffold(body: Text('provision_page')),
+        ),
+        GoRoute(
+          path: '/request_success',
+          builder: (_, __) => const Scaffold(body: Text('request_success_page')),
+        ),
+        GoRoute(
+          path: '/request_failure',
+          builder: (_, __) => const Scaffold(body: Text('request_failure_page')),
+        ),
+      ],
+    );
+
+GoRouter _makeSignupRouterWithCheckout(String tier) => GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, __) => SignupPage(tier: tier, onBack: () {}),
+        ),
+        GoRoute(
+          path: '/provision',
+          builder: (_, __) => const Scaffold(body: Text('provision_page')),
+        ),
+        GoRoute(
+          path: '/checkout',
+          builder: (_, __) => const Scaffold(body: Text('checkout_page')),
         ),
         GoRoute(
           path: '/request_success',
@@ -751,119 +794,3 @@ class _MockProvisioningDio implements Dio {
   Future<Response<T>> requestUri<T>(Uri uri, {Object? data, CancelToken? cancelToken, Options? options, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
 }
 
-// -----------------------------------------------------------------------------
-// Mock Dio for ContactService (GET for CSRF + POST for form submit)
-// -----------------------------------------------------------------------------
-
-class _MockContactDio implements Dio {
-  Map<String, dynamic> _getResponseData = {'csrfToken': 'test-csrf-token'};
-  Map<String, dynamic> _postResponseData = {};
-  int _postStatusCode = 200;
-  DioExceptionType? _postError;
-
-  void mockGetResponse(Map<String, dynamic> data) {
-    _getResponseData = Map.of(data);
-  }
-
-  void mockPostResponse(Map<String, dynamic> data, {int statusCode = 200}) {
-    _postResponseData = Map.of(data);
-    _postStatusCode = statusCode;
-    _postError = null;
-  }
-
-  void mockPostError(DioExceptionType type) {
-    _postError = type;
-  }
-
-  @override
-  Future<Response<T>> get<T>(
-    String path, {
-    Object? data,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-    ProgressCallback? onReceiveProgress,
-  }) async =>
-      Response<T>(
-        data: Map<String, dynamic>.from(_getResponseData) as T,
-        statusCode: 200,
-        requestOptions: RequestOptions(path: path),
-      );
-
-  @override
-  Future<Response<T>> post<T>(
-    String path, {
-    Object? data,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-    ProgressCallback? onSendProgress,
-    ProgressCallback? onReceiveProgress,
-  }) async {
-    if (_postError != null) {
-      throw DioException(
-        type: _postError!,
-        requestOptions: RequestOptions(path: path),
-      );
-    }
-    return Response<T>(
-      data: Map<String, dynamic>.from(_postResponseData) as T,
-      statusCode: _postStatusCode,
-      requestOptions: RequestOptions(path: path),
-    );
-  }
-
-  @override
-  BaseOptions get options => BaseOptions();
-  @override
-  set options(BaseOptions options) {}
-  @override
-  Interceptors get interceptors => Interceptors();
-  @override
-  HttpClientAdapter get httpClientAdapter => throw UnimplementedError();
-  @override
-  set httpClientAdapter(HttpClientAdapter adapter) {}
-  @override
-  Transformer get transformer => throw UnimplementedError();
-  @override
-  set transformer(Transformer transformer) {}
-  @override
-  void close({bool force = false}) {}
-  @override
-  Dio clone({
-    BaseOptions? options,
-    Interceptors? interceptors,
-    HttpClientAdapter? httpClientAdapter,
-    Transformer? transformer,
-  }) => this;
-  @override
-  Future<Response<T>> getUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> postUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> delete<T>(String path, {Object? data, Map<String, dynamic>? queryParameters, Options? options, CancelToken? cancelToken}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> deleteUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken}) => throw UnimplementedError();
-  @override
-  Future<Response> download(String urlPath, dynamic savePath, {ProgressCallback? onReceiveProgress, Map<String, dynamic>? queryParameters, CancelToken? cancelToken, bool deleteOnError = true, String lengthHeader = Headers.contentLengthHeader, Object? data, Options? options, FileAccessMode fileAccessMode = FileAccessMode.write}) => throw UnimplementedError();
-  @override
-  Future<Response> downloadUri(Uri uri, dynamic savePath, {ProgressCallback? onReceiveProgress, CancelToken? cancelToken, bool deleteOnError = true, String lengthHeader = Headers.contentLengthHeader, Object? data, Options? options, FileAccessMode fileAccessMode = FileAccessMode.write}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> fetch<T>(RequestOptions requestOptions) => throw UnimplementedError();
-  @override
-  Future<Response<T>> head<T>(String path, {Object? data, Map<String, dynamic>? queryParameters, Options? options, CancelToken? cancelToken}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> headUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> patch<T>(String path, {Object? data, Map<String, dynamic>? queryParameters, Options? options, CancelToken? cancelToken, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> patchUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> put<T>(String path, {Object? data, Map<String, dynamic>? queryParameters, Options? options, CancelToken? cancelToken, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> putUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> request<T>(String path, {Object? data, Map<String, dynamic>? queryParameters, CancelToken? cancelToken, Options? options, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> requestUri<T>(Uri uri, {Object? data, CancelToken? cancelToken, Options? options, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-}

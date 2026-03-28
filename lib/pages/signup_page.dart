@@ -9,7 +9,6 @@ import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/common/form_fields.dart';
-import '../services/contact_service.dart';
 import '../services/provisioning_service.dart';
 
 /// Signup page with tier selection.
@@ -242,24 +241,25 @@ class _SignupPageState extends State<SignupPage> {
             ),
             const SizedBox(height: AppSpacing.md),
 
-            // Enterprise: company field; others: password field
-            if (_isEnterprise)
+            // Enterprise: company name + password; others: password only
+            if (_isEnterprise) ...[
               FormTextField(
                 label: 'Company Name',
                 value: _companyController.text,
                 onChanged: (value) => _companyController.text = value,
                 errorText: _fieldErrors['company'],
-              )
-            else
-              FormTextField(
-                label: 'Password',
-                value: _passwordController.text,
-                onChanged: (value) => _passwordController.text = value,
-                obscureText: true,
-                required: true,
-                autofillHint: AutofillHints.newPassword,
-                errorText: _fieldErrors['password'],
               ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+            FormTextField(
+              label: 'Password',
+              value: _passwordController.text,
+              onChanged: (value) => _passwordController.text = value,
+              obscureText: true,
+              required: true,
+              autofillHint: AutofillHints.newPassword,
+              errorText: _fieldErrors['password'],
+            ),
             const SizedBox(height: AppSpacing.lg),
 
             // Terms checkbox
@@ -311,8 +311,8 @@ class _SignupPageState extends State<SignupPage> {
             // Submit button
             GradientButton(
               text: _isSubmitting
-                  ? (_isEnterprise ? 'Sending Request...' : 'Creating Account...')
-                  : (_isEnterprise ? 'Contact Sales' : 'Start Free Trial'),
+                  ? 'Creating Account...'
+                  : (_isEnterprise ? 'Create Account' : 'Start Free Trial'),
               icon: _isSubmitting ? null : LucideIcons.arrowRight,
               onPressed: _isSubmitting ? null : _handleSubmit,
               fullWidth: true,
@@ -380,15 +380,13 @@ class _SignupPageState extends State<SignupPage> {
       hasError = true;
     }
 
-    if (!_isEnterprise) {
-      if (_passwordController.text.isEmpty) {
-        _fieldErrors['password'] = 'Please enter a password';
-        hasError = true;
-      } else if (_passwordController.text.length < _minPasswordLength) {
-        _fieldErrors['password'] =
-            'Password must be at least $_minPasswordLength characters';
-        hasError = true;
-      }
+    if (_passwordController.text.isEmpty) {
+      _fieldErrors['password'] = 'Please enter a password';
+      hasError = true;
+    } else if (_passwordController.text.length < _minPasswordLength) {
+      _fieldErrors['password'] =
+          'Password must be at least $_minPasswordLength characters';
+      hasError = true;
     }
 
     if (!_agreedToTerms) {
@@ -406,47 +404,19 @@ class _SignupPageState extends State<SignupPage> {
     AnalyticsService.trackFormSubmission(formType: 'signup_form', success: true);
     FacebookPixelService.trackLead(email: _emailController.text);
 
-    if (_isEnterprise) {
-      await _handleEnterpriseSubmit();
-    } else {
-      await _handleAuthSubmit();
-    }
-  }
-
-  Future<void> _handleEnterpriseSubmit() async {
-    final response = await ContactService.submitForm(
-      ContactFormPayload(
-        formData: ContactFormData(
-          name: _nameController.text.trim(),
-          email: _emailController.text.trim(),
-          organization: _companyController.text.trim().isNotEmpty
-              ? _companyController.text.trim()
-              : null,
-          message: 'Signup request for ${widget.tier} tier',
-        ),
-      ),
-    );
-
-    if (!mounted) return;
-    setState(() => _isSubmitting = false);
-
-    switch (response) {
-      case ContactFormSuccess():
-        context.go('/request_success');
-      case ContactFormError(:final fieldErrors):
-        if (fieldErrors != null) {
-          setState(() => _fieldErrors.addAll(fieldErrors));
-        } else {
-          context.go('/request_failure');
-        }
-    }
+    await _handleAuthSubmit();
   }
 
   Future<void> _handleAuthSubmit() async {
+    // Enterprise orgs use company name; others use personal name.
+    final orgName = _isEnterprise
+        ? _companyController.text.trim()
+        : _nameController.text.trim();
+
     final result = await ProvisioningService.signUp(
       _emailController.text.trim(),
       _passwordController.text,
-      name: _nameController.text.trim(),
+      name: orgName.isNotEmpty ? orgName : _nameController.text.trim(),
       tier: widget.tier,
     );
 
@@ -455,7 +425,12 @@ class _SignupPageState extends State<SignupPage> {
 
     switch (result) {
       case AuthSuccess():
-        context.go('/provision', extra: result);
+        if (widget.tier.toLowerCase() == 'growth' ||
+            widget.tier.toLowerCase() == 'enterprise') {
+          context.go('/checkout', extra: CheckoutArgs(email: result.email, tier: widget.tier));
+        } else {
+          context.go('/provision', extra: result);
+        }
       case AuthError():
         context.go('/request_failure');
     }
