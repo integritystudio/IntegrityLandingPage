@@ -9,6 +9,7 @@ import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/common/form_fields.dart';
+import '../services/content_loader.dart';
 import '../services/provisioning_service.dart';
 
 /// Signup page with tier selection.
@@ -62,34 +63,12 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   String get _tierDisplayName {
-    switch (widget.tier.toLowerCase()) {
-      case 'starter':
-        return 'Starter';
-      case 'growth':
-        return 'Growth';
-      case 'scale':
-        return 'Scale';
-      case 'enterprise':
-        return 'Enterprise';
-      default:
-        return widget.tier;
-    }
+    final name = widget.tier;
+    if (name.isEmpty) return name;
+    return name[0].toUpperCase() + name.substring(1).toLowerCase();
   }
 
-  String get _tierDescription {
-    switch (widget.tier.toLowerCase()) {
-      case 'starter':
-        return 'Perfect for small teams getting started with AI observability.';
-      case 'growth':
-        return 'For growing teams that need advanced monitoring features.';
-      case 'scale':
-        return 'For organizations with complex AI infrastructure needs.';
-      case 'enterprise':
-        return 'Custom solutions with dedicated support and SLAs.';
-      default:
-        return 'Get started with Integrity Studio.';
-    }
-  }
+  String get _tierDescription => ContentLoader.signupDescription(widget.tier);
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +164,7 @@ class _SignupPageState extends State<SignupPage> {
 
             // Header
             Text(
-              'Start Your Free Trial',
+              ContentLoader.signupHeading(widget.tier),
               style: AppTypography.headingMD.copyWith(color: Colors.white),
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -312,7 +291,7 @@ class _SignupPageState extends State<SignupPage> {
             GradientButton(
               text: _isSubmitting
                   ? 'Creating Account...'
-                  : (_isEnterprise ? 'Create Account' : 'Start Free Trial'),
+                  : ContentLoader.signupCta(widget.tier),
               icon: _isSubmitting ? null : LucideIcons.arrowRight,
               onPressed: _isSubmitting ? null : _handleSubmit,
               fullWidth: true,
@@ -328,11 +307,7 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   Widget _buildFeaturesList() {
-    final features = [
-      '14-day free trial',
-      'No credit card required',
-      'Cancel anytime',
-    ];
+    final features = ContentLoader.signupFeatures(widget.tier);
 
     return Wrap(
       alignment: WrapAlignment.center,
@@ -426,6 +401,7 @@ class _SignupPageState extends State<SignupPage> {
     switch (result) {
       case AuthSuccess():
         if (widget.tier.toLowerCase() == 'growth' ||
+            widget.tier.toLowerCase() == 'scale' ||
             widget.tier.toLowerCase() == 'enterprise') {
           context.go('/checkout', extra: CheckoutArgs(email: result.email, tier: widget.tier));
         } else {

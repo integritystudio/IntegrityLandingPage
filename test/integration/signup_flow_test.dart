@@ -44,8 +44,8 @@ void main() {
       // Verify tier badge is shown
       expect(find.text('Growth Plan'), findsOneWidget);
 
-      // Verify page title
-      expect(find.text('Start Your Free Trial'), findsOneWidget);
+      // Verify page title reflects paid tier
+      expect(find.text('Create Your Account'), findsOneWidget);
     });
 
     testWidgets('signup form has all required fields', (tester) async {

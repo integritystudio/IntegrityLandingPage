@@ -384,6 +384,36 @@ class ContentLoader {
   static String get statisticsSourceDisclaimer => _getString('statistics.source_disclaimer');
 
   // ===========================================================================
+  // SIGNUP PAGE
+  // ===========================================================================
+
+  /// Returns signup content for the given tier name (case-insensitive).
+  /// Scale is treated as growth. Falls back to starter for unknown tiers.
+  static Map<String, dynamic> signupTier(String tier) {
+    final normalized = tier.toLowerCase() == 'scale' ? 'growth' : tier.toLowerCase();
+    final key = 'signup.tiers.$normalized';
+    final value = _getValue(key);
+    if (value is YamlMap) return _yamlMapToMap(value);
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return _getMap('signup.tiers.starter');
+  }
+
+  static String signupHeading(String tier) =>
+      signupTier(tier)['heading']?.toString() ?? '';
+
+  static String signupDescription(String tier) =>
+      signupTier(tier)['description']?.toString() ?? '';
+
+  static String signupCta(String tier) =>
+      signupTier(tier)['cta']?.toString() ?? '';
+
+  static List<String> signupFeatures(String tier) {
+    final raw = signupTier(tier)['features'];
+    if (raw is List) return raw.map((e) => e.toString()).toList();
+    return [];
+  }
+
+  // ===========================================================================
   // BLOG CONTENT
   // ===========================================================================
 
