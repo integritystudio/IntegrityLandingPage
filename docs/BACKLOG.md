@@ -59,19 +59,12 @@ Implement authenticated dashboard with org switching, billing status, usage summ
 
 ---
 
-## Deferred: OAuth Security (#8-#10)
+## Deferred: OAuth Security (#8-#10) — ✅ COMPLETE
 
-## Deferred: OAuth Security (#8-#10)
-
-These issues are **deferred** because this is a landing page with placeholder OAuth callback UI and no OAuth backend.
-When OAuth is implemented, these MUST be added.
-
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| #8 OAuth State Validation | CRITICAL | CSRF via unvalidated `state` parameter |
-| #9 PKCE Implementation | CRITICAL | Authorization code interception (RFC 7636) |
-
-See git history for full implementation plans (removed from backlog on 2026-02-12 migration to CHANGELOG).
+| Issue | Severity | Status |
+|-------|----------|--------|
+| #8 OAuth State Validation | CRITICAL | ✅ Done — `OAuthService.validateCallback()` with constant-time compare; CSRF rejection tracked in analytics (commit b957544) |
+| #9 PKCE Implementation | CRITICAL | ✅ Done — `OAuthService.buildAuthorizationUrl()` with RFC 7636 S256 challenge; sessionStorage scoped; conditional web/stub exports (commit b957544) |
 
 ---
 
@@ -217,6 +210,13 @@ These issues require **server-side HTTP response header configuration** and cann
 ## Payment Processor Security Remediation
 
 Deferred security hardening for the two-layer authentication and billing system. Findings documented in `docs/security/SECURITY_VULNERABILITY_REPORT.md` and `docs/reports/JWT_COMPLIANCE_REVIEW.md`.
+
+**Completed this session:**
+- ✅ V-06: `nbf` claim validation with `NBF_CLOCK_SKEW_SECONDS` constant (commit 3f593b9)
+- ✅ V-18: `aud` claim validation; explicit typed fields on `JwtPayload` (commit 3f593b9)
+- ✅ V-22: `X-Content-Type-Options: nosniff` + `Cache-Control: no-store` on all api-gateway and sender-worker responses (commit 30d990f)
+- ✅ T28 (code): `blockConcurrencyWhile` cold-start guard + durability SLA documented (commit 6251629)
+- ✅ Enterprise Stripe checkout: enterprise signup now creates Auth0 account + Supabase org; routes to `/checkout`; graceful fallback to `/request_success` when no Stripe price configured (commit f14ba4a)
 
 ---
 
