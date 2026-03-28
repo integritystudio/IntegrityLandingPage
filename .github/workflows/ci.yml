@@ -262,7 +262,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: workers/sender-worker
-        run: npm ci
+        run: npm install
 
       - name: Install Doppler CLI
         run: |
