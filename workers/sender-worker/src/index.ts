@@ -9,9 +9,10 @@ import {
   RECEIVER_PATHS,
   SERVICE_NAME,
   EMAIL_REGEX,
-  SendRequestSchema,
   ApiKeyTierSchema,
   DEFAULT_TIER,
+  SendRequestSchema,
+  CreateCheckoutSessionSchema,
   type ApiKeyTier,
   type Env,
 } from "./types.js";
@@ -19,10 +20,12 @@ import { json, errorResponse } from "./utils.js";
 import { signMessage } from "./crypto.js";
 import {
   auth0CreateUser,
+  auth0UserSignIn,
   supabaseCreatePersonalOrg,
-  supabaseAddOrgOwner,
   supabaseInsertUser,
+  supabaseAddOrgOwner,
 } from "./supabase.js";
+import { createStripeCheckoutSession } from "./stripe.js";
 import { VERSION } from "./version.js";
 
 
@@ -53,47 +56,40 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
   if (!EMAIL_REGEX.test(req.email as string)) {
     return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
   }
-  const trimmedName = typeof req.name === "string" ? req.name.trim() : "";
-  const name = trimmedName || undefined;
-  const tier = ApiKeyTierSchema.safeParse(req.tier).success ? (req.tier as ApiKeyTier) : DEFAULT_TIER;
+
+  const email = req.email as string;
+  const password = req.password as string;
+  const providedName = typeof req.name === "string" && req.name.trim() ? req.name.trim() : null;
+  const tierParsed = ApiKeyTierSchema.safeParse(req.tier);
+  const tier: ApiKeyTier = tierParsed.success ? tierParsed.data : DEFAULT_TIER;
+  const orgName = providedName ?? `${email.split("@")[0]} (personal)`;
 
   try {
     const { auth0Sub } = await auth0CreateUser(
-      env.AUTH0_DOMAIN,
-      env.AUTH0_CLIENT_ID,
-      env.AUTH0_CLIENT_SECRET,
-      env.AUTH0_AUDIENCE,
-      req.email as string,
-      req.password as string,
+      env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
+      env.AUTH0_AUDIENCE, email, password,
     );
-    // Generate a UUID for the Supabase users.id column (separate from the Auth0 sub)
+
     const userId = crypto.randomUUID();
-    const { organizationId } = await supabaseCreatePersonalOrg(
-      env.SUPABASE_URL,
-      env.SUPABASE_SERVICE_ROLE_KEY,
-      userId,
-      req.email as string,
-      name,
-      tier,
+
+    const orgId = await supabaseCreatePersonalOrg(
+      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgName, tier,
     );
+
     await supabaseInsertUser(
-      env.SUPABASE_URL,
-      env.SUPABASE_SERVICE_ROLE_KEY,
-      userId,
-      auth0Sub,
-      req.email as string,
-      organizationId,
+      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId, auth0Sub, email,
     );
+
     await supabaseAddOrgOwner(
-      env.SUPABASE_URL,
-      env.SUPABASE_SERVICE_ROLE_KEY,
-      organizationId,
-      userId,
+      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId, userId,
     );
-    return json(
-      { auth0Sub, userId, email: req.email },
-      { status: HTTP_STATUS.CREATED },
+
+    const jwt = await auth0UserSignIn(
+      env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
+      env.AUTH0_AUDIENCE, email, password,
     );
+
+    return json({ jwt, auth0Sub, userId, email }, { status: HTTP_STATUS.CREATED });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[signup]", msg);
@@ -160,6 +156,37 @@ async function handleSend(env: Env, req: Record<string, unknown>): Promise<Respo
   }
 }
 
+async function handleCreateCheckoutSession(env: Env, req: Record<string, unknown>): Promise<Response> {
+  if (!env.STRIPE_SECRET_KEY) {
+    return errorResponse("Stripe not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
+
+  const parsed = CreateCheckoutSessionSchema.safeParse(req);
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path[0] ?? "request";
+    const code = field === "email" ? ERROR_CODE.INVALID_EMAIL : ERROR_CODE.MISSING_FIELDS;
+    return errorResponse(`invalid ${String(field)}`, code, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const { email, tier } = parsed.data;
+  const planToPriceJson = env.STRIPE_PLAN_TO_PRICE_JSON ?? "{}";
+  const appBaseUrl = env.APP_BASE_URL ?? "https://integritystudio.ai";
+
+  const result = await createStripeCheckoutSession(
+    env.STRIPE_SECRET_KEY,
+    planToPriceJson,
+    appBaseUrl,
+    email,
+    tier,
+  );
+
+  if (!result.ok) {
+    return errorResponse(result.error, ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
+
+  return json({ checkoutUrl: result.checkoutUrl });
+}
+
 async function routeRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
 
@@ -202,7 +229,25 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
     return handleSend(env, req);
   }
 
+  if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.CREATE_CHECKOUT_SESSION) {
+    let req: Record<string, unknown>;
+    try {
+      req = await request.json();
+    } catch {
+      return errorResponse("invalid json", ERROR_CODE.JSON_PARSE_ERROR, HTTP_STATUS.BAD_REQUEST);
+    }
+    return handleCreateCheckoutSession(env, req);
+  }
+
   return errorResponse("not found", ERROR_CODE.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+}
+
+/** V-22: Add security headers to all API responses. */
+function withSecurityHeaders(res: Response): Response {
+  const headers = new Headers(res.headers);
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Cache-Control", "no-store");
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
 }
 
 export default {
@@ -219,7 +264,7 @@ export default {
     }
 
     if (origin !== null && !originAllowed) {
-      return errorResponse("forbidden", ERROR_CODE.FORBIDDEN, HTTP_STATUS.FORBIDDEN);
+      return withSecurityHeaders(errorResponse("forbidden", ERROR_CODE.FORBIDDEN, HTTP_STATUS.FORBIDDEN));
     }
 
     const res = await routeRequest(request, env);
@@ -227,9 +272,11 @@ export default {
     if (originAllowed) {
       const headers = new Headers(res.headers);
       headers.set("access-control-allow-origin", origin);
+      headers.set("X-Content-Type-Options", "nosniff");
+      headers.set("Cache-Control", "no-store");
       return new Response(res.body, { status: res.status, headers });
     }
 
-    return res;
+    return withSecurityHeaders(res);
   },
 };

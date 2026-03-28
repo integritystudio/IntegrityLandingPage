@@ -34,6 +34,14 @@ let jwtIssuerWarned = false;
 let stripeKeyWarned = false;
 let appUrlWarned = false;
 
+/** V-22: Add security headers to all API responses. */
+function withSecurityHeaders(res: Response): Response {
+  const headers = new Headers(res.headers);
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Cache-Control', 'no-store');
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     if (!jwtIssuerWarned && !env.SUPABASE_JWT_ISSUER) {
@@ -58,10 +66,10 @@ export default {
     const { pathname } = new URL(request.url);
 
     if (pathname === '/health' && request.method === 'GET') {
-      return handleHealthCheck(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, env.QUOTA_DO, {
+      return withSecurityHeaders(await handleHealthCheck(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, env.QUOTA_DO, {
         pdKey: env.PAGERDUTY_INTEGRATION_KEY,
         waitUntil: ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
-      });
+      }));
     }
 
     const routeOpts = {
@@ -77,27 +85,27 @@ export default {
     };
 
     if (pathname === '/v1/ingest/events' && request.method === 'POST') {
-      return handleIngestEvent(
+      return withSecurityHeaders(await handleIngestEvent(
         request,
         { ...machineRouteOpts },
         ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
-      );
+      ));
     }
 
     if (pathname === OTEL_INGEST_ROUTE && request.method === 'POST') {
-      return handleIngestOtel(
+      return withSecurityHeaders(await handleIngestOtel(
         request,
         { ...machineRouteOpts, doNamespace: env.QUOTA_DO },
         ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
-      );
+      ));
     }
 
     if (pathname === '/v1/me' && request.method === 'GET') {
-      return handleMe(request, routeOpts);
+      return withSecurityHeaders(await handleMe(request, routeOpts));
     }
 
     if (pathname === '/v1/orgs' && request.method === 'GET') {
-      return handleListOrgs(request, routeOpts);
+      return withSecurityHeaders(await handleListOrgs(request, routeOpts));
     }
 
     const orgMatch = pathname.match(/^\/v1\/orgs\/([^/]+)(\/.*)?$/);
@@ -109,7 +117,7 @@ export default {
       // callers from triggering DO reads and leaking org existence via 429 vs 401.
       // Full auth (JWT or API key) is delegated to each route handler.
       const tokenResult = requireBearerToken(request);
-      if (!tokenResult.ok) return tokenResult.error;
+      if (!tokenResult.ok) return withSecurityHeaders(tokenResult.error);
 
       const quotaOpts = {
         doNamespace: env.QUOTA_DO,
@@ -118,12 +126,13 @@ export default {
       };
 
       const quota = await enforceOrgQuota(orgId, quotaOpts);
-      if (!quota.ok) return quota.response;
+      if (!quota.ok) return withSecurityHeaders(quota.response);
 
       const withRateLimitHeaders = (response: Response): Response => {
         const rl = quota.rateLimitHeaders;
-        if (Object.keys(rl).length === 0) return response;
         const headers = new Headers(response.headers);
+        headers.set('X-Content-Type-Options', 'nosniff');
+        headers.set('Cache-Control', 'no-store');
         for (const [k, v] of Object.entries(rl)) headers.set(k, v);
         return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
       };
@@ -161,7 +170,7 @@ export default {
       }
     }
 
-    return notFound('Not found');
+    return withSecurityHeaders(notFound('Not found'));
   },
 };
 
