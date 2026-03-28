@@ -59,12 +59,23 @@ function mockSupabaseOrgMemberships(): void {
     .reply(201, "");
 }
 
+function mockRopcTokenExchange(accessToken = "test-user-jwt"): void {
+  // Mocks the ROPC /oauth/token call made by auth0UserSignIn after user creation.
+  fetchMock
+    .get(`https://${AUTH0_DOMAIN}`)
+    .intercept({ path: "/oauth/token", method: "POST" })
+    .reply(200, JSON.stringify({ access_token: accessToken }), {
+      headers: { "content-type": "application/json" },
+    });
+}
+
 function mockFullSignupFlow(auth0Sub = "auth0|e2e-user", orgId = "org-e2e-uuid"): void {
-  mockTokenExchange();
+  mockTokenExchange();       // management API client-credentials grant
   mockAuth0CreateUser(auth0Sub);
   mockSupabaseOrg(orgId);
   mockSupabaseUsersInsert();
   mockSupabaseOrgMemberships();
+  mockRopcTokenExchange();   // ROPC sign-in after provisioning
 }
 
 // ─── POST /signup — success path ────────────────────────────────────────────
