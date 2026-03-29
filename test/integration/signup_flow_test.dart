@@ -202,7 +202,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 10);
       expect(find.text('Starter Plan'), findsOneWidget);
-      expect(find.textContaining('small teams'), findsOneWidget);
+      expect(find.textContaining('individual developers'), findsOneWidget);
 
       // Test enterprise tier
       await tester.pumpWidget(
