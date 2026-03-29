@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/signup_page.dart';
+import 'package:integrity_studio_ai/services/content_loader.dart';
 import 'package:integrity_studio_ai/pages/pricing_page.dart';
 // test_helpers imported via integration_test_helpers.dart
 import 'helpers/integration_test_helpers.dart';
@@ -202,7 +203,10 @@ void main() {
       );
       await pumpFrames(tester, frames: 10);
       expect(find.text('Starter Plan'), findsOneWidget);
-      expect(find.textContaining('individual developers'), findsOneWidget);
+      expect(
+        find.textContaining(ContentLoader.signupDescription('starter')),
+        findsOneWidget,
+      );
 
       // Test enterprise tier
       await tester.pumpWidget(
@@ -212,7 +216,10 @@ void main() {
       );
       await pumpFrames(tester, frames: 10);
       expect(find.text('Enterprise Plan'), findsOneWidget);
-      expect(find.textContaining('Custom'), findsOneWidget);
+      expect(
+        find.textContaining(ContentLoader.signupDescription('enterprise')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('features list is visible', (tester) async {
