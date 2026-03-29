@@ -266,7 +266,7 @@ jobs:
 
       - name: Install Doppler CLI
         run: |
-          curl -Ls https://cli.doppler.com/install.sh | sh
+          curl -Ls https://cli.doppler.com/install.sh | sudo sh
 
       - name: Deploy to Cloudflare
         working-directory: workers/sender-worker
