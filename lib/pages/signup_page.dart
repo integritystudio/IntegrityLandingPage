@@ -401,7 +401,6 @@ class _SignupPageState extends State<SignupPage> {
     switch (result) {
       case AuthSuccess():
         if (widget.tier.toLowerCase() == 'growth' ||
-            widget.tier.toLowerCase() == 'scale' ||
             widget.tier.toLowerCase() == 'enterprise') {
           context.go('/checkout', extra: CheckoutArgs(email: result.email, tier: widget.tier));
         } else {

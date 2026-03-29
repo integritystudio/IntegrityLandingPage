@@ -45,6 +45,33 @@ cta_text:
   form:
     send_message: "Send Message"
 
+signup:
+  tiers:
+    starter:
+      heading: "Start Your Free Trial"
+      description: "Perfect for individual developers getting started with AI observability."
+      cta: "Start Free Trial"
+      features:
+        - "14-day free trial"
+        - "No credit card required"
+        - "Cancel anytime"
+    growth:
+      heading: "Create Your Account"
+      description: "For growing teams that need advanced monitoring features."
+      cta: "Create Account"
+      features:
+        - "Instant access after signup"
+        - "Secure checkout"
+        - "Cancel anytime"
+    enterprise:
+      heading: "Create Your Account"
+      description: "Custom solutions with dedicated support and SLAs."
+      cta: "Create Account"
+      features:
+        - "Instant access after signup"
+        - "Secure checkout"
+        - "Cancel anytime"
+
 trust_indicators:
   current:
     - "EU AI Act Ready"
@@ -512,6 +539,33 @@ cta_text:
     learn_more: "Learn More"
   form:
     send_message: "Send Message"
+
+signup:
+  tiers:
+    starter:
+      heading: "Start Your Free Trial"
+      description: "Perfect for individual developers getting started with AI observability."
+      cta: "Start Free Trial"
+      features:
+        - "14-day free trial"
+        - "No credit card required"
+        - "Cancel anytime"
+    growth:
+      heading: "Create Your Account"
+      description: "For growing teams that need advanced monitoring features."
+      cta: "Create Account"
+      features:
+        - "Instant access after signup"
+        - "Secure checkout"
+        - "Cancel anytime"
+    enterprise:
+      heading: "Create Your Account"
+      description: "Custom solutions with dedicated support and SLAs."
+      cta: "Create Account"
+      features:
+        - "Instant access after signup"
+        - "Secure checkout"
+        - "Cancel anytime"
 
 trust_indicators:
   current:

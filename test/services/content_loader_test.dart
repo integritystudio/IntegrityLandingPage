@@ -284,6 +284,53 @@ void main() {
       });
     });
 
+    group('signup tier content', () {
+      test('starter returns correct heading, description, cta', () {
+        expect(ContentLoader.signupHeading('starter'), equals('Start Your Free Trial'));
+        expect(ContentLoader.signupDescription('starter'),
+            equals('Perfect for individual developers getting started with AI observability.'));
+        expect(ContentLoader.signupCta('starter'), equals('Start Free Trial'));
+      });
+
+      test('growth returns correct heading, description, cta', () {
+        expect(ContentLoader.signupHeading('growth'), equals('Create Your Account'));
+        expect(ContentLoader.signupDescription('growth'),
+            equals('For growing teams that need advanced monitoring features.'));
+        expect(ContentLoader.signupCta('growth'), equals('Create Account'));
+      });
+
+      test('enterprise returns correct heading, description, cta', () {
+        expect(ContentLoader.signupHeading('enterprise'), equals('Create Your Account'));
+        expect(ContentLoader.signupCta('enterprise'), equals('Create Account'));
+      });
+
+      test('starter features list is correct', () {
+        expect(ContentLoader.signupFeatures('starter'),
+            equals(['14-day free trial', 'No credit card required', 'Cancel anytime']));
+      });
+
+      test('growth features list is correct', () {
+        expect(ContentLoader.signupFeatures('growth'),
+            equals(['Instant access after signup', 'Secure checkout', 'Cancel anytime']));
+      });
+
+      test('tier lookup is case-insensitive', () {
+        expect(ContentLoader.signupHeading('Growth'), equals('Create Your Account'));
+        expect(ContentLoader.signupHeading('STARTER'), equals('Start Your Free Trial'));
+        expect(ContentLoader.signupCta('Enterprise'), equals('Create Account'));
+      });
+
+      test('unknown tier returns empty strings', () {
+        expect(ContentLoader.signupHeading('unknown'), isEmpty);
+        expect(ContentLoader.signupDescription('unknown'), isEmpty);
+        expect(ContentLoader.signupCta('unknown'), isEmpty);
+      });
+
+      test('unknown tier returns empty features list', () {
+        expect(ContentLoader.signupFeatures('unknown'), isEmpty);
+      });
+    });
+
     group('hero variants', () {
       test('getHeroVariant returns current variant', () {
         final hero = ContentLoader.getHeroVariant('current');
