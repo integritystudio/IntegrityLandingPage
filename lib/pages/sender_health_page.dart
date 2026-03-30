@@ -41,7 +41,7 @@ class _SenderHealthPageState extends State<SenderHealthPage> {
     // Get the sender worker URL from environment
     const senderWorkerUrl = String.fromEnvironment(
       'SENDER_WORKER_URL',
-      defaultValue: 'https://sender-worker.example.workers.dev',
+      defaultValue: 'https://sender-worker.alyshia-b38.workers.dev',
     );
 
     final isHealthy =

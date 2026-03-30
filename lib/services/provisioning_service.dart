@@ -9,14 +9,14 @@ import 'http_status.dart';
 /// Configurable via --dart-define for staging/development.
 const _senderWorkerUrl = String.fromEnvironment(
   'SENDER_WORKER_URL',
-  defaultValue: 'https://sender-worker.example.workers.dev',
+  defaultValue: 'https://sender-worker.alyshia-b38.workers.dev',
 );
 
 /// API Gateway endpoint.
 /// Configurable via --dart-define for staging/development.
 const _apiGatewayUrl = String.fromEnvironment(
   'API_GATEWAY_URL',
-  defaultValue: 'https://api-gateway.example.workers.dev',
+  defaultValue: 'https://api-gateway.alyshia-b38.workers.dev',
 );
 
 /// Provisioning event payload.
