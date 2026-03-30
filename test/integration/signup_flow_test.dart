@@ -271,7 +271,7 @@ void main() {
       String? receivedTier;
 
       final router = GoRouter(
-        initialLocation: '/signup?tier=scale',
+        initialLocation: '/signup?tier=growth',
         routes: [
           GoRoute(
             path: '/signup',
@@ -289,8 +289,12 @@ void main() {
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));
       await pumpFrames(tester, frames: 20);
 
-      expect(receivedTier, equals('scale'));
-      expect(find.text('Scale Plan'), findsOneWidget);
+      expect(receivedTier, equals('growth'));
+      expect(find.text('Growth Plan'), findsOneWidget);
+      expect(
+        find.textContaining(ContentLoader.signupDescription('growth')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('signup defaults to starter when no tier specified',
