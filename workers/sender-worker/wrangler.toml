@@ -9,7 +9,6 @@ service = "api-provisioning-receiver"
 
 # Secrets (set via wrangler secret put or doppler):
 #   SHARED_SECRET              — HMAC key; must match provisioning receiver
-#   RECEIVER_WORKER_URL        — URL of the provisioning receiver worker
 #   SUPABASE_URL               — Supabase project URL
 #   SUPABASE_SERVICE_ROLE_KEY  — Supabase service role key
 #   AUTH0_DOMAIN               — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com); source: Doppler integrity-studio/prd VITE_AUTH0_DOMAIN

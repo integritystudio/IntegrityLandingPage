@@ -87,7 +87,6 @@ export interface UserRow {
   email: string;
   name: string | null;
   tier: string;
-  default_organization_id: string | null;
   created_at: string;
 }
 

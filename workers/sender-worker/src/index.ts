@@ -106,13 +106,8 @@ function handleSignin(_env: Env, _req: Record<string, unknown>): Response {
 }
 
 async function handleSend(env: Env, req: Record<string, unknown>): Promise<Response> {
-  if (!env.RECEIVER && !env.RECEIVER_WORKER_URL) {
-    return errorResponse("RECEIVER not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
   if (!env.RECEIVER) {
-    try { new URL(env.RECEIVER_WORKER_URL); } catch {
-      return errorResponse("RECEIVER_WORKER_URL not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-    }
+    return errorResponse("RECEIVER service binding not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
   if (!env.SHARED_SECRET) {
     return errorResponse("SHARED_SECRET not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
@@ -143,18 +138,11 @@ async function handleSend(env: Env, req: Record<string, unknown>): Promise<Respo
       [HEADER_NAMES.TIMESTAMP]: ts,
       [HEADER_NAMES.SIGNATURE]: signature,
     };
-    // Prefer service binding (avoids Cloudflare error 1042 on inter-worker fetch).
-    const receiverRes = env.RECEIVER
-      ? await env.RECEIVER.fetch(`https://receiver${RECEIVER_PATHS.INBOX}`, {
-          method: HTTP_METHODS.POST,
-          headers,
-          body: bodyStr,
-        })
-      : await fetch(`${env.RECEIVER_WORKER_URL}${RECEIVER_PATHS.INBOX}`, {
-          method: HTTP_METHODS.POST,
-          headers,
-          body: bodyStr,
-        });
+    const receiverRes = await env.RECEIVER.fetch(`https://receiver${RECEIVER_PATHS.INBOX}`, {
+      method: HTTP_METHODS.POST,
+      headers,
+      body: bodyStr,
+    });
     const receiverBody = await receiverRes.text();
     const contentType = receiverRes.headers.get(HEADER_NAMES.CONTENT_TYPE) ?? CONTENT_TYPES.JSON;
     return new Response(receiverBody, {

@@ -17,7 +17,6 @@ interface UserRow extends Record<string, unknown> {
   email: string;
   name: string | null;
   tier: string;
-  default_organization_id: string | null;
   created_at: string;
 }
 
@@ -29,7 +28,7 @@ export async function handleMe(request: Request, opts: MeHandlerOptions): Promis
 
   const result = await sb.query<UserRow>('users', {
     filters: [{ column: 'auth0_id', operator: 'eq', value: auth.sub }],
-    select: 'id, auth0_id, email, name, tier, default_organization_id, created_at',
+    select: 'id, auth0_id, email, name, tier, created_at',
     limit: 1,
   });
 
@@ -44,7 +43,6 @@ export async function handleMe(request: Request, opts: MeHandlerOptions): Promis
     email: user.email,
     name: user.name,
     tier: user.tier,
-    default_organization_id: user.default_organization_id,
     created_at: user.created_at,
   });
 }

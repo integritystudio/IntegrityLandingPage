@@ -71,7 +71,6 @@ export const UserRowSchema = z.object({
   email: z.string().email(),
   name: z.string().nullable(),
   tier: z.string(),
-  default_organization_id: z.string().uuid().nullable(),
   created_at: z.string().datetime(),
 });
 
@@ -81,7 +80,6 @@ export const MeResponseSchema = z.object({
   email: z.string().email(),
   name: z.string().nullable(),
   tier: z.string(),
-  default_organization_id: z.string().uuid().nullable(),
   created_at: z.string().datetime(),
 });
 

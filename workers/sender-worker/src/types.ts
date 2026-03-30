@@ -101,9 +101,8 @@ export const SERVICE_NAME = "api-provisioning-sender";
 
 export interface Env {
   SHARED_SECRET: string;
-  RECEIVER_WORKER_URL: string;
-  /** Service binding to api-provisioning-receiver (avoids inter-worker fetch 1042 error). */
-  RECEIVER?: Fetcher;
+  /** Service binding to api-provisioning-receiver. */
+  RECEIVER: Fetcher;
   AUTH0_DOMAIN: string;
   AUTH0_CLIENT_ID: string;
   AUTH0_CLIENT_SECRET: string;
