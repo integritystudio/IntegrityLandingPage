@@ -28,10 +28,11 @@ export async function supabaseCreatePersonalOrg(
   name: string,
   tier: string,
 ): Promise<string> {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const res = await fetch(`${supabaseUrl}${SUPABASE_PATHS.ORGANIZATIONS}`, {
     method: "POST",
     headers: supabaseHeaders(serviceRoleKey),
-    body: JSON.stringify({ name, type: "personal", current_plan: tier }),
+    body: JSON.stringify({ name, slug, type: "personal", current_plan: tier }),
   });
   if (!res.ok) {
     const err = await res.text();
@@ -77,7 +78,7 @@ export async function supabaseAddOrgOwner(
   const res = await fetch(`${supabaseUrl}${SUPABASE_PATHS.ORG_MEMBERSHIPS}`, {
     method: "POST",
     headers: supabaseHeaders(serviceRoleKey),
-    body: JSON.stringify({ org_id: orgId, user_id: userId, role: "owner" }),
+    body: JSON.stringify({ organization_id: orgId, user_id: userId, role: "owner" }),
   });
   if (!res.ok) {
     const err = await res.text();

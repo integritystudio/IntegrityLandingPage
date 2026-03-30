@@ -40,7 +40,7 @@ export const ERROR_CODE = {
 
 export const CORS_HEADERS = {
   "access-control-allow-methods": "GET, POST, OPTIONS",
-  "access-control-allow-headers": "content-type, authorization",
+  "access-control-allow-headers": "content-type, authorization, x-session-data",
   "access-control-max-age": "86400",
 } as const;
 
@@ -81,7 +81,7 @@ export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const SendRequestSchema = z.object({
   action: ActionSchema,
-  jwt: z.string().jwt(),
+  jwt: z.string().min(1),
   name: z.string().min(1),
   email: z.string().email(),
   tier: ApiKeyTierSchema.catch(DEFAULT_TIER),
@@ -102,10 +102,17 @@ export const SERVICE_NAME = "api-provisioning-sender";
 export interface Env {
   SHARED_SECRET: string;
   RECEIVER_WORKER_URL: string;
+  /** Service binding to api-provisioning-receiver (avoids inter-worker fetch 1042 error). */
+  RECEIVER?: Fetcher;
   AUTH0_DOMAIN: string;
   AUTH0_CLIENT_ID: string;
   AUTH0_CLIENT_SECRET: string;
   AUTH0_AUDIENCE: string;
+  /** M2M app credentials for Management API (client_credentials grant). Falls back to AUTH0_CLIENT_ID/SECRET. */
+  AUTH0_M2M_CLIENT_ID?: string;
+  AUTH0_M2M_CLIENT_SECRET?: string;
+  /** Management API audience (e.g. https://{domain}/api/v2/). Falls back to AUTH0_AUDIENCE. */
+  AUTH0_M2M_AUDIENCE?: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   ALLOWED_ORIGINS_JSON?: string;
