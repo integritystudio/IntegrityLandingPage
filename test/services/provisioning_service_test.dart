@@ -37,6 +37,47 @@ void main() {
       expect(json['email'], 'user@example.com');
       expect(json['tier'], 'starter');
     });
+
+    test('toJson matches SendRequestSchema keys exactly', () {
+      final event = ProvisioningEvent(
+        action: 'provision_api_key',
+        name: 'alice',
+        email: 'alice@example.com',
+        tier: 'growth',
+        orgName: 'Acme Corp',
+      );
+
+      final json = event.toJson();
+
+      // Must contain exactly the keys the worker expects
+      expect(json.keys, unorderedEquals(['action', 'name', 'email', 'tier', 'org_name']));
+      expect(json['org_name'], 'Acme Corp');
+      expect(json['tier'], 'growth');
+    });
+
+    test('toJson omits org_name when null', () {
+      final event = ProvisioningEvent(
+        action: 'provision_api_key',
+        name: 'bob',
+        email: 'bob@example.com',
+      );
+
+      final json = event.toJson();
+
+      expect(json.containsKey('org_name'), isFalse);
+      expect(json.keys, unorderedEquals(['action', 'name', 'email', 'tier']));
+    });
+
+    test('defaults tier to starter', () {
+      final event = ProvisioningEvent(
+        action: 'provision_api_key',
+        name: 'carol',
+        email: 'carol@example.com',
+      );
+
+      expect(event.tier, 'starter');
+      expect(event.toJson()['tier'], 'starter');
+    });
   });
 
   group('sendEvent', () {
@@ -255,6 +296,56 @@ void main() {
 
       expect(result, isA<ProvisioningError>());
       expect((result as ProvisioningError).error, 'Invalid userId format');
+    });
+
+    test('sends body matching SendRequestSchema to /send endpoint', () async {
+      mockDio.mockPostResponse({
+        'ok': true,
+        'apiKey': 'sk-contract-test',
+        'received': 'contract-id',
+      });
+
+      final event = ProvisioningEvent(
+        action: 'provision_api_key',
+        name: 'jane',
+        email: 'jane@example.com',
+        tier: 'growth',
+        orgName: 'Jane Co',
+      );
+
+      await ProvisioningService.sendEvent(event, jwt: 'jwt-abc');
+
+      final body = mockDio.lastPostBody;
+      expect(body, isNotNull);
+      expect(body!['action'], 'provision_api_key');
+      expect(body['name'], 'jane');
+      expect(body['email'], 'jane@example.com');
+      expect(body['tier'], 'growth');
+      expect(body['org_name'], 'Jane Co');
+      // Must not contain legacy fields
+      expect(body.containsKey('userId'), isFalse);
+      expect(body.containsKey('sentAt'), isFalse);
+    });
+
+    test('sends body without org_name when not provided', () async {
+      mockDio.mockPostResponse({
+        'ok': true,
+        'apiKey': 'sk-no-org',
+        'received': 'no-org-id',
+      });
+
+      final event = ProvisioningEvent(
+        action: 'provision_api_key',
+        name: 'bob',
+        email: 'bob@example.com',
+      );
+
+      await ProvisioningService.sendEvent(event, jwt: 'jwt-xyz');
+
+      final body = mockDio.lastPostBody;
+      expect(body, isNotNull);
+      expect(body!.containsKey('org_name'), isFalse);
+      expect(body['tier'], 'starter');
     });
   });
 

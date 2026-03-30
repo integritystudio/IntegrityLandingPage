@@ -396,7 +396,7 @@ class ProvisioningService {
           options: Options(
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer $jwt',
+              'x-session-data': base64Encode(utf8.encode(jwt)),
             },
             // Accept all non-null status codes — HTTP errors are handled in
             // the explicit dispatch below so Dio must not throw on 4xx/5xx.
