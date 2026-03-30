@@ -25,18 +25,17 @@ void main() {
   group('ProvisioningEvent', () {
     test('toJson includes all required fields', () {
       final event = ProvisioningEvent(
-        userId: 'user-123',
-        action: 'create-api-key',
-        sentAt: DateTime(2026, 3, 19, 12, 0, 0),
+        action: 'provision_api_key',
+        name: 'user-123',
+        email: 'user@example.com',
       );
 
       final json = event.toJson();
 
-      expect(json['userId'], 'user-123');
-      expect(json['action'], 'create-api-key');
-      expect(json['sentAt'], isA<String>());
-      // Verify ISO8601 format with Z (UTC)
-      expect(json['sentAt'], contains('Z'));
+      expect(json['action'], 'provision_api_key');
+      expect(json['name'], 'user-123');
+      expect(json['email'], 'user@example.com');
+      expect(json['tier'], 'starter');
     });
   });
 
@@ -50,9 +49,9 @@ void main() {
       });
 
       final event = ProvisioningEvent(
-        userId: 'user-123',
-        action: 'create-api-key',
-        sentAt: DateTime.now(),
+        action: 'provision_api_key',
+        name: 'user-123',
+        email: 'user@example.com',
       );
 
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
@@ -74,9 +73,9 @@ void main() {
       ], statusCode: 500, successStatusCode: 200);
 
       final event = ProvisioningEvent(
-        userId: 'user-123',
-        action: 'create-api-key',
-        sentAt: DateTime.now(),
+        action: 'provision_api_key',
+        name: 'user-123',
+        email: 'user@example.com',
       );
 
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
@@ -93,9 +92,9 @@ void main() {
       );
 
       final event = ProvisioningEvent(
-        userId: 'user-123',
-        action: 'create-api-key',
-        sentAt: DateTime.now(),
+        action: 'provision_api_key',
+        name: 'user-123',
+        email: 'user@example.com',
       );
 
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
@@ -117,9 +116,9 @@ void main() {
       ], statusCode: 504, successStatusCode: 200);
 
       final event = ProvisioningEvent(
-        userId: 'user-123',
-        action: 'create-api-key',
-        sentAt: DateTime.now(),
+        action: 'provision_api_key',
+        name: 'user-123',
+        email: 'user@example.com',
       );
 
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
@@ -137,9 +136,9 @@ void main() {
       });
 
       final event = ProvisioningEvent(
-        userId: 'user-123',
-        action: 'create-api-key',
-        sentAt: DateTime.now(),
+        action: 'provision_api_key',
+        name: 'user-123',
+        email: 'user@example.com',
       );
 
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
@@ -157,9 +156,9 @@ void main() {
       });
 
       final event = ProvisioningEvent(
-        userId: 'user-123',
-        action: 'create-api-key',
-        sentAt: DateTime.now(),
+        action: 'provision_api_key',
+        name: 'user-123',
+        email: 'user@example.com',
       );
 
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
@@ -177,9 +176,9 @@ void main() {
       });
 
       final event = ProvisioningEvent(
-        userId: 'user-123',
-        action: 'create-api-key',
-        sentAt: DateTime.now(),
+        action: 'provision_api_key',
+        name: 'user-123',
+        email: 'user@example.com',
       );
 
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
@@ -192,9 +191,9 @@ void main() {
       mockDio.mockPostError(DioExceptionType.connectionTimeout);
 
       final event = ProvisioningEvent(
-        userId: 'user-123',
-        action: 'create-api-key',
-        sentAt: DateTime.now(),
+        action: 'provision_api_key',
+        name: 'user-123',
+        email: 'user@example.com',
       );
 
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
@@ -209,9 +208,9 @@ void main() {
       mockDio.mockPostError(DioExceptionType.connectionError);
 
       final event = ProvisioningEvent(
-        userId: 'user-123',
-        action: 'create-api-key',
-        sentAt: DateTime.now(),
+        action: 'provision_api_key',
+        name: 'user-123',
+        email: 'user@example.com',
       );
 
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
@@ -229,9 +228,9 @@ void main() {
       );
 
       final event = ProvisioningEvent(
-        userId: 'user-123',
-        action: 'create-api-key',
-        sentAt: DateTime.now(),
+        action: 'provision_api_key',
+        name: 'user-123',
+        email: 'user@example.com',
       );
 
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
@@ -247,9 +246,9 @@ void main() {
       );
 
       final event = ProvisioningEvent(
-        userId: 'invalid',
-        action: 'create-api-key',
-        sentAt: DateTime.now(),
+        action: 'provision_api_key',
+        name: 'invalid',
+        email: 'invalid@example.com',
       );
 
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
@@ -633,9 +632,9 @@ void main() {
       );
 
       final event = ProvisioningEvent(
-        userId: 'u1',
-        action: 'create-api-key',
-        sentAt: DateTime(2026, 3, 20),
+        action: 'provision_api_key',
+        name: 'u1',
+        email: 'u1@example.com',
       );
       final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
 

@@ -19,26 +19,28 @@ const _apiGatewayUrl = String.fromEnvironment(
   defaultValue: 'https://api-gateway.alyshia-b38.workers.dev',
 );
 
-/// Provisioning event payload.
+/// Provisioning event payload matching SendRequestSchema on sender-worker.
 class ProvisioningEvent {
-  final String userId;
   final String action;
-
-  /// Timestamp when the event was sent.
-  /// Should be in UTC for consistency with toJson serialization.
-  /// If a local DateTime is provided, it will be converted to UTC during serialization.
-  final DateTime sentAt;
+  final String name;
+  final String email;
+  final String tier;
+  final String? orgName;
 
   const ProvisioningEvent({
-    required this.userId,
     required this.action,
-    required this.sentAt,
+    required this.name,
+    required this.email,
+    this.tier = 'starter',
+    this.orgName,
   });
 
   Map<String, dynamic> toJson() => {
-        'userId': userId,
         'action': action,
-        'sentAt': sentAt.toUtc().toIso8601String(),
+        'name': name,
+        'email': email,
+        'tier': tier,
+        if (orgName != null) 'org_name': orgName,
       };
 }
 

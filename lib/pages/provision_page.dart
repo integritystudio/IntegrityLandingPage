@@ -52,10 +52,11 @@ class _ProvisionPageState extends State<ProvisionPage> {
       _errorMessage = null;
     });
 
+    final email = widget.auth.email.toLowerCase().trim();
     final event = ProvisioningEvent(
-      userId: widget.auth.email.toLowerCase().trim(),
-      action: 'provision',
-      sentAt: DateTime.now().toUtc(),
+      action: 'provision_api_key',
+      name: email.split('@')[0],
+      email: email,
     );
 
     final response = await ProvisioningService.sendEvent(
