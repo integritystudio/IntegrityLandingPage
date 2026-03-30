@@ -10,7 +10,6 @@ export default defineWorkersConfig({
           // Inject test-time secret values so the worker bindings are populated
           bindings: {
             SHARED_SECRET: "e2e-shared-secret",
-            RECEIVER_WORKER_URL: "https://receiver.e2e.test",
             SUPABASE_URL: "https://supabase.e2e.test",
             SUPABASE_SERVICE_ROLE_KEY: "e2e-service-role-key",
             AUTH0_DOMAIN: "e2e.auth0.test",
@@ -18,6 +17,22 @@ export default defineWorkersConfig({
             AUTH0_CLIENT_SECRET: "e2e-client-secret",
             AUTH0_AUDIENCE: "https://api.e2e.test",
           },
+          // Stub receiver worker so the RECEIVER service binding resolves
+          workers: [
+            {
+              name: "api-provisioning-receiver",
+              modules: true,
+              script: `export default {
+                async fetch(request) {
+                  if (request.method === "POST" && new URL(request.url).pathname === "/inbox") {
+                    const body = await request.json();
+                    return Response.json({ ok: true, received: body });
+                  }
+                  return Response.json({ error: "not found" }, { status: 404 });
+                }
+              }`,
+            },
+          ],
         },
       },
     },

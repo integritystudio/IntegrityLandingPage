@@ -292,8 +292,6 @@ describe("GET /health", () => {
 
 // ─── POST /send — provision_api_key ─────────────────────────────────────────
 
-const RECEIVER_URL = "https://receiver.e2e.test";
-
 const validSendPayload = {
   action: "provision_api_key",
   jwt: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
@@ -302,18 +300,11 @@ const validSendPayload = {
   tier: "starter",
 };
 
-function mockReceiverSuccess(): void {
-  fetchMock
-    .get(RECEIVER_URL)
-    .intercept({ path: "/inbox", method: "POST" })
-    .reply(200, JSON.stringify({ ok: true, received: validSendPayload }), {
-      headers: { "content-type": "application/json" },
-    });
-}
+// POST /send uses the RECEIVER service binding (stub worker defined in vitest.e2e.config.ts),
+// so no fetchMock is needed — the stub worker echoes back { ok: true, received: body }.
 
 describe("POST /send — valid provision_api_key", () => {
   it("forwards to receiver /inbox and returns 200", async () => {
-    mockReceiverSuccess();
     const res = await SELF.fetch("https://worker.test/send", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -325,13 +316,6 @@ describe("POST /send — valid provision_api_key", () => {
   });
 
   it("defaults tier to starter when absent", async () => {
-    fetchMock
-      .get(RECEIVER_URL)
-      .intercept({ path: "/inbox", method: "POST" })
-      .reply(200, JSON.stringify({ ok: true }), {
-        headers: { "content-type": "application/json" },
-      });
-
     const { tier: _t, ...noTier } = validSendPayload;
     const res = await SELF.fetch("https://worker.test/send", {
       method: "POST",
@@ -342,13 +326,6 @@ describe("POST /send — valid provision_api_key", () => {
   });
 
   it("includes org_name when provided", async () => {
-    fetchMock
-      .get(RECEIVER_URL)
-      .intercept({ path: "/inbox", method: "POST" })
-      .reply(200, JSON.stringify({ ok: true }), {
-        headers: { "content-type": "application/json" },
-      });
-
     const res = await SELF.fetch("https://worker.test/send", {
       method: "POST",
       headers: { "content-type": "application/json" },
