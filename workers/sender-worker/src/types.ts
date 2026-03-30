@@ -81,7 +81,7 @@ export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const SendRequestSchema = z.object({
   action: ActionSchema,
-  jwt: z.string().min(1),
+  jwt: z.string().jwt(),
   name: z.string().min(1),
   email: z.string().email(),
   tier: ApiKeyTierSchema.catch(DEFAULT_TIER),
