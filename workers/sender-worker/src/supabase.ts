@@ -19,6 +19,16 @@ function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
 }
 
 /**
+ * Generate a unique slug from an organization name.
+ * Sanitizes the name and appends a UUID suffix to ensure uniqueness.
+ */
+function dedupSlug(name: string): string {
+  const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const uniqueSuffix = crypto.randomUUID().slice(0, 8);
+  return `${baseSlug}-${uniqueSuffix}`;
+}
+
+/**
  * Insert a personal org into the `organizations` table.
  * Returns the new org's UUID.
  */
@@ -28,9 +38,7 @@ export async function supabaseCreatePersonalOrg(
   name: string,
   tier: string,
 ): Promise<string> {
-  const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const uniqueSuffix = crypto.randomUUID().slice(0, 8);
-  const slug = `${baseSlug}-${uniqueSuffix}`;
+  const slug = dedupSlug(name);
   const res = await fetch(`${supabaseUrl}${SUPABASE_PATHS.ORGANIZATIONS}`, {
     method: "POST",
     headers: supabaseHeaders(serviceRoleKey),
