@@ -28,7 +28,9 @@ export async function supabaseCreatePersonalOrg(
   name: string,
   tier: string,
 ): Promise<string> {
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const uniqueSuffix = crypto.randomUUID().slice(0, 8);
+  const slug = `${baseSlug}-${uniqueSuffix}`;
   const res = await fetch(`${supabaseUrl}${SUPABASE_PATHS.ORGANIZATIONS}`, {
     method: "POST",
     headers: supabaseHeaders(serviceRoleKey),
