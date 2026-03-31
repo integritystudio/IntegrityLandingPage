@@ -10,6 +10,7 @@ import {
 // =============================================================================
 
 const EMAIL_SEPARATOR = /@/;
+const DOT_TO_HYPHEN_REGEX = /\./g;
 const SLUG_SANITIZE_REGEX = /[^a-z0-9-]+/g;
 const SLUG_TRIM_REGEX = /^-|-$/g;
 
@@ -33,11 +34,17 @@ function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
  */
 function dedupSlug(email: string, tier: string): string {
   const [username] = email.toLowerCase().split(EMAIL_SEPARATOR);
-  const baseSlug = username.replace(SLUG_SANITIZE_REGEX, "-").replace(SLUG_TRIM_REGEX, "");
+  const baseSlug = username
+    .replace(DOT_TO_HYPHEN_REGEX, "-")
+    .replace(SLUG_SANITIZE_REGEX, "-")
+    .replace(SLUG_TRIM_REGEX, "");
 
   if (tier === "growth") {
     const [, domain] = email.toLowerCase().split(EMAIL_SEPARATOR);
-    const domainPart = domain.replace(SLUG_SANITIZE_REGEX, "");
+    const domainPart = domain
+      .replace(DOT_TO_HYPHEN_REGEX, "-")
+      .replace(SLUG_SANITIZE_REGEX, "")
+      .replace(SLUG_TRIM_REGEX, "");
     return `${baseSlug}-${domainPart}`;
   }
 
