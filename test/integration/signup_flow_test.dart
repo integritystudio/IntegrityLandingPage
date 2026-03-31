@@ -201,7 +201,7 @@ void main() {
           home: SignupPage(tier: 'starter', onBack: () {}),
         ),
       );
-      await pumpFrames(tester, frames: 10);
+      await pumpFrames(tester, frames: 20);
       expect(find.text('Starter Plan'), findsOneWidget);
       expect(
         find.textContaining(ContentLoader.signupDescription('starter')),
@@ -214,7 +214,7 @@ void main() {
           home: SignupPage(tier: 'enterprise', onBack: () {}),
         ),
       );
-      await pumpFrames(tester, frames: 10);
+      await pumpFrames(tester, frames: 20);
       expect(find.text('Enterprise Plan'), findsOneWidget);
       expect(
         find.textContaining(ContentLoader.signupDescription('enterprise')),

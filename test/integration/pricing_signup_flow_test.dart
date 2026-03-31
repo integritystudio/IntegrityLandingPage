@@ -210,27 +210,6 @@ void main() {
       expect(find.text('Enterprise Plan'), findsOneWidget);
     });
 
-    testWidgets('scale tier passes correct parameter', (tester) async {
-      setDesktopSize(tester);
-
-      final router = GoRouter(
-        initialLocation: '/signup?tier=scale',
-        routes: [
-          GoRoute(
-            path: '/signup',
-            builder: (context, state) {
-              final tier = state.uri.queryParameters['tier'] ?? 'starter';
-              return SignupPage(tier: tier, onBack: () {});
-            },
-          ),
-        ],
-      );
-
-      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
-      await pumpFrames(tester, frames: 20);
-
-      expect(find.text('Scale Plan'), findsOneWidget);
-    });
   });
 
   group('Signup Form After Tier Selection', () {
@@ -254,7 +233,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: SignupPage(tier: 'scale', onBack: () {}),
+          home: SignupPage(tier: 'growth', onBack: () {}),
         ),
       );
       await pumpFrames(tester, frames: 20);

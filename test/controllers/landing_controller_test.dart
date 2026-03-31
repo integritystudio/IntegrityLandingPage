@@ -270,14 +270,14 @@ void main() {
         expect(tierViews.first.params['tier'], 'enterprise');
       });
 
-      test('trackTierSelection sends team tier', () {
-        controller.trackTierSelection('team');
+      test('trackTierSelection sends growth tier', () {
+        controller.trackTierSelection('growth');
 
         final tierViews = analyticsLog
             .where((e) => e.event == AnalyticsEvent.pricingTierView)
             .toList();
         expect(tierViews, hasLength(1));
-        expect(tierViews.first.params['tier'], 'team');
+        expect(tierViews.first.params['tier'], 'growth');
       });
 
       test('trackTierSelection sends starter tier', () {

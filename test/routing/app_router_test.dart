@@ -245,8 +245,8 @@ void main() {
       expect(find.byType(SignupPage), findsOneWidget);
     });
 
-    testWidgets('/signup?tier=team uses team tier', (tester) async {
-      await pumpRouterApp(tester, initialLocation: '/signup?tier=team');
+    testWidgets('/signup?tier=growth uses growth tier', (tester) async {
+      await pumpRouterApp(tester, initialLocation: '/signup?tier=growth');
 
       expect(find.byType(SignupPage), findsOneWidget);
     });

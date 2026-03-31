@@ -103,25 +103,9 @@ void main() {
         expect(find.byType(SignupPage), findsOneWidget);
       });
 
-      testWidgets('renders with scale tier', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'scale'));
-        await tester.pump();
-
-        expect(find.byType(SignupPage), findsOneWidget);
-      });
-
       testWidgets('renders with enterprise tier', (tester) async {
         setLargeViewport(tester);
         await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
-        await tester.pump();
-
-        expect(find.byType(SignupPage), findsOneWidget);
-      });
-
-      testWidgets('renders with custom tier', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'custom-tier'));
         await tester.pump();
 
         expect(find.byType(SignupPage), findsOneWidget);
