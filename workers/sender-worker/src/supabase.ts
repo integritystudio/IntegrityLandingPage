@@ -9,10 +9,10 @@ import {
 // Constants
 // =============================================================================
 
-const EMAIL_SEPARATOR = /@/;
-const DOT_TO_HYPHEN_REGEX = /\./g;
-const SLUG_SANITIZE_REGEX = /[^a-z0-9-]+/g;
-const SLUG_TRIM_REGEX = /^-|-$/g;
+export const EMAIL_SEPARATOR = /@/;
+export const DOT_TO_HYPHEN_REGEX = /\./g;
+export const SLUG_SANITIZE_REGEX = /[^a-z0-9-]+/g;
+export const SLUG_TRIM_REGEX = /^-|-$/g;
 
 // =============================================================================
 // Supabase
@@ -32,7 +32,7 @@ function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
  * For 'growth' tier: uses email username + domain for deterministic slug.
  * For other tiers: uses email username + UUID suffix for randomness.
  */
-function dedupSlug(email: string, tier: string): string {
+export function dedupSlug(email: string, tier: string): string {
   const [username] = email.toLowerCase().split(EMAIL_SEPARATOR);
   const baseSlug = username
     .replace(DOT_TO_HYPHEN_REGEX, "-")
