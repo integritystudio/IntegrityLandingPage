@@ -15,6 +15,7 @@ interface HealthResponse {
 
 interface InboxSuccessResponse {
   ok: boolean;
+  apiKey: string;
   received: Record<string, unknown>;
 }
 
@@ -107,6 +108,7 @@ describe('Receiver Worker', () => {
       expect(response.status).toBe(200);
       const data = await response.json() as InboxSuccessResponse;
       expect(data.ok).toBe(true);
+      expect(data.apiKey).toMatch(/^sk-[a-f0-9]{32}$/);
       expect(data.received).toEqual({ event: 'test', value: 42 });
     });
 

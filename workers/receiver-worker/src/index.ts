@@ -49,7 +49,8 @@ async function handleInbox(request: Request, env: Env): Promise<Response> {
     return jsonResponse({ error: 'invalid json' }, 400);
   }
 
-  return jsonResponse({ ok: true, received: parsed }, 200);
+  const apiKey = `sk-${crypto.randomUUID().replace(/-/g, '')}`;
+  return jsonResponse({ ok: true, apiKey, received: parsed }, 200);
 }
 
 export default {

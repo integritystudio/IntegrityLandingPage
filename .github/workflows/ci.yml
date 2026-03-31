@@ -149,6 +149,33 @@ jobs:
             echo "✅ Coverage ${COVERAGE}% meets threshold of ${THRESHOLD}%"
           fi
 
+  integration-live:
+    name: Live Integration Tests
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.5'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run live integration tests
+        run: |
+          flutter test test/services/provisioning_service_live_test.dart \
+            --dart-define=LIVE_TESTS=true \
+            --dart-define=SENDER_WORKER_URL=https://sender-worker.alyshia-b38.workers.dev
+
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
