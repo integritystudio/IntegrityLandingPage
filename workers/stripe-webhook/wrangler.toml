@@ -9,5 +9,6 @@ compatibility_date = "2026-03-19"
 # SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured
 
 # Reconciliation cron: retries dead letters and detects missed events every 15 minutes
-[[triggers.crons]]
+# Note: Cloudflare API format requires: cron = "schedule"
+[triggers]
 crons = ["*/15 * * * *"]
