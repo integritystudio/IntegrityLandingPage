@@ -52,24 +52,28 @@ void main() {
     });
 
     group('signUp', () {
-      test('returns AuthSuccess with valid JWT structure', () async {
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final testEmail = 'live-test-flutter-$timestamp@integritystudio-test.invalid';
+      test(
+        'returns AuthSuccess with valid JWT structure',
+        skip: 'requires Auth0 + sender-worker configured on staging',
+        () async {
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final testEmail = 'live-test-flutter-$timestamp@integritystudio-test.invalid';
 
-        // Act
-        final result = await ProvisioningService.signUp(
-          testEmail,
-          'TempPassword123!@#',
-          name: 'Live Test User',
-        );
+          // Act
+          final result = await ProvisioningService.signUp(
+            testEmail,
+            'TempPassword123!@#',
+            name: 'Live Test User',
+          );
 
-        // Assert
-        expect(result, isA<AuthSuccess>());
-        final authSuccess = result as AuthSuccess;
-        expect(authSuccess.jwt, isNotEmpty);
-        // JWT structure: base64.base64.base64
-        expect(authSuccess.jwt.split('.'), hasLength(3));
-      });
+          // Assert
+          expect(result, isA<AuthSuccess>());
+          final authSuccess = result as AuthSuccess;
+          expect(authSuccess.jwt, isNotEmpty);
+          // JWT structure: base64.base64.base64
+          expect(authSuccess.jwt.split('.'), hasLength(3));
+        },
+      );
 
       test('invalid email returns AuthError', () async {
         final result = await ProvisioningService.signUp(
