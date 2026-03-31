@@ -137,6 +137,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
         builder: (context, state) => RequestFailurePage(
           onBack: _goHome(context),
           onShowCookieSettings: onShowCookieSettings,
+          error: state.extra as String?,
         ),
       ),
       GoRoute(

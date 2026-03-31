@@ -407,7 +407,7 @@ class _SignupPageState extends State<SignupPage> {
           context.go('/provision', extra: result);
         }
       case AuthError():
-        context.go('/request_failure');
+        context.go('/request_failure', extra: result.error);
     }
   }
 

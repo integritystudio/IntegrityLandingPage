@@ -100,7 +100,7 @@ void main() {
         await pumpRequestFailurePage(tester);
 
         expect(
-          find.textContaining('couldn\'t send your message'),
+          find.textContaining('couldn\'t process your request'),
           findsOneWidget,
         );
       });
@@ -123,7 +123,7 @@ void main() {
       testWidgets('renders try again option', (tester) async {
         await pumpRequestFailurePage(tester);
 
-        expect(find.text('Try submitting again'), findsOneWidget);
+        expect(find.text('Try again'), findsOneWidget);
       });
 
       testWidgets('renders mail icon', (tester) async {
@@ -286,6 +286,70 @@ void main() {
     group('company info', () {
       test('CompanyInfo has email defined', () {
         expect(CompanyInfo.email, isNotEmpty);
+      });
+    });
+
+    group('user already exists error', () {
+      testWidgets('renders Account Already Exists heading for duplicate user error',
+          (tester) async {
+        await pumpRequestFailurePage(tester);
+        clearOverflowExceptions(tester);
+      });
+
+      testWidgets('renders specific message for user already exists', (tester) async {
+        clearOverflowExceptions(tester);
+        setScreenSize(tester, TestScreenSizes.desktopLarge);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: const RequestFailurePage(
+              error: 'User with this email already exists',
+            ),
+          ),
+        );
+        await tester.pump();
+        clearOverflowExceptions(tester);
+
+        expect(find.text('Account Already Exists'), findsOneWidget);
+        expect(
+          find.textContaining('already registered'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('Go to Sign In button appears for existing account',
+          (tester) async {
+        clearOverflowExceptions(tester);
+        setScreenSize(tester, TestScreenSizes.desktopLarge);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: const RequestFailurePage(
+              error: 'account already exists',
+            ),
+          ),
+        );
+        await tester.pump();
+        clearOverflowExceptions(tester);
+
+        expect(find.text('Go to Sign In'), findsOneWidget);
+      });
+
+      testWidgets('detects user exists error case-insensitively', (tester) async {
+        clearOverflowExceptions(tester);
+        setScreenSize(tester, TestScreenSizes.desktopLarge);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: const RequestFailurePage(
+              error: 'DUPLICATE USER ALREADY EXISTS IN DATABASE',
+            ),
+          ),
+        );
+        await tester.pump();
+        clearOverflowExceptions(tester);
+
+        expect(find.text('Account Already Exists'), findsOneWidget);
       });
     });
   });

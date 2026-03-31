@@ -2,12 +2,19 @@
 
 ## Current Status
 
-**Phase**: Billing & Dashboard ✅ COMPLETE
-**Last Updated**: 2026-03-27
+**Phase**: Testing Infrastructure & Error Handling ✅ COMPLETE
+**Last Updated**: 2026-03-31
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ All tests passing (2440+ tests, ~94% coverage; workers: 310 tests)
+**Test Status**: ✅ All tests passing (2740+ tests, ~94% coverage; workers: 310 tests; contract: 25 tests)
 
 See [docs/changelog/1.2/CHANGELOG.md](docs/changelog/1.2/CHANGELOG.md) for recent changes.
+
+### Recent Improvements (2026-03-31)
+- **Hybrid Testing**: Added contract tests (Dart ↔ TypeScript Zod schema verification, no live calls)
+- **Live Integration Tests**: Added optional CI job for staging integration tests with `LIVE_TESTS` dart-define
+- **Error Handling**: request_failure page now detects "user already exists" errors and auto-redirects to /signin
+- **Type Preservation Fix**: Fixed MockProvisioningDio generic type preservation in CI environment (Response<dynamic> casting pattern)
+- **API Key Generation**: receiver-worker now generates and returns `apiKey` field in provisioning response
 
 ### Known Issues
 - Contact form CORS blocks localhost (by design, needs config update for dev testing)
@@ -69,6 +76,17 @@ test/                 # Unit + widget tests (2440+ passing, ~94% coverage)
 - [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker that signs and forwards provisioning events to receiver-worker (HMAC-SHA256 inter-service auth, TDD-tested)
 - [workers/receiver-worker/](workers/receiver-worker/) — Cloudflare Worker that verifies signed requests and stores provisioning data (signature verification, replay protection)
 - [workers/stripe-webhook/](workers/stripe-webhook/) — Cloudflare Worker handling Stripe events (subscription lifecycle, checkout sessions, dead-letter queue, Supabase sync)
+
+## Testing Strategy
+
+**Hybrid Testing for ProvisioningService** — Three layers without duplicating test maintenance:
+1. **Unit Tests** (48 tests) — Mock HTTP via `MockProvisioningDio`, test retry logic and error handling
+2. **Contract Tests** (25 tests) — Verify Dart shapes match TypeScript Zod schemas, no live calls, runs in standard CI
+3. **Live Integration Tests** (7 tests) — Real HTTP calls to staging, guarded by `LIVE_TESTS` dart-define, optional CI job
+
+**Key Pattern**: Extract mock to `test/helpers/mock_provisioning_dio.dart` for reuse across unit + contract tests. Type preservation: always create `Response<dynamic>` before casting to `Response<T>` to preserve runtime type info (fixes CI environment issues).
+
+**Mock Dependency Injection**: Use `setDioForTesting()` seam to inject test Dio instance (see provisioning_service.dart:~230).
 
 ## Flutter Canvas Limitations (E2E Testing)
 

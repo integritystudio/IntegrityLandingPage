@@ -6,14 +6,14 @@
 Enterprise AI Observability Platform landing page built with Flutter Web.
 
 **Production**: https://integritystudio.ai
-**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, 2440+ Flutter + 310 worker tests
+**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, 2740+ Flutter (unit+contract+integration) + 310 worker tests
 
 ## Quick Start
 
 ```bash
 flutter pub get          # Install dependencies
 flutter run -d chrome    # Development server (localhost:8080)
-flutter test             # Run tests (2440+ passing, ~94% coverage)
+flutter test             # Run tests (2740+ passing, ~94% coverage)
 flutter build web        # Production build
 ```
 
@@ -98,9 +98,19 @@ npx vitest run                    # Tests
 ## Testing
 
 ```bash
-flutter test                           # All Flutter tests (~2440, ~94% coverage)
+# Flutter: Unit + Contract + Widget tests (~2740, ~94% coverage)
+flutter test                           # All tests
 flutter test --coverage                # With coverage report
 flutter test test/pages/               # Page tests only
+flutter test test/services/provisioning_service_test.dart        # Unit tests (48)
+flutter test test/services/provisioning_service_contract_test.dart # Contract tests (25, Dart ↔ TS schema)
+
+# Flutter: Live integration tests (optional, staging only)
+flutter test test/services/provisioning_service_live_test.dart \
+  --dart-define=LIVE_TESTS=true \
+  --dart-define=SENDER_WORKER_URL=https://sender-worker.alyshia-b38.workers.dev
+
+# Workers
 cd workers/contact-form && npm test    # Contact form worker tests (71 passing)
 cd workers/api-gateway && npm test     # API Gateway worker tests (122 passing)
 cd workers/receiver-worker && npm test  # Receiver worker tests (16)
