@@ -279,7 +279,7 @@ class ProvisioningService {
           'email': email,
           'password': password,
           if (name != null && name.isNotEmpty) 'name': name,
-          'tier': tier,
+          'tier': tier.toLowerCase(),
         }),
         options: Options(
           headers: {'Content-Type': 'application/json'},
@@ -356,7 +356,7 @@ class ProvisioningService {
     try {
       final response = await _dio.post(
         '$_senderWorkerUrl/create-checkout-session',
-        data: jsonEncode({'email': email, 'tier': tier}),
+        data: jsonEncode({'email': email, 'tier': tier.toLowerCase()}),
         options: Options(
           headers: {'Content-Type': 'application/json'},
           validateStatus: (status) => status != null,
@@ -420,13 +420,13 @@ class ProvisioningService {
 
         if (response.statusCode == HttpStatus.ok.code &&
             data['ok'] == true) {
-          final apiKey = data['apiKey'] as String?;
-          // Treat missing or empty apiKey as a data integrity error
-          if (apiKey == null || apiKey.isEmpty) {
+          final token = data['token'] as String?;
+          // Treat missing or empty token as a data integrity error
+          if (token == null || token.isEmpty) {
             return const ProvisioningError(error: _errorUnexpected);
           }
           return ProvisioningSuccess(
-            apiKey: apiKey,
+            apiKey: token,
             received: data['received'] as String? ?? '',
           );
         }
