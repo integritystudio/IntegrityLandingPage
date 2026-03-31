@@ -420,13 +420,13 @@ class ProvisioningService {
 
         if (response.statusCode == HttpStatus.ok.code &&
             data['ok'] == true) {
-          final token = data['token'] as String?;
-          // Treat missing or empty token as a data integrity error
-          if (token == null || token.isEmpty) {
+          final apiKey = data['apiKey'] as String?;
+          // Treat missing or empty apiKey as a data integrity error
+          if (apiKey == null || apiKey.isEmpty) {
             return const ProvisioningError(error: _errorUnexpected);
           }
           return ProvisioningSuccess(
-            apiKey: token,
+            apiKey: apiKey,
             received: data['received'] as String? ?? '',
           );
         }

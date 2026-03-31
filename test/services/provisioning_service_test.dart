@@ -866,9 +866,10 @@ class MockProvisioningDio implements Dio {
       _mockGetStatusCode = statusCode;
       _mockGetHeaders = headers ?? {};
       _mockGetError = null;
-      _getErrorAttempts.clear();
       _getResponseAttempts.clear();
       _getStatusAttempts.clear();
+      _retryableResponses = null;
+      _retryAttempt = 0;
     }
   }
 
