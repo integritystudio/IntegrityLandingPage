@@ -76,7 +76,7 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
     const userId = crypto.randomUUID();
 
     const orgId = await supabaseCreatePersonalOrg(
-      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgName, tier,
+      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgName, tier, email,
     );
 
     await supabaseInsertUser(

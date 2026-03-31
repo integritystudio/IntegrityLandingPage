@@ -19,11 +19,20 @@ function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
 }
 
 /**
- * Generate a unique slug from an organization name.
- * Sanitizes the name and appends a UUID suffix to ensure uniqueness.
+ * Generate a unique slug from an email address.
+ * For 'growth' tier: uses email username + domain for deterministic slug.
+ * For other tiers: uses email username + UUID suffix for randomness.
  */
-function dedupSlug(name: string): string {
-  const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+function dedupSlug(email: string, tier: string): string {
+  const [username] = email.toLowerCase().split("@");
+  const baseSlug = username.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  if (tier === "growth") {
+    const [, domain] = email.toLowerCase().split("@");
+    const domainPart = domain.replace(/[^a-z0-9]+/g, "");
+    return `${baseSlug}-${domainPart}`;
+  }
+
   const uniqueSuffix = crypto.randomUUID().slice(0, 8);
   return `${baseSlug}-${uniqueSuffix}`;
 }
@@ -37,8 +46,9 @@ export async function supabaseCreatePersonalOrg(
   serviceRoleKey: string,
   name: string,
   tier: string,
+  email: string,
 ): Promise<string> {
-  const slug = dedupSlug(name);
+  const slug = dedupSlug(email, tier);
   const res = await fetch(`${supabaseUrl}${SUPABASE_PATHS.ORGANIZATIONS}`, {
     method: "POST",
     headers: supabaseHeaders(serviceRoleKey),
