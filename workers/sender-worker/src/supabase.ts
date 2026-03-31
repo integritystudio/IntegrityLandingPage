@@ -6,6 +6,13 @@ import {
 } from "./types.js";
 
 // =============================================================================
+// Constants
+// =============================================================================
+
+const SLUG_SANITIZE_REGEX = /[^a-z0-9]+/g;
+const SLUG_TRIM_REGEX = /^-|-$/g;
+
+// =============================================================================
 // Supabase
 // =============================================================================
 
@@ -25,11 +32,11 @@ function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
  */
 function dedupSlug(email: string, tier: string): string {
   const [username] = email.toLowerCase().split("@");
-  const baseSlug = username.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const baseSlug = username.replace(SLUG_SANITIZE_REGEX, "-").replace(SLUG_TRIM_REGEX, "");
 
   if (tier === "growth") {
     const [, domain] = email.toLowerCase().split("@");
-    const domainPart = domain.replace(/[^a-z0-9]+/g, "");
+    const domainPart = domain.replace(SLUG_SANITIZE_REGEX, "");
     return `${baseSlug}-${domainPart}`;
   }
 
