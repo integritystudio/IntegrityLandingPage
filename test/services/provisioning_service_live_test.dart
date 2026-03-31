@@ -170,14 +170,11 @@ void main() {
 
           expect(bootstrapToken, isNotEmpty, reason: 'BOOTSTRAP_TOKEN not set');
 
-          final result = await ProvisioningService.bootstrap(
-            'https://api-gateway.alyshia-b38.workers.dev',
-            bootstrapToken,
-          );
+          final result = await ProvisioningService.bootstrap(jwt: bootstrapToken);
 
           expect(result, isA<BootstrapSuccess>());
           final success = result as BootstrapSuccess;
-          expect(success.organization, isNotNull);
+          expect(success.activeOrg, isNotNull);
         },
       );
     });
