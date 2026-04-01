@@ -43,54 +43,67 @@ describe('dedupSlug', () => {
   });
 
   describe('starter tier slug generation', () => {
-    it('generates slug from username with random UUID suffix', () => {
-      const slug = dedupSlug('user@example.com', 'starter');
-      expect(slug).toMatch(/^user-[a-f0-9]{8}$/);
+    it('generates deterministic slug from username + domain', () => {
+      const slug1 = dedupSlug('user@example.com', 'starter');
+      const slug2 = dedupSlug('user@example.com', 'starter');
+      expect(slug1).toBe(slug2);
+      expect(slug1).toBe('user-example-com');
     });
 
     it('converts dots in username to hyphens', () => {
       const slug = dedupSlug('john.doe@example.com', 'starter');
-      expect(slug).toMatch(/^john-doe-[a-f0-9]{8}$/);
+      expect(slug).toBe('john-doe-example-com');
     });
 
     it('removes special characters from username', () => {
       const slug = dedupSlug('user+tag@example.com', 'starter');
-      expect(slug).toMatch(/^user-tag-[a-f0-9]{8}$/);
+      expect(slug).toBe('user-tag-example-com');
     });
 
     it('handles emails with multiple dots in username', () => {
       const slug = dedupSlug('john.q.public@example.com', 'starter');
-      expect(slug).toMatch(/^john-q-public-[a-f0-9]{8}$/);
+      expect(slug).toBe('john-q-public-example-com');
     });
 
     it('handles emails with hyphens in username (preserves them)', () => {
       const slug = dedupSlug('john-smith@example.com', 'starter');
-      expect(slug).toMatch(/^john-smith-[a-f0-9]{8}$/);
+      expect(slug).toBe('john-smith-example-com');
     });
 
     it('handles emails with mixed special characters in username', () => {
       const slug = dedupSlug('user.name+tag@example.com', 'starter');
-      expect(slug).toMatch(/^user-name-tag-[a-f0-9]{8}$/);
+      expect(slug).toBe('user-name-tag-example-com');
     });
 
     it('trims leading and trailing hyphens from username', () => {
       const slug = dedupSlug('.user.@example.com', 'starter');
-      expect(slug).toMatch(/^user-[a-f0-9]{8}$/);
+      expect(slug).toBe('user-example-com');
     });
 
-    it('generates different UUIDs for same email on multiple calls', () => {
-      const slug1 = dedupSlug('user@example.com', 'starter');
-      const slug2 = dedupSlug('user@example.com', 'starter');
-      expect(slug1).not.toBe(slug2);
-      // Both should have same username prefix
-      expect(slug1.split('-').slice(0, -1).join('-')).toBe(slug2.split('-').slice(0, -1).join('-'));
+    it('preserves determinism across multiple calls with same email', () => {
+      const emails = [
+        'john@company.io',
+        'jane.doe@enterprise.co.uk',
+        'user+label@domain.org',
+      ];
+      emails.forEach(email => {
+        const slug1 = dedupSlug(email, 'starter');
+        const slug2 = dedupSlug(email, 'starter');
+        const slug3 = dedupSlug(email, 'starter');
+        expect(slug1).toBe(slug2);
+        expect(slug2).toBe(slug3);
+      });
     });
 
     it('converts uppercase email to lowercase before processing', () => {
       const slug1 = dedupSlug('User@Example.Com', 'starter');
       const slug2 = dedupSlug('user@example.com', 'starter');
-      // Same base slug (username only, without UUID suffix)
-      expect(slug1.split('-').slice(0, -1).join('-')).toBe(slug2.split('-').slice(0, -1).join('-'));
+      expect(slug1).toBe(slug2);
+    });
+
+    it('converts dots in domain to hyphens', () => {
+      const slug = dedupSlug('user@example.co.uk', 'starter');
+      expect(slug).toBe('user-example-co-uk');
     });
   });
 
@@ -160,40 +173,45 @@ describe('dedupSlug', () => {
   });
 
   describe('enterprise tier slug generation', () => {
-    it('generates slug with UUID suffix (same as starter)', () => {
-      const slug = dedupSlug('user@example.com', 'enterprise');
-      expect(slug).toMatch(/^user-[a-f0-9]{8}$/);
+    it('generates deterministic slug from username + domain (same as starter)', () => {
+      const slug1 = dedupSlug('user@example.com', 'enterprise');
+      const slug2 = dedupSlug('user@example.com', 'enterprise');
+      expect(slug1).toBe(slug2);
+      expect(slug1).toBe('user-example-com');
     });
 
     it('converts dots in username to hyphens', () => {
       const slug = dedupSlug('john.doe@example.com', 'enterprise');
-      expect(slug).toMatch(/^john-doe-[a-f0-9]{8}$/);
+      expect(slug).toBe('john-doe-example-com');
     });
 
-    it('generates different UUIDs on multiple calls', () => {
+    it('preserves determinism across multiple calls', () => {
       const slug1 = dedupSlug('user@example.com', 'enterprise');
       const slug2 = dedupSlug('user@example.com', 'enterprise');
-      expect(slug1).not.toBe(slug2);
+      const slug3 = dedupSlug('user@example.com', 'enterprise');
+      expect(slug1).toBe(slug2);
+      expect(slug2).toBe(slug3);
     });
   });
 
   describe('unknown tier handling', () => {
-    it('defaults to random UUID suffix for unknown tier', () => {
-      const slug = dedupSlug('user@example.com', 'unknown-tier');
-      expect(slug).toMatch(/^user-[a-f0-9]{8}$/);
+    it('generates deterministic slug from username + domain for unknown tier', () => {
+      const slug1 = dedupSlug('user@example.com', 'unknown-tier');
+      const slug2 = dedupSlug('user@example.com', 'unknown-tier');
+      expect(slug1).toBe(slug2);
+      expect(slug1).toBe('user-example-com');
     });
 
-    it('does not use domain for unknown tier', () => {
+    it('includes domain in slug for unknown tier', () => {
       const slug = dedupSlug('user@example.co.uk', 'unknown-tier');
-      expect(slug).not.toContain('example');
-      expect(slug).toMatch(/^user-[a-f0-9]{8}$/);
+      expect(slug).toBe('user-example-co-uk');
     });
   });
 
   describe('edge cases', () => {
     it('handles single character usernames', () => {
       const slug = dedupSlug('a@example.com', 'starter');
-      expect(slug).toMatch(/^a-[a-f0-9]{8}$/);
+      expect(slug).toBe('a-example-com');
     });
 
     it('handles single character domains', () => {
@@ -204,7 +222,7 @@ describe('dedupSlug', () => {
     it('handles very long usernames', () => {
       const longUser = 'verylongemailaddresswithlotsofcharacters@example.com';
       const slug = dedupSlug(longUser, 'starter');
-      expect(slug).toMatch(/^verylongemailaddresswithlotsofcharacters-[a-f0-9]{8}$/);
+      expect(slug).toBe('verylongemailaddresswithlotsofcharacters-example-com');
     });
 
     it('handles very long domains', () => {
@@ -268,13 +286,11 @@ describe('dedupSlug', () => {
       });
     });
 
-    it('generated starter tier slugs have exactly 8 character UUID suffix', () => {
-      for (let i = 0; i < 10; i++) {
-        const slug = dedupSlug('user@example.com', 'starter');
-        const parts = slug.split('-');
-        const uuidPart = parts[parts.length - 1];
-        expect(uuidPart).toMatch(/^[a-f0-9]{8}$/);
-      }
+    it('generated slugs follow username-domain pattern', () => {
+      const slug = dedupSlug('user@example.com', 'starter');
+      const parts = slug.split('-');
+      expect(parts.length).toBeGreaterThanOrEqual(2);
+      expect(parts[parts.length - 1]).toBe('com');
     });
   });
 });

@@ -29,27 +29,22 @@ function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
 
 /**
  * Generate a unique slug from an email address.
- * For 'growth' tier: uses email username + domain for deterministic slug.
- * For other tiers: uses email username + UUID suffix for randomness.
+ * Uses email username + domain for deterministic, unique slugs.
+ * Email addresses are unique in Auth0, ensuring slug uniqueness.
  */
 export function dedupSlug(email: string, tier: string): string {
-  const [username] = email.toLowerCase().split(EMAIL_SEPARATOR);
+  const [username, domain] = email.toLowerCase().split(EMAIL_SEPARATOR);
   const baseSlug = username
     .replace(DOT_TO_HYPHEN_REGEX, "-")
     .replace(SLUG_SANITIZE_REGEX, "-")
     .replace(SLUG_TRIM_REGEX, "");
 
-  if (tier === "growth") {
-    const [, domain] = email.toLowerCase().split(EMAIL_SEPARATOR);
-    const domainPart = domain
-      .replace(DOT_TO_HYPHEN_REGEX, "-")
-      .replace(SLUG_SANITIZE_REGEX, "")
-      .replace(SLUG_TRIM_REGEX, "");
-    return `${baseSlug}-${domainPart}`;
-  }
+  const domainPart = domain
+    .replace(DOT_TO_HYPHEN_REGEX, "-")
+    .replace(SLUG_SANITIZE_REGEX, "")
+    .replace(SLUG_TRIM_REGEX, "");
 
-  const uniqueSuffix = crypto.randomUUID().slice(0, 8);
-  return `${baseSlug}-${uniqueSuffix}`;
+  return `${baseSlug}-${domainPart}`;
 }
 
 /**
