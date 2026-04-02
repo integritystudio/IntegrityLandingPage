@@ -20,6 +20,8 @@ jobs:
   test:
     name: Test & Coverage
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
@@ -155,6 +157,8 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     continue-on-error: true
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
@@ -309,6 +313,8 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     continue-on-error: true  # Don't fail CI if Pages isn't enabled
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     environment:
       name: github-pages
