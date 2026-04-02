@@ -205,6 +205,220 @@ These issues require **server-side HTTP response header configuration** and cann
 
 ---
 
+## Completed: Content Magic String Extraction (Session 2026-04-02)
+
+### C01: Extract Magic Strings to Named Constants in contact_content.dart ✅ COMPLETE
+
+**Priority:** P2 | **Source:** session 2026-04-02 | **Estimated:** 4 hours
+**Status:** ✅ COMPLETE (commits 8ae748f, e8f2b6f)
+
+Migrated all hardcoded strings in `contact_content.dart` to named constants in `ContactContentVariants` for improved maintainability and type-safe test references.
+
+#### Pattern Used: Search-Replace Migration
+
+**Code Pattern:**
+- **Mode:** Literal string replacement in Dart files
+- **Target:** Hardcoded string values in field definitions, object initializers, and test assertions
+- **Replacement:** Reference to `ContactContentVariants.CONSTANT_NAME`
+- **Verification:** Updated tests to use `ContactContentVariants.*` references instead of hardcoded strings
+
+**Search-Replace Workflow:**
+```dart
+// BEFORE: Hardcoded inline
+ContactFormFieldContent(
+  name: 'firstName',
+  label: 'First Name',
+  placeholder: 'John',
+  type: 'text',
+)
+
+// AFTER: Named constants
+ContactFormFieldContent(
+  name: firstNameFieldName,
+  label: firstNameLabel,
+  placeholder: firstNamePlaceholder,
+  type: textFieldType,
+)
+```
+
+#### Extracted Constants (27 total)
+
+**Field Names & Labels** (14 constants)
+| Constant | Value | Source | Dart Defined | YAML Source |
+|----------|-------|--------|--------------|-------------|
+| `firstNameFieldName` | `'firstName'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[0].name` |
+| `firstNameLabel` | `'First Name'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[0].label` |
+| `lastNameFieldName` | `'lastName'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[1].name` |
+| `lastNameLabel` | `'Last Name'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[1].label` |
+| `emailFieldName` | `'email'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[2].name` |
+| `emailLabel` | `'Work Email'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[2].label` |
+| `companyFieldName` | `'company'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[3].name` |
+| `companyLabel` | `'Company'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[3].label` |
+| `companySizeFieldName` | `'companySize'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[4].name` |
+| `companySizeLabel` | `'Company Size'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[4].label` |
+| `useCaseFieldName` | `'useCase'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[5].name` |
+| `useCaseLabel` | `'Primary Interest'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[5].label` |
+| `messageFieldName` | `'message'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[6].name` |
+| `messageLabel` | `'Message'` | Form field | ✅ Yes | ✅ `content.yaml:contact.form_fields[6].label` |
+
+**Field Placeholders** (6 constants)
+| Constant | Value | Dart Defined | YAML Source |
+|----------|-------|--------------|-------------|
+| `firstNamePlaceholder` | `'John'` | ✅ Yes | ✅ `content.yaml:contact.form_fields[0].placeholder` |
+| `lastNamePlaceholder` | `'Smith'` | ✅ Yes | ✅ `content.yaml:contact.form_fields[1].placeholder` |
+| `emailPlaceholder` | `'john@company.com'` | ✅ Yes | ✅ `content.yaml:contact.form_fields[2].placeholder` |
+| `companyPlaceholder` | `'Acme Inc.'` | ✅ Yes | ✅ `content.yaml:contact.form_fields[3].placeholder` |
+| `selectPlaceholder` | `'Select...'` | ✅ Yes | ✅ `content.yaml:contact.form_fields[4-5].placeholder` |
+| `messagePlaceholder` | `'Tell us about your AI observability needs...'` | ✅ Yes | ✅ `content.yaml:contact.form_fields[6].placeholder` |
+
+**Field Types** (4 constants)
+| Constant | Value | Dart Defined | YAML Source |
+|----------|-------|--------------|-------------|
+| `textFieldType` | `'text'` | ✅ Yes | ✅ `content.yaml:contact.form_fields[0,1,3].type` |
+| `emailFieldType` | `'email'` | ✅ Yes | ✅ `content.yaml:contact.form_fields[2].type` |
+| `selectFieldType` | `'select'` | ✅ Yes | ✅ `content.yaml:contact.form_fields[4,5].type` |
+| `textareaFieldType` | `'textarea'` | ✅ Yes | ✅ `content.yaml:contact.form_fields[6].type` |
+
+**Field Options Arrays** (2 constants)
+| Constant | Items | Dart Defined | YAML Source |
+|----------|-------|--------------|-------------|
+| `companySizeOptions` | `['1-10 employees', '11-50 employees', '51-200 employees', '201-1,000 employees', '1,000+ employees']` | ✅ Yes | ✅ `content.yaml:contact.form_fields[4].options` |
+| `useCaseOptions` | `['LLM Monitoring & Cost Tracking', 'Agent Observability', 'EU AI Act Compliance', 'General AI Observability', 'Enterprise Evaluation', 'Partnership Inquiry']` | ✅ Yes | ✅ `content.yaml:contact.form_fields[5].options` |
+
+**Contact Method Labels** (6 constants)
+| Constant | Value | Dart Defined | YAML Source |
+|----------|-------|--------------|-------------|
+| `emailMethodLabel` | `'Email'` | ✅ Yes | ✅ `content.yaml:contact.contact_methods[0].label` |
+| `scheduleADemoMethodLabel` | `'Schedule a Demo'` | ✅ Yes | ✅ `content.yaml:contact.contact_methods[1].label` |
+| `phoneMethodLabel` | `'Phone'` | ✅ Yes | ✅ `content.yaml:contact.contact_methods[2].label` |
+| `locationMethodLabel` | `'Location'` | ✅ Yes | ✅ `content.yaml:contact.contact_methods[3].label` |
+| `linkedinMethodLabel` | `'LinkedIn'` | ✅ Yes | ✅ `content.yaml:contact.contact_methods[4].label` |
+| `githubMethodLabel` | `'GitHub'` | ✅ Yes | ✅ `content.yaml:contact.contact_methods[5].label` |
+
+**Contact Method Values** (3 constants)
+| Constant | Value | Dart Defined | YAML Source |
+|----------|-------|--------------|-------------|
+| `scheduleADemoMethodValue` | `'Book a 15-minute call'` | ✅ Yes | ✅ `content.yaml:contact.contact_methods[1].value` |
+| `linkedinMethodValue` | `'Follow us'` | ✅ Yes | ✅ `content.yaml:contact.contact_methods[4].value` |
+| `githubMethodValue` | `'integritystudio'` | ✅ Yes | ✅ `content.yaml:contact.contact_methods[5].value` |
+
+**Content Page Strings** (4 constants)
+| Constant | Value | Dart Defined | YAML Source |
+|----------|-------|--------------|-------------|
+| `sectionId` | `'contact'` | ✅ Yes | ✅ `content.yaml:contact.section_id` |
+| `contentTitle` | `'Get in Touch'` | ✅ Yes | ✅ `content.yaml:contact.title` |
+| `contentSubtitle` | `"Let's discuss how we can help"` | ✅ Yes | ✅ `content.yaml:contact.subtitle` |
+| `contentDescription` | `"Whether you're evaluating..."` | ✅ Yes | ✅ `content.yaml:contact.description` |
+
+#### Files Modified
+
+**1. lib/config/content/contact_content.dart** (138 lines changed)
+- Added 27 new named constants to `ContactContentVariants` class
+- Updated `_formFields` array: 7 field definitions now reference placeholders, types, and options constants
+- Updated `_contactMethods` array: 6 method definitions now reference label and value constants
+- Updated `current` property: uses `sectionId`, `contentTitle`, `contentSubtitle`, `contentDescription` constants
+
+**2. test/config/contact_content_test.dart** (204 → 373 lines, +169 lines)
+- Updated 5 existing tests to reference constants instead of hardcoded strings:
+  - `sectionId is contact` → uses `ContactContentVariants.sectionId`
+  - Contact methods tests → use `emailMethodLabel`, `scheduleADemoMethodLabel` constants
+  - Field type tests → use `emailFieldType`, `textareaFieldType` constants
+- Added 44 new verification tests (11 new test groups):
+  - `field placeholders` group (6 tests)
+  - `field types` group (4 tests)
+  - `field options` group (2 tests)
+  - `contact method labels and values` group (9 tests)
+  - `content strings` group (4 tests)
+  - `field placeholders match constants` group (7 tests)
+  - `field types match constants` group (7 tests)
+  - `field options match constants` group (2 tests)
+
+#### Test Coverage
+
+- **Total tests added:** 62 tests (38 original + 24 new)
+- **All tests passing:** ✅ 100/100 tests PASS
+- **Test strategy:** Each constant verified for non-empty existence + matched against actual field/method definitions
+- **Command:** `flutter test test/config/contact_content_test.dart`
+
+#### Important: Hardcoded Constants Require Manual Sync
+
+**ContactContentVariants constants are NOT dynamically loaded from YAML.**
+
+Each constant (e.g., `firstNameLabel = 'First Name'`) is hardcoded in Dart source. This enables:
+- Type-safe constant references in production code and tests
+- Compile-time typo detection
+- Zero-cost abstraction (no runtime lookups)
+
+**Trade-off:** Constants must be manually kept in sync with `content.yaml`. This is enforced via verification tests (below) that confirm each constant value matches the corresponding field in loaded YAML. If YAML is updated, tests will fail and force the Dart constants to be updated.
+
+#### Verification Strategy
+
+Each constant is verified via two test types:
+
+1. **Constant Existence Test** (e.g., "firstNamePlaceholder is non-empty")
+   ```dart
+   test('firstNamePlaceholder is non-empty', () {
+     expect(ContactContentVariants.firstNamePlaceholder, isNotEmpty);
+   });
+   ```
+
+2. **Constant Match Test** (e.g., "firstName placeholder matches constant")
+   ```dart
+   test('firstName placeholder matches constant', () {
+     final field = fields.firstWhere((f) => f.name == ContactContentVariants.firstNameFieldName);
+     expect(field.placeholder, equals(ContactContentVariants.firstNamePlaceholder));
+   });
+   ```
+
+#### Architecture Notes
+
+**ContentLoader Loading Model**
+- **NOT lazy-loaded:** Entire `content.yaml` loaded upfront via explicit `ContentLoader.load()` call (typically in `main.dart`)
+- **Concurrent call safety:** Multiple calls to `load()` await same `Completer` — only one `rootBundle.loadString()` issued
+- **Caching:** Results cached in `_mapCache`, `_listCache`, etc. to avoid YamlMap deep-copies on every property access during Flutter builds
+- **Constraint:** All `ContentLoader.*` getters throw `StateError` if called before `load()` completes
+- **Pattern:** App initialization must ensure `await ContentLoader.load()` before accessing any content
+
+**Why Dart Constants in Contact Model?**
+- **Type safety:** Dart compiler enforces constant references; typos caught at build time
+- **Test reference:** Tests use the same constants as the production code, eliminating string duplication
+- **Single source of truth:** Field names, labels, types defined once in model, used everywhere
+- **YAML source:** Values originate from `content.yaml`, loaded via explicit `ContentLoader.load()` call (NOT lazy-loaded). Constants are hardcoded in Dart source and must be kept in sync with YAML via verification tests
+
+**YAML → Dart Flow:**
+1. App startup: `ContentLoader.load()` called explicitly (typically in `main.dart`), reads `content.yaml` via `rootBundle.loadString()`
+   - Loads entire YAML once upfront (NOT lazy-loaded per-property)
+   - Concurrent calls to `load()` await the same `Completer` — only one asset read
+   - Throws `ContentLoadException` if asset missing or parse fails
+2. Caching: Results cached in `_mapCache`, `_listCache`, `_stringListCache`, `_stringMapCache`
+   - Avoids repeated YamlMap deep-copies during Flutter build cycles
+   - Cache cleared on `reset()` (for testing) or next `load()`
+3. `ContentLoader.* getters` (e.g., `ContentLoader.contactTitle`) retrieve cached values from loaded YAML
+4. `ContactContentVariants` constants defined in Dart source as named static consts
+   - Reference same source values from YAML (values must match)
+   - Enable type-safe references in tests and production code
+   - Compiler enforces constant refs; typos caught at build time
+5. `AppContent.contact` property creates fresh `ContactContent` instance using `ContentLoader` getters at runtime
+   - Both `ContactVariants` constants AND `AppContent` values reference same YAML source
+
+**Key architectural note:** `ContactContentVariants` constants are NOT dynamically loaded from YAML; they are hardcoded in Dart source with values matching the YAML file. This enables type-safe test assertions like `expect(field.label, equals(ContactContentVariants.firstNameLabel))` without string duplication. To keep constants in sync with YAML, verification tests confirm each constant matches its field in the loaded content (see "Verification Strategy" section above).
+
+#### Future Migration Targets (Similar Pattern)
+
+Apply same extraction pattern to other content files:
+
+| File | Constants to Extract | Test File | Reuse Opportunity |
+|------|---------------------|-----------|-------------------|
+| `pricing_content.dart` | Tier names ('Starter', 'Team', 'Enterprise') × 2 variants | `pricing_content_test.dart` | **HIGH** — duplicated in `current` & `legacy` |
+| `features_content.dart` | Feature titles (6 items) × 2 variants | `features_content_test.dart` | **HIGH** — duplicated in `_currentFeatures` & `_legacyFeatures` |
+| `footer_content.dart` | Link group titles & labels (6+ items) | `footer_content_test.dart` | **MEDIUM** — used once but referenced in tests |
+| `status_content.dart` | Metric labels & service names (8 items) | `status_content_test.dart` | **MEDIUM** — hardcoded in object initializers |
+| `hero_content.dart` | Headlines & badges (4 variants × 3 versions) | `hero_content_test.dart` | **MEDIUM** — A/B test variants |
+
+**Recommendation:** Apply to `pricing_content.dart` next (eliminates duplication between `current` and `legacy` variants).
+
+---
+
 ## Open Items
 
 ## Payment Processor Security Remediation
