@@ -11,13 +11,13 @@ service = "api-provisioning-receiver"
 #   SHARED_SECRET              — HMAC key; must match provisioning receiver
 #   SUPABASE_URL               — Supabase project URL
 #   SUPABASE_SERVICE_ROLE_KEY  — Supabase service role key
-#   AUTH0_DOMAIN               — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com); source: Doppler integrity-studio/prd VITE_AUTH0_DOMAIN
-#   AUTH0_CLIENT_ID            — Auth0 M2M app client ID; source: Doppler VITE_AUTH0_CLIENT_ID
-#   AUTH0_CLIENT_SECRET        — Auth0 M2M app client secret; source: Doppler VITE_AUTH0_CLIENT_SECRET
-#   AUTH0_AUDIENCE             — Auth0 API audience (https://api.integritystudio.dev); source: Doppler VITE_AUTH0_AUDIENCE
-#   AUTHO_CLI_ID               — Auth0 CLI app client ID; optional M2M override (falls back to AUTH0_CLIENT_ID)
-#   AUTHO_CLI_SECRET           — Auth0 CLI app client secret; optional M2M override (falls back to AUTH0_CLIENT_SECRET)
-#   AUTHO_CLI_AUDIENCE         — Auth0 CLI app audience; optional M2M override (falls back to AUTH0_AUDIENCE)
+#   AUTH0_DOMAIN               — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)
+#   AUTH0_CLIENT_ID            — Auth0 app client ID for ROPC (password grant); used for user sign-in
+#   AUTH0_CLIENT_SECRET        — Auth0 app client secret for ROPC (password grant); used for user sign-in
+#   AUTH0_AUDIENCE             — Auth0 API audience (https://api.integritystudio.dev)
+#   AUTHO_CLI_ID               — Auth0 CLI app client ID for M2M (client_credentials grant); required for user creation
+#   AUTHO_CLI_SECRET           — Auth0 CLI app client secret for M2M (client_credentials grant); required for user creation
+#   AUTHO_CLI_AUDIENCE         — Auth0 CLI app audience for M2M (https://{domain}/api/v2/); required for user creation
 #   ALLOWED_ORIGINS_JSON       — JSON array of allowed CORS origins (optional; defaults to integritystudio.ai)
 #   STRIPE_SECRET_KEY          — Stripe secret key (sk_live_... or sk_test_...)
 #   STRIPE_PLAN_TO_PRICE_JSON  — JSON map of plan → Stripe price ID, e.g. {"growth":"price_xxx","enterprise":"price_yyy"}
