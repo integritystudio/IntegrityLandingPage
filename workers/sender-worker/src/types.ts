@@ -107,11 +107,11 @@ export interface Env {
   AUTH0_CLIENT_ID: string;
   AUTH0_CLIENT_SECRET: string;
   AUTH0_AUDIENCE: string;
-  /** M2M app credentials for Management API (client_credentials grant). Falls back to AUTH0_CLIENT_ID/SECRET. */
-  AUTH0_M2M_CLIENT_ID?: string;
-  AUTH0_M2M_CLIENT_SECRET?: string;
+  /** CLI app credentials for Management API (client_credentials grant). Falls back to AUTH0_CLIENT_ID/SECRET. */
+  AUTHO_CLI_ID?: string;
+  AUTHO_CLI_SECRET?: string;
   /** Management API audience (e.g. https://{domain}/api/v2/). Falls back to AUTH0_AUDIENCE. */
-  AUTH0_M2M_AUDIENCE?: string;
+  AUTHO_CLI_AUDIENCE?: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   ALLOWED_ORIGINS_JSON?: string;

@@ -65,9 +65,9 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
   const orgName = providedName ?? `${email.split("@")[0]} (personal)`;
 
   try {
-    const m2mClientId = env.AUTH0_M2M_CLIENT_ID ?? env.AUTH0_CLIENT_ID;
-    const m2mClientSecret = env.AUTH0_M2M_CLIENT_SECRET ?? env.AUTH0_CLIENT_SECRET;
-    const m2mAudience = env.AUTH0_M2M_AUDIENCE ?? env.AUTH0_AUDIENCE;
+    const m2mClientId = env.AUTHO_CLI_ID ?? env.AUTH0_CLIENT_ID;
+    const m2mClientSecret = env.AUTHO_CLI_SECRET ?? env.AUTH0_CLIENT_SECRET;
+    const m2mAudience = env.AUTHO_CLI_AUDIENCE ?? env.AUTH0_AUDIENCE;
     const { auth0Sub } = await auth0CreateUser(
       env.AUTH0_DOMAIN, m2mClientId, m2mClientSecret,
       m2mAudience, email, password,
