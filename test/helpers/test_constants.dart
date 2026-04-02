@@ -54,3 +54,26 @@ const kScrollToPricingOffset = Offset(0, -5000);
 
 /// Scroll offset to reach the CTA section in a full-page scroll view.
 const kScrollToCTAOffset = Offset(0, -6000);
+
+/// Scroll offset to reach the Developer Appendix section on the status page.
+const kScrollToDevAppendixOffset = Offset(0, -800);
+
+/// Maximum scroll iterations for scrollToDevAppendix helper in tests.
+const kMaxDevAppendixScrolls = 10;
+
+// ---------------------------------------------------------------------------
+// Form validation constants
+// ---------------------------------------------------------------------------
+
+/// Minimum number of form fields expected in the contact form.
+const kContactFormMinFieldCount = 7;
+
+// ---------------------------------------------------------------------------
+// Toolbar heights for responsive layout tests
+// ---------------------------------------------------------------------------
+
+/// Mobile app bar toolbar height.
+const kMobileToolbarHeight = 56.0;
+
+/// Desktop app bar toolbar height.
+const kDesktopToolbarHeight = 64.0;
