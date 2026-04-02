@@ -316,7 +316,7 @@ class _OAuthCallbackContent extends StatelessWidget {
             ),
             GradientButton(
               text: 'Try Again',
-              onPressed: () => context.go('/signin'),
+              onPressed: () => context.go('/login'),
             ),
           ],
         ),

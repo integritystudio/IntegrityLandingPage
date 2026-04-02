@@ -14,6 +14,30 @@ import '../widgets/common/form_fields.dart';
 
 enum AuthMode { signUp, signIn }
 
+extension AuthModeX on AuthMode {
+  /// Get the route path for this auth mode.
+  String get routePath => this == AuthMode.signUp ? Routes.signup : Routes.login;
+
+  /// Get the page title for this auth mode.
+  String get title => this == AuthMode.signUp ? 'Create Account' : 'Sign In';
+
+  /// Get the button text for this auth mode.
+  String get buttonText => this == AuthMode.signUp ? 'Sign Up' : 'Sign In';
+
+  /// Get the analytics page view name for this auth mode.
+  String get pageViewName => this == AuthMode.signUp ? 'auth_signup' : 'auth_signin';
+
+  /// Get the page subtitle for this auth mode.
+  String get pageSubtitle => this == AuthMode.signUp
+      ? 'Get your API key to access the Integrity API'
+      : 'Access your account';
+
+  /// Get the toggle mode prompt for this auth mode.
+  String get toggleModePrompt => this == AuthMode.signUp
+      ? "Already have an account? Sign in"
+      : "Don't have an account? Sign up";
+}
+
 /// Authentication page for signup and signin.
 ///
 /// Displays a form with email and password fields. SignUp variant
@@ -55,9 +79,7 @@ class _AuthPageState extends State<AuthPage> {
     super.didChangeDependencies();
     if (!_pageViewTracked) {
       _pageViewTracked = true;
-      AnalyticsService.trackPageView(
-        _mode == AuthMode.signUp ? 'auth_signup' : 'auth_signin',
-      );
+      AnalyticsService.trackPageView(_mode.pageViewName);
     }
   }
 
@@ -67,21 +89,13 @@ class _AuthPageState extends State<AuthPage> {
     super.dispose();
   }
 
-  String get _pageTitle =>
-      _mode == AuthMode.signUp ? 'Create Account' : 'Sign In';
+  String get _pageTitle => _mode.title;
 
-  String get _pageSubtitle =>
-      _mode == AuthMode.signUp
-          ? 'Get your API key to access the Integrity API'
-          : 'Access your account';
+  String get _pageSubtitle => _mode.pageSubtitle;
 
-  String get _submitButtonText =>
-      _mode == AuthMode.signUp ? 'Sign Up' : 'Sign In';
+  String get _submitButtonText => _mode.buttonText;
 
-  String get _toggleModeText =>
-      _mode == AuthMode.signUp
-          ? "Already have an account? Sign in"
-          : "Don't have an account? Sign up";
+  String get _toggleModeText => _mode.toggleModePrompt;
 
   bool get _isPasswordValid =>
       _password.isNotEmpty &&

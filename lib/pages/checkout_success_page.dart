@@ -89,7 +89,7 @@ class _CheckoutSuccessPageState extends State<CheckoutSuccessPage> {
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 GradientButton(
-                  onPressed: () => context.go('/signin'),
+                  onPressed: () => context.go('/login'),
                   text: 'Sign In to Activate',
                 ),
               ],

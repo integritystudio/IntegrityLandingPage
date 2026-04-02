@@ -166,7 +166,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
         ),
       ),
       GoRoute(
-        path: '/signin',
+        path: '/login',
         builder: (context, state) => AuthPage(
           mode: AuthMode.signIn,
           onBack: _goHome(context),
@@ -179,7 +179,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
           final jwt = state.uri.queryParameters['jwt'];
           final email = state.uri.queryParameters['email'];
           if (jwt != null && email != null) return null;
-          return Routes.signin;
+          return Routes.login;
         },
         builder: (context, state) {
           if (state.extra is AuthSuccess) {

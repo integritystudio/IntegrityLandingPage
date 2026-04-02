@@ -5,6 +5,7 @@ import '../theme/theme.dart';
 import '../config/content.dart';
 import '../config/content/constants.dart';
 import '../services/analytics.dart';
+import '../services/contact_service.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
 import '../widgets/common/containers.dart';
@@ -31,8 +32,6 @@ class SignupPage extends StatefulWidget {
 }
 
 class _SignupPageState extends State<SignupPage> {
-  static const int _minPasswordLength = 8;
-
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _nameController = TextEditingController();
@@ -350,7 +349,7 @@ class _SignupPageState extends State<SignupPage> {
     if (_emailController.text.trim().isEmpty) {
       _fieldErrors['email'] = 'Please enter your email';
       hasError = true;
-    } else if (!_isValidEmail(_emailController.text)) {
+    } else if (!ContactService.isValidEmail(_emailController.text)) {
       _fieldErrors['email'] = 'Please enter a valid email';
       hasError = true;
     }
@@ -358,9 +357,9 @@ class _SignupPageState extends State<SignupPage> {
     if (_passwordController.text.isEmpty) {
       _fieldErrors['password'] = 'Please enter a password';
       hasError = true;
-    } else if (_passwordController.text.length < _minPasswordLength) {
+    } else if (_passwordController.text.length < PasswordPolicy.minLength) {
       _fieldErrors['password'] =
-          'Password must be at least $_minPasswordLength characters';
+          'Password must be at least ${PasswordPolicy.minLength} characters';
       hasError = true;
     }
 
@@ -400,18 +399,20 @@ class _SignupPageState extends State<SignupPage> {
 
     switch (result) {
       case AuthSuccess():
-        if (widget.tier.toLowerCase() == 'growth' ||
-            widget.tier.toLowerCase() == 'enterprise') {
-          context.go('/checkout', extra: CheckoutArgs(email: result.email, tier: widget.tier));
-        } else {
-          context.go('/provision', extra: result);
-        }
+        _routeAfterSignup(result);
       case AuthError():
         context.go('/request_failure', extra: result.error);
     }
   }
 
-  bool _isValidEmail(String email) {
-    return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
+  /// Route to appropriate page based on tier after successful signup.
+  void _routeAfterSignup(AuthSuccess result) {
+    final tierLower = widget.tier.toLowerCase();
+    if (tierLower == 'growth' || tierLower == 'enterprise') {
+      context.go(Routes.checkout, extra: CheckoutArgs(email: result.email, tier: widget.tier));
+    } else {
+      context.go(Routes.provision, extra: result);
+    }
   }
+
 }

@@ -57,18 +57,18 @@ void main() {
   }
 
   GoRouter makeAuthRouter(AuthMode mode) => GoRouter(
-        initialLocation: mode == AuthMode.signUp ? '/signup' : '/signin',
+        initialLocation: mode.routePath,
         routes: [
           GoRoute(
-            path: '/signup',
+            path: Routes.signup,
             builder: (_, __) => const AuthPage(mode: AuthMode.signUp),
           ),
           GoRoute(
-            path: '/signin',
+            path: Routes.login,
             builder: (_, __) => const AuthPage(mode: AuthMode.signIn),
           ),
           GoRoute(
-            path: '/provision',
+            path: Routes.provision,
             builder: (_, __) =>
                 const Scaffold(body: Text('provision_page')),
           ),

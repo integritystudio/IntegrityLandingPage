@@ -102,7 +102,7 @@ abstract final class Routes {
   static const String contact = '/contact';
   static const String signup = '/signup';
   static const String signupTeam = '/signup?tier=Team';
-  static const String signin = '/signin';
+  static const String login = '/login';
   static const String provision = '/provision';
   static const String checkout = '/checkout';
   static const String checkoutSuccess = '/checkout-success';

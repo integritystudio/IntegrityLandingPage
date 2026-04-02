@@ -30,7 +30,7 @@ class _RequestFailurePageState extends State<RequestFailurePage> {
       Future.microtask(() {
         if (mounted) {
           try {
-            context.go('/signin');
+            context.go('/login');
           } catch (_) {
             // GoRouter not available (e.g., in tests)
           }
