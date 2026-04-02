@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../config/content/constants.dart';
+import '../../services/url_launcher.dart';
 import '../../theme/theme.dart';
 
 /// Navigation link item configuration
@@ -47,7 +48,7 @@ class SharedAppBar extends StatelessWidget {
   /// CTA button text
   final String ctaText;
 
-  /// CTA button route
+  /// CTA button route or external URL
   final String ctaRoute;
 
   const SharedAppBar({
@@ -58,7 +59,7 @@ class SharedAppBar extends StatelessWidget {
     this.navItems,
     this.sectionKeys,
     this.ctaText = 'Get Started',
-    this.ctaRoute = '/signup?tier=Team',
+    this.ctaRoute = 'https://integritystudio.ai/signup?tier=Growth',
   });
 
   /// Factory for landing page with scroll navigation
@@ -228,7 +229,7 @@ class SharedAppBar extends StatelessWidget {
       Padding(
         padding: const EdgeInsets.only(right: AppSpacing.md),
         child: TextButton(
-          onPressed: () => context.go(ctaRoute),
+          onPressed: () => _handleCtaClick(context),
           style: TextButton.styleFrom(
             backgroundColor: AppColors.blue600,
             padding: const EdgeInsets.symmetric(
@@ -296,6 +297,14 @@ class SharedAppBar extends StatelessWidget {
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOut,
       );
+    }
+  }
+
+  void _handleCtaClick(BuildContext context) {
+    if (ctaRoute.startsWith('http://') || ctaRoute.startsWith('https://')) {
+      launchUrl(ctaRoute);
+    } else {
+      context.go(ctaRoute);
     }
   }
 }
