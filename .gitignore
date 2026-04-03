@@ -30,6 +30,7 @@ build/web/
 
 # Coverage
 coverage/
+coverage_report/
 
 # Test
 .test_coverage.dart
