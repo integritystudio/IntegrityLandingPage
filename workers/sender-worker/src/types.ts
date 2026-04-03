@@ -108,10 +108,10 @@ export interface Env {
   AUTH0_CLIENT_SECRET: string;
   AUTH0_AUDIENCE: string;
   /** CLI app credentials for Management API (client_credentials grant). Required for user creation. */
-  AUTHO_CLI_ID: string;
-  AUTHO_CLI_SECRET: string;
+  AUTH0_CLI_ID: string;
+  AUTH0_CLI_SECRET: string;
   /** Management API audience (e.g. https://{domain}/api/v2/). Required for user creation. */
-  AUTHO_CLI_AUDIENCE: string;
+  AUTH0_CLI_AUDIENCE: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   ALLOWED_ORIGINS_JSON?: string;

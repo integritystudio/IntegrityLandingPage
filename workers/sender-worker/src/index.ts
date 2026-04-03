@@ -66,8 +66,8 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
 
   try {
     const { auth0Sub } = await auth0CreateUser(
-      env.AUTH0_DOMAIN, env.AUTHO_CLI_ID, env.AUTHO_CLI_SECRET,
-      env.AUTHO_CLI_AUDIENCE, email, password,
+      env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET,
+      env.AUTH0_CLI_AUDIENCE, email, password,
     );
 
     const userId = crypto.randomUUID();
