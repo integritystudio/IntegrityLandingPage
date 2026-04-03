@@ -221,7 +221,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: Routes.dashboard,
         redirect: (context, state) {
-          if (state.extra is! DashboardArgs) return Routes.signin;
+          if (state.extra is! DashboardArgs) return Routes.login;
           return null;
         },
         builder: (context, state) => DashboardPage(
@@ -238,7 +238,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: '/billing',
         redirect: (context, state) {
-          if (state.extra is! BillingStatusArgs) return Routes.signin;
+          if (state.extra is! BillingStatusArgs) return Routes.login;
           return null;
         },
         builder: (context, state) => BillingStatusPage(
@@ -249,7 +249,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: '/usage',
         redirect: (context, state) {
-          if (state.extra is! UsageSummaryArgs) return Routes.signin;
+          if (state.extra is! UsageSummaryArgs) return Routes.login;
           return null;
         },
         builder: (context, state) => UsageSummaryPage(
@@ -260,7 +260,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: Routes.entitlements,
         redirect: (context, state) {
-          if (state.extra is! EntitlementsArgs) return Routes.signin;
+          if (state.extra is! EntitlementsArgs) return Routes.login;
           return null;
         },
         builder: (context, state) => EntitlementsPage(
@@ -271,7 +271,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: Routes.quotaStatus,
         redirect: (context, state) {
-          if (state.extra is! QuotaStatusArgs) return Routes.signin;
+          if (state.extra is! QuotaStatusArgs) return Routes.login;
           return null;
         },
         builder: (context, state) => QuotaStatusPage(
