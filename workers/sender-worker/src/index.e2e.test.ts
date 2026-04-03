@@ -618,3 +618,184 @@ describe("POST /create-checkout-session — Stripe API errors", () => {
     expect(body.error).toContain("checkout");
   });
 });
+
+// ─── POST /signup — Error Code Mapping (Integration Tests) ────────────────────
+
+describe("POST /signup — Error Code Mapping (2026-04-03 Session)", () => {
+  it("returns AUTH0_TOKEN_EXCHANGE_FAILED when Auth0 /oauth/token returns 403 unauthorized_client", async () => {
+    // Real error from Auth0 when Client Credentials grant type is not enabled
+    fetchMock
+      .get(`https://${AUTH0_DOMAIN}`)
+      .intercept({ path: "/oauth/token", method: "POST" })
+      .reply(403, JSON.stringify({
+        error: "unauthorized_client",
+        error_description: "Grant type 'client_credentials' not allowed for the client.",
+      }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/signup", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "grant-error@example.com", password: "S3cur3!pass" }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string; code: string; detail: string };
+    expect(body.error).toBe("signup failed");
+    expect(body.code).toBe("AUTH0_TOKEN_EXCHANGE_FAILED");
+    expect(body.detail).toContain("Auth0 token exchange failed");
+  });
+
+  it("returns AUTH0_USER_CREATION_FAILED when Auth0 /api/v2/users returns 400", async () => {
+    mockTokenExchange();
+    fetchMock
+      .get(`https://${AUTH0_DOMAIN}`)
+      .intercept({ path: "/api/v2/users", method: "POST" })
+      .reply(400, JSON.stringify({
+        statusCode: 400,
+        error: "Bad Request",
+        message: "Invalid password strength.",
+      }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/signup", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "weak-pass@example.com", password: "weak" }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string; code: string; detail: string };
+    expect(body.error).toBe("signup failed");
+    expect(body.code).toBe("AUTH0_USER_CREATION_FAILED");
+    expect(body.detail).toContain("Auth0 createUser failed");
+  });
+
+  it("returns SUPABASE_ORG_CREATION_FAILED when org creation returns error", async () => {
+    mockTokenExchange();
+    mockAuth0CreateUser("auth0|test-user");
+    fetchMock
+      .get(SUPABASE_URL)
+      .intercept({ path: "/rest/v1/organizations", method: "POST" })
+      .reply(400, JSON.stringify({
+        code: "400",
+        message: "Invalid request: tier must be one of: starter, growth, enterprise",
+        details: "tier=invalid_tier",
+      }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/signup", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: "org-fail@example.com",
+        password: "S3cur3!pass",
+        tier: "invalid_tier",
+      }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string; code: string; detail: string };
+    expect(body.error).toBe("signup failed");
+    expect(body.code).toBe("SUPABASE_ORG_CREATION_FAILED");
+    expect(body.detail).toContain("Supabase org creation failed");
+  });
+
+  it("returns SUPABASE_USER_INSERT_FAILED when user insert returns error", async () => {
+    mockTokenExchange();
+    mockAuth0CreateUser("auth0|test-user");
+    mockSupabaseOrg("org-uuid-test");
+    fetchMock
+      .get(SUPABASE_URL)
+      .intercept({ path: "/rest/v1/users", method: "POST" })
+      .reply(409, JSON.stringify({
+        code: "23505",
+        message: "duplicate key value violates unique constraint",
+        details: "Key (auth0_id)=(auth0|test-user) already exists.",
+      }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/signup", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "user-dupe@example.com", password: "S3cur3!pass" }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string; code: string; detail: string };
+    expect(body.error).toBe("signup failed");
+    expect(body.code).toBe("SUPABASE_USER_INSERT_FAILED");
+    expect(body.detail).toContain("Supabase user insert failed");
+  });
+
+  it("returns SUPABASE_ORG_MEMBERSHIP_FAILED when org membership insert fails", async () => {
+    mockTokenExchange();
+    mockAuth0CreateUser("auth0|test-user");
+    mockSupabaseOrg("org-uuid-test");
+    mockSupabaseUsersInsert();
+    fetchMock
+      .get(SUPABASE_URL)
+      .intercept({ path: "/rest/v1/organization_memberships", method: "POST" })
+      .reply(400, JSON.stringify({
+        code: "400",
+        message: "Invalid organization ID",
+      }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/signup", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "membership-fail@example.com", password: "S3cur3!pass" }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string; code: string; detail: string };
+    expect(body.error).toBe("signup failed");
+    expect(body.code).toBe("SUPABASE_ORG_MEMBERSHIP_FAILED");
+    expect(body.detail).toContain("Supabase org membership");
+  });
+
+  it("detail field truncates long error messages to 200 characters", async () => {
+    const longError = "Auth0 token exchange failed: " + "x".repeat(300);
+    fetchMock
+      .get(`https://${AUTH0_DOMAIN}`)
+      .intercept({ path: "/oauth/token", method: "POST" })
+      .reply(500, JSON.stringify({ error: "server_error", error_description: longError }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/signup", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "long-error@example.com", password: "S3cur3!pass" }),
+    });
+
+    const body = await res.json() as { detail: string };
+    expect(body.detail.length).toBeLessThanOrEqual(200);
+  });
+
+  it("returns INTERNAL_ERROR when error does not match any known pattern", async () => {
+    fetchMock
+      .get(`https://${AUTH0_DOMAIN}`)
+      .intercept({ path: "/oauth/token", method: "POST" })
+      .reply(500, JSON.stringify({ error: "unknown_server_error" }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/signup", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "unknown@example.com", password: "S3cur3!pass" }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string; code: string };
+    expect(body.error).toBe("signup failed");
+    expect(body.code).toBe("INTERNAL_ERROR");
+  });
+});
