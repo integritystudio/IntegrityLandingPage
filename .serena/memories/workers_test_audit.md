@@ -66,11 +66,11 @@ Workers tests rely heavily on `vi.mock()` for external dependencies. Many can be
 
 ---
 
-### 4. **contact-form** (Moderate Mock Load)
+### 4. **contact-form** (Resend Mock Load; KV Well-Tested) ✅ VERIFIED
 
 **Current Mocks:**
 - `Resend` email service → mocked
-- KV rate limiting → not directly tested
+- KV rate limiting → **directly tested** (lines 886, 920, 958, 1386) ✅
 - CSRF token generation → uses real crypto ✅
 
 **Mock Removal Opportunities:**
@@ -78,12 +78,12 @@ Workers tests rely heavily on `vi.mock()` for external dependencies. Many can be
 | What | Current | Opportunity | Benefit |
 |------|---------|-------------|---------|
 | **Resend email send** | `vi.mock('resend')` → mocks all responses | Create `.e2e.test.ts` with Resend sandbox API key | Validates actual email submission format |
-| **KV rate limiting** | No direct tests; only mocked in error paths | Create with real KV namespace in staging | Tests rate limit reset, circuit breaker, CSRF window |
+| **KV rate limiting** | ✅ Already tested: rate limit bucket, circuit breaker, token expiry | Optional: extend with staging KV in e2e | Real KV state transitions (low priority) |
 | **CSRF token validation** | Uses real crypto ✅ | Already good; extend e2e to test token freshness | Tests token expiry on real timings |
 
 **Recommended Approach:**
-1. Create `.e2e.test.ts` with `SELF.fetch()` + `fetchMock` for Resend
-2. Add optional CI job with `LIVE_TESTS` flag for real KV/Resend (like provisioning)
+1. Create `.e2e.test.ts` with `SELF.fetch()` + `fetchMock` for Resend (primary opportunity)
+2. Keep existing KV tests as-is (already comprehensive)
 3. Extract mock-to-e2e pattern: same tests, swap `fetchMock` for real API
 
 ---
@@ -132,7 +132,7 @@ Workers tests rely heavily on `vi.mock()` for external dependencies. Many can be
 
 ### ❌ What Can Improve:
 1. **stripe-webhook** → Heavy DB mocking; replace with staging DB + contract tests
-2. **contact-form** → Resend mocked; add e2e with real API
+2. **contact-form** → Resend mocked; add e2e with real API (KV tests already solid ✅)
 3. **api-gateway** → Quota spy; replace with e2e + real DO
 4. **sender-worker unit test** → RECEIVER mock may be redundant vs. e2e
 
@@ -145,7 +145,7 @@ Workers tests rely heavily on `vi.mock()` for external dependencies. Many can be
    - Keep existing tests but remove `vi.mock('./handlers/*')`
    - Add staging DB integration test for dead-letter flow
    
-2. **contact-form**: Add `.e2e.test.ts` with Resend sandbox + real KV (optional in CI)
+2. **contact-form**: Add `.e2e.test.ts` with Resend sandbox API (Resend e2e only; KV already well-tested)
 
 ### Phase 2 (Medium Effort)
 3. **api-gateway**: Add `.e2e.test.ts` with real Durable Objects + staging Supabase
