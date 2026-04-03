@@ -3,9 +3,9 @@
 ## Current Status
 
 **Phase**: Testing Infrastructure & Error Handling ✅ COMPLETE
-**Last Updated**: 2026-03-31
+**Last Updated**: 2026-04-02
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ All tests passing (2740+ tests, ~94% coverage; workers: 310 tests; contract: 25 tests)
+**Test Status**: ✅ 2,793 Flutter tests passing (~94% coverage); 1 worker test file (org-quota-do)
 
 See [docs/changelog/1.2/CHANGELOG.md](docs/changelog/1.2/CHANGELOG.md) for recent changes.
 
@@ -59,7 +59,7 @@ workers/
 
 scripts/              # Build/dev tooling, repomix generation
 docs/                 # Architecture, routes, changelog, backlog
-test/                 # Unit + widget tests (2440+ passing, ~94% coverage)
+test/                 # Unit + widget tests (2,793 passing, ~94% coverage)
 ```
 
 ## Workers
