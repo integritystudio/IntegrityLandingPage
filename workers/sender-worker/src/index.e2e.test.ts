@@ -460,3 +460,161 @@ describe("CORS — POST from disallowed origin", () => {
     expect(res.headers.get("access-control-allow-origin")).toBe("https://integritystudio.ai");
   });
 });
+
+// ─── POST /create-checkout-session — Stripe checkout ─────────────────────────
+
+const STRIPE_API = "https://api.stripe.test";
+
+describe("POST /create-checkout-session — Stripe checkout", () => {
+  it("returns 200 with checkoutUrl on valid request", async () => {
+    const checkoutUrl = "https://checkout.stripe.com/pay/cs_test_e2e_abc123";
+    fetchMock
+      .post(STRIPE_API)
+      .intercept({ path: "/v1/checkout/sessions", method: "POST" })
+      .reply(200, JSON.stringify({ url: checkoutUrl }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/create-checkout-session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "e2e@example.com", tier: "growth" }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as { checkoutUrl: string };
+    expect(body.checkoutUrl).toBe(checkoutUrl);
+  });
+
+  it("sends correct parameters to Stripe API", async () => {
+    let capturedBody = "";
+    fetchMock
+      .post(STRIPE_API)
+      .intercept({ path: "/v1/checkout/sessions", method: "POST" })
+      .reply(200, async (req) => {
+        capturedBody = await req.text();
+        return { url: "https://checkout.stripe.com/pay/cs_test" };
+      });
+
+    await SELF.fetch("https://worker.test/create-checkout-session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "stripe@example.com", tier: "growth" }),
+    });
+
+    const params = new URLSearchParams(capturedBody);
+    expect(params.get("mode")).toBe("subscription");
+    expect(params.get("line_items[0][price]")).toBeTruthy();
+    expect(params.get("line_items[0][quantity]")).toBe("1");
+    expect(params.get("customer_email")).toBe("stripe@example.com");
+    expect(params.get("success_url")).toBeTruthy();
+    expect(params.get("cancel_url")).toBeTruthy();
+  });
+
+  it("includes content-type on response", async () => {
+    fetchMock
+      .post(STRIPE_API)
+      .intercept({ path: "/v1/checkout/sessions", method: "POST" })
+      .reply(200, JSON.stringify({ url: "https://checkout.stripe.com/pay/test" }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/create-checkout-session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "ct@example.com", tier: "starter" }),
+    });
+
+    expect(res.headers.get("content-type")).toContain("application/json");
+  });
+});
+
+describe("POST /create-checkout-session — validation", () => {
+  it("returns 400 when email is missing", async () => {
+    const res = await SELF.fetch("https://worker.test/create-checkout-session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tier: "growth" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("email");
+  });
+
+  it("returns 400 when tier is missing", async () => {
+    const res = await SELF.fetch("https://worker.test/create-checkout-session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "notier@example.com" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("tier");
+  });
+
+  it("returns 400 for invalid email format", async () => {
+    const res = await SELF.fetch("https://worker.test/create-checkout-session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "not-an-email", tier: "growth" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("email");
+  });
+
+  it("returns 400 for invalid JSON body", async () => {
+    const res = await SELF.fetch("https://worker.test/create-checkout-session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{ bad json",
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("json");
+  });
+});
+
+describe("POST /create-checkout-session — Stripe API errors", () => {
+  it("returns 500 when Stripe API returns error", async () => {
+    fetchMock
+      .post(STRIPE_API)
+      .intercept({ path: "/v1/checkout/sessions", method: "POST" })
+      .reply(400, JSON.stringify({ error: { message: "Invalid price" } }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/create-checkout-session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "fail@example.com", tier: "growth" }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("checkout");
+  });
+
+  it("returns 500 when Stripe response is missing the session URL", async () => {
+    fetchMock
+      .post(STRIPE_API)
+      .intercept({ path: "/v1/checkout/sessions", method: "POST" })
+      .reply(200, JSON.stringify({}), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/create-checkout-session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "nourl@example.com", tier: "growth" }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("checkout");
+  });
+});

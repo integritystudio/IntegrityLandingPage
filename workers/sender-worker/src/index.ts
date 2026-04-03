@@ -65,9 +65,14 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
   const orgName = providedName ?? `${email.split("@")[0]} (personal)`;
 
   try {
+    // Verify Auth0 credentials are configured
+    if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID || !env.AUTH0_CLIENT_SECRET || !env.AUTH0_AUDIENCE) {
+      return errorResponse("Auth0 not configured", ERROR_CODE.AUTH0_UNCONFIGURED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    }
+
     const { auth0Sub } = await auth0CreateUser(
-      env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET,
-      env.AUTH0_CLI_AUDIENCE, email, password,
+      env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
+      env.AUTH0_AUDIENCE, email, password,
     );
 
     const userId = crypto.randomUUID();
@@ -93,7 +98,27 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[signup]", msg);
-    return errorResponse("signup failed", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+
+    // Map specific errors to error codes for better debugging
+    let errorCode = ERROR_CODE.INTERNAL_ERROR;
+    if (msg.includes("Auth0 token exchange failed")) {
+      errorCode = ERROR_CODE.AUTH0_TOKEN_EXCHANGE_FAILED;
+    } else if (msg.includes("Auth0 createUser failed")) {
+      errorCode = ERROR_CODE.AUTH0_USER_CREATION_FAILED;
+    } else if (msg.includes("Supabase org creation failed")) {
+      errorCode = ERROR_CODE.SUPABASE_ORG_CREATION_FAILED;
+    } else if (msg.includes("Supabase user insert failed")) {
+      errorCode = ERROR_CODE.SUPABASE_USER_INSERT_FAILED;
+    } else if (msg.includes("Supabase org membership")) {
+      errorCode = ERROR_CODE.SUPABASE_ORG_MEMBERSHIP_FAILED;
+    }
+
+    // For debugging: include the full error message (truncated)
+    const errorDetail = msg.substring(0, 200);
+    return new Response(JSON.stringify({ error: "signup failed", code: errorCode, detail: errorDetail }), {
+      status: HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      headers: { [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON },
+    });
   }
 }
 

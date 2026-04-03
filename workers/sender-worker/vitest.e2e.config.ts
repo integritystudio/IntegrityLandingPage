@@ -16,6 +16,13 @@ export default defineWorkersConfig({
             AUTH0_CLIENT_ID: "e2e-client-id",
             AUTH0_CLIENT_SECRET: "e2e-client-secret",
             AUTH0_AUDIENCE: "https://api.e2e.test",
+            STRIPE_SECRET_KEY: "sk_test_e2e_abc123",
+            STRIPE_PLAN_TO_PRICE_JSON: JSON.stringify({
+              starter: "price_starter_monthly",
+              growth: "price_growth_monthly",
+              enterprise: "price_enterprise_annual",
+            }),
+            APP_BASE_URL: "https://integritystudio.ai",
           },
           // Stub receiver worker so the RECEIVER service binding resolves
           workers: [

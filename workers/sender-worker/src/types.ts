@@ -36,6 +36,12 @@ export const ERROR_CODE = {
   FORBIDDEN: "forbidden",
   NOT_FOUND: "NOT_FOUND",
   INTERNAL_ERROR: "INTERNAL_ERROR",
+  AUTH0_UNCONFIGURED: "AUTH0_UNCONFIGURED",
+  AUTH0_TOKEN_EXCHANGE_FAILED: "AUTH0_TOKEN_EXCHANGE_FAILED",
+  AUTH0_USER_CREATION_FAILED: "AUTH0_USER_CREATION_FAILED",
+  SUPABASE_ORG_CREATION_FAILED: "SUPABASE_ORG_CREATION_FAILED",
+  SUPABASE_USER_INSERT_FAILED: "SUPABASE_USER_INSERT_FAILED",
+  SUPABASE_ORG_MEMBERSHIP_FAILED: "SUPABASE_ORG_MEMBERSHIP_FAILED",
 } as const;
 
 export const CORS_HEADERS = {
@@ -104,14 +110,11 @@ export interface Env {
   /** Service binding to api-provisioning-receiver. */
   RECEIVER: Fetcher;
   AUTH0_DOMAIN: string;
+  /** Auth0 app credentials for both ROPC (password grant) and Management API (client_credentials grant). */
   AUTH0_CLIENT_ID: string;
   AUTH0_CLIENT_SECRET: string;
+  /** Auth0 audience (used for both ROPC and Management API calls). */
   AUTH0_AUDIENCE: string;
-  /** CLI app credentials for Management API (client_credentials grant). Required for user creation. */
-  AUTH0_CLI_ID: string;
-  AUTH0_CLI_SECRET: string;
-  /** Management API audience (e.g. https://{domain}/api/v2/). Required for user creation. */
-  AUTH0_CLI_AUDIENCE: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   ALLOWED_ORIGINS_JSON?: string;
