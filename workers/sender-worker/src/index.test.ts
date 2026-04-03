@@ -6,6 +6,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { FetchMock } from './test-helpers/fetch-mock';
+import { fixtures, SignupScenarioBuilder } from './test-helpers/fixtures';
 
 
 interface SuccessResponse {
@@ -1728,6 +1730,68 @@ describe('Sender Worker', () => {
       expect(typeof data.service).toBe('string');
       expect(typeof data.version).toBe('string');
       expect(typeof data.timestamp).toBe('string');
+    });
+  });
+
+  describe('POST /signup — Refactored with FetchMock (No Global Spies)', () => {
+    let fetchMock: FetchMock;
+
+    afterEach(() => {
+      fetchMock?.restore();
+    });
+
+    it('successful signup with FetchMock helper (no global spy)', async () => {
+      fetchMock = new SignupScenarioBuilder().successful();
+      fetchMock.activate();
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: fixtures.user.email, password: fixtures.user.password }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(201);
+      const data = await response.json() as Record<string, unknown>;
+      expect(data.auth0Sub).toBe(fixtures.auth0.sub);
+      expect(data.email).toBe(fixtures.user.email);
+    });
+
+    it('tracks fetch calls without global spy', async () => {
+      fetchMock = new SignupScenarioBuilder().successful();
+      fetchMock.activate();
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: fixtures.user.email, password: fixtures.user.password }),
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(fetchMock.assertCalled(/\/oauth\/token/)).toBe(true);
+      expect(fetchMock.assertCalled(/\/api\/v2\/users/)).toBe(true);
+      expect(fetchMock.assertCalled(/\/organizations/)).toBe(true);
+      expect(fetchMock.getCallCount(/\/oauth\/token/)).toBe(2); // M2M + ROPC
+    });
+
+    it('custom fetch handler without global spy', async () => {
+      fetchMock = new FetchMock()
+        .whenAuth0Token()
+        .whenAuth0CreateUser('auth0|custom-user')
+        .whenSupabaseOrganization('org-custom-123')
+        .whenSupabaseUser()
+        .whenSupabaseOrgMembership();
+      fetchMock.activate();
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: fixtures.user.email, password: fixtures.user.password }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(201);
     });
   });
 
