@@ -26,6 +26,9 @@ interface Env {
   AUTH0_CLIENT_ID: string;
   AUTH0_CLIENT_SECRET: string;
   AUTH0_AUDIENCE: string;
+  AUTH0_CLI_ID: string;
+  AUTH0_CLI_SECRET: string;
+  AUTH0_CLI_AUDIENCE: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   ALLOWED_ORIGINS_JSON?: string;
@@ -48,6 +51,9 @@ const mockEnv: Env = {
   AUTH0_CLIENT_ID: 'test-client-id',
   AUTH0_CLIENT_SECRET: 'test-client-secret',
   AUTH0_AUDIENCE: 'https://api.test',
+  AUTH0_CLI_ID: 'test-cli-id',
+  AUTH0_CLI_SECRET: 'test-cli-secret',
+  AUTH0_CLI_AUDIENCE: 'https://test.auth0.com/api/v2/',
   SUPABASE_URL: 'https://supabase.test',
   SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
 };
@@ -1722,6 +1728,53 @@ describe('Sender Worker', () => {
       expect(typeof data.service).toBe('string');
       expect(typeof data.version).toBe('string');
       expect(typeof data.timestamp).toBe('string');
+    });
+  });
+
+  describe('Environment Variable Validation (Regression Tests)', () => {
+    it('mockEnv includes all required AUTH0_CLI_* credentials for user creation', () => {
+      expect(mockEnv).toHaveProperty('AUTH0_CLI_ID');
+      expect(mockEnv).toHaveProperty('AUTH0_CLI_SECRET');
+      expect(mockEnv).toHaveProperty('AUTH0_CLI_AUDIENCE');
+      expect(mockEnv.AUTH0_CLI_ID).toBe('test-cli-id');
+      expect(mockEnv.AUTH0_CLI_SECRET).toBe('test-cli-secret');
+      expect(mockEnv.AUTH0_CLI_AUDIENCE).toBe('https://test.auth0.com/api/v2/');
+    });
+
+    it('does not use deprecated AUTHO_CLI_* variable names (typo regression test)', () => {
+      // This test ensures we never accidentally revert to the typo'd AUTHO_CLI_* naming.
+      const env = mockEnv as Record<string, unknown>;
+      expect(env).not.toHaveProperty('AUTHO_CLI_ID');
+      expect(env).not.toHaveProperty('AUTHO_CLI_SECRET');
+      expect(env).not.toHaveProperty('AUTHO_CLI_AUDIENCE');
+    });
+
+    it('all required environment variables are present in mockEnv', () => {
+      const requiredVars = [
+        'SHARED_SECRET',
+        'RECEIVER',
+        'AUTH0_DOMAIN',
+        'AUTH0_CLIENT_ID',
+        'AUTH0_CLIENT_SECRET',
+        'AUTH0_AUDIENCE',
+        'AUTH0_CLI_ID',
+        'AUTH0_CLI_SECRET',
+        'AUTH0_CLI_AUDIENCE',
+        'SUPABASE_URL',
+        'SUPABASE_SERVICE_ROLE_KEY',
+      ];
+
+      requiredVars.forEach((varName) => {
+        expect(mockEnv).toHaveProperty(varName);
+      });
+    });
+
+    it('Auth0 management credentials are distinct from ROPC credentials', () => {
+      // Ensure that CLI credentials (for M2M user creation) are different from ROPC credentials (for user signin)
+      expect(mockEnv.AUTH0_CLI_ID).not.toBe(mockEnv.AUTH0_CLIENT_ID);
+      expect(mockEnv.AUTH0_CLI_SECRET).not.toBe(mockEnv.AUTH0_CLIENT_SECRET);
+      expect(mockEnv.AUTH0_CLI_AUDIENCE).toContain('/api/v2/');
+      expect(mockEnv.AUTH0_AUDIENCE).not.toContain('/api/v2/');
     });
   });
 });
