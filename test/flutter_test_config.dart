@@ -3,12 +3,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:integrity_studio_ai/theme/typography.dart';
+import 'coverage_setup.dart';
 import 'helpers/test_content.dart';
 
 /// Global test configuration that runs before all tests.
 ///
 /// This file is automatically detected by the Flutter test framework.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
+  // Ensure all lib modules are loaded for coverage instrumentation.
+  // This must happen before tests run to capture coverage for all files.
+  ensureCoverageInstrumentation();
+
   // Disable Google Fonts network fetching in tests to avoid flaky tests
   // and network-related errors.
   GoogleFonts.config.allowRuntimeFetching = false;
