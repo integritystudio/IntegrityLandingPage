@@ -112,7 +112,7 @@ async function handleSend(env: Env, req: Record<string, unknown>): Promise<Respo
 
   const parsed = SendRequestSchema.safeParse(req);
   if (!parsed.success) {
-    const field = parsed.error.issues[0]?.path[0] ?? "request";
+    const field = parsed.error.issues[0].path[0];
     if (field === "action") {
       return errorResponse("unknown action", ERROR_CODE.UNKNOWN_ACTION, HTTP_STATUS.BAD_REQUEST);
     }
@@ -162,7 +162,7 @@ async function handleCreateCheckoutSession(env: Env, req: Record<string, unknown
 
   const parsed = CreateCheckoutSessionSchema.safeParse(req);
   if (!parsed.success) {
-    const field = parsed.error.issues[0]?.path[0] ?? "request";
+    const field = parsed.error.issues[0].path[0];
     const code = field === "email" ? ERROR_CODE.INVALID_EMAIL : ERROR_CODE.MISSING_FIELDS;
     return errorResponse(`invalid ${String(field)}`, code, HTTP_STATUS.BAD_REQUEST);
   }
