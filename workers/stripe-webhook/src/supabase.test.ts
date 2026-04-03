@@ -50,6 +50,24 @@ describe('fetchPendingDeadLetters', () => {
     const result = await db.fetchPendingDeadLetters();
     expect(result).toEqual([]);
   });
+
+  it('array data → returns the array of dead letters', async () => {
+    const deadLetters = [
+      { id: 'dl-1', stripe_event_id: 'evt_1', event_type: 'checkout.session.completed', payload: {}, retry_count: 0, max_retries: 5 },
+    ];
+    mockQuery.mockResolvedValue({ ok: true, data: deadLetters });
+    const result = await db.fetchPendingDeadLetters();
+    expect(result).toEqual(deadLetters);
+  });
+
+  it('passes custom limit to the query', async () => {
+    mockQuery.mockResolvedValue({ ok: true, data: [] });
+    await db.fetchPendingDeadLetters(10);
+    expect(mockQuery).toHaveBeenCalledWith(
+      'webhook_dead_letters',
+      expect.objectContaining({ limit: 10 }),
+    );
+  });
 });
 
 describe('isEventProcessed', () => {
@@ -110,6 +128,14 @@ describe('linkStripeCustomer', () => {
     const result = await db.linkStripeCustomer('org-1', 'cus_123');
 
     expect(result).toEqual({ ok: false, error: 'Connection timeout' });
+  });
+
+  it('returns { ok: false, error: "Unknown error" } when DB result has no error field', async () => {
+    mockUpdate.mockResolvedValue({ ok: false });
+
+    const result = await db.linkStripeCustomer('org-1', 'cus_123');
+
+    expect(result).toEqual({ ok: false, error: 'Unknown error' });
   });
 });
 
@@ -366,5 +392,146 @@ describe('failDeadLetter', () => {
     const result = await db.failDeadLetter('dl-1', 0, 5, 'err');
 
     expect(result).toEqual({ ok: false, error: 'Update failed' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveDeadLetter
+// ---------------------------------------------------------------------------
+
+describe('resolveDeadLetter', () => {
+  let db: ReturnType<typeof createSupabaseAdmin>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+  });
+
+  it('updates status to resolved and returns { ok: true }', async () => {
+    mockUpdate.mockResolvedValue({ ok: true });
+
+    const result = await db.resolveDeadLetter('dl-1');
+
+    expect(result).toEqual({ ok: true });
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'webhook_dead_letters',
+      expect.objectContaining({ status: 'resolved' }),
+      [{ column: 'id', operator: 'eq', value: 'dl-1' }],
+    );
+  });
+
+  it('returns { ok: false, error } on DB failure', async () => {
+    mockUpdate.mockResolvedValue({ ok: false, error: 'Update failed' });
+
+    const result = await db.resolveDeadLetter('dl-1');
+
+    expect(result).toEqual({ ok: false, error: 'Update failed' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// abandonDeadLetter
+// ---------------------------------------------------------------------------
+
+describe('abandonDeadLetter', () => {
+  let db: ReturnType<typeof createSupabaseAdmin>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+  });
+
+  it('updates status to abandoned and returns { ok: true }', async () => {
+    mockUpdate.mockResolvedValue({ ok: true });
+
+    const result = await db.abandonDeadLetter('dl-1');
+
+    expect(result).toEqual({ ok: true });
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'webhook_dead_letters',
+      expect.objectContaining({ status: 'abandoned' }),
+      [{ column: 'id', operator: 'eq', value: 'dl-1' }],
+    );
+  });
+
+  it('returns { ok: false, error } on DB failure', async () => {
+    mockUpdate.mockResolvedValue({ ok: false, error: 'Update failed' });
+
+    const result = await db.abandonDeadLetter('dl-1');
+
+    expect(result).toEqual({ ok: false, error: 'Update failed' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findOrgByStripeCustomerId
+// ---------------------------------------------------------------------------
+
+describe('findOrgByStripeCustomerId', () => {
+  let db: ReturnType<typeof createSupabaseAdmin>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+  });
+
+  it('returns { ok: true, orgId } when org found', async () => {
+    mockQuery.mockResolvedValue({ ok: true, data: { id: 'org-1' } });
+
+    const result = await db.findOrgByStripeCustomerId('cus_123');
+
+    expect(result).toEqual({ ok: true, orgId: 'org-1' });
+  });
+
+  it('returns { ok: true, orgId: null } when no org found', async () => {
+    mockQuery.mockResolvedValue({ ok: true, data: null });
+
+    const result = await db.findOrgByStripeCustomerId('cus_unknown');
+
+    expect(result).toEqual({ ok: true, orgId: null });
+  });
+
+  it('returns { ok: false, error } on DB failure', async () => {
+    mockQuery.mockResolvedValue({ ok: false, error: 'Connection timeout' });
+
+    const result = await db.findOrgByStripeCustomerId('cus_123');
+
+    expect(result).toEqual({ ok: false, error: 'Connection timeout' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// logProcessedEvent
+// ---------------------------------------------------------------------------
+
+describe('logProcessedEvent', () => {
+  let db: ReturnType<typeof createSupabaseAdmin>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+  });
+
+  it('inserts with correct fields and returns { ok: true }', async () => {
+    mockInsert.mockResolvedValue({ ok: true });
+
+    const result = await db.logProcessedEvent('evt_123', 'checkout.session.completed');
+
+    expect(result).toEqual({ ok: true });
+    expect(mockInsert).toHaveBeenCalledWith(
+      'webhook_events_log',
+      expect.objectContaining({
+        stripe_event_id: 'evt_123',
+        event_type: 'checkout.session.completed',
+      }),
+    );
+  });
+
+  it('returns { ok: false, error } on DB failure', async () => {
+    mockInsert.mockResolvedValue({ ok: false, error: 'Insert failed' });
+
+    const result = await db.logProcessedEvent('evt_123', 'invoice.paid');
+
+    expect(result).toEqual({ ok: false, error: 'Insert failed' });
   });
 });

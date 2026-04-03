@@ -92,6 +92,46 @@ describe('Stripe webhook verification', () => {
       expect(result.timestamp).toBe(timestamp);
     }
   });
+
+  it('should reject signature with non-hex v1 value', async () => {
+    const timestamp = Math.floor(Date.now() / 1000);
+    // Non-hex characters (Z is not hex) trigger the sigBytes null path
+    const result = await verifyStripeSignature(`t=${timestamp},v1=ZZZZZZZZ`, '{}', 'secret');
+    expect(result.ok).toBe(false);
+  });
+
+  it('should reject valid hex but wrong signature (mismatch)', async () => {
+    const timestamp = Math.floor(Date.now() / 1000);
+    // Valid hex format but wrong HMAC value
+    const wrongHex = 'a'.repeat(64);
+    const result = await verifyStripeSignature(`t=${timestamp},v1=${wrongHex}`, '{}', 'secret');
+    expect(result.ok).toBe(false);
+  });
+
+  it('should reject header with timestamp but no v1 field', async () => {
+    const timestamp = Math.floor(Date.now() / 1000);
+    // Header has t= but no v1= — signature will be undefined
+    const result = await verifyStripeSignature(`t=${timestamp},other=value`, '{}', 'secret');
+    expect(result.ok).toBe(false);
+  });
+
+  it('should handle crypto.subtle errors gracefully and return { ok: false }', async () => {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const validHex = 'ab'.repeat(32);
+    const importKeySpy = vi.spyOn(crypto.subtle, 'importKey').mockRejectedValueOnce(new Error('Crypto failure'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await verifyStripeSignature(`t=${timestamp},v1=${validHex}`, '{}', 'secret');
+
+    expect(result.ok).toBe(false);
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Stripe signature verification error:',
+      expect.any(Error),
+    );
+
+    importKeySpy.mockRestore();
+    errorSpy.mockRestore();
+  });
 });
 
 describe('handleWebhook (fetch handler)', () => {
@@ -234,6 +274,57 @@ describe('handleWebhook (fetch handler)', () => {
       expect.stringContaining('CRITICAL'),
       'DB unavailable',
     );
+  });
+
+  it('customer.subscription.deleted event → handleSubscriptionDeleted called, processed:true returned', async () => {
+    const body = JSON.stringify({ id: 'evt_del', type: 'customer.subscription.deleted', data: { object: {} } });
+    const request = await makeWebhookRequest(body);
+
+    const { handleSubscriptionDeleted } = await import('./handlers/subscription');
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    vi.mocked(handleSubscriptionDeleted).mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    const json = await response.json<{ ok: boolean; processed: boolean }>();
+
+    expect(response.status).toBe(200);
+    expect(json.processed).toBe(true);
+    expect(handleSubscriptionDeleted).toHaveBeenCalled();
+  });
+
+  it('invoice.paid event → handleInvoicePaid called, processed:true returned', async () => {
+    const body = JSON.stringify({ id: 'evt_invpaid', type: 'invoice.paid', data: { object: {} } });
+    const request = await makeWebhookRequest(body);
+
+    const { handleInvoicePaid } = await import('./handlers/invoice');
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    vi.mocked(handleInvoicePaid).mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    const json = await response.json<{ ok: boolean; processed: boolean }>();
+
+    expect(response.status).toBe(200);
+    expect(json.processed).toBe(true);
+    expect(handleInvoicePaid).toHaveBeenCalled();
+  });
+
+  it('invoice.payment_failed event → handleInvoicePaymentFailed called, processed:true returned', async () => {
+    const body = JSON.stringify({ id: 'evt_invfailed', type: 'invoice.payment_failed', data: { object: {} } });
+    const request = await makeWebhookRequest(body);
+
+    const { handleInvoicePaymentFailed } = await import('./handlers/invoice');
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    vi.mocked(handleInvoicePaymentFailed).mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    const json = await response.json<{ ok: boolean; processed: boolean }>();
+
+    expect(response.status).toBe(200);
+    expect(json.processed).toBe(true);
+    expect(handleInvoicePaymentFailed).toHaveBeenCalled();
   });
 });
 
@@ -459,5 +550,252 @@ describe('runReconciliation', () => {
     // retries the full sequence (handler → logProcessedEvent → resolveDeadLetter).
     // Without a log entry the idempotency guard cannot detect the event as processed.
     expect(mockDb.resolveDeadLetter).not.toHaveBeenCalled();
+  });
+
+  it('resolveDeadLetter failure → console.error logged, event still considered processed', async () => {
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([checkoutDeadLetter]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleCheckout.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: false, error: 'Update failed' });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to resolve dead letter dl_1'),
+      'Update failed',
+    );
+  });
+
+  it('failDeadLetter failure → console.error logged', async () => {
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([checkoutDeadLetter]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleCheckout.mockResolvedValue({ ok: false, error: 'handler error' });
+    mockDb.failDeadLetter.mockResolvedValue({ ok: false, error: 'DB failure' });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to increment retry count for dead letter dl_1'),
+      'DB failure',
+    );
+  });
+
+  it('exception thrown during reconciliation → console.error logged, loop continues', async () => {
+    const secondDl = { ...checkoutDeadLetter, id: 'dl_2', stripe_event_id: 'evt_456' };
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([checkoutDeadLetter, secondDl]);
+    // First dead letter causes isEventProcessed to throw
+    mockDb.isEventProcessed
+      .mockRejectedValueOnce(new Error('Unexpected crash'))
+      .mockResolvedValueOnce({ ok: true, processed: false });
+    mockHandleCheckout.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Reconciliation error for dead letter dl_1'),
+      expect.any(Error),
+    );
+    // Second dead letter was still processed despite first throwing
+    expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_2');
+  });
+
+  it('reconciliation: invoice.paid dead letter → handleInvoicePaid called', async () => {
+    const invoiceDl = {
+      ...checkoutDeadLetter,
+      id: 'dl_inv',
+      stripe_event_id: 'evt_inv',
+      event_type: 'invoice.paid',
+      payload: { id: 'evt_inv', type: 'invoice.paid', data: { object: {} } },
+    };
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([invoiceDl]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    // handleInvoicePaid is mocked but we can't get a named ref; verify by checking logProcessedEvent
+    // The vi.fn() in invoice mock will return undefined by default — cast to ok result
+    const { handleInvoicePaid } = await import('./handlers/invoice');
+    vi.mocked(handleInvoicePaid).mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(mockDb.logProcessedEvent).toHaveBeenCalledWith('evt_inv', 'invoice.paid');
+    expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_inv');
+  });
+
+  it('reconciliation: invoice.payment_failed dead letter → handleInvoicePaymentFailed called', async () => {
+    const invoiceFailDl = {
+      ...checkoutDeadLetter,
+      id: 'dl_invfail',
+      stripe_event_id: 'evt_invfail',
+      event_type: 'invoice.payment_failed',
+      payload: { id: 'evt_invfail', type: 'invoice.payment_failed', data: { object: {} } },
+    };
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([invoiceFailDl]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    const { handleInvoicePaymentFailed } = await import('./handlers/invoice');
+    vi.mocked(handleInvoicePaymentFailed).mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(mockDb.logProcessedEvent).toHaveBeenCalledWith('evt_invfail', 'invoice.payment_failed');
+    expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_invfail');
+  });
+
+  it('reconciliation: customer.subscription.updated dead letter → handleSubscriptionUpdated called', async () => {
+    const subUpdatedDl = {
+      ...checkoutDeadLetter,
+      id: 'dl_subupd',
+      stripe_event_id: 'evt_subupd',
+      event_type: 'customer.subscription.updated',
+      payload: { id: 'evt_subupd', type: 'customer.subscription.updated', data: { object: {} } },
+    };
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([subUpdatedDl]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(mockHandleSubscriptionUpdated).toHaveBeenCalled();
+    expect(mockDb.logProcessedEvent).toHaveBeenCalledWith('evt_subupd', 'customer.subscription.updated');
+    expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_subupd');
+  });
+
+  it('reconciliation: customer.subscription.deleted dead letter → handleSubscriptionDeleted called', async () => {
+    const subDeletedDl = {
+      ...checkoutDeadLetter,
+      id: 'dl_subdel',
+      stripe_event_id: 'evt_subdel',
+      event_type: 'customer.subscription.deleted',
+      payload: { id: 'evt_subdel', type: 'customer.subscription.deleted', data: { object: {} } },
+    };
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([subDeletedDl]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    const { handleSubscriptionDeleted } = await import('./handlers/subscription');
+    vi.mocked(handleSubscriptionDeleted).mockResolvedValue({ ok: true });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(mockDb.logProcessedEvent).toHaveBeenCalledWith('evt_subdel', 'customer.subscription.deleted');
+    expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_subdel');
+  });
+
+  it('orphaned dead letter resolveDeadLetter failure → console.error logged', async () => {
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([checkoutDeadLetter]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: false, error: 'Resolve failed' });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to resolve orphaned dead letter dl_1'),
+      'Resolve failed',
+    );
+  });
+});
+
+describe('handleWebhook edge cases', () => {
+  let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleSpy.mockRestore();
+  });
+
+  async function makeWebhookRequest(body: string, secret = 'test-secret'): Promise<Request> {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(`${timestamp}.${body}`));
+    const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    return new Request('https://example.com/webhook', {
+      method: 'POST',
+      headers: { 'stripe-signature': `t=${timestamp},v1=${hex}`, 'content-type': 'application/json' },
+      body,
+    });
+  }
+
+  it('isEventProcessed returns ok:false → 500 returned', async () => {
+    const body = JSON.stringify({ id: 'evt_guard', type: 'checkout.session.completed' });
+    const request = await makeWebhookRequest(body);
+
+    mockDb.isEventProcessed.mockResolvedValue({ ok: false, error: 'DB down' });
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    expect(response.status).toBe(500);
+  });
+
+  it('invalid JSON body → 500 returned', async () => {
+    const body = 'not-json{{{';
+    const request = await makeWebhookRequest(body);
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    expect(response.status).toBe(500);
+  });
+
+  it('valid JSON but no event.type → 500 returned', async () => {
+    const body = JSON.stringify({ id: 'evt_notype' });
+    const request = await makeWebhookRequest(body);
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    expect(response.status).toBe(500);
+  });
+
+  it('unhandled event type → logProcessedEvent called with ok result', async () => {
+    const body = JSON.stringify({ id: 'evt_unhandled', type: 'payment_intent.created' });
+    const request = await makeWebhookRequest(body);
+
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    const json = await response.json<{ ok: boolean; processed: boolean }>();
+
+    expect(response.status).toBe(200);
+    expect(json.processed).toBe(true);
   });
 });

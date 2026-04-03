@@ -12,6 +12,11 @@ import {
   DOT_TO_HYPHEN_REGEX,
   SLUG_SANITIZE_REGEX,
   SLUG_TRIM_REGEX,
+  auth0CreateUser,
+  supabaseCreatePersonalOrg,
+  supabaseInsertUser,
+  supabaseAddOrgOwner,
+  auth0UserSignIn,
 } from './supabase';
 
 describe('dedupSlug', () => {
@@ -292,5 +297,118 @@ describe('dedupSlug', () => {
       expect(parts.length).toBeGreaterThanOrEqual(2);
       expect(parts[parts.length - 1]).toBe('com');
     });
+  });
+});
+
+describe('auth0CreateUser()', () => {
+  it('throws when the Management API response contains no user_id', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/oauth/token')) {
+        return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (urlStr.includes('/api/v2/users')) {
+        return new Response(JSON.stringify({}), {
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response('', { status: 201 });
+    });
+
+    await expect(
+      auth0CreateUser('domain.auth0.com', 'cli-id', 'cli-secret', 'https://audience', 'user@example.com', 'pass'),
+    ).rejects.toThrow('no user_id');
+
+    fetchSpy.mockRestore();
+  });
+});
+
+describe('supabaseCreatePersonalOrg()', () => {
+  it('throws when the HTTP response is not ok', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response('conflict', { status: 409 }),
+    );
+
+    await expect(
+      supabaseCreatePersonalOrg('https://supabase.test', 'svc-key', 'My Org', 'starter', 'user@example.com'),
+    ).rejects.toThrow('Supabase org creation failed');
+
+    fetchSpy.mockRestore();
+  });
+
+  it('throws when the response returns no id', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify([{}]), {
+        status: 201,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await expect(
+      supabaseCreatePersonalOrg('https://supabase.test', 'svc-key', 'My Org', 'starter', 'user@example.com'),
+    ).rejects.toThrow('no id');
+
+    fetchSpy.mockRestore();
+  });
+});
+
+describe('supabaseInsertUser()', () => {
+  it('throws when the HTTP response is not ok', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response('forbidden', { status: 403 }),
+    );
+
+    await expect(
+      supabaseInsertUser('https://supabase.test', 'svc-key', 'user-id', 'auth0|abc', 'user@example.com'),
+    ).rejects.toThrow('Supabase user insert failed');
+
+    fetchSpy.mockRestore();
+  });
+});
+
+describe('supabaseAddOrgOwner()', () => {
+  it('throws when the HTTP response is not ok', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response('forbidden', { status: 403 }),
+    );
+
+    await expect(
+      supabaseAddOrgOwner('https://supabase.test', 'svc-key', 'org-id', 'user-id'),
+    ).rejects.toThrow('Supabase org membership insert failed');
+
+    fetchSpy.mockRestore();
+  });
+});
+
+describe('auth0UserSignIn()', () => {
+  it('throws when the ROPC token endpoint returns an error', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response('unauthorized', { status: 401 }),
+    );
+
+    await expect(
+      auth0UserSignIn('domain.auth0.com', 'client-id', 'client-secret', 'https://audience', 'user@example.com', 'pass'),
+    ).rejects.toThrow('Auth0 user signin failed');
+
+    fetchSpy.mockRestore();
+  });
+
+  it('throws when the ROPC response contains no access_token', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await expect(
+      auth0UserSignIn('domain.auth0.com', 'client-id', 'client-secret', 'https://audience', 'user@example.com', 'pass'),
+    ).rejects.toThrow('no access_token');
+
+    fetchSpy.mockRestore();
   });
 });

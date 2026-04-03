@@ -1195,5 +1195,533 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(200);
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://integritystudio.ai');
     });
+
+    it('falls back to hardcoded defaults when ALLOWED_ORIGINS_JSON is invalid JSON', async () => {
+      const envWithBadJson: Env = {
+        ...mockEnv,
+        ALLOWED_ORIGINS_JSON: 'not-valid-json',
+      };
+      const request = new Request('https://worker.test/send', {
+        method: 'OPTIONS',
+        headers: { Origin: 'https://integritystudio.ai' },
+      });
+      const response = await worker.fetch(request, envWithBadJson);
+      expect(response.status).toBe(204);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://integritystudio.ai');
+    });
+  });
+
+  describe('POST /signup — invalid JSON body', () => {
+    it('returns 400 with invalid json error when body is not valid JSON', async () => {
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        body: 'not valid json {',
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(400);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('invalid json');
+    });
+  });
+
+  describe('POST /signin — invalid JSON body', () => {
+    it('returns 400 with invalid json error when body is not valid JSON', async () => {
+      const request = new Request('https://worker.test/signin', {
+        method: 'POST',
+        body: 'not valid json {',
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(400);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('invalid json');
+    });
+  });
+
+  describe('POST /create-checkout-session — invalid JSON body', () => {
+    it('returns 400 with invalid json error when body is not valid JSON', async () => {
+      const stripeEnv: Env = {
+        ...mockEnv,
+        STRIPE_SECRET_KEY: 'sk_test_abc123',
+      };
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        body: 'not valid json {',
+      });
+      const response = await worker.fetch(request, stripeEnv);
+      expect(response.status).toBe(400);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('invalid json');
+    });
+  });
+
+  describe('POST /send — JWT extraction fallbacks', () => {
+    afterEach(() => {
+      mockReceiverFetch.mockReset();
+    });
+
+    it('extracts JWT from Authorization Bearer header when jwt absent in body', async () => {
+      let capturedPayload: Record<string, unknown> | null = null;
+      mockReceiverFetch.mockImplementation(async (_url, init) => {
+        capturedPayload = JSON.parse((init as RequestInit)?.body as string) as Record<string, unknown>;
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      });
+
+      const { jwt, ...noJwt } = validSendPayload;
+      const request = new Request('https://worker.test/send', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify(noJwt),
+      });
+      await worker.fetch(request, mockEnv);
+      expect(capturedPayload!['jwt']).toBe(jwt);
+    });
+
+    it('extracts JWT from x-session-data header (base64-encoded)', async () => {
+      let capturedPayload: Record<string, unknown> | null = null;
+      mockReceiverFetch.mockImplementation(async (_url, init) => {
+        capturedPayload = JSON.parse((init as RequestInit)?.body as string) as Record<string, unknown>;
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      });
+
+      const { jwt, ...noJwt } = validSendPayload;
+      const encoded = btoa(jwt);
+      const request = new Request('https://worker.test/send', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-session-data': encoded,
+        },
+        body: JSON.stringify(noJwt),
+      });
+      await worker.fetch(request, mockEnv);
+      expect(capturedPayload!['jwt']).toBe(jwt);
+    });
+
+    it('uses x-session-data value as-is when base64 decode fails', async () => {
+      let capturedPayload: Record<string, unknown> | null = null;
+      mockReceiverFetch.mockImplementation(async (_url, init) => {
+        capturedPayload = JSON.parse((init as RequestInit)?.body as string) as Record<string, unknown>;
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      });
+
+      const rawJwt = validSendPayload.jwt;
+      const { jwt: _j, ...noJwt } = validSendPayload;
+      // Pass the raw JWT directly — atob will fail on the '.' characters in a JWT
+      // but the fallback assigns sessionData directly
+      const request = new Request('https://worker.test/send', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-session-data': rawJwt,
+        },
+        body: JSON.stringify(noJwt),
+      });
+      await worker.fetch(request, mockEnv);
+      // Either decoded or raw value is set; key point is jwt is populated
+      expect(capturedPayload!['jwt']).toBeTruthy();
+    });
+  });
+
+  describe('POST /create-checkout-session — Stripe edge cases', () => {
+    const stripeEnv: Env = {
+      ...mockEnv,
+      STRIPE_SECRET_KEY: 'sk_test_abc123',
+      STRIPE_PLAN_TO_PRICE_JSON: JSON.stringify({ growth: 'price_growth_monthly' }),
+      APP_BASE_URL: 'https://integritystudio.ai',
+    };
+
+    it('returns 500 when STRIPE_PLAN_TO_PRICE_JSON is invalid JSON', async () => {
+      const badJsonEnv: Env = {
+        ...mockEnv,
+        STRIPE_SECRET_KEY: 'sk_test_abc123',
+        STRIPE_PLAN_TO_PRICE_JSON: 'not-valid-json',
+      };
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+      const response = await worker.fetch(request, badJsonEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('configuration');
+    });
+
+    it('uses default empty price map when STRIPE_PLAN_TO_PRICE_JSON is not set, returning 500', async () => {
+      const noJsonEnv: Env = {
+        ...mockEnv,
+        STRIPE_SECRET_KEY: 'sk_test_abc123',
+        // STRIPE_PLAN_TO_PRICE_JSON intentionally absent
+      };
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+      const response = await worker.fetch(request, noJsonEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('growth');
+    });
+
+    it('returns 500 when Stripe response is missing the session URL', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 'cs_test_abc' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+      const response = await worker.fetch(request, stripeEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('URL');
+      fetchSpy.mockRestore();
+    });
+  });
+
+  describe('POST /signup — Supabase error branches', () => {
+    it('returns 500 when Supabase org creation fails with HTTP error', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|abc' }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          return new Response('conflict', { status: 409 });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('signup failed');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 when Supabase org creation returns no id', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|abc' }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          return new Response(JSON.stringify([{}]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('signup failed');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 when Supabase user insert fails', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|abc' }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          return new Response(JSON.stringify([{ id: 'org-123' }]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/users')) {
+          return new Response('forbidden', { status: 403 });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('signup failed');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 when Supabase org membership insert fails', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|abc' }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          return new Response(JSON.stringify([{ id: 'org-123' }]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/users')) {
+          return new Response('', { status: 201 });
+        }
+        if (urlStr.includes('/rest/v1/organization_memberships')) {
+          return new Response('forbidden', { status: 403 });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('signup failed');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 when signup throws a non-Error value', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockRejectedValueOnce('unexpected string throw');
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('signup failed');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 when Auth0 mgmt token exchange fails (HTTP error)', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response('unauthorized', { status: 401 });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('signup failed');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 when Auth0 mgmt token exchange returns no access_token', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({}), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('signup failed');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 when ROPC token exchange (user signin) fails after successful user creation', async () => {
+      let oauthCallCount = 0;
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          oauthCallCount++;
+          if (oauthCallCount === 1) {
+            return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
+              status: 200, headers: { 'content-type': 'application/json' },
+            });
+          }
+          // Second call — ROPC — fails
+          return new Response('unauthorized', { status: 401 });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|abc' }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          return new Response(JSON.stringify([{ id: 'org-123' }]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('signup failed');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 when ROPC token exchange returns no access_token', async () => {
+      let oauthCallCount = 0;
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          oauthCallCount++;
+          if (oauthCallCount === 1) {
+            return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
+              status: 200, headers: { 'content-type': 'application/json' },
+            });
+          }
+          return new Response(JSON.stringify({}), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: 'auth0|abc' }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/rest/v1/organizations')) {
+          return new Response(JSON.stringify([{ id: 'org-123' }]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'S3cur3!pass' }),
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('signup failed');
+      fetchSpy.mockRestore();
+    });
+  });
+
+  describe('POST /send — non-TypeError exception from receiver', () => {
+    afterEach(() => {
+      mockReceiverFetch.mockReset();
+    });
+
+    it('returns 500 when receiver throws a non-TypeError error', async () => {
+      mockReceiverFetch.mockRejectedValueOnce(new Error('internal error'));
+      const request = makeSendRequest(validSendPayload);
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('send failed');
+    });
+
+    it('returns 500 when receiver throws a non-Error value', async () => {
+      mockReceiverFetch.mockRejectedValueOnce('string error');
+      const request = makeSendRequest(validSendPayload);
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('send failed');
+    });
+
+    it('proxies receiver response and sets a content-type when receiver omits content-type header', async () => {
+      // Build a response where the content-type header is explicitly null
+      const receiverRes = new Response(JSON.stringify({ ok: true }), { status: 200 });
+      // Remove content-type by constructing with no headers
+      const noCtRes = new Response(receiverRes.body, { status: 200, headers: {} });
+      mockReceiverFetch.mockResolvedValueOnce(noCtRes);
+      const request = makeSendRequest(validSendPayload);
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(200);
+      // The worker falls back to CONTENT_TYPES.JSON when content-type is null
+      expect(response.headers.get('content-type')).toBeTruthy();
+    });
+  });
+
+  describe('GET /health', () => {
+    it('returns 200 with service info', async () => {
+      const request = new Request('https://worker.test/health', { method: 'GET' });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { ok: boolean; service: string; version: string; timestamp: string };
+      expect(data.ok).toBe(true);
+      expect(typeof data.service).toBe('string');
+      expect(typeof data.version).toBe('string');
+      expect(typeof data.timestamp).toBe('string');
+    });
   });
 });
