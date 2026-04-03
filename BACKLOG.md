@@ -36,6 +36,34 @@ curl -X POST https://sender-worker.alyshia-b38.workers.dev/signup \
 
 ---
 
+## ✅ Completed: Integration Test Coverage for Error Scenarios
+
+**Status**: Complete ✅ (Commit 6d2ff74)
+
+**Coverage Added**:
+- 8 comprehensive e2e integration tests in `workers/sender-worker/src/index.e2e.test.ts`
+- Tests for all 7 ERROR_CODE constants added in credential migration
+- Error detail field validation (truncation to 200 chars)
+- Real-world error scenarios based on actual Auth0/Supabase failures
+
+**Test Scenarios**:
+1. AUTH0_TOKEN_EXCHANGE_FAILED: Client Credentials grant type not allowed
+2. AUTH0_USER_CREATION_FAILED: Password strength / validation errors
+3. SUPABASE_ORG_CREATION_FAILED: Invalid tier / org creation failures
+4. SUPABASE_USER_INSERT_FAILED: Constraint violations / duplicate users
+5. SUPABASE_ORG_MEMBERSHIP_FAILED: Invalid organization / permission errors
+6. Error detail field truncation validation
+7. INTERNAL_ERROR: Unmapped error fallback
+
+**How to Run** (when e2e runner is fixed):
+```bash
+npm run test:e2e
+```
+
+**Documentation**: `workers/sender-worker/src/ERROR_SCENARIO_TESTS.md`
+
+---
+
 ## 📋 Ready for Implementation
 
 ### Remove "detail" Field from Error Responses (Post-Debug)
