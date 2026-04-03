@@ -51,8 +51,8 @@ export async function handleInvoicePaid(
   }
   const invoice = parseResult.data;
 
-  if (!invoice.subscription || !invoice.customer) {
-    return { ok: false, error: 'Invoice missing subscription or customer' };
+  if (!invoice.subscription) {
+    return { ok: false, error: 'Invoice missing subscription' };
   }
 
   const resolved = await resolveOrgId(invoice.customer, db);
@@ -75,10 +75,6 @@ export async function handleInvoicePaymentFailed(
     return { ok: false, error: `Invalid invoice payload: ${parseResult.error.issues.map((i) => i.message).join('; ')}` };
   }
   const invoice = parseResult.data;
-
-  if (!invoice.customer) {
-    return { ok: false, error: 'Invoice missing customer' };
-  }
 
   const resolved = await resolveOrgId(invoice.customer, db);
   if (!resolved.ok) return resolved;

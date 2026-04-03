@@ -24,10 +24,6 @@ export async function handleSubscriptionUpdated(
   }
   const subscription = parseResult.data;
 
-  if (!subscription.customer) {
-    return { ok: false, error: 'Subscription missing customer' };
-  }
-
   const findResult = await db.findOrgByStripeCustomerId(subscription.customer);
   if (!findResult.ok) {
     return { ok: false, error: `Failed to find org: ${findResult.error}` };
@@ -84,10 +80,6 @@ export async function handleSubscriptionDeleted(
     return { ok: false, error: `Invalid subscription payload: ${parseResult.error.issues.map((i) => i.message).join('; ')}` };
   }
   const subscription = parseResult.data;
-
-  if (!subscription.customer) {
-    return { ok: false, error: 'Subscription missing customer' };
-  }
 
   const findResult = await db.findOrgByStripeCustomerId(subscription.customer);
   if (!findResult.ok) {
