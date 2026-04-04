@@ -1,4 +1,4 @@
-import type { ZodSchema, ZodError } from 'zod';
+import type { ZodType, ZodError } from 'zod';
 import { badRequest, unprocessableEntity } from '../http/errors';
 import { isJsonRequest } from '../http/request';
 
@@ -30,7 +30,7 @@ export function zodValidationError(error: ZodError): Response {
 
 export async function requireValidJson<T>(
   request: Request,
-  schema: ZodSchema<T>,
+  schema: ZodType<T>,
 ): Promise<ValidResult<T>> {
   if (!isJsonRequest(request)) {
     return { ok: false, error: badRequest('Expected content-type: application/json') };

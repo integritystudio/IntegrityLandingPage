@@ -35,11 +35,11 @@ export const AuditLogSchema = z.object({
   action: AuditActionSchema,
   target_type: z.string().min(1), // e.g., 'user', 'organization', 'api_key'
   target_id: z.string().min(1),
-  old_values: z.record(z.unknown()).nullable(),
-  new_values: z.record(z.unknown()).nullable(),
-  ip_address: z.string().ip().nullable(),
+  old_values: z.record(z.string(), z.unknown()).nullable(),
+  new_values: z.record(z.string(), z.unknown()).nullable(),
+  ip_address: z.union([z.ipv4(), z.ipv6()]).nullable(),
   user_agent: z.string().nullable(),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   created_at: z.string().datetime(),
 });
 
@@ -54,9 +54,9 @@ export const UserActivitySchema = z.object({
   user_id: z.string().uuid(),
   activity_type: z.string().min(1),
   description: z.string(),
-  ip_address: z.string().ip().nullable(),
+  ip_address: z.union([z.ipv4(), z.ipv6()]).nullable(),
   user_agent: z.string().nullable(),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   created_at: z.string().datetime(),
 });
 
@@ -72,7 +72,7 @@ export const UserSessionSchema = z.object({
   id: z.string().uuid(),
   user_id: z.string().uuid(),
   session_token: z.string().min(1),
-  ip_address: z.string().ip().nullable(),
+  ip_address: z.union([z.ipv4(), z.ipv6()]).nullable(),
   user_agent: z.string().nullable(),
   device_type: DeviceTypeSchema,
   browser: z.string().nullable(),
@@ -129,7 +129,7 @@ export const BillingEventLogSchema = z.object({
   organization_id: z.string().uuid().nullable(),
   stripe_event_id: z.string().min(1),
   event_type: BillingEventTypeSchema,
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   processed_at: z.string().datetime().nullable(),
   error_message: z.string().nullable(),
   created_at: z.string().datetime(),

@@ -36,8 +36,8 @@ export const StripeEventBodySchema = z.object({
   type: z.string(),
   created: z.number(),
   data: z.object({
-    object: z.record(z.unknown()),
-    previous_attributes: z.record(z.unknown()).optional(),
+    object: z.record(z.string(), z.unknown()),
+    previous_attributes: z.record(z.string(), z.unknown()).optional(),
   }),
 });
 

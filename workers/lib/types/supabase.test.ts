@@ -75,11 +75,11 @@ describe('SupabaseOkResultSchema', () => {
   const OkSchema = SupabaseOkResultSchema(ItemSchema);
 
   it('accepts a valid ok result', () => {
-    expect(OkSchema.safeParse({ ok: true, data: { id: '00000000-0000-0000-0000-000000000001' } }).success).toBe(true);
+    expect(OkSchema.safeParse({ ok: true, data: { id: '550e8400-e29b-41d4-a716-446655440001' } }).success).toBe(true);
   });
 
   it('rejects ok: false', () => {
-    expect(OkSchema.safeParse({ ok: false, data: { id: '00000000-0000-0000-0000-000000000001' } }).success).toBe(false);
+    expect(OkSchema.safeParse({ ok: false, data: { id: '550e8400-e29b-41d4-a716-446655440001' } }).success).toBe(false);
   });
 
   it('rejects invalid data shape', () => {

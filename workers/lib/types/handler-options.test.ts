@@ -102,8 +102,8 @@ describe('AuthResultSchema', () => {
     expect(AuthResultSchema.safeParse({
       ok: true,
       type: 'api_key',
-      userId: '00000000-0000-0000-0000-000000000001',
-      organizationId: '00000000-0000-0000-0000-000000000002',
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+      organizationId: '550e8400-e29b-41d4-a716-446655440002',
     }).success).toBe(true);
   });
 
@@ -112,7 +112,7 @@ describe('AuthResultSchema', () => {
       ok: true,
       type: 'api_key',
       userId: 'not-a-uuid',
-      organizationId: '00000000-0000-0000-0000-000000000002',
+      organizationId: '550e8400-e29b-41d4-a716-446655440002',
     }).success).toBe(false);
   });
 

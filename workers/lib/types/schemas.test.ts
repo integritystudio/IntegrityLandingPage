@@ -243,7 +243,7 @@ describe('JwtPayloadSchema', () => {
 
 describe('UserRowSchema', () => {
   const valid = {
-    id: '00000000-0000-0000-0000-000000000001',
+    id: '550e8400-e29b-41d4-a716-446655440001',
     auth0_id: 'auth0|abc',
     email: 'user@example.com',
     name: 'Alice',
@@ -270,7 +270,7 @@ describe('UserRowSchema', () => {
 
 describe('MeResponseSchema', () => {
   const valid = {
-    id: '00000000-0000-0000-0000-000000000001',
+    id: '550e8400-e29b-41d4-a716-446655440001',
     email: 'user@example.com',
     name: 'Alice',
     tier: 'starter',
@@ -311,7 +311,7 @@ describe('OrgDashboardResponseSchema', () => {
 describe('OrgBillingStatusResponseSchema', () => {
   it('accepts valid billing status response', () => {
     expect(OrgBillingStatusResponseSchema.safeParse({
-      org_id: '00000000-0000-0000-0000-000000000001',
+      org_id: '550e8400-e29b-41d4-a716-446655440001',
       billing_status: 'active',
       current_plan: 'growth',
       quota_version: 2,
@@ -322,7 +322,7 @@ describe('OrgBillingStatusResponseSchema', () => {
 
 describe('UsageBucketSchema (schemas.ts)', () => {
   const valid = {
-    organization_id: '00000000-0000-0000-0000-000000000001',
+    organization_id: '550e8400-e29b-41d4-a716-446655440001',
     bucket_date: '2024-01-15',
     metric_key: 'api_calls',
     total_quantity: 500,
@@ -342,7 +342,7 @@ describe('UsageBucketSchema (schemas.ts)', () => {
 describe('UsageSummaryResponseSchema', () => {
   it('accepts valid usage summary', () => {
     expect(UsageSummaryResponseSchema.safeParse({
-      org_id: '00000000-0000-0000-0000-000000000001',
+      org_id: '550e8400-e29b-41d4-a716-446655440001',
       period_start: '2024-01-01',
       buckets: [],
     }).success).toBe(true);
@@ -352,7 +352,7 @@ describe('UsageSummaryResponseSchema', () => {
 describe('OrgEntitlementsResponseSchema', () => {
   it('accepts valid entitlements response', () => {
     expect(OrgEntitlementsResponseSchema.safeParse({
-      org_id: '00000000-0000-0000-0000-000000000001',
+      org_id: '550e8400-e29b-41d4-a716-446655440001',
       entitlements: { feature_x: true, quota: 100, flag: null },
     }).success).toBe(true);
   });
@@ -360,9 +360,9 @@ describe('OrgEntitlementsResponseSchema', () => {
 
 describe('ApiKeySchema', () => {
   const valid = {
-    id: '00000000-0000-0000-0000-000000000001',
-    user_id: '00000000-0000-0000-0000-000000000002',
-    organization_id: '00000000-0000-0000-0000-000000000003',
+    id: '550e8400-e29b-41d4-a716-446655440001',
+    user_id: '550e8400-e29b-41d4-a716-446655440002',
+    organization_id: '550e8400-e29b-41d4-a716-446655440003',
     prefix: 'sk_live_abc',
     hash: 'sha256hash',
     name: 'My Key',
@@ -389,7 +389,7 @@ describe('ApiKeySchema', () => {
 
 describe('CreateApiKeyResponseSchema', () => {
   const valid = {
-    id: '00000000-0000-0000-0000-000000000001',
+    id: '550e8400-e29b-41d4-a716-446655440001',
     name: 'My Key',
     prefix: 'sk_live_abc',
     tier: 'starter',
@@ -412,7 +412,7 @@ describe('CreateApiKeyResponseSchema', () => {
 describe('RevokeApiKeyResponseSchema', () => {
   it('accepts valid revoke response', () => {
     expect(RevokeApiKeyResponseSchema.safeParse({
-      id: '00000000-0000-0000-0000-000000000001',
+      id: '550e8400-e29b-41d4-a716-446655440001',
       status: 'revoked',
       revoked_at: '2024-01-01T00:00:00.000Z',
     }).success).toBe(true);
@@ -420,7 +420,7 @@ describe('RevokeApiKeyResponseSchema', () => {
 
   it('rejects status other than "revoked"', () => {
     expect(RevokeApiKeyResponseSchema.safeParse({
-      id: '00000000-0000-0000-0000-000000000001',
+      id: '550e8400-e29b-41d4-a716-446655440001',
       status: 'active',
       revoked_at: '2024-01-01T00:00:00.000Z',
     }).success).toBe(false);
@@ -429,7 +429,7 @@ describe('RevokeApiKeyResponseSchema', () => {
 
 describe('QuotaCheckRequestSchema', () => {
   const valid = {
-    orgId: '00000000-0000-0000-0000-000000000001',
+    orgId: '550e8400-e29b-41d4-a716-446655440001',
     metricKey: 'api_calls',
     units: 1,
     requestId: 'req-123',
@@ -472,7 +472,7 @@ describe('QuotaCheckResponseSchema', () => {
 describe('QuotaFlushResultSchema', () => {
   it('accepts valid flush result', () => {
     expect(QuotaFlushResultSchema.safeParse({
-      orgId: '00000000-0000-0000-0000-000000000001',
+      orgId: '550e8400-e29b-41d4-a716-446655440001',
       monthlyUsedSinceLastFlush: 50,
       flushedAt: '2024-01-01T00:00:00.000Z',
     }).success).toBe(true);

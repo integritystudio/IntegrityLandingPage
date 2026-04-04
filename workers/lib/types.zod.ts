@@ -85,7 +85,7 @@ export type Entitlement = z.infer<typeof CanonicalEntitlementSchema>;
 // Stripe Webhook Events
 // ============================================================================
 
-export const StripeObjectSchema = z.record(z.unknown());
+export const StripeObjectSchema = z.record(z.string(), z.unknown());
 
 /**
  * Enhanced Stripe event schema with stricter validation.
@@ -99,7 +99,7 @@ export const EnrichedStripeEventSchema = z.object({
   created: z.number().int().min(1_000_000_000, 'Event timestamp must be valid Unix time (>= 2001)'),
   data: z.object({
     object: StripeObjectSchema,
-    previous_attributes: z.record(z.unknown()).optional(),
+    previous_attributes: z.record(z.string(), z.unknown()).optional(),
   }),
   livemode: z.boolean(),
   pending_webhooks: z.number().int().nonnegative(),
@@ -206,7 +206,7 @@ export const WebhookDeadLetterSchema = z.object({
   id: z.string().uuid(),
   stripe_event_id: z.string().min(1),
   event_type: z.string().min(1),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   error_message: z.string().nullable(),
   retry_count: z.number().int().nonnegative(),
   max_retries: z.number().int().nonnegative(), // Zero = don't retry
@@ -280,7 +280,7 @@ export const ErrorResponseSchema = z.object({
   ok: z.literal(false),
   error: z.string().min(1),
   code: z.string().min(1).max(50).optional(), // Machine-consumable error code
-  details: z.record(z.unknown()).optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
   timestamp: z.string().datetime().optional(),
 });
 

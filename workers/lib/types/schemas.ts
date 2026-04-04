@@ -40,7 +40,7 @@ export const BootstrapResponseSchema = z.object({
   }),
   organizations: z.array(OrganizationSchema.extend({ role: OrgRoleSchema })),
   active_org_id: z.string(),
-  entitlements: z.record(z.union([z.boolean(), z.number(), z.null()])),
+  entitlements: z.record(z.string(), z.union([z.boolean(), z.number(), z.null()])),
   usage_snapshot: z.object({
     month_to_date_units: z.number(),
     current_minute_remaining: z.number().nullable(),
@@ -52,8 +52,8 @@ export const StripeEventSchema = z.object({
   type: z.string(),
   created: z.number(),
   data: z.object({
-    object: z.record(z.unknown()),
-    previous_attributes: z.record(z.unknown()).optional(),
+    object: z.record(z.string(), z.unknown()),
+    previous_attributes: z.record(z.string(), z.unknown()).optional(),
   }),
 });
 
@@ -92,7 +92,7 @@ export const ListOrgsResponseSchema = z.object({
 export const OrgDashboardResponseSchema = z.object({
   org: OrganizationSchema,
   role: OrgRoleSchema,
-  entitlements: z.record(z.union([z.boolean(), z.number(), z.null()])),
+  entitlements: z.record(z.string(), z.union([z.boolean(), z.number(), z.null()])),
 });
 
 export const OrgBillingStatusResponseSchema = z.object({
@@ -121,7 +121,7 @@ export const UsageSummaryResponseSchema = z.object({
 
 export const OrgEntitlementsResponseSchema = z.object({
   org_id: z.string().uuid(),
-  entitlements: z.record(z.union([z.boolean(), z.number(), z.null()])),
+  entitlements: z.record(z.string(), z.union([z.boolean(), z.number(), z.null()])),
 });
 
 // API Keys

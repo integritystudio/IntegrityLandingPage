@@ -5,7 +5,7 @@ import { z } from 'zod';
  * Minimal REST client for edge workers
  */
 
-export const SupabaseRowSchema = z.record(z.unknown());
+export const SupabaseRowSchema = z.record(z.string(), z.unknown());
 
 export type SupabaseRow = z.infer<typeof SupabaseRowSchema>;
 
@@ -117,7 +117,7 @@ export type UpdateOptions = z.infer<typeof UpdateOptionsSchema>;
  * RPC (Remote Procedure Call) options
  */
 export const RpcOptionsSchema = z.object({
-  params: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type RpcOptions = z.infer<typeof RpcOptionsSchema>;

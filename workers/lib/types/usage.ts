@@ -22,7 +22,7 @@ export const UsageEventSchema = z.object({
   source: UsageEventSourceSchema,
   status_code: z.number().int().min(100).max(599).nullable(),
   latency_ms: z.number().int().nonnegative().nullable(),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   created_at: z.string().datetime(),
 });
 
@@ -38,7 +38,7 @@ export const UsageEventIngestionSchema = z.object({
   route: z.string().min(1).optional(),
   status_code: z.number().int().min(100).max(599).optional(),
   latency_ms: z.number().int().min(0).max(300_000).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type UsageEventIngestion = z.infer<typeof UsageEventIngestionSchema>;
@@ -55,7 +55,7 @@ export const IngestEventRequestSchema = z.object({
   route: z.string().min(1).optional(),
   status_code: z.number().int().min(100).max(599).optional(),
   latency_ms: z.number().int().min(0).max(300_000).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type IngestEventRequest = z.infer<typeof IngestEventRequestSchema>;
@@ -96,7 +96,7 @@ export const MonthlyUsageSummarySchema = z.object({
   total_quantity: z.number().int().nonnegative(),
   total_requests: z.number().int().nonnegative(),
   avg_latency_ms: z.number().nonnegative().nullable(),
-  metric_breakdown: z.record(
+  metric_breakdown: z.record(z.string(),
     z.object({
       quantity: z.number().int().nonnegative(),
       requests: z.number().int().nonnegative(),
@@ -138,7 +138,7 @@ export const OtelSpanSchema = z.object({
   ),
   duration_ms: z.number().int().nonnegative(),
   status: z.enum(['ok', 'error', 'unset']).default('unset'),
-  attributes: z.record(
+  attributes: z.record(z.string(),
     z.union([z.string().max(256), z.number(), z.boolean()])
   ).refine(
     r => Object.keys(r).length <= 64,
