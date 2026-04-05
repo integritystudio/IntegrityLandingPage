@@ -1,3 +1,4 @@
+import { hmacVerify } from './crypto';
 import { unauthorized } from './http';
 
 /** Seconds of clock-skew tolerance applied to the `nbf` (Not Before) check. */
@@ -68,31 +69,11 @@ export async function verifyJwt(
   }
 
   const { payload, parts } = parseResult;
-  const encoder = new TextEncoder();
 
   // Verify signature before claims — avoids leaking claim structure to attacker-crafted tokens.
-  try {
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(jwtSecret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify'],
-    );
-
-    const isValid = await crypto.subtle.verify(
-      'HMAC',
-      key,
-      base64urlToBytes(parts[2]),
-      encoder.encode(parts.slice(0, 2).join('.')),
-    );
-
-    if (!isValid) {
-      return { ok: false, error: unauthorized('Invalid JWT signature') };
-    }
-  } catch (err) {
-    console.error('JWT verification error:', err);
-    return { ok: false, error: unauthorized('JWT verification failed') };
+  const isValid = await hmacVerify(jwtSecret, base64urlToBytes(parts[2]), parts.slice(0, 2).join('.'));
+  if (!isValid) {
+    return { ok: false, error: unauthorized('Invalid JWT signature') };
   }
 
   const now = Math.floor(Date.now() / 1000);

@@ -1,5 +1,6 @@
 import { JSON_CONTENT_TYPE } from '../../http-helpers';
 import { REPLAY_WINDOW_MS } from '../../constants';
+import { hmacSignHex } from '../../lib/crypto';
 
 interface Env {
   SHARED_SECRET: string;
@@ -27,17 +28,7 @@ async function handleInbox(request: Request, env: Env): Promise<Response> {
 
   const rawBody = await request.text();
 
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(env.SHARED_SECRET),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(`${timestampHeader}.${rawBody}`));
-  const expectedHex = [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
-
+  const expectedHex = await hmacSignHex(env.SHARED_SECRET, `${timestampHeader}.${rawBody}`);
   if (signatureHeader !== expectedHex) {
     return jsonResponse({ error: 'invalid signature' }, 401);
   }

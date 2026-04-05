@@ -12,6 +12,9 @@ This document catalogs all Zod validation schemas created for the API Gateway an
 - **`types/request-bodies.ts`** — Request payload and query parameter schemas
 - **`index.ts`** — Barrel export for all types and schemas
 
+### Crypto Utilities
+- **`crypto.ts`** — Shared HMAC-SHA256 primitives (sign, signHex, verify)
+
 ## Schemas by Domain
 
 ### Authentication & Users
@@ -286,10 +289,40 @@ To use these schemas in existing route handlers:
 3. Update error handling to use `zodValidationError()` from `workers/lib/validation`
 4. Add type annotations to function parameters using exported types
 
+## Crypto Utilities
+
+### `workers/lib/crypto.ts`
+
+Shared HMAC-SHA256 primitives used by all workers that sign or verify inter-service messages, API keys, JWTs, and Stripe webhooks. Exported from `workers/lib/index.ts`.
+
+```typescript
+// Sign a message, returns raw bytes
+hmacSign(secret: string, message: string): Promise<ArrayBuffer>
+
+// Sign a message, returns lowercase hex string
+hmacSignHex(secret: string, message: string): Promise<string>
+
+// Verify a signature using constant-time comparison (crypto.subtle.verify)
+hmacVerify(secret: string, signature: Uint8Array, message: string): Promise<boolean>
+```
+
+**Usage across workers:**
+
+| Consumer | Function | Purpose |
+|---|---|---|
+| `lib/api-keys.ts` | `hmacSignHex` | Hash API key secret for storage |
+| `lib/api-keys.ts` | `hmacVerify` | Verify API key secret against stored hash |
+| `lib/auth.ts` | `hmacVerify` | Verify HS256 JWT signature |
+| `stripe-webhook/src/verify.ts` | `hmacVerify` | Verify Stripe webhook HMAC signature |
+| `receiver-worker/src/index.ts` | `hmacSignHex` | Verify HMAC-signed inter-worker requests |
+| `sender-worker/src/crypto.ts` | `hmacSignHex` | Sign requests to receiver-worker |
+| `contact-form/src/index.ts` | `hmacSign` | Generate and validate CSRF tokens (base64url encoded) |
+
 ## Related Files
 
-- **workers/lib/auth.ts** — JWT verification using `JwtPayloadSchema`
-- **workers/lib/api-keys.ts** — API key generation and verification
+- **workers/lib/auth.ts** — JWT verification using `JwtPayloadSchema` and `hmacVerify`
+- **workers/lib/api-keys.ts** — API key generation and verification using `hmacSignHex`/`hmacVerify`
+- **workers/lib/crypto.ts** — HMAC-SHA256 sign/verify primitives
 - **workers/lib/supabase.ts** — Database client with type-safe queries
 - **workers/lib/validation/** — Shared validation utilities and error handling
 - **workers/api-gateway/** — Route handlers using these schemas

@@ -1,3 +1,6 @@
+// Re-export crypto primitives
+export { hmacSign, hmacSignHex, hmacVerify } from './crypto';
+
 // Re-export all types
 export * from './types/index';
 export * from './types/handler-options';

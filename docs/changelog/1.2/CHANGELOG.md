@@ -933,3 +933,33 @@ Eliminated string duplication of OTEL ingest route path by exporting constant.
 - **Commit:** `2aa30eb`
 
 ---
+
+## [2026-04-03] - HMAC Crypto Consolidation
+
+### Shared HMAC Primitives (`workers/lib/crypto.ts`)
+
+Eliminated five independent HMAC-SHA256 implementations spread across six worker files. All signing and verification now routes through a single tested module.
+
+**New module: `workers/lib/crypto.ts`**
+- `hmacSign(secret, message)` — returns raw `ArrayBuffer`
+- `hmacSignHex(secret, message)` — returns lowercase hex string (sign path)
+- `hmacVerify(secret, signature, message)` — constant-time verify via `crypto.subtle.verify`
+- Exported from `workers/lib/index.ts` barrel
+
+**Callers updated:**
+
+| File | Change |
+|---|---|
+| `lib/api-keys.ts` | `hashApiKeySecret` / `verifyApiKeyHash` delegate to `hmacSignHex` / `hmacVerify` |
+| `lib/auth.ts` | JWT signature verify block replaced with `hmacVerify` |
+| `stripe-webhook/src/verify.ts` | Stripe signature verify block replaced with `hmacVerify` |
+| `receiver-worker/src/index.ts` | Inline sign + hex-map replaced with `hmacSignHex` |
+| `sender-worker/src/crypto.ts` | Full implementation replaced with re-export of `hmacSignHex as signMessage` |
+| `contact-form/src/index.ts` | Both CSRF sign calls replaced with `hmacSign` |
+
+**Tests:**
+- Added `workers/lib/crypto.test.ts` (9 tests)
+- `stripe-webhook/src/index.test.ts` — `computeStripeSignature` uses `hmacSignHex`; removed two inline reimplementations in `makeSubUpdatedRequest` and second `makeWebhookRequest`
+- `receiver-worker/src/index.test.ts` — `signRequest` helper and inline one-off use `hmacSignHex`
+
+---

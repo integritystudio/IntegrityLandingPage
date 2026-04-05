@@ -1,4 +1,5 @@
 import { REPLAY_WINDOW_MS } from '../../constants';
+import { hmacVerify } from '../../lib/crypto';
 import { hexToBytes } from '../../lib/hex-utils';
 import { unauthorized } from '../../lib/http';
 
@@ -52,25 +53,9 @@ export async function verifyStripeSignature(
   }
 
   // Verify signature using constant-time HMAC comparison to prevent timing side-channels.
-  try {
-    const signedContent = `${timestamp}.${rawBody}`;
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(webhookSecret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify'],
-    );
-
-    const isValid = await crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(signedContent));
-    if (!isValid) {
-      return { ok: false, error: unauthorized('Invalid Stripe signature') };
-    }
-
-    return { ok: true, timestamp };
-  } catch (err) {
-    console.error('Stripe signature verification error:', err);
-    return { ok: false, error: unauthorized('Signature verification failed') };
+  const isValid = await hmacVerify(webhookSecret, sigBytes, `${timestamp}.${rawBody}`);
+  if (!isValid) {
+    return { ok: false, error: unauthorized('Invalid Stripe signature') };
   }
+  return { ok: true, timestamp };
 }

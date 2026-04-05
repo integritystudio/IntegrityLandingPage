@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { hmacSignHex } from '../../lib/crypto';
 
 // API response types
 interface HealthResponse {
@@ -43,21 +44,8 @@ async function signRequest(
   timestamp?: number,
 ): Promise<{ timestamp: string; signature: string }> {
   const ts = (timestamp ?? Date.now()).toString();
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const sig = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    encoder.encode(`${ts}.${body}`),
-  );
-  const hex = [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
-  return { timestamp: ts, signature: hex };
+  const signature = await hmacSignHex(secret, `${ts}.${body}`);
+  return { timestamp: ts, signature };
 }
 
 describe('Receiver Worker', () => {
@@ -237,16 +225,7 @@ describe('Receiver Worker', () => {
     it('returns 401 with stale or invalid timestamp when x-timestamp is non-numeric', async () => {
       const body = JSON.stringify({ event: 'test' });
       // Compute a signature using the non-numeric string as the timestamp
-      const encoder = new TextEncoder();
-      const key = await crypto.subtle.importKey(
-        'raw',
-        encoder.encode(mockEnv.SHARED_SECRET),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign'],
-      );
-      const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(`not-a-number.${body}`));
-      const hex = [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
+      const hex = await hmacSignHex(mockEnv.SHARED_SECRET, `not-a-number.${body}`);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',

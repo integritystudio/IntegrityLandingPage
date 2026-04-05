@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { verifyStripeSignature } from './verify';
 import worker, { type Env } from './index';
 import { REPLAY_WINDOW_MS } from '../../constants';
+import { hmacSignHex } from '../../lib/crypto';
 
 // Seconds past the replay window, guaranteeing the timestamp is rejected as stale.
 const STALE_OFFSET_SECONDS = (REPLAY_WINDOW_MS / 1000) * 2;
@@ -49,16 +50,7 @@ const MOCK_ENV: Env = {
 };
 
 async function computeStripeSignature(timestamp: number, body: string, secret: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(`${timestamp}.${body}`));
-  const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const hex = await hmacSignHex(secret, `${timestamp}.${body}`);
   return `t=${timestamp},v1=${hex}`;
 }
 
@@ -119,18 +111,12 @@ describe('Stripe webhook verification', () => {
     const timestamp = Math.floor(Date.now() / 1000);
     const validHex = 'ab'.repeat(32);
     const importKeySpy = vi.spyOn(crypto.subtle, 'importKey').mockRejectedValueOnce(new Error('Crypto failure'));
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const result = await verifyStripeSignature(`t=${timestamp},v1=${validHex}`, '{}', 'secret');
 
     expect(result.ok).toBe(false);
-    expect(errorSpy).toHaveBeenCalledWith(
-      'Stripe signature verification error:',
-      expect.any(Error),
-    );
 
     importKeySpy.mockRestore();
-    errorSpy.mockRestore();
   });
 });
 
@@ -343,13 +329,10 @@ describe('parsePriceToPlan (via handleWebhook)', () => {
   async function makeSubUpdatedRequest(secret = 'test-secret'): Promise<Request> {
     const body = JSON.stringify({ id: 'evt_sub', type: 'customer.subscription.updated', data: { object: {} } });
     const timestamp = Math.floor(Date.now() / 1000);
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(`${timestamp}.${body}`));
-    const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const sig = await computeStripeSignature(timestamp, body, secret);
     return new Request('https://example.com/webhook', {
       method: 'POST',
-      headers: { 'stripe-signature': `t=${timestamp},v1=${hex}`, 'content-type': 'application/json' },
+      headers: { 'stripe-signature': sig, 'content-type': 'application/json' },
       body,
     });
   }
@@ -748,13 +731,10 @@ describe('handleWebhook edge cases', () => {
 
   async function makeWebhookRequest(body: string, secret = 'test-secret'): Promise<Request> {
     const timestamp = Math.floor(Date.now() / 1000);
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-    const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(`${timestamp}.${body}`));
-    const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const sig = await computeStripeSignature(timestamp, body, secret);
     return new Request('https://example.com/webhook', {
       method: 'POST',
-      headers: { 'stripe-signature': `t=${timestamp},v1=${hex}`, 'content-type': 'application/json' },
+      headers: { 'stripe-signature': sig, 'content-type': 'application/json' },
       body,
     });
   }

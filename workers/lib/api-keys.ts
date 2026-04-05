@@ -1,3 +1,4 @@
+import { hmacSignHex, hmacVerify } from './crypto';
 import { hexToBytes } from './hex-utils';
 import { unauthorized } from './http';
 import type { SupabaseClient } from './supabase';
@@ -11,7 +12,6 @@ export const API_KEY_PREFIX = 'int_live_';
  */
 export const API_KEY_REGEX = /^int_live_([A-Za-z0-9]{8,})_([A-Za-z0-9]{16,})$/;
 
-const HEX_CHARS = '0123456789abcdef';
 const ALPHANUM_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
 function randomAlphanum(length: number): string {
@@ -30,15 +30,7 @@ export function parseApiKey(token: string): ParseApiKeyResult {
 }
 
 export async function hashApiKeySecret(secret: string, hmacSecret: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(hmacSecret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(secret));
-  return Array.from(new Uint8Array(signature), (b) => HEX_CHARS[b >> 4] + HEX_CHARS[b & 0xf]).join('');
+  return hmacSignHex(hmacSecret, secret);
 }
 
 /**
@@ -52,21 +44,7 @@ export async function verifyApiKeyHash(
 ): Promise<boolean> {
   const storedBytes = hexToBytes(storedHash);
   if (!storedBytes) return false;
-
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(hmacSecret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['verify'],
-  );
-
-  try {
-    return await crypto.subtle.verify('HMAC', key, storedBytes, encoder.encode(secret));
-  } catch {
-    return false;
-  }
+  return hmacVerify(hmacSecret, storedBytes, secret);
 }
 
 export type VerifyApiKeyResult =

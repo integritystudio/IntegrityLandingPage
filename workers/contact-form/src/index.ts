@@ -6,6 +6,7 @@
  */
 
 import { Resend } from 'resend';
+import { hmacSign } from '../../lib/crypto';
 import {
   CSRF_TOKEN_MAX_AGE_MS,
   DEFAULT_RATE_LIMIT_MAX,
@@ -236,22 +237,7 @@ async function validateCsrfToken(
     return 'CSRF token expired';
   }
 
-  // Validate signature using Web Crypto API
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
-  const signatureBytes = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    encoder.encode(timestampStr)
-  );
-
+  const signatureBytes = await hmacSign(secret, timestampStr);
   const expectedSignature = btoa(String.fromCharCode(...new Uint8Array(signatureBytes)))
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
@@ -313,22 +299,7 @@ function getCorsHeaders(request: Request): Record<string, string> | null {
  */
 async function generateCsrfToken(secret: string): Promise<string> {
   const timestamp = Date.now().toString();
-  const encoder = new TextEncoder();
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
-  const signatureBytes = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    encoder.encode(timestamp)
-  );
-
+  const signatureBytes = await hmacSign(secret, timestamp);
   const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBytes)))
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
