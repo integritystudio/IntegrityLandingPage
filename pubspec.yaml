@@ -31,6 +31,10 @@ dependencies:
   url_launcher: ^6.2.2
   yaml: ^3.1.2
 
+  # Code Generation (runtime annotations)
+  freezed_annotation: ^3.0.0
+  json_annotation: ^4.9.0
+
   # Routing
   go_router: ^17.0.1
 
@@ -52,6 +56,9 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   mockito: ^5.4.4
   build_runner: ^2.4.8
+  freezed: ^3.0.0
+  json_serializable: ^6.9.0
+  shelf: ^1.4.1
 
 flutter:
   uses-material-design: true

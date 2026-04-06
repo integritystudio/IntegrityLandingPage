@@ -19,6 +19,7 @@
     "e2e:ui": "npm --prefix e2e run test:ui",
     "report": "npm --prefix e2e run report",
     "repomix": "bash scripts/repomix/repomix-regen.sh",
+    "lint": "flutter analyze",
     "test:provisioning": "bash test-provisioning-e2e.sh"
   }
 }
