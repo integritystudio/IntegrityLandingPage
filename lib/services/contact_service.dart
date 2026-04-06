@@ -2,8 +2,11 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import '../models/contact_models.dart';
 import 'analytics.dart';
 import 'http_status.dart';
+
+export '../models/contact_models.dart';
 
 /// Contact form API endpoint (Cloudflare Worker).
 /// Configurable via --dart-define=CONTACT_API_URL for staging/development.
@@ -11,37 +14,6 @@ const _contactApiUrl = String.fromEnvironment(
   'CONTACT_API_URL',
   defaultValue: 'https://integrity-studio-contact.alyshia-b38.workers.dev',
 );
-
-/// Contact form data model.
-class ContactFormData {
-  final String name;
-  final String email;
-  final String? organization;
-  final String? message;
-  final String? companySize;
-  final String? useCase;
-  final String? ref;
-
-  const ContactFormData({
-    required this.name,
-    required this.email,
-    this.organization,
-    this.message,
-    this.companySize,
-    this.useCase,
-    this.ref,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'email': email,
-        if (organization != null) 'organization': organization,
-        if (message != null) 'message': message,
-        if (companySize != null) 'companySize': companySize,
-        if (useCase != null) 'useCase': useCase,
-        if (ref != null) 'ref': ref,
-      };
-}
 
 /// Contact form submission payload with security tokens.
 class ContactFormPayload {

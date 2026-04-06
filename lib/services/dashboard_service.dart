@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import '../models/dashboard_models.dart';
 import '../theme/timings.dart';
 import 'analytics.dart';
 import 'http_status.dart';
+
+export '../models/dashboard_models.dart';
 
 /// API Gateway endpoint.
 /// Configurable via --dart-define for staging/development.
@@ -12,46 +15,6 @@ const _apiGatewayUrl = String.fromEnvironment(
   'API_GATEWAY_URL',
   defaultValue: 'https://api-gateway.alyshia-b38.workers.dev',
 );
-
-/// Billing status for an organization.
-class BillingStatusData {
-  final String planKey;
-  final String planDisplayName;
-  final String billingStatus;
-  final DateTime? nextRenewalDate;
-  final bool cancelAtPeriodEnd;
-
-  const BillingStatusData({
-    required this.planKey,
-    required this.planDisplayName,
-    required this.billingStatus,
-    required this.cancelAtPeriodEnd,
-    this.nextRenewalDate,
-  });
-
-  factory BillingStatusData.fromJson(Map<String, dynamic> json) {
-    final rawDate = json['current_period_end'] as String?;
-    DateTime? parsedDate;
-    if (rawDate != null && rawDate.isNotEmpty) {
-      parsedDate = DateTime.tryParse(rawDate);
-      if (parsedDate == null) {
-        unawaited(ErrorTrackingService.captureException(
-          Exception('BillingStatusData: failed to parse current_period_end'),
-          stackTrace: StackTrace.current,
-          context: 'BillingStatusData.fromJson',
-          extra: {'raw_date': rawDate},
-        ));
-      }
-    }
-    return BillingStatusData(
-      planKey: json['plan_key'] as String? ?? '',
-      planDisplayName: json['plan_display_name'] as String? ?? '',
-      billingStatus: json['billing_status'] as String? ?? 'inactive',
-      cancelAtPeriodEnd: json['cancel_at_period_end'] as bool? ?? false,
-      nextRenewalDate: parsedDate,
-    );
-  }
-}
 
 /// Billing status API response.
 sealed class BillingStatusResponse {
@@ -72,56 +35,6 @@ class BillingStatusError extends BillingStatusResponse {
   const BillingStatusError({required this.error});
 }
 
-/// Daily usage bucket from the API.
-class UsageBucket {
-  final String bucketDate;
-  final String metricKey;
-  final int totalQuantity;
-  final int requestCount;
-  final double? avgLatencyMs;
-
-  const UsageBucket({
-    required this.bucketDate,
-    required this.metricKey,
-    required this.totalQuantity,
-    required this.requestCount,
-    this.avgLatencyMs,
-  });
-
-  factory UsageBucket.fromJson(Map<String, dynamic> json) => UsageBucket(
-        bucketDate: json['bucket_date'] as String? ?? '',
-        metricKey: json['metric_key'] as String? ?? '',
-        totalQuantity: (json['total_quantity'] as num?)?.toInt() ?? 0,
-        requestCount: (json['request_count'] as num?)?.toInt() ?? 0,
-        avgLatencyMs: (json['avg_latency_ms'] as num?)?.toDouble(),
-      );
-}
-
-/// Usage summary data returned from the API.
-class UsageSummaryData {
-  final String orgId;
-  final String periodStart;
-  final List<UsageBucket> buckets;
-
-  const UsageSummaryData({
-    required this.orgId,
-    required this.periodStart,
-    required this.buckets,
-  });
-
-  factory UsageSummaryData.fromJson(Map<String, dynamic> json) {
-    final bucketsRaw = json['buckets'];
-    return UsageSummaryData(
-      orgId: json['org_id'] as String? ?? '',
-      periodStart: json['period_start'] as String? ?? '',
-      buckets: bucketsRaw is List
-          ? bucketsRaw
-              .map((b) => UsageBucket.fromJson(b as Map<String, dynamic>))
-              .toList()
-          : <UsageBucket>[],
-    );
-  }
-}
 
 /// Usage summary API response.
 sealed class UsageSummaryResponse {
@@ -142,30 +55,6 @@ class UsageSummaryError extends UsageSummaryResponse {
   const UsageSummaryError({required this.error});
 }
 
-/// Entitlements data for an organization.
-class EntitlementsData {
-  final String orgId;
-  final Map<String, Object?> entitlements;
-
-  const EntitlementsData({
-    required this.orgId,
-    required this.entitlements,
-  });
-
-  factory EntitlementsData.fromJson(Map<String, dynamic> json) {
-    final rawEntitlements = json['entitlements'];
-    final Map<String, Object?> entries;
-    if (rawEntitlements is Map<String, dynamic>) {
-      entries = rawEntitlements.cast<String, Object?>();
-    } else {
-      entries = const {};
-    }
-    return EntitlementsData(
-      orgId: json['org_id'] as String? ?? '',
-      entitlements: entries,
-    );
-  }
-}
 
 /// Entitlements API response.
 sealed class EntitlementsResponse {
@@ -186,36 +75,6 @@ class EntitlementsError extends EntitlementsResponse {
   const EntitlementsError({required this.error});
 }
 
-/// Quota state returned from the DO quota status endpoint.
-class QuotaStatusData {
-  final String? planKey;
-  final int minuteLimit;
-  final int minuteUsed;
-  final int? monthlyLimit;
-  final int monthlyUsed;
-
-  /// Milliseconds remaining until the current minute window resets.
-  final int minuteWindowExpiresInMs;
-
-  const QuotaStatusData({
-    this.planKey,
-    required this.minuteLimit,
-    required this.minuteUsed,
-    this.monthlyLimit,
-    required this.monthlyUsed,
-    required this.minuteWindowExpiresInMs,
-  });
-
-  factory QuotaStatusData.fromJson(Map<String, dynamic> json) => QuotaStatusData(
-        planKey: json['planKey'] as String?,
-        minuteLimit: (json['minuteLimit'] as num?)?.toInt() ?? 0,
-        minuteUsed: (json['minuteUsed'] as num?)?.toInt() ?? 0,
-        monthlyLimit: (json['monthlyLimit'] as num?)?.toInt(),
-        monthlyUsed: (json['monthlyUsed'] as num?)?.toInt() ?? 0,
-        minuteWindowExpiresInMs:
-            (json['minuteWindowExpiresIn'] as num?)?.toInt() ?? 0,
-      );
-}
 
 /// Quota status API response.
 sealed class QuotaStatusResponse {
@@ -236,33 +95,6 @@ class QuotaStatusError extends QuotaStatusResponse {
   const QuotaStatusError({required this.error});
 }
 
-/// Summary of an organization for the org switcher.
-class OrgSummary {
-  final String orgId;
-  final String name;
-  final String? slug;
-  final String billingStatus;
-  final String? currentPlan;
-  final String role;
-
-  const OrgSummary({
-    required this.orgId,
-    required this.name,
-    this.slug,
-    required this.billingStatus,
-    this.currentPlan,
-    required this.role,
-  });
-
-  factory OrgSummary.fromJson(Map<String, dynamic> json) => OrgSummary(
-        orgId: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        slug: json['slug'] as String?,
-        billingStatus: json['billing_status'] as String? ?? 'inactive',
-        currentPlan: json['current_plan'] as String?,
-        role: json['role'] as String? ?? 'member',
-      );
-}
 
 /// Org list API response.
 sealed class OrgListResponse {

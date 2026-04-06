@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import '../models/provisioning_models.dart';
 import '../theme/timings.dart';
 import 'analytics.dart';
 import 'http_status.dart';
+
+export '../models/provisioning_models.dart';
 
 /// Sender Worker endpoint.
 /// Configurable via --dart-define for staging/development.
@@ -18,31 +21,6 @@ const _apiGatewayUrl = String.fromEnvironment(
   'API_GATEWAY_URL',
   defaultValue: 'https://api-gateway.alyshia-b38.workers.dev',
 );
-
-/// Provisioning event payload matching SendRequestSchema on sender-worker.
-class ProvisioningEvent {
-  final String action;
-  final String name;
-  final String email;
-  final String tier;
-  final String? orgName;
-
-  const ProvisioningEvent({
-    required this.action,
-    required this.name,
-    required this.email,
-    this.tier = 'starter',
-    this.orgName,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'action': action,
-        'name': name,
-        'email': email,
-        'tier': tier,
-        if (orgName != null) 'org_name': orgName,
-      };
-}
 
 /// Authentication API response.
 sealed class AuthResponse {
@@ -95,73 +73,6 @@ sealed class BootstrapResponse {
   const BootstrapResponse();
 }
 
-/// Organization from bootstrap response.
-class BootstrapOrg {
-  final String id;
-  final String name;
-  final String role;
-  final String planKey;
-  final String billingStatus;
-
-  const BootstrapOrg({
-    required this.id,
-    required this.name,
-    required this.role,
-    required this.planKey,
-    required this.billingStatus,
-  });
-
-  factory BootstrapOrg.fromJson(Map<String, dynamic> json) => BootstrapOrg(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        role: json['role'] as String? ?? '',
-        planKey: json['plan_key'] as String? ?? '',
-        billingStatus: json['billing_status'] as String? ?? '',
-      );
-}
-
-/// Feature entitlements from bootstrap response.
-class BootstrapEntitlements {
-  final bool usageDashboard;
-  final bool alerts;
-  final bool complianceSummary;
-  final int monthlyUnits;
-  final int requestsPerMinute;
-
-  const BootstrapEntitlements({
-    required this.usageDashboard,
-    required this.alerts,
-    required this.complianceSummary,
-    required this.monthlyUnits,
-    required this.requestsPerMinute,
-  });
-
-  factory BootstrapEntitlements.fromJson(Map<String, dynamic> json) =>
-      BootstrapEntitlements(
-        usageDashboard: json['usage_dashboard'] as bool? ?? false,
-        alerts: json['alerts'] as bool? ?? false,
-        complianceSummary: json['compliance_summary'] as bool? ?? false,
-        monthlyUnits: json['monthly_units'] as int? ?? 0,
-        requestsPerMinute: json['requests_per_minute'] as int? ?? 0,
-      );
-}
-
-/// Current-period usage snapshot from bootstrap response.
-class BootstrapUsageSnapshot {
-  final int monthToDateUnits;
-  final int currentMinuteRemaining;
-
-  const BootstrapUsageSnapshot({
-    required this.monthToDateUnits,
-    required this.currentMinuteRemaining,
-  });
-
-  factory BootstrapUsageSnapshot.fromJson(Map<String, dynamic> json) =>
-      BootstrapUsageSnapshot(
-        monthToDateUnits: json['month_to_date_units'] as int? ?? 0,
-        currentMinuteRemaining: json['current_minute_remaining'] as int? ?? 0,
-      );
-}
 
 /// Successful bootstrap response.
 class BootstrapSuccess extends BootstrapResponse {
@@ -185,13 +96,6 @@ class BootstrapError extends BootstrapResponse {
   const BootstrapError({required this.error});
 }
 
-/// Arguments passed to CheckoutPage.
-class CheckoutArgs {
-  final String email;
-  final String tier;
-
-  const CheckoutArgs({required this.email, required this.tier});
-}
 
 /// Checkout API response.
 sealed class CheckoutResponse {

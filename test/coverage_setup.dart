@@ -1,6 +1,7 @@
 /// Coverage setup - imports all lib modules to ensure coverage instrumentation.
 /// This file forces all source files to be loaded during test execution,
 /// which ensures they appear in the coverage data even if not directly tested.
+library;
 
 // ignore: unused_import
 import 'package:integrity_studio_ai/app.dart';
