@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate code (freezed/json_serializable)
+        run: dart run build_runner build --delete-conflicting-outputs
+
       - name: Analyze code
         run: flutter analyze --no-fatal-infos
 
@@ -174,6 +177,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate code (freezed/json_serializable)
+        run: dart run build_runner build --delete-conflicting-outputs
+
       - name: Run live integration tests
         run: |
           flutter test test/services/provisioning_service_live_test.dart \
@@ -198,6 +204,9 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Generate code (freezed/json_serializable)
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Build web release
         run: flutter build web --release
