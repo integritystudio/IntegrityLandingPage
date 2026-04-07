@@ -247,7 +247,7 @@ describe('Sender Worker', () => {
       expect(forwardedPayload!['org_name']).toBe('Acme Corp');
     });
 
-    it('defaults org_name to email domain when not provided', async () => {
+    it('omits org_name from forwarded payload when not provided (receiver derives from registrable domain)', async () => {
       let forwardedPayload: Record<string, unknown> | null = null;
 
       mockReceiverFetch.mockImplementation(async (_url, init) => {
@@ -261,7 +261,9 @@ describe('Sender Worker', () => {
       const request = makeSendRequest(validSendPayload);
       await worker.fetch(request, mockEnv);
 
-      expect(forwardedPayload!['org_name']).toBe('example.com');
+      // org_name must be absent so the receiver's tldts-based domain normalization runs,
+      // ensuring subdomain emails (e.g. user@mail.co.uk) get the correct registrable domain.
+      expect(forwardedPayload!['org_name']).toBeUndefined();
     });
 
     it('passes through receiver-worker error responses unchanged', async () => {

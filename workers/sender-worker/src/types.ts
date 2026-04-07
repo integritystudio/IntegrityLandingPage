@@ -42,6 +42,12 @@ export const ERROR_CODE = {
   SUPABASE_ORG_CREATION_FAILED: "SUPABASE_ORG_CREATION_FAILED",
   SUPABASE_USER_INSERT_FAILED: "SUPABASE_USER_INSERT_FAILED",
   SUPABASE_ORG_MEMBERSHIP_FAILED: "SUPABASE_ORG_MEMBERSHIP_FAILED",
+  // Receiver-specific codes — proxied verbatim in error responses
+  RECEIVER_QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
+  RECEIVER_RATE_LIMITED: "RATE_LIMITED",
+  RECEIVER_REPLAY_DETECTED: "REPLAY_DETECTED",
+  RECEIVER_INVALID_EMAIL_DOMAIN: "INVALID_EMAIL_DOMAIN",
+  RECEIVER_NOT_IMPLEMENTED: "NOT_IMPLEMENTED",
 } as const;
 export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
 
@@ -93,11 +99,12 @@ export const SendRequestSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   tier: ApiKeyTierSchema.catch(DEFAULT_TIER),
-  org_name: z.coerce.string().optional(),
-}).transform((data) => ({
-  ...data,
-  org_name: data.org_name ?? data.email.split("@")[1],
-}));
+  // org_name is optional — when absent, the receiver derives the team org name from the
+  // registrable domain (emailToRegistrableDomainSchema / tldts getDomain). Passing a raw
+  // email suffix here would produce incorrect names for subdomain addresses (e.g.
+  // "mail.company.co.uk" instead of "company.co.uk"), breaking org deduplication.
+  org_name: z.string().min(1).optional(),
+});
 
 export const CreateCheckoutSessionSchema = z.object({
   email: z.string().email(),
