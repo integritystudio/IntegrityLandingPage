@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
-import '../services/analytics.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
-import '../widgets/sections/footer_section.dart';
 import '../widgets/common/chip_badge.dart';
 import '../widgets/common/status_badge.dart';
+import '../widgets/navigation/sub_page_shell.dart';
 import '../widgets/sections/marketing_hero_section.dart';
 
 /// Status page displaying platform operational health and internal observability.
@@ -31,73 +29,24 @@ class StatusPage extends StatefulWidget {
 
 class _StatusPageState extends State<StatusPage> {
   @override
-  void initState() {
-    super.initState();
-    AnalyticsService.trackPageView('status');
-  }
-
-  @override
   Widget build(BuildContext context) {
     final isMobile = ResponsiveUtils.isMobile(context);
     final content = StatusContentVariants.current;
 
-    return Scaffold(
-      backgroundColor: AppColors.gray900,
-      body: SelectionArea(
-        child: CustomScrollView(
-          slivers: [
-            _buildAppBar(context, isMobile),
-            SliverToBoxAdapter(child: _HeroSection(isMobile: isMobile, content: content)),
-            SliverToBoxAdapter(child: _MetricsSection(isMobile: isMobile, content: content)),
-            SliverToBoxAdapter(child: _ServicesSection(isMobile: isMobile, content: content)),
-            SliverToBoxAdapter(child: _WhatWeMonitorSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _PerformanceSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _HealthMonitoringSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _CapabilitiesSection(isMobile: isMobile)),
-            SliverToBoxAdapter(child: _DeveloperAppendixSection(isMobile: isMobile)),
-            SliverToBoxAdapter(
-              child: FooterSection(onCookieSettings: widget.onShowCookieSettings),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  SliverAppBar _buildAppBar(BuildContext context, bool isMobile) {
-    return SliverAppBar(
-      backgroundColor: AppColors.gray900.withValues(alpha: 0.95),
-      floating: true,
-      pinned: true,
-      elevation: 0,
-      toolbarHeight: isMobile ? 56 : 64,
-      leading: IconButton(
-        icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
-        onPressed: widget.onBack ?? () => context.go('/'),
-        tooltip: 'Back',
-      ),
-      title: Semantics(
-        label: 'Navigate to home',
-        button: true,
-        child: GestureDetector(
-          onTap: () => context.go('/'),
-          child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.shield, color: AppColors.blue500, size: isMobile ? 24 : 28),
-            const SizedBox(width: AppSpacing.sm),
-            Flexible(
-              child: Text(
-                CompanyInfo.name,
-                style: (isMobile ? AppTypography.headingSM : AppTypography.headingMD)
-                    .copyWith(color: Colors.white),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-      ),
+    return SubPageShell(
+      onBack: widget.onBack,
+      onShowCookieSettings: widget.onShowCookieSettings,
+      analyticsPageName: 'status',
+      slivers: [
+        SliverToBoxAdapter(child: _HeroSection(isMobile: isMobile, content: content)),
+        SliverToBoxAdapter(child: _MetricsSection(isMobile: isMobile, content: content)),
+        SliverToBoxAdapter(child: _ServicesSection(isMobile: isMobile, content: content)),
+        SliverToBoxAdapter(child: _WhatWeMonitorSection(isMobile: isMobile)),
+        SliverToBoxAdapter(child: _PerformanceSection(isMobile: isMobile)),
+        SliverToBoxAdapter(child: _HealthMonitoringSection(isMobile: isMobile)),
+        SliverToBoxAdapter(child: _CapabilitiesSection(isMobile: isMobile)),
+        SliverToBoxAdapter(child: _DeveloperAppendixSection(isMobile: isMobile)),
+      ],
     );
   }
 }
