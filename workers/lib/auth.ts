@@ -71,7 +71,13 @@ export async function verifyJwt(
   const { payload, parts } = parseResult;
 
   // Verify signature before claims — avoids leaking claim structure to attacker-crafted tokens.
-  const isValid = await hmacVerify(jwtSecret, base64urlToBytes(parts[2]), parts.slice(0, 2).join('.'));
+  let sigBytes: Uint8Array;
+  try {
+    sigBytes = base64urlToBytes(parts[2]);
+  } catch {
+    return { ok: false, error: unauthorized('Invalid JWT signature') };
+  }
+  const isValid = await hmacVerify(jwtSecret, sigBytes, parts.slice(0, 2).join('.'));
   if (!isValid) {
     return { ok: false, error: unauthorized('Invalid JWT signature') };
   }
