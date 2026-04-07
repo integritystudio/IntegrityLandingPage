@@ -88,7 +88,8 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      // Tap submit without filling name
+      // Scroll submit button into view, then tap without filling name
+      await tester.ensureVisible(find.text(CTAText.startFreeTrial));
       await tester.tap(find.text(CTAText.startFreeTrial));
       await pumpFrames(tester, frames: 10);
 
@@ -122,7 +123,8 @@ void main() {
       await tester.tap(find.byType(Checkbox));
       await pumpFrames(tester, frames: 2);
 
-      // Tap submit
+      // Scroll submit button into view, then tap
+      await tester.ensureVisible(find.text(CTAText.startFreeTrial));
       await tester.tap(find.text(CTAText.startFreeTrial));
       await pumpFrames(tester, frames: 10);
 
@@ -152,7 +154,8 @@ void main() {
       await tester.enterText(textFields.at(2), 'Acme Corp');
       await pumpFrames(tester, frames: 2);
 
-      // Tap submit without checking terms
+      // Scroll submit button into view, then tap without checking terms
+      await tester.ensureVisible(find.text(CTAText.startFreeTrial));
       await tester.tap(find.text(CTAText.startFreeTrial));
       await pumpFrames(tester, frames: 10);
 
