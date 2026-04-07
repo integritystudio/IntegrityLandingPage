@@ -20,6 +20,8 @@
     "report": "npm --prefix e2e run report",
     "repomix": "bash scripts/repomix/repomix-regen.sh",
     "lint": "flutter analyze",
-    "test:provisioning": "bash test-provisioning-e2e.sh"
+    "lint:workers": "for w in workers/lib workers/contact-form workers/api-gateway workers/sender-worker workers/receiver-worker workers/stripe-webhook workers/bootstrap-worker; do (cd $w && npx tsc --noEmit) || exit 1; done",
+    "test:provisioning": "bash test-provisioning-e2e.sh",
+    "test:workers": "for w in workers/lib workers/contact-form workers/api-gateway workers/sender-worker workers/receiver-worker workers/stripe-webhook workers/bootstrap-worker; do npm --prefix $w test || exit 1; done"
   }
 }
