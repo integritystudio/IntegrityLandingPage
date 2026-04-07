@@ -6,7 +6,7 @@
  */
 
 import { Resend } from 'resend';
-import { hmacSign } from '../../lib/crypto';
+import { hmacSign, arrayBufferToBase64Url } from '../../lib/crypto';
 import {
   CSRF_TOKEN_MAX_AGE_MS,
   DEFAULT_RATE_LIMIT_MAX,
@@ -238,10 +238,7 @@ async function validateCsrfToken(
   }
 
   const signatureBytes = await hmacSign(secret, timestampStr);
-  const expectedSignature = btoa(String.fromCharCode(...new Uint8Array(signatureBytes)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  const expectedSignature = arrayBufferToBase64Url(signatureBytes);
 
   // Constant-time comparison
   if (signature.length !== expectedSignature.length) {
@@ -300,10 +297,7 @@ function getCorsHeaders(request: Request): Record<string, string> | null {
 async function generateCsrfToken(secret: string): Promise<string> {
   const timestamp = Date.now().toString();
   const signatureBytes = await hmacSign(secret, timestamp);
-  const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBytes)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  const signature = arrayBufferToBase64Url(signatureBytes);
 
   return `${timestamp}.${signature}`;
 }
