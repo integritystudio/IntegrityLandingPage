@@ -1,9 +1,9 @@
 # Top 20 most-changed files (last 200 commits)
 # commits  file
-  21 workers/sender-worker/src/index.ts
-  18 workers/sender-worker/src/types.ts
+  23 workers/sender-worker/src/index.ts
+  20 workers/sender-worker/src/types.ts
   18 workers/sender-worker/src/supabase.ts
-  12 workers/sender-worker/src/index.test.ts
+  14 workers/sender-worker/src/index.test.ts
   10 workers/sender-worker/wrangler.toml
   10 workers/api-gateway/src/index.ts
   10 .github/workflows/ci.yml
@@ -17,25 +17,25 @@
    7 test/services/provisioning_service_test.dart
    7 lib/pages/signup_page.dart
    7 CLAUDE.md
-   6 workers/stripe-webhook/src/index.ts
-   6 workers/stripe-webhook/src/index.test.ts
    6 workers/sender-worker/package.json
+   6 workers/lib/types/usage.ts
+   6 workers/api-gateway/src/routes/orgs.ts
 
 # Recent commits touching these files
 
 ## workers/sender-worker/src/index.ts
+  e0618da 2026-04-07 refactor(sender): extract forwardToReceiver, use ActionSchema.enum
+  489be38 2026-04-07 feat(sender): add sign_in to ActionSchema and forward /signin to receiver
   7bf5e50 2026-04-06 refactor(sender-worker): extract constants and deduplicate auth0 fetch logic
   1cecf5c 2026-04-06 refactor(sender-worker): extract parseJsonBody helper and ErrorCode type
   3ed1783 2026-04-06 refactor(workers): parallelize signup ops and fix strict-mode type errors
-  330b73a 2026-04-03 refactor(workers): consolidate to single AUTH0_CLIENT_* credentials for both auth flows
-  27935f3 2026-04-03 fix(sender-worker): correct Auth0 CLI env var names from AUTHO_ to AUTH0_
 
 ## workers/sender-worker/src/types.ts
+  bca10fa 2026-04-07 fix(sender-worker): omit org_name default so receiver handles domain normalization
+  489be38 2026-04-07 feat(sender): add sign_in to ActionSchema and forward /signin to receiver
   b0cde8b 2026-04-06 refactor(sender-worker): replace magic org type and role strings with named constants
   7bf5e50 2026-04-06 refactor(sender-worker): extract constants and deduplicate auth0 fetch logic
   1cecf5c 2026-04-06 refactor(sender-worker): extract parseJsonBody helper and ErrorCode type
-  330b73a 2026-04-03 refactor(workers): consolidate to single AUTH0_CLIENT_* credentials for both auth flows
-  27935f3 2026-04-03 fix(sender-worker): correct Auth0 CLI env var names from AUTHO_ to AUTH0_
 
 ## workers/sender-worker/src/supabase.ts
   b0cde8b 2026-04-06 refactor(sender-worker): replace magic org type and role strings with named constants
@@ -45,11 +45,11 @@
   77bd762 2026-03-31 refactor(supabase): apply dot-to-hyphen slug parsing to all tiers
 
 ## workers/sender-worker/src/index.test.ts
+  bca10fa 2026-04-07 fix(sender-worker): omit org_name default so receiver handles domain normalization
+  489be38 2026-04-07 feat(sender): add sign_in to ActionSchema and forward /signin to receiver
   3ed1783 2026-04-06 refactor(workers): parallelize signup ops and fix strict-mode type errors
   330b73a 2026-04-03 refactor(workers): consolidate to single AUTH0_CLIENT_* credentials for both auth flows
   262e6cb 2026-04-03 test(sender-worker): extract FetchMock and fixtures test helpers
-  a93318e 2026-04-03 test(sender-worker): add AUTH0_CLI env var regression and env-validation tests
-  0f74c0d 2026-04-03 test(workers): expand test coverage for sender-worker and stripe-webhook
 
 ## workers/sender-worker/wrangler.toml
   330b73a 2026-04-03 refactor(workers): consolidate to single AUTH0_CLIENT_* credentials for both auth flows
@@ -142,24 +142,24 @@
   e5b4506 2026-03-26 refactor(sender-worker): replace service binding with HTTP fetch and tighten CORS
   7fe83a0 2026-03-26 feat(repomix): add tests-compressed pack for test suite context
 
-## workers/stripe-webhook/src/index.ts
-  cf53375 2026-03-27 fix(workers): resolve TypeScript type errors across api-gateway, stripe-webhook, and shared lib
-  4abee36 2026-03-27 refactor(billing): rename free/PlanKey tier to starter/ApiKeyTier across workers
-  8cdaa09 2026-03-21 fix(L5): validate STRIPE_PRICE_TO_PLAN_JSON values against PlanKeySchema
-  5c7a443 2026-03-21 fix(L5): move PRICE_TO_PLAN from empty static map to STRIPE_PRICE_TO_PLAN_JSON env binding
-  c80b6e8 2026-03-21 fix: check failDeadLetter return value in runReconciliation
-
-## workers/stripe-webhook/src/index.test.ts
-  a6f1735 2026-04-05 feat(workers/lib): extract shared hmacSign/hmacSignHex/hmacVerify helpers
-  0f74c0d 2026-04-03 test(workers): expand test coverage for sender-worker and stripe-webhook
-  306ccfc 2026-03-21 test(L5): add parsePriceToPlan integration tests; document _priceToPlan param
-  7d86372 2026-03-21 fix(M36): insert dead letter when logProcessedEvent fails in handleWebhook
-  c9926a9 2026-03-21 fix(L7): correct test title 400→401 for invalid signature rejection
-
 ## workers/sender-worker/package.json
   7945ea1 2026-04-03 chore(workers): bump zod to v4, add coverage-v8, update pool-workers
   ee617d9 2026-04-03 chore(workers): add @vitest/coverage-v8 dev dependency to all workers
   dc8366b 2026-03-31 fix: update GitHub Actions to Node.js 24 and resolve security vulnerabilities
   ca6bfdb 2026-03-27 ci(sender-worker): add production deploy job with Doppler secret injection
   0e069d2 2026-03-27 refactor(sender-worker): migrate validation to Zod schema with JWT format check
+
+## workers/lib/types/usage.ts
+  9fe05f4 2026-04-03 fix(workers/lib): update Zod schemas for v4 API compatibility
+  993058b 2026-03-23 refactor(workers): extract MS_PER_DAY constant, fix applyRateLimitHeaders, export ingest schemas
+  df798ec 2026-03-21 feat(types): add IngestOtelResponseSchema and IngestOtelMetadataSchema
+  32658b9 2026-03-21 fix(L24): add upper bound refine to OtelSpan start_time_ms
+  c40a1c8 2026-03-21 fix(otel): add quota enforcement and bound attribute payload size
+
+## workers/api-gateway/src/routes/orgs.ts
+  8f999e6 2026-03-21 fix(M40): fire-and-forget audit log write in billing portal handler
+  162983d 2026-03-21 fix(H4): validate stripe_customer_id format before Stripe API call
+  b2d23fe 2026-03-21 fix(H3): push org ID filter to DB layer in loadOrgsForMemberships
+  6954ae6 2026-03-21 feat(audit): add audit logging for billing portal and API key operations
+  f8bec9b 2026-03-21 feat(audit): write audit_log entries for sensitive operations
 
