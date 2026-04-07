@@ -4,6 +4,8 @@ import {
   HEADER_NAMES,
   CONTENT_TYPES,
   SUPABASE_PATHS,
+  ORG_TYPES,
+  MEMBERSHIP_ROLES,
 } from "./types.js";
 
 export const EMAIL_SEPARATOR = /@/;
@@ -54,7 +56,7 @@ export async function supabaseCreatePersonalOrg(
   const res = await fetch(`${supabaseUrl}${SUPABASE_PATHS.ORGANIZATIONS}`, {
     method: "POST",
     headers: supabaseHeaders(serviceRoleKey),
-    body: JSON.stringify({ name, slug, type: "personal", current_plan: tier }),
+    body: JSON.stringify({ name, slug, type: ORG_TYPES.PERSONAL, current_plan: tier }),
   });
   if (!res.ok) {
     const err = await res.text();
@@ -100,7 +102,7 @@ export async function supabaseAddOrgOwner(
   const res = await fetch(`${supabaseUrl}${SUPABASE_PATHS.ORG_MEMBERSHIPS}`, {
     method: "POST",
     headers: supabaseHeaders(serviceRoleKey),
-    body: JSON.stringify({ organization_id: orgId, user_id: userId, role: "owner" }),
+    body: JSON.stringify({ organization_id: orgId, user_id: userId, role: MEMBERSHIP_ROLES.OWNER }),
   });
   if (!res.ok) {
     const err = await res.text();

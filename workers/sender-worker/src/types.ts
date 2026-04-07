@@ -108,6 +108,14 @@ export const SERVICE_NAME = "api-provisioning-sender";
 
 export const AUTH0_CONNECTION = "Username-Password-Authentication";
 
+export const ORG_TYPES = {
+  PERSONAL: "personal",
+} as const;
+
+export const MEMBERSHIP_ROLES = {
+  OWNER: "owner",
+} as const;
+
 export const DEFAULT_APP_BASE_URL = "https://integritystudio.ai";
 
 export interface Env {
