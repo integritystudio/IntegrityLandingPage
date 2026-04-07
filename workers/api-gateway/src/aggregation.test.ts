@@ -164,7 +164,7 @@ const makeDailyBuckets = (overrides: Partial<{
   avg_latency_ms: number | null;
 }>[] = []) =>
   overrides.map(o => ({
-    organization_id: '00000000-0000-0000-0000-000000000001',
+    organization_id: '00000000-0000-4000-8000-000000000001',
     metric_key: 'api_requests',
     total_quantity: 1,
     request_count: 1,
@@ -175,7 +175,7 @@ const makeDailyBuckets = (overrides: Partial<{
 const makeMonthSb = (buckets: ReturnType<typeof makeDailyBuckets>) =>
   makeMockSupabaseClient(buckets, { upsert: vi.fn() });
 
-const ORG_UUID = '00000000-0000-0000-0000-000000000001';
+const ORG_UUID = '00000000-0000-4000-8000-000000000001';
 
 describe('rollupMonthlyBucket', () => {
   it('queries usage_buckets_daily for correct org and month range', async () => {

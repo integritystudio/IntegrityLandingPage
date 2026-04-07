@@ -23,8 +23,8 @@ async function makeJwt(payload: Record<string, unknown>): Promise<string> {
   return `${msg}.${sigB64}`;
 }
 
-const ORG_ID = '00000000-0000-0000-0000-000000000001';
-const USER_ID = '00000000-0000-0000-0000-000000000002';
+const ORG_ID = '00000000-0000-4000-8000-000000000001';
+const USER_ID = '00000000-0000-4000-8000-000000000002';
 
 const makeOpts = (sbOverride: SupabaseClient | undefined = undefined) => ({
   jwtSecret: JWT_SECRET,
@@ -149,7 +149,7 @@ describe('POST /v1/ingest/events', () => {
 
   it('returns 403 when API key belongs to different org', async () => {
     const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow('00000000-0000-0000-0000-000000000099');
+    const apiKeyRow = await makeApiKeyRow('00000000-0000-4000-8000-000000000099');
     const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
     const req = makeRequest(validBody(), `int_live_abc12345_${secret}`);
     const res = await handleIngestEvent(req, makeOpts(mockSb));
