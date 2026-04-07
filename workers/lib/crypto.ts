@@ -1,6 +1,8 @@
 const ENCODER = new TextEncoder();
 const HMAC_ALG = { name: 'HMAC', hash: 'SHA-256' } as const;
 
+type KeyUsage = "decrypt" | "deriveBits" | "deriveKey" | "encrypt" | "sign" | "unwrapKey" | "verify" | "wrapKey";
+
 async function importHmacKey(secret: string, usages: KeyUsage[]): Promise<CryptoKey> {
   return crypto.subtle.importKey('raw', ENCODER.encode(secret), HMAC_ALG, false, usages);
 }

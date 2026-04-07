@@ -4,16 +4,16 @@ import { isJsonRequest } from '../http/request';
 
 export type ValidResult<T> = { ok: true; data: T } | { ok: false; error: Response };
 
-function formatZodPath(path: (string | number)[]): string {
+function formatZodPath(path: PropertyKey[]): string {
   if (path.length === 0) return 'root';
   const parts: string[] = [];
   for (const part of path) {
     if (typeof part === 'number') {
       parts.push(`[${part}]`);
     } else if (parts.length === 0) {
-      parts.push(part);
+      parts.push(String(part));
     } else {
-      parts.push(`.${part}`);
+      parts.push(`.${String(part)}`);
     }
   }
   return parts.join('');

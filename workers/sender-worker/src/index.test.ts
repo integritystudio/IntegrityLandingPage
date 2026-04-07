@@ -363,7 +363,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when SHARED_SECRET is not configured', async () => {
-      const envMissingSecret: Env = { SHARED_SECRET: '', RECEIVER: mockReceiver };
+      const envMissingSecret = { SHARED_SECRET: '', RECEIVER: mockReceiver } as unknown as Env;
       const request = makeSendRequest(validSendPayload);
       const response = await worker.fetch(request, envMissingSecret);
       expect(response.status).toBe(500);
@@ -1801,7 +1801,7 @@ describe('Sender Worker', () => {
 
     it('does not use deprecated AUTHO_CLI_* variable names (typo regression test)', () => {
       // This test ensures we never accidentally revert to the typo'd AUTHO_CLI_* naming.
-      const env = mockEnv as Record<string, unknown>;
+      const env = mockEnv as unknown as Record<string, unknown>;
       expect(env).not.toHaveProperty('AUTHO_CLI_ID');
       expect(env).not.toHaveProperty('AUTHO_CLI_SECRET');
       expect(env).not.toHaveProperty('AUTHO_CLI_AUDIENCE');

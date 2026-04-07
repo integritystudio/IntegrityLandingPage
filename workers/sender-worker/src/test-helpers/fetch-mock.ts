@@ -104,7 +104,7 @@ export class FetchMock {
   activate(): this {
     const self = this;
     this.spy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
-      const urlStr = typeof url === 'string' ? url : url.url;
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
       self.calls.push({ url: urlStr, init });
 
       for (const [pattern, handler] of self.handlers) {

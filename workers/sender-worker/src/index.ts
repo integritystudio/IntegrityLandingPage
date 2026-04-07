@@ -70,37 +70,37 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
       return errorResponse("Auth0 not configured", ERROR_CODE.AUTH0_UNCONFIGURED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
     }
 
-    const { auth0Sub } = await auth0CreateUser(
-      env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
-      env.AUTH0_AUDIENCE, email, password,
-    );
-
     const userId = crypto.randomUUID();
 
-    const orgId = await supabaseCreatePersonalOrg(
-      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgName, tier, email,
-    );
+    const [{ auth0Sub }, orgId] = await Promise.all([
+      auth0CreateUser(
+        env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
+        env.AUTH0_AUDIENCE, email, password,
+      ),
+      supabaseCreatePersonalOrg(
+        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgName, tier, email,
+      ),
+    ]);
 
-    await supabaseInsertUser(
-      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId, auth0Sub, email,
-    );
-
-    await supabaseAddOrgOwner(
-      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId, userId,
-    );
-
-    const jwt = await auth0UserSignIn(
-      env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
-      env.AUTH0_AUDIENCE, email, password,
-    );
+    const [jwt] = await Promise.all([
+      auth0UserSignIn(
+        env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
+        env.AUTH0_AUDIENCE, email, password,
+      ),
+      supabaseInsertUser(
+        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId, auth0Sub, email,
+      ),
+      supabaseAddOrgOwner(
+        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId, userId,
+      ),
+    ]);
 
     return json({ jwt, auth0Sub, userId, email }, { status: HTTP_STATUS.CREATED });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[signup]", msg);
 
-    // Map specific errors to error codes for better debugging
-    let errorCode = ERROR_CODE.INTERNAL_ERROR;
+    let errorCode: (typeof ERROR_CODE)[keyof typeof ERROR_CODE] = ERROR_CODE.INTERNAL_ERROR;
     if (msg.includes("Auth0 token exchange failed")) {
       errorCode = ERROR_CODE.AUTH0_TOKEN_EXCHANGE_FAILED;
     } else if (msg.includes("Auth0 createUser failed")) {
@@ -145,7 +145,7 @@ async function handleSend(env: Env, req: Record<string, unknown>): Promise<Respo
       return errorResponse("invalid or expired jwt", ERROR_CODE.INVALID_AUTH, HTTP_STATUS.UNAUTHORIZED);
     }
     const code = field === "email" ? ERROR_CODE.INVALID_EMAIL : ERROR_CODE.MISSING_FIELDS;
-    return errorResponse(`invalid ${field}`, code, HTTP_STATUS.BAD_REQUEST);
+    return errorResponse(`invalid ${String(field)}`, code, HTTP_STATUS.BAD_REQUEST);
   }
 
   const { action, jwt, name, email, tier, org_name } = parsed.data;
