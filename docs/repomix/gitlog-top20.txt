@@ -10,12 +10,12 @@
    9 test/services/dashboard_service_test.dart
    9 lib/services/dashboard_service.dart
    8 lib/services/provisioning_service.dart
+   8 lib/pages/signup_page.dart
    7 workers/sender-worker/src/index.e2e.test.ts
    7 workers/api-gateway/src/routes/orgs.test.ts
    7 workers/api-gateway/src/routes/ingest.ts
    7 workers/api-gateway/src/routes/ingest.test.ts
    7 test/services/provisioning_service_test.dart
-   7 lib/pages/signup_page.dart
    7 CLAUDE.md
    6 workers/sender-worker/package.json
    6 workers/lib/types/usage.ts
@@ -93,6 +93,13 @@
   cb66d37 2026-03-30 fix(provisioning): replace Authorization header with x-session-data
   8a2fbb4 2026-03-30 refactor(provisioning): align ProvisioningEvent schema with sender-worker SendRequestSchema
 
+## lib/pages/signup_page.dart
+  0e7b463 2026-04-07 refactor(ui): apply GradientPageShell to signup_page
+  70c6a7a 2026-04-02 refactor(auth): rename /signin route to /login and extract AuthModeX extension
+  b6f167e 2026-03-31 feat(request_failure): detect existing user errors and auto-redirect to signin
+  828b7c8 2026-03-29 refactor(signup): simplify content_loader signup methods and remove scale tier routing
+  1825ec6 2026-03-28 feat(signup): move hardcoded tier content to content.yaml
+
 ## workers/sender-worker/src/index.e2e.test.ts
   6d2ff74 2026-04-03 test(workers): add comprehensive integration test coverage for error scenarios
   330b73a 2026-04-03 refactor(workers): consolidate to single AUTH0_CLIENT_* credentials for both auth flows
@@ -127,13 +134,6 @@
   71be4c1 2026-03-31 fix(provisioning): correct apiKey field name in sendEvent response parsing
   cb66d37 2026-03-30 fix(provisioning): replace Authorization header with x-session-data
   8a2fbb4 2026-03-30 refactor(provisioning): align ProvisioningEvent schema with sender-worker SendRequestSchema
-
-## lib/pages/signup_page.dart
-  70c6a7a 2026-04-02 refactor(auth): rename /signin route to /login and extract AuthModeX extension
-  b6f167e 2026-03-31 feat(request_failure): detect existing user errors and auto-redirect to signin
-  828b7c8 2026-03-29 refactor(signup): simplify content_loader signup methods and remove scale tier routing
-  1825ec6 2026-03-28 feat(signup): move hardcoded tier content to content.yaml
-  f14ba4a 2026-03-27 feat(enterprise): wire enterprise tier through Auth0 signup and Stripe checkout
 
 ## CLAUDE.md
   5b02d94 2026-04-02 docs(docs): update claude, readme, reviews
