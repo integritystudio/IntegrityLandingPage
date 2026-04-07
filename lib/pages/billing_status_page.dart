@@ -5,7 +5,7 @@ import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
-import '../widgets/common/containers.dart';
+import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
 import '../widgets/common/status_badge.dart';
 
@@ -113,65 +113,28 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
-
-    return Scaffold(
-      backgroundColor: AppColors.backgroundPrimary,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: widget.onBack != null
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: widget.onBack,
-              )
-            : null,
-      ),
-      body: GradientBackground(
-        child: Center(
-          child: ResponsiveContainer(
-            maxWidth: 600,
-            additionalPadding:
-                EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Billing Status',
-                  style: AppTypography.headingLG.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  'Current plan and renewal information',
-                  style: AppTypography.bodyMD.copyWith(
-                    color: AppColors.gray300,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                if (_errorMessage != null)
-                  ErrorCard(
-                    message: _errorMessage!,
-                    onRetry: _fetchBillingStatus,
-                  )
-                else
-                  _BillingCard(
-                    billingStatus: _billingStatus,
-                    isLoading: _isLoading,
-                    isPortalLoading: _isPortalLoading,
-                    onRefresh: _fetchBillingStatus,
-                    onManageBilling: _openBillingPortal,
-                    renewalDateLabel: _billingStatus?.nextRenewalDate != null
-                        ? _formatDate(_billingStatus!.nextRenewalDate!)
-                        : null,
-                  ),
-              ],
-            ),
+    return DashboardScaffold(
+      title: 'Billing Status',
+      subtitle: 'Current plan and renewal information',
+      onBack: widget.onBack,
+      children: [
+        if (_errorMessage != null)
+          ErrorCard(
+            message: _errorMessage!,
+            onRetry: _fetchBillingStatus,
+          )
+        else
+          _BillingCard(
+            billingStatus: _billingStatus,
+            isLoading: _isLoading,
+            isPortalLoading: _isPortalLoading,
+            onRefresh: _fetchBillingStatus,
+            onManageBilling: _openBillingPortal,
+            renewalDateLabel: _billingStatus?.nextRenewalDate != null
+                ? _formatDate(_billingStatus!.nextRenewalDate!)
+                : null,
           ),
-        ),
-      ),
+      ],
     );
   }
 }

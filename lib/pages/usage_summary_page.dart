@@ -8,7 +8,7 @@ import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
-import '../widgets/common/containers.dart';
+import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
 
 /// Aggregates usage buckets by date, summing totalQuantity across all metrics.
@@ -159,65 +159,28 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
-
-    return Scaffold(
-      backgroundColor: AppColors.backgroundPrimary,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: widget.onBack != null
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: widget.onBack,
-              )
-            : null,
-      ),
-      body: GradientBackground(
-        child: Center(
-          child: ResponsiveContainer(
-            maxWidth: 600,
-            additionalPadding:
-                EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Usage Summary',
-                  style: AppTypography.headingLG.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  widget.args.orgName.isNotEmpty
-                      ? widget.args.orgName
-                      : 'Current month usage breakdown',
-                  style: AppTypography.bodyMD.copyWith(
-                    color: AppColors.gray300,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                if (_errorMessage != null)
-                  ErrorCard(
-                    message: _errorMessage!,
-                    onRetry: _fetchSummary,
-                  )
-                else
-                  _UsageSummaryCard(
-                    summary: _summary,
-                    isLoading: _isLoading,
-                    monthlyUnitsQuota: widget.args.monthlyUnitsQuota,
-                    onRefresh: _fetchSummary,
-                    aggregateBuckets: _aggregateBuckets,
-                    grandTotalQuantity: _grandTotalQuantity,
-                  ),
-              ],
-            ),
+    return DashboardScaffold(
+      title: 'Usage Summary',
+      subtitle: widget.args.orgName.isNotEmpty
+          ? widget.args.orgName
+          : 'Current month usage breakdown',
+      onBack: widget.onBack,
+      children: [
+        if (_errorMessage != null)
+          ErrorCard(
+            message: _errorMessage!,
+            onRetry: _fetchSummary,
+          )
+        else
+          _UsageSummaryCard(
+            summary: _summary,
+            isLoading: _isLoading,
+            monthlyUnitsQuota: widget.args.monthlyUnitsQuota,
+            onRefresh: _fetchSummary,
+            aggregateBuckets: _aggregateBuckets,
+            grandTotalQuantity: _grandTotalQuantity,
           ),
-        ),
-      ),
+      ],
     );
   }
 }

@@ -6,8 +6,8 @@ import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/cards.dart';
+import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
-import '../widgets/common/containers.dart';
 import 'billing_status_page.dart';
 import 'entitlements_page.dart';
 import 'quota_status_page.dart';
@@ -146,144 +146,116 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
     final org = _activeOrg;
 
-    return Scaffold(
-      backgroundColor: AppColors.backgroundPrimary,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: widget.onBack != null
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: widget.onBack,
-              )
-            : null,
-      ),
-      body: GradientBackground(
-        child: Center(
-          child: ResponsiveContainer(
-            maxWidth: 600,
-            additionalPadding:
-                EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Dashboard',
-                  style: AppTypography.headingMD
-                      .copyWith(color: AppColors.textPrimary),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                if (_isLoading)
-                  const Center(child: CircularProgressIndicator())
-                else if (_errorMessage != null)
-                  ErrorCard(message: _errorMessage!, onRetry: _fetchOrgs)
-                else if (_orgs.isEmpty)
-                  Text(
-                    'No organizations found.',
-                    style: AppTypography.bodyMD
-                        .copyWith(color: AppColors.textSecondary),
-                  )
-                else ...[
-                  if (_orgs.length > 1) ...[
-                    Text(
-                      'Organization',
-                      style: AppTypography.bodySM
-                          .copyWith(color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    _buildOrgSwitcher(),
-                    const SizedBox(height: AppSpacing.xl),
-                  ] else ...[
-                    Text(
-                      org?.name ?? '',
-                      style: AppTypography.bodyMD
-                          .copyWith(color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                  ],
-                  _buildNavCard(
-                    label: 'Billing',
-                    icon: LucideIcons.creditCard,
-                    description: 'Plan, billing status, renewal date',
-                    onTap: () {
-                      final current = _activeOrg;
-                      if (current == null) return;
-                      _navigateTo(
-                        Routes.billingStatus,
-                        BillingStatusArgs(
-                          orgId: current.orgId,
-                          jwt: widget.args.jwt,
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _buildNavCard(
-                    label: 'Usage',
-                    icon: LucideIcons.barChart2,
-                    description: 'Monthly usage summary by metric',
-                    onTap: () {
-                      final current = _activeOrg;
-                      if (current == null) return;
-                      // monthlyUnitsQuota: quota reference line; 0 = disabled
-                      // until per-org quota is loaded via QuotaStatusPage.
-                      _navigateTo(
-                        Routes.usageSummary,
-                        UsageSummaryArgs(
-                          orgId: current.orgId,
-                          orgName: current.name,
-                          jwt: widget.args.jwt,
-                          monthlyUnitsQuota: 0,
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _buildNavCard(
-                    label: 'Quota',
-                    icon: LucideIcons.gauge,
-                    description: 'Minute burst and monthly quota limits',
-                    onTap: () {
-                      final current = _activeOrg;
-                      if (current == null) return;
-                      _navigateTo(
-                        Routes.quotaStatus,
-                        QuotaStatusArgs(
-                          orgId: current.orgId,
-                          orgName: current.name,
-                          jwt: widget.args.jwt,
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _buildNavCard(
-                    label: 'Entitlements',
-                    icon: LucideIcons.shieldCheck,
-                    description: 'Feature flags for your plan',
-                    onTap: () {
-                      final current = _activeOrg;
-                      if (current == null) return;
-                      _navigateTo(
-                        Routes.entitlements,
-                        EntitlementsArgs(
-                          orgId: current.orgId,
-                          orgName: current.name,
-                          jwt: widget.args.jwt,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ],
+    return DashboardScaffold(
+      title: 'Dashboard',
+      titleStyle: AppTypography.headingMD,
+      onBack: widget.onBack,
+      children: [
+        if (_isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_errorMessage != null)
+          ErrorCard(message: _errorMessage!, onRetry: _fetchOrgs)
+        else if (_orgs.isEmpty)
+          Text(
+            'No organizations found.',
+            style: AppTypography.bodyMD
+                .copyWith(color: AppColors.textSecondary),
+          )
+        else ...[
+          if (_orgs.length > 1) ...[
+            Text(
+              'Organization',
+              style: AppTypography.bodySM
+                  .copyWith(color: AppColors.textSecondary),
             ),
+            const SizedBox(height: AppSpacing.xs),
+            _buildOrgSwitcher(),
+            const SizedBox(height: AppSpacing.xl),
+          ] else ...[
+            Text(
+              org?.name ?? '',
+              style: AppTypography.bodyMD
+                  .copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+          ],
+          _buildNavCard(
+            label: 'Billing',
+            icon: LucideIcons.creditCard,
+            description: 'Plan, billing status, renewal date',
+            onTap: () {
+              final current = _activeOrg;
+              if (current == null) return;
+              _navigateTo(
+                Routes.billingStatus,
+                BillingStatusArgs(
+                  orgId: current.orgId,
+                  jwt: widget.args.jwt,
+                ),
+              );
+            },
           ),
-        ),
-      ),
+          const SizedBox(height: AppSpacing.md),
+          _buildNavCard(
+            label: 'Usage',
+            icon: LucideIcons.barChart2,
+            description: 'Monthly usage summary by metric',
+            onTap: () {
+              final current = _activeOrg;
+              if (current == null) return;
+              // monthlyUnitsQuota: quota reference line; 0 = disabled
+              // until per-org quota is loaded via QuotaStatusPage.
+              _navigateTo(
+                Routes.usageSummary,
+                UsageSummaryArgs(
+                  orgId: current.orgId,
+                  orgName: current.name,
+                  jwt: widget.args.jwt,
+                  monthlyUnitsQuota: 0,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildNavCard(
+            label: 'Quota',
+            icon: LucideIcons.gauge,
+            description: 'Minute burst and monthly quota limits',
+            onTap: () {
+              final current = _activeOrg;
+              if (current == null) return;
+              _navigateTo(
+                Routes.quotaStatus,
+                QuotaStatusArgs(
+                  orgId: current.orgId,
+                  orgName: current.name,
+                  jwt: widget.args.jwt,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildNavCard(
+            label: 'Entitlements',
+            icon: LucideIcons.shieldCheck,
+            description: 'Feature flags for your plan',
+            onTap: () {
+              final current = _activeOrg;
+              if (current == null) return;
+              _navigateTo(
+                Routes.entitlements,
+                EntitlementsArgs(
+                  orgId: current.orgId,
+                  orgName: current.name,
+                  jwt: widget.args.jwt,
+                ),
+              );
+            },
+          ),
+        ],
+      ],
     );
   }
 }

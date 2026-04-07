@@ -5,8 +5,9 @@ import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
-import '../widgets/common/containers.dart';
+import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
+import '../widgets/common/status_badge.dart';
 
 /// Arguments passed to QuotaStatusPage via GoRouter state.extra.
 class QuotaStatusArgs {
@@ -84,62 +85,25 @@ class _QuotaStatusPageState extends State<QuotaStatusPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
-
-    return Scaffold(
-      backgroundColor: AppColors.backgroundPrimary,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: widget.onBack != null
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: widget.onBack,
-              )
-            : null,
-      ),
-      body: GradientBackground(
-        child: Center(
-          child: ResponsiveContainer(
-            maxWidth: 600,
-            additionalPadding:
-                EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Quota Status',
-                  style: AppTypography.headingLG.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  widget.args.orgName.isNotEmpty
-                      ? widget.args.orgName
-                      : 'Minute burst and monthly usage limits',
-                  style: AppTypography.bodyMD.copyWith(
-                    color: AppColors.gray300,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                if (_errorMessage != null)
-                  ErrorCard(
-                    message: _errorMessage!,
-                    onRetry: _fetchQuotaStatus,
-                  )
-                else
-                  _QuotaCard(
-                    data: _data,
-                    isLoading: _isLoading,
-                    onRefresh: _fetchQuotaStatus,
-                  ),
-              ],
-            ),
+    return DashboardScaffold(
+      title: 'Quota Status',
+      subtitle: widget.args.orgName.isNotEmpty
+          ? widget.args.orgName
+          : 'Minute burst and monthly usage limits',
+      onBack: widget.onBack,
+      children: [
+        if (_errorMessage != null)
+          ErrorCard(
+            message: _errorMessage!,
+            onRetry: _fetchQuotaStatus,
+          )
+        else
+          _QuotaCard(
+            data: _data,
+            isLoading: _isLoading,
+            onRefresh: _fetchQuotaStatus,
           ),
-        ),
-      ),
+      ],
     );
   }
 }
@@ -187,7 +151,10 @@ class _QuotaCard extends StatelessWidget {
           if (data != null) ...[
             const SizedBox(height: AppSpacing.sm),
             if (data!.planKey != null) ...[
-              _PlanBadge(planKey: data!.planKey!),
+              StatusBadge(
+                label: _formatPlanKey(data!.planKey!),
+                color: AppColors.blue500,
+              ),
               const SizedBox(height: AppSpacing.md),
             ],
             _QuotaRow(
@@ -289,35 +256,7 @@ class _QuotaRow extends StatelessWidget {
   }
 }
 
-class _PlanBadge extends StatelessWidget {
-  final String planKey;
-
-  const _PlanBadge({required this.planKey});
-
-  String _formatPlanKey(String key) => key
-      .split('_')
-      .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
-      .join(' ');
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.blue500.withAlpha(25),
-        border: Border.all(color: AppColors.blue500),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-      ),
-      child: Text(
-        _formatPlanKey(planKey),
-        style: AppTypography.bodySM.copyWith(
-          color: AppColors.blue500,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
+String _formatPlanKey(String key) => key
+    .split('_')
+    .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+    .join(' ');

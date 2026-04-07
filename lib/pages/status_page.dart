@@ -8,6 +8,7 @@ import '../widgets/common/containers.dart';
 import '../widgets/docs/doc_components.dart';
 import '../widgets/sections/footer_section.dart';
 import '../widgets/common/chip_badge.dart';
+import '../widgets/common/status_badge.dart';
 import '../widgets/sections/marketing_hero_section.dart';
 
 /// Status page displaying platform operational health and internal observability.
@@ -864,10 +865,10 @@ class _ArchitectureDiagramWidget extends StatelessWidget {
                   runSpacing: AppSpacing.sm,
                   alignment: WrapAlignment.center,
                   children: [
-                    _LayerChip(label: 'Instrumentation'),
-                    _LayerChip(label: 'Metrics'),
-                    _LayerChip(label: 'Cache Stats'),
-                    _LayerChip(label: 'Histograms'),
+                    _layerChip('Instrumentation'),
+                    _layerChip('Metrics'),
+                    _layerChip('Cache Stats'),
+                    _layerChip('Histograms'),
                   ],
                 ),
               ],
@@ -944,32 +945,16 @@ class _DiagramBox extends StatelessWidget {
   }
 }
 
-class _LayerChip extends StatelessWidget {
-  final String label;
-
-  const _LayerChip({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.gray700,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-      ),
-      child: Text(
-        label,
-        style: AppTypography.bodySM.copyWith(
-          color: AppColors.gray300,
-          fontSize: 11,
-        ),
+StatusBadge _layerChip(String label) => StatusBadge(
+      label: label,
+      color: AppColors.gray300,
+      backgroundColor: AppColors.gray700,
+      borderColor: Colors.transparent,
+      textStyle: AppTypography.bodySM.copyWith(
+        color: AppColors.gray300,
+        fontSize: 11,
       ),
     );
-  }
-}
 
 class _TechSection extends StatelessWidget {
   final String title;

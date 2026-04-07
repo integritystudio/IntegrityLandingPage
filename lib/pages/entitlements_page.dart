@@ -4,7 +4,7 @@ import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
-import '../widgets/common/containers.dart';
+import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
 import '../widgets/common/status_badge.dart';
 
@@ -85,62 +85,25 @@ class _EntitlementsPageState extends State<EntitlementsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
-
-    return Scaffold(
-      backgroundColor: AppColors.backgroundPrimary,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: widget.onBack != null
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: widget.onBack,
-              )
-            : null,
-      ),
-      body: GradientBackground(
-        child: Center(
-          child: ResponsiveContainer(
-            maxWidth: 600,
-            additionalPadding:
-                EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Entitlements',
-                  style: AppTypography.headingLG.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  widget.args.orgName.isNotEmpty
-                      ? widget.args.orgName
-                      : 'Feature flags and limits for your plan',
-                  style: AppTypography.bodyMD.copyWith(
-                    color: AppColors.gray300,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                if (_errorMessage != null)
-                  ErrorCard(
-                    message: _errorMessage!,
-                    onRetry: _fetchEntitlements,
-                  )
-                else
-                  _EntitlementsCard(
-                    data: _data,
-                    isLoading: _isLoading,
-                    onRefresh: _fetchEntitlements,
-                  ),
-              ],
-            ),
+    return DashboardScaffold(
+      title: 'Entitlements',
+      subtitle: widget.args.orgName.isNotEmpty
+          ? widget.args.orgName
+          : 'Feature flags and limits for your plan',
+      onBack: widget.onBack,
+      children: [
+        if (_errorMessage != null)
+          ErrorCard(
+            message: _errorMessage!,
+            onRetry: _fetchEntitlements,
+          )
+        else
+          _EntitlementsCard(
+            data: _data,
+            isLoading: _isLoading,
+            onRefresh: _fetchEntitlements,
           ),
-        ),
-      ),
+      ],
     );
   }
 }
