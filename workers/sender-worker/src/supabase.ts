@@ -133,13 +133,12 @@ async function auth0GetMgmtToken(
   domain: string,
   clientId: string,
   clientSecret: string,
-  audience: string,
 ): Promise<string> {
   return auth0FetchToken(domain, {
     grant_type: "client_credentials",
     client_id: clientId,
     client_secret: clientSecret,
-    audience,
+    audience: `https://${domain}/api/v2/`,
   }, "Auth0 token exchange failed");
 }
 
@@ -179,11 +178,11 @@ export async function auth0CreateUser(
   domain: string,
   clientId: string,
   clientSecret: string,
-  audience: string,
+  _audience: string,
   email: string,
   password: string,
 ): Promise<{ auth0Sub: string }> {
-  const mgmtToken = await auth0GetMgmtToken(domain, clientId, clientSecret, audience);
+  const mgmtToken = await auth0GetMgmtToken(domain, clientId, clientSecret);
   const res = await fetch(`https://${domain}${AUTH0_PATHS.USERS}`, {
     method: "POST",
     headers: {

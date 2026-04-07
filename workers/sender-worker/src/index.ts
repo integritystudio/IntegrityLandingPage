@@ -85,6 +85,7 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
       ),
     ]);
 
+    // Insert user first — org membership has FK on users.id
     const [jwt] = await Promise.all([
       auth0UserSignIn(
         env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
@@ -93,10 +94,11 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
       supabaseInsertUser(
         env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId, auth0Sub, email,
       ),
-      supabaseAddOrgOwner(
-        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId, userId,
-      ),
     ]);
+
+    await supabaseAddOrgOwner(
+      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId, userId,
+    );
 
     return json({ jwt, auth0Sub, userId, email }, { status: HTTP_STATUS.CREATED });
   } catch (err) {
