@@ -3,18 +3,21 @@
 ## Current Status
 
 **Phase**: Testing Infrastructure & Error Handling ✅ COMPLETE
-**Last Updated**: 2026-04-02
+**Last Updated**: 2026-04-07
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ 2,793 Flutter tests passing (~94% coverage); 1 worker test file (org-quota-do)
+**Test Status**: ✅ 2,982 Flutter tests passing (~94% coverage); 892 worker tests passing
 
 See [docs/changelog/1.2/CHANGELOG.md](docs/changelog/1.2/CHANGELOG.md) for recent changes.
 
-### Recent Improvements (2026-03-31)
-- **Hybrid Testing**: Added contract tests (Dart ↔ TypeScript Zod schema verification, no live calls)
-- **Live Integration Tests**: Added optional CI job for staging integration tests with `LIVE_TESTS` dart-define
-- **Error Handling**: request_failure page now detects "user already exists" errors and auto-redirects to /signin
-- **Type Preservation Fix**: Fixed MockProvisioningDio generic type preservation in CI environment (Response<dynamic> casting pattern)
-- **API Key Generation**: receiver-worker now generates and returns `apiKey` field in provisioning response
+### Recent Improvements (2026-04-07)
+- **Sender-Worker Refactor**: Extracted forwardToReceiver, parseJsonBody, ErrorCode type, named constants; added sign_in action with Auth0 ROPC forwarding
+- **Zod v4 Migration**: Bumped zod to v4 across all workers; updated schemas for v4 API compatibility
+- **ESM & Vitest**: Added ESM type to workers, bumped vitest to v4
+- **Auth0 Consolidation**: Single AUTH0_CLIENT_* credentials for both auth flows
+- **Model Extraction**: Extracted dashboard_models.dart and provisioning_models.dart from services into dedicated model files
+- **UI Polish**: Applied GradientPageShell to signup_page
+- **Domain Normalization**: Sender-worker omits org_name default so receiver handles domain normalization
+- **Error Handling**: request_failure page detects "user already exists" errors and auto-redirects to /login
 
 ### Known Issues
 - Contact form CORS blocks localhost (by design, needs config update for dev testing)
@@ -29,8 +32,8 @@ lib/
 ├── config/content/   # Static content definitions (content.yaml models)
 ├── controllers/      # Business logic controllers
 ├── models/           # Data models
-├── pages/            # Page widgets (38 pages)
-├── routing/          # GoRouter configuration (33 routes)
+├── pages/            # Page widgets (40 pages)
+├── routing/          # GoRouter configuration (43 routes)
 ├── services/         # External integrations (analytics, consent, contact, dashboard, provisioning)
 ├── theme/            # Design system (colors, decorations, spacing, typography)
 ├── utils/            # Utility functions
@@ -59,7 +62,7 @@ workers/
 
 scripts/              # Build/dev tooling, repomix generation
 docs/                 # Architecture, routes, changelog, backlog
-test/                 # Unit + widget tests (2,793 passing, ~94% coverage)
+test/                 # Unit + widget tests (2,982 passing, ~94% coverage)
 ```
 
 ## Workers
@@ -73,7 +76,7 @@ test/                 # Unit + widget tests (2,793 passing, ~94% coverage)
 
 **Workers**
 - [workers/contact-form/](workers/contact-form/) — Cloudflare Worker handling contact form submissions (Resend email, KV rate limiting, CSRF, idempotency)
-- [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker that signs and forwards provisioning events to receiver-worker (HMAC-SHA256 inter-service auth, TDD-tested)
+- [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker that signs and forwards provisioning/sign-in events to receiver-worker (HMAC-SHA256 auth, Auth0 ROPC, Zod v4 validation)
 - [workers/receiver-worker/](workers/receiver-worker/) — Cloudflare Worker that verifies signed requests and stores provisioning data (signature verification, replay protection)
 - [workers/stripe-webhook/](workers/stripe-webhook/) — Cloudflare Worker handling Stripe events (subscription lifecycle, checkout sessions, dead-letter queue, Supabase sync)
 

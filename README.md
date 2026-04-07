@@ -6,14 +6,14 @@
 Enterprise AI Observability Platform landing page built with Flutter Web.
 
 **Production**: https://integritystudio.ai
-**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, 2740+ Flutter (unit+contract+integration) + 310 worker tests
+**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, 2980+ Flutter (unit+contract+integration) + 892 worker tests
 
 ## Quick Start
 
 ```bash
 flutter pub get          # Install dependencies
 flutter run -d chrome    # Development server (localhost:8080)
-flutter test             # Run tests (2740+ passing, ~94% coverage)
+flutter test             # Run tests (2980+ passing, ~94% coverage)
 flutter build web        # Production build
 ```
 
@@ -54,7 +54,7 @@ npx vitest run                    # Tests
 ```
 
 **API Provisioning Workers** (`workers/sender-worker/`, `workers/receiver-worker/`)
-- **Sender**: Signs requests with HMAC-SHA256, forwards to receiver
+- **Sender**: Signs requests with HMAC-SHA256, forwards provisioning/sign-in events to receiver (Auth0 ROPC, Zod v4 validation)
 - **Receiver**: Verifies signatures, stores provisioning data, replay protection
 
 ```bash
@@ -76,7 +76,7 @@ npm run test:provisioning         # Interactive test guide
 - Subscription lifecycle (create, update, cancel) and checkout session handling
 - Dead-letter queue for failed events with reconciliation
 - Supabase sync: subscriptions, plan mapping via `STRIPE_PRICE_TO_PLAN_JSON`
-- Tests: 61 passing
+- Tests: 137 passing
 
 ```bash
 cd workers/stripe-webhook
@@ -88,7 +88,7 @@ npx vitest run                    # Tests
 
 - [Architecture](docs/architecture.md) — tech stack, patterns, directory structure
 - [Authentication](docs/authentication.md) — auth flows, DRY patterns, AuthMode extension, M2M + ROPC grant types
-- [Routes](docs/routes.md) — GoRouter configuration, 33 routes
+- [Routes](docs/routes.md) — GoRouter configuration, 43 routes
 - [API Provisioning](docs/api-provisioning.md) — inter-worker HMAC-SHA256 auth, Flutter service layer, security model
 - [Provisioning Manual Test Guide](PROVISIONING_MANUAL_TEST.md) — 7 test cases, step-by-step instructions
 - [Provisioning E2E Results](PROVISIONING_E2E_RESULTS.md) — verified working components, test summary
@@ -99,7 +99,7 @@ npx vitest run                    # Tests
 ## Testing
 
 ```bash
-# Flutter: Unit + Contract + Widget tests (~2740, ~94% coverage)
+# Flutter: Unit + Contract + Widget tests (~2980, ~94% coverage)
 flutter test                           # All tests
 flutter test --coverage                # With coverage report
 flutter test test/pages/               # Page tests only
@@ -115,8 +115,8 @@ flutter test test/services/provisioning_service_live_test.dart \
 cd workers/contact-form && npm test    # Contact form worker tests (71 passing)
 cd workers/api-gateway && npm test     # API Gateway worker tests (122 passing)
 cd workers/receiver-worker && npm test  # Receiver worker tests (16)
-cd workers/sender-worker && npm test    # Sender worker tests (40 passing)
-cd workers/stripe-webhook && npm test   # Stripe webhook tests (61)
+cd workers/sender-worker && npm test    # Sender worker tests (151 passing)
+cd workers/stripe-webhook && npm test   # Stripe webhook tests (137)
 
 # Manual provisioning E2E test (interactive, do NOT use in CI)
 SHARED_SECRET=your-test-secret npm run test:provisioning
