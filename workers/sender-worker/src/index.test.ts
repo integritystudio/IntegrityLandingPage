@@ -983,19 +983,43 @@ describe('Sender Worker', () => {
     });
   });
 
-  describe('POST /signin — not implemented (Auth0 handles auth)', () => {
-    it('returns 404 for /signin route', async () => {
+  describe('POST /signin — forwards sign_in action to receiver', () => {
+    afterEach(() => {
+      mockReceiverFetch.mockReset();
+    });
+
+    it('forwards to receiver and proxies the response', async () => {
+      mockReceiverResponse({ error: 'sign_in not implemented', code: 'NOT_IMPLEMENTED' }, 501);
+
       const request = new Request('https://worker.test/signin', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: 'user@example.com', password: 'pass' }),
+        body: JSON.stringify({ email: 'user@example.com' }),
       });
 
       const response = await worker.fetch(request, mockEnv);
 
-      expect(response.status).toBe(404);
-      const data = await response.json() as { error: string };
-      expect(data.error).toContain('Auth0');
+      expect(response.status).toBe(501);
+      expect(mockReceiverFetch).toHaveBeenCalledOnce();
+
+      const body = await mockReceiverFetch.mock.calls[0][1]?.body;
+      const parsed = JSON.parse(body as string) as { action: string; email: string };
+      expect(parsed.action).toBe('sign_in');
+      expect(parsed.email).toBe('user@example.com');
+    });
+
+    it('returns 400 when email is missing', async () => {
+      const request = new Request('https://worker.test/signin', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password: 'pass' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as { code: string };
+      expect(data.code).toBe('INVALID_EMAIL');
     });
   });
 

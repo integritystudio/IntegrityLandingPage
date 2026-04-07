@@ -18,7 +18,7 @@ import {
   type ErrorCode,
   type Env,
 } from "./types.js";
-import { json, errorResponse } from "./utils.js";
+import { json, errorResponse, resolveOutboundSigningKey } from "./utils.js";
 import { signMessage } from "./crypto.js";
 import {
   auth0CreateUser,
@@ -123,9 +123,49 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
   }
 }
 
-// Sign-in is handled by Auth0 directly; this route is intentionally not implemented.
-function handleSignin(_env: Env, _req: Record<string, unknown>): Response {
-  return errorResponse("sign-in is handled by Auth0", ERROR_CODE.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+// Forwards sign_in action to the receiver. Returns NOT_IMPLEMENTED until receiver ships the handler.
+async function handleSignIn(env: Env, req: Record<string, unknown>): Promise<Response> {
+  if (!env.RECEIVER) {
+    return errorResponse("RECEIVER service binding not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
+  if (!env.SHARED_SECRET) {
+    return errorResponse("SHARED_SECRET not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
+  if (!req.email || typeof req.email !== "string") {
+    return errorResponse("invalid email", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const payload: Record<string, unknown> = { action: "sign_in", email: req.email };
+
+  try {
+    const ts = Date.now().toString();
+    const bodyStr = JSON.stringify(payload);
+    const { secret, keyId } = resolveOutboundSigningKey(env);
+    const signature = await signMessage(secret, `${ts}.${bodyStr}`);
+    const headers: Record<string, string> = {
+      [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
+      [HEADER_NAMES.TIMESTAMP]: ts,
+      [HEADER_NAMES.SIGNATURE]: signature,
+    };
+    if (keyId) headers[HEADER_NAMES.KEY_ID] = keyId;
+    const receiverRes = await env.RECEIVER.fetch(`https://receiver${RECEIVER_PATHS.INBOX}`, {
+      method: HTTP_METHODS.POST,
+      headers,
+      body: bodyStr,
+    });
+    const receiverBody = await receiverRes.text();
+    const contentType = receiverRes.headers.get(HEADER_NAMES.CONTENT_TYPE) ?? CONTENT_TYPES.JSON;
+    return new Response(receiverBody, {
+      status: receiverRes.status,
+      headers: { [HEADER_NAMES.CONTENT_TYPE]: contentType },
+    });
+  } catch (err) {
+    if (err instanceof TypeError) {
+      return errorResponse("receiver-worker unreachable", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.BAD_GATEWAY);
+    }
+    console.error("[sign_in]", err instanceof Error ? err.message : err);
+    return errorResponse("sign_in failed", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
 }
 
 async function handleSend(env: Env, req: Record<string, unknown>): Promise<Response> {
@@ -152,15 +192,27 @@ async function handleSend(env: Env, req: Record<string, unknown>): Promise<Respo
   const { action, jwt, name, email, tier, org_name } = parsed.data;
   const payload: Record<string, unknown> = { action, email, jwt, name, tier, org_name };
 
+  // Key rotation deployment sequence (deploy receiver FIRST):
+  // 1. Add new key to receiver's SIGNING_KEYS (e.g. { v2: "new-secret" }) and deploy receiver
+  // 2. Add same key to sender's SIGNING_KEYS and set ACTIVE_KEY_ID="v2", then deploy sender
+  // 3. Once rotation is verified, remove the old key from both workers' SIGNING_KEYS
+  //
+  // If sender is deployed before receiver, the receiver gets an x-key-id it doesn't recognise.
+  // resolveSigningKey() returns null in three cases (all cause 401 INVALID_SIGNATURE):
+  //   a) x-key-id present but SIGNING_KEYS env is absent on receiver
+  //   b) x-key-id present but SIGNING_KEYS JSON is malformed
+  //   c) x-key-id present but key ID not found in the SIGNING_KEYS map
   try {
     const ts = Date.now().toString();
     const bodyStr = JSON.stringify(payload);
-    const signature = await signMessage(env.SHARED_SECRET, `${ts}.${bodyStr}`);
-    const headers = {
+    const { secret, keyId } = resolveOutboundSigningKey(env);
+    const signature = await signMessage(secret, `${ts}.${bodyStr}`);
+    const headers: Record<string, string> = {
       [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
       [HEADER_NAMES.TIMESTAMP]: ts,
       [HEADER_NAMES.SIGNATURE]: signature,
     };
+    if (keyId) headers[HEADER_NAMES.KEY_ID] = keyId;
     const receiverRes = await env.RECEIVER.fetch(`https://receiver${RECEIVER_PATHS.INBOX}`, {
       method: HTTP_METHODS.POST,
       headers,
@@ -253,7 +305,7 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SIGNIN) {
     const body = await parseJsonBody(request);
     if (body instanceof Response) return body;
-    return handleSignin(env, body);
+    return handleSignIn(env, body);
   }
 
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SEND) {

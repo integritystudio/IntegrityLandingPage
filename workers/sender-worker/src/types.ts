@@ -33,7 +33,7 @@ export const ERROR_CODE = {
   JSON_PARSE_ERROR: "JSON_PARSE_ERROR",
   UNKNOWN_ACTION: "UNKNOWN_ACTION",
   RECEIVER_ERROR: "RECEIVER_ERROR",
-  FORBIDDEN: "forbidden",
+  FORBIDDEN: "FORBIDDEN",
   NOT_FOUND: "NOT_FOUND",
   INTERNAL_ERROR: "INTERNAL_ERROR",
   AUTH0_UNCONFIGURED: "AUTH0_UNCONFIGURED",
@@ -71,13 +71,14 @@ export const HEADER_NAMES = {
   AUTHORIZATION: "authorization",
   TIMESTAMP: "x-timestamp",
   SIGNATURE: "x-signature",
+  KEY_ID: "x-key-id",
 } as const;
 
 export const CONTENT_TYPES = {
   JSON: "application/json; charset=utf-8",
 } as const;
 
-export const ActionSchema = z.enum(["provision_api_key"]);
+export const ActionSchema = z.enum(["provision_api_key", "sign_in"]);
 export type Action = z.infer<typeof ActionSchema>;
 
 export const ApiKeyTierSchema = z.enum(["starter", "growth", "enterprise"]);
@@ -120,6 +121,10 @@ export const DEFAULT_APP_BASE_URL = "https://integritystudio.ai";
 
 export interface Env {
   SHARED_SECRET: string;
+  /** JSON-encoded Record<string, string> mapping keyId → secret; enables x-key-id rotation. */
+  SIGNING_KEYS?: string;
+  /** The key ID to use from SIGNING_KEYS when sending signed requests. Omit to use SHARED_SECRET. */
+  ACTIVE_KEY_ID?: string;
   /** Service binding to api-provisioning-receiver. */
   RECEIVER: Fetcher;
   AUTH0_DOMAIN: string;
