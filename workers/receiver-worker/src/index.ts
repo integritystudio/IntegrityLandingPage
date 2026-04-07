@@ -1,16 +1,10 @@
-import { JSON_CONTENT_TYPE } from '../../http-helpers';
 import { REPLAY_WINDOW_MS } from '../../constants';
-import { hmacSignHex } from '../../lib/crypto';
+import { hmacVerify } from '../../lib/crypto';
+import { hexToBytes } from '../../lib/hex-utils';
+import { json } from '../../lib/http/responses';
 
 interface Env {
   SHARED_SECRET: string;
-}
-
-function jsonResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': JSON_CONTENT_TYPE },
-  });
 }
 
 async function handleInbox(request: Request, env: Env): Promise<Response> {
@@ -18,30 +12,30 @@ async function handleInbox(request: Request, env: Env): Promise<Response> {
   const signatureHeader = request.headers.get('x-signature');
 
   if (!timestampHeader || !signatureHeader) {
-    return jsonResponse({ error: 'missing auth headers' }, 401);
+    return json({ error: 'missing auth headers' }, { status: 401 });
   }
 
   const ts = Number(timestampHeader);
   if (isNaN(ts) || Math.abs(Date.now() - ts) > REPLAY_WINDOW_MS) {
-    return jsonResponse({ error: 'stale or invalid timestamp' }, 401);
+    return json({ error: 'stale or invalid timestamp' }, { status: 401 });
   }
 
   const rawBody = await request.text();
 
-  const expectedHex = await hmacSignHex(env.SHARED_SECRET, `${timestampHeader}.${rawBody}`);
-  if (signatureHeader !== expectedHex) {
-    return jsonResponse({ error: 'invalid signature' }, 401);
+  const sigBytes = hexToBytes(signatureHeader);
+  if (!sigBytes || !await hmacVerify(env.SHARED_SECRET, sigBytes, `${timestampHeader}.${rawBody}`)) {
+    return json({ error: 'invalid signature' }, { status: 401 });
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawBody);
   } catch {
-    return jsonResponse({ error: 'invalid json' }, 400);
+    return json({ error: 'invalid json' }, { status: 400 });
   }
 
   const apiKey = `sk-${crypto.randomUUID().replace(/-/g, '')}`;
-  return jsonResponse({ ok: true, apiKey, received: parsed }, 200);
+  return json({ ok: true, apiKey, received: parsed });
 }
 
 export default {
@@ -49,13 +43,13 @@ export default {
     const { pathname } = new URL(request.url);
 
     if (pathname === '/health' && request.method === 'GET') {
-      return jsonResponse({ ok: true, service: 'receiver-worker' }, 200);
+      return json({ ok: true, service: 'receiver-worker' });
     }
 
     if (pathname === '/inbox' && request.method === 'POST') {
       return handleInbox(request, env);
     }
 
-    return jsonResponse({ error: 'not found' }, 404);
+    return json({ error: 'not found' }, { status: 404 });
   },
 };
