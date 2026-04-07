@@ -8,8 +8,8 @@ import '../services/analytics.dart';
 import '../services/contact_service.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
-import '../widgets/common/containers.dart';
 import '../widgets/common/form_fields.dart';
+import '../widgets/common/gradient_page_shell.dart';
 import '../services/content_loader.dart';
 import '../services/provisioning_service.dart';
 
@@ -71,58 +71,10 @@ class _SignupPageState extends State<SignupPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = ResponsiveUtils.isMobile(context);
-
-    return Scaffold(
-      backgroundColor: AppColors.gray900,
-      body: GradientBackground(
-        child: CustomScrollView(
-          slivers: [
-            // App bar
-            SliverAppBar(
-              backgroundColor: AppColors.gray900.withValues(alpha: 0.95),
-              floating: true,
-              pinned: true,
-              leading: IconButton(
-                icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
-                onPressed: widget.onBack ?? () => context.go('/'),
-                tooltip: 'Back to home',
-              ),
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(LucideIcons.shield, color: AppColors.blue500, size: 24),
-                  const SizedBox(width: AppSpacing.sm),
-                  Flexible(
-                    child: Text(
-                      CompanyInfo.name,
-                      style: AppTypography.headingSM.copyWith(color: Colors.white),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Content
-            SliverToBoxAdapter(
-              child: ResponsiveContainer(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    vertical: AppSpacing.section,
-                    horizontal: isMobile ? AppSpacing.md : AppSpacing.xl,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 500),
-                      child: _buildSignupForm(),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return GradientPageShell(
+      onBack: widget.onBack ?? () => context.go('/'),
+      scrollable: true,
+      child: _buildSignupForm(),
     );
   }
 

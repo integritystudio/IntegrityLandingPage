@@ -6,6 +6,7 @@ import 'package:integrity_studio_ai/pages/signup_page.dart';
 import 'package:integrity_studio_ai/services/provisioning_service.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import 'package:integrity_studio_ai/widgets/common/form_fields.dart';
+import 'package:integrity_studio_ai/widgets/common/gradient_page_shell.dart';
 import '../helpers/test_helpers.dart';
 
 void main() {
@@ -42,20 +43,12 @@ void main() {
         expect(find.byType(Scaffold), findsOneWidget);
       });
 
-      testWidgets('renders CustomScrollView', (tester) async {
+      testWidgets('renders GradientPageShell', (tester) async {
         setLargeViewport(tester);
         await tester.pumpWidget(buildSignupPage());
         await tester.pump();
 
-        expect(find.byType(CustomScrollView), findsOneWidget);
-      });
-
-      testWidgets('renders SliverAppBar', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage());
-        await tester.pump();
-
-        expect(find.byType(SliverAppBar), findsOneWidget);
+        expect(find.byType(GradientPageShell), findsOneWidget);
       });
     });
 

@@ -11,18 +11,32 @@ import 'containers.dart';
 class GradientPageShell extends StatelessWidget {
   final VoidCallback? onBack;
   final double maxWidth;
+  final bool scrollable;
   final Widget child;
 
   const GradientPageShell({
     super.key,
     this.onBack,
     this.maxWidth = 500,
+    this.scrollable = false,
     required this.child,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isMobile = ResponsiveUtils.isMobile(context);
+
+    Widget content = ResponsiveContainer(
+      maxWidth: maxWidth,
+      additionalPadding: EdgeInsets.all(
+        isMobile ? AppSpacing.lg : AppSpacing.xl,
+      ),
+      child: child,
+    );
+
+    content = scrollable
+        ? SingleChildScrollView(child: Center(child: content))
+        : Center(child: content);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
@@ -37,15 +51,7 @@ class GradientPageShell extends StatelessWidget {
             : null,
       ),
       body: GradientBackground(
-        child: Center(
-          child: ResponsiveContainer(
-            maxWidth: maxWidth,
-            additionalPadding: EdgeInsets.all(
-              isMobile ? AppSpacing.lg : AppSpacing.xl,
-            ),
-            child: child,
-          ),
-        ),
+        child: content,
       ),
     );
   }
