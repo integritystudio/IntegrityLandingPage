@@ -43,6 +43,7 @@ export const ERROR_CODE = {
   SUPABASE_USER_INSERT_FAILED: "SUPABASE_USER_INSERT_FAILED",
   SUPABASE_ORG_MEMBERSHIP_FAILED: "SUPABASE_ORG_MEMBERSHIP_FAILED",
 } as const;
+export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
 
 export const CORS_HEADERS = {
   "access-control-allow-methods": "GET, POST, OPTIONS",

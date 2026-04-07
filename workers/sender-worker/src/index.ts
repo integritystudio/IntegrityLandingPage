@@ -14,6 +14,7 @@ import {
   SendRequestSchema,
   CreateCheckoutSessionSchema,
   type ApiKeyTier,
+  type ErrorCode,
   type Env,
 } from "./types.js";
 import { json, errorResponse } from "./utils.js";
@@ -100,7 +101,7 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[signup]", msg);
 
-    let errorCode: (typeof ERROR_CODE)[keyof typeof ERROR_CODE] = ERROR_CODE.INTERNAL_ERROR;
+    let errorCode: ErrorCode = ERROR_CODE.INTERNAL_ERROR;
     if (msg.includes("Auth0 token exchange failed")) {
       errorCode = ERROR_CODE.AUTH0_TOKEN_EXCHANGE_FAILED;
     } else if (msg.includes("Auth0 createUser failed")) {
@@ -113,7 +114,6 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
       errorCode = ERROR_CODE.SUPABASE_ORG_MEMBERSHIP_FAILED;
     }
 
-    // For debugging: include the full error message (truncated)
     const errorDetail = msg.substring(0, 200);
     return new Response(JSON.stringify({ error: "signup failed", code: errorCode, detail: errorDetail }), {
       status: HTTP_STATUS.INTERNAL_SERVER_ERROR,
@@ -211,6 +211,14 @@ async function handleCreateCheckoutSession(env: Env, req: Record<string, unknown
   return json({ checkoutUrl: result.checkoutUrl });
 }
 
+async function parseJsonBody(request: Request): Promise<Record<string, unknown> | Response> {
+  try {
+    return await request.json() as Record<string, unknown>;
+  } catch {
+    return errorResponse("invalid json", ERROR_CODE.JSON_PARSE_ERROR, HTTP_STATUS.BAD_REQUEST);
+  }
+}
+
 async function routeRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
 
@@ -224,60 +232,43 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SIGNUP) {
-    let req: Record<string, unknown>;
-    try {
-      req = await request.json();
-    } catch {
-      return errorResponse("invalid json", ERROR_CODE.JSON_PARSE_ERROR, HTTP_STATUS.BAD_REQUEST);
-    }
-    return handleSignup(env, req);
+    const body = await parseJsonBody(request);
+    if (body instanceof Response) return body;
+    return handleSignup(env, body);
   }
 
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SIGNIN) {
-    let req: Record<string, unknown>;
-    try {
-      req = await request.json();
-    } catch {
-      return errorResponse("invalid json", ERROR_CODE.JSON_PARSE_ERROR, HTTP_STATUS.BAD_REQUEST);
-    }
-    return handleSignin(env, req);
+    const body = await parseJsonBody(request);
+    if (body instanceof Response) return body;
+    return handleSignin(env, body);
   }
 
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SEND) {
-    let req: Record<string, unknown>;
-    try {
-      req = await request.json();
-    } catch {
-      return errorResponse("invalid json", ERROR_CODE.JSON_PARSE_ERROR, HTTP_STATUS.BAD_REQUEST);
-    }
+    const body = await parseJsonBody(request);
+    if (body instanceof Response) return body;
     // Accept JWT from x-session-data header, base64-wrapped to avoid WAF JWT pattern matching.
     // Also accepts Authorization: Bearer <token> and jwt in body as fallbacks.
     const sessionData = request.headers.get("x-session-data");
     if (sessionData) {
-      try { req.jwt = atob(sessionData); } catch { req.jwt = sessionData; }
-    } else if (!req.jwt) {
+      try { body.jwt = atob(sessionData); } catch { body.jwt = sessionData; }
+    } else if (!body.jwt) {
       const authHeader = request.headers.get(HEADER_NAMES.AUTHORIZATION);
       if (authHeader?.startsWith("Bearer ")) {
-        req.jwt = authHeader.slice(7);
+        body.jwt = authHeader.slice(7);
       }
     }
-    return handleSend(env, req);
+    return handleSend(env, body);
   }
 
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.CREATE_CHECKOUT_SESSION) {
-    let req: Record<string, unknown>;
-    try {
-      req = await request.json();
-    } catch {
-      return errorResponse("invalid json", ERROR_CODE.JSON_PARSE_ERROR, HTTP_STATUS.BAD_REQUEST);
-    }
-    return handleCreateCheckoutSession(env, req);
+    const body = await parseJsonBody(request);
+    if (body instanceof Response) return body;
+    return handleCreateCheckoutSession(env, body);
   }
 
   return errorResponse("not found", ERROR_CODE.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
 }
 
-/** V-22: Add security headers to all API responses. */
 function withSecurityHeaders(res: Response): Response {
   const headers = new Headers(res.headers);
   headers.set("X-Content-Type-Options", "nosniff");
@@ -305,11 +296,10 @@ export default {
     const res = await routeRequest(request, env);
 
     if (originAllowed) {
-      const headers = new Headers(res.headers);
+      const secured = withSecurityHeaders(res);
+      const headers = new Headers(secured.headers);
       headers.set("access-control-allow-origin", origin);
-      headers.set("X-Content-Type-Options", "nosniff");
-      headers.set("Cache-Control", "no-store");
-      return new Response(res.body, { status: res.status, headers });
+      return new Response(secured.body, { status: secured.status, statusText: secured.statusText, headers });
     }
 
     return withSecurityHeaders(res);
