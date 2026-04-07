@@ -106,6 +106,10 @@ export type CreateCheckoutSession = z.infer<typeof CreateCheckoutSessionSchema>;
 
 export const SERVICE_NAME = "api-provisioning-sender";
 
+export const AUTH0_CONNECTION = "Username-Password-Authentication";
+
+export const DEFAULT_APP_BASE_URL = "https://integritystudio.ai";
+
 export interface Env {
   SHARED_SECRET: string;
   /** Service binding to api-provisioning-receiver. */

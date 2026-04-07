@@ -13,6 +13,7 @@ import {
   DEFAULT_TIER,
   SendRequestSchema,
   CreateCheckoutSessionSchema,
+  DEFAULT_APP_BASE_URL,
   type ApiKeyTier,
   type ErrorCode,
   type Env,
@@ -194,7 +195,7 @@ async function handleCreateCheckoutSession(env: Env, req: Record<string, unknown
 
   const { email, tier } = parsed.data;
   const planToPriceJson = env.STRIPE_PLAN_TO_PRICE_JSON ?? "{}";
-  const appBaseUrl = env.APP_BASE_URL ?? "https://integritystudio.ai";
+  const appBaseUrl = env.APP_BASE_URL ?? DEFAULT_APP_BASE_URL;
 
   const result = await createStripeCheckoutSession(
     env.STRIPE_SECRET_KEY,
@@ -209,6 +210,18 @@ async function handleCreateCheckoutSession(env: Env, req: Record<string, unknown
   }
 
   return json({ checkoutUrl: result.checkoutUrl });
+}
+
+// x-session-data is base64-wrapped to avoid WAF JWT pattern matching on the header value.
+function extractJwt(request: Request, body: Record<string, unknown>): string | undefined {
+  const sessionData = request.headers.get("x-session-data");
+  if (sessionData) {
+    try { return atob(sessionData); } catch { return sessionData; }
+  }
+  if (body.jwt) return body.jwt as string;
+  const authHeader = request.headers.get(HEADER_NAMES.AUTHORIZATION);
+  if (authHeader?.startsWith("Bearer ")) return authHeader.slice(7);
+  return undefined;
 }
 
 async function parseJsonBody(request: Request): Promise<Record<string, unknown> | Response> {
@@ -246,17 +259,7 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SEND) {
     const body = await parseJsonBody(request);
     if (body instanceof Response) return body;
-    // Accept JWT from x-session-data header, base64-wrapped to avoid WAF JWT pattern matching.
-    // Also accepts Authorization: Bearer <token> and jwt in body as fallbacks.
-    const sessionData = request.headers.get("x-session-data");
-    if (sessionData) {
-      try { body.jwt = atob(sessionData); } catch { body.jwt = sessionData; }
-    } else if (!body.jwt) {
-      const authHeader = request.headers.get(HEADER_NAMES.AUTHORIZATION);
-      if (authHeader?.startsWith("Bearer ")) {
-        body.jwt = authHeader.slice(7);
-      }
-    }
+    body.jwt = extractJwt(request, body);
     return handleSend(env, body);
   }
 

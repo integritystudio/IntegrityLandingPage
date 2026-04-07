@@ -1,22 +1,15 @@
 import {
   AUTH0_PATHS,
+  AUTH0_CONNECTION,
   HEADER_NAMES,
   CONTENT_TYPES,
   SUPABASE_PATHS,
 } from "./types.js";
 
-// =============================================================================
-// Constants
-// =============================================================================
-
 export const EMAIL_SEPARATOR = /@/;
 export const DOT_TO_HYPHEN_REGEX = /\./g;
 export const SLUG_SANITIZE_REGEX = /[^a-z0-9-]+/g;
 export const SLUG_TRIM_REGEX = /^-|-$/g;
-
-// =============================================================================
-// Supabase
-// =============================================================================
 
 function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
   return {
@@ -29,7 +22,6 @@ function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
 
 /**
  * Generate a unique slug from an email address.
- * Uses email username + domain for deterministic, unique slugs.
  * Email addresses are unique in Auth0, ensuring slug uniqueness.
  */
 export function dedupSlug(email: string, tier: string): string {
@@ -116,6 +108,21 @@ export async function supabaseAddOrgOwner(
   }
 }
 
+async function auth0FetchToken(domain: string, body: Record<string, string>, errorLabel: string): Promise<string> {
+  const res = await fetch(`https://${domain}${AUTH0_PATHS.TOKEN}`, {
+    method: "POST",
+    headers: { [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`${errorLabel}: ${res.status} ${err}`);
+  }
+  const data = await res.json() as { access_token?: string };
+  if (!data.access_token) throw new Error(`${errorLabel} returned no access_token`);
+  return data.access_token;
+}
+
 /**
  * Obtain a short-lived Management API token via the client credentials grant.
  * Called once per signup; the token is not cached (Workers are ephemeral).
@@ -126,23 +133,12 @@ async function auth0GetMgmtToken(
   clientSecret: string,
   audience: string,
 ): Promise<string> {
-  const res = await fetch(`https://${domain}${AUTH0_PATHS.TOKEN}`, {
-    method: "POST",
-    headers: { [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON },
-    body: JSON.stringify({
-      grant_type: "client_credentials",
-      client_id: clientId,
-      client_secret: clientSecret,
-      audience,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Auth0 token exchange failed: ${res.status} ${err}`);
-  }
-  const data = await res.json() as { access_token?: string };
-  if (!data.access_token) throw new Error("Auth0 token exchange returned no access_token");
-  return data.access_token;
+  return auth0FetchToken(domain, {
+    grant_type: "client_credentials",
+    client_id: clientId,
+    client_secret: clientSecret,
+    audience,
+  }, "Auth0 token exchange failed");
 }
 
 /**
@@ -161,34 +157,21 @@ export async function auth0UserSignIn(
   email: string,
   password: string,
 ): Promise<string> {
-  const res = await fetch(`https://${domain}${AUTH0_PATHS.TOKEN}`, {
-    method: "POST",
-    headers: { [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON },
-    body: JSON.stringify({
-      grant_type: "password",
-      username: email,
-      password,
-      client_id: clientId,
-      client_secret: clientSecret,
-      audience,
-      scope: "openid profile email",
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Auth0 user signin failed: ${res.status} ${err}`);
-  }
-  const data = await res.json() as { access_token?: string };
-  if (!data.access_token) throw new Error("Auth0 user signin returned no access_token");
-  return data.access_token;
+  return auth0FetchToken(domain, {
+    grant_type: "password",
+    username: email,
+    password,
+    client_id: clientId,
+    client_secret: clientSecret,
+    audience,
+    scope: "openid profile email",
+  }, "Auth0 user signin failed");
 }
 
 /**
  * Create a user via the Auth0 Management API.
  * Performs the client credentials token exchange internally before the user create call.
  * Returns the Auth0 `sub` (user_id), which must be stored as `auth0_id` in Supabase.
- *
- * The connection "Username-Password-Authentication" is Auth0's default DB connection name.
  */
 export async function auth0CreateUser(
   domain: string,
@@ -208,7 +191,7 @@ export async function auth0CreateUser(
     body: JSON.stringify({
       email,
       password,
-      connection: "Username-Password-Authentication",
+      connection: AUTH0_CONNECTION,
       email_verified: false,
     }),
   });
