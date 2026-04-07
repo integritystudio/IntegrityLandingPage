@@ -1,5 +1,5 @@
 // Re-export crypto primitives
-export { hmacSign, hmacSignHex, hmacVerify } from './crypto';
+export { hmacSign, hmacSignHex, hmacVerify, arrayBufferToBase64Url } from './crypto';
 
 // Re-export all types
 export * from './types/index';

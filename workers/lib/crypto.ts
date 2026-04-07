@@ -19,6 +19,14 @@ export async function hmacSignHex(secret: string, message: string): Promise<stri
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** Encode an ArrayBuffer to a base64url string (no padding). */
+export function arrayBufferToBase64Url(buf: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
 /**
  * Verify an HMAC-SHA256 signature using a constant-time comparison.
  * `signature` must be the raw bytes of the expected signature.
