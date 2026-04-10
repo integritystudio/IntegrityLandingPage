@@ -24,6 +24,8 @@ const EXPECTED_DOPPLER_SECRETS = [
   'AUTH0_DOMAIN',
   'AUTH0_CLIENT_ID',
   'AUTH0_CLIENT_SECRET',
+  'AUTH0_CLI_ID',
+  'AUTH0_CLI_SECRET',
   'AUTH0_AUDIENCE',
   'ALLOWED_ORIGINS_JSON',
   'STRIPE_SECRET_KEY',
@@ -57,19 +59,15 @@ describe('Environment Variable Validation', () => {
     });
   });
 
-  it('types.ts Env interface uses consolidated AUTH0_CLIENT_* naming for both auth flows', () => {
+  it('types.ts Env interface defines both Regular Web App (ROPC) and M2M (CLI) credentials', () => {
     const typesPath = resolve(__dirname, './types.ts');
     const typesContent = readFileSync(typesPath, 'utf-8');
 
-    // Ensure consolidated credentials exist
     expect(typesContent).toContain('AUTH0_CLIENT_ID');
     expect(typesContent).toContain('AUTH0_CLIENT_SECRET');
+    expect(typesContent).toContain('AUTH0_CLI_ID');
+    expect(typesContent).toContain('AUTH0_CLI_SECRET');
     expect(typesContent).toContain('AUTH0_AUDIENCE');
-
-    // Ensure old AUTH0_CLI_* naming has been removed
-    expect(typesContent).not.toContain('AUTH0_CLI_ID');
-    expect(typesContent).not.toContain('AUTH0_CLI_SECRET');
-    expect(typesContent).not.toContain('AUTH0_CLI_AUDIENCE');
 
     // Ensure typo'd spelling doesn't exist
     expect(typesContent).not.toContain('AUTHO_CLI_ID');
@@ -77,23 +75,15 @@ describe('Environment Variable Validation', () => {
     expect(typesContent).not.toContain('AUTHO_CLI_AUDIENCE');
   });
 
-  it('index.ts uses consolidated AUTH0_CLIENT_* credentials when calling auth0CreateUser', () => {
+  it('index.ts uses AUTH0_CLI_ID/SECRET for auth0CreateUser and AUTH0_CLIENT_ID/SECRET for ROPC', () => {
     const indexPath = resolve(__dirname, './index.ts');
     const indexContent = readFileSync(indexPath, 'utf-8');
 
-    // Check that auth0CreateUser is called with correct env variable names
-    const auth0CreateUserCall = indexContent.match(
-      /auth0CreateUser\([^)]+\)/
-    );
-    expect(auth0CreateUserCall).toBeTruthy();
+    expect(indexContent).toContain('env.AUTH0_CLI_ID');
+    expect(indexContent).toContain('env.AUTH0_CLI_SECRET');
     expect(indexContent).toContain('env.AUTH0_CLIENT_ID');
     expect(indexContent).toContain('env.AUTH0_CLIENT_SECRET');
     expect(indexContent).toContain('env.AUTH0_AUDIENCE');
-
-    // Ensure old AUTH0_CLI_* naming has been removed
-    expect(indexContent).not.toContain('env.AUTH0_CLI_ID');
-    expect(indexContent).not.toContain('env.AUTH0_CLI_SECRET');
-    expect(indexContent).not.toContain('env.AUTH0_CLI_AUDIENCE');
 
     // Ensure typo'd names aren't used
     expect(indexContent).not.toContain('env.AUTHO_CLI_ID');
@@ -120,24 +110,18 @@ describe('Environment Variable Validation', () => {
     expect(wranglerContent).not.toContain('AUTHO_CLI_AUDIENCE');
   });
 
-  it('Auth0 credentials are documented as being used for both ROPC and M2M flows', () => {
+  it('wrangler.toml documents both ROPC and M2M auth flows', () => {
     const wranglerPath = resolve(__dirname, '../wrangler.toml');
     const wranglerContent = readFileSync(wranglerPath, 'utf-8');
 
-    // Verify consolidated credentials are documented with clear descriptions
     expect(wranglerContent).toContain('AUTH0_CLIENT_ID');
     expect(wranglerContent).toContain('AUTH0_CLIENT_SECRET');
+    expect(wranglerContent).toContain('AUTH0_CLI_ID');
+    expect(wranglerContent).toContain('AUTH0_CLI_SECRET');
     expect(wranglerContent).toContain('AUTH0_AUDIENCE');
-
-    // Verify the consolidated credentials are documented for both auth flows
     expect(wranglerContent).toContain('client_credentials grant');
     expect(wranglerContent).toContain('password grant');
     expect(wranglerContent).toContain('/api/v2/');
-
-    // Verify old AUTH0_CLI_* naming has been removed
-    expect(wranglerContent).not.toContain('AUTH0_CLI_ID');
-    expect(wranglerContent).not.toContain('AUTH0_CLI_SECRET');
-    expect(wranglerContent).not.toContain('AUTH0_CLI_AUDIENCE');
   });
 
   it('no deprecated AUTHO_CLI_* variable names appear anywhere in codebase', () => {

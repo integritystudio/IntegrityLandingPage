@@ -135,10 +135,13 @@ export interface Env {
   /** Service binding to api-provisioning-receiver. */
   RECEIVER: Fetcher;
   AUTH0_DOMAIN: string;
-  /** Auth0 app credentials for both ROPC (password grant) and Management API (client_credentials grant). */
+  /** Auth0 Regular Web App credentials — password grant (ROPC), used to sign users in after creation. */
   AUTH0_CLIENT_ID: string;
   AUTH0_CLIENT_SECRET: string;
-  /** Auth0 audience (used for both ROPC and Management API calls). */
+  /** Auth0 M2M app credentials — client_credentials grant only, used to obtain a Management API token for user creation. */
+  AUTH0_CLI_ID: string;
+  AUTH0_CLI_SECRET: string;
+  /** Auth0 audience for ROPC tokens. */
   AUTH0_AUDIENCE: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;

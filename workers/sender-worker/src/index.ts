@@ -68,8 +68,7 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
   const orgName = providedName ?? `${email.split("@")[0]} (personal)`;
 
   try {
-    // Verify Auth0 credentials are configured
-    if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID || !env.AUTH0_CLIENT_SECRET || !env.AUTH0_AUDIENCE) {
+    if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID || !env.AUTH0_CLIENT_SECRET || !env.AUTH0_AUDIENCE || !env.AUTH0_CLI_ID || !env.AUTH0_CLI_SECRET) {
       return errorResponse("Auth0 not configured", ERROR_CODE.AUTH0_UNCONFIGURED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
     }
 
@@ -77,7 +76,7 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
 
     const [{ auth0Sub }, orgId] = await Promise.all([
       auth0CreateUser(
-        env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
+        env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET,
         env.AUTH0_AUDIENCE, email, password,
       ),
       supabaseCreatePersonalOrg(

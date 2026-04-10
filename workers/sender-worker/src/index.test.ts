@@ -27,6 +27,8 @@ interface Env {
   AUTH0_DOMAIN: string;
   AUTH0_CLIENT_ID: string;
   AUTH0_CLIENT_SECRET: string;
+  AUTH0_CLI_ID: string;
+  AUTH0_CLI_SECRET: string;
   AUTH0_AUDIENCE: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
@@ -47,8 +49,10 @@ const mockEnv: Env = {
   SHARED_SECRET: 'test-shared-secret-key',
   RECEIVER: mockReceiver,
   AUTH0_DOMAIN: 'test.auth0.com',
-  AUTH0_CLIENT_ID: 'test-client-id',
-  AUTH0_CLIENT_SECRET: 'test-client-secret',
+  AUTH0_CLIENT_ID: 'test-spa-client-id',
+  AUTH0_CLIENT_SECRET: 'test-spa-client-secret',
+  AUTH0_CLI_ID: 'test-m2m-client-id',
+  AUTH0_CLI_SECRET: 'test-m2m-client-secret',
   AUTH0_AUDIENCE: 'https://test.auth0.com/api/v2/',
   SUPABASE_URL: 'https://supabase.test',
   SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
@@ -1816,24 +1820,24 @@ describe('Sender Worker', () => {
   });
 
   describe('Environment Variable Validation (Regression Tests)', () => {
-    it('mockEnv includes all required consolidated AUTH0_CLIENT_* credentials', () => {
+    it('mockEnv includes Regular Web App credentials for ROPC and CLI M2M credentials for Management API', () => {
       expect(mockEnv).toHaveProperty('AUTH0_CLIENT_ID');
       expect(mockEnv).toHaveProperty('AUTH0_CLIENT_SECRET');
+      expect(mockEnv).toHaveProperty('AUTH0_CLI_ID');
+      expect(mockEnv).toHaveProperty('AUTH0_CLI_SECRET');
       expect(mockEnv).toHaveProperty('AUTH0_AUDIENCE');
-      expect(mockEnv.AUTH0_CLIENT_ID).toBe('test-client-id');
-      expect(mockEnv.AUTH0_CLIENT_SECRET).toBe('test-client-secret');
-      expect(mockEnv.AUTH0_AUDIENCE).toBe('https://test.auth0.com/api/v2/');
+      expect(mockEnv.AUTH0_CLIENT_ID).toBe('test-spa-client-id');
+      expect(mockEnv.AUTH0_CLIENT_SECRET).toBe('test-spa-client-secret');
+      expect(mockEnv.AUTH0_CLI_ID).toBe('test-m2m-client-id');
+      expect(mockEnv.AUTH0_CLI_SECRET).toBe('test-m2m-client-secret');
     });
 
     it('does not use deprecated AUTHO_CLI_* variable names (typo regression test)', () => {
-      // This test ensures we never accidentally revert to the typo'd AUTHO_CLI_* naming.
+      // This test ensures we never accidentally use the typo'd AUTHO_CLI_* naming.
       const env = mockEnv as unknown as Record<string, unknown>;
       expect(env).not.toHaveProperty('AUTHO_CLI_ID');
       expect(env).not.toHaveProperty('AUTHO_CLI_SECRET');
       expect(env).not.toHaveProperty('AUTHO_CLI_AUDIENCE');
-      // Also ensure old AUTH0_CLI_* naming has been removed
-      expect(env).not.toHaveProperty('AUTH0_CLI_ID');
-      expect(env).not.toHaveProperty('AUTH0_CLI_SECRET');
       expect(env).not.toHaveProperty('AUTH0_CLI_AUDIENCE');
     });
 
@@ -1844,6 +1848,8 @@ describe('Sender Worker', () => {
         'AUTH0_DOMAIN',
         'AUTH0_CLIENT_ID',
         'AUTH0_CLIENT_SECRET',
+        'AUTH0_CLI_ID',
+        'AUTH0_CLI_SECRET',
         'AUTH0_AUDIENCE',
         'SUPABASE_URL',
         'SUPABASE_SERVICE_ROLE_KEY',
