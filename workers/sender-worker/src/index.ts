@@ -19,7 +19,8 @@ import {
   type ErrorCode,
   type Env,
 } from "./types.js";
-import { json, errorResponse, resolveOutboundSigningKey } from "./utils.js";
+import { json } from "../../lib/http/responses.js";
+import { errorResponse, resolveOutboundSigningKey } from "./utils.js";
 import { signMessage } from "./crypto.js";
 import {
   auth0CreateUser,
@@ -84,16 +85,15 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
       ),
     ]);
 
-    // Insert user first — org membership has FK on users.id
-    const [jwt] = await Promise.all([
-      auth0UserSignIn(
-        env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
-        env.AUTH0_AUDIENCE, email, password,
-      ),
-      supabaseInsertUser(
-        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId, auth0Sub, email,
-      ),
-    ]);
+    // supabaseInsertUser must complete before auth0UserSignIn: org membership has FK on users.id,
+    // and if sign-in fails after insert the user record exists and can recover via /sign_in.
+    await supabaseInsertUser(
+      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId, auth0Sub, email,
+    );
+    const jwt = await auth0UserSignIn(
+      env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
+      env.AUTH0_AUDIENCE, email, password,
+    );
 
     await supabaseAddOrgOwner(
       env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId, userId,
