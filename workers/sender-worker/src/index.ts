@@ -9,7 +9,6 @@ import {
   RECEIVER_PATHS,
   SERVICE_NAME,
   EMAIL_REGEX,
-  ActionSchema,
   ApiKeyTierSchema,
   DEFAULT_TIER,
   SendRequestSchema,
@@ -160,23 +159,25 @@ async function forwardToReceiver(env: Env, payload: Record<string, unknown>): Pr
 }
 
 async function handleSignIn(env: Env, req: Record<string, unknown>): Promise<Response> {
-  if (!env.RECEIVER) {
-    return errorResponse("RECEIVER service binding not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID || !env.AUTH0_CLIENT_SECRET || !env.AUTH0_AUDIENCE) {
+    return errorResponse("Auth0 not configured", ERROR_CODE.AUTH0_UNCONFIGURED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
-  if (!env.SHARED_SECRET) {
-    return errorResponse("SHARED_SECRET not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  if (!req.email || !req.password) {
+    return errorResponse("missing email or password", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
   }
-  if (!req.email || typeof req.email !== "string") {
-    return errorResponse("invalid email", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
+  if (!EMAIL_REGEX.test(req.email as string)) {
+    return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
   }
   try {
-    return await forwardToReceiver(env, { action: ActionSchema.enum.sign_in, email: req.email });
+    const jwt = await auth0UserSignIn(
+      env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
+      env.AUTH0_AUDIENCE, req.email as string, req.password as string,
+    );
+    return json({ jwt, email: req.email });
   } catch (err) {
-    if (err instanceof TypeError) {
-      return errorResponse("receiver-worker unreachable", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.BAD_GATEWAY);
-    }
-    console.error("[sign_in]", err instanceof Error ? err.message : err);
-    return errorResponse("sign_in failed", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[signin]", msg);
+    return errorResponse("signin failed", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
 }
 

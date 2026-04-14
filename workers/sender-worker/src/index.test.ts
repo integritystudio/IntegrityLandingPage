@@ -989,36 +989,47 @@ describe('Sender Worker', () => {
     });
   });
 
-  describe('POST /signin — forwards sign_in action to receiver', () => {
-    afterEach(() => {
-      mockReceiverFetch.mockReset();
-    });
-
-    it('forwards to receiver and proxies the response', async () => {
-      mockReceiverResponse({ error: 'sign_in not implemented', code: 'NOT_IMPLEMENTED' }, 501);
+  describe('POST /signin — Auth0 ROPC sign-in', () => {
+    it('returns jwt on successful Auth0 sign-in', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ access_token: 'jwt-from-auth0' }), { status: 200 }),
+      );
 
       const request = new Request('https://worker.test/signin', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: 'user@example.com' }),
+        body: JSON.stringify({ email: 'user@example.com', password: 'SecurePass123!' }),
       });
 
       const response = await worker.fetch(request, mockEnv);
 
-      expect(response.status).toBe(501);
-      expect(mockReceiverFetch).toHaveBeenCalledOnce();
+      expect(response.status).toBe(200);
+      const data = await response.json() as { jwt: string; email: string };
+      expect(data.jwt).toBe('jwt-from-auth0');
+      expect(data.email).toBe('user@example.com');
 
-      const body = await mockReceiverFetch.mock.calls[0][1]?.body;
-      const parsed = JSON.parse(body as string) as { action: string; email: string };
-      expect(parsed.action).toBe('sign_in');
-      expect(parsed.email).toBe('user@example.com');
+      fetchSpy.mockRestore();
     });
 
-    it('returns 400 when email is missing', async () => {
+    it('returns 400 when email and password are missing', async () => {
       const request = new Request('https://worker.test/signin', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ password: 'pass' }),
+        body: JSON.stringify({}),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as { code: string };
+      expect(data.code).toBe('MISSING_FIELDS');
+    });
+
+    it('returns 400 INVALID_EMAIL for bad email format', async () => {
+      const request = new Request('https://worker.test/signin', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'not-an-email', password: 'SecurePass123!' }),
       });
 
       const response = await worker.fetch(request, mockEnv);
@@ -1026,6 +1037,26 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(400);
       const data = await response.json() as { code: string };
       expect(data.code).toBe('INVALID_EMAIL');
+    });
+
+    it('returns 500 when Auth0 ROPC fails', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 403 }),
+      );
+
+      const request = new Request('https://worker.test/signin', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'wrong' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(500);
+      const data = await response.json() as { code: string };
+      expect(data.code).toBe('INTERNAL_ERROR');
+
+      fetchSpy.mockRestore();
     });
   });
 
