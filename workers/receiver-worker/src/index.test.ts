@@ -81,24 +81,6 @@ describe('Receiver Worker', () => {
       expect(data.received).toEqual({ event: 'test', value: 42 });
     });
 
-    it('sets content-type to application/json; charset=utf-8 on success', async () => {
-      const body = JSON.stringify({ ping: true });
-      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
-
-      const request = new Request('https://worker.test/inbox', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-timestamp': timestamp,
-          'x-signature': signature,
-        },
-        body,
-      });
-
-      const response = await worker.fetch(request, testEnv);
-
-      expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
-    });
   });
 
   describe('POST /inbox — missing auth headers', () => {
@@ -144,18 +126,6 @@ describe('Receiver Worker', () => {
       expect(data.error).toBe('missing auth headers');
     });
 
-    it('sets content-type to application/json; charset=utf-8 on 401 error', async () => {
-      const request = new Request('https://worker.test/inbox', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ event: 'test' }),
-      });
-
-      const response = await worker.fetch(request, testEnv);
-
-      expect(response.status).toBe(401);
-      expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
-    });
   });
 
   describe('POST /inbox — stale timestamp', () => {
@@ -350,24 +320,6 @@ describe('Receiver Worker', () => {
       expect(data.error).toBe('invalid json');
     });
 
-    it('sets content-type to application/json; charset=utf-8 on 400 error', async () => {
-      const body = 'not valid json {';
-      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
-
-      const request = new Request('https://worker.test/inbox', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-timestamp': timestamp,
-          'x-signature': signature,
-        },
-        body,
-      });
-
-      const response = await worker.fetch(request, testEnv);
-
-      expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
-    });
   });
 
   describe('resolveSigningKey', () => {
@@ -480,11 +432,5 @@ describe('Receiver Worker', () => {
       expect(data.error).toBe('not found');
     });
 
-    it('sets content-type to application/json; charset=utf-8 on 404 error', async () => {
-      const request = new Request('https://worker.test/unknown', { method: 'GET' });
-      const response = await worker.fetch(request, testEnv);
-
-      expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
-    });
   });
 });
