@@ -81,6 +81,30 @@ describe('Receiver Worker', () => {
       expect(data.received).toEqual({ event: 'test', value: 42 });
     });
 
+    it('returns unique apiKey on each call', async () => {
+      async function callInbox(): Promise<string> {
+        const body = JSON.stringify({ event: 'uniqueness-check' });
+        const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
+        const request = new Request('https://worker.test/inbox', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-timestamp': timestamp,
+            'x-signature': signature,
+          },
+          body,
+        });
+        const response = await worker.fetch(request, testEnv);
+        const data = await response.json() as InboxSuccessResponse;
+        return data.apiKey;
+      }
+
+      const [key1, key2] = await Promise.all([callInbox(), callInbox()]);
+      expect(key1).toMatch(/^sk-[a-f0-9]{32}$/);
+      expect(key2).toMatch(/^sk-[a-f0-9]{32}$/);
+      expect(key1).not.toBe(key2);
+    });
+
   });
 
   describe('POST /inbox — missing auth headers', () => {
