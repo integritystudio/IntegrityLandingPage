@@ -5,7 +5,8 @@
  * Run with: npm test
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { REPLAY_WINDOW_MS } from '../../constants';
 import { hmacSignHex } from '../../lib/crypto';
 import worker, { resolveSigningKey } from './index';
 import type { Env, HealthResponse, InboxSuccessResponse, ErrorResponse } from './index';
@@ -219,6 +220,85 @@ describe('Receiver Worker', () => {
 
       const response = await worker.fetch(request, mockEnv);
 
+      expect(response.status).toBe(401);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('stale or invalid timestamp');
+    });
+  });
+
+  describe('POST /inbox — replay-window boundary (fake timers)', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('accepts request 1ms inside replay window', async () => {
+      const baseTime = 1_000_000_000;
+      vi.useFakeTimers();
+      vi.setSystemTime(baseTime);
+
+      const requestTime = baseTime - (REPLAY_WINDOW_MS - 1);
+      const body = JSON.stringify({ event: 'boundary-inside' });
+      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET, requestTime);
+
+      const request = new Request('https://worker.test/inbox', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-timestamp': timestamp,
+          'x-signature': signature,
+        },
+        body,
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(200);
+    });
+
+    it('accepts request exactly at replay window boundary (REPLAY_WINDOW_MS, strict >)', async () => {
+      // Production check: Math.abs(delta) > REPLAY_WINDOW_MS (strict greater-than)
+      // so a request exactly REPLAY_WINDOW_MS old is still accepted.
+      const baseTime = 1_000_000_000;
+      vi.useFakeTimers();
+      vi.setSystemTime(baseTime);
+
+      const requestTime = baseTime - REPLAY_WINDOW_MS;
+      const body = JSON.stringify({ event: 'boundary-at' });
+      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET, requestTime);
+
+      const request = new Request('https://worker.test/inbox', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-timestamp': timestamp,
+          'x-signature': signature,
+        },
+        body,
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(200);
+    });
+
+    it('rejects request 1ms outside replay window', async () => {
+      const baseTime = 1_000_000_000;
+      vi.useFakeTimers();
+      vi.setSystemTime(baseTime);
+
+      const requestTime = baseTime - (REPLAY_WINDOW_MS + 1);
+      const body = JSON.stringify({ event: 'boundary-outside' });
+      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET, requestTime);
+
+      const request = new Request('https://worker.test/inbox', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-timestamp': timestamp,
+          'x-signature': signature,
+        },
+        body,
+      });
+
+      const response = await worker.fetch(request, mockEnv);
       expect(response.status).toBe(401);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toBe('stale or invalid timestamp');
