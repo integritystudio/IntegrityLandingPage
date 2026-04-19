@@ -7,30 +7,10 @@
 
 import { describe, it, expect } from 'vitest';
 import { hmacSignHex } from '../../lib/crypto';
-
-// API response types
-interface HealthResponse {
-  ok: boolean;
-  service: string;
-}
-
-interface InboxSuccessResponse {
-  ok: boolean;
-  apiKey: string;
-  received: Record<string, unknown>;
-}
-
-interface ErrorResponse {
-  error: string;
-}
+import worker, { resolveSigningKey } from './index';
+import type { Env, HealthResponse, InboxSuccessResponse, ErrorResponse } from './index';
 
 type ApiResponse = HealthResponse | InboxSuccessResponse | ErrorResponse;
-
-interface Env {
-  SHARED_SECRET: string;
-}
-
-import worker from './index';
 
 // Mock environment
 const mockEnv: Env = {
@@ -307,6 +287,106 @@ describe('Receiver Worker', () => {
       const response = await worker.fetch(request, mockEnv);
 
       expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    });
+  });
+
+  describe('resolveSigningKey', () => {
+    it('returns SHARED_SECRET when keyId is undefined', () => {
+      expect(resolveSigningKey(mockEnv, undefined)).toBe(mockEnv.SHARED_SECRET);
+    });
+
+    it('returns SHARED_SECRET when keyId is empty string', () => {
+      expect(resolveSigningKey(mockEnv, '')).toBe(mockEnv.SHARED_SECRET);
+    });
+
+    it('returns mapped secret when keyId matches SIGNING_KEYS', () => {
+      const env: Env = { ...mockEnv, SIGNING_KEYS: JSON.stringify({ v2: 'new-secret' }) };
+      expect(resolveSigningKey(env, 'v2')).toBe('new-secret');
+    });
+
+    it('returns null when keyId not in SIGNING_KEYS', () => {
+      const env: Env = { ...mockEnv, SIGNING_KEYS: JSON.stringify({ v2: 'new-secret' }) };
+      expect(resolveSigningKey(env, 'v99')).toBeNull();
+    });
+
+    it('returns null when SIGNING_KEYS absent but keyId provided', () => {
+      expect(resolveSigningKey(mockEnv, 'v1')).toBeNull();
+    });
+
+    it('returns null when SIGNING_KEYS is malformed JSON', () => {
+      const env: Env = { ...mockEnv, SIGNING_KEYS: 'not-json' };
+      expect(resolveSigningKey(env, 'v1')).toBeNull();
+    });
+
+    it('returns null when SIGNING_KEYS is a JSON string (not object)', () => {
+      const env: Env = { ...mockEnv, SIGNING_KEYS: '"just-a-string"' };
+      expect(resolveSigningKey(env, 'v1')).toBeNull();
+    });
+  });
+
+  describe('POST /inbox — x-key-id rotation', () => {
+    const TEST_KEY_ID = 'v2';
+    const TEST_SECRET_V2 = 'rotated-secret-v2';
+
+    it('accepts request signed with key from SIGNING_KEYS when x-key-id matches', async () => {
+      const env: Env = { ...mockEnv, SIGNING_KEYS: JSON.stringify({ [TEST_KEY_ID]: TEST_SECRET_V2 }) };
+      const body = JSON.stringify({ event: 'test' });
+      const { timestamp, signature } = await signRequest(body, TEST_SECRET_V2);
+
+      const request = new Request('https://worker.test/inbox', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-timestamp': timestamp,
+          'x-signature': signature,
+          'x-key-id': TEST_KEY_ID,
+        },
+        body,
+      });
+
+      const response = await worker.fetch(request, env);
+      expect(response.status).toBe(200);
+    });
+
+    it('rejects request with unknown x-key-id', async () => {
+      const env: Env = { ...mockEnv, SIGNING_KEYS: JSON.stringify({ [TEST_KEY_ID]: TEST_SECRET_V2 }) };
+      const body = JSON.stringify({ event: 'test' });
+      const { timestamp, signature } = await signRequest(body, TEST_SECRET_V2);
+
+      const request = new Request('https://worker.test/inbox', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-timestamp': timestamp,
+          'x-signature': signature,
+          'x-key-id': 'unknown-key',
+        },
+        body,
+      });
+
+      const response = await worker.fetch(request, env);
+      expect(response.status).toBe(401);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('invalid signature');
+    });
+
+    it('rejects x-key-id when SIGNING_KEYS is not configured', async () => {
+      const body = JSON.stringify({ event: 'test' });
+      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET);
+
+      const request = new Request('https://worker.test/inbox', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-timestamp': timestamp,
+          'x-signature': signature,
+          'x-key-id': 'v1',
+        },
+        body,
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(401);
     });
   });
 
