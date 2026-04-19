@@ -14,7 +14,7 @@ import type { Env, HealthResponse, InboxSuccessResponse, ErrorResponse } from '.
 type ApiResponse = HealthResponse | InboxSuccessResponse | ErrorResponse;
 
 // Mock environment
-const mockEnv: Env = {
+const testEnv: Env = {
   SHARED_SECRET: 'test-shared-secret-key',
 };
 
@@ -33,7 +33,7 @@ describe('Receiver Worker', () => {
   describe('GET /health', () => {
     it('returns 200 with ok and service name', async () => {
       const request = new Request('https://worker.test/health', { method: 'GET' });
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(200);
       const data = await response.json() as HealthResponse;
@@ -43,7 +43,7 @@ describe('Receiver Worker', () => {
 
     it('sets content-type to application/json; charset=utf-8', async () => {
       const request = new Request('https://worker.test/health', { method: 'GET' });
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
     });
@@ -51,7 +51,7 @@ describe('Receiver Worker', () => {
     it('requires no authentication', async () => {
       // No auth headers — should still succeed
       const request = new Request('https://worker.test/health', { method: 'GET' });
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(200);
     });
@@ -60,7 +60,7 @@ describe('Receiver Worker', () => {
   describe('POST /inbox — valid requests', () => {
     it('returns 200 with ok and parsed body when signature is valid', async () => {
       const body = JSON.stringify({ event: 'test', value: 42 });
-      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET);
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -72,7 +72,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(200);
       const data = await response.json() as InboxSuccessResponse;
@@ -83,7 +83,7 @@ describe('Receiver Worker', () => {
 
     it('sets content-type to application/json; charset=utf-8 on success', async () => {
       const body = JSON.stringify({ ping: true });
-      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET);
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -95,7 +95,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
     });
@@ -104,7 +104,7 @@ describe('Receiver Worker', () => {
   describe('POST /inbox — missing auth headers', () => {
     it('returns 401 with missing auth headers error when x-timestamp is absent', async () => {
       const body = JSON.stringify({ event: 'test' });
-      const { signature } = await signRequest(body, mockEnv.SHARED_SECRET);
+      const { signature } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -116,7 +116,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(401);
       const data = await response.json() as ErrorResponse;
@@ -125,7 +125,7 @@ describe('Receiver Worker', () => {
 
     it('returns 401 with missing auth headers error when x-signature is absent', async () => {
       const body = JSON.stringify({ event: 'test' });
-      const { timestamp } = await signRequest(body, mockEnv.SHARED_SECRET);
+      const { timestamp } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -137,7 +137,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(401);
       const data = await response.json() as ErrorResponse;
@@ -151,7 +151,7 @@ describe('Receiver Worker', () => {
         body: JSON.stringify({ event: 'test' }),
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(401);
       expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
@@ -162,7 +162,7 @@ describe('Receiver Worker', () => {
     it('returns 401 with stale or invalid timestamp when timestamp is more than 5 minutes old', async () => {
       const staleTimestamp = Date.now() - 6 * 60 * 1000; // 6 minutes ago
       const body = JSON.stringify({ event: 'test' });
-      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET, staleTimestamp);
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET, staleTimestamp);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -174,7 +174,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(401);
       const data = await response.json() as ErrorResponse;
@@ -184,7 +184,7 @@ describe('Receiver Worker', () => {
     it('returns 401 with stale or invalid timestamp when timestamp is more than 5 minutes in the future', async () => {
       const futureTimestamp = Date.now() + 6 * 60 * 1000; // 6 minutes ahead
       const body = JSON.stringify({ event: 'test' });
-      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET, futureTimestamp);
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET, futureTimestamp);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -196,7 +196,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(401);
       const data = await response.json() as ErrorResponse;
@@ -206,7 +206,7 @@ describe('Receiver Worker', () => {
     it('returns 401 with stale or invalid timestamp when x-timestamp is non-numeric', async () => {
       const body = JSON.stringify({ event: 'test' });
       // Compute a signature using the non-numeric string as the timestamp
-      const hex = await hmacSignHex(mockEnv.SHARED_SECRET, `not-a-number.${body}`);
+      const hex = await hmacSignHex(testEnv.SHARED_SECRET, `not-a-number.${body}`);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -218,7 +218,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(401);
       const data = await response.json() as ErrorResponse;
@@ -238,7 +238,7 @@ describe('Receiver Worker', () => {
 
       const requestTime = baseTime - (REPLAY_WINDOW_MS - 1);
       const body = JSON.stringify({ event: 'boundary-inside' });
-      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET, requestTime);
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET, requestTime);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -250,7 +250,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
       expect(response.status).toBe(200);
     });
 
@@ -263,7 +263,7 @@ describe('Receiver Worker', () => {
 
       const requestTime = baseTime - REPLAY_WINDOW_MS;
       const body = JSON.stringify({ event: 'boundary-at' });
-      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET, requestTime);
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET, requestTime);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -275,7 +275,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
       expect(response.status).toBe(200);
     });
 
@@ -286,7 +286,7 @@ describe('Receiver Worker', () => {
 
       const requestTime = baseTime - (REPLAY_WINDOW_MS + 1);
       const body = JSON.stringify({ event: 'boundary-outside' });
-      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET, requestTime);
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET, requestTime);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -298,7 +298,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
       expect(response.status).toBe(401);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toBe('stale or invalid timestamp');
@@ -308,7 +308,7 @@ describe('Receiver Worker', () => {
   describe('POST /inbox — invalid signature', () => {
     it('returns 401 with invalid signature error when signature does not match', async () => {
       const body = JSON.stringify({ event: 'test' });
-      const { timestamp } = await signRequest(body, mockEnv.SHARED_SECRET);
+      const { timestamp } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -320,7 +320,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(401);
       const data = await response.json() as ErrorResponse;
@@ -331,7 +331,7 @@ describe('Receiver Worker', () => {
   describe('POST /inbox — invalid JSON body', () => {
     it('returns 400 with invalid json error when body is not valid JSON', async () => {
       const body = 'not valid json {';
-      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET);
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -343,7 +343,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(400);
       const data = await response.json() as ErrorResponse;
@@ -352,7 +352,7 @@ describe('Receiver Worker', () => {
 
     it('sets content-type to application/json; charset=utf-8 on 400 error', async () => {
       const body = 'not valid json {';
-      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET);
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -364,7 +364,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
     });
@@ -372,34 +372,34 @@ describe('Receiver Worker', () => {
 
   describe('resolveSigningKey', () => {
     it('returns SHARED_SECRET when keyId is undefined', () => {
-      expect(resolveSigningKey(mockEnv, undefined)).toBe(mockEnv.SHARED_SECRET);
+      expect(resolveSigningKey(testEnv, undefined)).toBe(testEnv.SHARED_SECRET);
     });
 
     it('returns SHARED_SECRET when keyId is empty string', () => {
-      expect(resolveSigningKey(mockEnv, '')).toBe(mockEnv.SHARED_SECRET);
+      expect(resolveSigningKey(testEnv, '')).toBe(testEnv.SHARED_SECRET);
     });
 
     it('returns mapped secret when keyId matches SIGNING_KEYS', () => {
-      const env: Env = { ...mockEnv, SIGNING_KEYS: JSON.stringify({ v2: 'new-secret' }) };
+      const env: Env = { ...testEnv, SIGNING_KEYS: JSON.stringify({ v2: 'new-secret' }) };
       expect(resolveSigningKey(env, 'v2')).toBe('new-secret');
     });
 
     it('returns null when keyId not in SIGNING_KEYS', () => {
-      const env: Env = { ...mockEnv, SIGNING_KEYS: JSON.stringify({ v2: 'new-secret' }) };
+      const env: Env = { ...testEnv, SIGNING_KEYS: JSON.stringify({ v2: 'new-secret' }) };
       expect(resolveSigningKey(env, 'v99')).toBeNull();
     });
 
     it('returns null when SIGNING_KEYS absent but keyId provided', () => {
-      expect(resolveSigningKey(mockEnv, 'v1')).toBeNull();
+      expect(resolveSigningKey(testEnv, 'v1')).toBeNull();
     });
 
     it('returns null when SIGNING_KEYS is malformed JSON', () => {
-      const env: Env = { ...mockEnv, SIGNING_KEYS: 'not-json' };
+      const env: Env = { ...testEnv, SIGNING_KEYS: 'not-json' };
       expect(resolveSigningKey(env, 'v1')).toBeNull();
     });
 
     it('returns null when SIGNING_KEYS is a JSON string (not object)', () => {
-      const env: Env = { ...mockEnv, SIGNING_KEYS: '"just-a-string"' };
+      const env: Env = { ...testEnv, SIGNING_KEYS: '"just-a-string"' };
       expect(resolveSigningKey(env, 'v1')).toBeNull();
     });
   });
@@ -409,7 +409,7 @@ describe('Receiver Worker', () => {
     const TEST_SECRET_V2 = 'rotated-secret-v2';
 
     it('accepts request signed with key from SIGNING_KEYS when x-key-id matches', async () => {
-      const env: Env = { ...mockEnv, SIGNING_KEYS: JSON.stringify({ [TEST_KEY_ID]: TEST_SECRET_V2 }) };
+      const env: Env = { ...testEnv, SIGNING_KEYS: JSON.stringify({ [TEST_KEY_ID]: TEST_SECRET_V2 }) };
       const body = JSON.stringify({ event: 'test' });
       const { timestamp, signature } = await signRequest(body, TEST_SECRET_V2);
 
@@ -429,7 +429,7 @@ describe('Receiver Worker', () => {
     });
 
     it('rejects request with unknown x-key-id', async () => {
-      const env: Env = { ...mockEnv, SIGNING_KEYS: JSON.stringify({ [TEST_KEY_ID]: TEST_SECRET_V2 }) };
+      const env: Env = { ...testEnv, SIGNING_KEYS: JSON.stringify({ [TEST_KEY_ID]: TEST_SECRET_V2 }) };
       const body = JSON.stringify({ event: 'test' });
       const { timestamp, signature } = await signRequest(body, TEST_SECRET_V2);
 
@@ -452,7 +452,7 @@ describe('Receiver Worker', () => {
 
     it('rejects x-key-id when SIGNING_KEYS is not configured', async () => {
       const body = JSON.stringify({ event: 'test' });
-      const { timestamp, signature } = await signRequest(body, mockEnv.SHARED_SECRET);
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
         method: 'POST',
@@ -465,7 +465,7 @@ describe('Receiver Worker', () => {
         body,
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
       expect(response.status).toBe(401);
     });
   });
@@ -473,7 +473,7 @@ describe('Receiver Worker', () => {
   describe('Unknown routes', () => {
     it('returns 404 with not found error for unknown GET route', async () => {
       const request = new Request('https://worker.test/unknown', { method: 'GET' });
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.status).toBe(404);
       const data = await response.json() as ErrorResponse;
@@ -482,7 +482,7 @@ describe('Receiver Worker', () => {
 
     it('sets content-type to application/json; charset=utf-8 on 404 error', async () => {
       const request = new Request('https://worker.test/unknown', { method: 'GET' });
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, testEnv);
 
       expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
     });
