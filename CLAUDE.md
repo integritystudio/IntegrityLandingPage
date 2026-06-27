@@ -105,3 +105,70 @@ Choose the appropriate file based on the task:
 - [docs-compressed.xml](docs/repomix/docs-compressed.xml) — compressed docs, CLAUDE.md, README (~11K tokens); use for broad docs understanding and search
 - [repomix.xml](docs/repomix/repomix.xml) — full lossless source; use only when exact code detail is needed (e.g. line-level edits, debugging)
 - [tests-compressed.xml](docs/repomix/tests-compressed.xml) — compressed test suite (Flutter + Workers); use when writing or reviewing tests
+
+## Deployment Strategy
+
+### Worker Deployment
+
+All Cloudflare Workers use **Doppler for secret management**. Each worker has two deployment scripts:
+
+**Development (Local)**
+```bash
+npm run deploy    # Uses --config dev, deploys to dev environment
+```
+
+**Production (CI/CD)**
+```bash
+npm run deploy:prd  # Uses --config prd, requires CI/CD context and Doppler token
+```
+
+#### Doppler Configuration
+- **Project**: `integrity-studio`
+- **Dev Config** (`--config dev`): Local development, testing, E2E tests
+- **Prd Config** (`--config prd`): Production deployments, secret rotation, sensitive operations
+
+#### Worker Deployment Overview
+
+| Worker | Purpose | Dev Deploy | Prd Deploy | CI/CD Enabled |
+|--------|---------|-----------|-----------|--------------|
+| **sender-worker** | Forwards provisioning events (HMAC auth) | ✓ doppler dev | ✓ doppler prd | ✓ Yes (main) |
+| **receiver-worker** | Verifies signed requests, stores data | ✓ wrangler | ✓ doppler prd | — |
+| **stripe-webhook** | Handles Stripe subscription events | ✓ wrangler | ✓ doppler prd | — |
+| **contact-form** | Processes contact form (Resend, KV rate limit) | ✓ wrangler | ✓ doppler prd | — |
+| **api-gateway** | API gateway (aggregation, quota) | ✓ wrangler | ✓ doppler prd | — |
+| **bootstrap-worker** | Bootstrap operations | ✓ wrangler | ✓ doppler prd | — |
+
+### GitHub Actions CI/CD
+
+**Main branch deployments** (`.github/workflows/ci.yml`):
+- Runs on `push` to `refs/heads/main`
+- Requires all tests to pass
+- Deploys **sender-worker only** (other workers deploy manually with `npm run deploy:prd`)
+- Environment: `production`
+- Secrets: `DOPPLER_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
+
+**Deployment Safety**:
+- ✅ Production secrets managed via GitHub Secrets + Doppler
+- ✅ `deploy:prd` uses `--config prd` (never `dev`)
+- ✅ All workers have `deploy:prd` for emergency hotfixes
+- ✅ E2E tests use `--config dev` (isolated from prod)
+- ✅ No hardcoded secrets in package.json or workflows
+
+### Deployment Checklist
+
+**Before `npm run deploy:prd`**:
+1. Verify branch: `git status` (should be on a feature branch or main)
+2. Run tests: `npm test` or targeted test suite
+3. Set Doppler token: export `DOPPLER_TOKEN=$(doppler --project integrity-studio --config prd token)`
+
+**After deploy**:
+1. Verify in Cloudflare Workers dashboard
+2. Run E2E tests: `cd workers/sender-worker && npm run test:e2e`
+3. Check worker logs: `npm run tail` (if available)
+
+### Secret Rotation
+
+**Dev secrets** expire as per Doppler project policy.  
+**Prd secrets** are rotated on a schedule; always use `doppler run --project integrity-studio --config prd`.
+
+See `.github/workflows/ci.yml` for the current production deployment configuration and secret injection.
