@@ -303,7 +303,7 @@ pricing:
   subtitle: "Start free, scale as you grow"
 
   tiers:
-    - name: "Free"
+    - name: "Starter"
       monthly_price: "Free"
       annual_price: "Free"
       description: "For individual developers"
