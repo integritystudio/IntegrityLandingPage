@@ -6,6 +6,14 @@
 
 ---
 
+> ℹ️ **What this report validates (read first).** This is a historical 2026-03-20 report validating the contract between `sender-worker` and the **local stub** `workers/receiver-worker/` (a test double). Two things have since changed:
+> - **Transport:** the sender reaches the receiver via a Cloudflare **service binding** (`binding = "RECEIVER"`, `service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`) — `env.RECEIVER.fetch(".../inbox")` — **not** a public `RECEIVER_WORKER_URL` fetch. The `RECEIVER_WORKER_URL` env var and `receiver-worker.example.workers.dev` hostname below are obsolete.
+> - **Production receiver:** the deployed receiver is **`api-provisioning-receiver`** (separate `observability-toolkit` repo, `services/api-provisioning-receiver/`), which persists to Supabase and returns `{ service: "api-provisioning-receiver" }` from `/health`. `workers/receiver-worker/` is **not deployed** and nothing binds to it. For production contract validation, see the integration tests in `observability-toolkit`.
+>
+> The HMAC/timestamp/error-shape findings below still hold — the stub mirrors the production receiver's wire contract — but ignore the deployment, URL-wiring, and config-matrix sections as a production guide.
+
+---
+
 ## Executive Summary
 
 The Sender Worker and Receiver Worker implementations are **fully compliant** with each other. All HMAC signing, timestamp handling, error responses, and endpoint contracts match between the two workers.
@@ -348,7 +356,7 @@ Sender Worker
 | Setting | Sender | Receiver | Synchronized |
 |---------|--------|----------|--------------|
 | SHARED_SECRET | ✅ Via wrangler secret | ✅ Via wrangler secret | ✅ MUST match |
-| RECEIVER_WORKER_URL | ✅ Via wrangler.toml | N/A | N/A |
+| `RECEIVER` service binding | ✅ Via wrangler.toml `[[services]]` | N/A | N/A (replaces `RECEIVER_WORKER_URL`) |
 | ALLOWED_ORIGINS_JSON | ✅ Via wrangler vars | N/A | N/A |
 | REPLAY_WINDOW_MS | Hardcoded in receiver | 5 minutes | ✅ Fixed |
 | HMAC Algorithm | SHA-256 | SHA-256 | ✅ Fixed |
@@ -357,16 +365,20 @@ Sender Worker
 
 ## Deployment Checklist
 
-- [ ] SHARED_SECRET set identically on both workers
+> The checklist below is the obsolete public-URL deployment model. The current production wiring is: `sender-worker` (this repo) is deployed from CI; `api-provisioning-receiver` is deployed from the `observability-toolkit` repo; they are linked by the `RECEIVER` **service binding** in `workers/sender-worker/wrangler.toml`. There is no `RECEIVER_WORKER_URL` to set. Kept for historical reference of the stub contract.
+
+- [ ] SHARED_SECRET set identically on the sender and the production receiver
   ```bash
   cd workers/sender-worker && wrangler secret put SHARED_SECRET
-  cd workers/receiver-worker && wrangler secret put SHARED_SECRET
+  # set the matching SHARED_SECRET on api-provisioning-receiver (in the observability-toolkit repo)
   # MUST BE IDENTICAL
   ```
 
-- [ ] RECEIVER_WORKER_URL in sender-worker/wrangler.toml points to deployed receiver
+- [ ] `RECEIVER` service binding present in sender-worker/wrangler.toml
   ```toml
-  RECEIVER_WORKER_URL = "https://receiver-worker.example.workers.dev"
+  [[services]]
+  binding = "RECEIVER"
+  service = "api-provisioning-receiver"
   ```
 
 - [ ] ALLOWED_ORIGINS_JSON configured on sender for production origins
@@ -374,16 +386,16 @@ Sender Worker
   wrangler deploy --var ALLOWED_ORIGINS_JSON='["https://www.integritystudio.ai"]'
   ```
 
-- [ ] Both workers deployed to same Cloudflare account
-  - Enables service bindings (optional optimization, not required)
+- [ ] Sender and `api-provisioning-receiver` deployed to the same Cloudflare account
+  - Required for the service binding to resolve
 
-- [ ] Receiver-worker health endpoint tested
+- [ ] Production receiver health endpoint tested (from the observability-toolkit deploy)
   ```bash
-  curl https://receiver-worker.example.workers.dev/health
-  # Should return: {"ok":true,"service":"receiver-worker"}
+  curl https://<api-provisioning-receiver-host>/health
+  # Should return: {"ok":true,"service":"api-provisioning-receiver"}
   ```
 
-- [ ] End-to-end test run (use test-provisioning-e2e.sh)
+- [ ] End-to-end test run (see integration tests in observability-toolkit; the in-repo `test-provisioning-e2e.sh` exercises the local stub)
 
 ---
 
@@ -404,7 +416,7 @@ Sender Worker
 ### ⚠️ Future Enhancements (Not Required)
 1. **Key Rotation** — Add x-key-id header for secret version management
 2. **Nonce Store** — Stricter replay protection than timestamp window
-3. **Service Bindings** — Use Cloudflare service bindings instead of public fetch (performance)
+3. ~~**Service Bindings** — Use Cloudflare service bindings instead of public fetch~~ ✅ **Done** — production now uses a `RECEIVER` service binding to `api-provisioning-receiver` (no public fetch)
 4. **Monitoring** — Add metrics for signature validation success/failure rates
 
 ### ❌ Issues Found
@@ -423,7 +435,8 @@ The Sender Worker and Receiver Worker are **production-ready** from a contract p
 ## References
 
 - Sender Worker: `workers/sender-worker/src/index.ts`
-- Receiver Worker: `workers/receiver-worker/src/index.ts`
+- Receiver Worker (production): `api-provisioning-receiver` in the `observability-toolkit` repo (`services/api-provisioning-receiver/src/`)
+- Receiver Worker (local stub / test double): `workers/receiver-worker/src/index.ts`
 - Shared Constants: `workers/constants.ts`, `workers/http-helpers.ts`
 - Architecture: `docs/api-provisioning.md`
 - Client Contract: `docs/api-provisioning-contract.md`

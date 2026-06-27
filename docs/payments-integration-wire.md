@@ -63,7 +63,7 @@ ProvisioningService.signup() — calls Auth0 Management API
          ↓
 Auth0: creates user, issues JWT (sub = Auth0 user ID)
          ↓
-Auth0 post-registration webhook → sender-worker or receiver-worker
+Auth0 post-registration webhook → sender-worker → (service binding) → api-provisioning-receiver
          ↓
 Provisioning (triggered by webhook):
   1. supabaseCreatePersonalOrg — inserts organizations row (plan: starter)
@@ -246,7 +246,7 @@ If the Quota Durable Object is unavailable, `enforceOrgQuota` returns `ok: true`
 
 ## Sender Worker API: `/send`
 
-The Flutter app calls `POST /send` on the sender-worker. The sender validates the payload, then signs and forwards it to the receiver-worker's `/inbox`.
+The Flutter app calls `POST /send` on the sender-worker. The sender validates the payload, then signs and forwards it to the production receiver `api-provisioning-receiver` over a Cloudflare service binding (`env.RECEIVER.fetch(".../inbox")`), not a public URL.
 
 ### Validation (sender-side)
 
@@ -278,7 +278,7 @@ All provisioning actions share a single endpoint. Requests must carry HMAC authe
 | `x-timestamp` | yes |
 | `x-signature` | yes |
 
-Signature format: `HMAC-SHA256(secret, "${timestamp}.${bodyString}")` as hex. The sender-worker signs and the receiver-worker verifies. Replayed requests are rejected via timestamp staleness check.
+Signature format: `HMAC-SHA256(secret, "${timestamp}.${bodyString}")` as hex. The sender-worker signs and the receiver (`api-provisioning-receiver`) verifies. Replayed requests are rejected via timestamp staleness check.
 
 ### `POST /inbox` — request body
 
@@ -291,7 +291,7 @@ Signature format: `HMAC-SHA256(secret, "${timestamp}.${bodyString}")` as hex. Th
 | `tier` | `'starter' \| 'growth' \| 'enterprise'` | no | Defaults to `'starter'` |
 | `org_name` | string | no | Falls back to email domain if omitted |
 
-Schema: `inboxPayloadSchema` in `workers/receiver-worker/src/api-schemas.ts`
+Schema: `inboxPayloadSchema` in the production receiver `api-provisioning-receiver` (`observability-toolkit` repo, `services/api-provisioning-receiver/src/`). The local stub `workers/receiver-worker/src/` mirrors a subset for contract tests only.
 
 ### `action: 'provision_api_key'` — additional handler checks
 
@@ -375,14 +375,14 @@ Response: `{ token: /^obtk_[0-9a-f]{64}$/, keyId, prefix, tier }`
 
 | Condition | Response |
 |-----------|----------|
-| `RECEIVER_WORKER_URL` invalid | 500 `INTERNAL_ERROR` |
+| `RECEIVER` service binding missing | 500 `INTERNAL_ERROR` ("RECEIVER service binding not configured") |
 | `SHARED_SECRET` missing | 500 `INTERNAL_ERROR` |
 | `SendRequestSchema` fails | 400/401 field-specific |
-| `fetch TypeError` (network) | 502 "receiver-worker unreachable" |
+| `env.RECEIVER.fetch` `TypeError` (binding unreachable) | 502 "receiver-worker unreachable" |
 | Other thrown error | 500 "send failed" |
 
 ### Key schemas
 
-All in `src/lib/validation/api-schemas.ts` (receiver-worker):
+All in the production receiver `api-provisioning-receiver` (`observability-toolkit` repo, `services/api-provisioning-receiver/src/`):
 
 `inboxPayloadSchema`, `actionSchema`, `auth0UserinfoSchema`, `provisionApiKeyResultSchema`, `apiKeyTierSchema`, `emailToRegistrableDomainSchema`

@@ -20,7 +20,7 @@ SignupPage (/signup?tier=starter)
         └─ POST /send (sender-worker)
               ├─ validates SendRequestSchema {action, jwt, name, email, tier}
               ├─ HMAC-SHA256 signs {x-timestamp}.{body} with SHARED_SECRET
-              └─ POST receiver-worker /inbox
+              └─ POST api-provisioning-receiver /inbox (via service binding)
                     ├─ verifies x-timestamp (±5 min) + x-signature constant-time
                     ├─ Auth0 /userinfo (validates JWT live)
                     ├─ Supabase GET /rest/v1/users?auth0_id=eq.{sub} → Supabase UUID
@@ -79,6 +79,6 @@ SignupPage (/signup?tier=enterprise)
 | Supabase provisioning (signup) | sender-worker `handleSignup` (inline, pre-webhook) |
 | JWT issuance | sender-worker `auth0UserSignIn` (ROPC) |
 | JWT persistence | `AuthStorage.saveJwt` → `localStorage['auth_jwt']` |
-| API key creation | receiver-worker → Supabase Edge Fn `api-keys-create` |
+| API key creation | api-provisioning-receiver → Supabase Edge Fn `api-keys-create` |
 | Plan upgrade (Stripe → Supabase) | stripe-webhook worker `updateOrgBillingStatus` |
 | Quota enforcement | api-gateway `enforceOrgQuota` + Quota Durable Object |

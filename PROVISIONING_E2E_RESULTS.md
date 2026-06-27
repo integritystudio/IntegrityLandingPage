@@ -3,6 +3,8 @@
 **Date:** 2026-03-20
 **Status:** ⏳ PARTIAL (Receiver worker verified; sender worker E2E pending environment configuration)
 
+> ⚠️ **DEPRECATED — local-stub only.** These results were captured against the **local stub** `workers/receiver-worker/` (a test double) using an obsolete `RECEIVER_WORKER_URL` HTTP wiring. They do **not** reflect production. The production receiver is **`api-provisioning-receiver`** (separate `observability-toolkit` repo), reached by `sender-worker` via a **service binding** (`service = "api-provisioning-receiver"`), and its `/health` returns `{ service: "api-provisioning-receiver" }`. For current end-to-end coverage, use the integration tests in `observability-toolkit`. Retained for historical reference only. See `docs/BACKLOG.md` (W03).
+
 ## Test Summary
 
 Manual E2E testing of the API provisioning workers demonstrates successful operation of the complete request signing and verification flow.

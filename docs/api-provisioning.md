@@ -15,6 +15,8 @@ Flutter app
 
 Flutter never holds the inter-service shared secret. The browser/mobile client calls the Sender Worker over plain HTTPS; the Sender Worker signs and forwards to the Receiver Worker.
 
+> **Receiver identity.** "Receiver Worker" below is the production worker **`api-provisioning-receiver`** (separate `observability-toolkit` repo, `services/api-provisioning-receiver/`), which persists to Supabase. The Sender reaches it via a Cloudflare **service binding** (`binding = "RECEIVER"`, `service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`) — `env.RECEIVER.fetch(".../inbox")`, not a public URL. `workers/receiver-worker/` in this repo is a **local stub / test double** only; it is not deployed and nothing binds to it.
+
 ## Architecture
 
 ### Public API (Flutter Client → Sender Worker)
@@ -337,7 +339,7 @@ class ProvisioningService {
 - HMAC-SHA256 signature computation (timestamp + body)
 - Forwards signed request to Receiver Worker with x-timestamp and x-signature headers
 
-✅ **Receiver Worker** (`workers/receiver-worker/src/index.ts`)
+✅ **Receiver Worker** — production: `api-provisioning-receiver` (`observability-toolkit` repo); local stub: `workers/receiver-worker/src/index.ts`
 - GET /health public endpoint
 - POST /inbox with signature verification (constant-time comparison)
 - 5-minute replay protection window (REPLAY_WINDOW_MS)
@@ -382,7 +384,7 @@ The Flutter app treats the Sender Worker as a trusted proxy. It sends plain JSON
 
 | Method | Path | Auth | Response |
 |--------|------|------|----------|
-| GET | `/health` | None | `{ ok: true, service: "receiver-worker" }` |
+| GET | `/health` | None | `{ ok: true, service: "api-provisioning-receiver" }` |
 | POST | `/inbox` | `x-timestamp` + `x-signature` headers | `{ ok: true, received: ... }` or `{ error: "..." }` |
 
 ## Testing Strategy

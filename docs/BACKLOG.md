@@ -539,17 +539,63 @@ Root cause: the deploy step only exports `CLOUDFLARE_API_TOKEN` (from Doppler `C
 **Context:** `workers/receiver-worker/` is a **local stub / test double**; its deployed Cloudflare instance was deleted this session (orphan — nothing bound to it). The production receiver is **`api-provisioning-receiver`** (separate `observability-toolkit` repo), reached by `sender-worker` via a service binding, not an HTTP URL. The critical doc references that would mislead a reader into deploying or wiring the dead stub were already fixed and committed this session (`CLAUDE.md` deployment table + architecture lines, `workers/receiver-worker/README.md` banner, warning banners on `docs/provisioning-environment-setup.md` and `docs/PROVISIONING_SETUP_SUMMARY.md`).
 
 **Remaining (medium) — docs that describe the stub as if it were production; warned but not yet rewritten:**
-1. `docs/provisioning-environment-setup.md` (20 refs) — replace `receiver-worker.integritystudio.ai` / `RECEIVER_WORKER_URL` HTTP wiring and deploy steps with the service-binding model; point production receiver setup at `observability-toolkit`.
-2. `docs/PROVISIONING_SETUP_SUMMARY.md` (16 refs) — same hardcoded URL + deploy steps.
-3. `docs/inter-worker-contract-validation.md` (12 refs) — contract tests/examples target the stub interface and `receiver-worker.example.workers.dev`; clarify they validate the local stub, and add a pointer to production contract validation in `observability-toolkit`.
-4. `docs/payments-integration-wire.md` (6 refs) — claims `inboxPayloadSchema` lives in `workers/receiver-worker/src/`; the production schema is in `api-provisioning-receiver`.
-5. `docs/api-provisioning.md:385` — health-response example shows `{ service: "receiver-worker" }`; production returns `api-provisioning-receiver` (verified live).
-6. `PROVISIONING_E2E_RESULTS.md` (6 refs) and `PROVISIONING_MANUAL_TEST.md` (11 refs) — obsolete test guides against the stub; mark as local-only or deprecated, link to `observability-toolkit` integration tests.
-7. `docs/user-provisioning-workflow.md` (2 refs) and `docs/REFACTOR.md` (2 refs) — minor; verify each describes the stub vs production correctly.
+1. ✅ `docs/provisioning-environment-setup.md` — misleading sections already removed; banner finalized (W03-pending pointer dropped).
+2. ✅ `docs/PROVISIONING_SETUP_SUMMARY.md` — obsolete `RECEIVER_WORKER_URL` / `receiver-worker.integritystudio.ai` config + deploy/curl blocks annotated with the current service-binding model; "service bindings" future-work items marked done.
+3. ✅ `docs/inter-worker-contract-validation.md` — added "what this validates" banner (local stub vs production); deploy checklist + config matrix rewritten to the `RECEIVER` service binding; pointer to `observability-toolkit` for production contract validation.
+4. ✅ `docs/payments-integration-wire.md` — `inboxPayloadSchema` location corrected to `api-provisioning-receiver`; receiver refs + error table updated to the service-binding model.
+5. ✅ `docs/api-provisioning.md` — health-response example now `{ service: "api-provisioning-receiver" }`; added receiver-identity/service-binding note; impl-status receiver path clarified.
+6. ✅ `PROVISIONING_E2E_RESULTS.md` and `PROVISIONING_MANUAL_TEST.md` — deprecation banners added (local-stub only); point to `observability-toolkit` integration tests for production.
+7. ✅ `docs/user-provisioning-workflow.md` — 2 refs updated to `api-provisioning-receiver` (+ "via service binding"). `docs/REFACTOR.md` — verified: its 2 refs describe the in-repo stub source dir for a Zod validation refactor, which is accurate; left as-is.
 
 **Not in scope (correct, leave as-is):** `README.md` / `package.json` lint+test loops, `CLAUDE.md` dir tree, `workers/receiver-worker/wrangler.toml` name, `docs/changelog/1.2/CHANGELOG.md`, `workers/lib/TYPES.md`, `.serena/memories/*` — these correctly reference the local stub source or historical changelog.
 
-**Status:** Open — critical items fixed this session; medium doc rewrites deferred. See also [[W02]] (receiver CI deploy).
+**Status:** ✅ Done (2026-06-26) — all medium doc rewrites complete; provisioning docs reconciled to the service-binding model (`sender-worker` → `api-provisioning-receiver`). See also [[W02]] (receiver CI deploy).
+
+---
+
+## W04: Provisioning workers — monitoring, alerting & dashboards
+
+**Priority:** P2 | **Source:** session 2026-06-27, reconciled from `docs/PROVISIONING_SETUP_SUMMARY.md` open items ("Monitoring and alerting — must implement", "Monitoring Dashboards — Cloudflare Analytics")
+**Estimated:** 4–6 hours
+
+**Context:** `sender-worker` has `[observability.logs]` with `invocation_logs = true` (`workers/sender-worker/wrangler.toml`), so logs are captured, but there is **no alerting and no dashboard** for the provisioning path (`sender-worker` → `api-provisioning-receiver`). The setup summary flagged this as "must implement" but it was never tracked as a real item. `api-provisioning-receiver` lives in the `observability-toolkit` repo, so end-to-end provisioning observability spans both repos.
+
+**Scope:**
+1. Define the signals that matter: `/send` error rate (esp. 502 "receiver-worker unreachable", 500 `INTERNAL_ERROR`), receiver 401s (signature/replay failures — possible attack or key-rotation drift), provisioning latency, Auth0/Supabase call failures.
+2. Stand up a dashboard (Cloudflare Workers Analytics, or route through the existing OTEL pipeline — see `ingest.integritystudio.ai` / `observability-toolkit`) covering sender + receiver.
+3. Add alerting on error-rate and 401-spike thresholds (channel/owner TBD).
+4. Document the dashboard + alert runbook; cross-link from `docs/api-provisioning.md`.
+
+**Notes / overlap:**
+- [[T28]] already calls for a Cloudflare Durable Object metrics dashboard for quota eviction — narrower, but fold into the same dashboard effort if convenient.
+- Receiver-side instrumentation belongs in `observability-toolkit`; coordinate across repos.
+
+**Files to touch:**
+- `workers/sender-worker/wrangler.toml` (if exporting metrics/OTEL beyond logs)
+- `docs/api-provisioning.md` (link runbook)
+- `observability-toolkit` (receiver-side spans/metrics)
+
+**Status:** Open — reconciled from setup-summary intentions; needs signal definition + alert-channel decision. See also [[T28]].
+
+---
+
+## W05: Verify & document prod secret durability + rotation cadence under Doppler
+
+**Priority:** P3 | **Source:** session 2026-06-27, reconciled from `docs/PROVISIONING_SETUP_SUMMARY.md` open items ("Secrets backed up (1Password/Vault) — must implement", "Secret rotation documented (quarterly)")
+**Estimated:** 1–2 hours
+
+**Context:** The setup summary's "back up secrets to 1Password/Vault" action predates the move to **Doppler** as the managed secret store (`doppler --project integrity-studio --config dev|prd`, used by every worker's `deploy:prd` script and CI). Doppler is now the system of record for worker secrets, which largely supersedes a manual vault backup. This item reconciles the stale intention rather than implementing 1Password.
+
+**Scope:**
+1. Confirm Doppler `integrity-studio/prd` holds the canonical copy of all provisioning secrets (`SHARED_SECRET`, `SIGNING_KEYS`/`ACTIVE_KEY_ID`, `AUTH0_*`, `SUPABASE_*`, `STRIPE_*`) and that Doppler's own retention/backup is acceptable as the durability story.
+2. Document whether an additional offline backup (1Password/Vault) is still required by policy, or formally accept Doppler as sufficient.
+3. Document the secret-rotation cadence and procedure. **Note:** the rotation *mechanism* is already implemented and documented in code (`SIGNING_KEYS` + `ACTIVE_KEY_ID` + `x-key-id`, procedure in `workers/sender-worker/src/index.ts:150-158`) — this item is the operational policy/cadence, not new code.
+
+**Files to touch:**
+- `docs/provisioning-environment-setup.md` (secret durability + rotation cadence)
+- `CLAUDE.md` "Secret Rotation" section (confirm/expand)
+
+**Status:** Open — verification + documentation only; key-rotation mechanism already shipped. See also [[W02]] (Doppler-stored `CLOUDFLARE_ACCOUNT_ID`).
 
 ---
 

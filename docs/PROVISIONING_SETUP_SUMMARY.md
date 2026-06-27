@@ -6,7 +6,7 @@
 
 ---
 
-> ⚠️ **STALE — superseded.** References to `receiver-worker` and `RECEIVER_WORKER_URL = https://receiver-worker.integritystudio.ai` describe a retired HTTP-based wiring. The production receiver is **`api-provisioning-receiver`** (separate `observability-toolkit` repo), reached by `sender-worker` via a **service binding** (`service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`), not a URL. The `workers/receiver-worker/` in this repo is a local stub and is not deployed. Tracked for rewrite in `docs/BACKLOG.md` (W03).
+> ⚠️ **STALE — superseded.** References to `receiver-worker` and `RECEIVER_WORKER_URL = https://receiver-worker.integritystudio.ai` describe a retired HTTP-based wiring. The production receiver is **`api-provisioning-receiver`** (separate `observability-toolkit` repo), reached by `sender-worker` via a **service binding** (`service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`), not a URL. The `workers/receiver-worker/` in this repo is a local stub and is not deployed. The obsolete URL/deploy/config blocks below have been annotated with the current service-binding model (`docs/BACKLOG.md` W03).
 
 ## Overview
 
@@ -150,32 +150,27 @@ The API Provisioning system is now **fully documented, tested, and configured** 
 
 ## Configuration Status
 
+> The `RECEIVER_WORKER_URL` values below are **obsolete**. The sender now reaches the receiver via a `RECEIVER` service binding (`service = "api-provisioning-receiver"`); there is no receiver URL to configure. The current config is shown after each obsolete block.
+
 ### Development (Local)
 ```
+# Obsolete:
 .env.local (git-ignored)
 ├── SHARED_SECRET: test-secret-key-12345
-└── RECEIVER_WORKER_URL: http://localhost:8788
+└── RECEIVER_WORKER_URL: http://localhost:8788   # ← no longer used
+
+# Current: sender-worker/wrangler.toml binds RECEIVER → api-provisioning-receiver.
+# For local stub testing, run `workers/receiver-worker/` separately (see its README).
 ```
 
-### Staging (Ready)
-```
-Cloudflare Secrets:
-├── sender-worker-staging: SHARED_SECRET (to be set)
-└── receiver-worker-staging: SHARED_SECRET (to be set, must match)
-
-Cloudflare Vars:
-├── sender-worker-staging: RECEIVER_WORKER_URL = https://receiver-worker-staging...
-└── (optional) ALLOWED_ORIGINS_JSON = ["https://staging.integritystudio.ai"]
-```
-
-### Production (Ready)
+### Staging / Production (Current model)
 ```
 Cloudflare Secrets:
-├── sender-worker: SHARED_SECRET (to be set)
-└── receiver-worker: SHARED_SECRET (to be set, DIFFERENT from staging)
+├── sender-worker (this repo):              SHARED_SECRET
+└── api-provisioning-receiver (observability-toolkit repo): SHARED_SECRET (MUST match)
 
-Cloudflare Vars:
-├── sender-worker: RECEIVER_WORKER_URL = https://receiver-worker.integritystudio.ai
+sender-worker/wrangler.toml:
+├── [[services]] binding = "RECEIVER", service = "api-provisioning-receiver"
 └── (optional) ALLOWED_ORIGINS_JSON = ["https://www.integritystudio.ai"]
 ```
 
@@ -202,10 +197,10 @@ Cloudflare Vars:
 ## Remaining Tasks (Future Work)
 
 ### 🔄 Nice-to-Have Enhancements
-1. **Key Rotation Support** — Add x-key-id header for secret versioning
+1. ~~**Key Rotation Support** — Add x-key-id header for secret versioning~~ ✅ **Done** — `SIGNING_KEYS` + `ACTIVE_KEY_ID` + `x-key-id`; procedure in `workers/sender-worker/src/index.ts:150-158`. Operational cadence/policy tracked as W05 in `docs/BACKLOG.md`.
 2. **Nonce Store** — Stricter replay protection than timestamp window
-3. **Service Bindings** — Use Cloudflare service bindings instead of public fetch (performance)
-4. **Monitoring Dashboards** — Cloudflare Analytics integration
+3. ~~**Service Bindings** — Use Cloudflare service bindings instead of public fetch~~ ✅ **Done** (production sender → `api-provisioning-receiver`)
+4. **Monitoring Dashboards** — Cloudflare Analytics integration → tracked as **W04** in `docs/BACKLOG.md`
 5. **JWT Refresh** — Add token refresh endpoint for expired JWTs
 6. **Rate Limiting** — Per-user or per-IP quotas on provisioning
 
@@ -225,7 +220,7 @@ Cloudflare Vars:
 cd workers/sender-worker
 wrangler dev --port 8787
 
-# In another terminal
+# In another terminal — the local stub receiver (test double; not the production receiver)
 cd workers/receiver-worker
 wrangler dev --port 8788
 
@@ -234,6 +229,7 @@ curl -X POST http://localhost:8787/send \
   -H "Content-Type: application/json" \
   -d '{"userId":"test","action":"verify"}'
 ```
+> Note: against production the sender uses the `RECEIVER` service binding to `api-provisioning-receiver`. Running `workers/receiver-worker/` locally only exercises the in-repo stub.
 
 ### 2. Staging Deployment
 ```bash
@@ -251,8 +247,9 @@ cat docs/provisioning-environment-setup.md
 
 ./scripts/deploy-provisioning-workers.sh prod
 
-# Verify
-curl https://receiver-worker.integritystudio.ai/health
+# Verify the production receiver (deployed from the observability-toolkit repo)
+curl https://<api-provisioning-receiver-host>/health
+# → {"ok":true,"service":"api-provisioning-receiver"}
 ```
 
 ---
@@ -285,9 +282,9 @@ See [api-provisioning-contract.md](api-provisioning-contract.md) for curl exampl
 - ✅ Constant-time signature comparison
 - ✅ HTTPS-only (enforced by Cloudflare)
 - ✅ Content-Type validation (application/json)
-- ⚠️ Secret rotation documented (quarterly)
-- ⚠️ Secrets backed up (1Password/Vault) — must implement
-- ⚠️ Monitoring and alerting — must implement
+- ✅ Secret rotation mechanism shipped (`SIGNING_KEYS`/`ACTIVE_KEY_ID`/`x-key-id`); cadence/policy tracked as W05
+- ✅ Secrets managed in Doppler (`integrity-studio/prd`) — supersedes manual 1Password/Vault backup; durability verification tracked as W05
+- ⚠️ Monitoring and alerting — tracked as W04 in `docs/BACKLOG.md`
 
 ---
 
@@ -383,10 +380,10 @@ scripts/
 5. Update Flutter to production sender endpoint
 
 ### Long-Term (Future Roadmap)
-1. Implement key rotation (x-key-id header)
+1. ~~Implement key rotation (x-key-id header)~~ ✅ Done (W05 tracks cadence/policy)
 2. Add nonce store for stricter replay protection
-3. Migrate to service bindings for inter-worker communication
-4. Set up Datadog/New Relic integration for monitoring
+3. ~~Migrate to service bindings for inter-worker communication~~ ✅ Done (sender → `api-provisioning-receiver` binding)
+4. Set up monitoring/alerting integration → tracked as **W04**
 5. Document API versioning strategy
 
 ---
@@ -397,7 +394,7 @@ scripts/
 - See [provisioning-environment-setup.md — Troubleshooting](provisioning-environment-setup.md#troubleshooting)
 - Signature mismatch? → Check SHARED_SECRET matches on both workers
 - CORS rejected? → Verify Origin is in ALLOWED_ORIGINS_JSON
-- 502 receiver unreachable? → Check RECEIVER_WORKER_URL in sender config
+- 502 receiver unreachable? → Check the `RECEIVER` service binding in sender-worker/wrangler.toml and that `api-provisioning-receiver` is deployed
 
 **Getting Help:**
 1. Check the relevant README (sender-worker, receiver-worker)

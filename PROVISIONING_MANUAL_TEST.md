@@ -1,11 +1,13 @@
 # API Provisioning Manual E2E Test Guide
 
+> ⚠️ **DEPRECATED — local-stub only.** This guide tests the **local stub** `workers/receiver-worker/` (a test double) over an obsolete `RECEIVER_WORKER_URL` HTTP wiring. In production the sender reaches the receiver via a **service binding** (`service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`), and the deployed receiver is **`api-provisioning-receiver`** (separate `observability-toolkit` repo) whose `/health` returns `{ service: "api-provisioning-receiver" }`. Use the integration tests in `observability-toolkit` for production verification. The steps below remain valid only for exercising the in-repo stub locally. See `docs/BACKLOG.md` (W03).
+
 ## Overview
 
 This guide provides manual testing procedures for the API provisioning architecture, which includes:
 - **Sender Worker** (`workers/sender-worker/`): Signs and forwards requests
-- **Receiver Worker** (`workers/receiver-worker/`): Verifies signatures and stores data
-- **Request Flow**: Flutter app → Sender Worker (POST /send) → Receiver Worker (POST /inbox)
+- **Receiver Worker** — local stub `workers/receiver-worker/` (test double); production is `api-provisioning-receiver` (`observability-toolkit` repo): Verifies signatures and stores data
+- **Request Flow**: Flutter app → Sender Worker (POST /send) → Receiver (POST /inbox, via service binding in prod)
 
 ## Prerequisites
 
