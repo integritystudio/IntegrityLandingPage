@@ -25,11 +25,11 @@ wrangler dev --port 8787          # Local dev server
 ## Current Status
 
 **Phase**: Testing Infrastructure & Error Handling ✅ COMPLETE
-**Last Updated**: 2026-04-07
+**Last Updated**: 2026-06-27
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ ~2,726 Flutter tests passing (~94% coverage); ~1,559 worker tests passing
+**Test Status**: ✅ ~2,726 Flutter tests passing (~94% coverage); ~965 worker tests passing (5 workers + shared lib)
 
-See [docs/changelog/1.2/CHANGELOG.md](docs/changelog/1.2/CHANGELOG.md) for recent changes.
+See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recent changes.
 
 ### Known Issues
 - Contact form CORS blocks localhost (by design, needs config update for dev testing)
@@ -44,7 +44,7 @@ lib/
 ├── controllers/      # Business logic controllers
 ├── models/           # Data models
 ├── pages/            # Page widgets (40 pages)
-├── routing/          # GoRouter configuration (48 routes)
+├── routing/          # GoRouter configuration (43 routes)
 ├── services/         # External integrations (analytics, consent, contact, dashboard, provisioning)
 ├── theme/            # Design system (colors, decorations, spacing, typography)
 ├── utils/            # Utility functions
@@ -67,7 +67,7 @@ workers/
 │   └── validation/   # Validation helpers, error formatting
 ├── contact-form/     # Contact form worker (Resend email, KV rate limiting, CSRF)
 ├── api-gateway/      # API Gateway worker (ingest, usage aggregation, auth, quota)
-├── sender-worker/    # Provisioning sender (HMAC-SHA256 auth)
+├── sender-worker/    # Provisioning sender: inline /signup + /signin (Auth0+Supabase); HMAC-signs /send events to receiver
 ├── receiver-worker/  # Local stub / test double only (not deployed; production is api-provisioning-receiver in observability-toolkit)
 └── stripe-webhook/   # Stripe event handler (subscription lifecycle, checkout, dead-letter, Supabase sync)
 
@@ -87,7 +87,9 @@ test/                 # Unit + widget tests (2,982 passing, ~94% coverage)
 
 **Workers**
 - [workers/contact-form/](workers/contact-form/) — Cloudflare Worker handling contact form submissions (Resend email, KV rate limiting, CSRF, idempotency)
-- [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker that signs and forwards provisioning/sign-in events to the production receiver `api-provisioning-receiver` via a `[[services]]` binding (HMAC-SHA256 auth, Auth0 ROPC, Zod v4 validation)
+- [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker (`api-provisioning-sender`) exposing `POST /signup`, `POST /signin`, `POST /send`, `POST /create-checkout-session`, `GET /health` (Zod v4 validation). Two distinct paths:
+  - **Inline (no receiver):** `/signup` creates the Auth0 user (M2M `AUTH0_CLI_*` → Management API) + Supabase org/user/owner-membership, then signs in via Auth0 ROPC (`AUTH0_CLIENT_*`) and returns `{jwt, auth0Sub, userId, email}`. `/signin` is direct Auth0 ROPC (`{email,password}` → `{jwt,email}`).
+  - **Forwarded to receiver:** `/send` events (`provision_api_key`, `sign_in`) are HMAC-SHA256-signed and forwarded to the production receiver `api-provisioning-receiver` via the `[[services]]` binding. API-key minting happens on the receiver, not here.
 - [workers/receiver-worker/](workers/receiver-worker/) — **Local stub / test double only** (signature verification + replay protection, returns mock responses). The production receiver is `api-provisioning-receiver`, which lives in the separate `observability-toolkit` repo and persists to Supabase. Nothing binds to this stub in production.
 - [workers/stripe-webhook/](workers/stripe-webhook/) — Cloudflare Worker handling Stripe events (subscription lifecycle, checkout sessions, dead-letter queue, Supabase sync)
 
@@ -96,7 +98,7 @@ test/                 # Unit + widget tests (2,982 passing, ~94% coverage)
 **Hybrid Testing for ProvisioningService** — Three layers without duplicating test maintenance:
 1. **Unit Tests** (48 tests) — Mock HTTP via `MockProvisioningDio`, test retry logic and error handling
 2. **Contract Tests** (25 tests) — Verify Dart shapes match TypeScript Zod schemas, no live calls, runs in standard CI
-3. **Live Integration Tests** (7 tests) — Real HTTP calls to staging, guarded by `LIVE_TESTS` dart-define, optional CI job
+3. **Live Integration Tests** (10 tests) — Real HTTP calls to staging, guarded by `LIVE_TESTS` dart-define, optional CI job
 
 **Key Pattern**: Extract mock to `test/helpers/mock_provisioning_dio.dart` for reuse across unit + contract tests. Type preservation: always create `Response<dynamic>` before casting to `Response<T>` to preserve runtime type info (fixes CI environment issues).
 
@@ -142,7 +144,7 @@ npm run deploy:prd  # Uses --config prd, requires CI/CD context and Doppler toke
 
 | Worker | Purpose | Dev Deploy | Prd Deploy | CI/CD Enabled |
 |--------|---------|-----------|-----------|--------------|
-| **sender-worker** | Forwards provisioning events (HMAC auth) | ✓ doppler dev | ✓ doppler prd | ✓ Yes (main) |
+| **sender-worker** | Inline signup/signin (Auth0+Supabase); HMAC-signs `/send` events to receiver | ✓ doppler dev | ✓ doppler prd | ✓ Yes (main) |
 | **api-provisioning-receiver** | Verifies signed requests, persists to Supabase (production receiver) | — | ✓ doppler prd | ✓ Yes (separate repo) |
 | **stripe-webhook** | Handles Stripe subscription events | ✓ wrangler | ✓ doppler prd | — |
 | **contact-form** | Processes contact form (Resend, KV rate limit) | ✓ wrangler | ✓ doppler prd | — |
