@@ -7,11 +7,14 @@ import { ALLOWED_ORIGINS, getAllowedOrigins } from './http-helpers';
  * @param origin - The Origin header value
  * @param methods - Comma-separated allowed methods (default: 'POST, OPTIONS')
  * @param headers - Comma-separated allowed headers (default: 'Content-Type')
+ * @param env - Optional environment with ALLOWED_ORIGINS_JSON; when supplied the
+ *   credentials flag respects the env-configured allowlist instead of the defaults
  */
 export function buildCorsHeaders(
   origin: string,
   methods: string = 'POST, OPTIONS',
   headers: string = 'Content-Type',
+  env?: { ALLOWED_ORIGINS_JSON?: string },
 ): Record<string, string> {
   const result: Record<string, string> = {
     'access-control-allow-origin': origin,
@@ -20,8 +23,8 @@ export function buildCorsHeaders(
     'access-control-max-age': '86400',
   };
 
-  // Only allow credentials for origins in the allowlist
-  if (isOriginAllowed(origin)) {
+  // Only allow credentials for origins in the (env-aware) allowlist
+  if (isOriginAllowedWithEnv(origin, env)) {
     result['access-control-allow-credentials'] = 'true';
   }
 

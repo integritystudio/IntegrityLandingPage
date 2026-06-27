@@ -609,6 +609,75 @@ describe('Contact Form Worker', () => {
       expect(response.status).toBe(200);
       expect(response.headers.get('Access-Control-Allow-Origin')).toBeDefined();
     });
+
+    it('allows an origin configured via ALLOWED_ORIGINS_JSON (e.g. localhost dev)', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: { id: 'email_123' },
+        error: null,
+      });
+
+      const env = { ...mockEnv, ALLOWED_ORIGINS_JSON: '["http://localhost:8080"]' };
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'http://localhost:8080',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message for testing.',
+        }),
+      });
+
+      const response = await worker.fetch(request, env);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:8080');
+      expect(response.headers.get('Access-Control-Allow-Credentials')).toBe('true');
+    });
+
+    it('rejects an origin absent from ALLOWED_ORIGINS_JSON', async () => {
+      const env = { ...mockEnv, ALLOWED_ORIGINS_JSON: '["http://localhost:8080"]' };
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'http://localhost:9999',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message for testing.',
+        }),
+      });
+
+      const response = await worker.fetch(request, env);
+
+      expect(response.status).toBe(403);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('unauthorized origin');
+    });
+
+    it('rejects the prod origin when ALLOWED_ORIGINS_JSON overrides to dev-only', async () => {
+      const env = { ...mockEnv, ALLOWED_ORIGINS_JSON: '["http://localhost:8080"]' };
+      const request = new Request('https://worker.test/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://integritystudio.ai',
+        },
+        body: JSON.stringify({
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message for testing.',
+        }),
+      });
+
+      const response = await worker.fetch(request, env);
+
+      expect(response.status).toBe(403);
+    });
   });
 
   describe('Email Routing Verification', () => {

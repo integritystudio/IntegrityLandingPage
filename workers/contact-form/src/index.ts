@@ -21,8 +21,8 @@ import {
   MIN_KV_TTL_SECONDS,
   RESEND_API_TIMEOUT_MS,
 } from '../../constants';
-import { ALLOWED_ORIGINS } from '../../http-helpers';
-import { buildCorsHeaders, isOriginAllowed } from '../../cors-utils';
+import { getAllowedOrigins } from '../../http-helpers';
+import { buildCorsHeaders, isOriginAllowedWithEnv } from '../../cors-utils';
 import { validateContactForm, type ContactFormData } from './schemas';
 
 interface Env {
@@ -34,6 +34,7 @@ interface Env {
   RATE_LIMIT_WINDOW_SECONDS?: string;
   CSRF_SECRET?: string;
   ENVIRONMENT?: string; // 'production' | 'staging' | 'development'
+  ALLOWED_ORIGINS_JSON?: string; // JSON array of allowed CORS origins; overrides prod defaults (set in dev Doppler to allow localhost)
 }
 
 interface RateLimitData {
@@ -262,9 +263,9 @@ async function validateCsrfToken(
  * Get CORS headers for a request.
  * Returns null if the origin is not allowed (for non-preflight requests).
  */
-function getCorsHeaders(request: Request): Record<string, string> | null {
+function getCorsHeaders(request: Request, env: Env): Record<string, string> | null {
   const origin = request.headers.get('Origin') || '';
-  const allowed = isOriginAllowed(origin);
+  const allowed = isOriginAllowedWithEnv(origin, env);
 
   // For non-preflight requests from disallowed origins, return null to signal rejection
   if (!allowed && request.method !== 'OPTIONS') {
@@ -280,12 +281,13 @@ function getCorsHeaders(request: Request): Record<string, string> | null {
   }
 
   // For preflight, use first allowed origin if Origin doesn't match
-  const allowedOrigin = allowed ? origin : ALLOWED_ORIGINS[0];
+  const allowedOrigin = allowed ? origin : getAllowedOrigins(env)[0];
 
   return buildCorsHeaders(
     allowedOrigin,
     'GET, POST, OPTIONS',
     'Content-Type, X-CSRF-Token, X-Idempotency-Key, X-Request-ID',
+    env,
   );
 }
 
@@ -316,12 +318,12 @@ export default {
 
     // Handle CORS preflight (always allowed to respond)
     if (request.method === 'OPTIONS') {
-      const corsHeaders = getCorsHeaders(request)!;
+      const corsHeaders = getCorsHeaders(request, env)!;
       return new Response(null, { headers: { ...corsHeaders, 'X-Request-ID': requestId } });
     }
 
     // Reject requests from unauthorized origins
-    const corsHeaders = getCorsHeaders(request);
+    const corsHeaders = getCorsHeaders(request, env);
     if (!corsHeaders) {
       return new Response(
         JSON.stringify({ error: 'Forbidden: unauthorized origin' }),
