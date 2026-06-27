@@ -3,6 +3,7 @@ import {
   HTTP_METHODS,
   HTTP_STATUS,
   ERROR_CODE,
+  ERROR_DESCRIPTIONS,
   HEADER_NAMES,
   CONTENT_TYPES,
   CORS_HEADERS,
@@ -85,7 +86,7 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
     ]);
 
     // supabaseInsertUser must complete before auth0UserSignIn: org membership has FK on users.id,
-    // and if sign-in fails after insert the user record exists and can recover via /sign_in.
+    // and if sign-in fails after insert the user record exists and can recover via /signin.
     await supabaseInsertUser(
       env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId, auth0Sub, email,
     );
@@ -117,7 +118,10 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
     }
 
     const errorDetail = msg.substring(0, 200);
-    return new Response(JSON.stringify({ error: "signup failed", code: errorCode, detail: errorDetail }), {
+    const description = ERROR_DESCRIPTIONS[errorCode];
+    const responseBody: Record<string, unknown> = { error: "signup failed", code: errorCode, detail: errorDetail };
+    if (description) responseBody.description = description;
+    return new Response(JSON.stringify(responseBody), {
       status: HTTP_STATUS.INTERNAL_SERVER_ERROR,
       headers: { [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON },
     });
@@ -152,10 +156,34 @@ async function forwardToReceiver(env: Env, payload: Record<string, unknown>): Pr
   });
   const receiverBody = await receiverRes.text();
   const contentType = receiverRes.headers.get(HEADER_NAMES.CONTENT_TYPE) ?? CONTENT_TYPES.JSON;
-  return new Response(receiverBody, {
+  const enrichedBody = enrichReceiverErrorBody(receiverRes.status, receiverBody, contentType);
+  return new Response(enrichedBody, {
     status: receiverRes.status,
     headers: { [HEADER_NAMES.CONTENT_TYPE]: contentType },
   });
+}
+
+/**
+ * On non-2xx JSON responses from the receiver, attach an ERROR_DESCRIPTIONS entry when the
+ * receiver's `code` matches a known value. Leaves the body untouched if parsing fails, the
+ * status is 2xx, the code is absent/unknown, or a description is already present.
+ */
+function enrichReceiverErrorBody(status: number, body: string, contentType: string): string {
+  if (status < HTTP_STATUS.BAD_REQUEST) return body;
+  if (!contentType.includes("application/json")) return body;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return body;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return body;
+  const obj = parsed as Record<string, unknown>;
+  if (typeof obj.code !== "string" || obj.description !== undefined) return body;
+  const description = ERROR_DESCRIPTIONS[obj.code as ErrorCode];
+  if (!description) return body;
+  obj.description = description;
+  return JSON.stringify(obj);
 }
 
 async function handleSignIn(env: Env, req: Record<string, unknown>): Promise<Response> {
@@ -202,9 +230,19 @@ async function handleSend(env: Env, req: Record<string, unknown>): Promise<Respo
     return errorResponse(`invalid ${String(field)}`, code, HTTP_STATUS.BAD_REQUEST);
   }
 
-  const { action, jwt, name, email, tier, org_name } = parsed.data;
+  const data = parsed.data;
   try {
-    return await forwardToReceiver(env, { action, email, jwt, name, tier, org_name });
+    const outbound: Record<string, unknown> = data.action === "sign_in"
+      ? { action: data.action, jwt: data.jwt, email: data.email }
+      : {
+          action: data.action,
+          jwt: data.jwt,
+          name: data.name,
+          email: data.email,
+          tier: data.tier,
+          org_name: data.org_name,
+        };
+    return await forwardToReceiver(env, outbound);
   } catch (err) {
     if (err instanceof TypeError) {
       return errorResponse("receiver-worker unreachable", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.BAD_GATEWAY);

@@ -20,9 +20,23 @@ export interface InboxSuccessResponse {
   received: Record<string, unknown>;
 }
 
+export interface SignInStubResponse {
+  ok: boolean;
+  user: { userId: string; email: string };
+  organizations: never[];
+  apiKeys: never[];
+}
+
 export interface ErrorResponse {
   error: string;
 }
+
+const ACTIONS = {
+  PROVISION_API_KEY: 'provision_api_key',
+  SIGN_IN: 'sign_in',
+} as const;
+type KnownAction = (typeof ACTIONS)[keyof typeof ACTIONS];
+const KNOWN_ACTIONS: readonly string[] = [ACTIONS.PROVISION_API_KEY, ACTIONS.SIGN_IN];
 
 /**
  * Resolve the signing secret for a request.
@@ -30,7 +44,10 @@ export interface ErrorResponse {
  * - x-key-id present → look up in SIGNING_KEYS JSON map; returns null if unknown or map absent
  */
 export function resolveSigningKey(env: Env, keyId: string | undefined): string | null {
-  if (!keyId) return env.SHARED_SECRET;
+  if (keyId === undefined) return env.SHARED_SECRET;
+  // Treat empty/whitespace keyId as an explicit lookup miss, not a fallback to
+  // SHARED_SECRET — otherwise `x-key-id: ""` bypasses rotation.
+  if (keyId.trim() === '') return null;
   if (!env.SIGNING_KEYS) return null;
   let keys: Record<string, string>;
   try {
@@ -75,8 +92,28 @@ async function handleInbox(request: Request, env: Env): Promise<Response> {
     return json({ error: 'invalid json' }, { status: 400 });
   }
 
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return json({ error: 'invalid payload' }, { status: 400 });
+  }
+
+  const payload = parsed as Record<string, unknown>;
+  const action = typeof payload.action === 'string' ? payload.action : undefined;
+  if (!action || !KNOWN_ACTIONS.includes(action)) {
+    return json({ error: 'unknown action' }, { status: 400 });
+  }
+
+  if ((action as KnownAction) === ACTIONS.SIGN_IN) {
+    const email = typeof payload.email === 'string' ? payload.email : '';
+    return json({
+      ok: true,
+      user: { userId: crypto.randomUUID(), email },
+      organizations: [],
+      apiKeys: [],
+    });
+  }
+
   const apiKey = `sk-${crypto.randomUUID().replace(/-/g, '')}`;
-  return json({ ok: true, apiKey, received: parsed });
+  return json({ ok: true, apiKey, received: payload });
 }
 
 export default {

@@ -59,7 +59,7 @@ describe('Receiver Worker', () => {
 
   describe('POST /inbox — valid requests', () => {
     it('returns 200 with ok and parsed body when signature is valid', async () => {
-      const body = JSON.stringify({ event: 'test', value: 42 });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'test', value: 42 });
       const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
@@ -78,12 +78,12 @@ describe('Receiver Worker', () => {
       const data = await response.json() as InboxSuccessResponse;
       expect(data.ok).toBe(true);
       expect(data.apiKey).toMatch(/^sk-[a-f0-9]{32}$/);
-      expect(data.received).toEqual({ event: 'test', value: 42 });
+      expect(data.received).toEqual({ action: 'provision_api_key', event: 'test', value: 42 });
     });
 
     it('returns unique apiKey on each call', async () => {
       async function callInbox(): Promise<string> {
-        const body = JSON.stringify({ event: 'uniqueness-check' });
+        const body = JSON.stringify({ action: 'provision_api_key', event: 'uniqueness-check' });
         const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
         const request = new Request('https://worker.test/inbox', {
           method: 'POST',
@@ -109,7 +109,7 @@ describe('Receiver Worker', () => {
 
   describe('POST /inbox — missing auth headers', () => {
     it('returns 401 with missing auth headers error when x-timestamp is absent', async () => {
-      const body = JSON.stringify({ event: 'test' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'test' });
       const { signature } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
@@ -130,7 +130,7 @@ describe('Receiver Worker', () => {
     });
 
     it('returns 401 with missing auth headers error when x-signature is absent', async () => {
-      const body = JSON.stringify({ event: 'test' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'test' });
       const { timestamp } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
@@ -155,7 +155,7 @@ describe('Receiver Worker', () => {
   describe('POST /inbox — stale timestamp', () => {
     it('returns 401 with stale or invalid timestamp when timestamp is more than 5 minutes old', async () => {
       const staleTimestamp = Date.now() - 6 * 60 * 1000; // 6 minutes ago
-      const body = JSON.stringify({ event: 'test' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'test' });
       const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET, staleTimestamp);
 
       const request = new Request('https://worker.test/inbox', {
@@ -177,7 +177,7 @@ describe('Receiver Worker', () => {
 
     it('returns 401 with stale or invalid timestamp when timestamp is more than 5 minutes in the future', async () => {
       const futureTimestamp = Date.now() + 6 * 60 * 1000; // 6 minutes ahead
-      const body = JSON.stringify({ event: 'test' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'test' });
       const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET, futureTimestamp);
 
       const request = new Request('https://worker.test/inbox', {
@@ -198,7 +198,7 @@ describe('Receiver Worker', () => {
     });
 
     it('returns 401 with stale or invalid timestamp when x-timestamp is non-numeric', async () => {
-      const body = JSON.stringify({ event: 'test' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'test' });
       // Compute a signature using the non-numeric string as the timestamp
       const hex = await hmacSignHex(testEnv.SHARED_SECRET, `not-a-number.${body}`);
 
@@ -231,7 +231,7 @@ describe('Receiver Worker', () => {
       vi.setSystemTime(baseTime);
 
       const requestTime = baseTime - (REPLAY_WINDOW_MS - 1);
-      const body = JSON.stringify({ event: 'boundary-inside' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'boundary-inside' });
       const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET, requestTime);
 
       const request = new Request('https://worker.test/inbox', {
@@ -256,7 +256,7 @@ describe('Receiver Worker', () => {
       vi.setSystemTime(baseTime);
 
       const requestTime = baseTime - REPLAY_WINDOW_MS;
-      const body = JSON.stringify({ event: 'boundary-at' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'boundary-at' });
       const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET, requestTime);
 
       const request = new Request('https://worker.test/inbox', {
@@ -279,7 +279,7 @@ describe('Receiver Worker', () => {
       vi.setSystemTime(baseTime);
 
       const requestTime = baseTime - (REPLAY_WINDOW_MS + 1);
-      const body = JSON.stringify({ event: 'boundary-outside' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'boundary-outside' });
       const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET, requestTime);
 
       const request = new Request('https://worker.test/inbox', {
@@ -301,7 +301,7 @@ describe('Receiver Worker', () => {
 
   describe('POST /inbox — invalid signature', () => {
     it('returns 401 with invalid signature error when signature does not match', async () => {
-      const body = JSON.stringify({ event: 'test' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'test' });
       const { timestamp } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {
@@ -346,13 +346,60 @@ describe('Receiver Worker', () => {
 
   });
 
+  describe('POST /inbox — action dispatch', () => {
+    it('returns 400 unknown action when action is missing', async () => {
+      const body = JSON.stringify({ event: 'no-action' });
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
+      const request = new Request('https://worker.test/inbox', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-timestamp': timestamp, 'x-signature': signature },
+        body,
+      });
+      const response = await worker.fetch(request, testEnv);
+      expect(response.status).toBe(400);
+      expect((await response.json() as ErrorResponse).error).toBe('unknown action');
+    });
+
+    it('returns 400 unknown action when action is not in allowlist', async () => {
+      const body = JSON.stringify({ action: 'delete_everything' });
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
+      const request = new Request('https://worker.test/inbox', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-timestamp': timestamp, 'x-signature': signature },
+        body,
+      });
+      const response = await worker.fetch(request, testEnv);
+      expect(response.status).toBe(400);
+      expect((await response.json() as ErrorResponse).error).toBe('unknown action');
+    });
+
+    it('returns stub sign_in response with empty orgs and apiKeys', async () => {
+      const body = JSON.stringify({ action: 'sign_in', email: 'user@acme.com' });
+      const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
+      const request = new Request('https://worker.test/inbox', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-timestamp': timestamp, 'x-signature': signature },
+        body,
+      });
+      const response = await worker.fetch(request, testEnv);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { ok: boolean; user: { userId: string; email: string }; organizations: unknown[]; apiKeys: unknown[] };
+      expect(data.ok).toBe(true);
+      expect(data.user.email).toBe('user@acme.com');
+      expect(data.user.userId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(data.organizations).toEqual([]);
+      expect(data.apiKeys).toEqual([]);
+    });
+  });
+
   describe('resolveSigningKey', () => {
     it('returns SHARED_SECRET when keyId is undefined', () => {
       expect(resolveSigningKey(testEnv, undefined)).toBe(testEnv.SHARED_SECRET);
     });
 
-    it('returns SHARED_SECRET when keyId is empty string', () => {
-      expect(resolveSigningKey(testEnv, '')).toBe(testEnv.SHARED_SECRET);
+    it('returns null when keyId is empty string (prevents rotation bypass)', () => {
+      expect(resolveSigningKey(testEnv, '')).toBeNull();
+      expect(resolveSigningKey(testEnv, '   ')).toBeNull();
     });
 
     it('returns mapped secret when keyId matches SIGNING_KEYS', () => {
@@ -386,7 +433,7 @@ describe('Receiver Worker', () => {
 
     it('accepts request signed with key from SIGNING_KEYS when x-key-id matches', async () => {
       const env: Env = { ...testEnv, SIGNING_KEYS: JSON.stringify({ [TEST_KEY_ID]: TEST_SECRET_V2 }) };
-      const body = JSON.stringify({ event: 'test' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'test' });
       const { timestamp, signature } = await signRequest(body, TEST_SECRET_V2);
 
       const request = new Request('https://worker.test/inbox', {
@@ -406,7 +453,7 @@ describe('Receiver Worker', () => {
 
     it('rejects request with unknown x-key-id', async () => {
       const env: Env = { ...testEnv, SIGNING_KEYS: JSON.stringify({ [TEST_KEY_ID]: TEST_SECRET_V2 }) };
-      const body = JSON.stringify({ event: 'test' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'test' });
       const { timestamp, signature } = await signRequest(body, TEST_SECRET_V2);
 
       const request = new Request('https://worker.test/inbox', {
@@ -427,7 +474,7 @@ describe('Receiver Worker', () => {
     });
 
     it('rejects x-key-id when SIGNING_KEYS is not configured', async () => {
-      const body = JSON.stringify({ event: 'test' });
+      const body = JSON.stringify({ action: 'provision_api_key', event: 'test' });
       const { timestamp, signature } = await signRequest(body, testEnv.SHARED_SECRET);
 
       const request = new Request('https://worker.test/inbox', {

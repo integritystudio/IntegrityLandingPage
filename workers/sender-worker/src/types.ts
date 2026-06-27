@@ -51,6 +51,49 @@ export const ERROR_CODE = {
 } as const;
 export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
 
+export const ERROR_DESCRIPTIONS: Partial<Record<ErrorCode, string>> = {
+  [ERROR_CODE.MISSING_FIELDS]:
+    "Request body is missing one or more required fields. Check the endpoint contract for the expected schema.",
+  [ERROR_CODE.INVALID_EMAIL]:
+    "Email field failed format validation. Must match a standard local@domain.tld pattern with no whitespace.",
+  [ERROR_CODE.INVALID_AUTH]:
+    "JWT is missing, malformed, or expired. Re-authenticate via /signin to obtain a fresh token.",
+  [ERROR_CODE.JSON_PARSE_ERROR]:
+    "Request body is not valid JSON. Ensure content-type: application/json and a well-formed body.",
+  [ERROR_CODE.UNKNOWN_ACTION]:
+    "The action field does not match a supported discriminant. Supported values: provision_api_key, sign_in.",
+  [ERROR_CODE.RECEIVER_ERROR]:
+    "Receiver worker returned a non-2xx response that could not be classified further. Check receiver logs.",
+  [ERROR_CODE.FORBIDDEN]:
+    "Request origin is not in the allowed origins list. Configure ALLOWED_ORIGINS_JSON on the worker if this origin should be permitted.",
+  [ERROR_CODE.NOT_FOUND]:
+    "No route matches the request method and path. Supported routes: GET /health, POST /signup, POST /signin, POST /send, POST /create-checkout-session.",
+  [ERROR_CODE.INTERNAL_ERROR]:
+    "Unclassified server error. Check worker logs for the underlying cause (missing env var, upstream timeout, or unhandled exception).",
+  [ERROR_CODE.AUTH0_UNCONFIGURED]:
+    "Auth0 environment variables are missing on the worker. Required: AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, AUTH0_AUDIENCE, AUTH0_CLI_ID, AUTH0_CLI_SECRET.",
+  [ERROR_CODE.AUTH0_TOKEN_EXCHANGE_FAILED]:
+    "Auth0 /oauth/token rejected the credentials. Likely causes: invalid email/password, disabled user, or ROPC grant not enabled on the Auth0 application.",
+  [ERROR_CODE.AUTH0_USER_CREATION_FAILED]:
+    "Auth0 rejected user creation. Likely causes: password policy violation, email already registered, or connection misconfiguration.",
+  [ERROR_CODE.SUPABASE_ORG_CREATION_FAILED]:
+    "Supabase rejected personal organization creation. Likely causes: duplicate email on an existing personal org, or service role key misconfiguration.",
+  [ERROR_CODE.SUPABASE_USER_INSERT_FAILED]:
+    "Supabase rejected the users row insert. Likely causes: auth0_id unique conflict, FK constraint violation, or RLS/service role key misconfiguration.",
+  [ERROR_CODE.SUPABASE_ORG_MEMBERSHIP_FAILED]:
+    "Supabase rejected the organization_memberships insert. Likely causes: missing org or user row (partial-failure upstream), or duplicate (user_id, org_id) pair.",
+  [ERROR_CODE.RECEIVER_QUOTA_EXCEEDED]:
+    "Tier quota reached for API key provisioning. Starter=3, Growth=10, Enterprise=unlimited. Upgrade tier or revoke unused keys to proceed.",
+  [ERROR_CODE.RECEIVER_RATE_LIMITED]:
+    "Receiver rate limiter rejected the request. Retry after the configured window expires; check Retry-After header if present.",
+  [ERROR_CODE.RECEIVER_REPLAY_DETECTED]:
+    "Receiver detected a replayed HMAC signature (nonce already seen within the replay window). Generate a fresh timestamp and re-sign the request.",
+  [ERROR_CODE.RECEIVER_INVALID_EMAIL_DOMAIN]:
+    "Receiver rejected the email domain. Likely causes: disposable/blocklisted domain, failed MX lookup, or domain not in the allowlist.",
+  [ERROR_CODE.RECEIVER_NOT_IMPLEMENTED]:
+    "Receiver does not implement the requested action. Verify the action field matches a supported value (provision_api_key, sign_in).",
+} as const;
+
 export const CORS_HEADERS = {
   "access-control-allow-methods": "GET, POST, OPTIONS",
   "access-control-allow-headers": "content-type, authorization, x-session-data",
@@ -84,16 +127,13 @@ export const CONTENT_TYPES = {
   JSON: "application/json; charset=utf-8",
 } as const;
 
-export const ActionSchema = z.enum(["provision_api_key", "sign_in"]);
-export type Action = z.infer<typeof ActionSchema>;
-
 export const ApiKeyTierSchema = z.enum(["starter", "growth", "enterprise"]);
 export type ApiKeyTier = z.infer<typeof ApiKeyTierSchema>;
 export const DEFAULT_TIER: ApiKeyTier = "starter";
 
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const SendRequestSchema = z.object({
+export const ProvisionApiKeyRequestSchema = z.object({
   action: z.literal("provision_api_key"),
   jwt: z.string().jwt(),
   name: z.string().min(1),
@@ -105,6 +145,17 @@ export const SendRequestSchema = z.object({
   // "mail.company.co.uk" instead of "company.co.uk"), breaking org deduplication.
   org_name: z.string().min(1).optional(),
 });
+
+export const SignInRequestSchema = z.object({
+  action: z.literal("sign_in"),
+  jwt: z.string().jwt(),
+  email: z.string().email(),
+});
+
+export const SendRequestSchema = z.discriminatedUnion("action", [
+  ProvisionApiKeyRequestSchema,
+  SignInRequestSchema,
+]);
 
 export const CreateCheckoutSessionSchema = z.object({
   email: z.string().email(),

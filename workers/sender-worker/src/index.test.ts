@@ -298,6 +298,34 @@ describe('Sender Worker', () => {
       expect((await response.json() as ErrorResponse).error).toContain('unknown action');
     });
 
+    it('forwards sign_in action with only jwt + email (no name/tier/org_name)', async () => {
+      mockReceiverResponse(
+        { ok: true, user: { userId: 'u1', email: 'user@example.com' }, organizations: [], apiKeys: [] },
+        200,
+      );
+      const payload = {
+        action: 'sign_in',
+        jwt: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIn0.signature',
+        email: 'user@example.com',
+      };
+      const request = makeSendRequest(payload);
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(200);
+
+      const forwarded = mockReceiverFetch.mock.calls[0][1] as RequestInit;
+      const forwardedBody = JSON.parse(forwarded.body as string);
+      expect(forwardedBody).toEqual({ action: 'sign_in', jwt: payload.jwt, email: payload.email });
+      expect(forwardedBody).not.toHaveProperty('name');
+      expect(forwardedBody).not.toHaveProperty('tier');
+    });
+
+    it('returns 401 when sign_in jwt is missing', async () => {
+      const request = makeSendRequest({ action: 'sign_in', email: 'user@example.com' });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(401);
+      expect((await response.json() as ErrorResponse).error).toContain('jwt');
+    });
+
     it('returns 401 when jwt is missing', async () => {
       const { jwt: _j, ...noJwt } = validSendPayload;
       const request = makeSendRequest(noJwt);
