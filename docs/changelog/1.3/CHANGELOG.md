@@ -202,3 +202,24 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - Corrected `CLAUDE.md` "Known Issues" note
 
 ---
+
+## [2026-06-27] - Auth0 Grant-Type Resolution & Sender-Worker Error Response Cleanup
+
+### Auth0 Client Credentials Grant Type — ✅ RESOLVED IN CODE
+
+**Resolution (git history audit, 2026-06-27):** The single-client consolidation was abandoned; the grant-type failure was fixed in code by separating the credential pairs again:
+- `6907474` (2026-04-07) — point the Management-API (M2M) call at a dedicated `AUTH0_MANAGER` app that has the `client_credentials` grant; derive the `/api/v2/` audience from `AUTH0_DOMAIN`.
+- `0865782` (2026-04-09) — split `AUTH0_CLIENT_*` (ROPC password grant for sign-in) from `AUTH0_CLI_*` (M2M client_credentials for user creation). Current `workers/sender-worker/src/types.ts` Env carries both pairs.
+
+Integration-test coverage for the 7 error scenarios shipped in `6d2ff74` (`workers/sender-worker/src/index.e2e.test.ts`; `workers/sender-worker/src/ERROR_SCENARIO_TESTS.md`).
+
+### Sender-Worker Error Response Cleanup
+
+**Remove "detail" Field from Error Responses (Post-Debug)**
+- Removed the debug-only `detail` field from the `handleSignup()` error response (`workers/sender-worker/src/index.ts`)
+- Error `code` + `description` mapping retained for API contract stability
+- Updated 5 e2e error-mapping tests to assert on `code` and dropped the obsolete truncation test (`src/index.e2e.test.ts`)
+- Refreshed `src/ERROR_SCENARIO_TESTS.md`
+- 157 sender-worker tests passing
+
+---

@@ -70,7 +70,7 @@ npx vitest run                    # Tests
 
 # Manual E2E testing
 npm run test:provisioning         # Interactive test guide
-# Or read: PROVISIONING_MANUAL_TEST.md for detailed steps
+# Or read: docs/PROVISIONING_MANUAL_TEST.md for detailed steps
 ```
 
 **Stripe Webhook Worker** (`workers/stripe-webhook/`)
@@ -92,8 +92,8 @@ npx vitest run                    # Tests
 - [Authentication](docs/authentication.md) — auth flows, DRY patterns, AuthMode extension, M2M + ROPC grant types
 - [Routes](docs/routes.md) — GoRouter configuration, 43 routes
 - [API Provisioning](docs/api-provisioning.md) — inter-worker HMAC-SHA256 auth, Flutter service layer, security model
-- [Provisioning Manual Test Guide](PROVISIONING_MANUAL_TEST.md) — 7 test cases, step-by-step instructions
-- [Provisioning E2E Results](PROVISIONING_E2E_RESULTS.md) — verified working components, test summary
+- [Provisioning Manual Test Guide](docs/PROVISIONING_MANUAL_TEST.md) — 7 test cases, step-by-step instructions
+- [Provisioning E2E Results](docs/PROVISIONING_E2E_RESULTS.md) — verified working components, test summary
 - [Changelog](docs/changelog/1.3/CHANGELOG.md) — version history
 - [BACKLOG](docs/BACKLOG.md) — open, deferred, blocked items
 - [Token Tree](docs/repomix/token-tree.txt) — file tree with token counts

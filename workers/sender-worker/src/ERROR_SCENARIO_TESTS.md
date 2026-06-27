@@ -102,23 +102,11 @@ Tests org membership insert failure:
 **Validates**:
 - Returns 500 status
 - Returns correct error code: `SUPABASE_ORG_MEMBERSHIP_FAILED`
-- Detail field contains "Supabase org membership"
 
 ---
 
-### 6. Error Detail Field Truncation
-**File**: `src/index.e2e.test.ts` (lines 821–846)
-
-Validates that error detail messages are truncated to 200 characters:
-
-**Validates**:
-- Long error messages are properly truncated
-- Detail field never exceeds 200 characters
-
----
-
-### 7. Unknown Errors Map to INTERNAL_ERROR
-**File**: `src/index.e2e.test.ts` (lines 848–872)
+### 6. Unknown Errors Map to INTERNAL_ERROR
+**File**: `src/index.e2e.test.ts`
 
 Tests that unmapped errors default to `INTERNAL_ERROR`:
 ```json
@@ -157,7 +145,7 @@ All error responses now include:
 {
   error: string;        // Human-readable message
   code: string;         // ERROR_CODE constant for programmatic handling
-  detail?: string;      // Full error message (max 200 chars) for debugging
+  description?: string; // Human-readable description mapped from the code
   status: number;       // HTTP status code
   headers: {
     "content-type": "application/json"
@@ -165,12 +153,13 @@ All error responses now include:
 }
 ```
 
+The debug-only `detail` field (full upstream error, truncated to 200 chars) was removed once production stabilised — granular `code` constants remain for debugging.
+
 Example:
 ```json
 {
   "error": "signup failed",
-  "code": "AUTH0_TOKEN_EXCHANGE_FAILED",
-  "detail": "Auth0 token exchange failed: 403 {\"error\":\"unauthorized_client\",\"error_description\":\"Grant type 'client_credentials' not allowed for the client.\",\"error_uri\":\"https://auth0.com/docs/clients/client-gra"
+  "code": "AUTH0_TOKEN_EXCHANGE_FAILED"
 }
 ```
 
@@ -220,9 +209,7 @@ Error: Missing "./config" specifier in "@cloudflare/vitest-pool-workers" package
    - Deploy with current error handling
    - Monitor for error code accuracy
 
-3. **Remove Debug Detail Field** (post-debugging):
-   - Once production is stable, remove `detail` field from error responses
-   - Keep granular ERROR_CODE constants for ongoing debugging
+3. **Remove Debug Detail Field** (post-debugging): ✅ Done — `detail` field removed from error responses; granular ERROR_CODE constants retained for debugging.
 
 4. **Document Error Codes** (ongoing):
    - Add ERROR_CODE mappings to API documentation
@@ -249,7 +236,7 @@ Error: Missing "./config" specifier in "@cloudflare/vitest-pool-workers" package
 
 ## References
 
-- [BACKLOG.md](../../BACKLOG.md) — Current blocker: Auth0 Client Credentials grant type configuration
+- [BACKLOG.md](../../../docs/BACKLOG.md) — Current blocker: Auth0 Client Credentials grant type configuration
 - [index.ts](./index.ts) — Error handling implementation (lines 98–122)
 - [types.ts](./types.ts) — ERROR_CODE constants (lines 29–45)
 - [index.e2e.test.ts](./index.e2e.test.ts) — Error scenario tests (lines 622–872)
