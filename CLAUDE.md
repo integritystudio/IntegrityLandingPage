@@ -1,27 +1,38 @@
 [README.md](README.md)
 
+## Commands
+
+**Flutter**
+```bash
+flutter test --coverage           # Run all tests
+flutter build web --release       # Production web build
+flutter run -d chrome             # Dev server (localhost)
+
+# Override worker URLs for local/staging:
+flutter run -d chrome \
+  --dart-define=SENDER_WORKER_URL=http://localhost:8787 \
+  --dart-define=CONTACT_API_URL=http://localhost:8786
+```
+
+**Workers** (run from the individual worker directory)
+```bash
+npm test                          # Unit tests (vitest)
+npm run deploy                    # Dev deploy (Doppler dev)
+npm run deploy:prd                # Prod deploy (Doppler prd)
+wrangler dev --port 8787          # Local dev server
+```
+
 ## Current Status
 
 **Phase**: Testing Infrastructure & Error Handling ✅ COMPLETE
 **Last Updated**: 2026-04-07
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ 2,982 Flutter tests passing (~94% coverage); 892 worker tests passing
+**Test Status**: ✅ ~2,726 Flutter tests passing (~94% coverage); ~1,559 worker tests passing
 
 See [docs/changelog/1.2/CHANGELOG.md](docs/changelog/1.2/CHANGELOG.md) for recent changes.
 
-### Recent Improvements (2026-04-07)
-- **Sender-Worker Refactor**: Extracted forwardToReceiver, parseJsonBody, ErrorCode type, named constants; added sign_in action with Auth0 ROPC forwarding
-- **Zod v4 Migration**: Bumped zod to v4 across all workers; updated schemas for v4 API compatibility
-- **ESM & Vitest**: Added ESM type to workers, bumped vitest to v4
-- **Auth0 Consolidation**: Single AUTH0_CLIENT_* credentials for both auth flows
-- **Model Extraction**: Extracted dashboard_models.dart and provisioning_models.dart from services into dedicated model files
-- **UI Polish**: Applied GradientPageShell to signup_page
-- **Domain Normalization**: Sender-worker omits org_name default so receiver handles domain normalization
-- **Error Handling**: request_failure page detects "user already exists" errors and auto-redirects to /login
-
 ### Known Issues
 - Contact form CORS blocks localhost (by design, needs config update for dev testing)
-- Analytics tracking warnings in browser console (CSP/Facebook pixel, not critical)
 
 ---
 
@@ -33,7 +44,7 @@ lib/
 ├── controllers/      # Business logic controllers
 ├── models/           # Data models
 ├── pages/            # Page widgets (40 pages)
-├── routing/          # GoRouter configuration (43 routes)
+├── routing/          # GoRouter configuration (48 routes)
 ├── services/         # External integrations (analytics, consent, contact, dashboard, provisioning)
 ├── theme/            # Design system (colors, decorations, spacing, typography)
 ├── utils/            # Utility functions
@@ -57,7 +68,7 @@ workers/
 ├── contact-form/     # Contact form worker (Resend email, KV rate limiting, CSRF)
 ├── api-gateway/      # API Gateway worker (ingest, usage aggregation, auth, quota)
 ├── sender-worker/    # Provisioning sender (HMAC-SHA256 auth)
-├── receiver-worker/  # Provisioning receiver (signature verification, replay protection)
+├── receiver-worker/  # Local stub / test double only (not deployed; production is api-provisioning-receiver in observability-toolkit)
 └── stripe-webhook/   # Stripe event handler (subscription lifecycle, checkout, dead-letter, Supabase sync)
 
 scripts/              # Build/dev tooling, repomix generation

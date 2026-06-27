@@ -599,6 +599,28 @@ Root cause: the deploy step only exports `CLOUDFLARE_API_TOKEN` (from Doppler `C
 
 ---
 
+## W06: Contact-form worker — make CORS origin check env-aware (unblock localhost dev)
+
+**Priority:** P3 | **Source:** session 2026-06-27, Known-Issues reproduction check
+**Estimated:** 1–2 hours
+
+**Context:** The contact form CORS-blocks-localhost "Known Issue" (`CLAUDE.md`) still reproduces, and the documented remedy ("needs config update for dev testing") is **wrong for this worker**. `getCorsHeaders()` (`workers/contact-form/src/index.ts:265`) calls the **hardcoded** `isOriginAllowed()` (`workers/cors-utils.ts:35`), which checks against `ALLOWED_ORIGINS` = `DEFAULT_ALLOWED_ORIGINS` (`workers/http-helpers.ts:8`, just the two prod origins). It does **not** use the env-aware `isOriginAllowedWithEnv()` / `getAllowedOrigins()` (`workers/cors-utils.ts:47`) that already exist and read `ALLOWED_ORIGINS_JSON`. So setting `ALLOWED_ORIGINS_JSON` has no effect on contact-form, and localhost cannot be allowed without a code change. The `sender-worker` already uses the env-aware path — this brings contact-form in line.
+
+**Scope:**
+1. Switch `getCorsHeaders()` to `isOriginAllowedWithEnv(origin, env)` + `getAllowedOrigins(env)`, threading `env` through (the handler already has it).
+2. Keep prod default unchanged (no `ALLOWED_ORIGINS_JSON` → the two prod origins); document adding `http://localhost:<port>` to the **dev** Doppler config only.
+3. Confirm prod CORS behaviour is unchanged (disallowed origins still rejected); add/adjust a test for the env-var path (origin allowed when present in `ALLOWED_ORIGINS_JSON`, rejected otherwise).
+4. Correct the `CLAUDE.md` "Known Issues" note (the env-var remedy now genuinely works after this change).
+
+**Files to modify:**
+- `workers/contact-form/src/index.ts` (`getCorsHeaders`, ~line 265)
+- `workers/contact-form/` tests (CORS origin cases)
+- `CLAUDE.md` (Known Issues note)
+
+**Status:** Open — confirmed reproducing; env-aware helpers already exist, contact-form just doesn't call them.
+
+---
+
 
 *Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to v1.2; CSP test failure diagnosed and fixed (47b4dc3); L16 + M37 migrated to v1.2 changelog (2 completed items). Test Status: ✅ ALL 2631 TESTS PASSING. Remaining: T25, T28, V02-Remaining, M34, M38, M39 (6 deferred/design-decision items). Score: 9/10.*
 
