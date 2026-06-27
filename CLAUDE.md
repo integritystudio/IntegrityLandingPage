@@ -76,8 +76,8 @@ test/                 # Unit + widget tests (2,982 passing, ~94% coverage)
 
 **Workers**
 - [workers/contact-form/](workers/contact-form/) — Cloudflare Worker handling contact form submissions (Resend email, KV rate limiting, CSRF, idempotency)
-- [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker that signs and forwards provisioning/sign-in events to receiver-worker (HMAC-SHA256 auth, Auth0 ROPC, Zod v4 validation)
-- [workers/receiver-worker/](workers/receiver-worker/) — Cloudflare Worker that verifies signed requests and stores provisioning data (signature verification, replay protection)
+- [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker that signs and forwards provisioning/sign-in events to the production receiver `api-provisioning-receiver` via a `[[services]]` binding (HMAC-SHA256 auth, Auth0 ROPC, Zod v4 validation)
+- [workers/receiver-worker/](workers/receiver-worker/) — **Local stub / test double only** (signature verification + replay protection, returns mock responses). The production receiver is `api-provisioning-receiver`, which lives in the separate `observability-toolkit` repo and persists to Supabase. Nothing binds to this stub in production.
 - [workers/stripe-webhook/](workers/stripe-webhook/) — Cloudflare Worker handling Stripe events (subscription lifecycle, checkout sessions, dead-letter queue, Supabase sync)
 
 ## Testing Strategy
@@ -132,11 +132,13 @@ npm run deploy:prd  # Uses --config prd, requires CI/CD context and Doppler toke
 | Worker | Purpose | Dev Deploy | Prd Deploy | CI/CD Enabled |
 |--------|---------|-----------|-----------|--------------|
 | **sender-worker** | Forwards provisioning events (HMAC auth) | ✓ doppler dev | ✓ doppler prd | ✓ Yes (main) |
-| **receiver-worker** | Verifies signed requests, stores data | ✓ wrangler | ✓ doppler prd | — |
+| **api-provisioning-receiver** | Verifies signed requests, persists to Supabase (production receiver) | — | ✓ doppler prd | ✓ Yes (separate repo) |
 | **stripe-webhook** | Handles Stripe subscription events | ✓ wrangler | ✓ doppler prd | — |
 | **contact-form** | Processes contact form (Resend, KV rate limit) | ✓ wrangler | ✓ doppler prd | — |
 | **api-gateway** | API gateway (aggregation, quota) | ✓ wrangler | ✓ doppler prd | — |
 | **bootstrap-worker** | Bootstrap operations | ✓ wrangler | ✓ doppler prd | — |
+
+**Note:** `sender-worker` reaches the receiver via a service binding — `service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml` (the source of truth). The production receiver `api-provisioning-receiver` lives in the separate `observability-toolkit` repo (`services/api-provisioning-receiver/`) and is deployed from there. `workers/receiver-worker/` in this repo is a **local stub / test double** — it is not deployed and nothing binds to it.
 
 ### GitHub Actions CI/CD
 

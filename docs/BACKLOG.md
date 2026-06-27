@@ -500,6 +500,59 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
+## W02: Receiver CI deploy — target the correct Cloudflare account for `/memberships`
+
+**Priority:** P1 | **Source:** session 2026-06-26, receiver CI deploy investigation
+**Estimated:** 1–2 hours
+**Reference commit:** d3f001d (`docs(claude): document worker deployment strategy and Doppler config`)
+
+**Context:** The `api-provisioning-receiver` deploy job (in `integritystudio/observability-toolkit`, `.github/workflows/api-provisioning-receiver-test.yml`) fails on every push to `main` with:
+
+```
+✘ A request to the Cloudflare API (/memberships) failed.
+  Authentication failed (status: 400) [code: 9106]
+```
+
+Root cause: the deploy step only exports `CLOUDFLARE_API_TOKEN` (from Doppler `CLOUDFLARE_WORKER_TOKEN`). With no account id set, wrangler calls `/memberships` to auto-discover the account, but the scoped Workers token cannot read `/memberships`, so it 400s. Verified: the same token returns 200 against `accounts/<id>/workers/scripts`, and 9106 against `/memberships`.
+
+**Problem to resolve:** The interim fix exports the **doppler-stored `CLOUDFLARE_ACCOUNT_ID`** so wrangler skips `/memberships`. That value should not be trusted blindly — confirm it is the correct **Integrity Studio Cloudflare account id** (the account that owns `api-provisioning-receiver`), and pass that explicitly rather than relying on whatever happens to be stored in Doppler.
+
+**Scope:**
+1. Confirm the canonical Integrity Studio Cloudflare account id (the one owning the deployed `sender-worker` / `api-provisioning-receiver`).
+2. Verify `CLOUDFLARE_ACCOUNT_ID` in Doppler `integrity-studio/prd` matches that account id; correct it if it diverges.
+3. Pin the account in the deploy step (export `CLOUDFLARE_ACCOUNT_ID`, or set `account_id` in `wrangler.toml`) so wrangler never falls back to the `/memberships` discovery call.
+4. Re-deploy from `main` and confirm the deploy job is green and `modified_on` updates in Cloudflare.
+
+**Files to modify:**
+- `observability-toolkit/.github/workflows/api-provisioning-receiver-test.yml` (deploy step)
+- Optionally `observability-toolkit/services/api-provisioning-receiver/wrangler.toml` (pin `account_id`)
+
+**Status:** Open — root cause confirmed; awaiting account-id verification and CI fix. (Receiver source itself is current in prod via a manual `wrangler deploy` this session.)
+
+---
+
+## W03: Reconcile stale `receiver-worker` references in provisioning docs
+
+**Priority:** P2 | **Source:** session 2026-06-26, docs audit for `receiver-worker`
+**Estimated:** 2–3 hours
+
+**Context:** `workers/receiver-worker/` is a **local stub / test double**; its deployed Cloudflare instance was deleted this session (orphan — nothing bound to it). The production receiver is **`api-provisioning-receiver`** (separate `observability-toolkit` repo), reached by `sender-worker` via a service binding, not an HTTP URL. The critical doc references that would mislead a reader into deploying or wiring the dead stub were already fixed and committed this session (`CLAUDE.md` deployment table + architecture lines, `workers/receiver-worker/README.md` banner, warning banners on `docs/provisioning-environment-setup.md` and `docs/PROVISIONING_SETUP_SUMMARY.md`).
+
+**Remaining (medium) — docs that describe the stub as if it were production; warned but not yet rewritten:**
+1. `docs/provisioning-environment-setup.md` (20 refs) — replace `receiver-worker.integritystudio.ai` / `RECEIVER_WORKER_URL` HTTP wiring and deploy steps with the service-binding model; point production receiver setup at `observability-toolkit`.
+2. `docs/PROVISIONING_SETUP_SUMMARY.md` (16 refs) — same hardcoded URL + deploy steps.
+3. `docs/inter-worker-contract-validation.md` (12 refs) — contract tests/examples target the stub interface and `receiver-worker.example.workers.dev`; clarify they validate the local stub, and add a pointer to production contract validation in `observability-toolkit`.
+4. `docs/payments-integration-wire.md` (6 refs) — claims `inboxPayloadSchema` lives in `workers/receiver-worker/src/`; the production schema is in `api-provisioning-receiver`.
+5. `docs/api-provisioning.md:385` — health-response example shows `{ service: "receiver-worker" }`; production returns `api-provisioning-receiver` (verified live).
+6. `PROVISIONING_E2E_RESULTS.md` (6 refs) and `PROVISIONING_MANUAL_TEST.md` (11 refs) — obsolete test guides against the stub; mark as local-only or deprecated, link to `observability-toolkit` integration tests.
+7. `docs/user-provisioning-workflow.md` (2 refs) and `docs/REFACTOR.md` (2 refs) — minor; verify each describes the stub vs production correctly.
+
+**Not in scope (correct, leave as-is):** `README.md` / `package.json` lint+test loops, `CLAUDE.md` dir tree, `workers/receiver-worker/wrangler.toml` name, `docs/changelog/1.2/CHANGELOG.md`, `workers/lib/TYPES.md`, `.serena/memories/*` — these correctly reference the local stub source or historical changelog.
+
+**Status:** Open — critical items fixed this session; medium doc rewrites deferred. See also [[W02]] (receiver CI deploy).
+
+---
+
 
 *Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to v1.2; CSP test failure diagnosed and fixed (47b4dc3); L16 + M37 migrated to v1.2 changelog (2 completed items). Test Status: ✅ ALL 2631 TESTS PASSING. Remaining: T25, T28, V02-Remaining, M34, M38, M39 (6 deferred/design-decision items). Score: 9/10.*
 

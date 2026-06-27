@@ -1,5 +1,15 @@
 # Receiver Worker
 
+> ⚠️ **Local stub / test double only — NOT the production receiver.**
+> This worker returns mock responses and is **not deployed**; nothing binds to it.
+> The production receiver is **`api-provisioning-receiver`**, which lives in the
+> separate `observability-toolkit` repo (`services/api-provisioning-receiver/`),
+> persists to Supabase, and is the target of `sender-worker`'s service binding
+> (`service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`).
+> The deploy steps and `*.integritystudio.ai` URLs below describe a retired setup —
+> do not follow them to deploy this stub. They are retained only as reference for
+> the shared signature/replay contract this stub mirrors.
+
 Cloudflare Worker that verifies signed requests from the Sender Worker as part of the API provisioning architecture. Implements HMAC-SHA256 signature verification and replay protection.
 
 ## Purpose

@@ -6,6 +6,8 @@
 
 ---
 
+> ⚠️ **STALE — superseded.** References to `receiver-worker` and `RECEIVER_WORKER_URL = https://receiver-worker.integritystudio.ai` describe a retired HTTP-based wiring. The production receiver is **`api-provisioning-receiver`** (separate `observability-toolkit` repo), reached by `sender-worker` via a **service binding** (`service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`), not a URL. The `workers/receiver-worker/` in this repo is a local stub and is not deployed. Tracked for rewrite in `docs/BACKLOG.md` (W03).
+
 ## Overview
 
 The API Provisioning system is now **fully documented, tested, and configured** for multi-environment deployment. This document provides a complete summary of what's been implemented and how to proceed.

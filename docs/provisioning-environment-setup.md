@@ -5,6 +5,8 @@
 
 This guide covers setting up the Sender Worker and Receiver Worker across development, staging, and production environments on Cloudflare.
 
+> ⚠️ **STALE — superseded.** The `receiver-worker` hostnames (`receiver-worker.integritystudio.ai`, `receiver-worker-staging.integritystudio.ai`) and the `RECEIVER_WORKER_URL` env var below describe a retired HTTP-based wiring. The production receiver is now **`api-provisioning-receiver`** (in the separate `observability-toolkit` repo), and `sender-worker` reaches it via a **service binding** (`service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`), not a URL. Do not follow the receiver deploy steps or URLs here. For production receiver setup, see the `observability-toolkit` repo. Tracked for rewrite in `docs/BACKLOG.md` (W03).
+
 ---
 
 ## Environment Overview
