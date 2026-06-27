@@ -514,6 +514,71 @@ describe('Sender Worker', () => {
     });
   });
 
+  describe('CORS — Cloudflare Pages preview origins', () => {
+    afterEach(() => {
+      mockReceiverFetch.mockReset();
+    });
+
+    const previewOrigin = 'https://bc710702.integritystudio-ai-c1a.pages.dev';
+
+    it('returns 204 with CORS headers for a Pages preview-deploy origin (OPTIONS)', async () => {
+      const request = new Request('https://worker.test/send', {
+        method: 'OPTIONS',
+        headers: { Origin: previewOrigin },
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(204);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe(previewOrigin);
+    });
+
+    it('includes CORS headers on POST response from a Pages preview origin', async () => {
+      mockReceiverResponse({ ok: true }, 200);
+      const request = makeSendRequest(validSendPayload, { Origin: previewOrigin });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe(previewOrigin);
+    });
+
+    it('allows preview origins even when ALLOWED_ORIGINS_JSON omits them', async () => {
+      const envWithCustom: Env = {
+        ...mockEnv,
+        ALLOWED_ORIGINS_JSON: JSON.stringify(['https://integritystudio.ai']),
+      };
+      mockReceiverResponse({ ok: true }, 200);
+      const request = makeSendRequest(validSendPayload, { Origin: previewOrigin });
+      const response = await worker.fetch(request, envWithCustom);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe(previewOrigin);
+    });
+
+    it('rejects a non-https preview-looking origin', async () => {
+      const request = makeSendRequest(validSendPayload, {
+        Origin: 'http://bc710702.integritystudio-ai-c1a.pages.dev',
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(403);
+      expect((await response.json() as ErrorResponse).error).toBe('forbidden');
+    });
+
+    it('rejects a lookalike host that only contains the suffix as a prefix', async () => {
+      const request = makeSendRequest(validSendPayload, {
+        Origin: 'https://bc710702.integritystudio-ai-c1a.pages.dev.attacker.com',
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(403);
+      expect((await response.json() as ErrorResponse).error).toBe('forbidden');
+    });
+
+    it('rejects the bare project alias (no subdomain boundary)', async () => {
+      const request = makeSendRequest(validSendPayload, {
+        Origin: 'https://integritystudio-ai-c1a.pages.dev',
+      });
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(403);
+      expect((await response.json() as ErrorResponse).error).toBe('forbidden');
+    });
+  });
+
   describe('POST /signup — Auth0 user creation', () => {
     it('calls Auth0 Management API and returns auth0Sub + userId on success', async () => {
       const auth0Sub = 'auth0|test-user-id';

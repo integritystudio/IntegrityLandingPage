@@ -38,6 +38,14 @@ const HARDCODED_ALLOWED_ORIGINS = [
   "https://www.integritystudio.ai",
 ];
 
+// Cloudflare Pages preview deployments for the integritystudio-ai project are served at
+// https://<deploy-hash>.integritystudio-ai-c1a.pages.dev (and named-branch aliases). These
+// hostnames are owned exclusively by this account's Pages project, so matching the suffix is
+// safe and lets preview builds exercise the live sender without per-deploy ALLOWED_ORIGINS_JSON
+// edits. The leading dot enforces a subdomain boundary (the bare alias and lookalike hosts such
+// as `…pages.dev.attacker.com` do not match), and only https origins are accepted.
+const PAGES_PREVIEW_HOST_SUFFIX = ".integritystudio-ai-c1a.pages.dev";
+
 function getAllowedOrigins(env: Env): string[] {
   if (env.ALLOWED_ORIGINS_JSON) {
     try {
@@ -49,8 +57,18 @@ function getAllowedOrigins(env: Env): string[] {
   return HARDCODED_ALLOWED_ORIGINS;
 }
 
+function isPagesPreviewOrigin(origin: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  return url.protocol === "https:" && url.hostname.endsWith(PAGES_PREVIEW_HOST_SUFFIX);
+}
+
 function isOriginAllowed(origin: string, env: Env): boolean {
-  return getAllowedOrigins(env).includes(origin);
+  return getAllowedOrigins(env).includes(origin) || isPagesPreviewOrigin(origin);
 }
 
 async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Response> {
