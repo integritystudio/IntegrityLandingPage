@@ -1,18 +1,23 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "=== API Provisioning E2E Manual Test ==="
-echo "Following the manual test guide at: PROVISIONING_MANUAL_TEST.md"
+echo "=== API Provisioning E2E (sender-worker, local) ==="
 echo
-echo "⚠️  This is an INTERACTIVE manual test — do not run in CI"
+echo "Architecture note:"
+echo "  The production receiver is 'api-provisioning-receiver' (in the separate"
+echo "  observability-toolkit repo). sender-worker reaches it via a [[services]]"
+echo "  binding (RECEIVER -> api-provisioning-receiver), NOT an HTTP URL."
+echo "  This script starts sender-worker locally and exercises its self-contained"
+echo "  validation/routing surface (paths that are rejected before forwarding)."
+echo "  The full provision_api_key / sign_in forwarding happy-path requires the"
+echo "  receiver binding + Auth0/Supabase secrets and is NOT covered here."
 echo
 
-RECEIVER_PORT=8788
-SENDER_PORT=8787
-RECEIVER_URL="http://localhost:${RECEIVER_PORT}"
+SENDER_PORT="${SENDER_PORT:-8787}"
 SENDER_URL="http://localhost:${SENDER_PORT}"
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
-SHARED_SECRET="${SHARED_SECRET:?SHARED_SECRET environment variable must be set}"
+SENDER_DIR="${PROJECT_ROOT}/workers/sender-worker"
+DEV_VARS="${SENDER_DIR}/.dev.vars"
 
 # Colors
 GREEN='\033[0;32m'
@@ -21,20 +26,21 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+DEV_VARS_CREATED=0
+SENDER_PID=""
+
 cleanup() {
   echo
-  echo "${YELLOW}Stopping workers...${NC}"
-  pkill -f "wrangler dev.*receiver-worker" 2>/dev/null || true
+  echo "${YELLOW}Stopping sender-worker...${NC}"
+  [ -n "$SENDER_PID" ] && kill "$SENDER_PID" 2>/dev/null || true
   pkill -f "wrangler dev.*sender-worker" 2>/dev/null || true
-  sleep 2
-  # Force kill if still running
-  pkill -9 -f "wrangler dev.*receiver-worker" 2>/dev/null || true
+  sleep 1
   pkill -9 -f "wrangler dev.*sender-worker" 2>/dev/null || true
+  # Only remove .dev.vars if this script created it
+  [ "$DEV_VARS_CREATED" = "1" ] && rm -f "$DEV_VARS" || true
 }
-
 trap cleanup EXIT
 
-# Helper function to print test header
 test_header() {
   echo
   echo "${BLUE}┌────────────────────────────────────────┐${NC}"
@@ -42,124 +48,123 @@ test_header() {
   echo "${BLUE}└────────────────────────────────────────┘${NC}"
 }
 
-# Helper function to verify HTTP response
+FAILURES=0
 verify_http() {
   local expected_code=$1
   local actual_code=$2
-  local test_name=$3
-
   if [ "$actual_code" = "$expected_code" ]; then
     echo "${GREEN}✓ HTTP $actual_code (expected $expected_code)${NC}"
-    return 0
   else
     echo "${RED}✗ HTTP $actual_code (expected $expected_code)${NC}"
-    return 1
+    FAILURES=$((FAILURES + 1))
   fi
 }
 
-echo "${YELLOW}Step 1: Start Receiver Worker${NC}"
-cd "${PROJECT_ROOT}/workers/receiver-worker"
-echo "Running: wrangler dev --port ${RECEIVER_PORT}"
-echo "  → Press Ctrl+C in another terminal to stop"
-wrangler dev --port ${RECEIVER_PORT} > /tmp/receiver.log 2>&1 &
-RECEIVER_PID=$!
-echo "Process ID: $RECEIVER_PID"
-echo "${YELLOW}Waiting for receiver to start...${NC}"
-sleep 5
+# Local dev secrets. SHARED_SECRET lets /send reach schema validation (handleSend
+# checks RECEIVER binding + SHARED_SECRET before validating the body). The binding
+# itself comes from wrangler.toml; the target receiver need not be running because
+# these tests are rejected before any forward occurs.
+if [ ! -f "$DEV_VARS" ]; then
+  echo "${YELLOW}Creating temporary ${DEV_VARS} for local dev...${NC}"
+  cat > "$DEV_VARS" << 'EOF'
+SHARED_SECRET=test-secret-key-12345
+EOF
+  DEV_VARS_CREATED=1
+fi
 
-# Check if receiver is running
-if ! kill -0 $RECEIVER_PID 2>/dev/null; then
-  echo "${RED}✗ Receiver-worker failed to start${NC}"
-  cat /tmp/receiver.log
+echo "${YELLOW}Starting sender-worker (wrangler dev --port ${SENDER_PORT})...${NC}"
+cd "$SENDER_DIR"
+wrangler dev --port "${SENDER_PORT}" > /tmp/sender.log 2>&1 &
+SENDER_PID=$!
+
+echo "${YELLOW}Waiting for sender-worker to become ready...${NC}"
+READY=0
+for _ in $(seq 1 30); do
+  if curl -fsS "${SENDER_URL}/health" > /dev/null 2>&1; then
+    READY=1
+    break
+  fi
+  if ! kill -0 "$SENDER_PID" 2>/dev/null; then
+    echo "${RED}✗ sender-worker exited during startup${NC}"
+    cat /tmp/sender.log
+    exit 1
+  fi
+  sleep 1
+done
+if [ "$READY" != "1" ]; then
+  echo "${RED}✗ sender-worker did not become ready in time${NC}"
+  cat /tmp/sender.log
   exit 1
 fi
-echo "${GREEN}✓ Receiver-worker started${NC}"
+echo "${GREEN}✓ sender-worker is up${NC}"
 
-echo
-echo "${YELLOW}Step 2: Start Sender Worker${NC}"
-cd "${PROJECT_ROOT}/workers/sender-worker"
-echo "Running: wrangler dev --port ${SENDER_PORT}"
-echo "  Configuration required:"
-echo "  1. Update wrangler.toml with RECEIVER_WORKER_URL = \"${RECEIVER_URL}\""
-echo "  2. Run: SHARED_SECRET=test-secret-key-12345 wrangler secret put SHARED_SECRET"
-echo
-echo "For this test, you need to manually start the sender-worker with:"
-echo "  cd ${PROJECT_ROOT}/workers/sender-worker"
-echo "  export SHARED_SECRET='test-secret-key-12345'"
-echo "  export RECEIVER_WORKER_URL='${RECEIVER_URL}'"
-echo "  wrangler dev --port ${SENDER_PORT}"
-echo
-
-# Wait for user to start sender worker
-echo "${YELLOW}Press Enter once you've started the sender-worker in another terminal...${NC}"
-read -r
-
-echo
-test_header "Test 1: Receiver Health Endpoint"
-HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test1.json "${RECEIVER_URL}/health")
+test_header "Test 1: Health endpoint"
+HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test1.json "${SENDER_URL}/health")
 RESPONSE=$(cat /tmp/test1.json)
 echo "Response: $RESPONSE"
-verify_http "200" "$HTTP_CODE" "Health check"
+verify_http "200" "$HTTP_CODE"
+if echo "$RESPONSE" | jq -e '.service == "api-provisioning-sender"' > /dev/null 2>&1; then
+  echo "${GREEN}✓ service == api-provisioning-sender${NC}"
+else
+  echo "${RED}✗ unexpected service identifier${NC}"
+  FAILURES=$((FAILURES + 1))
+fi
 
-echo
-test_header "Test 2: Invalid JSON to Sender"
+test_header "Test 2: Invalid JSON to /send → 400"
 HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test2.json -X POST "${SENDER_URL}/send" \
   -H "Content-Type: application/json" \
   -d '{invalid json}')
-RESPONSE=$(cat /tmp/test2.json)
-echo "Response: $RESPONSE"
-verify_http "400" "$HTTP_CODE" "Invalid JSON"
+echo "Response: $(cat /tmp/test2.json)"
+verify_http "400" "$HTTP_CODE"
 
-echo
-test_header "Test 3: Valid Provisioning Event"
-PAYLOAD='{"userId":"user123","action":"signup","sentAt":"2026-03-20T12:00:00Z"}'
-echo "Payload: $PAYLOAD"
+test_header "Test 3: Unknown action to /send → 400"
 HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test3.json -X POST "${SENDER_URL}/send" \
   -H "Content-Type: application/json" \
-  -d "${PAYLOAD}")
-RESPONSE=$(cat /tmp/test3.json)
-echo "Response: $RESPONSE"
-if verify_http "200" "$HTTP_CODE" "Valid event"; then
-  if echo "$RESPONSE" | jq -e '.ok == true' > /dev/null 2>&1; then
-    echo "${GREEN}✓ Response contains ok: true${NC}"
-  fi
+  -d '{"action":"bogus"}')
+echo "Response: $(cat /tmp/test3.json)"
+verify_http "400" "$HTTP_CODE"
+
+test_header "Test 4: sign_in to /send without JWT → 401"
+HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test4.json -X POST "${SENDER_URL}/send" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"sign_in","email":"user@example.com"}')
+echo "Response: $(cat /tmp/test4.json)"
+verify_http "401" "$HTTP_CODE"
+
+test_header "Test 5: /signup missing email/password → 400"
+HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test5.json -X POST "${SENDER_URL}/signup" \
+  -H "Content-Type: application/json" \
+  -d '{}')
+echo "Response: $(cat /tmp/test5.json)"
+verify_http "400" "$HTTP_CODE"
+
+test_header "Test 6: /signup invalid email format → 400"
+HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test6.json -X POST "${SENDER_URL}/signup" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"not-an-email","password":"hunter2hunter2"}')
+echo "Response: $(cat /tmp/test6.json)"
+verify_http "400" "$HTTP_CODE"
+
+test_header "Test 7: Unknown route → 404"
+HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test7.json -X POST "${SENDER_URL}/nope" \
+  -H "Content-Type: application/json" -d '{}')
+echo "Response: $(cat /tmp/test7.json)"
+verify_http "404" "$HTTP_CODE"
+
+echo
+if [ "$FAILURES" = "0" ]; then
+  echo "${GREEN}=== All sender-worker validation checks passed ===${NC}"
+else
+  echo "${RED}=== ${FAILURES} check(s) failed ===${NC}"
 fi
 
 echo
-test_header "Test 4: Missing Auth Headers on Receiver"
-HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test4.json -X POST "${RECEIVER_URL}/inbox" \
-  -H "Content-Type: application/json" \
-  -d '{"userId":"user456","action":"login"}')
-RESPONSE=$(cat /tmp/test4.json)
-echo "Response: $RESPONSE"
-verify_http "401" "$HTTP_CODE" "Missing headers"
+echo "${YELLOW}Not covered here (require the receiver + Auth0/Supabase):${NC}"
+echo "  - POST /send  {action: provision_api_key | sign_in} happy-path forwarding"
+echo "  - POST /signup full Auth0 ROPC + Supabase user/org creation"
+echo "  For those, run the sender-worker integration/live suites:"
+echo "    cd workers/sender-worker && npm run test:e2e   # doppler dev config"
+echo "    cd workers/sender-worker && npm run test:live  # real staging HTTP"
+echo "  and deploy/verify the receiver from the observability-toolkit repo."
 
-echo
-test_header "Test 5: Complex Nested Payload"
-COMPLEX='{"userId":"user789","action":"settings_update","metadata":{"email":"test@example.com","plan":"pro","features":["analytics","export"]}}'
-echo "Payload: $COMPLEX"
-HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test5.json -X POST "${SENDER_URL}/send" \
-  -H "Content-Type: application/json" \
-  -d "${COMPLEX}")
-RESPONSE=$(cat /tmp/test5.json)
-echo "Response: $RESPONSE"
-if verify_http "200" "$HTTP_CODE" "Complex event"; then
-  if echo "$RESPONSE" | jq -e '.ok == true' > /dev/null 2>&1; then
-    echo "${GREEN}✓ Nested objects preserved${NC}"
-  fi
-fi
-
-echo
-echo "${GREEN}=== Manual E2E Test Guide Complete ===${NC}"
-echo
-echo "${YELLOW}Summary:${NC}"
-echo "  ✓ Receiver-worker is operational"
-echo "  ✓ Health endpoint accessible"
-echo "  ✓ Invalid JSON handling verified"
-echo "  ✓ Signature verification flow tested"
-echo "  ✓ Complex payload support confirmed"
-echo
-echo "${YELLOW}For automated testing in the future:${NC}"
-echo "  1. Configure wrangler.toml with RECEIVER_WORKER_URL"
-echo "  2. Run 'wrangler secret put SHARED_SECRET' on both workers"
-echo "  3. Re-run this script"
+exit "$FAILURES"
