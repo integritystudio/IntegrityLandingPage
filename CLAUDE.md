@@ -32,7 +32,7 @@ wrangler dev --port 8787          # Local dev server
 See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recent changes.
 
 ### Known Issues
-- Contact form CORS blocks localhost (by design, needs config update for dev testing)
+- None open. (Contact-form CORS now honors `ALLOWED_ORIGINS_JSON` — add `http://localhost:<port>` to the **dev** Doppler config to allow localhost; prod defaults unchanged.)
 
 ---
 

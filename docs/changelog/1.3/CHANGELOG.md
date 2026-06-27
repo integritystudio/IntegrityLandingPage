@@ -143,6 +143,32 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 
 ---
 
+## [2026-06-26] - Payment Processor Security Hardening
+
+### Security Hardening
+
+**JWT Compliance & Claim Validation**
+- V-06: Added `nbf` (not-before) claim validation with `NBF_CLOCK_SKEW_SECONDS` constant
+- V-18: Added `aud` (audience) claim validation; explicit typed fields on `JwtPayload`
+- Commit: `3f593b9`
+
+**HTTP Response Headers**
+- V-22: Added `X-Content-Type-Options: nosniff` + `Cache-Control: no-store` on all api-gateway and sender-worker responses
+- Commit: `30d990f`
+
+**Quota Durable Object Durability**
+- T28 (code): Added `blockConcurrencyWhile` cold-start guard; documented durability SLA
+- Commit: `6251629`
+
+### Features
+
+**Enterprise Stripe Checkout**
+- Enterprise signup now creates Auth0 account + Supabase org; routes to `/checkout`
+- Added graceful fallback to `/request_success` when no Stripe price is configured
+- Commit: `f14ba4a`
+
+---
+
 ## [2026-06-27] - Provisioning Docs Reconciliation (W03)
 
 **Reconcile Stale `receiver-worker` References**
@@ -150,5 +176,29 @@ All notable changes to the IntegrityStudio.ai Flutter project and Cloudflare Wor
 - Updated: `api-provisioning.md`, `payments-integration-wire.md`, `user-provisioning-workflow.md`, `inter-worker-contract-validation.md`, `PROVISIONING_SETUP_SUMMARY.md`, `PROVISIONING_E2E_RESULTS.md`, `PROVISIONING_MANUAL_TEST.md`, `provisioning-environment-setup.md`
 - Marked W03 done; added W04 (monitoring/alerting), W05 (Doppler secret durability), W06 (contact-form env-aware CORS) to the backlog
 - Commit: `f76ab28`
+
+---
+
+## [2026-06-27] - Receiver CI Deploy & Contact Form CORS Fixes
+
+### Receiver Deployment (W02)
+
+**Receiver CI Deploy — Account ID Configuration**
+- Verified canonical Integrity Studio Cloudflare account id (`b3868dd0fd5c0faa7d98aa325a9c2377`)
+- Confirmed `CLOUDFLARE_ACCOUNT_ID` in Doppler `integrity-studio/prd` matches; no divergence
+- API deploy step now exports both `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from Doppler, skipping `/memberships` discovery
+- Deploy confirmed green: `api-provisioning-receiver` `modified_on` = `2026-06-27T01:54Z`
+- Fixes: `api-provisioning-receiver` CI deploy 400 error on `/memberships`
+
+### Contact Form CORS (W06)
+
+**Contact-Form Worker — Environment-Aware CORS Origins**
+- Switched `getCorsHeaders()` from hardcoded `isOriginAllowed()` to `isOriginAllowedWithEnv()` + `getAllowedOrigins()`
+- Threading `env` through call sites; prod default unchanged (no `ALLOWED_ORIGINS_JSON` → two prod origins)
+- Added env-var support: setting `ALLOWED_ORIGINS_JSON='["http://localhost:8080"]'` in dev Doppler config now allows localhost
+- Prod CORS behavior unchanged; disallowed origins still rejected
+- Contact-form tests: 74 passing (was 71); 3 env-aware CORS test cases added
+- Unblocks localhost dev testing by updating dev Doppler config (no longer requires code changes)
+- Corrected `CLAUDE.md` "Known Issues" note
 
 ---

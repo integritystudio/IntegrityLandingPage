@@ -1,8 +1,8 @@
 # Backlog
 
-Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, and `docs/changelog/1.2/CHANGELOG.md`.
+Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, `docs/changelog/1.2/CHANGELOG.md`, and `docs/changelog/1.3/CHANGELOG.md`.
 
-**Last Updated:** 2026-03-25 | **Phase:** V02 & Health Monitoring Complete; OTEL Implementation (L22-L25) migrated to v1.2 (4 items); 51+ items in v1.2; 1 remaining design-decision item (T28); 1 new performance optimization item added (W01: Valibot migration)
+**Last Updated:** 2026-06-27 | **Phase:** Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); remaining deferred items: T28 (design decision), W01 (performance optimization), W04-W05 (infrastructure/monitoring)
 
 ---
 
@@ -421,19 +421,6 @@ Apply same extraction pattern to other content files:
 
 ## Open Items
 
-## Payment Processor Security Remediation
-
-Deferred security hardening for the two-layer authentication and billing system. Findings documented in `docs/security/SECURITY_VULNERABILITY_REPORT.md` and `docs/reports/JWT_COMPLIANCE_REVIEW.md`.
-
-**Completed this session:**
-- ✅ V-06: `nbf` claim validation with `NBF_CLOCK_SKEW_SECONDS` constant (commit 3f593b9)
-- ✅ V-18: `aud` claim validation; explicit typed fields on `JwtPayload` (commit 3f593b9)
-- ✅ V-22: `X-Content-Type-Options: nosniff` + `Cache-Control: no-store` on all api-gateway and sender-worker responses (commit 30d990f)
-- ✅ T28 (code): `blockConcurrencyWhile` cold-start guard + durability SLA documented (commit 6251629)
-- ✅ Enterprise Stripe checkout: enterprise signup now creates Auth0 account + Supabase org; routes to `/checkout`; graceful fallback to `/request_success` when no Stripe price configured (commit f14ba4a)
-
----
-
 ### T28: Handle Persistent Storage Data Loss Risk in Quota DO
 
 **Priority:** P3 | **Source:** session 2026-03-20, quota commit review (523518f)
@@ -500,59 +487,6 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
-## W02: Receiver CI deploy — target the correct Cloudflare account for `/memberships`
-
-**Priority:** P1 | **Source:** session 2026-06-26, receiver CI deploy investigation
-**Estimated:** 1–2 hours
-**Reference commit:** d3f001d (`docs(claude): document worker deployment strategy and Doppler config`)
-
-**Context:** The `api-provisioning-receiver` deploy job (in `integritystudio/observability-toolkit`, `.github/workflows/api-provisioning-receiver-test.yml`) fails on every push to `main` with:
-
-```
-✘ A request to the Cloudflare API (/memberships) failed.
-  Authentication failed (status: 400) [code: 9106]
-```
-
-Root cause: the deploy step only exports `CLOUDFLARE_API_TOKEN` (from Doppler `CLOUDFLARE_WORKER_TOKEN`). With no account id set, wrangler calls `/memberships` to auto-discover the account, but the scoped Workers token cannot read `/memberships`, so it 400s. Verified: the same token returns 200 against `accounts/<id>/workers/scripts`, and 9106 against `/memberships`.
-
-**Problem to resolve:** The interim fix exports the **doppler-stored `CLOUDFLARE_ACCOUNT_ID`** so wrangler skips `/memberships`. That value should not be trusted blindly — confirm it is the correct **Integrity Studio Cloudflare account id** (the account that owns `api-provisioning-receiver`), and pass that explicitly rather than relying on whatever happens to be stored in Doppler.
-
-**Scope:**
-1. Confirm the canonical Integrity Studio Cloudflare account id (the one owning the deployed `sender-worker` / `api-provisioning-receiver`).
-2. Verify `CLOUDFLARE_ACCOUNT_ID` in Doppler `integrity-studio/prd` matches that account id; correct it if it diverges.
-3. Pin the account in the deploy step (export `CLOUDFLARE_ACCOUNT_ID`, or set `account_id` in `wrangler.toml`) so wrangler never falls back to the `/memberships` discovery call.
-4. Re-deploy from `main` and confirm the deploy job is green and `modified_on` updates in Cloudflare.
-
-**Files to modify:**
-- `observability-toolkit/.github/workflows/api-provisioning-receiver-test.yml` (deploy step)
-- Optionally `observability-toolkit/services/api-provisioning-receiver/wrangler.toml` (pin `account_id`)
-
-**Status:** Open — root cause confirmed; awaiting account-id verification and CI fix. (Receiver source itself is current in prod via a manual `wrangler deploy` this session.)
-
----
-
-## W03: Reconcile stale `receiver-worker` references in provisioning docs
-
-**Priority:** P2 | **Source:** session 2026-06-26, docs audit for `receiver-worker`
-**Estimated:** 2–3 hours
-
-**Context:** `workers/receiver-worker/` is a **local stub / test double**; its deployed Cloudflare instance was deleted this session (orphan — nothing bound to it). The production receiver is **`api-provisioning-receiver`** (separate `observability-toolkit` repo), reached by `sender-worker` via a service binding, not an HTTP URL. The critical doc references that would mislead a reader into deploying or wiring the dead stub were already fixed and committed this session (`CLAUDE.md` deployment table + architecture lines, `workers/receiver-worker/README.md` banner, warning banners on `docs/provisioning-environment-setup.md` and `docs/PROVISIONING_SETUP_SUMMARY.md`).
-
-**Remaining (medium) — docs that describe the stub as if it were production; warned but not yet rewritten:**
-1. ✅ `docs/provisioning-environment-setup.md` — misleading sections already removed; banner finalized (W03-pending pointer dropped).
-2. ✅ `docs/PROVISIONING_SETUP_SUMMARY.md` — obsolete `RECEIVER_WORKER_URL` / `receiver-worker.integritystudio.ai` config + deploy/curl blocks annotated with the current service-binding model; "service bindings" future-work items marked done.
-3. ✅ `docs/inter-worker-contract-validation.md` — added "what this validates" banner (local stub vs production); deploy checklist + config matrix rewritten to the `RECEIVER` service binding; pointer to `observability-toolkit` for production contract validation.
-4. ✅ `docs/payments-integration-wire.md` — `inboxPayloadSchema` location corrected to `api-provisioning-receiver`; receiver refs + error table updated to the service-binding model.
-5. ✅ `docs/api-provisioning.md` — health-response example now `{ service: "api-provisioning-receiver" }`; added receiver-identity/service-binding note; impl-status receiver path clarified.
-6. ✅ `PROVISIONING_E2E_RESULTS.md` and `PROVISIONING_MANUAL_TEST.md` — deprecation banners added (local-stub only); point to `observability-toolkit` integration tests for production.
-7. ✅ `docs/user-provisioning-workflow.md` — 2 refs updated to `api-provisioning-receiver` (+ "via service binding"). `docs/REFACTOR.md` — verified: its 2 refs describe the in-repo stub source dir for a Zod validation refactor, which is accurate; left as-is.
-
-**Not in scope (correct, leave as-is):** `README.md` / `package.json` lint+test loops, `CLAUDE.md` dir tree, `workers/receiver-worker/wrangler.toml` name, `docs/changelog/1.2/CHANGELOG.md`, `workers/lib/TYPES.md`, `.serena/memories/*` — these correctly reference the local stub source or historical changelog.
-
-**Status:** ✅ Done (2026-06-26) — all medium doc rewrites complete; provisioning docs reconciled to the service-binding model (`sender-worker` → `api-provisioning-receiver`). See also [[W02]] (receiver CI deploy).
-
----
-
 ## W04: Provisioning workers — monitoring, alerting & dashboards
 
 **Priority:** P2 | **Source:** session 2026-06-27, reconciled from `docs/PROVISIONING_SETUP_SUMMARY.md` open items ("Monitoring and alerting — must implement", "Monitoring Dashboards — Cloudflare Analytics")
@@ -596,28 +530,6 @@ Root cause: the deploy step only exports `CLOUDFLARE_API_TOKEN` (from Doppler `C
 - `CLAUDE.md` "Secret Rotation" section (confirm/expand)
 
 **Status:** Open — verification + documentation only; key-rotation mechanism already shipped. See also [[W02]] (Doppler-stored `CLOUDFLARE_ACCOUNT_ID`).
-
----
-
-## W06: Contact-form worker — make CORS origin check env-aware (unblock localhost dev)
-
-**Priority:** P3 | **Source:** session 2026-06-27, Known-Issues reproduction check
-**Estimated:** 1–2 hours
-
-**Context:** The contact form CORS-blocks-localhost "Known Issue" (`CLAUDE.md`) still reproduces, and the documented remedy ("needs config update for dev testing") is **wrong for this worker**. `getCorsHeaders()` (`workers/contact-form/src/index.ts:265`) calls the **hardcoded** `isOriginAllowed()` (`workers/cors-utils.ts:35`), which checks against `ALLOWED_ORIGINS` = `DEFAULT_ALLOWED_ORIGINS` (`workers/http-helpers.ts:8`, just the two prod origins). It does **not** use the env-aware `isOriginAllowedWithEnv()` / `getAllowedOrigins()` (`workers/cors-utils.ts:47`) that already exist and read `ALLOWED_ORIGINS_JSON`. So setting `ALLOWED_ORIGINS_JSON` has no effect on contact-form, and localhost cannot be allowed without a code change. The `sender-worker` already uses the env-aware path — this brings contact-form in line.
-
-**Scope:**
-1. Switch `getCorsHeaders()` to `isOriginAllowedWithEnv(origin, env)` + `getAllowedOrigins(env)`, threading `env` through (the handler already has it).
-2. Keep prod default unchanged (no `ALLOWED_ORIGINS_JSON` → the two prod origins); document adding `http://localhost:<port>` to the **dev** Doppler config only.
-3. Confirm prod CORS behaviour is unchanged (disallowed origins still rejected); add/adjust a test for the env-var path (origin allowed when present in `ALLOWED_ORIGINS_JSON`, rejected otherwise).
-4. Correct the `CLAUDE.md` "Known Issues" note (the env-var remedy now genuinely works after this change).
-
-**Files to modify:**
-- `workers/contact-form/src/index.ts` (`getCorsHeaders`, ~line 265)
-- `workers/contact-form/` tests (CORS origin cases)
-- `CLAUDE.md` (Known Issues note)
-
-**Status:** Open — confirmed reproducing; env-aware helpers already exist, contact-form just doesn't call them.
 
 ---
 
