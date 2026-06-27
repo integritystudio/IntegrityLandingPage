@@ -7,13 +7,13 @@ Flutter-side architecture for Worker-to-Worker API provisioning with HMAC-signed
 ```text
 Flutter app
    -> POST /send -> Sender Worker (signs request)
-                       -> signed POST /inbox -> Receiver Worker (verifies)
+                       -> signed /inbox (RECEIVER service binding) -> api-provisioning-receiver (verifies)
 
 Flutter app
-   -> GET /health -> Receiver Worker (public, no auth)
+   -> GET /health -> Sender Worker (public, no auth)
 ```
 
-Flutter never holds the inter-service shared secret. The browser/mobile client calls the Sender Worker over plain HTTPS; the Sender Worker signs and forwards to the Receiver Worker.
+Flutter never holds the inter-service shared secret. The browser/mobile client calls the Sender Worker over plain HTTPS; the Sender Worker signs and forwards to the receiver via the `RECEIVER` service binding (not a public URL).
 
 > **Receiver identity.** "Receiver Worker" below is the production worker **`api-provisioning-receiver`** (separate `observability-toolkit` repo, `services/api-provisioning-receiver/`), which persists to Supabase. The Sender reaches it via a Cloudflare **service binding** (`binding = "RECEIVER"`, `service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`) — `env.RECEIVER.fetch(".../inbox")`, not a public URL. `workers/receiver-worker/` in this repo is a **local stub / test double** only; it is not deployed and nothing binds to it.
 
@@ -35,14 +35,15 @@ Flutter never holds the inter-service shared secret. The browser/mobile client c
 │  ├─ POST /signup                      │
 │  ├─ POST /signin                      │
 │  ├─ POST /send                        │
+│  ├─ POST /create-checkout-session     │
 │  └─ GET /health                       │
 └──────┬───────────────────────────────┘
        │
-       ├─────────► Supabase Auth
-       │           (email, password, JWT)
+       ├─────────► Auth0 (M2M create user, ROPC sign-in → JWT)
+       │           + Supabase (org / user / membership rows)
        │
-       └─────────► Receiver Worker
-                   (internal forwarding)
+       └─────────► api-provisioning-receiver
+                   (RECEIVER service binding)
 ```
 
 ### Internal Flow (Sender → Receiver → Edge Function)
@@ -61,18 +62,18 @@ Flutter never holds the inter-service shared secret. The browser/mobile client c
 │ 3. Forward to Receiver                                           │
 └──────────────┬──────────────────────────────────────────────────┘
                │
-               ▼ HTTPS POST (internal)
+               ▼ RECEIVER service binding (env.RECEIVER.fetch)
 ┌─────────────────────────────────────────────────────────────────┐
 │ POST /inbox (with x-signature, x-timestamp headers)             │
-│ To: Receiver Worker                                              │
+│ To: api-provisioning-receiver                                    │
 │ Body: {action, jwt, name, tier} (same as request)               │
 └──────────────┬──────────────────────────────────────────────────┘
                │
-               ▼ (Receiver Worker)
+               ▼ (api-provisioning-receiver)
 ┌─────────────────────────────────────────────────────────────────┐
-│ 1. Validate signature using SHARED_SECRET                        │
+│ 1. Validate signature using SHARED_SECRET (constant-time)        │
 │ 2. Validate timestamp (prevent replay attacks)                   │
-│ 3. Validate JWT via Supabase /auth/v1/user                       │
+│ 3. Validate JWT via Auth0 /userinfo                              │
 │ 4. Dispatch to handler (provision-api-key)                       │
 └──────────────┬──────────────────────────────────────────────────┘
                │
@@ -115,11 +116,11 @@ Flutter never holds the inter-service shared secret. The browser/mobile client c
 | Step | Source | Destination | Auth Method | Data Signed |
 |------|--------|-------------|-------------|------------|
 | 1 | Flutter Client | Sender Worker | None (public) | No |
-| 2 | Sender Worker | Receiver Worker | HMAC signature | Yes (x-signature) |
-| 3 | Receiver Worker | Supabase Auth | Bearer JWT | Yes (JWT token) |
-| 4 | Receiver Worker | Supabase Edge Function | Bearer JWT | Yes (JWT token) |
-| 5 | Edge Function | Receiver Worker | — | Edge function response |
-| 6 | Receiver Worker | Sender Worker | — | Internal response |
+| 2 | Sender Worker | api-provisioning-receiver (RECEIVER binding) | HMAC signature | Yes (x-signature) |
+| 3 | Receiver | Auth0 `/userinfo` | Bearer JWT | Yes (JWT token) |
+| 4 | Receiver | Supabase Edge Function | Bearer JWT | Yes (JWT token) |
+| 5 | Edge Function | Receiver | — | Edge function response |
+| 6 | Receiver | Sender Worker | — | Internal response |
 | 7 | Sender Worker | Flutter Client | CORS header | No |
 
 ## Service Layer
@@ -144,6 +145,8 @@ lib/services/
 
 ### Service Skeleton
 
+> The skeleton below illustrates the `ContactService`-style pattern. The shipped `ProvisioningService` (`lib/services/provisioning_service.dart`) follows it, but the live `/send` request schema is `{action, jwt, name, email, tier}` (see `SendRequestSchema` in `workers/sender-worker/src/`), not the simplified `{userId, action, sentAt}` event shown here.
+
 ```dart
 import 'dart:convert';
 import 'package:dio/dio.dart';
@@ -155,7 +158,7 @@ import 'http_status.dart';
 /// Configurable via --dart-define for staging/development.
 const _senderWorkerUrl = String.fromEnvironment(
   'SENDER_WORKER_URL',
-  defaultValue: 'https://sender-worker.example.workers.dev',
+  defaultValue: 'https://sender-worker.alyshia-b38.workers.dev',
 );
 
 /// Provisioning event payload.
@@ -335,17 +338,18 @@ class ProvisioningService {
 - Tests follow contact_service.dart patterns
 
 ✅ **Sender Worker** (`workers/sender-worker/src/index.ts`)
-- POST /send endpoint with JSON validation
-- HMAC-SHA256 signature computation (timestamp + body)
-- Forwards signed request to Receiver Worker with x-timestamp and x-signature headers
+- POST /signup, /signin, /send, /create-checkout-session, GET /health (Zod v4 validation)
+- Inline Auth0 (M2M create user + ROPC sign-in) + Supabase org/user/membership provisioning on /signup
+- HMAC-SHA256 signature computation (timestamp + body); key rotation via `SIGNING_KEYS`/`ACTIVE_KEY_ID`/`x-key-id`
+- Forwards signed /send events to the receiver via the `RECEIVER` service binding (x-timestamp, x-signature headers)
 
-✅ **Receiver Worker** — production: `api-provisioning-receiver` (`observability-toolkit` repo); local stub: `workers/receiver-worker/src/index.ts`
+✅ **Receiver** — production: `api-provisioning-receiver` (`observability-toolkit` repo); local stub: `workers/receiver-worker/src/index.ts`
 - GET /health public endpoint
 - POST /inbox with signature verification (constant-time comparison)
 - 5-minute replay protection window (REPLAY_WINDOW_MS)
 
-⚠️ **CORS & Origin Validation** — NOT YET IMPLEMENTED
-- Sender Worker must configure `Access-Control-Allow-Origin` header(s) for Flutter app origin(s)
+✅ **CORS & Origin Validation** — implemented
+- Sender Worker validates the request `Origin` against `ALLOWED_ORIGINS_JSON` and handles OPTIONS preflight; 403 on disallowed origins
 - See [CORS Note](#cors-and-origin-headers) below
 
 ## Configuration
@@ -364,11 +368,11 @@ flutter build web
 
 | Concern | Approach |
 |---------|----------|
-| Inter-service auth | HMAC-SHA256 signature (Workers only) |
+| Inter-service auth | HMAC-SHA256 signature (Workers only); rotation via `SIGNING_KEYS`/`ACTIVE_KEY_ID`/`x-key-id` |
 | Replay protection | `x-timestamp` header, 5-minute window |
-| Secret storage | Wrangler secrets (`SHARED_SECRET`), never in Flutter |
+| Secret storage | Wrangler secrets / Doppler (`SHARED_SECRET`), never in Flutter |
 | Client auth | None required (Sender Worker is the trust boundary) |
-| CORS | Sender Worker must allow the Flutter app origin |
+| CORS | Sender Worker validates `Origin` against `ALLOWED_ORIGINS_JSON` |
 
 The Flutter app treats the Sender Worker as a trusted proxy. It sends plain JSON over HTTPS; the Sender Worker appends `x-timestamp` and `x-signature` headers before forwarding to the Receiver Worker.
 
@@ -378,9 +382,13 @@ The Flutter app treats the Sender Worker as a trusted proxy. It sends plain JSON
 
 | Method | Path | Request Body | Response |
 |--------|------|-------------|----------|
-| POST | `/send` | `ProvisioningEvent` JSON | `{ ok: true, received: ... }` or `{ error: "..." }` |
+| POST | `/signup` | `{email, password}` | `{jwt, auth0Sub, userId, email}` or `{error, code}` |
+| POST | `/signin` | `{email, password}` | `{jwt, email}` or `{error, code}` |
+| POST | `/send` | `{action, jwt, name, email, tier}` | `{ ok, token, keyId, prefix, tier }` or `{ error }` |
+| POST | `/create-checkout-session` | `{email, tier}` | `{checkoutUrl}` or `{error, code}` |
+| GET | `/health` | — | `{ ok: true }` |
 
-### Receiver Worker
+### Receiver (`api-provisioning-receiver`)
 
 | Method | Path | Auth | Response |
 |--------|------|------|----------|
@@ -399,50 +407,35 @@ Follow the existing `contact_service_test.dart` patterns:
 
 ## Production Hardening
 
-Before shipping:
+Shipped:
 
-- Constant-time signature comparison in the Receiver Worker
-- `x-key-id` header for secret rotation support
-- Nonce store if replay protection must be stricter than timestamp-only
-- CORS configuration on the Sender Worker for the Flutter app origin
-- Service bindings if both Workers are in the same Cloudflare account (avoids public network hop)
+- ✅ Constant-time signature comparison in the receiver
+- ✅ `x-key-id` header for secret rotation (`SIGNING_KEYS`/`ACTIVE_KEY_ID`) — cadence/policy tracked as W05 in `docs/BACKLOG.md`
+- ✅ CORS configuration on the Sender Worker (`ALLOWED_ORIGINS_JSON`)
+- ✅ Service binding (`RECEIVER` → `api-provisioning-receiver`, no public network hop)
+
+Remaining:
+
+- Nonce store if replay protection must be stricter than timestamp-only — tracked as W06 in `docs/BACKLOG.md`
+- Monitoring/alerting + dashboards for the provisioning path — tracked as W04 in `docs/BACKLOG.md`
 
 ## CORS and Origin Headers
 
-**Current Gap:** Sender Worker does not yet validate or set CORS headers for the Flutter app origin.
+The Sender Worker validates the request `Origin` against `ALLOWED_ORIGINS_JSON` and sets `Access-Control-Allow-Origin` on responses; OPTIONS preflight is handled and disallowed origins get a 403. See `workers/sender-worker/src/utils.ts`.
 
-### Required Setup
+### Origins
 
-The Sender Worker's `/send` endpoint must respond with `Access-Control-Allow-Origin` header(s) to allow browser-based Flutter Web requests:
-
-```typescript
-// In Sender Worker handleSend() or as a middleware
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://example.com', // Flutter app origin
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'content-type',
-};
-
-// Handle OPTIONS preflight
-if (request.method === 'OPTIONS') {
-  return new Response(null, { headers: corsHeaders, status: 204 });
-}
-
-// Add to POST response
-return new Response(body, { status, headers: { ...corsHeaders, 'content-type': ... } });
-```
-
-### Production Origins
-
-- **Staging:** `https://staging.example.com`
-- **Production:** `https://www.example.com`
-- **Development:** `http://localhost:8081` (for local flutter run -d chrome)
+- **Production:** `https://integritystudio.ai`, `https://www.integritystudio.ai`
+- **Development:** add `http://localhost:<port>` to `ALLOWED_ORIGINS_JSON` in the **dev** Doppler config
 
 > The `Access-Control-Allow-Origin` header is NOT a security boundary — it only controls browser CORS preflight.
 > The Sender Worker is the trust boundary; Flutter never sees the inter-service HMAC secret.
 
 ## References
 
+- [Provisioning Environment Setup & Workflow](provisioning-environment-setup.md)
+- [Client & Inter-Worker Contracts](inter-worker-contract-validation.md)
+- [Provisioning Manual E2E Test Guide](PROVISIONING_MANUAL_TEST.md)
 - [Cloudflare Workers Fetch API](https://developers.cloudflare.com/workers/runtime-apis/fetch/)
 - [Cloudflare Workers Signing Requests](https://developers.cloudflare.com/workers/examples/signing-requests/)
 - [Cloudflare Workers CORS](https://developers.cloudflare.com/workers/examples/cors-header-proxy/)

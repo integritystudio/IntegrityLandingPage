@@ -327,9 +327,36 @@ wrangler deploy
 
 Then update the Flutter app's `SENDER_WORKER_URL` to point to the deployed sender-worker.
 
+## Last Recorded Results
+
+> Captured 2026-03-20 against the **local stub** `workers/receiver-worker/` (test double) over the obsolete `RECEIVER_WORKER_URL` HTTP wiring — historical reference only, not production. For current end-to-end coverage use the integration tests in `observability-toolkit`. (Consolidated from the former `PROVISIONING_E2E_RESULTS.md`, 2026-06-27.)
+
+**Status:** ⏳ PARTIAL — receiver stub verified; full sender E2E pending environment configuration at time of capture.
+
+| # | Test Case | Expected | Actual | Status |
+|---|-----------|----------|--------|--------|
+| 1 | Health endpoint accessible | 200 OK, `ok: true` | 200 OK, `ok: true` | ✅ |
+| 2 | Missing auth headers rejected | 401, error message | 401, `missing auth headers` | ✅ |
+| 3 | Invalid JSON handling | 400, error message | N/A (pending sender config) | ⏳ |
+| 4 | Valid event forwarding | 200, echoed payload | N/A (pending sender config) | ⏳ |
+| 5 | Complex nested payloads | Preserved structure | N/A (pending sender config) | ⏳ |
+| 6 | Signature verification | 401 on invalid sig | N/A (pending sender config) | ⏳ |
+| 7 | Replay protection | 401 on stale timestamp | N/A (pending sender config) | ⏳ |
+
+**Security properties verified (stub):**
+
+| Property | Implementation | Status |
+|----------|-----------------|--------|
+| Shared Secret Storage | Wrangler secrets (not in Flutter) | ✅ |
+| Request Signing | HMAC-SHA256 over `timestamp.body` | ✅ |
+| Replay Protection | 5-minute timestamp window validation | ✅ |
+| Auth Validation | Required headers enforced | ✅ |
+| JSON Validation | Invalid JSON rejected early | ✅ |
+
 ## References
 
 - [API Provisioning Architecture](docs/api-provisioning.md)
+- [Environment Setup Guide](docs/provisioning-environment-setup.md)
 - [Sender Worker README](workers/sender-worker/README.md)
 - [Receiver Worker Source](workers/receiver-worker/src/index.ts)
 - [Cloudflare Workers Crypto](https://developers.cloudflare.com/workers/runtime-apis/web-crypto/)

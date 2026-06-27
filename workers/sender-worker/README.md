@@ -120,8 +120,7 @@ wrangler deploy --var ALLOWED_ORIGINS_JSON='["https://staging.integritystudio.ai
 ## References
 
 - [docs/api-provisioning.md](../../docs/api-provisioning.md) — Architecture overview
-- [docs/api-provisioning-contract.md](../../docs/api-provisioning-contract.md) — Client contract
-- [docs/inter-worker-contract-validation.md](../../docs/inter-worker-contract-validation.md) — Worker compatibility
+- [docs/inter-worker-contract-validation.md](../../docs/inter-worker-contract-validation.md) — Client contract + worker compatibility
 - [docs/provisioning-environment-setup.md](../../docs/provisioning-environment-setup.md) — **Environment setup guide** ⭐
 - [workers/receiver-worker/](../receiver-worker/) — Receiver endpoint (verifies signatures)
 - [workers/constants.ts](../constants.ts) — Shared constants (JSON_CONTENT_TYPE, REPLAY_WINDOW_MS)

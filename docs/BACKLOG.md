@@ -277,7 +277,7 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ## W04: Provisioning workers — monitoring, alerting & dashboards
 
-**Priority:** P2 | **Source:** session 2026-06-27, reconciled from `docs/PROVISIONING_SETUP_SUMMARY.md` open items ("Monitoring and alerting — must implement", "Monitoring Dashboards — Cloudflare Analytics")
+**Priority:** P2 | **Source:** session 2026-06-27, reconciled from provisioning setup notes (now consolidated into `docs/provisioning-environment-setup.md`) — open items "Monitoring and alerting — must implement", "Monitoring Dashboards — Cloudflare Analytics"
 **Estimated:** 4–6 hours
 
 **Context:** `sender-worker` has `[observability.logs]` with `invocation_logs = true` (`workers/sender-worker/wrangler.toml`), so logs are captured, but there is **no alerting and no dashboard** for the provisioning path (`sender-worker` → `api-provisioning-receiver`). The setup summary flagged this as "must implement" but it was never tracked as a real item. `api-provisioning-receiver` lives in the `observability-toolkit` repo, so end-to-end provisioning observability spans both repos.
@@ -303,7 +303,7 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ## W05: Verify & document prod secret durability + rotation cadence under Doppler
 
-**Priority:** P3 | **Source:** session 2026-06-27, reconciled from `docs/PROVISIONING_SETUP_SUMMARY.md` open items ("Secrets backed up (1Password/Vault) — must implement", "Secret rotation documented (quarterly)")
+**Priority:** P3 | **Source:** session 2026-06-27, reconciled from provisioning setup notes (now consolidated into `docs/provisioning-environment-setup.md`) — open items "Secrets backed up (1Password/Vault) — must implement", "Secret rotation documented (quarterly)"
 **Estimated:** 1–2 hours
 
 **Context:** The setup summary's "back up secrets to 1Password/Vault" action predates the move to **Doppler** as the managed secret store (`doppler --project integrity-studio --config dev|prd`, used by every worker's `deploy:prd` script and CI). Doppler is now the system of record for worker secrets, which largely supersedes a manual vault backup. This item reconciles the stale intention rather than implementing 1Password.
@@ -318,6 +318,27 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 - `CLAUDE.md` "Secret Rotation" section (confirm/expand)
 
 **Status:** Open — verification + documentation only; key-rotation mechanism already shipped. See also [[W02]] (Doppler-stored `CLOUDFLARE_ACCOUNT_ID`).
+
+---
+
+## W06: Provisioning — nonce store for sub-window replay protection
+
+**Priority:** P3 | **Source:** session 2026-06-27, documented in `docs/api-provisioning.md` (Production Hardening → Remaining) but not previously tracked
+**Estimated:** 3–5 hours
+
+**Context:** Replay protection on the `sender-worker` → `api-provisioning-receiver` path is currently timestamp-only: a signed `/inbox` request is accepted if its `x-timestamp` is within the ±5-minute `REPLAY_WINDOW_MS` window and the HMAC signature verifies. A captured request can therefore be replayed within that window. A nonce store (record each request's nonce/signature and reject duplicates) closes that gap. Low urgency — the window is narrow and the signature is constant-time verified — so this is a hardening enhancement, not a fix.
+
+**Scope:**
+1. Add a per-request nonce (or reuse the signature) and persist seen values with a TTL ≥ `REPLAY_WINDOW_MS` (Cloudflare KV or a Durable Object on the receiver in `observability-toolkit`).
+2. Reject `/inbox` requests whose nonce has already been seen (401, distinct error code).
+3. Confirm TTL ≥ replay window so entries can't expire while still replayable.
+
+**Files to touch:**
+- `api-provisioning-receiver` (`observability-toolkit` repo, `services/api-provisioning-receiver/`) — verification path
+- `workers/sender-worker/src/` — emit nonce header if not reusing the signature
+- `docs/api-provisioning.md` (Production Hardening) — move from Remaining to Shipped on completion
+
+**Status:** Open — design decision (KV vs Durable Object; nonce vs signature dedup); receiver-side change lives in the `observability-toolkit` repo. See also [[W04]] (provisioning observability).
 
 ---
 

@@ -1,10 +1,310 @@
-# Inter-Worker Contract Validation Report
+# API Provisioning — Client & Inter-Worker Contracts
+
+**Last Updated:** 2026-06-27
+
+This document covers two contracts for the provisioning path:
+
+- **[Part 1: Flutter Client Contract](#part-1-flutter-client-contract)** — the external HTTP contract the Flutter app consumes against `sender-worker` (`/signup`, `/signin`, `/send`, `/health`).
+- **[Part 2: Inter-Worker Validation Report](#part-2-inter-worker-validation-report)** — the internal `sender-worker` ↔ receiver HMAC/timestamp/error contract.
+
+> For the end-to-end provisioning data flow by tier (starter / growth / enterprise) and component boundaries, see [provisioning-environment-setup.md § User Provisioning Workflow](provisioning-environment-setup.md#user-provisioning-workflow).
+
+---
+
+# Part 1: Flutter Client Contract
+
+**Service:** API Provisioning Sender Worker (`sender-worker`)
+**Base URL:** `https://sender-worker.alyshia-b38.workers.dev` (override per build via `--dart-define=SENDER_WORKER_URL`)
+
+> ⚠️ **Partially superseded — verify against source.** This client contract was written 2026-03-20 and describes a Supabase-email/password signup returning `{jwt, userId, email}`. The current `/signup` flow is **Auth0 ROPC + Supabase** (returns `{jwt, auth0Sub, userId, email}`), and tiers are `starter`/`growth`/`enterprise` (not `new`/`pro`). For the authoritative request/response shapes, see the Zod schemas in `workers/sender-worker/src/` and the workflow in `provisioning-environment-setup.md`. The endpoint list, error-code conventions, CORS/preflight behavior, and Flutter integration patterns below remain accurate.
+
+## Overview
+
+The Sender Worker provides core operations for Flutter clients:
+1. **User Signup** — create a new account
+2. **User Signin** — authenticate, receive JWT
+3. **API Key Provisioning** — use JWT to request an API key for accessing observability APIs
+
+All requests must include `Content-Type: application/json`. Responses are JSON with error details on failure.
+
+## CORS & Preflight
+
+**Preflight requests:** OPTIONS requests to any endpoint return 200 with CORS headers.
+
+```
+OPTIONS /signup
+200 OK
+
+Headers:
+  access-control-allow-methods: POST, OPTIONS
+  access-control-allow-headers: Content-Type
+  access-control-allow-origin: {CORS_ORIGIN from env}
+  access-control-max-age: 86400
+```
+
+**Client-side:** Most HTTP clients (including Flutter's `http` package) automatically handle preflight.
+
+## Endpoints
+
+### 1. Health Check
+
+**Endpoint:** `GET /health` — service liveness check.
+
+**Response (200 OK):**
+```json
+{
+  "ok": true,
+  "service": "api-provisioning-sender",
+  "version": "1.0.0",
+  "timestamp": "2026-03-20T10:15:30.000Z"
+}
+```
+
+### 2. Signup
+
+**Endpoint:** `POST /signup` — create a new user account; returns a JWT for authenticated requests.
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+**Email Format Validation:** must match `^[^\s@]+@[^\s@]+\.[^\s@]+$`; invalid format returns 400 `MISSING_FIELDS`.
+
+**Response (201 Created):**
+```json
+{
+  "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
+  "email": "user@example.com"
+}
+```
+
+**Error Responses:**
+
+| Status | Code | Reason |
+|--------|------|--------|
+| 400 | MISSING_FIELDS | email or password missing, or invalid email format |
+| 400 | JSON_PARSE_ERROR | request body is not valid JSON |
+| 500 | INTERNAL_ERROR | signup failed (auth backend error) |
+
+**Flutter Example:**
+```dart
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+Future<Map<String, dynamic>> signup(String email, String password) async {
+  final response = await http.post(
+    Uri.parse('$baseUrl/signup'),
+    headers: {'Content-Type': 'application/json'},
+    body: json.encode({'email': email, 'password': password}),
+  );
+
+  if (response.statusCode == 201) {
+    return json.decode(response.body) as Map<String, dynamic>;
+  } else {
+    final error = json.decode(response.body);
+    throw Exception('Signup failed: ${error['error']} (${error['code']})');
+  }
+}
+```
+
+### 3. Signin
+
+**Endpoint:** `POST /signin` — authenticate with email/password; returns a fresh JWT.
+
+**Request:**
+```json
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
+  "email": "user@example.com"
+}
+```
+
+**Error Responses:**
+
+| Status | Code | Reason |
+|--------|------|--------|
+| 400 | MISSING_FIELDS | email or password missing, or invalid email format |
+| 400 | JSON_PARSE_ERROR | request body is not valid JSON |
+| 500 | INTERNAL_ERROR | signin failed (invalid credentials or backend error) |
+
+### 4. Send (Provision API Key)
+
+**Endpoint:** `POST /send` — forward a provisioning request to the receiver. Supports the `provision_api_key` action.
+
+**Request:**
+```json
+{
+  "action": "provision_api_key",
+  "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "name": "flutter-mobile-app",
+  "tier": "starter",
+  "sentAt": "2026-03-20T10:15:30.000Z"
+}
+```
+
+**Fields:**
+- **action** (string, required): currently only `"provision_api_key"`.
+- **jwt** (string, required): user's JWT from signup/signin.
+- **name** (string, required): friendly name for the API key.
+- **tier** (string, required): API tier (`starter`/`growth`/`enterprise`); determines rate limits and features.
+- **sentAt** (string, optional): ISO 8601 timestamp; for audit/replay-protection.
+
+**Response (200 OK):**
+```json
+{
+  "ok": true,
+  "token": "obtk_abc123def456...",
+  "keyId": "550e8400-e29b-41d4-a716-446655440000",
+  "prefix": "obtk_abc",
+  "tier": "starter"
+}
+```
+
+**Token Format:** `token` is the full API key (store securely, e.g. Flutter Secure Storage); `keyId` for rotation/revocation; `prefix` (first 8 chars) safe to log; `tier` echoed back.
+
+**Error Responses:**
+
+| Status | Code | Reason |
+|--------|------|--------|
+| 400 | MISSING_FIELDS | action, jwt, name, or tier missing |
+| 400 | UNKNOWN_ACTION | action not recognized |
+| 400 | JSON_PARSE_ERROR | request body is not valid JSON |
+| 500 | PROVISION_ERROR | edge function failed (JWT invalid, tier unknown, etc.) |
+| 500 | RECEIVER_ERROR | receiver returned non-200 status |
+| 500 | INTERNAL_ERROR | unexpected error in sender worker |
+
+## Error Response Format
+
+All error responses follow this schema:
+
+```json
+{
+  "error": "human-readable error message",
+  "code": "ERROR_CODE_CONSTANT"
+}
+```
+
+**Error Codes:** `MISSING_FIELDS`, `JSON_PARSE_ERROR`, `UNKNOWN_ACTION`, `RECEIVER_ERROR`, `INTERNAL_ERROR`, `NOT_FOUND`.
+
+## Security Considerations
+
+1. **HTTPS only** — all requests use TLS.
+2. **JWT storage** — store in secure storage (Flutter Secure Storage, Keychain/Keystore), never in SharedPreferences/files/logs. Tokens expire; refresh via Auth0.
+3. **API key token storage** — store in Flutter Secure Storage; never log or transmit over unencrypted channels.
+4. **Email validation** — client-side for UX; server enforces `^[^\s@]+@[^\s@]+\.[^\s@]+$`.
+5. **CORS** — origin set by sender from env config; no wildcard, only specific origins allowed.
+
+## Flutter Integration Guide
+
+Add HTTP + secure storage deps (`http: ^1.1.0`, `flutter_secure_storage: ^9.0.0`), then wrap the endpoints in a client that persists the JWT and API key token:
+
+```dart
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
+
+class ProvisioningClient {
+  static const String baseUrl = 'https://sender-worker.alyshia-b38.workers.dev';
+  static const String _jwtKey = 'provisioning_jwt';
+  static const String _tokenKey = 'api_key_token';
+
+  final _storage = const FlutterSecureStorage();
+
+  Future<void> signin(String email, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/signin'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email, 'password': password}),
+    );
+    if (response.statusCode != 200) {
+      final error = json.decode(response.body);
+      throw Exception('${error['error']} (${error['code']})');
+    }
+    final result = json.decode(response.body) as Map<String, dynamic>;
+    await _storage.write(key: _jwtKey, value: result['jwt']);
+  }
+
+  Future<String> getApiKey({String name = "flutter-app", String tier = "starter"}) async {
+    final jwt = await _storage.read(key: _jwtKey);
+    if (jwt == null) throw Exception('Not authenticated');
+    final response = await http.post(
+      Uri.parse('$baseUrl/send'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'action': 'provision_api_key',
+        'jwt': jwt,
+        'name': name,
+        'tier': tier,
+        'sentAt': DateTime.now().toUtc().toIso8601String(),
+      }),
+    );
+    if (response.statusCode != 200) {
+      final error = json.decode(response.body);
+      throw Exception('${error['error']} (${error['code']})');
+    }
+    final result = json.decode(response.body) as Map<String, dynamic>;
+    final token = result['token'] as String;
+    await _storage.write(key: _tokenKey, value: token);
+    return token;
+  }
+}
+```
+
+## Status Codes Reference
+
+| Status | Meaning |
+|--------|---------|
+| 200 | OK — request succeeded |
+| 201 | Created — resource created |
+| 400 | Bad Request — validation error (missing fields, invalid JSON, unknown action) |
+| 404 | Not Found — endpoint does not exist |
+| 405 | Method Not Allowed — wrong HTTP method |
+| 500 | Internal Server Error — server-side error (backend, receiver, or provision error) |
+
+## Common Workflows
+
+- **First-time user:** `POST /signup` → store JWT → `POST /send (provision_api_key)` → store token.
+- **Returning user:** `POST /signin` → refresh JWT → `POST /send (provision_api_key)` → refresh token.
+- **Use stored token:** read JWT + API token from secure storage → call APIs with `Bearer {api_token}`; on 401, re-run signin + provision.
+
+## Testing & Debugging (Client)
+
+```bash
+# Health
+curl https://sender-worker.alyshia-b38.workers.dev/health
+
+# Signup
+curl -X POST https://sender-worker.alyshia-b38.workers.dev/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test+'"$(date +%s)"'@example.com","password":"TestPass123"}'
+
+# Provision
+curl -X POST https://sender-worker.alyshia-b38.workers.dev/send \
+  -H "Content-Type: application/json" \
+  -d '{"action":"provision_api_key","jwt":"YOUR_JWT_HERE","name":"test","tier":"starter"}'
+```
+
+---
+
+# Part 2: Inter-Worker Validation Report
 
 **Date:** 2026-03-20
 **Scope:** Sender Worker ↔ Receiver Worker API Contract
 **Status:** ✅ **COMPLIANT** — All critical contracts matched
-
----
 
 > ℹ️ **What this report validates (read first).** This is a historical 2026-03-20 report validating the contract between `sender-worker` and the **local stub** `workers/receiver-worker/` (a test double). Two things have since changed:
 > - **Transport:** the sender reaches the receiver via a Cloudflare **service binding** (`binding = "RECEIVER"`, `service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`) — `env.RECEIVER.fetch(".../inbox")` — **not** a public `RECEIVER_WORKER_URL` fetch. The `RECEIVER_WORKER_URL` env var and `receiver-worker.example.workers.dev` hostname below are obsolete.
@@ -439,5 +739,5 @@ The Sender Worker and Receiver Worker are **production-ready** from a contract p
 - Receiver Worker (local stub / test double): `workers/receiver-worker/src/index.ts`
 - Shared Constants: `workers/constants.ts`, `workers/http-helpers.ts`
 - Architecture: `docs/api-provisioning.md`
-- Client Contract: `docs/api-provisioning-contract.md`
+- Client Contract: [Part 1](#part-1-flutter-client-contract) above
 - E2E Tests: `test-provisioning-e2e.sh`

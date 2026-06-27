@@ -198,8 +198,7 @@ See [docs/api-provisioning.md](../../docs/api-provisioning.md) for complete arch
 ## References
 
 - [API Provisioning Architecture](../../docs/api-provisioning.md)
-- [Client Contract](../../docs/api-provisioning-contract.md)
-- [Inter-Worker Contract Validation](../../docs/inter-worker-contract-validation.md)
+- [Client & Inter-Worker Contracts](../../docs/inter-worker-contract-validation.md)
 - [Environment Setup Guide](../../docs/provisioning-environment-setup.md)
 - [Sender Worker](../sender-worker/README.md)
 - [Shared Constants](../constants.ts)
