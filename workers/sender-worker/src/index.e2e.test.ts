@@ -641,10 +641,9 @@ describe("POST /signup — Error Code Mapping (2026-04-03 Session)", () => {
     });
 
     expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string; detail: string };
+    const body = await res.json() as { error: string; code: string };
     expect(body.error).toBe("signup failed");
     expect(body.code).toBe("AUTH0_TOKEN_EXCHANGE_FAILED");
-    expect(body.detail).toContain("Auth0 token exchange failed");
   });
 
   it("returns AUTH0_USER_CREATION_FAILED when Auth0 /api/v2/users returns 400", async () => {
@@ -667,10 +666,9 @@ describe("POST /signup — Error Code Mapping (2026-04-03 Session)", () => {
     });
 
     expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string; detail: string };
+    const body = await res.json() as { error: string; code: string };
     expect(body.error).toBe("signup failed");
     expect(body.code).toBe("AUTH0_USER_CREATION_FAILED");
-    expect(body.detail).toContain("Auth0 createUser failed");
   });
 
   it("returns SUPABASE_ORG_CREATION_FAILED when org creation returns error", async () => {
@@ -698,10 +696,9 @@ describe("POST /signup — Error Code Mapping (2026-04-03 Session)", () => {
     });
 
     expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string; detail: string };
+    const body = await res.json() as { error: string; code: string };
     expect(body.error).toBe("signup failed");
     expect(body.code).toBe("SUPABASE_ORG_CREATION_FAILED");
-    expect(body.detail).toContain("Supabase org creation failed");
   });
 
   it("returns SUPABASE_USER_INSERT_FAILED when user insert returns error", async () => {
@@ -726,10 +723,9 @@ describe("POST /signup — Error Code Mapping (2026-04-03 Session)", () => {
     });
 
     expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string; detail: string };
+    const body = await res.json() as { error: string; code: string };
     expect(body.error).toBe("signup failed");
     expect(body.code).toBe("SUPABASE_USER_INSERT_FAILED");
-    expect(body.detail).toContain("Supabase user insert failed");
   });
 
   it("returns SUPABASE_ORG_MEMBERSHIP_FAILED when org membership insert fails", async () => {
@@ -754,29 +750,9 @@ describe("POST /signup — Error Code Mapping (2026-04-03 Session)", () => {
     });
 
     expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string; detail: string };
+    const body = await res.json() as { error: string; code: string };
     expect(body.error).toBe("signup failed");
     expect(body.code).toBe("SUPABASE_ORG_MEMBERSHIP_FAILED");
-    expect(body.detail).toContain("Supabase org membership");
-  });
-
-  it("detail field truncates long error messages to 200 characters", async () => {
-    const longError = "Auth0 token exchange failed: " + "x".repeat(300);
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/oauth/token", method: "POST" })
-      .reply(500, JSON.stringify({ error: "server_error", error_description: longError }), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "long-error@example.com", password: "S3cur3!pass" }),
-    });
-
-    const body = await res.json() as { detail: string };
-    expect(body.detail.length).toBeLessThanOrEqual(200);
   });
 
   it("returns INTERNAL_ERROR when error does not match any known pattern", async () => {

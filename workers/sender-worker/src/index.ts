@@ -135,9 +135,8 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
       errorCode = ERROR_CODE.SUPABASE_ORG_MEMBERSHIP_FAILED;
     }
 
-    const errorDetail = msg.substring(0, 200);
     const description = ERROR_DESCRIPTIONS[errorCode];
-    const responseBody: Record<string, unknown> = { error: "signup failed", code: errorCode, detail: errorDetail };
+    const responseBody: Record<string, unknown> = { error: "signup failed", code: errorCode };
     if (description) responseBody.description = description;
     return new Response(JSON.stringify(responseBody), {
       status: HTTP_STATUS.INTERNAL_SERVER_ERROR,
