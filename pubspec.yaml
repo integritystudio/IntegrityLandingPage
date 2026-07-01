@@ -21,6 +21,7 @@ dependencies:
   # Icons/Images
   lucide_icons_flutter: ^3.1.14
   flutter_svg: ^2.0.9
+  cupertino_icons: ^1.0.8  # bundle CupertinoIcons font referenced transitively (icon tree-shaker)
 
   # Networking
   dio: ^5.4.0
