@@ -450,7 +450,7 @@ class GradientIconContainer extends StatelessWidget {
     if (_translucentColor != null) {
       // Translucent variant
       decoration = AppDecorations.translucentIconBox(
-        _translucentColor!,
+        _translucentColor,
         opacity: _translucentOpacity ?? 0.15,
         radius: borderRadius,
       );
