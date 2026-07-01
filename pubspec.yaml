@@ -19,7 +19,7 @@ dependencies:
   lottie: ^3.0.0
 
   # Icons/Images
-  lucide_icons: ^0.257.0
+  lucide_icons_flutter: ^3.1.14
   flutter_svg: ^2.0.9
 
   # Networking
@@ -43,10 +43,10 @@ dependencies:
 
   # Web Interop (for GTM/Analytics)
   web: ^1.0.0
-  marionette_flutter: ^0.4.0
+  marionette_flutter: ^0.6.0
 
   # Payments
-  flutter_stripe: ^12.4.0
+  flutter_stripe: ^13.0.0
 
 dev_dependencies:
   flutter_test:
@@ -56,7 +56,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   mockito: ^5.4.4
   build_runner: ^2.4.8
-  freezed: ^3.0.0
+  freezed: ^4.0.0-dev.3
   json_serializable: ^6.9.0
   shelf: ^1.4.1
 
