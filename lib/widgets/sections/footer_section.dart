@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/content.dart';
 import '../../services/analytics.dart';
@@ -135,13 +135,13 @@ class FooterSection extends StatelessWidget {
         Row(
           children: [
             _SocialLink(
-              icon: LucideIcons.linkedin,
+              icon: LucideIcons.briefcase,
               url: ExternalUrls.linkedIn,
               label: 'LinkedIn',
             ),
             const SizedBox(width: AppSpacing.md),
             _SocialLink(
-              icon: LucideIcons.github,
+              icon: LucideIcons.code,
               url: ExternalUrls.github,
               label: 'GitHub',
             ),

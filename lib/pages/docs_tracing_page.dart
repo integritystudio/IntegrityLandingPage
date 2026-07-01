@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme/theme.dart';
 import '../widgets/common/vertical_indicator_list.dart';
 import '../widgets/docs/doc_components.dart';

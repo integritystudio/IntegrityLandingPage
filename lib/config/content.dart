@@ -29,7 +29,7 @@ export 'content/blog_content.dart';
 export 'content/contact_content.dart';
 
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../services/content_loader.dart';
 import 'content/models.dart';
@@ -59,8 +59,8 @@ IconData _iconFromString(String? iconName) {
     'mail' => LucideIcons.mail,
     'calendar' => LucideIcons.calendar,
     'map-pin' => LucideIcons.mapPin,
-    'linkedin' => LucideIcons.linkedin,
-    'github' => LucideIcons.github,
+    'linkedin' => LucideIcons.briefcase,
+    'github' => LucideIcons.code,
     'book-open' => LucideIcons.bookOpen,
     'puzzle' => LucideIcons.puzzle,
     'calculator' => LucideIcons.calculator,

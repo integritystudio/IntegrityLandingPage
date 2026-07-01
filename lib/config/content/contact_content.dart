@@ -1,7 +1,7 @@
 /// Contact section content.
 library;
 
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'models.dart';
 import 'constants.dart';
 
@@ -183,13 +183,13 @@ abstract final class ContactContentVariants {
       url: ExternalUrls.googleMaps,
     ),
     ContactMethodContent(
-      icon: LucideIcons.linkedin,
+      icon: LucideIcons.briefcase,
       label: linkedinMethodLabel,
       value: linkedinMethodValue,
       url: ExternalUrls.linkedIn,
     ),
     ContactMethodContent(
-      icon: LucideIcons.github,
+      icon: LucideIcons.code,
       label: githubMethodLabel,
       value: githubMethodValue,
       url: ExternalUrls.github,

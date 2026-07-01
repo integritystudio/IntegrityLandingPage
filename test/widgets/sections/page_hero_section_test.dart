@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/sections/page_hero_section.dart';
 import 'package:integrity_studio_ai/theme/theme.dart';
 import '../../helpers/test_helpers.dart';

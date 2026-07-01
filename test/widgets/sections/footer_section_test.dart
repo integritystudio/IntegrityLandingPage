@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/common/hover_text_link.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import '../../helpers/test_helpers.dart';
@@ -93,8 +93,8 @@ void main() {
       );
       await tester.pumpAndSettleWithTimeout();
 
-      expect(find.byIcon(LucideIcons.linkedin), findsOneWidget);
-      expect(find.byIcon(LucideIcons.github), findsOneWidget);
+      expect(find.byIcon(LucideIcons.briefcase), findsOneWidget);
+      expect(find.byIcon(LucideIcons.code), findsOneWidget);
       expect(find.byType(IconButton), findsNWidgets(_socialLabels.length));
     });
 

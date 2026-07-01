@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:integrity_studio_ai/pages/status_page.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import 'package:integrity_studio_ai/widgets/common/chip_badge.dart';

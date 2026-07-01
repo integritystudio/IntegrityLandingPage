@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
@@ -1045,7 +1045,7 @@ class _TeamMemberCardState extends State<_TeamMemberCard> {
                 children: [
                   if (widget.member.linkedInUrl != null)
                     _SocialIconButton(
-                      icon: LucideIcons.linkedin,
+                      icon: LucideIcons.briefcase,
                       url: widget.member.linkedInUrl!,
                       tooltip: 'LinkedIn',
                       hoverColor: AppColors.blue500,
@@ -1059,7 +1059,7 @@ class _TeamMemberCardState extends State<_TeamMemberCard> {
                     ),
                   if (widget.member.githubUrl != null)
                     _SocialIconButton(
-                      icon: LucideIcons.github,
+                      icon: LucideIcons.code,
                       url: widget.member.githubUrl!,
                       tooltip: 'GitHub',
                       hoverColor: AppColors.gray300,

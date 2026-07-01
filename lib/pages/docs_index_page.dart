@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/content.dart';
 import '../theme/theme.dart';
@@ -473,7 +473,7 @@ class _QuickLinksSection extends StatelessWidget {
             runSpacing: AppSpacing.md,
             children: [
               _QuickLink(
-                icon: LucideIcons.github,
+                icon: LucideIcons.code,
                 label: 'GitHub',
                 url: 'https://github.com/integritystudio',
               ),

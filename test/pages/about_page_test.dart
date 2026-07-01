@@ -4,7 +4,7 @@ import 'package:integrity_studio_ai/config/content/constants.dart';
 import 'package:integrity_studio_ai/pages/about_page.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../helpers/test_helpers.dart';
 import '../helpers/test_constants.dart';
 
