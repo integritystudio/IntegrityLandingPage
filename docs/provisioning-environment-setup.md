@@ -83,8 +83,8 @@ SignupPage (/signup?tier=starter)
         ├─ auth0CreateUser (M2M client credentials → POST /api/v2/users)
         ├─ supabaseCreatePersonalOrg (POST /rest/v1/organizations, current_plan: "starter")
         ├─ supabaseInsertUser (POST /rest/v1/users, auth0_id = auth0Sub)
-        ├─ supabaseAddOrgOwner (POST /rest/v1/organization_memberships, role: "owner")
-        └─ auth0UserSignIn (ROPC → POST /oauth/token, grant_type: password)
+        ├─ auth0UserSignIn (ROPC → POST /oauth/token, grant_type: password)
+        └─ supabaseAddOrgOwner (POST /rest/v1/organization_memberships, role: "owner")
              └─ returns { jwt, auth0Sub, userId, email } 201
   └─→ AuthSuccess(jwt, email) → GoRouter /provision
         └─ ProvisionPage: AuthStorage.saveJwt(jwt)

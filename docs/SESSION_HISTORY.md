@@ -83,7 +83,7 @@
    - Security considerations (auth, immutability, idempotency)
    - Usage examples and future enhancements
 
-3. **Updated Roadmap** - `/docs/roadmap/payments-implementation.md`
+3. **Updated Roadmap** - `/docs/research/payments-implementation.md` (moved & condensed from `/docs/roadmap/` on 2026-07-12)
    - Changed status from "Phase 4 Substantially Complete" to "Phase 1-4 COMPLETE"
    - Added V01 and V03 completion details
    - Updated test count: 2440+ → 2523+
@@ -150,7 +150,7 @@
 2. `/docs/usage-event-pipeline.md` (472 lines) - Architecture overview
 
 ### Files Updated
-1. `/docs/roadmap/payments-implementation.md` - Status header updated (phase completion, test counts)
+1. `/docs/research/payments-implementation.md` - Status header updated (phase completion, test counts)
 2. `/docs/SESSION_HISTORY.md` - This file (added session entry)
 
 ### Documentation Quality

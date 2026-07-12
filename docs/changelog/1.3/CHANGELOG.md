@@ -266,3 +266,27 @@ Integration-test coverage for the 7 error scenarios shipped in `6d2ff74` (`worke
 - Commit: `3071b8c`
 
 ---
+
+## [2026-07-12] - Superseded Design-Doc Reconciliation
+
+Design and roadmap proposals whose recommendations have fully shipped were condensed into research records under [`docs/research/`](../research/) (originals removed). The changelog is the durable record; each research doc carries a one-line outcome pointing back here.
+
+- **`docs/research/REFACTOR.md`** (replace custom worker validation with Zod) — **Implemented.** Shared Zod validation layer landed in 1.2 (`[2026-03-20] Shared Validation Layer`: `workers/lib/http/*`, `workers/lib/validation/*`); the Zod v4 migration followed in 1.3 (`[2026-04-03] Zod v4 Migration`).
+- **`docs/research/VALIBOT_ANALYSIS.md`** (migrate validation to Valibot) — **Recommendation rejected.** Workers standardized on Zod v4, not Valibot (no `valibot` dependency in any worker). Superseded by the Zod work above.
+- **`docs/research/payment-processor-research.md`** (Stripe/Auth0/Supabase B2B billing architecture) — **Implemented** across 1.2 (API provisioning workers) and 1.3 (`[2026-06-26] Provisioning Service-Binding Architecture` and `Payment Processor Security Hardening`).
+- **`docs/research/payments-implementation.md`** (V02 dashboard + Stripe Customer Portal) — **Implemented.** See 1.2 `[2026-03-21] V02 Stripe Portal & Dead Letter Architecture` (`POST /v1/orgs/:id/billing-portal`, 7 tests). The doc's "2631+ tests" figure is historical.
+- **`docs/research/subscription-updates.md`** (Stripe subscription webhook handler) — **Implemented** in `workers/stripe-webhook/src/handlers/subscription.ts` (`customer.subscription.updated`/`deleted`); billing hardening recorded in 1.3 `[2026-06-26] Payment Processor Security Hardening`.
+- **`docs/research/JWT_COMPLIANCE_REVIEW.md`** (JWT `iss`/`nbf`/`aud` validation, remove mutable claims) — **Phase-1 implemented.** Mutable claims removed in 1.2 `M18-V01`; issuer/not-before/audience validation lives in `workers/lib/auth.ts` (see `security/SECURITY_VULNERABILITY_REPORT.md` V-01/V-02). Remaining open item: `email` in the JWT payload (tracked separately).
+
+---
+
+## [2026-07-12] - Dependency & Content-Loading Audit Consolidation
+
+Consolidated and **removed** the point-in-time version/library audits under `docs/reviews/` (all dated 2026-04-02). Their obsolete upgrade targets are captured here for the record; the authoritative current versions live in `pubspec.yaml`.
+
+- **Dependency & package-version audits** (`DEPENDENCIES_STALENESS_REPORT.md`, `PACKAGE_VERSIONS_AUDIT.md`) — recommended upgrades now overtaken: `flutter_stripe 12.4→12.5` (now `^13.0.0`), `go_router 17.1→17.2` (now `^17.0.1`), `freezed ^3.2.5` (now `^4.0.0-dev.3`), `freezed_annotation ^3.1.0` (now `^3.0.0`), `json_serializable 6.13.1` (now `^6.9.0`). `build_runner 2.4.8→2.13.1` was recommended but **not** taken — still `^2.4.8`.
+- **Flutter type-safe loading research** (`FLUTTER_LIBRARIES_RESEARCH.md`) — surveyed 12+ YAML/JSON libraries; recommended Freezed for a `content.yaml`/`content_loader.dart` migration. Freezed was adopted project-wide (`^4.0.0-dev.3`; models under `lib/models/`), but the **content-loading migration was not done** — `lib/services/content_loader.dart` remains string-based.
+- **Content-loading audit** (`CONTENT_LOADING_AUDIT.md`) — proposed a 3-phase roadmap (schema validation → Freezed content models → retire ContentLoader). **Not executed**; if revived, track as a backlog item.
+- `docs/reviews/README.md` (index) removed with the above.
+
+---

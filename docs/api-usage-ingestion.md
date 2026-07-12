@@ -31,7 +31,7 @@ Authorization: Bearer <jwt_token>
 Authorization: Bearer <api_key>
 ```
 
-- Format: `obtk_<prefix>_<secret>` (e.g., `obtk_prod_abc123...`)
+- Format: `int_live_<prefix>_<secret>` (e.g., `int_live_a1b2c3d4_e5f6g7h8i9j0k1l2m3n4`)
 - Scoped to a single organization
 - Verified via HMAC-SHA256 against stored hash
 - No user context needed; implies organization membership
@@ -102,7 +102,7 @@ curl -X POST https://api.integritystudio.ai/v1/ingest/events \
 **Full (API Key):**
 ```bash
 curl -X POST https://api.integritystudio.ai/v1/ingest/events \
-  -H "Authorization: Bearer obtk_prod_abcdef1234567890" \
+  -H "Authorization: Bearer int_live_abcdef12_abcdef1234567890gh" \
   -H "Content-Type: application/json" \
   -d '{
     "org_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
@@ -393,7 +393,7 @@ curl -X POST http://localhost:8080/v1/ingest/events \
 ### Ingest via API Key
 
 ```bash
-export API_KEY="obtk_prod_test1234567890"
+export API_KEY="int_live_test12345_test1234567890abcd"
 
 curl -X POST http://localhost:8080/v1/ingest/events \
   -H "Authorization: Bearer $API_KEY" \

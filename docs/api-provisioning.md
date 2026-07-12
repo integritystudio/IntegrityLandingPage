@@ -238,15 +238,19 @@ class ProvisioningService {
 
   /// Send a provisioning event to the Sender Worker.
   static Future<ProvisioningResponse> sendEvent(
-    ProvisioningEvent event,
-  ) async {
+    ProvisioningEvent event, {
+    required String jwt,
+  }) async {
     for (var attempt = 0; attempt <= _maxRetries; attempt++) {
       try {
         final response = await _dio.post(
           '$_senderWorkerUrl/send',
           data: jsonEncode(event.toJson()),
           options: Options(
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              'x-session-data': base64Encode(utf8.encode(jwt)),
+            },
             validateStatus: (status) => status != null,
           ),
         );
@@ -305,23 +309,18 @@ class ProvisioningService {
   }
 
   /// Health check against the Receiver Worker (public endpoint).
-  static Future<ProvisioningResponse> checkHealth(
-    String receiverUrl,
-  ) async {
+  /// Returns true if healthy, false otherwise.
+  static Future<bool> checkHealth(String receiverUrl) async {
     try {
       final response = await _dio.get('$receiverUrl/health');
       final data = response.data is Map<String, dynamic>
           ? response.data as Map<String, dynamic>
           : const <String, dynamic>{};
-      if (response.statusCode == HttpStatus.ok.code &&
-          data['ok'] == true) {
-        return ProvisioningSuccess(data: data);
-      }
-      return const ProvisioningError(error: _errorServer);
+      return response.statusCode == HttpStatus.ok.code && data['ok'] == true;
     } on DioException catch (e) {
       await ErrorTrackingService.captureException(e,
           context: 'ProvisioningService.checkHealth');
-      return const ProvisioningError(error: _errorNetwork);
+      return false;
     }
   }
 }
@@ -384,9 +383,11 @@ The Flutter app treats the Sender Worker as a trusted proxy. It sends plain JSON
 |--------|------|-------------|----------|
 | POST | `/signup` | `{email, password}` | `{jwt, auth0Sub, userId, email}` or `{error, code}` |
 | POST | `/signin` | `{email, password}` | `{jwt, email}` or `{error, code}` |
-| POST | `/send` | `{action, jwt, name, email, tier}` | `{ ok, token, keyId, prefix, tier }` or `{ error }` |
+| POST | `/send` | `{action: "provision_api_key", jwt, name, email, tier, org_name?}` (`org_name` optional — derived from the email's registrable domain when omitted) or `{action: "sign_in", jwt, email}` | `{ ok, token, keyId, prefix, tier }` or `{ error }` |
 | POST | `/create-checkout-session` | `{email, tier}` | `{checkoutUrl}` or `{error, code}` |
 | GET | `/health` | — | `{ ok: true }` |
+
+> **JWT delivery.** `/send` prefers the JWT from a base64-encoded `x-session-data` request header (avoids WAF pattern-matching on raw JWTs in the body/`Authorization` header) and falls back to `body.jwt`, then a `Bearer` `Authorization` header. See `extractJwt` in `workers/sender-worker/src/index.ts`; the Dart client sends `x-session-data` in `provisioning_service.dart`.
 
 ### Receiver (`api-provisioning-receiver`)
 
@@ -421,7 +422,7 @@ Remaining:
 
 ## CORS and Origin Headers
 
-The Sender Worker validates the request `Origin` against `ALLOWED_ORIGINS_JSON` and sets `Access-Control-Allow-Origin` on responses; OPTIONS preflight is handled and disallowed origins get a 403. See `workers/sender-worker/src/utils.ts`.
+The Sender Worker validates the request `Origin` against `ALLOWED_ORIGINS_JSON` and sets `Access-Control-Allow-Origin` on responses; OPTIONS preflight is handled and disallowed origins get a 403. Preflight responses allow `content-type, authorization, x-session-data` headers and `GET, POST, OPTIONS` methods (`CORS_HEADERS` in `workers/sender-worker/src/types.ts`). See `workers/sender-worker/src/utils.ts`.
 
 ### Origins
 

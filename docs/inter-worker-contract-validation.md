@@ -29,11 +29,11 @@ All requests must include `Content-Type: application/json`. Responses are JSON w
 
 ## CORS & Preflight
 
-**Preflight requests:** OPTIONS requests to any endpoint return 200 with CORS headers.
+**Preflight requests:** OPTIONS requests to any endpoint return 204 No Content with CORS headers.
 
 ```
 OPTIONS /signup
-200 OK
+204 No Content
 
 Headers:
   access-control-allow-methods: POST, OPTIONS
@@ -72,7 +72,7 @@ Headers:
 }
 ```
 
-**Email Format Validation:** must match `^[^\s@]+@[^\s@]+\.[^\s@]+$`; invalid format returns 400 `MISSING_FIELDS`.
+**Email Format Validation:** must match `^[^\s@]+@[^\s@]+\.[^\s@]+$`; invalid format returns 400 `INVALID_EMAIL`.
 
 **Response (201 Created):**
 ```json
@@ -87,7 +87,8 @@ Headers:
 
 | Status | Code | Reason |
 |--------|------|--------|
-| 400 | MISSING_FIELDS | email or password missing, or invalid email format |
+| 400 | MISSING_FIELDS | email or password missing |
+| 400 | INVALID_EMAIL | email format invalid |
 | 400 | JSON_PARSE_ERROR | request body is not valid JSON |
 | 500 | INTERNAL_ERROR | signup failed (auth backend error) |
 
@@ -137,7 +138,8 @@ Future<Map<String, dynamic>> signup(String email, String password) async {
 
 | Status | Code | Reason |
 |--------|------|--------|
-| 400 | MISSING_FIELDS | email or password missing, or invalid email format |
+| 400 | MISSING_FIELDS | email or password missing |
+| 400 | INVALID_EMAIL | email format invalid |
 | 400 | JSON_PARSE_ERROR | request body is not valid JSON |
 | 500 | INTERNAL_ERROR | signin failed (invalid credentials or backend error) |
 
@@ -180,12 +182,15 @@ Future<Map<String, dynamic>> signup(String email, String password) async {
 
 | Status | Code | Reason |
 |--------|------|--------|
-| 400 | MISSING_FIELDS | action, jwt, name, or tier missing |
+| 400 | MISSING_FIELDS | required field missing (e.g. `name`) |
+| 400 | INVALID_EMAIL | email field missing or invalid format |
 | 400 | UNKNOWN_ACTION | action not recognized |
 | 400 | JSON_PARSE_ERROR | request body is not valid JSON |
-| 500 | PROVISION_ERROR | edge function failed (JWT invalid, tier unknown, etc.) |
-| 500 | RECEIVER_ERROR | receiver returned non-200 status |
-| 500 | INTERNAL_ERROR | unexpected error in sender worker |
+| 401 | INVALID_AUTH | jwt missing, malformed, or expired |
+| 500 | INTERNAL_ERROR | RECEIVER binding or SHARED_SECRET not configured, or unexpected error in sender worker |
+| 502 | INTERNAL_ERROR | receiver-worker unreachable (fetch failure) |
+
+Note: on success the sender simply forwards the receiver's response as-is, so a non-2xx from the receiver (e.g. `RECEIVER_ERROR`, `QUOTA_EXCEEDED`, `RATE_LIMITED`) is passed through with the receiver's own status and code rather than being remapped by the sender.
 
 ## Error Response Format
 
@@ -198,7 +203,7 @@ All error responses follow this schema:
 }
 ```
 
-**Error Codes:** `MISSING_FIELDS`, `JSON_PARSE_ERROR`, `UNKNOWN_ACTION`, `RECEIVER_ERROR`, `INTERNAL_ERROR`, `NOT_FOUND`.
+**Error Codes:** `MISSING_FIELDS`, `INVALID_EMAIL`, `INVALID_AUTH`, `JSON_PARSE_ERROR`, `UNKNOWN_ACTION`, `RECEIVER_ERROR`, `INTERNAL_ERROR`, `NOT_FOUND`.
 
 ## Security Considerations
 
@@ -270,10 +275,13 @@ class ProvisioningClient {
 |--------|---------|
 | 200 | OK — request succeeded |
 | 201 | Created — resource created |
-| 400 | Bad Request — validation error (missing fields, invalid JSON, unknown action) |
-| 404 | Not Found — endpoint does not exist |
-| 405 | Method Not Allowed — wrong HTTP method |
-| 500 | Internal Server Error — server-side error (backend, receiver, or provision error) |
+| 204 | No Content — CORS preflight (OPTIONS) succeeded |
+| 400 | Bad Request — validation error (missing fields, invalid email, invalid JSON, unknown action) |
+| 401 | Unauthorized — jwt missing, malformed, or expired |
+| 403 | Forbidden — request origin not in the allowed origins list |
+| 404 | Not Found — endpoint does not exist (including requests to a route/method combination that isn't registered) |
+| 500 | Internal Server Error — server-side error (missing config, backend, or unexpected error) |
+| 502 | Bad Gateway — receiver-worker unreachable |
 
 ## Common Workflows
 
