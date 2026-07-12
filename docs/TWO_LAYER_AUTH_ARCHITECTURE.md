@@ -6,65 +6,86 @@ Integrity Studio's authentication system uses **two distinct layers**, each answ
 
 | Layer | Question | Mechanism | Purpose |
 |-------|----------|-----------|---------|
-| **Layer 1: Human Identity** | *Who is the person?* | Supabase OAuth + JWT | Flutter app sign-in, dashboard access, session management |
+| **Layer 1: Human Identity** | *Who is the person?* | Auth0 ROPC + JWT (via sender-worker) | Flutter app sign-in, dashboard access, session management |
 | **Layer 2: Machine Access** | *What client/app is calling?* | Org-scoped API keys | API requests, integrations, quota enforcement, billing |
 
 This split enables clean separation of concerns: human authentication is decoupled from machine authorization, allowing independent revocation, rotation, and quota policies.
 
 ---
 
-## Layer 1: Human Identity — Supabase OAuth
+## Layer 1: Human Identity — Auth0 ROPC
 
 ### Purpose
 Identifies the end-user (person) signing into the Flutter app or web dashboard. Establishes a session that grants access to the user's organizations, memberships, and entitlements.
 
 ### Flow
 
+The shipped mechanism is **email + password sign-in via the sender worker** (`workers/sender-worker`, `api-provisioning-sender`), which mints an **Auth0-issued** JWT using the OAuth2 Resource Owner Password Credentials (ROPC) grant. There is no Supabase-OAuth/social-login step and no Custom Access Token Hook in this path — Auth0 signs the token directly.
+
 ```
 User
-  ↓ [clicks "Sign in with Google/GitHub"]
-Supabase OAuth
-  ↓ [Google returns auth code]
-Supabase Auth
-  ↓ [issues JWT session token]
+  ↓ [submits email + password]
+Flutter App
+  ↓ [POST /signup or POST /signin to sender-worker]
+sender-worker (api-provisioning-sender)
+  │
+  ├─ /signup:
+  │   ├─ auth0CreateUser()   → Auth0 Management API (client_credentials, AUTH0_CLI_* creds)
+  │   ├─ supabaseCreatePersonalOrg() + supabaseInsertUser() → org/user rows in Supabase
+  │   └─ auth0UserSignIn()   → Auth0 /oauth/token, grant_type=password (AUTH0_CLIENT_* creds)
+  │       returns { jwt, auth0Sub, userId, email }
+  │
+  └─ /signin:
+      └─ auth0UserSignIn() → Auth0 /oauth/token, grant_type=password
+          returns { jwt, email }
+  ↓
 Flutter App
   ↓ [stores JWT in secure storage]
 POST /bootstrap (with JWT)
   ↓
-API returns: {
-  user: { id, email, name, picture },
-  orgs: [{ id, name, slug, role, plan, entitlements }],
-  default_org: { ... },
-  api_key_metadata: { ... }
+API returns (BootstrapResponseSchema): {
+  user: { id, email },
+  organizations: [{ id, slug, name, billing_status, current_plan, quota_version, role }],
+  active_org_id,
+  entitlements: { [feature_key]: boolean | number | null },
+  usage_snapshot: { month_to_date_units, current_minute_remaining }
 }
   ↓
 App is now authenticated & authorized
 ```
 
+See `workers/sender-worker/src/index.ts` (`handleSignup`, `handleSignIn`) and `src/supabase.ts` (`auth0CreateUser`, `auth0UserSignIn`) for the exact implementation.
+
 ### JWT Claims Strategy
 
-The Supabase Custom Access Token Hook enriches the JWT with compact, stable claims:
+The JWT returned by `/signup` and `/signin` is **issued by Auth0**, not Supabase — Auth0 signs it directly during the ROPC token exchange, so no Postgres hook runs against it. Its shape is a standard Auth0 access/ID token (validated loosely server-side via `JwtPayloadSchema` in `workers/lib/types/schemas.ts`, which requires only `sub`, `email`, `iat`, `exp` and passes through any other claims):
 
 ```typescript
-interface EnrichedJWT {
-  sub: string;                    // auth.users.id (Supabase Auth user)
+interface Auth0JWT {
+  sub: string;                    // Auth0 user id ("auth0Sub" in the /signup response)
   email: string;
-  iss: string;                    // "https://supabase.com"
-  aud: "authenticated";
+  iss: string;                    // "https://{AUTH0_DOMAIN}/"
+  aud: string;                    // AUTH0_AUDIENCE
+  scope: string;                  // "openid profile email"
   iat: number;                    // issued at
-  exp: number;                    // expires in 3600s
+  exp: number;                    // Auth0 tenant token-expiry policy
 
-  // Custom org claims (added by hook, stable identity references only)
-  org_ids: string[];              // all orgs user belongs to
-  default_org_id: string;         // primary org for this user
-  default_org_role: string;       // "owner" | "admin" | "member" | "billing_admin" | "viewer"
-  // NOTE: default_org_plan and default_org_billing_status are intentionally
-  // absent. Both are mutable state queried server-side at runtime (M18-V01).
-  // Embedding them caused up to 3600s stale reads, violating SOC 2 CC6.1.
+  // NOT present: org_ids, default_org_id, default_org_role, plan, billing_status.
+  // Auth0 has no knowledge of Supabase orgs, so none of that is embedded here.
 }
 ```
 
-**Key design rule:** JWT claims are **immutable references only**. Dynamic state (plan, billing status, remaining credits, current usage) is queried server-side via `/bootstrap` and `/snapshot`.
+Supabase does have a Postgres `custom_access_token_hook` function (see
+`supabase/migrations/20260326000000_update_custom_access_token_hook.sql`) that would
+enrich a **Supabase Auth** session JWT with `org_ids` / `default_org_id` / `default_org_role`
+(deliberately excluding mutable `plan`/`billing_status` claims per M18-V01, to avoid
+up-to-3600s stale reads). That hook exists as DB-level infrastructure but is not in the
+code path exercised by the sender worker's `/signup` and `/signin` — those issue Auth0
+JWTs directly and never establish a Supabase Auth session.
+
+**Key design rule:** the JWT carries only stable Auth0 identity (`sub`, `email`). Org
+context and all dynamic state (plan, billing status, remaining credits, current usage)
+are resolved server-side, per request, via `/bootstrap` and `/snapshot`.
 
 ### Auth User Links Bridge
 
@@ -83,6 +104,13 @@ This bridge handles:
 - **Auth0 → Supabase migration** without disrupting existing user records
 - **Multiple auth methods** (user can sign in via Google, GitHub, SAML after initial Auth0 signup)
 - **RLS join point** — all org/entitlement policies use this bridge to verify user membership
+
+**Current status:** the `auth_user_links` table and the `custom_access_token_hook` function
+(above) exist in Supabase (`supabase/migrations/20260320005000_create_auth_user_links.sql`,
+`20260326000000_update_custom_access_token_hook.sql`). Neither is populated or invoked by the
+sender worker's `/signup`/`/signin` handlers today (`workers/sender-worker/src/supabase.ts` only
+inserts `organizations`, `users`, and `organization_memberships` rows) — they are DB-level
+infrastructure for a Supabase Auth session that the current Auth0-ROPC flow does not create.
 
 ### RLS Policy Example
 
@@ -118,15 +146,17 @@ Identifies the calling system (client app, integration, webhook handler) and tie
 
 ### Key Format
 
-```
-int_live_org_abcd1234_xxxxxxxxxxxxxxxxxx
-│         │   └─ org_id (first 8 chars)
-│         └─ key class (live = non-revoked)
-└─ prefix (public, in plaintext in DB)
+Actual format (`API_KEY_REGEX` in `workers/lib/api-keys.ts`): `^int_live_([A-Za-z0-9]{8,})_([A-Za-z0-9]{16,})$`. The prefix does **not** encode `org_id` — org scoping is looked up from the `api_keys` row matched by prefix, not parsed out of the key string.
 
-key_prefix: "int_live_org_abcd1234"
-key_hash:   sha256(full_key)  ← only this is stored in DB
-raw_key:    full_key          ← only shown once at creation
+```
+int_live_XyZ12abc_9f3k2N7qP1rT8mZaLxYcQe2Vw
+│         │         └─ secret (16+ alphanumeric, random) — the only part that's hashed
+│         └─ prefix (8+ alphanumeric, random) — stored in plaintext, does NOT encode org_id
+└─ "int_live_" — fixed key-class prefix (live = non-revoked)
+
+key_prefix: "XyZ12abc"          ← plaintext, used for the DB lookup
+key_hash:   HMAC-SHA256(hmacSecret, secret)  ← only the secret half is hashed; stored in DB
+raw_key:    prefix + "_" + secret            ← only shown once at creation
 ```
 
 ### API Key Storage
@@ -137,9 +167,9 @@ CREATE TABLE public.api_keys (
   organization_id uuid NOT NULL REFERENCES organizations(id),
   user_id uuid NOT NULL REFERENCES public.users(id),
   prefix text NOT NULL,
-  hash text NOT NULL UNIQUE,             -- sha256(key_value)
+  hash text NOT NULL UNIQUE,             -- HMAC-SHA256(hmacSecret, secret) — secret portion only
   name text NOT NULL,
-  tier user_defined NOT NULL,            -- "new" | "free" | "growth" | "enterprise"
+  tier user_defined NOT NULL,            -- "starter" | "growth" | "enterprise"
   status user_defined NOT NULL,          -- "active" | "revoked" | "rotated"
   expires_at timestamptz,
   created_at timestamptz NOT NULL,
@@ -157,15 +187,15 @@ CREATE TABLE public.api_keys (
 
 ```bash
 # Example: POST /api/usage
-curl -H "Authorization: Bearer int_live_org_abcd1234_xxxxxxxxx" \
+curl -H "Authorization: Bearer int_live_XyZ12abc_9f3k2N7qP1rT8mZaLxYcQe2Vw" \
      -H "X-API-Key-Id: <key-id>" \
      https://api.integritystudio.ai/usage
 
-# Worker receives request
-# 1. Extract prefix from Authorization header
-# 2. Look up prefix in api_keys table → get hash + org_id
-# 3. Verify hash matches request key
-# 4. Extract org_id → call Durable Object for quota check
+# Worker receives request (see verifyApiKey in workers/lib/api-keys.ts)
+# 1. Parse the token into { prefix, secret } via API_KEY_REGEX
+# 2. Look up prefix in api_keys table → get hash + organization_id
+# 3. HMAC-SHA256 the secret and constant-time-compare against the stored hash
+# 4. Use the row's organization_id → call Durable Object for quota check
 # 5. Proceed with request
 ```
 
@@ -182,16 +212,16 @@ Request → Worker Gateway
   │   JWT (from Authorization header) or API key (from X-API-Key)
   │
   ├─ [Step 2] Verify signature:
-  │   JWT: check Supabase public key + expiry
-  │   API key: lookup prefix → verify hash
+  │   JWT: check Auth0's JWKS (AUTH0_DOMAIN) + expiry
+  │   API key: lookup prefix → verify HMAC hash of secret
   │
   ├─ [Step 3] Extract org_id:
-  │   JWT: from default_org_id claim
+  │   JWT: not on the token itself (Auth0 JWTs carry no org data) — resolved via /bootstrap
   │   API key: from api_keys.organization_id
   │
   ├─ [Step 4] Rate limit (Cloudflare, edge-local):
   │   Use org_id as key
-  │   Apply plan-based tier limit (free: 60 req/min, growth: 600, enterprise: 3000)
+  │   Apply plan-based tier limit (illustrative — starter: 60 req/min, growth: 600, enterprise: 3000)
   │
   ├─ [Step 5] Quota check (Durable Object, strong consistency):
   │   POST /check { metric_key, quantity }
@@ -214,9 +244,9 @@ Request → Worker Gateway
 ```
 Is this a human user signing into the app?
   ↓ YES
-  → Use Layer 1 (JWT from Supabase OAuth)
-  → JWT contains org context (default_org_id, plan, role)
-  → Call /bootstrap to fetch full org/entitlement state
+  → Use Layer 1 (JWT from Auth0 ROPC via sender-worker /signup or /signin)
+  → JWT itself carries only sub/email — no org context
+  → Call /bootstrap (with the JWT) to resolve org context and fetch full org/entitlement state
   → Display dashboard
 
   ↓ NO
@@ -251,24 +281,25 @@ Is this an API call or webhook?
 
 **Motivation:** If DB is compromised, live keys should not leak.
 
-**Implementation:**
+**Implementation** (see `workers/lib/api-keys.ts`: `generateApiKey`, `hashApiKeySecret`, `verifyApiKey`):
 ```typescript
 // On key creation
-const raw_key = "int_live_org_abcd1234_xxxxxxxxx";
-const hash = sha256(raw_key);
-await db.insert('api_keys', { prefix: 'int_live_org_abcd1234', hash, ... });
-// Return raw_key once to user
+const { token, prefix, secret } = generateApiKey(); // token = `int_live_${prefix}_${secret}`
+const hash = await hashApiKeySecret(secret, hmacSecret); // HMAC-SHA256(hmacSecret, secret)
+await db.insert('api_keys', { prefix, hash, ... });
+// Return token once to user; only the secret half is ever hashed/stored
 
 // On key validation
-const hash_from_request = sha256(request_key);
-const record = await db.query('SELECT * FROM api_keys WHERE hash = ?', [hash_from_request]);
+const { prefix, secret } = parseApiKey(request_token);
+const record = await db.query('SELECT * FROM api_keys WHERE prefix = ?', [prefix]);
+const valid = await verifyApiKeyHash(secret, record.hash, hmacSecret); // constant-time HMAC compare
 ```
 
 ### 3. Why JWT Claims Don't Include Mutable Data?
 
-**Motivation:** If plan/billing status changes server-side, JWT would be stale until refresh.
+**Motivation:** If plan/billing status changes server-side, an org-aware JWT would be stale until refresh. This is the rationale behind the Supabase `custom_access_token_hook` (see Layer 1 above) — it is not currently exercised, since the shipped flow issues Auth0 JWTs that carry no org data at all, but the same principle applies if/when that hook is wired in.
 
-**Solution:** Store only stable references in JWT:
+**Solution (for the hook, if/when used):** Store only stable references in the enriched JWT:
 - ✅ `default_org_id` (unchanging reference)
 - ✅ `org_ids` (list of org memberships, changes rarely)
 - ❌ `remaining_quota` (changes on every request)
@@ -309,11 +340,11 @@ return {
 
 ```typescript
 async function verifyJWT(token: string, env: Env): Promise<null | JWTPayload> {
-  // Fetch Supabase's public key (cached)
-  const publicKey = await getSupabasePublicKey(env.SUPABASE_URL);
+  // Fetch Auth0's JWKS for env.AUTH0_DOMAIN (cached)
+  const jwks = await getAuth0Jwks(env.AUTH0_DOMAIN);
 
   // Verify signature
-  const payload = await jwtVerify(token, publicKey);
+  const payload = await jwtVerify(token, jwks);
 
   // Check expiry
   if (payload.exp * 1000 < Date.now()) {
@@ -325,39 +356,43 @@ async function verifyJWT(token: string, env: Env): Promise<null | JWTPayload> {
 ```
 
 **Implications:**
-- JWTs expire after 3600 seconds
-- Refresh tokens (if needed) are handled by Supabase client
-- Worker does NOT cache JWT validity (fetches public key, verifies each request)
+- JWTs are Auth0-issued; expiry follows the Auth0 tenant/application token policy
+- Re-authentication (no refresh-token flow) happens via `/signin` (Auth0 ROPC)
+- Worker does NOT cache JWT validity (fetches JWKS, verifies each request)
+
+*(Illustrative — no `verifyJWT`/`getAuth0Jwks` function currently exists in this repo's
+worker code; this shows the intended validation shape for a JWT issued by Auth0.)*
 
 ### API Key Validation
 
 ```typescript
-async function verifyAPIKey(key: string, env: Env): Promise<null | APIKeyRecord> {
-  // Extract prefix (first part before _)
-  const prefix = key.substring(0, key.lastIndexOf('_'));
-
-  // Hash the provided key
-  const hash = sha256(key);
+async function verifyAPIKey(token: string, env: Env): Promise<VerifyApiKeyResult> {
+  // Parse into { prefix, secret } via API_KEY_REGEX (int_live_<prefix>_<secret>)
+  const parsed = parseApiKey(token);
+  if (!parsed.ok) return { ok: false, error: unauthorized('Invalid API key format') };
 
   // Look up in DB by prefix (indexed for speed)
   const record = await db.query(
-    'SELECT * FROM api_keys WHERE prefix = ? AND hash = ? AND status = "active"',
-    [prefix, hash]
+    'SELECT * FROM api_keys WHERE prefix = ?',
+    [parsed.prefix]
   );
+  if (!record || record.status !== 'active' || record.revoked_at !== null) {
+    return { ok: false, error: unauthorized('API key not found or revoked') };
+  }
 
-  if (!record) return null;
+  // Verify the secret against the stored HMAC hash (constant-time compare)
+  const valid = await verifyApiKeyHash(parsed.secret, record.hash, env.API_KEY_HMAC_SECRET);
+  if (!valid) return { ok: false, error: unauthorized('Invalid API key') };
 
-  // Update last_used_at (async, don't block request)
-  db.update('api_keys', { id: record.id, last_used_at: now() });
-
-  return record;
+  return { ok: true, apiKey: record, userId: record.user_id, organizationId: record.organization_id };
 }
 ```
+(see `workers/lib/api-keys.ts` for the real implementation)
 
 **Implications:**
-- Prefix is stored in plaintext for lookup efficiency (prefix is not secret)
-- Full key must match hash (prevents collision attacks)
-- Status check filters out revoked keys
+- Prefix is stored in plaintext for lookup efficiency (prefix is not secret and does not encode org_id)
+- Only the secret half of the key is HMAC-hashed and compared (constant-time)
+- Status/`revoked_at` check filters out revoked keys
 - Lookup is indexed by prefix (O(1) in DB)
 
 ### CORS & XSS Protection
@@ -380,8 +415,8 @@ if (request.headers.get('origin') === 'https://app.integritystudio.ai') {
 ## Implementation Phases
 
 ### Phase 1: Core Setup (Current)
-- ✅ Supabase OAuth + Custom Access Token Hook
-- ✅ `auth_user_links` bridge table
+- ✅ Auth0 ROPC sign-up/sign-in via sender-worker (`/signup`, `/signin`)
+- `auth_user_links` bridge table + Custom Access Token Hook exist in Supabase but are not yet wired into this flow
 - ✅ `/bootstrap` endpoint
 - ✅ Basic JWT validation in Worker
 - API keys: create, list, revoke (user dashboard)
@@ -406,32 +441,32 @@ if (request.headers.get('origin') === 'https://app.integritystudio.ai') {
 
 ### Unit Tests
 ```typescript
-// verifyJWT.test.ts
-test('valid JWT with claims', async () => {
-  const token = signJWT({ org_id: '...', exp: future }, secret);
+// verifyJWT.test.ts (illustrative — see note in Security Considerations above)
+test('valid Auth0 JWT accepted', async () => {
+  const token = signJWT({ sub: 'auth0|...', email: 'user@example.com', exp: future }, secret);
   const payload = await verifyJWT(token, env);
-  expect(payload.org_id).toBe('...');
+  expect(payload.sub).toBe('auth0|...');
 });
 
 test('expired JWT rejected', async () => {
-  const token = signJWT({ org_id: '...', exp: past }, secret);
+  const token = signJWT({ sub: 'auth0|...', email: 'user@example.com', exp: past }, secret);
   const payload = await verifyJWT(token, env);
   expect(payload).toBeNull();
 });
 
-// verifyAPIKey.test.ts
+// api-keys.test.ts (see workers/lib/api-keys.ts)
 test('valid API key lookup and hash verification', async () => {
-  const key = 'int_live_org_abcd1234_secret123';
-  await db.insert('api_keys', { prefix: 'int_live_org_abcd1234', hash: sha256(key) });
-  const record = await verifyAPIKey(key, env);
-  expect(record).toBeTruthy();
+  const { token, prefix, secret } = generateApiKey();
+  await db.insert('api_keys', { prefix, hash: await hashApiKeySecret(secret, hmacSecret) });
+  const result = await verifyApiKey(token, hmacSecret, sb);
+  expect(result.ok).toBe(true);
 });
 
-test('wrong API key rejected', async () => {
-  const key = 'int_live_org_abcd1234_secret123';
-  await db.insert('api_keys', { prefix: 'int_live_org_abcd1234', hash: sha256(key) });
-  const record = await verifyAPIKey('int_live_org_abcd1234_wrong', env);
-  expect(record).toBeNull();
+test('wrong API key secret rejected', async () => {
+  const { prefix, secret } = generateApiKey();
+  await db.insert('api_keys', { prefix, hash: await hashApiKeySecret(secret, hmacSecret) });
+  const result = await verifyApiKey(`int_live_${prefix}_wrongsecretwrongsecret`, hmacSecret, sb);
+  expect(result.ok).toBe(false);
 });
 ```
 
@@ -439,20 +474,22 @@ test('wrong API key rejected', async () => {
 ```typescript
 // auth.integration.test.ts
 test('full user sign-in flow', async () => {
-  // 1. OAuth callback
-  const code = '...';
-  const sessionResponse = await oauth.exchangeCode(code);
-  const jwt = sessionResponse.session.access_token;
+  // 1. POST /signin to sender-worker (Auth0 ROPC)
+  const signinResponse = await fetch('https://sender/.../signin', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+  const { jwt } = await signinResponse.json();
 
   // 2. POST /bootstrap with JWT
   const response = await fetch('https://api/.../bootstrap', {
     headers: { Authorization: `Bearer ${jwt}` },
   });
 
-  // 3. Verify response has org context
+  // 3. Verify response has org context (BootstrapResponseSchema)
   const data = await response.json();
-  expect(data.orgs).toBeDefined();
-  expect(data.orgs[0].id).toBeDefined();
+  expect(data.organizations).toBeDefined();
+  expect(data.organizations[0].id).toBeDefined();
 });
 
 test('API key request with quota enforcement', async () => {
@@ -486,7 +523,7 @@ test('API key request with quota enforcement', async () => {
 
 | Term | Definition |
 |------|-----------|
-| **JWT** | JSON Web Token; signed credential issued by Supabase, contains user + org claims |
+| **JWT** | JSON Web Token; currently Auth0-issued (via the sender worker's ROPC grant), carries only `sub`/`email` — org context is resolved separately via `/bootstrap` |
 | **API Key** | Long-lived credential for machine-to-machine calls; org-scoped, revocable |
 | **auth_user_links** | Bridge table mapping Supabase Auth users to app users during Auth0 migration |
 | **quota_version** | Monotonic counter incremented on plan changes; prevents stale webhook replays |
