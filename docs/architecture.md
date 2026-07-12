@@ -23,8 +23,8 @@ lib/
 ├── config/           # Content configuration
 │   └── content/      # Static content definitions (16 files)
 ├── controllers/      # Business logic controllers
-├── models/           # Data models (consent preferences)
-├── pages/            # Page widgets (29 pages)
+├── models/           # Data models (consent, contact, dashboard, provisioning; freezed-generated)
+├── pages/            # Page widgets (40 pages)
 ├── routing/          # GoRouter configuration
 │   ├── app_router.dart   # Route definitions, redirects
 │   └── cookie_shell.dart # Cookie consent ShellRoute wrapper
@@ -32,7 +32,7 @@ lib/
 ├── theme/            # Design system
 ├── utils/            # Security utilities
 ├── widgets/          # Reusable components
-│   ├── common/       # Shared widgets (alert, buttons, cards, containers, form_fields, gradient_pill_badge, hover_text_link, status_icon, trust_badge)
+│   ├── common/       # Shared widgets (17 files: alert, buttons, cards, chip_badge, containers, copyable_code_field, dashboard_scaffold, error_card, form_fields, gradient_page_shell, gradient_pill_badge, hover_text_link, info_card, status_badge, status_icon, trust_badge, vertical_indicator_list)
 │   ├── consent/      # Cookie consent banner
 │   ├── decorative/   # Animated orb
 │   ├── docs/         # Documentation components (DocCallout, DocBulletList, DocInlineWarning, DocStatCard, DocFeatureCard, DocNumberedList)
@@ -59,7 +59,7 @@ All site content is defined in `content.yaml` at project root. Content constants
 
 All navigation uses GoRouter via `context.go()`. Routes are organized into groups:
 - `_homeRoute` / `_mainPageRoutes` — primary pages with cookie settings
-- `_authRoutes` — signup, request result pages, OAuth callback, help center
+- `_authRoutes` — login, signup, provision, checkout, checkout-success, dashboard, billing, usage, entitlements, quota, health, request result pages, OAuth callback, help center
 - `_blogRoutes` — blog, comparisons, sources
 - `_legalRoutes` — privacy, terms, cookies, accessibility, security
 - `_docsRoutes` — documentation, API, compliance
@@ -104,17 +104,24 @@ Documentation pages use `DocsPageScaffold` (extracted shared scaffold) with `Doc
 | `tracking.dart` | Platform-conditional tracking (web/none) |
 | `http_status.dart` | HTTP status code constants |
 | `security_utils.dart` | Input sanitization, CSP nonce |
+| `dashboard_service.dart` | Dashboard data fetching from Workers |
+| `oauth_service.dart` | OAuth flow (platform-conditional web/stub) |
+| `provisioning_service.dart` | Signup/signin calls to sender-worker |
+| `auth_storage.dart` | JWT/session persistence (platform-conditional web/stub) |
+| `url_launcher.dart` | External URL opening (platform-conditional web/stub) |
 
 ## Backend (Cloudflare Workers)
 
 ```
-workers/contact-form/
-├── wrangler.toml     # Cloudflare config
-├── package.json      # Dependencies
-└── tsconfig.json     # TypeScript config
+workers/
+├── lib/              # Shared HTTP, validation, and constants (shared test suite)
+├── contact-form/     # Resend email delivery, CSRF protection, KV rate limiting
+├── sender-worker/    # Inline Auth0+Supabase signup/signin; HMAC-signs /send events to receiver
+├── receiver-worker/  # Local stub/test double only — NOT deployed (production receiver lives in observability-toolkit repo)
+├── api-gateway/      # Usage ingest, aggregation, auth, quota
+├── stripe-webhook/   # Stripe subscription lifecycle, checkout, dead-letter queue
+└── bootstrap-worker/ # Bootstrap operations
 ```
-
-Handles contact form submissions with email delivery, CSRF protection, and rate limiting.
 
 ## Testing Structure
 

@@ -191,7 +191,7 @@ Handles communication with Auth0 and the provisioning worker.
 │  ┌───────────────────────────────────────────────────────────┐ │
 │  │ 1. M2M Token Exchange (client_credentials grant)          │ │
 │  │    POST /oauth/token                                      │ │
-│  │    Using: AUTHO_CLI_ID + AUTHO_CLI_SECRET                │ │
+│  │    Using: AUTH0_CLI_ID + AUTH0_CLI_SECRET                │ │
 │  │    Returns: mgmtToken (for Management API)                │ │
 │  └───────────────────────────────────────────────────────────┘ │
 │  ┌───────────────────────────────────────────────────────────┐ │
@@ -389,8 +389,9 @@ void _routeAfterSignup(AuthSuccess result) {
 ### M2M (Machine-to-Machine) for User Creation
 
 **Sender Worker** (`workers/sender-worker/src`):
-- Requires `AUTHO_CLI_ID`, `AUTHO_CLI_SECRET`, `AUTHO_CLI_AUDIENCE`
+- Requires `AUTH0_CLI_ID`, `AUTH0_CLI_SECRET`
 - Uses **client_credentials grant** to obtain management tokens
+- The Management API audience is not a configured env var — it's hardcoded as `https://${AUTH0_DOMAIN}/api/v2/`
 - Called during `/signup` to create users in Auth0
 
 ### ROPC (Resource Owner Password Credentials) for User Sign-In
@@ -408,9 +409,8 @@ void _routeAfterSignup(AuthSuccess result) {
 | `AUTH0_CLIENT_ID` | App client ID | ROPC (password) |
 | `AUTH0_CLIENT_SECRET` | App client secret | ROPC (password) |
 | `AUTH0_AUDIENCE` | API audience | Both |
-| `AUTHO_CLI_ID` | CLI app client ID | M2M (client_credentials) |
-| `AUTHO_CLI_SECRET` | CLI app secret | M2M (client_credentials) |
-| `AUTHO_CLI_AUDIENCE` | CLI API audience | M2M (client_credentials) |
+| `AUTH0_CLI_ID` | CLI app client ID | M2M (client_credentials) |
+| `AUTH0_CLI_SECRET` | CLI app secret | M2M (client_credentials) |
 
 ---
 

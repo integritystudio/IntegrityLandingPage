@@ -6,7 +6,7 @@ All notable changes to IntegrityStudio.ai Flutter project by version.
 
 | Version | Release Date | Summary |
 |---------|--------------|---------|
-| [1.3](changelog/1.3/CHANGELOG.md) | 2026-06-26 | Payment processor security hardening, provisioning docs reconciliation, service-binding architecture |
+| [1.3](changelog/1.3/CHANGELOG.md) | 2026-06-26 | Payment processor security hardening, provisioning docs reconciliation, service-binding architecture, Flutter 3.44/Dart 3.12 toolchain bump |
 | [1.2](changelog/1.2/CHANGELOG.md) | 2026-03-20 | API provisioning workers, Zod validation, sender-worker UI, error sanitization |
 | [1.1](changelog/1.1/CHANGELOG.md) | 2026-03-14+ | Code quality, widget deduplication (Phase 2–3b), e2e test hardening |
 | [1.0](changelog/1.0/CHANGELOG.md) | 2026-02-12 | Initial release, core architecture, test suite |

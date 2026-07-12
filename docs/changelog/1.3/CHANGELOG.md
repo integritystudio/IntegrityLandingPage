@@ -223,3 +223,46 @@ Integration-test coverage for the 7 error scenarios shipped in `6d2ff74` (`worke
 - 157 sender-worker tests passing
 
 ---
+
+## [2026-07-01] - Flutter/Dart Toolchain Bump & Lucide Icon Package Migration
+
+### Toolchain
+
+**Flutter 3.44.4 / Dart 3.12 (CI)**
+- Bumped Flutter to 3.44.4 (Dart 3.12) in CI; `freezed ^4.0.0-dev.3` requires Dart >=3.12.0, but Flutter stable 3.41.6 shipped Dart 3.11.4
+- Commit: `67a1d90`
+
+### Dependencies
+
+**`lucide_icons` → `lucide_icons_flutter` Migration**
+- Replaced the `lucide_icons` package with `lucide_icons_flutter` across 110 files (`lib/config/content`, `lib/pages`, `lib/widgets`, tests)
+- Brand icons unavailable in the new package substituted: `LucideIcons.linkedin` → `.briefcase`, `LucideIcons.github` → `.code`
+- Commit: `890f794`
+
+### Fixes
+
+- Bundled `cupertino_icons` to silence the web build's icon tree-shaker warning (Cupertino widgets reference the font but it was never a declared dependency) — `92d652b`
+- Removed a redundant non-null assertion on an already-promoted type in `containers.dart`, flagged by Dart 3.12's `unnecessary_non_null_assertion` lint — `a2e2b37`
+
+### Tooling
+
+- Updated `.serena/project.yml` and `pubspec.yaml` — `7fdd00d`
+
+---
+
+## [2026-07-12] - Test Refactor & Serena Cleanup
+
+### Refactor
+
+**Dart 3.12 Null-Aware Elements**
+- Replaced `if (x != null) 'key': x` / `if (x != null) x!` collection-literal patterns with Dart 3.12's null-aware element syntax (`'key': ?x`, `?x`)
+- Applied to `lib/services/analytics.dart`, `lib/services/contact_service.dart`, `lib/widgets/common/info_card.dart`, and 5 test files (`auth_page_test.dart`, `checkout_page_test.dart`, `landing_page_test.dart`, `signup_page_test.dart`, `status_page_test.dart`)
+- Commit: `f8993a0`
+
+### Chore
+
+**Stop Tracking `.serena/`**
+- Removed `.serena/` (machine-specific config, cache, memories) from version control and added it to `.gitignore` to stop the per-session churn
+- Commit: `3071b8c`
+
+---
