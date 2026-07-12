@@ -81,3 +81,6 @@ dist/
 
 # Allow scripts/ TypeScript source (runbooks, admin utilities)
 !scripts/*.ts
+
+# Serena (machine-specific config, cache, memories)
+.serena/
