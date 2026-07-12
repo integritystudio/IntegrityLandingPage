@@ -324,7 +324,7 @@ class ContactService {
           options: Options(
             headers: {
               'Content-Type': 'application/json',
-              if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+              'X-CSRF-Token': ?csrfToken,
               'X-Idempotency-Key': idempotencyKey,
               'X-Request-ID': requestId,
             },

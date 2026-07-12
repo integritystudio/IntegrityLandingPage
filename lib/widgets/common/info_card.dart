@@ -112,11 +112,11 @@ class InfoCard extends StatelessWidget {
                           color: AppColors.gray400,
                         ),
                   ),
-                if (child != null) child!,
+                ?child,
               ],
             ),
           ),
-          if (trailingWidget != null) trailingWidget!,
+          ?trailingWidget,
         ],
       ),
     );

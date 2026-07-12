@@ -643,19 +643,19 @@ GoRouter _makeSignupRouter(String tier) => GoRouter(
       routes: [
         GoRoute(
           path: '/',
-          builder: (_, __) => SignupPage(tier: tier, onBack: () {}),
+          builder: (_, _) => SignupPage(tier: tier, onBack: () {}),
         ),
         GoRoute(
           path: '/provision',
-          builder: (_, __) => const Scaffold(body: Text('provision_page')),
+          builder: (_, _) => const Scaffold(body: Text('provision_page')),
         ),
         GoRoute(
           path: '/request_success',
-          builder: (_, __) => const Scaffold(body: Text('request_success_page')),
+          builder: (_, _) => const Scaffold(body: Text('request_success_page')),
         ),
         GoRoute(
           path: '/request_failure',
-          builder: (_, __) => const Scaffold(body: Text('request_failure_page')),
+          builder: (_, _) => const Scaffold(body: Text('request_failure_page')),
         ),
       ],
     );
@@ -664,23 +664,23 @@ GoRouter _makeSignupRouterWithCheckout(String tier) => GoRouter(
       routes: [
         GoRoute(
           path: '/',
-          builder: (_, __) => SignupPage(tier: tier, onBack: () {}),
+          builder: (_, _) => SignupPage(tier: tier, onBack: () {}),
         ),
         GoRoute(
           path: '/provision',
-          builder: (_, __) => const Scaffold(body: Text('provision_page')),
+          builder: (_, _) => const Scaffold(body: Text('provision_page')),
         ),
         GoRoute(
           path: '/checkout',
-          builder: (_, __) => const Scaffold(body: Text('checkout_page')),
+          builder: (_, _) => const Scaffold(body: Text('checkout_page')),
         ),
         GoRoute(
           path: '/request_success',
-          builder: (_, __) => const Scaffold(body: Text('request_success_page')),
+          builder: (_, _) => const Scaffold(body: Text('request_success_page')),
         ),
         GoRoute(
           path: '/request_failure',
-          builder: (_, __) => const Scaffold(body: Text('request_failure_page')),
+          builder: (_, _) => const Scaffold(body: Text('request_failure_page')),
         ),
       ],
     );

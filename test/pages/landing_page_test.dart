@@ -747,11 +747,11 @@ void main() {
           routes: [
             GoRoute(
               path: '/',
-              builder: (_, __) => const LandingPage(),
+              builder: (_, _) => const LandingPage(),
             ),
             GoRoute(
               path: '/demo',
-              builder: (_, __) =>
+              builder: (_, _) =>
                   const Scaffold(body: Text('Demo page')),
             ),
             GoRoute(
@@ -880,7 +880,7 @@ void main() {
           routes: [
             GoRoute(
               path: '/',
-              builder: (_, __) => const LandingPage(),
+              builder: (_, _) => const LandingPage(),
             ),
             GoRoute(
               path: '/signup',

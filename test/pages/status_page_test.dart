@@ -54,14 +54,14 @@ void main() {
       routes: [
         GoRoute(
           path: '/status',
-          builder: (_, __) => StatusPage(
+          builder: (_, _) => StatusPage(
             onBack: onBack,
             onShowCookieSettings: onShowCookieSettings,
           ),
         ),
         GoRoute(
           path: '/',
-          builder: (_, __) =>
+          builder: (_, _) =>
               const Scaffold(body: Text('home_page')),
         ),
       ],

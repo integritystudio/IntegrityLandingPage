@@ -18,12 +18,12 @@ GoRouter _makeCheckoutRouter({required CheckoutArgs args}) {
       ),
       GoRoute(
         path: '/request_failure',
-        builder: (_, __) =>
+        builder: (_, _) =>
             const Scaffold(body: Text('request_failure_page')),
       ),
       GoRoute(
         path: '/request_success',
-        builder: (_, __) =>
+        builder: (_, _) =>
             const Scaffold(body: Text('request_success_page')),
       ),
     ],

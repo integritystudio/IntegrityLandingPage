@@ -97,7 +97,7 @@ class AnalyticsService {
     _track(AnalyticsEvent.pageView, {
       'page_title': pageName,
       'page_location': pageName,
-      if (ref != null) 'page_referrer': ref,
+      'page_referrer': ?ref,
     });
   }
 
@@ -123,7 +123,7 @@ class AnalyticsService {
     _track(AnalyticsEvent.ctaClick, {
       'button_name': buttonName,
       'location': location,
-      if (ctaType != null) 'cta_type': ctaType,
+      'cta_type': ?ctaType,
     });
   }
 
@@ -154,7 +154,7 @@ class AnalyticsService {
     _track(AnalyticsEvent.formSubmission, {
       'form_type': formType,
       'success': success,
-      if (errorMessage != null) 'error_message': errorMessage,
+      'error_message': ?errorMessage,
     });
   }
 

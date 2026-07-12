@@ -61,20 +61,20 @@ void main() {
         routes: [
           GoRoute(
             path: Routes.signup,
-            builder: (_, __) => const AuthPage(mode: AuthMode.signUp),
+            builder: (_, _) => const AuthPage(mode: AuthMode.signUp),
           ),
           GoRoute(
             path: Routes.login,
-            builder: (_, __) => const AuthPage(mode: AuthMode.signIn),
+            builder: (_, _) => const AuthPage(mode: AuthMode.signIn),
           ),
           GoRoute(
             path: Routes.provision,
-            builder: (_, __) =>
+            builder: (_, _) =>
                 const Scaffold(body: Text('provision_page')),
           ),
           GoRoute(
             path: '/',
-            builder: (_, __) => const Scaffold(body: Text('home_page')),
+            builder: (_, _) => const Scaffold(body: Text('home_page')),
           ),
         ],
       );
