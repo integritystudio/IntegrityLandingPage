@@ -1,6 +1,6 @@
 # Usage Event Ingestion API (V01)
 
-Complete API reference for POST /v1/ingest/events endpoint.
+Complete reference for the `POST /v1/ingest/events` endpoint and the daily/monthly usage-aggregation pipeline.
 
 ## Overview
 
@@ -248,19 +248,104 @@ INSERT INTO usage_events (
 
 **Idempotency:** The `request_id` is unique per event. If the same request is submitted twice with the same request body, the database upsert semantics (by request_id) prevent double-counting. Clients can safely retry on network failures.
 
-## Aggregation
+## Aggregation Pipeline
 
-After the 202 response is sent, the Worker schedules a background task to aggregate the event:
+After the 202 response is sent, the event flows through a two-stage rollup — daily buckets for dashboards, monthly summaries for billing:
 
-1. **Daily Rollup (via `ctx.waitUntil()`):** Event is aggregated into `usage_buckets_daily` keyed by (org_id, bucket_date, metric_key)
-   - Sums quantities
-   - Counts requests
-   - Computes average latency
-   - Runs asynchronously; does not block the ingest response
+```
+┌─────────────────┐  POST /v1/ingest/events
+│  API Client     │
+└────────┬────────┘
+         ▼
+┌──────────────────────────────────┐  validate auth + Zod + org membership
+│  API Gateway Worker              │  → 202 (request_id)
+│  └─ Insert into usage_events     │
+└────────┬─────────────────────────┘
+         └──► ctx.waitUntil() ──►┌──────────────────────────────┐
+                                 │ Daily Rollup                 │
+                                 │ rollupDailyBucket()          │
+                                 │ → usage_buckets_daily        │
+                                 └──────────────┬───────────────┘
+                  (scheduled / on-demand)       ▼
+                                 ┌──────────────────────────────┐
+                                 │ Monthly Rollup               │
+                                 │ rollupMonthlyBucket()        │
+                                 │ → MonthlyUsageSummary        │
+                                 └──────────────┬───────────────┘
+                                     ┌──────────┴──────────┐
+                                     ▼                     ▼
+                                Usage Dashboard        Billing System
+```
 
-2. **Monthly Rollup (triggered separately):** Daily buckets are aggregated into monthly summaries for billing
+### Daily rollup — `rollupDailyBucket`
 
-See [usage-event-pipeline.md](usage-event-pipeline.md) for full details.
+Aggregates a day's `usage_events` by `metric_key` into pre-computed buckets. Scheduled via `ctx.waitUntil()` from the ingest handler (fire-and-forget), and re-runnable for backfill.
+
+```typescript
+async function rollupDailyBucket(orgId: string, date: string /* YYYY-MM-DD UTC */, sb: SupabaseClient): Promise<UsageFlushResult>
+```
+
+Query `usage_events` for the org+date (max 10,000 events), group by `metric_key`, and for each compute `total_quantity` (sum), `request_count` (count), and `avg_latency_ms` (mean of non-null latencies). Upsert into `usage_buckets_daily` keyed by (org_id, bucket_date, metric_key) — upsert-safe, so repeated calls for the same org/date are idempotent.
+
+```
+usage_buckets_daily (upsert-safe):
+  organization_id (uuid, PK)
+  bucket_date     (date, PK)   -- YYYY-MM-DD
+  metric_key      (string, PK)
+  total_quantity  (bigint)
+  request_count   (bigint)
+  avg_latency_ms  (numeric | null)
+  updated_at      (timestamptz)
+```
+
+Returns `UsageFlushResult { organization_id, events_processed, buckets_updated, period {start_date, end_date}, flushed_at }`. Implemented in `workers/api-gateway/src/aggregation.ts`.
+
+### Monthly rollup — `rollupMonthlyBucket`
+
+Aggregates daily buckets across a calendar month into a billing summary. Triggered by a scheduled job (e.g. daily at 00:05 UTC for the prior month) or on-demand. Performs **no database mutation** — returns a computed summary, so it is safe to replay.
+
+```typescript
+async function rollupMonthlyBucket(orgId: string, yearMonth: string /* YYYY-MM */, sb: SupabaseClient): Promise<MonthlyUsageSummary>
+```
+
+Query `usage_buckets_daily` for the org+month (max 3,100 buckets), group by `metric_key`, and compute `total_quantity` (sum), `total_requests` (sum), and `avg_latency_ms` as a **weighted** mean — `Σ(daily_avg × daily_count) / total_count` — since daily buckets store averages, not raw sums. Cross-metric totals are also computed (the cross-metric latency mean is approximate; use per-metric for reliable analysis).
+
+```typescript
+interface MonthlyUsageSummary {
+  organization_id: UUID;
+  year_month: "YYYY-MM";
+  total_quantity: number;
+  total_requests: number;
+  avg_latency_ms: number | null;
+  metric_breakdown: Record<string, { quantity: number; requests: number; avg_latency_ms: number | null }>;
+  created_at: ISO8601;
+  updated_at: ISO8601;
+}
+```
+
+Implemented in `workers/api-gateway/src/aggregation.ts`; 9 aggregation tests in `aggregation.test.ts`.
+
+### Data flow summary
+
+| Layer | Input | Process | Output | Storage |
+|-------|-------|---------|--------|---------|
+| **Ingest** | HTTP request | parse, validate, auth | 202 + request_id | `usage_events` (append-only) |
+| **Daily** | `usage_events` | group by date + metric_key | `UsageFlushResult` | `usage_buckets_daily` (upsert) |
+| **Monthly** | `usage_buckets_daily` | group by month + metric_key | `MonthlyUsageSummary` | returned (not persisted) |
+
+### Aggregation limits & error handling
+
+| Item | Limit | Reason |
+|------|-------|--------|
+| Events per daily rollup | 10,000 | bound edge-worker memory |
+| Daily buckets per month | 3,100 (31 × ~100 keys) | month × metric cardinality |
+
+- **Daily rollup:** invalid date (not `YYYY-MM-DD`) throws; query/upsert errors are logged and returned as a partial result.
+- **Monthly rollup:** invalid month (not `YYYY-MM`) throws; query errors throw with context; no mutations, so safe to replay.
+
+### Future enhancements
+
+Streaming/incremental monthly aggregation for high-volume orgs; `usage_events` cold-storage retention after monthly rollup; anomaly detection on metric shifts; cost attribution mapping metrics → billing line items via entitlements.
 
 ## Rate Limiting
 

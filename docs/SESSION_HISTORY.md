@@ -72,7 +72,7 @@
    - Client library examples (TypeScript, Python, curl)
    - Testing guide and troubleshooting
 
-2. **Created Architecture Documentation** - `/docs/usage-event-pipeline.md` (full pipeline design)
+2. **Created Architecture Documentation** - `/docs/usage-event-pipeline.md` (full pipeline design; later merged into `/docs/api-usage-ingestion.md` on 2026-07-12)
    - Three-layer architecture: Ingest → Daily Rollup → Monthly Aggregation
    - ASCII flow diagrams showing complete data flow
    - Layer 1 (Event Ingestion): POST /v1/ingest/events details
@@ -147,7 +147,7 @@
 
 ### Files Created
 1. `/docs/api-usage-ingestion.md` (544 lines) - Complete API reference
-2. `/docs/usage-event-pipeline.md` (472 lines) - Architecture overview
+2. `/docs/usage-event-pipeline.md` (472 lines) - Architecture overview (merged into `/docs/api-usage-ingestion.md` on 2026-07-12)
 
 ### Files Updated
 1. `/docs/research/payments-implementation.md` - Status header updated (phase completion, test counts)

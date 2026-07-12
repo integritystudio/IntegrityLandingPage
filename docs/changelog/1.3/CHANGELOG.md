@@ -290,3 +290,38 @@ Consolidated and **removed** the point-in-time version/library audits under `doc
 - `docs/reviews/README.md` (index) removed with the above.
 
 ---
+
+## [2026-07-12] - Widget Duplication Cleanup — Campaign Closed & Analysis Consolidated
+
+Consolidated and **removed** the point-in-time widget-duplication analysis (`docs/duplicate-findings.md`, a 2026-03-14 snapshot from `scripts/find_duplication.sh`). The cleanup campaign it tracked is complete; its findings are recorded here and the script remains for future re-runs.
+
+**Reduction (2026-03-09 → 2026-07-12):** duplicate widget pairs 358 → 79; 100%-identical pairs 27 → 0; 90%+ pairs 86 → 0.
+
+**Extracted shared widgets, by phase:**
+- **Phase 1 — docs components.** Consolidated the docs component library.
+- **Phase 2 — docs page scaffolds (~18 pairs).** `DocsPageScaffold` (commit `93c1099`) + `DocsHeroSection` (commit `8879e7d`; removed 7 duplicate `_HeroSection` classes).
+- **Phase 3 — cross-page patterns (~5 pairs).** Merged `_WarningAlert`/`_DangerAlert` (92% pair); extracted `GradientPillBadge` + `MarketingHeroSection` (Phase 3a — eliminated `_CareersHeroSection`/`_ContactHeroSection`/`_HeroBadge`); consolidated `_TimelineCard`/`_StatBadge` into `DocStatCard` (Phase 3b, commit `f10c523`).
+- **Phase 4 — cosmetic (closed 2026-07-12).** `BaseActionButtonState` extracted from the three action buttons (`refactor: refactor buttons`, 28 tests pass, analyze clean); trust badges already collapsed into the shared `TrustBadge`; the 7 generic page scaffolds already share `SubPageShell` / `StatusResultPage`.
+
+**Left intentionally un-consolidated:** the residual 70–79% pairs are semantically distinct widgets that merely share `Container`/`Column`/`Text` structure (e.g. `_MethodologyCard` ~ `_TechSection`) — merging them would couple unrelated pages. Re-run `scripts/find_duplication.sh` (construct=widget, min_similarity=0.7) to regenerate the analysis.
+
+---
+
+## [2026-07-12] - Point-in-Time Report Consolidation (Analytics/CORS Debug, TDD Session)
+
+Consolidated and **removed** two dated point-in-time reports; their findings are preserved here.
+
+**`docs/ANALYTICS_DEBUG.md`** (2026-03-20 — Analytics & CORS debug summary):
+- Facebook Pixel confirmed working via `connect-src`/`img-src` (XHR + image beacons); the `form-action` broadening was reverted as unnecessary, and `frame-src` kept restricted (no FB social embeds in the codebase).
+- `AnalyticsService` (`lib/services/analytics.dart`) `trackPageView`/`trackEvent` verified working.
+- Contact-form localhost CORS: since **resolved** — env-aware CORS shipped (W06, 2026-06-27; `ALLOWED_ORIGINS_JSON`).
+- **Resolved (S01, verified 2026-07-12):** clickjacking protection is delivered as HTTP response headers via `web/_headers` (Cloudflare Pages, applied to `/*`) — `Content-Security-Policy: frame-ancestors 'self'` + `X-Frame-Options: SAMEORIGIN`. The `<meta>` CSP in `web/index.html` correctly omits `frame-ancestors` (ignored in meta tags).
+
+**`docs/TDD_SESSION_REPORT.md`** (2026-03-20 — TDD coverage for backlog M17/L21/L22, all shipped + tested):
+- **M17** — `sanitizeServerError` now pipes through `sanitizeUserInput` (HTML-escaping XSS guard); commit `4554f81`; `test/utils/security_utils_test.dart`.
+- **L22** — narrowed the stack-trace heuristic regex so natural-language "at" no longer triggers the generic fallback; commit `4554f81`; 8 tests.
+- **L21** — password length constants moved to a shared `PasswordPolicy` (`constants.dart`; min 8 / max 128); commit `e8ab121`; 5 tests.
+
+**Docs merge:** folded `docs/usage-event-pipeline.md` (usage-aggregation architecture) into `docs/api-usage-ingestion.md` as an expanded "Aggregation Pipeline" section, then removed the standalone file — the API reference and its pipeline architecture now live in one doc.
+
+---

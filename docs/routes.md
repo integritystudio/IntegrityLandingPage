@@ -85,10 +85,29 @@ Navigator.pushNamed(context, '/pricing');
 | Route | Page Widget | Has Cookie Settings |
 |-------|-------------|---------------------|
 | `/signup` | `SignupPage` | No (accepts `?tier=` query param, default `starter`) |
+| `/login` | `AuthPage(mode: AuthMode.signIn)` | No (renamed from `/signin`) |
 | `/request_success` | `RequestSuccessPage` | Yes |
-| `/request_failure` | `RequestFailurePage` | Yes |
+| `/request_failure` | `RequestFailurePage` | Yes (failure detail passed via `state.extra`; auto-redirects to `/login` on existing-user errors) |
 | `/oauth/callback` | `OAuthCallbackPage` | No (accepts `?code=`, `?state=`, `?error=`, `?error_description=`, `?success=`) |
 | `/support` | `HelpCenterPage` | No |
+
+### Provisioning & Billing (authenticated)
+
+These routes back the signup → provision → dashboard/billing flow. Most are **guarded by `state.extra`**: the builder expects a typed args object passed via `context.go(path, extra: ...)`, and the route's own `redirect` sends the user away when it is absent — so deep-linking straight to them is not supported except where query-param fallbacks are noted.
+
+| Route | Page Widget | Guard (redirect when `extra` missing) |
+|-------|-------------|----------------------------------------|
+| `/provision` | `ProvisionPage` | Needs `AuthSuccess` extra **or** `?jwt=` + `?email=` query params; else → `/login` |
+| `/checkout` | `CheckoutPage` | Needs `CheckoutArgs` extra; else → `/` |
+| `/checkout-success` | `CheckoutSuccessPage` | None — accepts `?email=` and `?tier=` (default `growth`) |
+| `/dashboard` | `DashboardPage` | Needs `DashboardArgs` extra; else → `/login` |
+| `/health` | `SenderHealthPage` | None (diagnostic page) |
+| `/billing` | `BillingStatusPage` | Needs `BillingStatusArgs` extra; else → `/login` |
+| `/usage` | `UsageSummaryPage` | Needs `UsageSummaryArgs` extra; else → `/login` |
+| `/entitlements` | `EntitlementsPage` | Needs `EntitlementsArgs` extra; else → `/login` |
+| `/quota` | `QuotaStatusPage` | Needs `QuotaStatusArgs` extra; else → `/login` |
+
+Path constants for these live in `Routes` (`lib/config/content/constants.dart`).
 
 ### Blog & Content
 
