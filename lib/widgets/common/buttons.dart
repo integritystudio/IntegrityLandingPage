@@ -191,6 +191,77 @@ abstract class BaseActionButton extends StatefulWidget {
   });
 }
 
+/// Shared State base for [BaseActionButton] variants.
+///
+/// Unifies the pieces the action buttons had in common: the disabled rule,
+/// the padded content body, the primary gradient fill, and the hoverable
+/// wrapper. Concrete states supply only their distinct decoration (and, for
+/// the animated variant, their own build body).
+abstract class BaseActionButtonState<T extends BaseActionButton>
+    extends State<T> with HoverableButtonMixin<T> {
+  @override
+  bool get isDisabled => widget.isLoading || widget.onPressed == null;
+
+  /// Primary gradient fill shared by [GradientButton] and
+  /// [AnimatedGradientBorderButton]: gradient + drop shadow + focus ring.
+  BoxDecoration get gradientFillDecoration => BoxDecoration(
+        gradient:
+            isDisabled ? AppColors.disabledGradient : AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        boxShadow: isDisabled
+            ? []
+            : [
+                BoxShadow(
+                  color: AppColors.shadowBlue,
+                  blurRadius: isHovered ? 24 : 16,
+                  offset: Offset(0, isHovered ? 6 : 4),
+                ),
+              ],
+        border:
+            isFocused ? Border.all(color: AppColors.blue400, width: 2) : null,
+      );
+
+  /// The padded inner body: full-width aware, standard padding, [ButtonContent].
+  Widget buildButtonBody({
+    BoxDecoration? decoration,
+    Color textColor = Colors.white,
+  }) {
+    return Container(
+      width: widget.fullWidth ? double.infinity : null,
+      padding: kButtonPadding,
+      decoration: decoration,
+      child: ButtonContent(
+        text: widget.text,
+        icon: widget.icon,
+        isLoading: widget.isLoading,
+        fullWidth: widget.fullWidth,
+        textColor: textColor,
+      ).build(),
+    );
+  }
+
+  /// Hoverable wrapper → [AnimatedContainer] (decoration + optional hover lift)
+  /// → padded body. Used by the non-animated fill/outline variants.
+  Widget buildDecoratedButton({
+    required BoxDecoration decoration,
+    bool applyHoverLift = false,
+    Color textColor = Colors.white,
+  }) {
+    return buildHoverableButton(
+      onTap: widget.onPressed,
+      semanticLabel: widget.semanticLabel ?? widget.text,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        transform:
+            applyHoverLift ? hoverLiftTransform(isHovered, isDisabled) : null,
+        decoration: decoration,
+        child: buildButtonBody(textColor: textColor),
+      ),
+    );
+  }
+}
+
 /// Animated gradient border button (AiSDR-inspired design)
 ///
 /// Features:
@@ -223,12 +294,9 @@ class AnimatedGradientBorderButton extends BaseActionButton {
 }
 
 class _AnimatedGradientBorderButtonState
-    extends State<AnimatedGradientBorderButton>
-    with SingleTickerProviderStateMixin, HoverableButtonMixin {
+    extends BaseActionButtonState<AnimatedGradientBorderButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
-  @override
-  bool get isDisabled => widget.isLoading || widget.onPressed == null;
 
   @override
   void initState() {
@@ -294,34 +362,7 @@ class _AnimatedGradientBorderButtonState
               child: child,
             );
           },
-          child: Container(
-            width: widget.fullWidth ? double.infinity : null,
-            padding: kButtonPadding,
-            decoration: BoxDecoration(
-              gradient: isDisabled
-                  ? AppColors.disabledGradient
-                  : AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-              boxShadow: isDisabled
-                  ? []
-                  : [
-                      BoxShadow(
-                        color: AppColors.shadowBlue,
-                        blurRadius: isHovered ? 24 : 16,
-                        offset: Offset(0, isHovered ? 6 : 4),
-                      ),
-                    ],
-              border: isFocused
-                  ? Border.all(color: AppColors.blue400, width: 2)
-                  : null,
-            ),
-            child: ButtonContent(
-              text: widget.text,
-              icon: widget.icon,
-              isLoading: widget.isLoading,
-              fullWidth: widget.fullWidth,
-            ).build(),
-          ),
+          child: buildButtonBody(decoration: gradientFillDecoration),
         ),
       ),
     );
@@ -404,49 +445,12 @@ class GradientButton extends BaseActionButton {
   State<GradientButton> createState() => _GradientButtonState();
 }
 
-class _GradientButtonState extends State<GradientButton>
-    with HoverableButtonMixin {
-  @override
-  bool get isDisabled => widget.isLoading || widget.onPressed == null;
-
+class _GradientButtonState extends BaseActionButtonState<GradientButton> {
   @override
   Widget build(BuildContext context) {
-    return buildHoverableButton(
-      onTap: widget.onPressed,
-      semanticLabel: widget.semanticLabel ?? widget.text,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        transform: hoverLiftTransform(isHovered, isDisabled),
-        decoration: BoxDecoration(
-          gradient: isDisabled
-              ? AppColors.disabledGradient
-              : AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-          boxShadow: isDisabled
-              ? []
-              : [
-                  BoxShadow(
-                    color: AppColors.shadowBlue,
-                    blurRadius: isHovered ? 24 : 16,
-                    offset: Offset(0, isHovered ? 6 : 4),
-                  ),
-                ],
-          border: isFocused
-              ? Border.all(color: AppColors.blue400, width: 2)
-              : null,
-        ),
-        child: Container(
-          width: widget.fullWidth ? double.infinity : null,
-          padding: kButtonPadding,
-          child: ButtonContent(
-            text: widget.text,
-            icon: widget.icon,
-            isLoading: widget.isLoading,
-            fullWidth: widget.fullWidth,
-          ).build(),
-        ),
-      ),
+    return buildDecoratedButton(
+      decoration: gradientFillDecoration,
+      applyHoverLift: true,
     );
   }
 }
@@ -481,47 +485,29 @@ class OutlineButton extends BaseActionButton {
   State<OutlineButton> createState() => _OutlineButtonState();
 }
 
-class _OutlineButtonState extends State<OutlineButton>
-    with HoverableButtonMixin {
-  @override
-  bool get isDisabled => widget.isLoading || widget.onPressed == null;
+class _OutlineButtonState extends BaseActionButtonState<OutlineButton> {
+  Color get _textColor =>
+      isDisabled ? AppColors.gray500 : AppColors.textPrimary;
 
-  Color get _textColor => isDisabled ? AppColors.gray500 : AppColors.textPrimary;
+  BoxDecoration get _outlineDecoration => BoxDecoration(
+        color:
+            isHovered && !isDisabled ? AppColors.gray800 : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        border: Border.all(
+          color: isFocused
+              ? AppColors.blue400
+              : isHovered && !isDisabled
+                  ? AppColors.blue500
+                  : AppColors.gray700,
+          width: isFocused ? 2 : 1,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
-    return buildHoverableButton(
-      onTap: widget.onPressed,
-      semanticLabel: widget.semanticLabel ?? widget.text,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          color: isHovered && !isDisabled
-              ? AppColors.gray800
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-          border: Border.all(
-            color: isFocused
-                ? AppColors.blue400
-                : isHovered && !isDisabled
-                    ? AppColors.blue500
-                    : AppColors.gray700,
-            width: isFocused ? 2 : 1,
-          ),
-        ),
-        child: Container(
-          width: widget.fullWidth ? double.infinity : null,
-          padding: kButtonPadding,
-          child: ButtonContent(
-            text: widget.text,
-            icon: widget.icon,
-            isLoading: widget.isLoading,
-            fullWidth: widget.fullWidth,
-            textColor: _textColor,
-          ).build(),
-        ),
-      ),
+    return buildDecoratedButton(
+      decoration: _outlineDecoration,
+      textColor: _textColor,
     );
   }
 }
