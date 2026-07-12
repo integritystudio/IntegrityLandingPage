@@ -236,7 +236,7 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 
 ### Phase 4: Low priority (cosmetic)
 
-5. **Button base extraction** — optional refactor of `buttons.dart`
+5. ~~**Button base extraction** — optional refactor of `buttons.dart`~~ — DONE (2026-07-12): extracted shared `BaseActionButtonState` (disabled rule, gradient fill decoration, padded body, decorated-button wrapper); `GradientButton` / `OutlineButton` / `AnimatedGradientBorderButton` deduplicated with behavior preserved (28 button tests pass, `flutter analyze` clean)
 6. **Trust badge consolidation** — merge `_TrustIndicator` and `_TrustBadge`
 7. **Page shell extraction** — optional for 7 generic page scaffolds
 
@@ -248,7 +248,7 @@ Semantically different widgets sharing Container + Column + Text patterns. Low p
 |-------|-----------------|----------------|------|--------|
 | Phase 2 | ~18 | 7 docs pages + 2 new widgets | Medium | **DONE** |
 | Phase 3 | ~5 | ~4 pages | Low | **DONE** |
-| Phase 4 | ~10 | ~4 files | Low (cosmetic) | Open |
+| Phase 4 | ~10 | ~4 files | Low (cosmetic) | In progress (1/3 — button base done) |
 | **Total done** | **~23 of 79** | | | |
 
 ---

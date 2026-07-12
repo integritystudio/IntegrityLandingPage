@@ -4,6 +4,12 @@
 
 Based on the Integrity Studio payment processor architecture (Stripe + Supabase + Cloudflare Workers + Flutter), here's a comprehensive disaster recovery plan organized by failure domain.
 
+> **2026-07-12 note — infra changes since this plan was drafted.** Two architecture shifts affect recovery and apply across the scenarios below:
+> - **Secrets are managed in Doppler** (project `integrity-studio`, `dev`/`prd` configs), not per-worker `wrangler secret`. Worker secret material (Stripe keys, Supabase service-role key, `BACKUP_KEY`, HMAC signing keys) is recoverable from Doppler rather than being a single point of loss — but DR now depends on Doppler availability and on the CI `DOPPLER_TOKEN`. Treat the prd Doppler config as a protected asset: rotate on schedule and keep an offline break-glass copy of critical keys.
+> - **Provisioning is split across repos via a Cloudflare service binding.** `sender-worker` (`api-provisioning-sender`) binds to the production receiver `api-provisioning-receiver`, which lives in the separate `observability-toolkit` repo and owns API-key minting + Supabase persistence. Receiver-side recovery is maintained there; this plan covers the sender + billing surface in this repo.
+>
+> Code samples below (`workers/backup-cron.ts`, `workers/reconciliation-cron.ts`, etc.) are illustrative — this remains a planning document, not a description of shipped workers.
+
 ---
 
 ## 1. Failure Domain Analysis

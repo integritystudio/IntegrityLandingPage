@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, `docs/changelog/1.2/CHANGELOG.md`, and `docs/changelog/1.3/CHANGELOG.md`.
 
-**Last Updated:** 2026-06-27 | **Phase:** Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W01 (performance optimization), W04-W05 (infrastructure/monitoring)
+**Last Updated:** 2026-07-12 | **Phase:** Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete
 
 ---
 
@@ -29,11 +29,11 @@ Open and deferred items only. Completed items are migrated to `docs/changelog/1.
 - ✅ V02: Org Switcher Dashboard Hub — DashboardPage at `/dashboard`, DropdownButton org switcher, nav cards to billing/usage/quota/entitlements, fetchOrgList GET /v1/orgs with retry (commits 91cdae3, 226b568)
 - ✅ V02: Real-time Usage Polling — 30s Timer.periodic + WidgetsBindingObserver resume refresh on UsageSummaryPage; in-flight guard prevents overlapping fetches (commits f6581fd, d14280c)
 
-**Remaining for v1 release:**
+**v1 release items — ✅ COMPLETE (2026-07-12):**
 
-### V02: Flutter Dashboard UI
+### V02: Flutter Dashboard UI — ✅ COMPLETE
 
-**Priority:** P1 | **Estimated:** 10–12 hours
+**Priority:** P1 | **Estimated:** 10–12 hours (delivered — all 7 steps shipped; see Status below)
 
 Implement authenticated dashboard with org switching, billing status, usage summaries, and entitlements display:
 
@@ -130,7 +130,7 @@ JWT tokens from Supabase included mutable billing state claims (`default_org_pla
 
 **Workaround:** N/A effective. Blocking factor.
 
-**Status:** Blocked — `flutter test --platform chrome` hangs indefinitely (upstream Flutter issue #162798). Next stable v3.44 planned May 2026 with fix.
+**Status:** Blocked — re-tested on Flutter **3.44.4** (2026-07-12): `flutter test --platform chrome` still does not complete. It stalled at test loading/compilation for >6 min (observed twice) with headless Chrome + dart processes alive, never self-exiting — had to be killed. The anticipated v3.44 fix (upstream Flutter [#162798](https://github.com/flutter/flutter/issues/162798)) does **not** resolve it in this environment; Chrome platform tests remain non-viable. Mitigation unchanged: the Flutter suite runs on the default (VM) platform in CI.
 
 ---
 
@@ -236,7 +236,9 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
-## Performance: Migrate Cloudflare Workers Validation from Zod to Valibot
+## Performance: Migrate Cloudflare Workers Validation from Zod to Valibot — ❌ WON'T DO
+
+> **Closed 2026-07-12 — won't do.** The team standardized on **Zod v4**, not Valibot (no `valibot` dependency in any worker). The `functions/src/` paths in this item are also obsolete — worker validation lives in `workers/`. Rationale retained in [`docs/research/VALIBOT_ANALYSIS.md`](research/VALIBOT_ANALYSIS.md); see changelog 1.3 "Superseded Design-Doc Reconciliation".
 
 ### W01: Replace Zod with Valibot for Edge Function Validation
 
@@ -244,7 +246,7 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 **Estimated:** 4–6 hours
 **Context:** `functions/src/` Cloudflare Workers use Zod for validation. Valibot is significantly faster and smaller for edge functions.
 
-**Analysis:** See `docs/VALIBOT_ANALYSIS.md` for full comparison. Key findings:
+**Analysis:** See `docs/research/VALIBOT_ANALYSIS.md` for full comparison. Key findings:
 - **Bundle size:** Valibot 1.91 KB vs Zod 16.57 KB (90% reduction)
 - **Startup:** Valibot 54 μs vs Zod ~864 μs (16x faster cold starts)
 - **Impact:** Every KB shipped globally to edge datacenters; smaller bundle = faster parsing = lower CPU milliseconds billed
@@ -271,7 +273,7 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 - `functions/src/_middleware.ts` — entry point; check if validates requests
 - `functions/src/` — all TypeScript files for `z.` references
 
-**Status:** Open — awaiting implementation. Analysis completed and documented in `docs/VALIBOT_ANALYSIS.md`.
+**Status:** ❌ Won't do (2026-07-12) — superseded by the Zod v4 standardization; workers use Zod, not Valibot. Rationale retained in `docs/research/VALIBOT_ANALYSIS.md`.
 
 ---
 
