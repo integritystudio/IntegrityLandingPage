@@ -1,34 +1,34 @@
 # Top 20 most-changed files (last 200 commits)
 # commits  file
-  29 workers/sender-worker/src/index.ts
+  30 workers/sender-worker/src/index.ts
   23 workers/sender-worker/src/types.ts
   19 workers/sender-worker/src/supabase.ts
   18 workers/sender-worker/src/index.test.ts
+  13 CLAUDE.md
+  13 .github/workflows/ci.yml
   11 workers/sender-worker/wrangler.toml
-  11 .github/workflows/ci.yml
-  10 CLAUDE.md
-   9 test/services/dashboard_service_test.dart
+   9 README.md
+   9 lib/pages/signup_page.dart
+   8 workers/sender-worker/src/index.e2e.test.ts
    8 workers/receiver-worker/src/index.test.ts
    8 lib/services/provisioning_service.dart
-   8 lib/pages/signup_page.dart
-   7 workers/sender-worker/src/index.e2e.test.ts
    7 workers/api-gateway/src/routes/ingest.ts
    7 workers/api-gateway/src/routes/ingest.test.ts
-   7 workers/api-gateway/src/index.ts
    7 test/services/provisioning_service_test.dart
    7 test/integration/signup_flow_test.dart
-   7 lib/services/dashboard_service.dart
    6 workers/sender-worker/package.json
    6 workers/lib/types/usage.ts
+   6 test/services/dashboard_service_test.dart
+   6 test/pages/signup_page_test.dart
 
 # Recent commits touching these files
 
 ## workers/sender-worker/src/index.ts
+  1c3deb6 2026-06-27 refactor(workers): refactor index.e2e.test, index
   c8cff30 2026-06-26 feat(sender-worker): allow Cloudflare Pages preview-deploy CORS origins
   ec77bfa 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
   a2fbea5 2026-04-14 refactor(sender): replace receiver-forwarded sign_in with direct Auth0 ROPC
   a51daef 2026-04-09 refactor(sender): move json helper to shared lib and serialize user insert before sign-in
-  0865782 2026-04-09 fix(sender): split AUTH0_CLIENT_* into ROPC and M2M credential pairs
 
 ## workers/sender-worker/src/types.ts
   ec77bfa 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
@@ -51,6 +51,20 @@
   0865782 2026-04-09 fix(sender): split AUTH0_CLIENT_* into ROPC and M2M credential pairs
   bca10fa 2026-04-07 fix(sender-worker): omit org_name default so receiver handles domain normalization
 
+## CLAUDE.md
+  449a0ad 2026-06-27 docs(docs): update 4 files in docs
+  cddd556 2026-06-27 docs(docs): update claude, readme, 1
+  9ca1747 2026-06-27 docs(docs): update 4 files in docs
+  bb78f0b 2026-06-26 docs(workers): correct receiver-worker references to api-provisioning-receiver
+  d3f001d 2026-06-26 docs(claude): document worker deployment strategy and Doppler config
+
+## .github/workflows/ci.yml
+  67a1d90 2026-07-01 ci: bump Flutter to 3.44.4 (Dart 3.12) for freezed v4 compatibility
+  b93d594 2026-06-27 chore(.github): update ci, content, pubspec
+  5dfea57 2026-04-07 fix(ci): add build_runner step before analyze and build
+  77f2ec3 2026-04-01 ci: force Node.js 24 for all GitHub Actions jobs
+  13812cc 2026-04-01 ci: upgrade GitHub Actions to Node.js 24 compatible versions
+
 ## workers/sender-worker/wrangler.toml
   471641c 2026-04-09 chore(sender): update wrangler.toml comments for split Auth0 credentials
   330b73a 2026-04-03 refactor(workers): consolidate to single AUTH0_CLIENT_* credentials for both auth flows
@@ -58,26 +72,26 @@
   faf0ccc 2026-04-02 chore(sender-worker): clarify env var purposes in wrangler.toml and add doppler.json
   9f7b99f 2026-04-02 chore(sender-worker): document AUTHO_CLI_* env var overrides in wrangler.toml
 
-## .github/workflows/ci.yml
-  5dfea57 2026-04-07 fix(ci): add build_runner step before analyze and build
-  77f2ec3 2026-04-01 ci: force Node.js 24 for all GitHub Actions jobs
-  13812cc 2026-04-01 ci: upgrade GitHub Actions to Node.js 24 compatible versions
-  765ffa1 2026-03-31 fix(ci): use compatible GitHub Pages action versions (v3/v4)
-  649e1c0 2026-03-31 fix(ci): downgrade upload-pages-artifact from v5 to v4
-
-## CLAUDE.md
-  bb78f0b 2026-06-26 docs(workers): correct receiver-worker references to api-provisioning-receiver
-  d3f001d 2026-06-26 docs(claude): document worker deployment strategy and Doppler config
+## README.md
+  d72baab 2026-06-27 docs(docs): update 12 files in docs
+  91e7f29 2026-06-27 docs(docs): update 4 files in docs
+  cddd556 2026-06-27 docs(docs): update claude, readme, 1
   6e211b8 2026-04-07 docs: update status, test counts, and recent improvements for 2026-04-07
   5b02d94 2026-04-02 docs(docs): update claude, readme, reviews
-  b6f167e 2026-03-31 feat(request_failure): detect existing user errors and auto-redirect to signin
 
-## test/services/dashboard_service_test.dart
-  ca37b5d 2026-04-06 refactor(models): extract data models from services into dedicated model files
-  21b199d 2026-04-03 refactor(test): replace MockDio with shelf fake server in dashboard_service_test
-  1e91334 2026-03-22 fix(lint): resolve flutter analyze warnings
-  2ece18a 2026-03-21 test(L23): add fetchOrgList 401/403 tests and strengthen 403 assertion
-  c586ee8 2026-03-21 fix(L23): add 403 branch to _sanitizeReadError and apply to fetchOrgList
+## lib/pages/signup_page.dart
+  890f794 2026-07-01 refactor: refactor 110 files
+  0e7b463 2026-04-07 refactor(ui): apply GradientPageShell to signup_page
+  70c6a7a 2026-04-02 refactor(auth): rename /signin route to /login and extract AuthModeX extension
+  b6f167e 2026-03-31 feat(request_failure): detect existing user errors and auto-redirect to signin
+  828b7c8 2026-03-29 refactor(signup): simplify content_loader signup methods and remove scale tier routing
+
+## workers/sender-worker/src/index.e2e.test.ts
+  1c3deb6 2026-06-27 refactor(workers): refactor index.e2e.test, index
+  6d2ff74 2026-04-03 test(workers): add comprehensive integration test coverage for error scenarios
+  330b73a 2026-04-03 refactor(workers): consolidate to single AUTH0_CLIENT_* credentials for both auth flows
+  fc192ee 2026-03-30 fix(sender-worker): require RECEIVER service binding, drop URL fallback
+  97aea07 2026-03-27 fix(e2e): add ROPC token exchange mock to mockFullSignupFlow
 
 ## workers/receiver-worker/src/index.test.ts
   ec77bfa 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
@@ -93,20 +107,6 @@
   cb66d37 2026-03-30 fix(provisioning): replace Authorization header with x-session-data
   8a2fbb4 2026-03-30 refactor(provisioning): align ProvisioningEvent schema with sender-worker SendRequestSchema
 
-## lib/pages/signup_page.dart
-  0e7b463 2026-04-07 refactor(ui): apply GradientPageShell to signup_page
-  70c6a7a 2026-04-02 refactor(auth): rename /signin route to /login and extract AuthModeX extension
-  b6f167e 2026-03-31 feat(request_failure): detect existing user errors and auto-redirect to signin
-  828b7c8 2026-03-29 refactor(signup): simplify content_loader signup methods and remove scale tier routing
-  1825ec6 2026-03-28 feat(signup): move hardcoded tier content to content.yaml
-
-## workers/sender-worker/src/index.e2e.test.ts
-  6d2ff74 2026-04-03 test(workers): add comprehensive integration test coverage for error scenarios
-  330b73a 2026-04-03 refactor(workers): consolidate to single AUTH0_CLIENT_* credentials for both auth flows
-  fc192ee 2026-03-30 fix(sender-worker): require RECEIVER service binding, drop URL fallback
-  97aea07 2026-03-27 fix(e2e): add ROPC token exchange mock to mockFullSignupFlow
-  0e069d2 2026-03-27 refactor(sender-worker): migrate validation to Zod schema with JWT format check
-
 ## workers/api-gateway/src/routes/ingest.ts
   0cd5dbf 2026-03-23 docs: update project status, workers documentation, and code precondition
   993058b 2026-03-23 refactor(workers): extract MS_PER_DAY constant, fix applyRateLimitHeaders, export ingest schemas
@@ -120,13 +120,6 @@
   993058b 2026-03-23 refactor(workers): extract MS_PER_DAY constant, fix applyRateLimitHeaders, export ingest schemas
   5e5d2c4 2026-03-21 fix(otel): extract applyRateLimitHeaders helper; add boundary tests
   ce4c563 2026-03-21 fix(L22): type makeOpts helper as SupabaseClient | undefined
-
-## workers/api-gateway/src/index.ts
-  30d990f 2026-03-27 feat(security): add V-22 security response headers to all API workers
-  2aa30eb 2026-03-21 fix(L25): export OTEL_INGEST_ROUTE and import in index.ts
-  c40a1c8 2026-03-21 fix(otel): add quota enforcement and bound attribute payload size
-  1b771e3 2026-03-21 feat(otel): add POST /v1/ingest/otel OpenTelemetry span ingestion endpoint
-  826d2f3 2026-03-21 fix(M41): escalate APP_URL missing log to error in non-production environments
 
 ## test/services/provisioning_service_test.dart
   1320ac6 2026-03-31 fix(tests): remove unused dart:convert import
@@ -142,13 +135,6 @@
   fc5d7f1 2026-03-29 test(signup): replace hardcoded tier strings with ContentLoader calls
   7f221f6 2026-03-29 fix(test): update signup integration test to match content.yaml descriptions
 
-## lib/services/dashboard_service.dart
-  ca37b5d 2026-04-06 refactor(models): extract data models from services into dedicated model files
-  351fcbb 2026-03-29 fix(config): update default worker URLs from placeholder to real endpoints
-  c586ee8 2026-03-21 fix(L23): add 403 branch to _sanitizeReadError and apply to fetchOrgList
-  15da535 2026-03-21 fix(L22,L23): audit log count on billing_admin path + sanitize read endpoint errors
-  7a34cf7 2026-03-21 refactor: move billing error constants to class top and add Stripe-error negative assertion
-
 ## workers/sender-worker/package.json
   7945ea1 2026-04-03 chore(workers): bump zod to v4, add coverage-v8, update pool-workers
   ee617d9 2026-04-03 chore(workers): add @vitest/coverage-v8 dev dependency to all workers
@@ -162,4 +148,18 @@
   df798ec 2026-03-21 feat(types): add IngestOtelResponseSchema and IngestOtelMetadataSchema
   32658b9 2026-03-21 fix(L24): add upper bound refine to OtelSpan start_time_ms
   c40a1c8 2026-03-21 fix(otel): add quota enforcement and bound attribute payload size
+
+## test/services/dashboard_service_test.dart
+  ca37b5d 2026-04-06 refactor(models): extract data models from services into dedicated model files
+  21b199d 2026-04-03 refactor(test): replace MockDio with shelf fake server in dashboard_service_test
+  1e91334 2026-03-22 fix(lint): resolve flutter analyze warnings
+  2ece18a 2026-03-21 test(L23): add fetchOrgList 401/403 tests and strengthen 403 assertion
+  c586ee8 2026-03-21 fix(L23): add 403 branch to _sanitizeReadError and apply to fetchOrgList
+
+## test/pages/signup_page_test.dart
+  f8993a0 2026-07-12 refactor(test): refactor 8 files in test
+  0e7b463 2026-04-07 refactor(ui): apply GradientPageShell to signup_page
+  0952373 2026-03-31 refactor(test): align signup tier URLs with content.yaml definitions
+  f14ba4a 2026-03-27 feat(enterprise): wire enterprise tier through Auth0 signup and Stripe checkout
+  4e5dd1b 2026-03-27 fix(signup): complete name/tier wiring and AuthError redirect to /request_failure
 
