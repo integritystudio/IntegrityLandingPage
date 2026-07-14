@@ -26,9 +26,9 @@ void main() {
 
     group('checkHealth', () {
       test('staging health endpoint returns true', () async {
-        // Receiver worker is at: https://receiver-worker.alyshia-b38.workers.dev/health
+        // Receiver worker is at: https://api-provisioning-receiver.alyshia-b38.workers.dev/health
         final result = await ProvisioningService.checkHealth(
-          'https://receiver-worker.alyshia-b38.workers.dev',
+          'https://api-provisioning-receiver.alyshia-b38.workers.dev',
         );
 
         expect(result, true);
@@ -44,7 +44,7 @@ void main() {
 
       test('non-https URL returns false', () async {
         final result = await ProvisioningService.checkHealth(
-          'http://receiver-worker.alyshia-b38.workers.dev',
+          'http://api-provisioning-receiver.alyshia-b38.workers.dev',
         );
 
         expect(result, false);
