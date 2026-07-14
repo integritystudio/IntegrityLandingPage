@@ -121,6 +121,10 @@ export const HEADER_NAMES = {
   TIMESTAMP: "x-timestamp",
   SIGNATURE: "x-signature",
   KEY_ID: "x-key-id",
+  // Client IP: read from the inbound request, forwarded to the receiver so its
+  // Analytics Engine metrics can index by real client IP (per-IP 401 monitoring).
+  CF_CONNECTING_IP: "CF-Connecting-IP",
+  X_FORWARDED_FOR: "X-Forwarded-For",
 } as const;
 
 export const CONTENT_TYPES = {

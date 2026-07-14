@@ -1,8 +1,17 @@
 import { json } from "../../lib/http/responses.js";
-import { CORS_HEADERS, HTTP_STATUS, type Env } from "./types.js";
+import { CORS_HEADERS, HEADER_NAMES, HTTP_STATUS, type Env } from "./types.js";
 
 export function errorResponse(error: string, code: string, status: number): Response {
   return json({ error, code }, { status });
+}
+
+/** Real client IP from the inbound edge request; undefined if unavailable. */
+export function getClientIp(request: Request): string | undefined {
+  return (
+    request.headers.get(HEADER_NAMES.CF_CONNECTING_IP) ??
+    request.headers.get(HEADER_NAMES.X_FORWARDED_FOR) ??
+    undefined
+  );
 }
 
 /**

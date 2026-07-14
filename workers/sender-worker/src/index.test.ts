@@ -144,6 +144,26 @@ describe('Sender Worker', () => {
       expect(fetchRequest.headers).toHaveProperty('x-signature');
     });
 
+    it('forwards the client IP to the receiver as X-Forwarded-For', async () => {
+      mockReceiverResponse(validApiKeyResponse, 201);
+
+      const request = makeSendRequest(validSendPayload, { 'CF-Connecting-IP': '203.0.113.9' });
+      await worker.fetch(request, mockEnv);
+
+      const headers = (mockReceiverFetch.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
+      expect(headers['X-Forwarded-For']).toBe('203.0.113.9');
+    });
+
+    it('omits X-Forwarded-For when the inbound request has no client IP', async () => {
+      mockReceiverResponse(validApiKeyResponse, 201);
+
+      const request = makeSendRequest(validSendPayload);
+      await worker.fetch(request, mockEnv);
+
+      const headers = (mockReceiverFetch.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
+      expect(headers['X-Forwarded-For']).toBeUndefined();
+    });
+
     it('proxies API key response body (token, keyId, prefix, tier) with 201 status unchanged', async () => {
       mockReceiverResponse(validApiKeyResponse, 201);
 

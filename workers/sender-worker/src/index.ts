@@ -20,7 +20,7 @@ import {
   type Env,
 } from "./types.js";
 import { json } from "../../lib/http/responses.js";
-import { errorResponse, resolveOutboundSigningKey } from "./utils.js";
+import { errorResponse, resolveOutboundSigningKey, getClientIp } from "./utils.js";
 import { signMessage } from "./crypto.js";
 import {
   auth0CreateUser,
@@ -155,7 +155,11 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
 //   a) x-key-id present but SIGNING_KEYS env is absent on receiver
 //   b) x-key-id present but SIGNING_KEYS JSON is malformed
 //   c) x-key-id present but key ID not found in the SIGNING_KEYS map
-async function forwardToReceiver(env: Env, payload: Record<string, unknown>): Promise<Response> {
+async function forwardToReceiver(
+  env: Env,
+  payload: Record<string, unknown>,
+  clientIp?: string,
+): Promise<Response> {
   const ts = Date.now().toString();
   const bodyStr = JSON.stringify(payload);
   const { secret, keyId } = resolveOutboundSigningKey(env);
@@ -166,6 +170,9 @@ async function forwardToReceiver(env: Env, payload: Record<string, unknown>): Pr
     [HEADER_NAMES.SIGNATURE]: signature,
   };
   if (keyId) headers[HEADER_NAMES.KEY_ID] = keyId;
+  // Service-binding subrequests don't inherit the client's CF-Connecting-IP;
+  // forward it so the receiver's per-IP metrics see the real caller, not "unknown".
+  if (clientIp) headers[HEADER_NAMES.X_FORWARDED_FOR] = clientIp;
   const receiverRes = await env.RECEIVER.fetch(`https://receiver${RECEIVER_PATHS.INBOX}`, {
     method: HTTP_METHODS.POST,
     headers,
@@ -226,7 +233,7 @@ async function handleSignIn(env: Env, req: Record<string, unknown>): Promise<Res
   }
 }
 
-async function handleSend(env: Env, req: Record<string, unknown>): Promise<Response> {
+async function handleSend(env: Env, req: Record<string, unknown>, clientIp?: string): Promise<Response> {
   if (!env.RECEIVER) {
     return errorResponse("RECEIVER service binding not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
@@ -259,7 +266,7 @@ async function handleSend(env: Env, req: Record<string, unknown>): Promise<Respo
           tier: data.tier,
           org_name: data.org_name,
         };
-    return await forwardToReceiver(env, outbound);
+    return await forwardToReceiver(env, outbound, clientIp);
   } catch (err) {
     if (err instanceof TypeError) {
       return errorResponse("receiver-worker unreachable", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.BAD_GATEWAY);
@@ -348,7 +355,7 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
     const body = await parseJsonBody(request);
     if (body instanceof Response) return body;
     body.jwt = extractJwt(request, body);
-    return handleSend(env, body);
+    return handleSend(env, body, getClientIp(request));
   }
 
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.CREATE_CHECKOUT_SESSION) {
