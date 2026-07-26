@@ -12,6 +12,15 @@ service = "api-provisioning-receiver"
 enabled = true
 invocation_logs = true
 
+# KV namespace for auth rate limiting (signup + signin).
+# Provision with: wrangler kv namespace create RATE_LIMIT_KV
+# Then replace the placeholder id below with the returned namespace ID.
+# Falls back to per-isolate in-memory rate limiting when not bound.
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_KV_PREVIEW_NAMESPACE_ID"
+
 # Secrets (set via wrangler secret put or doppler):
 #   SHARED_SECRET              — HMAC key; must match provisioning receiver
 #   SUPABASE_URL               — Supabase project URL

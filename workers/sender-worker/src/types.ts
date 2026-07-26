@@ -22,6 +22,7 @@ export const HTTP_STATUS = {
   UNAUTHORIZED: 401,
   FORBIDDEN: 403,
   NOT_FOUND: 404,
+  TOO_MANY_REQUESTS: 429,
   INTERNAL_SERVER_ERROR: 500,
   BAD_GATEWAY: 502,
 } as const;
@@ -42,6 +43,7 @@ export const ERROR_CODE = {
   SUPABASE_ORG_CREATION_FAILED: "SUPABASE_ORG_CREATION_FAILED",
   SUPABASE_USER_INSERT_FAILED: "SUPABASE_USER_INSERT_FAILED",
   SUPABASE_ORG_MEMBERSHIP_FAILED: "SUPABASE_ORG_MEMBERSHIP_FAILED",
+  RATE_LIMITED: "RATE_LIMITED",
   // Receiver-specific codes — proxied verbatim in error responses
   RECEIVER_QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
   RECEIVER_RATE_LIMITED: "RATE_LIMITED",
@@ -181,6 +183,11 @@ export const MEMBERSHIP_ROLES = {
 
 export const DEFAULT_APP_BASE_URL = "https://integritystudio.ai";
 
+/** Maximum auth requests (signup/signin) per IP per rate-limit window. */
+export const AUTH_RATE_LIMIT_MAX = 10;
+/** Auth rate-limit window length in seconds (10 minutes). */
+export const AUTH_RATE_LIMIT_WINDOW_SECONDS = 600;
+
 export interface Env {
   SHARED_SECRET: string;
   /** JSON-encoded Record<string, string> mapping keyId → secret; enables x-key-id rotation. */
@@ -201,6 +208,8 @@ export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   ALLOWED_ORIGINS_JSON?: string;
+  /** Optional KV namespace for cross-DC rate limiting on auth endpoints. Falls back to in-memory if absent. */
+  RATE_LIMIT_KV?: KVNamespace;
   STRIPE_SECRET_KEY?: string;
   STRIPE_PLAN_TO_PRICE_JSON?: string;
   APP_BASE_URL?: string;

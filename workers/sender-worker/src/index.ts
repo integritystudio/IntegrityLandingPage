@@ -20,7 +20,7 @@ import {
   type Env,
 } from "./types.js";
 import { json } from "../../lib/http/responses.js";
-import { errorResponse, resolveOutboundSigningKey, getClientIp } from "./utils.js";
+import { checkAuthRateLimit, errorResponse, resolveOutboundSigningKey, getClientIp } from "./utils.js";
 import { signMessage } from "./crypto.js";
 import {
   auth0CreateUser,
@@ -378,12 +378,40 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SIGNUP) {
+    const ip = getClientIp(request) ?? 'unknown';
+    const rl = await checkAuthRateLimit(ip, env);
+    if (!rl.allowed) {
+      return new Response(
+        JSON.stringify({ error: 'rate limit exceeded', code: ERROR_CODE.RATE_LIMITED }),
+        {
+          status: HTTP_STATUS.TOO_MANY_REQUESTS,
+          headers: {
+            [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
+            'Retry-After': String(rl.retryAfterSeconds),
+          },
+        },
+      );
+    }
     const body = await parseJsonBody(request);
     if (body instanceof Response) return body;
     return handleSignup(env, body);
   }
 
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SIGNIN) {
+    const ip = getClientIp(request) ?? 'unknown';
+    const rl = await checkAuthRateLimit(ip, env);
+    if (!rl.allowed) {
+      return new Response(
+        JSON.stringify({ error: 'rate limit exceeded', code: ERROR_CODE.RATE_LIMITED }),
+        {
+          status: HTTP_STATUS.TOO_MANY_REQUESTS,
+          headers: {
+            [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
+            'Retry-After': String(rl.retryAfterSeconds),
+          },
+        },
+      );
+    }
     const body = await parseJsonBody(request);
     if (body instanceof Response) return body;
     return handleSignIn(env, body);

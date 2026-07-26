@@ -86,3 +86,71 @@ describe('corsPreflightResponse()', () => {
     expect(allowedHeaders).toContain('content-type');
   });
 });
+
+import { checkAuthRateLimit, clearAuthRateLimitStore } from './utils';
+import { AUTH_RATE_LIMIT_MAX } from './types';
+
+describe('checkAuthRateLimit()', () => {
+  const noKvEnv = {} as Pick<import('./types').Env, 'RATE_LIMIT_KV'>;
+
+  beforeEach(() => { clearAuthRateLimitStore(); });
+
+  it('allows requests up to AUTH_RATE_LIMIT_MAX', async () => {
+    for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
+      const result = await checkAuthRateLimit('192.0.2.1', noKvEnv);
+      expect(result.allowed).toBe(true);
+    }
+  });
+
+  it('denies the request after AUTH_RATE_LIMIT_MAX is reached', async () => {
+    for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
+      await checkAuthRateLimit('192.0.2.2', noKvEnv);
+    }
+    const result = await checkAuthRateLimit('192.0.2.2', noKvEnv);
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.retryAfterSeconds).toBeGreaterThan(0);
+    }
+  });
+
+  it('tracks IPs independently', async () => {
+    for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
+      await checkAuthRateLimit('192.0.2.3', noKvEnv);
+    }
+    // Different IP should still be allowed
+    const result = await checkAuthRateLimit('192.0.2.4', noKvEnv);
+    expect(result.allowed).toBe(true);
+  });
+
+  it('returns 429 and Retry-After header for rate-limited signup requests', async () => {
+    const env: Record<string, unknown> = {
+      SHARED_SECRET: 'test-shared-secret-key',
+      RECEIVER: { fetch: vi.fn() } as unknown as Fetcher,
+      AUTH0_DOMAIN: 'test.auth0.com',
+      AUTH0_CLIENT_ID: 'spa-client',
+      AUTH0_CLIENT_SECRET: 'spa-secret',
+      AUTH0_CLI_ID: 'cli-id',
+      AUTH0_CLI_SECRET: 'cli-secret',
+      AUTH0_AUDIENCE: 'https://test.auth0.com/api/v2/',
+      SUPABASE_URL: 'https://supabase.test',
+      SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+    };
+
+    // Exhaust the limit
+    for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
+      await checkAuthRateLimit('10.0.0.1', env as Pick<import('./types').Env, 'RATE_LIMIT_KV'>);
+    }
+
+    // Import worker via dynamic import to avoid circular reference at module load time
+    const { default: worker } = await import('./index');
+    const request = new Request('https://worker.test/signup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'CF-Connecting-IP': '10.0.0.1' },
+      body: JSON.stringify({ email: 'rl@example.com', password: 'Pass1234!' }),
+    });
+
+    const response = await worker.fetch(request, env);
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).not.toBeNull();
+  });
+});

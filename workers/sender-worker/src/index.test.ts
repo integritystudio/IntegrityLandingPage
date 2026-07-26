@@ -39,6 +39,7 @@ interface Env {
 }
 
 import worker from './index';
+import { clearAuthRateLimitStore } from './utils';
 
 // Mock receiver service binding
 const mockReceiverFetch = vi.fn<(...args: unknown[]) => Promise<Response>>();
@@ -124,6 +125,12 @@ function makeSendRequest(body: unknown, extraHeaders: Record<string, string> = {
 }
 
 describe('Sender Worker', () => {
+  // Clear the in-memory auth rate limit store before every test so that tests
+  // using the same IP do not bleed state into each other.
+  beforeEach(() => {
+    clearAuthRateLimitStore();
+  });
+
   describe('POST /send — valid provision_api_key requests', () => {
     afterEach(() => {
       mockReceiverFetch.mockReset();
