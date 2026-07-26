@@ -1963,6 +1963,118 @@ describe('Sender Worker', () => {
     });
   });
 
+  describe('POST /signup — rollback on partial failure', () => {
+    function makeSuccessfulFetch(auth0Sub: string, orgId: string): (url: RequestInfo | URL, init?: RequestInit) => Promise<Response> {
+      let oauthCount = 0;
+      return async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          oauthCount++;
+          return new Response(JSON.stringify({ access_token: oauthCount === 1 ? 'mgmt-token' : 'user-jwt' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users') && !urlStr.includes('/api/v2/users/')) {
+          return new Response(JSON.stringify({ user_id: auth0Sub }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/organizations')) {
+          return new Response(JSON.stringify([{ id: orgId }]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 201 });
+      };
+    }
+
+    it('deletes Auth0 user when Supabase org creation fails', async () => {
+      const auth0Sub = 'auth0|rollback-step2';
+      const deletedUrls: string[] = [];
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users/')) {
+          deletedUrls.push(urlStr);
+          return new Response('', { status: 204 });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: auth0Sub }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/organizations')) {
+          return new Response('db error', { status: 500 });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const response = await worker.fetch(new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'fail@example.com', password: 'S3cur3!pass' }),
+      }), mockEnv);
+
+      expect(response.status).toBe(500);
+      expect(deletedUrls.some((u) => u.includes(encodeURIComponent(auth0Sub)))).toBe(true);
+      fetchSpy.mockRestore();
+    });
+
+    it('deletes Auth0 user and org when Supabase user insert fails', async () => {
+      const auth0Sub = 'auth0|rollback-step3';
+      const orgId = 'org-step3';
+      const deletedUrls: string[] = [];
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/api/v2/users/')) {
+          deletedUrls.push(urlStr);
+          return new Response('', { status: 204 });
+        }
+        if (urlStr.includes('/api/v2/users')) {
+          return new Response(JSON.stringify({ user_id: auth0Sub }), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        if (urlStr.includes('/organizations?id=eq.')) {
+          deletedUrls.push(urlStr);
+          return new Response('', { status: 204 });
+        }
+        if (urlStr.includes('/organizations')) {
+          return new Response(JSON.stringify([{ id: orgId }]), {
+            status: 201, headers: { 'content-type': 'application/json' },
+          });
+        }
+        // users insert fails
+        if (urlStr.includes('/rest/v1/users')) {
+          return new Response('conflict', { status: 409 });
+        }
+        return new Response('', { status: 201 });
+      });
+
+      const response = await worker.fetch(new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'fail3@example.com', password: 'S3cur3!pass' }),
+      }), mockEnv);
+
+      expect(response.status).toBe(500);
+      expect(deletedUrls.some((u) => u.includes(`/organizations?id=eq.`))).toBe(true);
+      expect(deletedUrls.some((u) => u.includes(encodeURIComponent(auth0Sub)))).toBe(true);
+      fetchSpy.mockRestore();
+    });
+  });
+
   describe('Environment Variable Validation (Regression Tests)', () => {
     it('mockEnv includes Regular Web App credentials for ROPC and CLI M2M credentials for Management API', () => {
       expect(mockEnv).toHaveProperty('AUTH0_CLIENT_ID');

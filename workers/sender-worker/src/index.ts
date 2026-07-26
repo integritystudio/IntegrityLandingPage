@@ -24,9 +24,12 @@ import { errorResponse, resolveOutboundSigningKey, getClientIp } from "./utils.j
 import { signMessage } from "./crypto.js";
 import {
   auth0CreateUser,
+  auth0DeleteUser,
   auth0UserSignIn,
   supabaseCreatePersonalOrg,
+  supabaseDeleteOrg,
   supabaseInsertUser,
+  supabaseDeleteUser,
   supabaseAddOrgOwner,
 } from "./supabase.js";
 import { createStripeCheckoutSession } from "./stripe.js";
@@ -86,36 +89,71 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
   const tier: ApiKeyTier = tierParsed.success ? tierParsed.data : DEFAULT_TIER;
   const orgName = providedName ?? `${email.split("@")[0]} (personal)`;
 
+  if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID || !env.AUTH0_CLIENT_SECRET || !env.AUTH0_AUDIENCE || !env.AUTH0_CLI_ID || !env.AUTH0_CLI_SECRET) {
+    return errorResponse("Auth0 not configured", ERROR_CODE.AUTH0_UNCONFIGURED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
+
+  // Sequential steps with compensating rollback so a partial failure never
+  // leaves orphaned Auth0 users or Supabase rows. Each step cleans up all
+  // resources created by prior steps before re-throwing the original error.
+  // Step 1 is outside the inner guards — the outer catch handles it directly.
+  const userId = crypto.randomUUID();
+
   try {
-    if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID || !env.AUTH0_CLIENT_SECRET || !env.AUTH0_AUDIENCE || !env.AUTH0_CLI_ID || !env.AUTH0_CLI_SECRET) {
-      return errorResponse("Auth0 not configured", ERROR_CODE.AUTH0_UNCONFIGURED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-    }
-
-    const userId = crypto.randomUUID();
-
-    const [{ auth0Sub }, orgId] = await Promise.all([
-      auth0CreateUser(
-        env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET,
-        env.AUTH0_AUDIENCE, email, password,
-      ),
-      supabaseCreatePersonalOrg(
-        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgName, tier, email,
-      ),
-    ]);
-
-    // supabaseInsertUser must complete before auth0UserSignIn: org membership has FK on users.id,
-    // and if sign-in fails after insert the user record exists and can recover via /signin.
-    await supabaseInsertUser(
-      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId, auth0Sub, email,
-    );
-    const jwt = await auth0UserSignIn(
-      env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
+    // Step 1: create Auth0 user — nothing to clean up on failure.
+    const { auth0Sub } = await auth0CreateUser(
+      env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET,
       env.AUTH0_AUDIENCE, email, password,
     );
 
-    await supabaseAddOrgOwner(
-      env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId, userId,
-    );
+    // Step 2: create Supabase org — roll back Auth0 user on failure.
+    let orgId: string;
+    try {
+      orgId = await supabaseCreatePersonalOrg(
+        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgName, tier, email,
+      );
+    } catch (err) {
+      await auth0DeleteUser(env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET, auth0Sub);
+      throw err;
+    }
+
+    // Step 3: insert Supabase user row — roll back org + Auth0 user on failure.
+    // org membership has FK on users.id so this must precede addOrgOwner.
+    try {
+      await supabaseInsertUser(
+        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId, auth0Sub, email,
+      );
+    } catch (err) {
+      await supabaseDeleteOrg(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId);
+      await auth0DeleteUser(env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET, auth0Sub);
+      throw err;
+    }
+
+    // Step 4: sign in to get JWT — roll back all three resources on failure.
+    let jwt: string;
+    try {
+      jwt = await auth0UserSignIn(
+        env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
+        env.AUTH0_AUDIENCE, email, password,
+      );
+    } catch (err) {
+      await supabaseDeleteUser(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId);
+      await supabaseDeleteOrg(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId);
+      await auth0DeleteUser(env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET, auth0Sub);
+      throw err;
+    }
+
+    // Step 5: add org membership — roll back all resources on failure.
+    try {
+      await supabaseAddOrgOwner(
+        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId, userId,
+      );
+    } catch (err) {
+      await supabaseDeleteUser(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId);
+      await supabaseDeleteOrg(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId);
+      await auth0DeleteUser(env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET, auth0Sub);
+      throw err;
+    }
 
     return json({ jwt, auth0Sub, userId, email }, { status: HTTP_STATUS.CREATED });
   } catch (err) {

@@ -170,6 +170,64 @@ export async function auth0UserSignIn(
 }
 
 /**
+ * Delete a user via the Auth0 Management API (compensating action for rollback).
+ * Acquires a fresh management token; errors are swallowed so they don't mask the
+ * original failure that triggered the rollback.
+ */
+export async function auth0DeleteUser(
+  domain: string,
+  clientId: string,
+  clientSecret: string,
+  auth0Sub: string,
+): Promise<void> {
+  try {
+    const mgmtToken = await auth0GetMgmtToken(domain, clientId, clientSecret);
+    await fetch(`https://${domain}${AUTH0_PATHS.USERS}/${encodeURIComponent(auth0Sub)}`, {
+      method: "DELETE",
+      headers: { [HEADER_NAMES.AUTHORIZATION]: `Bearer ${mgmtToken}` },
+    });
+  } catch (e) {
+    console.error("[signup rollback] auth0DeleteUser failed:", e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
+ * Delete an organization row by ID (compensating action for rollback).
+ */
+export async function supabaseDeleteOrg(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  orgId: string,
+): Promise<void> {
+  try {
+    await fetch(`${supabaseUrl}${SUPABASE_PATHS.ORGANIZATIONS}?id=eq.${encodeURIComponent(orgId)}`, {
+      method: "DELETE",
+      headers: supabaseHeaders(serviceRoleKey),
+    });
+  } catch (e) {
+    console.error("[signup rollback] supabaseDeleteOrg failed:", e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
+ * Delete a user row by ID (compensating action for rollback).
+ */
+export async function supabaseDeleteUser(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  userId: string,
+): Promise<void> {
+  try {
+    await fetch(`${supabaseUrl}${SUPABASE_PATHS.USERS}?id=eq.${encodeURIComponent(userId)}`, {
+      method: "DELETE",
+      headers: supabaseHeaders(serviceRoleKey),
+    });
+  } catch (e) {
+    console.error("[signup rollback] supabaseDeleteUser failed:", e instanceof Error ? e.message : String(e));
+  }
+}
+
+/**
  * Create a user via the Auth0 Management API.
  * Performs the client credentials token exchange internally before the user create call.
  * Returns the Auth0 `sub` (user_id), which must be stored as `auth0_id` in Supabase.

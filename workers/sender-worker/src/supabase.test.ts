@@ -13,8 +13,11 @@ import {
   SLUG_SANITIZE_REGEX,
   SLUG_TRIM_REGEX,
   auth0CreateUser,
+  auth0DeleteUser,
   supabaseCreatePersonalOrg,
+  supabaseDeleteOrg,
   supabaseInsertUser,
+  supabaseDeleteUser,
   supabaseAddOrgOwner,
   auth0UserSignIn,
 } from './supabase';
@@ -410,5 +413,92 @@ describe('auth0UserSignIn()', () => {
     ).rejects.toThrow('no access_token');
 
     fetchSpy.mockRestore();
+  });
+});
+
+describe('signup rollback helpers', () => {
+  beforeEach(() => { vi.restoreAllMocks(); });
+
+  describe('auth0DeleteUser', () => {
+    it('calls Management API DELETE with correct URL and swallows errors', async () => {
+      const auth0Sub = 'auth0|rollback-test';
+      let deletedUrl = '';
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/oauth/token')) {
+          return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
+            status: 200, headers: { 'content-type': 'application/json' },
+          });
+        }
+        deletedUrl = urlStr;
+        return new Response('', { status: 204 });
+      });
+
+      await expect(
+        auth0DeleteUser('domain.auth0.com', 'cli-id', 'cli-secret', auth0Sub),
+      ).resolves.toBeUndefined();
+      expect(deletedUrl).toContain(`/api/v2/users/${encodeURIComponent(auth0Sub)}`);
+      fetchSpy.mockRestore();
+    });
+
+    it('swallows errors so they do not mask the original failure', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockRejectedValue(new Error('network error'));
+      await expect(
+        auth0DeleteUser('domain.auth0.com', 'cli-id', 'cli-secret', 'auth0|x'),
+      ).resolves.toBeUndefined();
+      fetchSpy.mockRestore();
+    });
+  });
+
+  describe('supabaseDeleteOrg', () => {
+    it('calls DELETE with id filter', async () => {
+      const orgId = 'org-uuid-to-delete';
+      let deletedUrl = '';
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        deletedUrl = String(url);
+        return new Response('', { status: 204 });
+      });
+
+      await expect(
+        supabaseDeleteOrg('https://supabase.test', 'service-key', orgId),
+      ).resolves.toBeUndefined();
+      expect(deletedUrl).toContain('/organizations');
+      expect(deletedUrl).toContain(`id=eq.${encodeURIComponent(orgId)}`);
+      fetchSpy.mockRestore();
+    });
+
+    it('swallows errors so they do not mask the original failure', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockRejectedValue(new Error('db down'));
+      await expect(
+        supabaseDeleteOrg('https://supabase.test', 'service-key', 'org-id'),
+      ).resolves.toBeUndefined();
+      fetchSpy.mockRestore();
+    });
+  });
+
+  describe('supabaseDeleteUser', () => {
+    it('calls DELETE with id filter', async () => {
+      const userId = 'user-uuid-to-delete';
+      let deletedUrl = '';
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        deletedUrl = String(url);
+        return new Response('', { status: 204 });
+      });
+
+      await expect(
+        supabaseDeleteUser('https://supabase.test', 'service-key', userId),
+      ).resolves.toBeUndefined();
+      expect(deletedUrl).toContain('/users');
+      expect(deletedUrl).toContain(`id=eq.${encodeURIComponent(userId)}`);
+      fetchSpy.mockRestore();
+    });
+
+    it('swallows errors so they do not mask the original failure', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockRejectedValue(new Error('db down'));
+      await expect(
+        supabaseDeleteUser('https://supabase.test', 'service-key', 'user-id'),
+      ).resolves.toBeUndefined();
+      fetchSpy.mockRestore();
+    });
   });
 });
