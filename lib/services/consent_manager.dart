@@ -225,9 +225,9 @@ class ConsentManager {
   static Future<void> _initializeMarketing() async {
     if (!_platform.isWeb) return;
 
-    // Inject Facebook Pixel script
+    // Inject Facebook Pixel script. meta-pixel.js fires its own initial
+    // PageView on load — no extra sendFBPageView() call needed.
     _tracking.injectFacebookPixel();
-    _tracking.sendFBPageView();
     if (kDebugMode) {
       debugPrint('Marketing tracking initialized with consent');
     }

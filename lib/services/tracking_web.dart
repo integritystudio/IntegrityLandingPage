@@ -158,13 +158,22 @@ class TrackingWeb {
   // Facebook Pixel
   // ---------------------------------------------------------------------------
 
-  /// Enable Facebook Pixel tracking.
+  /// Inject the Facebook Pixel script after marketing consent.
   ///
-  /// The pixel is loaded externally via web/js/meta-pixel.js (CSP compliant).
-  /// This method just marks it as ready for event tracking.
+  /// Dynamically appends web/js/meta-pixel.js to the document head. The script initialises
+  /// the fbq stub, loads the SDK from Facebook's CDN, and fires the initial
+  /// fbq('init') + fbq('track', 'PageView') — no additional sendFBPageView()
+  /// call is needed after this.
   static void injectFacebookPixel() {
     if (_fbPixelInjected) return;
     _fbPixelInjected = true;
+
+    final head = web.document.head;
+    if (head == null) return;
+
+    final script = web.document.createElement('script') as web.HTMLScriptElement
+      ..src = 'js/meta-pixel.js';
+    head.appendChild(script);
   }
 
   /// Track Facebook Pixel event.

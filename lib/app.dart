@@ -49,10 +49,11 @@ class _IntegrityStudioAppState extends State<IntegrityStudioApp> {
             await AnalyticsService.initialize();
           }
 
-          // Initialize Facebook Pixel if marketing was consented
+          // Initialize Facebook Pixel if marketing was consented.
+          // meta-pixel.js fires its own initial PageView on load — no
+          // extra sendFBPageView() call needed.
           if (prefs.marketing) {
             TrackingWeb.injectFacebookPixel();
-            TrackingWeb.sendFBPageView();
           }
         }
       }

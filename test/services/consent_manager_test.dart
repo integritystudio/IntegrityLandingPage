@@ -325,7 +325,8 @@ void main() {
         await ConsentManager.saveConsent(prefs);
 
         expect(mockTracking.facebookPixelInjected, isTrue);
-        expect(mockTracking.facebookPageViewSent, isTrue);
+        // PageView is fired by meta-pixel.js on load, not by ConsentManager
+        expect(mockTracking.facebookPageViewSent, isFalse);
       });
 
       test('does not initialize Facebook Pixel when marketing denied', () async {
@@ -352,7 +353,8 @@ void main() {
 
         expect(mockAnalytics.initialized, isTrue);
         expect(mockTracking.facebookPixelInjected, isTrue);
-        expect(mockTracking.facebookPageViewSent, isTrue);
+        // PageView is fired by meta-pixel.js on load, not by ConsentManager
+        expect(mockTracking.facebookPageViewSent, isFalse);
         expect(mockTracking.consentUpdated, isTrue);
       });
 
