@@ -40,7 +40,9 @@ interface OrganizationQuota {
 }
 
 const DEFAULT_QUOTAS: Record<string, { requestsPerMinute: number; monthlyLimit: number | null }> = {
-  free: {
+  // 'starter' is the canonical plan key in DB (current_plan column).
+  // 'free' is kept as an alias so existing orgs with current_plan = 'free' stay functional.
+  starter: {
     requestsPerMinute: 60,
     monthlyLimit: 10000,
   },
@@ -53,6 +55,7 @@ const DEFAULT_QUOTAS: Record<string, { requestsPerMinute: number; monthlyLimit: 
     monthlyLimit: null, // unlimited
   },
 };
+DEFAULT_QUOTAS.free = DEFAULT_QUOTAS.starter;
 
 export class QuotaDurableObject implements DurableObject {
   private state: DurableObjectState;
@@ -121,7 +124,7 @@ export class QuotaDurableObject implements DurableObject {
         if (stored && stored.orgId === orgId) {
           this.quota = stored;
         } else {
-          const quotaConfig = DEFAULT_QUOTAS[planKey] || DEFAULT_QUOTAS.free;
+          const quotaConfig = DEFAULT_QUOTAS[planKey] ?? DEFAULT_QUOTAS.starter;
           this.quota = {
             orgId,
             planKey,
@@ -155,16 +158,18 @@ export class QuotaDurableObject implements DurableObject {
         this.quota.lastMonthlyResetAt = now;
       }
 
-      // Update quota version if it changed (org plan/billing updated)
+      // Update quota version if it changed (org plan/billing updated).
+      // monthlyUsed is intentionally preserved — resetting it would let an org evade
+      // its monthly limit by triggering a quota_version bump mid-month.
       if (quotaVersion > this.quota.quotaVersion) {
-        const quotaConfig = DEFAULT_QUOTAS[planKey] || DEFAULT_QUOTAS.free;
+        const quotaConfig = DEFAULT_QUOTAS[planKey] ?? DEFAULT_QUOTAS.starter;
         this.quota.planKey = planKey;
         this.quota.quotaVersion = quotaVersion;
         this.quota.minuteLimit = quotaConfig.requestsPerMinute;
         this.quota.monthlyLimit = quotaConfig.monthlyLimit;
         this.quota.minuteUsed = 0;
-        this.quota.monthlyUsed = 0;
         this.quota.minuteUsedAt = now;
+        // monthlyUsed NOT reset: preserved so quota evasion via plan cycling is prevented.
       }
 
       // Purge requestIds older than 5 minutes and check idempotency

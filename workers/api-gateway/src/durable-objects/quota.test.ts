@@ -321,7 +321,7 @@ describe('QuotaDurableObject', () => {
   });
 
   describe('checkAndReserve — quotaVersion bump', () => {
-    it('resets all counters when quotaVersion is bumped', async () => {
+    it('resets minute counter and applies new plan limits when quotaVersion is bumped', async () => {
       const { do_, storage } = makeDO();
       // Seed: exhausted free plan at version 1.
       await seedQuota(storage, {
@@ -336,9 +336,36 @@ describe('QuotaDurableObject', () => {
       // Bump version to 2 and upgrade to growth plan.
       const res = await do_.fetch(checkReq({ planKey: 'growth', quotaVersion: 2 }));
       expect(res.status).toBe(200);
-      const body = await res.json() as { allowed: boolean; remainingMinute: number };
+      const body = await res.json() as { allowed: boolean; remainingMinute: number; remainingMonthly: number };
       expect(body.allowed).toBe(true);
-      expect(body.remainingMinute).toBe(599); // growth 600 rpm - 1
+      expect(body.remainingMinute).toBe(599); // growth 600 rpm - 1 (minute reset on bump)
+      // monthlyUsed is preserved (9990 + 1 = 9991) so plan cycling cannot evade monthly limits.
+      // remainingMonthly reflects the new growth limit (500000) minus carried-over usage.
+      expect(body.remainingMonthly).toBe(500000 - 9991);
+    });
+
+    it('preserves monthlyUsed on quotaVersion bump to prevent quota evasion by plan cycling', async () => {
+      const { do_, storage } = makeDO();
+      // Seed: one slot below the monthly limit at version 1.
+      // With monthlyLimit = 10000 and check being `> limit`, we need 10000 used before a request
+      // is blocked (the 10001st request). Start at 9999 so the version-bump request uses the
+      // last slot (9999 → 10000) and the very next request is blocked (10001 > 10000).
+      await seedQuota(storage, {
+        planKey: 'starter',
+        quotaVersion: 1,
+        minuteLimit: 60,
+        monthlyLimit: 10000,
+        minuteUsed: 10,
+        monthlyUsed: 9999,
+        minuteUsedAt: Date.now(),
+      });
+      // Bump to version 2, staying on starter — monthlyUsed should NOT reset.
+      // This request uses the last slot: 9999 → 10000.
+      await do_.fetch(checkReq({ planKey: 'starter', quotaVersion: 2 }));
+      // Next request exceeds limit: 10000 + 1 = 10001 > 10000 → blocked.
+      const res = await do_.fetch(checkReq({ planKey: 'starter', quotaVersion: 2 }));
+      const body = await res.json() as { allowed: boolean };
+      expect(body.allowed).toBe(false);
     });
 
     it('does not reset counters when quotaVersion is unchanged', async () => {
