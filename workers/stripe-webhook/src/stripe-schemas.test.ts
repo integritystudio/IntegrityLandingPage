@@ -116,6 +116,13 @@ describe('InvoiceSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('accepts invoice with null subscription (non-subscription Stripe invoice)', () => {
+    // Stripe sends subscription: null for one-time charges and setup intents.
+    // Previously this was rejected, dead-lettering all non-subscription invoice events.
+    const result = InvoiceSchema.safeParse({ customer: 'cus_123', subscription: null });
+    expect(result.success).toBe(true);
+  });
+
   it('passes through unknown fields', () => {
     const result = InvoiceSchema.safeParse({ customer: 'cus_123', amount_due: 2000 });
     expect(result.success).toBe(true);

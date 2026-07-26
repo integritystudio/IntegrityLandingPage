@@ -20,7 +20,9 @@ export const SubscriptionSchema = z.object({
 
 export const InvoiceSchema = z.object({
   customer: z.string(),
-  subscription: z.string().optional(),
+  // Stripe sends null for non-subscription invoices (one-time charges, setup intents).
+  // Accepting null prevents those events from being dead-lettered.
+  subscription: z.string().nullable().optional(),
 }).passthrough();
 
 export type CheckoutSession = z.infer<typeof CheckoutSessionSchema>;

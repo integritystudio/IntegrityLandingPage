@@ -107,6 +107,28 @@ describe('Stripe webhook verification', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('accepts when the second of two v1 entries matches (Stripe secret rotation)', async () => {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const body = '{"type":"test"}';
+    const secret = 'new-secret';
+    const validHex = await hmacSignHex(secret, `${timestamp}.${body}`);
+    const oldHex = 'a'.repeat(64); // Stale key — wrong signature, valid hex.
+
+    // Stripe sends both old and new v1 entries during key rotation.
+    const sigHeader = `t=${timestamp},v1=${oldHex},v1=${validHex}`;
+    const result = await verifyStripeSignature(sigHeader, body, secret);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects when multiple v1 entries are present and none match', async () => {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const wrongHex1 = 'a'.repeat(64);
+    const wrongHex2 = 'b'.repeat(64);
+    const sigHeader = `t=${timestamp},v1=${wrongHex1},v1=${wrongHex2}`;
+    const result = await verifyStripeSignature(sigHeader, '{}', 'secret');
+    expect(result.ok).toBe(false);
+  });
+
   it('should handle crypto.subtle errors gracefully and return { ok: false }', async () => {
     const timestamp = Math.floor(Date.now() / 1000);
     const validHex = 'ab'.repeat(32);
