@@ -368,7 +368,7 @@ class ListCard<T> extends StatelessWidget {
 /// Usage:
 /// ```dart
 /// PricingCard(
-///   tier: 'Team',
+///   tier: 'Growth',
 ///   price: '\$99',
 ///   period: '/month',
 ///   features: ['100K traces/month', '30-day retention'],

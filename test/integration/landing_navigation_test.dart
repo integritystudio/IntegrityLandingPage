@@ -161,7 +161,7 @@ void main() {
         find.textContaining('month'),
         find.textContaining('Pricing'),
         find.textContaining('Free'),
-        find.textContaining('Team'),
+        find.textContaining('Growth'),
         find.textContaining('Enterprise'),
       ];
 

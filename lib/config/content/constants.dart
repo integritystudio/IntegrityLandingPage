@@ -230,9 +230,9 @@ abstract final class PricingConstants {
   static const String freeTracesLimit = '50K traces/month';
   static const String freeRetention = '7-day retention';
 
-  // Team tier limits
-  static const String teamTracesLimit = '500K traces/month';
-  static const String teamRetention = '30-day retention';
+  // Growth tier limits
+  static const String growthTracesLimit = '500K traces/month';
+  static const String growthRetention = '30-day retention';
 
   // Enterprise
   static const String unlimitedTraces = 'Unlimited traces';

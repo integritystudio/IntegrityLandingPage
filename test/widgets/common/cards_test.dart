@@ -164,7 +164,7 @@ void main() {
       await tester.pumpWidget(
         testableWidget(
           const PricingCard(
-            tier: 'Team',
+            tier: 'Growth',
             price: '\$79',
             features: ['Feature 1'],
             ctaText: 'Subscribe',
@@ -270,7 +270,7 @@ void main() {
               ),
               Expanded(
                 child: PricingCard(
-                  tier: 'Team',
+                  tier: 'Growth',
                   price: '\$79',
                   period: '/month',
                   features: ['500K traces/month', '30-day retention'],
@@ -291,7 +291,7 @@ void main() {
         ),
       );
       expect(find.text('Starter'), findsOneWidget);
-      expect(find.text('Team'), findsOneWidget);
+      expect(find.text('Growth'), findsOneWidget);
       expect(find.text('Enterprise'), findsOneWidget);
 
       // Test mobile width
@@ -307,7 +307,7 @@ void main() {
                 ctaText: 'Get Started',
               ),
               PricingCard(
-                tier: 'Team',
+                tier: 'Growth',
                 price: '\$79',
                 period: '/month',
                 features: ['500K traces/month'],
@@ -319,7 +319,7 @@ void main() {
         ),
       );
       expect(find.text('Starter'), findsOneWidget);
-      expect(find.text('Team'), findsOneWidget);
+      expect(find.text('Growth'), findsOneWidget);
     });
   });
 }

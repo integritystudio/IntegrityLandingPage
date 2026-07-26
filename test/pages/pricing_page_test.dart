@@ -166,7 +166,7 @@ void main() {
         );
       });
 
-      testWidgets('renders Most Popular badge on Team tier', (tester) async {
+      testWidgets('renders Most Popular badge on Growth tier', (tester) async {
         await pumpPricingPage(tester);
 
         final section = find.byKey(const Key('pricing-tiers-section'));
@@ -233,7 +233,7 @@ void main() {
         );
       });
 
-      testWidgets('renders Team tier features', (tester) async {
+      testWidgets('renders Growth tier features', (tester) async {
         await pumpPricingPage(tester);
 
         final section = find.byKey(const Key('pricing-tiers-section'));
@@ -465,7 +465,7 @@ void main() {
         await tester.tap(monthlyFinder);
         await tester.pump(const Duration(milliseconds: 200));
 
-        // Team tier should show $99 for monthly
+        // Growth tier should show $99 for monthly
         expect(
           find.descendant(of: section, matching: find.text(r'$99')),
           findsOneWidget,
@@ -493,7 +493,7 @@ void main() {
         await tester.tap(annualFinder);
         await tester.pump(const Duration(milliseconds: 200));
 
-        // Team tier should show $79 for annual
+        // Growth tier should show $79 for annual
         expect(
           find.descendant(of: section, matching: find.text(r'$79')),
           findsOneWidget,
@@ -535,10 +535,10 @@ void main() {
         }
       });
 
-      test('Team tier is marked as popular', () {
+      test('Growth tier is marked as popular', () {
         final pricing = AppContent.pricing;
-        final teamTier = pricing.tiers.firstWhere((t) => t.name == 'Growth');
-        expect(teamTier.isPopular, isTrue);
+        final growthTier = pricing.tiers.firstWhere((t) => t.name == 'Growth');
+        expect(growthTier.isPopular, isTrue);
       });
     });
   });

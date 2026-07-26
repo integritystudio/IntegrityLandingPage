@@ -107,7 +107,7 @@ pricing:
         - "50K traces/month"
         - "7-day retention"
         - "Basic dashboards"
-    - name: "Team"
+    - name: "Growth"
       monthly_price: "\$99"
       annual_price: "\$79"
       period: "/month"

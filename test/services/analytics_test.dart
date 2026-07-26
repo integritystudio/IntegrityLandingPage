@@ -166,7 +166,7 @@ void main() {
 
       test('trackPricingView accepts tier name', () {
         expect(
-          () => AnalyticsService.trackPricingView('Team'),
+          () => AnalyticsService.trackPricingView('Growth'),
           returnsNormally,
         );
       });
@@ -304,7 +304,7 @@ void main() {
 
       test('trackPricingView does nothing when disabled', () {
         expect(
-          () => AnalyticsService.trackPricingView('Team'),
+          () => AnalyticsService.trackPricingView('Growth'),
           returnsNormally,
         );
       });

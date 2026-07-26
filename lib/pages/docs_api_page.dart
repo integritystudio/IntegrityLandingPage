@@ -123,7 +123,7 @@ X-API-Key: <your-api-key>''',
               DocCallout.info(
                 title: 'Rate Limits',
                 message:
-                    'Free tier: 100 req/min. Team: 1,000 req/min. Enterprise: Custom limits.',
+                    'Free tier: 100 req/min. Growth: 1,000 req/min. Enterprise: Custom limits.',
               ),
             ],
           ),
