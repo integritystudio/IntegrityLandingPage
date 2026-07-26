@@ -1392,6 +1392,38 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(204);
       expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://integritystudio.ai');
     });
+
+    it('falls back to hardcoded defaults when ALLOWED_ORIGINS_JSON is a JSON string, not an array', async () => {
+      // A JSON string like `"https://attacker.com"` would previously pass as string[] and allow
+      // substring matching — e.g. any origin containing that value would match .includes().
+      const envWithStringJson: Env = {
+        ...mockEnv,
+        ALLOWED_ORIGINS_JSON: JSON.stringify('https://integritystudio.ai'),
+      };
+      const request = new Request('https://worker.test/send', {
+        method: 'OPTIONS',
+        headers: { Origin: 'https://integritystudio.ai' },
+      });
+      const response = await worker.fetch(request, envWithStringJson);
+      // Falls back to hardcoded defaults, which include integritystudio.ai — still 204
+      expect(response.status).toBe(204);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://integritystudio.ai');
+    });
+
+    it('falls back to hardcoded defaults when ALLOWED_ORIGINS_JSON is a JSON object, not an array', async () => {
+      // A JSON object would previously crash every request with TypeError (no .includes method).
+      const envWithObjectJson: Env = {
+        ...mockEnv,
+        ALLOWED_ORIGINS_JSON: JSON.stringify({ origin: 'https://integritystudio.ai' }),
+      };
+      const request = new Request('https://worker.test/send', {
+        method: 'OPTIONS',
+        headers: { Origin: 'https://integritystudio.ai' },
+      });
+      const response = await worker.fetch(request, envWithObjectJson);
+      expect(response.status).toBe(204);
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://integritystudio.ai');
+    });
   });
 
   describe('POST /signup — invalid JSON body', () => {

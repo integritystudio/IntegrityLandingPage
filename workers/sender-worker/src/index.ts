@@ -52,9 +52,13 @@ const PAGES_PREVIEW_HOST_SUFFIX = ".integritystudio-ai-c1a.pages.dev";
 function getAllowedOrigins(env: Env): string[] {
   if (env.ALLOWED_ORIGINS_JSON) {
     try {
-      return JSON.parse(env.ALLOWED_ORIGINS_JSON) as string[];
+      const parsed: unknown = JSON.parse(env.ALLOWED_ORIGINS_JSON);
+      if (Array.isArray(parsed) && parsed.every((v) => typeof v === 'string')) {
+        return parsed as string[];
+      }
+      console.error('[sender] ALLOWED_ORIGINS_JSON must be a JSON array of strings; using defaults');
     } catch {
-      return HARDCODED_ALLOWED_ORIGINS;
+      console.error('[sender] ALLOWED_ORIGINS_JSON is not valid JSON; using defaults');
     }
   }
   return HARDCODED_ALLOWED_ORIGINS;

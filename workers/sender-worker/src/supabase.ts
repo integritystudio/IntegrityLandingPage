@@ -13,6 +13,21 @@ export const DOT_TO_HYPHEN_REGEX = /\./g;
 export const SLUG_SANITIZE_REGEX = /[^a-z0-9-]+/g;
 export const SLUG_TRIM_REGEX = /^-|-$/g;
 
+/**
+ * FNV-1a 32-bit hash — synchronous, deterministic, collision-resistant disambiguation.
+ * Returns an 8-char lowercase hex string. Exported for use in tests.
+ */
+export function fnv1aHex(str: string): string {
+  const FNV_PRIME = 0x01000193;
+  const FNV_OFFSET_BASIS = 0x811c9dc5;
+  let hash = FNV_OFFSET_BASIS;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, FNV_PRIME) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
 function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
   return {
     [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
@@ -24,10 +39,16 @@ function supabaseHeaders(serviceRoleKey: string): Record<string, string> {
 
 /**
  * Generate a unique slug from an email address.
- * Email addresses are unique in Auth0, ensuring slug uniqueness.
+ *
+ * Appends an 8-char FNV-1a hex suffix derived from the canonical email so that
+ * addresses that normalize to the same human-readable base (e.g. a.b@, a-b@,
+ * a+b@ → all produce "a-b-example-com") still get distinct slugs. The suffix
+ * is derived from the full lowercased email before sanitization, ensuring
+ * different addresses always produce different slugs.
  */
-export function dedupSlug(email: string, tier: string): string {
-  const [username, domain] = email.toLowerCase().split(EMAIL_SEPARATOR);
+export function dedupSlug(email: string): string {
+  const canonical = email.toLowerCase().trim();
+  const [username, domain] = canonical.split(EMAIL_SEPARATOR);
   const baseSlug = username
     .replace(DOT_TO_HYPHEN_REGEX, "-")
     .replace(SLUG_SANITIZE_REGEX, "-")
@@ -38,7 +59,7 @@ export function dedupSlug(email: string, tier: string): string {
     .replace(SLUG_SANITIZE_REGEX, "")
     .replace(SLUG_TRIM_REGEX, "");
 
-  return `${baseSlug}-${domainPart}`;
+  return `${baseSlug}-${domainPart}-${fnv1aHex(canonical)}`;
 }
 
 /**
@@ -52,7 +73,7 @@ export async function supabaseCreatePersonalOrg(
   tier: string,
   email: string,
 ): Promise<string> {
-  const slug = dedupSlug(email, tier);
+  const slug = dedupSlug(email);
   const res = await fetch(`${supabaseUrl}${SUPABASE_PATHS.ORGANIZATIONS}`, {
     method: "POST",
     headers: supabaseHeaders(serviceRoleKey),
