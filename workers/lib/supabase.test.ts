@@ -59,6 +59,29 @@ describe('supabase client write paths', () => {
     });
   });
 
+  describe('query', () => {
+    it('appends multiple filters on the same column instead of overwriting them', async () => {
+      fetchMock.mockResolvedValue(
+        new Response(JSON.stringify([{ id: 1 }]), { status: 200 }),
+      );
+      const sb = createSupabaseClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+      await sb.query('usage_events', {
+        filters: [
+          { column: 'recorded_at', operator: 'gte', value: '2026-01-01T00:00:00Z' },
+          { column: 'recorded_at', operator: 'lte', value: '2026-01-31T23:59:59Z' },
+        ],
+      });
+
+      const { url } = lastRequest(fetchMock);
+      const allValues = url.searchParams.getAll('recorded_at');
+      expect(allValues).toContain('gte.2026-01-01T00:00:00Z');
+      expect(allValues).toContain('lte.2026-01-31T23:59:59Z');
+      // Both filters must be present — set() would have dropped the first one.
+      expect(allValues).toHaveLength(2);
+    });
+  });
+
   describe('update', () => {
     it('requests the representation via the Prefer header and returns the updated rows', async () => {
       fetchMock.mockResolvedValue(

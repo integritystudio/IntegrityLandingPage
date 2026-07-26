@@ -39,7 +39,7 @@ function serializeFilters(
     } else {
       serialized = JSON.stringify(value);
     }
-    url.searchParams.set(column, `${operator}.${serialized}`);
+    url.searchParams.append(column, `${operator}.${serialized}`);
   }
 }
 
