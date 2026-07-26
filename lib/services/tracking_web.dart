@@ -172,6 +172,7 @@ class TrackingWeb {
     if (head == null) return;
 
     final script = web.document.createElement('script') as web.HTMLScriptElement
+      ..async = true
       ..src = 'js/meta-pixel.js';
     head.appendChild(script);
   }
