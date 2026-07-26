@@ -68,7 +68,7 @@ Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (H
 - [x] `lib/services/provisioning_service.dart:200` — `signUp` returns `AuthSuccess` with an empty JWT when the 201 body lacks `jwt`.
 - [x] `lib/services/content_loader.dart:89` — failed `load()` raises an unhandled async error when there are no concurrent waiters.
 - [x] `lib/pages/request_failure_page.dart:101` — "Go to Sign In" navigates to `/signin`, which does not exist (the router defines `/login`).
-- [ ] `lib/pages/dashboard_page.dart:17` — dashboard route family unreachable; nothing constructs `DashboardArgs`, so `/dashboard` always redirects to `/login`.
+- [x] `lib/pages/dashboard_page.dart:17` — dashboard route family unreachable; nothing constructs `DashboardArgs`, so `/dashboard` always redirects to `/login`.
 - [ ] `lib/pages/oauth_callback_page.dart:211` — OAuth code callback spins forever; nothing exchanges the code.
 - [x] `lib/pages/signup_page.dart:330` — success analytics and the Facebook Lead pixel fire before the signup request is attempted.
 - [x] `lib/pages/status_result_page.dart:160` — spacing loop emits all spacers before the items instead of between them.

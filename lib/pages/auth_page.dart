@@ -5,6 +5,7 @@ import '../config/content/constants.dart';
 import '../services/analytics.dart';
 import '../services/contact_service.dart';
 import '../services/provisioning_service.dart';
+import 'dashboard_page.dart';
 import '../theme/theme.dart';
 import '../widgets/common/alert.dart';
 import '../widgets/common/buttons.dart';
@@ -139,7 +140,13 @@ class _AuthPageState extends State<AuthPage> {
     switch (response) {
       case AuthSuccess():
         setState(() => _isLoading = false);
-        context.go(Routes.provision, extra: response);
+        // Sign-in: user already has an API key — go straight to the dashboard.
+        // Sign-up: go to provisioning to generate the first API key.
+        if (_mode == AuthMode.signIn) {
+          context.go(Routes.dashboard, extra: DashboardArgs(jwt: response.jwt));
+        } else {
+          context.go(Routes.provision, extra: response);
+        }
       case AuthError():
         setState(() {
           _errorMessage = SecurityUtils.sanitizeServerError(response.error);

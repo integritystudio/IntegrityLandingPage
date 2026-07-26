@@ -73,6 +73,11 @@ void main() {
                 const Scaffold(body: Text('provision_page')),
           ),
           GoRoute(
+            path: Routes.dashboard,
+            builder: (_, _) =>
+                const Scaffold(body: Text('dashboard_page')),
+          ),
+          GoRoute(
             path: '/',
             builder: (_, _) => const Scaffold(body: Text('home_page')),
           ),
@@ -619,7 +624,7 @@ void main() {
       ProvisioningService.resetRetryDelay();
     });
 
-    testWidgets('routes to /provision on successful sign-in', (tester) async {
+    testWidgets('routes to /dashboard on successful sign-in', (tester) async {
       setDesktopSize(tester);
       adapter.stubJson('POST', {'jwt': 'test-jwt'}, statusCode: 200);
 
@@ -639,7 +644,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('provision_page'), findsOneWidget);
+      // Sign-in bypasses provisioning and goes straight to the dashboard.
+      expect(find.text('dashboard_page'), findsOneWidget);
     });
 
     testWidgets('shows error message on failed sign-in', (tester) async {
