@@ -360,6 +360,8 @@ GoRouter createAppRouter({
     redirect: (context, state) {
       final path = state.uri.path;
       if (path == '/docs/security/audit-trails') return '/docs/tracing';
+      if (path == '/docs/api') return '/api';
+      if (path == '/docs/compliance') return '/compliance';
       if (path.startsWith('/reports/')) return '/docs';
       return null;
     },

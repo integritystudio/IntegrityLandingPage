@@ -177,6 +177,22 @@ void main() {
       expect(router.routerDelegate.currentConfiguration.uri.path,
           equals('/docs'));
     });
+
+    testWidgets('/docs/api redirects to /api', (tester) async {
+      final router =
+          await pumpRouterApp(tester, initialLocation: '/docs/api');
+
+      expect(router.routerDelegate.currentConfiguration.uri.path,
+          equals('/api'));
+    });
+
+    testWidgets('/docs/compliance redirects to /compliance', (tester) async {
+      final router =
+          await pumpRouterApp(tester, initialLocation: '/docs/compliance');
+
+      expect(router.routerDelegate.currentConfiguration.uri.path,
+          equals('/compliance'));
+    });
   });
 
   group('home route', () {

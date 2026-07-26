@@ -348,7 +348,7 @@ resources:
     - icon: "code"
       title: "API Reference"
       description: "Complete API documentation."
-      url: "/docs/api"
+      url: "/api"
       popular_topics:
         - "REST API"
         - "GraphQL"
@@ -356,7 +356,7 @@ resources:
     - icon: "shield"
       title: "Compliance Guides"
       description: "Regulatory compliance documentation."
-      url: "/docs/compliance"
+      url: "/compliance"
       popular_topics:
         - "EU AI Act"
         - "SOC 2"

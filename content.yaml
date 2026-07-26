@@ -51,8 +51,8 @@ urls:
     services: "#services"
     demo: "/demo"
     docs_quickstart: "/docs/quickstart"
-    docs_api: "/docs/api"
-    docs_compliance: "/docs/compliance"
+    docs_api: "/api"
+    docs_compliance: "/compliance"
     docs_integrations: "/docs/integrations"
     docs_tracing: "/docs/tracing"
     docs_agents: "/docs/agents"
@@ -870,7 +870,7 @@ resources:
     - icon: "code-2"
       title: "API Reference"
       description: "Complete API documentation with examples for all endpoints and SDK methods."
-      url: "/docs/api"
+      url: "/api"
       popular_topics:
         - "Trace Ingestion API"
         - "Query API"
@@ -880,7 +880,7 @@ resources:
     - icon: "shield"
       title: "Compliance Guides"
       description: "In-depth guides for EU AI Act preparation, audit trails, and governance configuration."
-      url: "/docs/compliance"
+      url: "/compliance"
       popular_topics:
         - "EU AI Act Overview"
         - "Risk Classification"
