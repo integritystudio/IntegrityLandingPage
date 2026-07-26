@@ -84,8 +84,10 @@ class _ProvisionPageState extends State<ProvisionPage> {
   }
 
   Future<void> _goToDashboard() async {
-    final encoded = Uri.encodeQueryComponent(widget.auth.jwt);
-    final uri = Uri.parse('${ExternalUrls.dashboardApp}?access_token=$encoded');
+    // Use hash fragment so the token is not sent to the server, not stored
+    // in browser history as a queryable entry, and not included in Referer.
+    final encoded = Uri.encodeComponent(widget.auth.jwt);
+    final uri = Uri.parse('${ExternalUrls.dashboardApp}#access_token=$encoded');
     await launchUrl(uri);
   }
 

@@ -175,27 +175,17 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: '/provision',
         redirect: (context, state) {
+          // JWT must arrive via state.extra from an in-app auth flow.
+          // Query-parameter fallback was removed: accepting a JWT from
+          // the URL allows login-CSRF (attacker deep-links victim into
+          // an attacker-controlled session).
           if (state.extra is AuthSuccess) return null;
-          final jwt = state.uri.queryParameters['jwt'];
-          final email = state.uri.queryParameters['email'];
-          if (jwt != null && email != null) return null;
           return Routes.login;
         },
-        builder: (context, state) {
-          if (state.extra is AuthSuccess) {
-            return ProvisionPage(
-              auth: state.extra as AuthSuccess,
-              onBack: _goHome(context),
-            );
-          }
-          return ProvisionPage(
-            auth: AuthSuccess(
-              jwt: state.uri.queryParameters['jwt']!,
-              email: state.uri.queryParameters['email']!,
-            ),
-            onBack: _goHome(context),
-          );
-        },
+        builder: (context, state) => ProvisionPage(
+          auth: state.extra as AuthSuccess,
+          onBack: _goHome(context),
+        ),
       ),
       GoRoute(
         path: Routes.checkout,
