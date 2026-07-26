@@ -738,6 +738,47 @@ describe('runReconciliation', () => {
       'Resolve failed',
     );
   });
+
+  it('ordering: events replayed in Stripe event creation order regardless of dead-letter insertion order', async () => {
+    const callOrder: string[] = [];
+    // dlB was dead-lettered first (inserted into DB earlier) but has a LATER Stripe created
+    // timestamp. dlA was dead-lettered second but has an EARLIER Stripe created timestamp.
+    // Correct order: dlA first (created=100), dlB second (created=200).
+    const dlA = {
+      id: 'dl_a',
+      stripe_event_id: 'evt_a',
+      event_type: 'checkout.session.completed',
+      payload: { id: 'evt_a', type: 'checkout.session.completed', created: 100 },
+      retry_count: 0,
+      max_retries: 5,
+    };
+    const dlB = {
+      id: 'dl_b',
+      stripe_event_id: 'evt_b',
+      event_type: 'checkout.session.completed',
+      payload: { id: 'evt_b', type: 'checkout.session.completed', created: 200 },
+      retry_count: 0,
+      max_retries: 5,
+    };
+    // fetchPendingDeadLetters returns dlB before dlA (wrong DB order)
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([dlB, dlA]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockHandleCheckout.mockImplementation(async (event: { id: string }) => {
+      callOrder.push(event.id);
+      return { ok: true };
+    });
+    mockDb.logProcessedEvent.mockResolvedValue({ ok: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    // dlA (created=100) must be processed before dlB (created=200)
+    expect(callOrder).toEqual(['evt_a', 'evt_b']);
+  });
 });
 
 describe('handleWebhook edge cases', () => {

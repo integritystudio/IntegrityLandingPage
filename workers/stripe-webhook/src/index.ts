@@ -151,7 +151,17 @@ async function runReconciliation(env: Env): Promise<void> {
   const priceToPlan = parsePriceToPlan(env.STRIPE_PRICE_TO_PLAN_JSON);
   const pending = await db.fetchPendingDeadLetters(50);
 
-  for (const dl of pending) {
+  // Sort by Stripe event creation time (payload.created, Unix seconds) so retries replay
+  // events in the order Stripe originally created them. This prevents billing state
+  // regression when e.g. subscription.updated is dead-lettered before subscription.deleted
+  // but Stripe's event.created timestamp shows the opposite order.
+  const ordered = [...pending].sort((a, b) => {
+    const aCreated = (a.payload as { created?: number })?.created ?? 0;
+    const bCreated = (b.payload as { created?: number })?.created ?? 0;
+    return aCreated - bCreated;
+  });
+
+  for (const dl of ordered) {
     try {
       // Idempotency guard: resolve and skip dead letters whose event was already processed (e.g. overlapping cron ticks).
       // Fail-closed on DB error: skip event to prevent double-processing if the outage masks a duplicate.
