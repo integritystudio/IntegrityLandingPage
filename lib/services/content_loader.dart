@@ -86,6 +86,11 @@ class ContentLoader {
     } on Object catch (e) {
       final completer = _loadCompleter!;
       _loadCompleter = null;
+      // Suppress "unhandled async error" when there are no concurrent waiters.
+      // Concurrent callers awaiting completer.future still receive the error;
+      // ignore() just registers a fallback no-op handler so Dart's zone does not
+      // flag the future as abandoned if nobody else listened to it.
+      completer.future.ignore();
       completer.completeError(e);
       rethrow;
     }

@@ -14,8 +14,8 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 |---|---|---|---|
 | High | 9 | 9 | 0 |
 | Medium | 16 | 15 | 1 |
-| Low | 18 | 12 | 6 |
-| **Total** | **43** | **36** | **7** |
+| Low | 18 | 13 | 5 |
+| **Total** | **43** | **37** | **6** |
 
 Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (High), stripe-webhook verify + auth_page + cookie_banner + contact_section (Medium), and request_failure_page + auth.ts exp + stripe-schemas InvoiceSchema + contact-form CSRF/CRLF + signup_page analytics + status_result_page spacing + shared_app_bar URL (Low) were fixed on 2026-07-26 (backlog-implementer pass). Every other item is unverified-since-review and should be re-confirmed against current `main` before work starts.
 
@@ -65,8 +65,8 @@ Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (H
 ## Low severity
 
 - [ ] `lib/services/consent_manager.dart:200` — consent downgrade never disables already-initialized trackers.
-- [ ] `lib/services/provisioning_service.dart:200` — `signUp` returns `AuthSuccess` with an empty JWT when the 201 body lacks `jwt`.
-- [ ] `lib/services/content_loader.dart:89` — failed `load()` raises an unhandled async error when there are no concurrent waiters.
+- [x] `lib/services/provisioning_service.dart:200` — `signUp` returns `AuthSuccess` with an empty JWT when the 201 body lacks `jwt`.
+- [x] `lib/services/content_loader.dart:89` — failed `load()` raises an unhandled async error when there are no concurrent waiters.
 - [x] `lib/pages/request_failure_page.dart:101` — "Go to Sign In" navigates to `/signin`, which does not exist (the router defines `/login`).
 - [ ] `lib/pages/dashboard_page.dart:17` — dashboard route family unreachable; nothing constructs `DashboardArgs`, so `/dashboard` always redirects to `/login`.
 - [ ] `lib/pages/oauth_callback_page.dart:211` — OAuth code callback spins forever; nothing exchanges the code.

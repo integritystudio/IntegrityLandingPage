@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/services/content_loader.dart';
 
@@ -418,6 +421,54 @@ void main() {
     test('deeply nested YAML is handled correctly', () {
       ContentLoader.loadFromString('company:\n  contact:\n    email: "deep@nested.com"\n');
       expect(ContentLoader.companyEmail, equals('deep@nested.com'));
+    });
+  });
+
+  group('ContentLoader load() unhandled-error prevention', () {
+    setUp(() => ContentLoader.reset());
+    tearDown(() {
+      ContentLoader.reset();
+      // Remove the binary-messenger mock added in the test below.
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .setMockMessageHandler('flutter/assets', null);
+    });
+
+    test(
+        'failed load() with no concurrent waiters does not produce an unhandled async error',
+        () async {
+      // Force rootBundle.loadString to fail by returning null from the asset
+      // channel.  This reliably exercises the error path regardless of whether
+      // content.yaml is present in the test runner's asset bundle.
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .setMockMessageHandler(
+        'flutter/assets',
+        (ByteData? message) async => null,
+      );
+
+      final zoneErrors = <Object>[];
+      await runZonedGuarded(
+        () async {
+          // Exactly one caller — no concurrent waiters.  The error must be
+          // delivered to this caller via rethrow; the completer's future must
+          // NOT create a second unhandled async error in the zone.
+          await expectLater(
+            ContentLoader.load(),
+            throwsA(isA<ContentLoadException>()),
+          );
+        },
+        (error, _) => zoneErrors.add(error),
+      );
+
+      // Flush the microtask queue so any zone-reported errors would have arrived.
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        zoneErrors,
+        isEmpty,
+        reason:
+            'completer.future.ignore() must prevent a duplicate zone error '
+            'when the sole load() caller already receives the error via rethrow',
+      );
     });
   });
 
