@@ -5,6 +5,7 @@ import type {
   OrgRole,
   OrgMembership,
   Entitlement,
+  UsageBucket,
   BootstrapResponse,
 } from '../../lib/types';
 
@@ -13,15 +14,12 @@ interface OrgRow extends Organization {
   [key: string]: unknown;
 }
 
-interface UsageRow {
-  month_to_date_units: number;
-  current_minute_remaining: number | null;
-  [key: string]: unknown;
-}
+// UsageBucketRow extends UsageBucket so the query result maps directly.
+type UsageBucketRow = UsageBucket & Record<string, unknown>;
 
-const EMPTY_USAGE: UsageRow = {
+const EMPTY_USAGE = {
   month_to_date_units: 0,
-  current_minute_remaining: null,
+  current_minute_remaining: null as number | null,
 };
 
 /** Coerce a single-or-array Supabase result into a typed array. */
@@ -121,27 +119,34 @@ export async function loadUsageSnapshot(
   const sb = createSupabaseClient(supabaseUrl, serviceRoleKey);
 
   const now = new Date();
-  const monthStartIso = new Date(now.getFullYear(), now.getMonth(), 1)
+  // YYYY-MM-DD of the first day of the current calendar month.
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
     .toISOString()
     .split('T')[0];
 
-  const result = await sb.query<UsageRow>('usage_events', {
-    select: 'month_to_date_units, current_minute_remaining',
+  // usage_buckets_daily holds pre-aggregated daily totals per metric_key.
+  // Summing total_quantity across all rows for the current month gives MTD units.
+  // current_minute_remaining is owned by the Quota Durable Object which is not
+  // accessible from bootstrap-worker; callers should fetch it from /quota/status.
+  const result = await sb.query<UsageBucketRow>('usage_buckets_daily', {
+    select: 'total_quantity',
     filters: [
       { column: 'organization_id', operator: 'eq', value: orgId },
-      { column: 'recorded_at', operator: 'gte', value: `${monthStartIso}T00:00:00Z` },
+      { column: 'bucket_date', operator: 'gte', value: monthStart },
     ],
-    order: { column: 'recorded_at', ascending: false },
-    limit: 1,
-    single: true,
   });
 
-  if (!result.ok) {
-    console.error('Failed to fetch usage:', result.error);
+  if (!result.ok || !Array.isArray(result.data)) {
+    console.error('Failed to fetch usage snapshot:', result.ok ? 'unexpected data shape' : result.error);
     return EMPTY_USAGE;
   }
 
-  return (result.data as UsageRow) ?? EMPTY_USAGE;
+  const month_to_date_units = result.data.reduce(
+    (sum, row) => sum + (typeof row.total_quantity === 'number' ? row.total_quantity : 0),
+    0,
+  );
+
+  return { month_to_date_units, current_minute_remaining: null };
 }
 
 export async function buildBootstrapResponse(
