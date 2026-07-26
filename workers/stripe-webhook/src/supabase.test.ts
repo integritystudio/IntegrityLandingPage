@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createSupabaseAdmin } from './supabase';
 import { DEAD_LETTER_MAX_RETRIES } from '../../constants';
 
-const { mockQuery, mockInsert, mockUpdate, mockUpsert } = vi.hoisted(() => ({
+const { mockQuery, mockInsert, mockUpdate, mockUpsert, mockInsertOrIgnore, mockDeleteRows } = vi.hoisted(() => ({
   mockQuery: vi.fn(),
   mockInsert: vi.fn(),
   mockUpdate: vi.fn(),
   mockUpsert: vi.fn(),
+  mockInsertOrIgnore: vi.fn(),
+  mockDeleteRows: vi.fn(),
 }));
 
 vi.mock('../../lib/supabase', () => ({
@@ -15,6 +17,8 @@ vi.mock('../../lib/supabase', () => ({
     insert: mockInsert,
     update: mockUpdate,
     upsert: mockUpsert,
+    insertOrIgnore: mockInsertOrIgnore,
+    deleteRows: mockDeleteRows,
     rpc: vi.fn(),
   }),
 }));
@@ -501,10 +505,10 @@ describe('findOrgByStripeCustomerId', () => {
 });
 
 // ---------------------------------------------------------------------------
-// logProcessedEvent
+// claimEvent
 // ---------------------------------------------------------------------------
 
-describe('logProcessedEvent', () => {
+describe('claimEvent', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
@@ -512,26 +516,68 @@ describe('logProcessedEvent', () => {
     db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
   });
 
-  it('inserts with correct fields and returns { ok: true }', async () => {
-    mockInsert.mockResolvedValue({ ok: true });
+  it('returns { ok: true, claimed: true } when row is newly inserted', async () => {
+    mockInsertOrIgnore.mockResolvedValue({ ok: true, data: [{ id: 'row_1' }] });
 
-    const result = await db.logProcessedEvent('evt_123', 'checkout.session.completed');
+    const result = await db.claimEvent('evt_123', 'checkout.session.completed');
 
-    expect(result).toEqual({ ok: true });
-    expect(mockInsert).toHaveBeenCalledWith(
+    expect(result).toEqual({ ok: true, claimed: true });
+    expect(mockInsertOrIgnore).toHaveBeenCalledWith(
       'webhook_events_log',
       expect.objectContaining({
         stripe_event_id: 'evt_123',
         event_type: 'checkout.session.completed',
       }),
+      'stripe_event_id',
+    );
+  });
+
+  it('returns { ok: true, claimed: false } when row already exists (duplicate)', async () => {
+    mockInsertOrIgnore.mockResolvedValue({ ok: true, data: [] });
+
+    const result = await db.claimEvent('evt_123', 'invoice.paid');
+
+    expect(result).toEqual({ ok: true, claimed: false });
+  });
+
+  it('returns { ok: false, error } on DB failure', async () => {
+    mockInsertOrIgnore.mockResolvedValue({ ok: false, error: 'Insert failed' });
+
+    const result = await db.claimEvent('evt_123', 'invoice.paid');
+
+    expect(result).toEqual({ ok: false, error: 'Insert failed' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// unclaimEvent
+// ---------------------------------------------------------------------------
+
+describe('unclaimEvent', () => {
+  let db: ReturnType<typeof createSupabaseAdmin>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+  });
+
+  it('deletes by stripe_event_id and returns { ok: true }', async () => {
+    mockDeleteRows.mockResolvedValue({ ok: true, data: null });
+
+    const result = await db.unclaimEvent('evt_123');
+
+    expect(result).toEqual({ ok: true });
+    expect(mockDeleteRows).toHaveBeenCalledWith(
+      'webhook_events_log',
+      [{ column: 'stripe_event_id', operator: 'eq', value: 'evt_123' }],
     );
   });
 
   it('returns { ok: false, error } on DB failure', async () => {
-    mockInsert.mockResolvedValue({ ok: false, error: 'Insert failed' });
+    mockDeleteRows.mockResolvedValue({ ok: false, error: 'Delete failed' });
 
-    const result = await db.logProcessedEvent('evt_123', 'invoice.paid');
+    const result = await db.unclaimEvent('evt_123');
 
-    expect(result).toEqual({ ok: false, error: 'Insert failed' });
+    expect(result).toEqual({ ok: false, error: 'Delete failed' });
   });
 });

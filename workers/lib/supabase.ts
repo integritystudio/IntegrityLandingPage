@@ -196,6 +196,71 @@ export function createSupabaseClient(
     }
   }
 
+  /**
+   * INSERT with ON CONFLICT DO NOTHING (ignore-duplicates).
+   *
+   * Returns `{ ok: true, data: rows }` where `rows` is an empty array when
+   * the row was a duplicate (conflict) and a one-element array when the row
+   * was newly inserted.  The caller can distinguish the two cases by checking
+   * `data.length > 0`.
+   *
+   * Requires the table to have a UNIQUE constraint on [conflictColumns].
+   */
+  async function insertOrIgnore<T extends SupabaseRow = SupabaseRow>(
+    table: string,
+    records: T | T[],
+    conflictColumns: string,
+  ): Promise<OkResult<T[]> | ErrResult> {
+    try {
+      const url = new URL(`${supabaseUrl}/rest/v1/${table}`);
+      url.searchParams.set('on_conflict', conflictColumns);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { ...headers, 'prefer': 'resolution=ignore-duplicates,return=representation' },
+        body: JSON.stringify(Array.isArray(records) ? records : [records]),
+      });
+
+      if (!response.ok) {
+        return extractHttpError(response);
+      }
+
+      const data = await response.json();
+      return { ok: true, data: Array.isArray(data) ? data : [data] };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  }
+
+  /**
+   * Delete rows matching the given filters.
+   *
+   * Returns `{ ok: true, data: null }` on success (rows may or may not have
+   * existed).  Returns `{ ok: false, error }` on network or HTTP failure.
+   */
+  async function deleteRows(
+    table: string,
+    filters: import('./types/supabase').QueryFilter[],
+  ): Promise<OkResult<null> | ErrResult> {
+    try {
+      const url = new URL(`${supabaseUrl}/rest/v1/${table}`);
+      serializeFilters(url, filters);
+
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: { ...headers, 'prefer': 'return=minimal' },
+      });
+
+      if (!response.ok) {
+        return extractHttpError(response);
+      }
+
+      return { ok: true, data: null };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  }
+
   async function rpc(
     functionName: string,
     args: Record<string, unknown>,
@@ -217,7 +282,7 @@ export function createSupabaseClient(
     }
   }
 
-  return { query, insert, update, upsert, rpc };
+  return { query, insert, update, upsert, insertOrIgnore, deleteRows, rpc };
 }
 
 export type SupabaseClient = ReturnType<typeof createSupabaseClient>;

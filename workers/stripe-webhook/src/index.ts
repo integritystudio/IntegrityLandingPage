@@ -63,12 +63,16 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   const db = createSupabaseAdmin(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
   const priceToPlan = parsePriceToPlan(env.STRIPE_PRICE_TO_PLAN_JSON);
 
-  // Idempotency guard: skip events already processed to handle Stripe retries safely.
-  const guardResult = await db.isEventProcessed(event.id);
-  if (!guardResult.ok) {
+  // Atomically claim the event via INSERT … ON CONFLICT DO NOTHING.
+  // This collapses the previous check-then-act (isEventProcessed + logProcessedEvent)
+  // into a single DB round-trip, eliminating the race window in which two concurrent
+  // Stripe deliveries could both pass the check and both execute the handler.
+  const claimResult = await db.claimEvent(event.id, event.type);
+  if (!claimResult.ok) {
     return serverError('Failed to check idempotency');
   }
-  if (guardResult.processed) {
+  if (!claimResult.claimed) {
+    // Another request already claimed this event — skip without processing.
     return ok({ ok: true, processed: false, skipped: true, reason: 'already_processed' });
   }
 
@@ -100,6 +104,14 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
   }
 
   if (!result.ok) {
+    // Remove the claim so the dead-letter queue can retry processing this event.
+    // Best-effort — if unclaim fails, the dead-letter reconciliation will see
+    // isEventProcessed=true and resolve (not retry) the dead-letter row.
+    const unclaimResult = await db.unclaimEvent(event.id);
+    if (!unclaimResult.ok) {
+      console.error(`Failed to unclaim event ${event.id} after handler failure:`, unclaimResult.error);
+    }
+
     // Write to dead letter queue for retry via reconciliation cron.
     // Return 200 to suppress Stripe's built-in retry (we own the retry schedule).
     console.error(`Failed to handle Stripe event ${event.type}:`, result.error);
@@ -117,28 +129,8 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
     return ok({ ok: true, processed: false, error: result.error });
   }
 
-  // Record successful processing for idempotency checks on future retries.
-  const logResult = await db.logProcessedEvent(event.id, event.type);
-  if (!logResult.ok) {
-    console.error(`Failed to log processed event ${event.id} (${event.type}):`, logResult.error);
-    // Handler succeeded but idempotency log write failed. Write to dead letter so cron retries
-    // the full sequence (handler + logProcessedEvent). Without a log entry the idempotency guard
-    // cannot protect against Stripe retries replaying the event.
-    const deadLetterResult = await db.addDeadLetter(
-      event.id,
-      event.type,
-      event,
-      `logProcessedEvent failed: ${logResult.error}`,
-    );
-    if (!deadLetterResult.ok) {
-      console.error(
-        `CRITICAL: Failed to dead-letter event ${event.id} after logProcessedEvent failure. Event may be processed again on Stripe retry.`,
-        deadLetterResult.error,
-      );
-    }
-    return ok({ ok: true, processed: false, error: 'Failed to log processed event' });
-  }
-
+  // Event was successfully processed; the claim (log entry) inserted at the start
+  // is the permanent idempotency record — no second write needed.
   return ok({ ok: true, processed: true });
 }
 
@@ -205,14 +197,14 @@ async function runReconciliation(env: Env): Promise<void> {
       }
 
       if (result.ok) {
-        const logResult = await db.logProcessedEvent(dl.stripe_event_id, dl.event_type);
-        if (!logResult.ok) {
-          // Leave dead-letter pending — do not resolve. Next cron run will retry the full
-          // sequence (handler → logProcessedEvent → resolveDeadLetter). Without a log entry,
-          // the idempotency guard cannot detect the event as processed.
-          console.error(`Failed to log processed event ${dl.stripe_event_id} (${dl.event_type}):`, logResult.error);
+        const claimResult = await db.claimEvent(dl.stripe_event_id, dl.event_type);
+        if (!claimResult.ok) {
+          // Leave dead-letter pending — do not resolve. Next cron run will retry.
+          console.error(`Failed to claim event ${dl.stripe_event_id} (${dl.event_type}):`, claimResult.error);
           continue;
         }
+        // claimed=false means another concurrent cron tick already claimed the event —
+        // safe to resolve the dead-letter row since the event is now logged.
         // If resolveDeadLetter fails here, the event is already in webhook_events_log.
         // The idempotency guard will detect it as processed on the next run and call
         // resolveDeadLetter again to clean up the orphaned dead-letter row.

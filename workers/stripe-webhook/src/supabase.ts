@@ -157,14 +157,45 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
   }
 
   /**
-   * Record a successfully processed event to prevent duplicate processing.
+   * Atomically claim a Stripe event for processing via INSERT … ON CONFLICT DO NOTHING.
+   *
+   * Returns `{ ok: true; claimed: true }` when the row was newly inserted (this
+   * request owns the event), or `{ ok: true; claimed: false }` when another
+   * request already inserted the same stripe_event_id (duplicate — skip).
+   *
+   * This replaces the two-step check-then-act pattern (`isEventProcessed` +
+   * `logProcessedEvent`) with a single atomic DB round-trip, eliminating the
+   * race window in which two concurrent deliveries could both see "not processed"
+   * and both execute the handler.
+   *
+   * If processing fails after a successful claim, call `unclaimEvent` to remove
+   * the log entry so the dead-letter queue can retry the event.
    */
-  async function logProcessedEvent(stripeEventId: string, eventType: string): Promise<VoidResult> {
-    const result = await sb.insert('webhook_events_log', {
-      stripe_event_id: stripeEventId,
-      event_type: eventType,
-      processed_at: new Date().toISOString(),
-    });
+  async function claimEvent(
+    stripeEventId: string,
+    eventType: string,
+  ): Promise<{ ok: true; claimed: boolean } | { ok: false; error: string }> {
+    const result = await sb.insertOrIgnore(
+      'webhook_events_log',
+      {
+        stripe_event_id: stripeEventId,
+        event_type: eventType,
+        processed_at: new Date().toISOString(),
+      },
+      'stripe_event_id',
+    );
+    if (!result.ok) return result;
+    return { ok: true, claimed: result.data.length > 0 };
+  }
+
+  /**
+   * Remove a previously claimed event from the log so dead-letter retry can
+   * reprocess it.  Called when the handler fails after a successful `claimEvent`.
+   */
+  async function unclaimEvent(stripeEventId: string): Promise<VoidResult> {
+    const result = await sb.deleteRows('webhook_events_log', [
+      { column: 'stripe_event_id', operator: 'eq', value: stripeEventId },
+    ]);
     return toVoidResult(result);
   }
 
@@ -264,7 +295,8 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     updateOrgBillingStatus,
     findOrgByStripeCustomerId,
     isEventProcessed,
-    logProcessedEvent,
+    claimEvent,
+    unclaimEvent,
     addDeadLetter,
     fetchPendingDeadLetters,
     resolveDeadLetter,
