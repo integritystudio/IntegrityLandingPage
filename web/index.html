@@ -86,362 +86,524 @@
   <!-- JSON-LD Structured Data - Consolidated @graph following schema.org best practices -->
   <script type="application/ld+json">
   {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "Organization",
-        "@id": "https://integritystudio.ai/#organization",
-        "name": "Integrity Studio",
-        "legalName": "Integrity Studio LLC",
-        "alternateName": "Integrity Studio AI",
-        "url": "https://integritystudio.ai",
-        "logo": { "@id": "https://integritystudio.ai/#logo" },
-        "image": { "@id": "https://integritystudio.ai/#logo" },
-        "description": "Enterprise AI observability platform providing LLM monitoring, distributed tracing, EU AI Act compliance, and governance solutions for production environments.",
-        "foundingDate": "2025",
-        "address": {
-          "@type": "PostalAddress",
-          "@id": "https://integritystudio.ai/#address",
-          "streetAddress": "248 Addie Roy Road",
-          "addressLocality": "Austin",
-          "addressRegion": "TX",
-          "postalCode": "78746",
-          "addressCountry": "US"
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://integritystudio.ai/#organization",
+      "name": "Integrity Studio",
+      "legalName": "Integrity Studio LLC",
+      "alternateName": "Integrity Studio AI",
+      "url": "https://integritystudio.ai",
+      "logo": {
+        "@id": "https://integritystudio.ai/#logo"
+      },
+      "image": {
+        "@id": "https://integritystudio.ai/#logo"
+      },
+      "description": "Enterprise AI observability platform providing LLM monitoring, distributed tracing, EU AI Act compliance, and governance solutions for production environments.",
+      "foundingDate": "2025",
+      "address": {
+        "@type": "PostalAddress",
+        "@id": "https://integritystudio.ai/#address",
+        "streetAddress": "248 Addie Roy Road",
+        "addressLocality": "Austin",
+        "addressRegion": "TX",
+        "postalCode": "78746",
+        "addressCountry": "US"
+      },
+      "telephone": "+1-512-829-1644",
+      "email": "contact@integritystudio.ai",
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "@id": "https://integritystudio.ai/#contact-sales",
+          "contactType": "sales",
+          "email": "sales@integritystudio.ai",
+          "availableLanguage": [
+            "en"
+          ]
         },
-        "telephone": "+1-512-829-1644",
-        "email": "contact@integritystudio.ai",
-        "contactPoint": [
-          {
-            "@type": "ContactPoint",
-            "@id": "https://integritystudio.ai/#contact-sales",
-            "contactType": "sales",
-            "email": "sales@integritystudio.ai",
-            "availableLanguage": ["en"]
-          },
-          {
-            "@type": "ContactPoint",
-            "@id": "https://integritystudio.ai/#contact-support",
-            "contactType": "customer support",
-            "email": "contact@integritystudio.ai",
-            "url": "https://integritystudio.ai/contact",
-            "availableLanguage": ["en"]
-          }
-        ],
-        "sameAs": [
-          "https://x.com/integritystudio",
-          "https://www.linkedin.com/company/integrity-studio-ai",
-          "https://github.com/integritystudio"
-        ],
-        "knowsAbout": [
-          "AI Observability",
-          "LLM Monitoring",
-          "EU AI Act Compliance",
-          "Distributed Tracing",
-          "OpenTelemetry",
-          "GPAI Requirements",
-          "AI Governance",
-          "SOC 2 Compliance"
-        ],
-        "makesOffer": [
-          { "@id": "https://integritystudio.ai/#offer-free" },
-          { "@id": "https://integritystudio.ai/#offer-pro" },
-          { "@id": "https://integritystudio.ai/#offer-enterprise" }
-        ],
-        "employee": [
-          { "@id": "https://integritystudio.ai/#person-alyshia-ledlie" },
-          { "@id": "https://integritystudio.ai/#person-chase-hoffman" },
-          { "@id": "https://integritystudio.ai/#person-chandra-srivastava" },
-          { "@id": "https://integritystudio.ai/#person-micah-lindsay" },
-          { "@id": "https://integritystudio.ai/#person-john-skelton" },
-          { "@id": "https://integritystudio.ai/#person-isabel-budenz" }
-        ]
-      },
-      {
-        "@type": "ImageObject",
-        "@id": "https://integritystudio.ai/#logo",
-        "url": "https://integritystudio.ai/images/logo.png",
-        "width": 512,
-        "height": 512,
-        "caption": "Integrity Studio Logo"
-      },
-      {
-        "@type": "WebSite",
-        "@id": "https://integritystudio.ai/#website",
-        "name": "Integrity Studio",
-        "alternateName": "Integrity Studio AI Observability Platform",
-        "url": "https://integritystudio.ai",
-        "description": "Enterprise AI observability platform for LLM monitoring, compliance, and governance",
-        "publisher": { "@id": "https://integritystudio.ai/#organization" },
-        "inLanguage": "en-US",
-        "potentialAction": {
-          "@type": "SearchAction",
-          "target": {
-            "@type": "EntryPoint",
-            "urlTemplate": "https://integritystudio.ai/docs?q={search_term_string}"
-          },
-          "query-input": "required name=search_term_string"
+        {
+          "@type": "ContactPoint",
+          "@id": "https://integritystudio.ai/#contact-support",
+          "contactType": "customer support",
+          "email": "contact@integritystudio.ai",
+          "url": "https://integritystudio.ai/contact",
+          "availableLanguage": [
+            "en"
+          ]
         }
-      },
-      {
-        "@type": "SoftwareApplication",
-        "@id": "https://integritystudio.ai/#software",
-        "name": "Integrity Studio",
-        "applicationCategory": "DeveloperApplication",
-        "applicationSubCategory": "AI Observability Platform",
-        "operatingSystem": "Web, Cloud",
-        "description": "Enterprise-grade AI observability platform for LLM applications. Monitor performance, track costs, ensure EU AI Act compliance, and debug issues with comprehensive tracing.",
-        "url": "https://integritystudio.ai",
-        "softwareVersion": "2.0",
-        "releaseNotes": "https://integritystudio.ai/docs",
-        "screenshot": "https://integritystudio.ai/images/og-image.png",
-        "provider": { "@id": "https://integritystudio.ai/#organization" },
-        "offers": {
-          "@type": "AggregateOffer",
-          "@id": "https://integritystudio.ai/#offers",
-          "priceCurrency": "USD",
-          "lowPrice": "0",
-          "highPrice": "499",
-          "offerCount": "3",
-          "availability": "https://schema.org/InStock"
+      ],
+      "sameAs": [
+        "https://x.com/integritystudio",
+        "https://www.linkedin.com/company/integrity-studio-ai",
+        "https://github.com/integritystudio"
+      ],
+      "knowsAbout": [
+        "AI Observability",
+        "LLM Monitoring",
+        "EU AI Act Compliance",
+        "Distributed Tracing",
+        "OpenTelemetry",
+        "GPAI Requirements",
+        "AI Governance",
+        "SOC 2 Compliance"
+      ],
+      "makesOffer": [
+        {
+          "@id": "https://integritystudio.ai/#offer-free"
         },
-        "featureList": [
-          "LLM Monitoring and Observability",
-          "EU AI Act Compliance (Articles 12, 19, 53, 55)",
-          "Distributed Tracing with OpenTelemetry",
-          "OTel GenAI Semantic Conventions Support",
-          "Cost Attribution and Tracking",
-          "6+ Month Log Retention for Compliance",
-          "GPAI Technical Documentation Support",
-          "Session and Conversation Tracking",
-          "Anomaly Detection and Alerting",
-          "SOC 2 Type II Compliant Infrastructure"
-        ],
-        "aggregateRating": {
-          "@type": "AggregateRating",
-          "ratingValue": "4.8",
-          "ratingCount": "127",
-          "bestRating": "5",
-          "worstRating": "1"
+        {
+          "@id": "https://integritystudio.ai/#offer-pro"
+        },
+        {
+          "@id": "https://integritystudio.ai/#offer-enterprise"
         }
-      },
-      {
-        "@type": "Offer",
-        "@id": "https://integritystudio.ai/#offer-free",
-        "name": "Free Tier",
-        "description": "Get started with AI observability - ideal for development and testing",
-        "price": "0",
-        "priceCurrency": "USD",
-        "availability": "https://schema.org/InStock",
-        "seller": { "@id": "https://integritystudio.ai/#organization" }
-      },
-      {
-        "@type": "Offer",
-        "@id": "https://integritystudio.ai/#offer-pro",
-        "name": "Pro",
-        "description": "For growing teams with production AI workloads",
-        "price": "99",
-        "priceCurrency": "USD",
-        "availability": "https://schema.org/InStock",
-        "seller": { "@id": "https://integritystudio.ai/#organization" }
-      },
-      {
-        "@type": "Offer",
-        "@id": "https://integritystudio.ai/#offer-enterprise",
-        "name": "Enterprise",
-        "description": "Full-scale AI observability with dedicated support, SSO, and custom retention",
-        "priceCurrency": "USD",
-        "availability": "https://schema.org/InStock",
-        "seller": { "@id": "https://integritystudio.ai/#organization" }
-      },
-      {
-        "@type": "WebPage",
-        "@id": "https://integritystudio.ai/#homepage",
-        "url": "https://integritystudio.ai",
-        "name": "AI Observability Platform for LLM Monitoring | Integrity Studio",
-        "description": "Enterprise AI observability platform. Monitor LLMs, track costs, debug issues with distributed tracing. EU AI Act compliance ready.",
-        "isPartOf": { "@id": "https://integritystudio.ai/#website" },
-        "about": { "@id": "https://integritystudio.ai/#software" },
-        "inLanguage": "en-US"
-      },
-      {
-        "@type": "AboutPage",
-        "@id": "https://integritystudio.ai/about#webpage",
-        "url": "https://integritystudio.ai/about",
-        "name": "About Integrity Studio - Building Trust in AI Systems",
-        "description": "Learn about Integrity Studio's mission to empower enterprises with AI observability and governance tools. Meet our team of AI compliance experts.",
-        "isPartOf": { "@id": "https://integritystudio.ai/#website" },
-        "about": { "@id": "https://integritystudio.ai/#organization" },
-        "mainEntity": { "@id": "https://integritystudio.ai/#organization" },
-        "inLanguage": "en-US",
-        "breadcrumb": { "@id": "https://integritystudio.ai/about#breadcrumb" }
-      },
-      {
-        "@type": "WebPage",
-        "@id": "https://integritystudio.ai/eu-ai-act#webpage",
-        "url": "https://integritystudio.ai/eu-ai-act",
-        "name": "EU AI Act Compliance Guide - Observability Requirements for LLMs",
-        "description": "Comprehensive guide to EU AI Act observability requirements. Covers GPAI obligations (Articles 53, 55), high-risk AI requirements (Articles 12, 19), and OTel implementation mapping.",
-        "isPartOf": { "@id": "https://integritystudio.ai/#website" },
-        "about": { "@id": "https://integritystudio.ai/#eu-ai-act-legislation" },
-        "inLanguage": "en-US",
-        "breadcrumb": { "@id": "https://integritystudio.ai/eu-ai-act#breadcrumb" },
-        "mainEntity": {
-          "@type": "Article",
-          "@id": "https://integritystudio.ai/eu-ai-act#article",
-          "headline": "EU AI Act Observability Requirements",
-          "description": "Technical guide to logging, documentation, and observability requirements for LLM and GenAI systems under EU Regulation 2024/1689",
-          "author": { "@id": "https://integritystudio.ai/#organization" },
-          "publisher": { "@id": "https://integritystudio.ai/#organization" },
-          "datePublished": "2025-01-15",
-          "dateModified": "2026-01-30",
-          "about": { "@id": "https://integritystudio.ai/#eu-ai-act-legislation" }
+      ],
+      "employee": [
+        {
+          "@id": "https://integritystudio.ai/#person-alyshia-ledlie"
+        },
+        {
+          "@id": "https://integritystudio.ai/#person-chase-hoffman"
+        },
+        {
+          "@id": "https://integritystudio.ai/#person-chandra-srivastava"
+        },
+        {
+          "@id": "https://integritystudio.ai/#person-micah-lindsay"
+        },
+        {
+          "@id": "https://integritystudio.ai/#person-john-skelton"
+        },
+        {
+          "@id": "https://integritystudio.ai/#person-isabel-budenz"
         }
+      ]
+    },
+    {
+      "@type": "ImageObject",
+      "@id": "https://integritystudio.ai/#logo",
+      "url": "https://integritystudio.ai/images/logo.png",
+      "width": 512,
+      "height": 512,
+      "caption": "Integrity Studio Logo"
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://integritystudio.ai/#website",
+      "name": "Integrity Studio",
+      "alternateName": "Integrity Studio AI Observability Platform",
+      "url": "https://integritystudio.ai",
+      "description": "Enterprise AI observability platform for LLM monitoring, compliance, and governance",
+      "publisher": {
+        "@id": "https://integritystudio.ai/#organization"
       },
-      {
-        "@type": "Legislation",
-        "@id": "https://integritystudio.ai/#eu-ai-act-legislation",
-        "name": "EU AI Act",
-        "alternateName": "Regulation (EU) 2024/1689",
-        "description": "European Union regulation on artificial intelligence, establishing harmonised rules for AI systems",
-        "legislationIdentifier": "2024/1689",
-        "legislationDate": "2024-08-01",
-        "legislationLegalForce": "InForce",
-        "legislationJurisdiction": "EU",
-        "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689"
-      },
-      {
-        "@type": "WebPage",
-        "@id": "https://integritystudio.ai/compliance#webpage",
-        "url": "https://integritystudio.ai/compliance",
-        "name": "Compliance & Governance - SOC 2, GDPR, EU AI Act",
-        "description": "Enterprise compliance solutions for AI systems. Meet SOC 2, GDPR, and EU AI Act requirements with automated documentation and audit trails.",
-        "isPartOf": { "@id": "https://integritystudio.ai/#website" },
-        "inLanguage": "en-US",
-        "breadcrumb": { "@id": "https://integritystudio.ai/compliance#breadcrumb" }
-      },
-      {
-        "@type": "WebPage",
-        "@id": "https://integritystudio.ai/security#webpage",
-        "url": "https://integritystudio.ai/security",
-        "name": "Security - Enterprise Data Protection",
-        "description": "Learn how Integrity Studio protects your data with SOC 2 Type II compliance, encryption, and enterprise security controls.",
-        "isPartOf": { "@id": "https://integritystudio.ai/#website" },
-        "inLanguage": "en-US",
-        "breadcrumb": { "@id": "https://integritystudio.ai/security#breadcrumb" }
-      },
-      {
-        "@type": "WebPage",
-        "@id": "https://integritystudio.ai/pricing#webpage",
-        "url": "https://integritystudio.ai/pricing",
-        "name": "Pricing - AI Observability Plans",
-        "description": "Flexible pricing for teams of all sizes. Free tier for development, Pro for production, Enterprise for scale.",
-        "isPartOf": { "@id": "https://integritystudio.ai/#website" },
-        "mainEntity": { "@id": "https://integritystudio.ai/#offers" },
-        "inLanguage": "en-US"
-      },
-      {
-        "@type": "BreadcrumbList",
-        "@id": "https://integritystudio.ai/about#breadcrumb",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://integritystudio.ai" },
-          { "@type": "ListItem", "position": 2, "name": "About", "item": "https://integritystudio.ai/about" }
-        ]
-      },
-      {
-        "@type": "BreadcrumbList",
-        "@id": "https://integritystudio.ai/eu-ai-act#breadcrumb",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://integritystudio.ai" },
-          { "@type": "ListItem", "position": 2, "name": "Compliance", "item": "https://integritystudio.ai/compliance" },
-          { "@type": "ListItem", "position": 3, "name": "EU AI Act", "item": "https://integritystudio.ai/eu-ai-act" }
-        ]
-      },
-      {
-        "@type": "BreadcrumbList",
-        "@id": "https://integritystudio.ai/compliance#breadcrumb",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://integritystudio.ai" },
-          { "@type": "ListItem", "position": 2, "name": "Compliance", "item": "https://integritystudio.ai/compliance" }
-        ]
-      },
-      {
-        "@type": "BreadcrumbList",
-        "@id": "https://integritystudio.ai/security#breadcrumb",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://integritystudio.ai" },
-          { "@type": "ListItem", "position": 2, "name": "Security", "item": "https://integritystudio.ai/security" }
-        ]
-      },
-      {
-        "@type": "SiteNavigationElement",
-        "@id": "https://integritystudio.ai/#navigation",
-        "name": "Main Navigation",
-        "hasPart": [
-          { "@type": "WebPage", "name": "Features", "url": "https://integritystudio.ai/features" },
-          { "@type": "WebPage", "name": "Pricing", "url": "https://integritystudio.ai/pricing" },
-          { "@type": "WebPage", "name": "Documentation", "url": "https://integritystudio.ai/docs" },
-          { "@type": "WebPage", "name": "Compliance", "url": "https://integritystudio.ai/compliance" },
-          { "@type": "WebPage", "name": "About", "url": "https://integritystudio.ai/about" },
-          { "@type": "WebPage", "name": "Contact", "url": "https://integritystudio.ai/contact" }
-        ]
-      },
-      {
-        "@type": "Person",
-        "@id": "https://integritystudio.ai/#person-alyshia-ledlie",
-        "name": "Alyshia Ledlie",
-        "jobTitle": "Founder and CEO",
-        "description": "Deep experience building observability-first infrastructure at scale. Passionate about making AI systems transparent and trustworthy.",
-        "worksFor": { "@id": "https://integritystudio.ai/#organization" },
-        "sameAs": ["https://www.linkedin.com/in/alyshialedlie/"]
-      },
-      {
-        "@type": "Person",
-        "@id": "https://integritystudio.ai/#person-chase-hoffman",
-        "name": "Chase Hoffman",
-        "jobTitle": "Co-Founder and President",
-        "description": "Technology executive with expertise in scaling enterprise software companies and developing high-performance monetization systems.",
-        "worksFor": { "@id": "https://integritystudio.ai/#organization" },
-        "sameAs": ["https://www.linkedin.com/in/hoffmanchase/", "https://www.hoffmanchase.com/"],
-        "url": "https://www.hoffmanchase.com/"
-      },
-      {
-        "@type": "Person",
-        "@id": "https://integritystudio.ai/#person-chandra-srivastava",
-        "name": "Chandra Srivastava",
-        "jobTitle": "Co-founder & CMO",
-        "description": "Marketing leader driving growth at B2B technology companies. Expert in positioning AI products for enterprise adoption.",
-        "worksFor": { "@id": "https://integritystudio.ai/#organization" },
-        "sameAs": ["https://www.linkedin.com/in/chandra-srivastava/", "https://www.chandrasrivastava.com/"],
-        "url": "https://www.chandrasrivastava.com/"
-      },
-      {
-        "@type": "Person",
-        "@id": "https://integritystudio.ai/#person-micah-lindsay",
-        "name": "Micah Lindsay",
-        "jobTitle": "Chief Data Scientist",
-        "description": "Machine learning researcher focused on AI evaluation, observability, and hallucination detection.",
-        "worksFor": { "@id": "https://integritystudio.ai/#organization" },
-        "sameAs": ["https://www.linkedin.com/in/micahlindsey/", "http://www.micahlindsey.com/"],
-        "url": "http://www.micahlindsey.com/"
-      },
-      {
-        "@type": "Person",
-        "@id": "https://integritystudio.ai/#person-john-skelton",
-        "name": "John Skelton",
-        "jobTitle": "Head of Policy",
-        "description": "Regulatory and compliance expert specializing in AI governance frameworks and EU AI Act preparation.",
-        "worksFor": { "@id": "https://integritystudio.ai/#organization" }
-      },
-      {
-        "@type": "Person",
-        "@id": "https://integritystudio.ai/#person-isabel-budenz",
-        "name": "Isabel Budenz",
-        "jobTitle": "AI Compliance Counsel",
-        "description": "International legal expert specializing in AI governance, EU AI Act compliance, and international arbitration.",
-        "worksFor": { "@id": "https://integritystudio.ai/#organization" }
+      "inLanguage": "en-US",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://integritystudio.ai/docs?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
       }
-    ]
-  }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://integritystudio.ai/#software",
+      "name": "Integrity Studio",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "AI Observability Platform",
+      "operatingSystem": "Web, Cloud",
+      "description": "Enterprise-grade AI observability platform for LLM applications. Monitor performance, track costs, ensure EU AI Act compliance, and debug issues with comprehensive tracing.",
+      "url": "https://integritystudio.ai",
+      "softwareVersion": "2.0",
+      "releaseNotes": "https://integritystudio.ai/docs",
+      "screenshot": "https://integritystudio.ai/images/og-image.png",
+      "provider": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "offers": {
+        "@type": "AggregateOffer",
+        "@id": "https://integritystudio.ai/#offers",
+        "priceCurrency": "USD",
+        "lowPrice": "0",
+        "highPrice": "499",
+        "offerCount": "3",
+        "availability": "https://schema.org/InStock"
+      },
+      "featureList": [
+        "LLM Monitoring and Observability",
+        "EU AI Act Compliance (Articles 12, 19, 53, 55)",
+        "Distributed Tracing with OpenTelemetry",
+        "OTel GenAI Semantic Conventions Support",
+        "Cost Attribution and Tracking",
+        "6+ Month Log Retention for Compliance",
+        "GPAI Technical Documentation Support",
+        "Session and Conversation Tracking",
+        "Anomaly Detection and Alerting",
+        "SOC 2 Type II Compliant Infrastructure"
+      ],
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "127",
+        "bestRating": "5",
+        "worstRating": "1"
+      }
+    },
+    {
+      "@type": "Offer",
+      "@id": "https://integritystudio.ai/#offer-free",
+      "name": "Free Tier",
+      "description": "Get started with AI observability - ideal for development and testing",
+      "price": "0",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock",
+      "seller": {
+        "@id": "https://integritystudio.ai/#organization"
+      }
+    },
+    {
+      "@type": "Offer",
+      "@id": "https://integritystudio.ai/#offer-pro",
+      "name": "Pro",
+      "description": "For growing teams with production AI workloads",
+      "price": "99",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock",
+      "seller": {
+        "@id": "https://integritystudio.ai/#organization"
+      }
+    },
+    {
+      "@type": "Offer",
+      "@id": "https://integritystudio.ai/#offer-enterprise",
+      "name": "Enterprise",
+      "description": "Full-scale AI observability with dedicated support, SSO, and custom retention",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock",
+      "seller": {
+        "@id": "https://integritystudio.ai/#organization"
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://integritystudio.ai/#homepage",
+      "url": "https://integritystudio.ai",
+      "name": "AI Observability Platform for LLM Monitoring | Integrity Studio",
+      "description": "Enterprise AI observability platform. Monitor LLMs, track costs, debug issues with distributed tracing. EU AI Act compliance ready.",
+      "isPartOf": {
+        "@id": "https://integritystudio.ai/#website"
+      },
+      "about": {
+        "@id": "https://integritystudio.ai/#software"
+      },
+      "inLanguage": "en-US"
+    },
+    {
+      "@type": "AboutPage",
+      "@id": "https://integritystudio.ai/about#webpage",
+      "url": "https://integritystudio.ai/about",
+      "name": "About Integrity Studio - Building Trust in AI Systems",
+      "description": "Learn about Integrity Studio's mission to empower enterprises with AI observability and governance tools. Meet our team of AI compliance experts.",
+      "isPartOf": {
+        "@id": "https://integritystudio.ai/#website"
+      },
+      "about": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "mainEntity": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "inLanguage": "en-US",
+      "breadcrumb": {
+        "@id": "https://integritystudio.ai/about#breadcrumb"
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://integritystudio.ai/eu-ai-act#webpage",
+      "url": "https://integritystudio.ai/eu-ai-act",
+      "name": "EU AI Act Compliance Guide - Observability Requirements for LLMs",
+      "description": "Comprehensive guide to EU AI Act observability requirements. Covers GPAI obligations (Articles 53, 55), high-risk AI requirements (Articles 12, 19), and OTel implementation mapping.",
+      "isPartOf": {
+        "@id": "https://integritystudio.ai/#website"
+      },
+      "about": {
+        "@id": "https://integritystudio.ai/#eu-ai-act-legislation"
+      },
+      "inLanguage": "en-US",
+      "breadcrumb": {
+        "@id": "https://integritystudio.ai/eu-ai-act#breadcrumb"
+      },
+      "mainEntity": {
+        "@type": "Article",
+        "@id": "https://integritystudio.ai/eu-ai-act#article",
+        "headline": "EU AI Act Observability Requirements",
+        "description": "Technical guide to logging, documentation, and observability requirements for LLM and GenAI systems under EU Regulation 2024/1689",
+        "author": {
+          "@id": "https://integritystudio.ai/#organization"
+        },
+        "publisher": {
+          "@id": "https://integritystudio.ai/#organization"
+        },
+        "datePublished": "2025-01-15",
+        "dateModified": "2026-01-30",
+        "about": {
+          "@id": "https://integritystudio.ai/#eu-ai-act-legislation"
+        }
+      }
+    },
+    {
+      "@type": "Legislation",
+      "@id": "https://integritystudio.ai/#eu-ai-act-legislation",
+      "name": "EU AI Act",
+      "alternateName": "Regulation (EU) 2024/1689",
+      "description": "European Union regulation on artificial intelligence, establishing harmonised rules for AI systems",
+      "legislationIdentifier": "2024/1689",
+      "legislationDate": "2024-08-01",
+      "legislationLegalForce": "InForce",
+      "legislationJurisdiction": "EU",
+      "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689"
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://integritystudio.ai/compliance#webpage",
+      "url": "https://integritystudio.ai/compliance",
+      "name": "Compliance & Governance - SOC 2, GDPR, EU AI Act",
+      "description": "Enterprise compliance solutions for AI systems. Meet SOC 2, GDPR, and EU AI Act requirements with automated documentation and audit trails.",
+      "isPartOf": {
+        "@id": "https://integritystudio.ai/#website"
+      },
+      "inLanguage": "en-US",
+      "breadcrumb": {
+        "@id": "https://integritystudio.ai/compliance#breadcrumb"
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://integritystudio.ai/security#webpage",
+      "url": "https://integritystudio.ai/security",
+      "name": "Security - Enterprise Data Protection",
+      "description": "Learn how Integrity Studio protects your data with SOC 2 Type II compliance, encryption, and enterprise security controls.",
+      "isPartOf": {
+        "@id": "https://integritystudio.ai/#website"
+      },
+      "inLanguage": "en-US",
+      "breadcrumb": {
+        "@id": "https://integritystudio.ai/security#breadcrumb"
+      }
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://integritystudio.ai/pricing#webpage",
+      "url": "https://integritystudio.ai/pricing",
+      "name": "Pricing - AI Observability Plans",
+      "description": "Flexible pricing for teams of all sizes. Free tier for development, Pro for production, Enterprise for scale.",
+      "isPartOf": {
+        "@id": "https://integritystudio.ai/#website"
+      },
+      "mainEntity": {
+        "@id": "https://integritystudio.ai/#offers"
+      },
+      "inLanguage": "en-US"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://integritystudio.ai/about#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://integritystudio.ai"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "About",
+          "item": "https://integritystudio.ai/about"
+        }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://integritystudio.ai/eu-ai-act#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://integritystudio.ai"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Compliance",
+          "item": "https://integritystudio.ai/compliance"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "EU AI Act",
+          "item": "https://integritystudio.ai/eu-ai-act"
+        }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://integritystudio.ai/compliance#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://integritystudio.ai"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Compliance",
+          "item": "https://integritystudio.ai/compliance"
+        }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://integritystudio.ai/security#breadcrumb",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://integritystudio.ai"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Security",
+          "item": "https://integritystudio.ai/security"
+        }
+      ]
+    },
+    {
+      "@type": "SiteNavigationElement",
+      "@id": "https://integritystudio.ai/#navigation",
+      "name": "Main Navigation",
+      "hasPart": [
+        {
+          "@type": "WebPage",
+          "name": "Features",
+          "url": "https://integritystudio.ai/features"
+        },
+        {
+          "@type": "WebPage",
+          "name": "Pricing",
+          "url": "https://integritystudio.ai/pricing"
+        },
+        {
+          "@type": "WebPage",
+          "name": "Documentation",
+          "url": "https://integritystudio.ai/docs"
+        },
+        {
+          "@type": "WebPage",
+          "name": "Compliance",
+          "url": "https://integritystudio.ai/compliance"
+        },
+        {
+          "@type": "WebPage",
+          "name": "About",
+          "url": "https://integritystudio.ai/about"
+        },
+        {
+          "@type": "WebPage",
+          "name": "Contact",
+          "url": "https://integritystudio.ai/contact"
+        }
+      ]
+    },
+    {
+      "@type": "Person",
+      "@id": "https://integritystudio.ai/#person-chase-hoffman",
+      "name": "Chase Hoffman",
+      "jobTitle": "Co-Founder and President",
+      "description": "Seasoned technology executive with deep expertise in scaling enterprise software companies. Focused on developing high-performance monitization systems and cost optimization that deliver exceptional customer success.",
+      "worksFor": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "sameAs": [
+        "https://www.linkedin.com/in/hoffmanchase/",
+        "https://www.hoffmanchase.com/"
+      ],
+      "url": "https://www.hoffmanchase.com/"
+    },
+    {
+      "@type": "Person",
+      "@id": "https://integritystudio.ai/#person-alyshia-ledlie",
+      "name": "Alyshia Ledlie",
+      "jobTitle": "Founder and CEO",
+      "description": "Deep experience building observability-first infrastructure at scale. Passionate about making AI systems transparent and trustworthy for enterprises navigating regulatory change.",
+      "worksFor": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "sameAs": [
+        "https://linkedin.com/in/aledlie"
+      ]
+    },
+    {
+      "@type": "Person",
+      "@id": "https://integritystudio.ai/#person-chandra-srivastava",
+      "name": "Chandra Srivastava",
+      "jobTitle": "Co-founder & CMO",
+      "description": "Marketing leader with experience driving growth at early stage B2B technology companies. Expert in positioning AI products for enterprise adoption and building category-defining brands.",
+      "worksFor": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "sameAs": [
+        "https://www.linkedin.com/in/chandra-srivastava/",
+        "https://www.chandrasrivastava.com/"
+      ],
+      "url": "https://www.chandrasrivastava.com/"
+    },
+    {
+      "@type": "Person",
+      "@id": "https://integritystudio.ai/#person-micah-lindsay",
+      "name": "Micah Lindsay",
+      "jobTitle": "Chief Data Scientist",
+      "description": "Machine learning researcher focused on AI evaluation and observability. Developed novel approaches to precise hallucination detection and model performance analysis.",
+      "worksFor": {
+        "@id": "https://integritystudio.ai/#organization"
+      },
+      "sameAs": [
+        "https://www.linkedin.com/in/micahlindsey/"
+      ]
+    },
+    {
+      "@type": "Person",
+      "@id": "https://integritystudio.ai/#person-john-skelton",
+      "name": "John Skelton",
+      "jobTitle": "Head of Policy",
+      "description": "Regulatory and compliance expert specializing in AI governance frameworks. Advises enterprises on EU AI Act preparation and responsible AI deployment.",
+      "worksFor": {
+        "@id": "https://integritystudio.ai/#organization"
+      }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://integritystudio.ai/#person-isabel-budenz",
+      "name": "Isabel Budenz",
+      "jobTitle": "AI Compliance Counsel",
+      "description": "International legal expert specializing in AI governance and EU AI Act compliance. Background in International Commercial Arbitration with multilingual research capabilities spanning German, Spanish, English, and French legal systems.",
+      "worksFor": {
+        "@id": "https://integritystudio.ai/#organization"
+      }
+    }
+  ]
+}
   </script>
 
   <!-- Critical CSS for initial paint -->

@@ -108,7 +108,6 @@ abstract final class AboutContentVariants {
           'Developed novel approaches to precise hallucination detection and model performance analysis.',
       imageAlt: 'Micah Lindsay, Chief Data Scientist at Integrity Studio',
       linkedInUrl: 'https://www.linkedin.com/in/micahlindsey/',
-      websiteUrl: 'http://www.micahlindsey.com/',
     ),
     TeamMemberContent(
       name: 'John Skelton',
