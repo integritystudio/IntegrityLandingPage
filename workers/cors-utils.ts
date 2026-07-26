@@ -16,15 +16,23 @@ export function buildCorsHeaders(
   headers: string = 'Content-Type',
   env?: { ALLOWED_ORIGINS_JSON?: string },
 ): Record<string, string> {
+  const allowedOrigins = getAllowedOrigins(env);
+  // Only reflect the caller's origin if it is in the allowlist; otherwise fall
+  // back to the first allowed origin. This prevents unknown origins from
+  // receiving an Access-Control-Allow-Origin that echoes their own value.
+  const safeOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
   const result: Record<string, string> = {
-    'access-control-allow-origin': origin,
+    'access-control-allow-origin': safeOrigin,
     'access-control-allow-methods': methods,
     'access-control-allow-headers': headers,
     'access-control-max-age': '86400',
+    // Vary: Origin so caches don't serve a response for origin-A to origin-B.
+    Vary: 'Origin',
   };
 
-  // Only allow credentials for origins in the (env-aware) allowlist
-  if (isOriginAllowedWithEnv(origin, env)) {
+  // Credentials are allowed only for origins that matched the allowlist.
+  if (safeOrigin === origin) {
     result['access-control-allow-credentials'] = 'true';
   }
 
