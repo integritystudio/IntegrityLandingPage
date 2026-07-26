@@ -211,8 +211,11 @@ class _AuthPageState extends State<AuthPage> {
                 ),
                 SizedBox(height: spacingBetweenFields),
 
-                // Password field
+                // Password field \u2014 keyed on mode so Flutter discards the widget
+                // (and its internal TextEditingController) when mode toggles, preventing
+                // the displayed text from persisting after _toggleMode() clears the state.
                 FormTextField(
+                  key: ValueKey('password_${_mode.name}'),
                   label: 'Password',
                   value: _password,
                   onChanged: (value) => setState(() {
@@ -227,6 +230,7 @@ class _AuthPageState extends State<AuthPage> {
                 // Confirm password field (signup only)
                 if (_mode == AuthMode.signUp) ...[
                   FormTextField(
+                    key: const ValueKey('confirm_password'),
                     label: 'Confirm Password',
                     value: _confirmPassword,
                     onChanged: (value) => setState(() {

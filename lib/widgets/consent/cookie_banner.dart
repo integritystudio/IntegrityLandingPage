@@ -44,7 +44,8 @@ class _CookieBannerState extends State<CookieBanner>
   late Animation<double> _fadeAnimation;
 
   bool _showPreferences = false;
-  bool _analyticsEnabled = true;
+  // GDPR requires explicit opt-in: analytics must default to false.
+  bool _analyticsEnabled = false;
   bool _marketingEnabled = false;
 
   @override

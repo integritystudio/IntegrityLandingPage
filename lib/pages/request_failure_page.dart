@@ -98,7 +98,7 @@ class _RequestFailurePageContent extends StatelessWidget {
           ),
           StatusResultAction(
             text: 'Go to Sign In',
-            onPressed: () => context.go('/signin'),
+            onPressed: () => context.go('/login'),
             isPrimary: true,
           ),
         ],

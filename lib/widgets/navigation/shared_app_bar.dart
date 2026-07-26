@@ -59,7 +59,7 @@ class SharedAppBar extends StatelessWidget {
     this.navItems,
     this.sectionKeys,
     this.ctaText = 'Get Started',
-    this.ctaRoute = 'https://integritystudio.ai/signup?tier=Growth',
+    this.ctaRoute = Routes.signupGrowth,
   });
 
   /// Factory for landing page with scroll navigation

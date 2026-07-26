@@ -327,9 +327,6 @@ class _SignupPageState extends State<SignupPage> {
 
     setState(() => _isSubmitting = true);
 
-    AnalyticsService.trackFormSubmission(formType: 'signup_form', success: true);
-    FacebookPixelService.trackLead(email: _emailController.text);
-
     await _handleAuthSubmit();
   }
 
@@ -351,6 +348,9 @@ class _SignupPageState extends State<SignupPage> {
 
     switch (result) {
       case AuthSuccess():
+        // Track success events only after the request confirms signup succeeded.
+        AnalyticsService.trackFormSubmission(formType: 'signup_form', success: true);
+        FacebookPixelService.trackLead(email: _emailController.text);
         _routeAfterSignup(result);
       case AuthError():
         context.go('/request_failure', extra: result.error);

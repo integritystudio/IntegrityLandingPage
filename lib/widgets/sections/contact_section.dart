@@ -491,8 +491,6 @@ class _ContactSectionState extends State<ContactSection> {
       _errorMessage = null;
     });
 
-    AnalyticsService.trackFormSubmission(formType: 'contact_form', success: true);
-
     try {
       if (widget.onFormSubmit != null) {
         final success = await widget.onFormSubmit!(_formData);
@@ -500,6 +498,9 @@ class _ContactSectionState extends State<ContactSection> {
           _isSubmitting = false;
           _submitSuccess = success;
         });
+        if (success == true) {
+          AnalyticsService.trackFormSubmission(formType: 'contact_form', success: true);
+        }
       } else {
         // Use validated data from _validateForm (single source of truth)
         final payload = ContactFormPayload(formData: validatedData);
@@ -511,6 +512,8 @@ class _ContactSectionState extends State<ContactSection> {
             case ContactFormSuccess(:final message):
               _submitSuccess = true;
               _successMessage = message;
+              // Track analytics only after confirmed success.
+              AnalyticsService.trackFormSubmission(formType: 'contact_form', success: true);
               // Track Facebook Pixel events on success
               FacebookPixelService.trackContact(
                 email: validatedData.email,

@@ -157,13 +157,10 @@ class _ResultHeroSection extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    ...items.asMap().entries.map((entry) {
-                      if (entry.key > 0) {
-                        return const SizedBox(height: AppSpacing.sm);
-                      }
-                      return const SizedBox.shrink();
-                    }),
-                    ...items.map((item) => _buildResultItem(item)),
+                    ...items.asMap().entries.expand((entry) => [
+                      if (entry.key > 0) const SizedBox(height: AppSpacing.sm),
+                      _buildResultItem(entry.value),
+                    ]),
                   ],
                 ),
               ),
