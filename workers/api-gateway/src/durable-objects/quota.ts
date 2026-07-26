@@ -61,6 +61,8 @@ export class QuotaDurableObject implements DurableObject {
   private state: DurableObjectState;
   private quota: OrganizationQuota | null = null;
   private lastSavedAt: number = Date.now();
+  /** True when a flush alarm has been scheduled but not yet fired. */
+  private alarmArmed: boolean = false;
 
   constructor(state: DurableObjectState) {
     this.state = state;
@@ -230,10 +232,19 @@ export class QuotaDurableObject implements DurableObject {
       this.quota.monthlyUsed += units;
       this.quota.seenRequestIds[requestId] = now;
 
-      // Periodically persist to storage
+      // Periodically persist to storage (eager path: at least every 10 s under load).
       if (now - this.lastSavedAt > 10_000) {
         await this.state.storage.put('quota', this.quota);
         this.lastSavedAt = now;
+        this.alarmArmed = false; // persisted in-band; cancel pending alarm intent
+      }
+
+      // Arm a flush alarm so counts are persisted even during sparse traffic.
+      // The alarm fires ≤10 s after the last write, ensuring eviction doesn't
+      // lose quota state regardless of request rate.
+      if (!this.alarmArmed) {
+        await this.state.storage.setAlarm(now + 10_000);
+        this.alarmArmed = true;
       }
 
       const response: QuotaCheckResponse = {
@@ -309,5 +320,18 @@ export class QuotaDurableObject implements DurableObject {
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
+  }
+
+  /**
+   * Alarm handler — fires ≤10 s after the last quota update.
+   * Persists in-memory state so counts are not lost when the DO is evicted.
+   * This is the sole flush path for sparse traffic where the 10 s in-band
+   * persist threshold in handleCheckAndReserve is never crossed.
+   */
+  async alarm(): Promise<void> {
+    this.alarmArmed = false;
+    if (!this.quota) return;
+    await this.state.storage.put('quota', this.quota);
+    this.lastSavedAt = Date.now();
   }
 }

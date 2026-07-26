@@ -7,6 +7,7 @@ import { QuotaDurableObject } from './quota';
 
 class MockStorage {
   private store: Map<string, unknown> = new Map();
+  scheduledAlarmAt: number | null = null;
 
   async get<T>(key: string): Promise<T | undefined> {
     return this.store.get(key) as T | undefined;
@@ -18,6 +19,11 @@ class MockStorage {
 
   async delete(key: string): Promise<boolean> {
     return this.store.delete(key);
+  }
+
+  async setAlarm(timestamp: number): Promise<void> {
+    // Only set if not already armed (mimics Cloudflare: setAlarm replaces any existing alarm).
+    this.scheduledAlarmAt = timestamp;
   }
 }
 
@@ -482,6 +488,48 @@ describe('QuotaDurableObject', () => {
       const do_ = new QuotaDurableObject(state);
       const res = await do_.fetch(checkReq());
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe('alarm — flush on eviction', () => {
+    it('schedules an alarm after each quota update so counts survive eviction', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { monthlyUsed: 0 });
+
+      expect(storage.scheduledAlarmAt).toBeNull();
+      await do_.fetch(checkReq());
+      expect(storage.scheduledAlarmAt).not.toBeNull();
+      // Alarm should fire within the next 10 seconds.
+      expect(storage.scheduledAlarmAt).toBeGreaterThan(Date.now());
+      expect(storage.scheduledAlarmAt).toBeLessThanOrEqual(Date.now() + 11_000);
+    });
+
+    it('alarm handler persists in-memory quota to storage', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { monthlyUsed: 5 });
+
+      // Process a request — updates in-memory quota but may not have persisted yet.
+      await do_.fetch(checkReq({ planKey: 'starter', quotaVersion: 1 }));
+
+      // Corrupt storage to simulate eviction loss (clear persisted state).
+      await storage.delete('quota');
+      expect(await storage.get('quota')).toBeUndefined();
+
+      // Alarm fires — should re-persist in-memory state.
+      await do_.alarm();
+
+      const persisted = await storage.get<{ monthlyUsed: number }>('quota');
+      expect(persisted).not.toBeUndefined();
+      // monthlyUsed should be 5 (seeded) + 1 (request) = 6.
+      expect(persisted?.monthlyUsed).toBe(6);
+    });
+
+    it('alarm does not persist if quota was never initialised', async () => {
+      const { do_, storage } = makeDO();
+      // No seedQuota — DO has no in-memory quota.
+      await do_.alarm();
+      // Storage should remain empty (nothing to flush).
+      expect(await storage.get('quota')).toBeUndefined();
     });
   });
 });

@@ -13,9 +13,9 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 | Severity | Total | Fixed | Open |
 |---|---|---|---|
 | High | 9 | 9 | 0 |
-| Medium | 16 | 12 | 4 |
+| Medium | 16 | 14 | 2 |
 | Low | 18 | 7 | 11 |
-| **Total** | **43** | **28** | **15** |
+| **Total** | **43** | **30** | **13** |
 
 Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (High), stripe-webhook verify + auth_page + cookie_banner + contact_section (Medium), and request_failure_page + auth.ts exp + stripe-schemas InvoiceSchema + contact-form CSRF/CRLF + signup_page analytics + status_result_page spacing + shared_app_bar URL (Low) were fixed on 2026-07-26 (backlog-implementer pass). Every other item is unverified-since-review and should be re-confirmed against current `main` before work starts.
 
@@ -47,11 +47,11 @@ Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (H
 
 - [ ] **`doppler.json` — full encrypted secrets export committed to the repo** (37 KB, tracked since commit `faf0ccc`). Anyone with repo read access holds a permanent offline copy of all worker secrets, decryptable the moment any Doppler token leaks. Rotation can't retract it; it needs removal + history scrub + secret rotation. *(newly verified 2026-07-26)*
 - [ ] **No dev/prod environment separation for worker deploys** — `npm run deploy` (Doppler dev) and `deploy:prd` both run plain `wrangler deploy` against the same single-name `wrangler.toml`, so a "dev" deploy overwrites the production sender-worker — the exact worker the CI-built Flutter site calls (default URL in `provisioning_service.dart:15`, no `--dart-define` in `ci.yml`). CLAUDE.md's "deploys to dev environment" claim is false. Same pattern in the other workers. *(newly verified 2026-07-26)*
-- [ ] `workers/api-gateway/wrangler.toml:5` — routes exist only under `[env.production]` but deploy scripts never pass `--env`, so production routes are never attached; conversely `--env production` would lose the `QUOTA_DO` binding (not inherited).
+- [x] `workers/api-gateway/wrangler.toml:5` — routes exist only under `[env.production]` but deploy scripts never pass `--env`, so production routes are never attached; conversely `--env production` would lose the `QUOTA_DO` binding (not inherited).
 - [ ] `workers/api-gateway/src/durable-objects/quota.ts:229` — quota DO persists at most every 10s and never for sparse traffic; counts are lost on eviction, under-enforcing monthly limits.
 - [x] `workers/api-gateway/src/lib/quota.ts:126` — plan-key mismatch (`starter` vs `DEFAULT_QUOTAS`' `free`), and a `quota_version` bump resets `monthlyUsed` mid-month.
 - [x] `workers/api-gateway/src/routes/api-keys.ts:67` — any active org member, including viewers, can create/revoke org API keys (no role check).
-- [ ] `workers/stripe-webhook/src/index.ts:183` — dead-letter retries replay stale events with no ordering guard, able to regress billing state.
+- [x] `workers/stripe-webhook/src/index.ts:183` — dead-letter retries replay stale events with no ordering guard, able to regress billing state.
 - [x] `workers/stripe-webhook/src/verify.ts:28` — signature parser keeps only the last `v1` value, so webhooks are rejected during Stripe secret rotation.
 - [x] `workers/stripe-webhook/src/index.ts:116` — returns HTTP 200 even when both the handler and dead-letter insert fail; the event is permanently lost.
 - [x] `workers/sender-worker/src/index.ts:49` — `ALLOWED_ORIGINS_JSON` shape unvalidated: a JSON string turns the CORS allowlist into a substring match; a JSON object crashes every request.
