@@ -12,36 +12,36 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 
 | Severity | Total | Fixed | Open |
 |---|---|---|---|
-| High | 9 | 2 | 7 |
-| Medium | 16 | 0 | 16 |
-| Low | 18 | 0 | 18 |
-| **Total** | **43** | **2** | **41** |
+| High | 9 | 9 | 0 |
+| Medium | 16 | 4 | 12 |
+| Low | 18 | 7 | 11 |
+| **Total** | **43** | **20** | **23** |
 
-Two high-severity findings were fixed on 2026-07-26 (items 2 and 7), along with one follow-up cleanup that fell out of item 7. Every other item is unverified-since-review and should be re-confirmed against current `main` before work starts.
+Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (High), stripe-webhook verify + auth_page + cookie_banner + contact_section (Medium), and request_failure_page + auth.ts exp + stripe-schemas InvoiceSchema + contact-form CSRF/CRLF + signup_page analytics + status_result_page spacing + shared_app_bar URL (Low) were fixed on 2026-07-26 (backlog-implementer pass). Every other item is unverified-since-review and should be re-confirmed against current `main` before work starts.
 
 ---
 
 ## High severity
 
-- [ ] **1. Meta Pixel tracks every visitor before consent** — `web/index.html:500` loads `js/meta-pixel.js` unconditionally in `<head>`; it runs `fbq('init', …)` and `fbq('track', 'PageView')` immediately. The Dart consent gate `TrackingWeb.injectFacebookPixel()` (`lib/services/tracking_web.dart:165`) is a no-op that only flips a boolean, so the entire ConsentManager architecture is defeated. An EU visitor who rejects all cookies has already been reported to Facebook. GDPR/ePrivacy breach on a site that markets GDPR compliance.
+- [x] **1. Meta Pixel tracks every visitor before consent** — `web/index.html:500` loads `js/meta-pixel.js` unconditionally in `<head>`; it runs `fbq('init', …)` and `fbq('track', 'PageView')` immediately. The Dart consent gate `TrackingWeb.injectFacebookPixel()` (`lib/services/tracking_web.dart:165`) is a no-op that only flips a boolean, so the entire ConsentManager architecture is defeated. An EU visitor who rejects all cookies has already been reported to Facebook. GDPR/ePrivacy breach on a site that markets GDPR compliance.
 
 - [x] **2. Primary "Get Started" CTAs route to a nonexistent tier `Team`** — `lib/pages/landing_page.dart:106` and `:169`, plus `Routes.signupTeam` (`lib/config/content/constants.dart:104`), navigated to `/signup?tier=Team`, but content.yaml only defines starter/growth/enterprise. `ContentLoader` returns `''` for missing keys, so the main conversion page rendered a blank heading, blank description, no features, and an unlabeled submit button. `Team` signups also skipped checkout and took the free `/provision` path.
   **Fixed 2026-07-26.** See [Fix notes — item 2](#item-2--team-tier-routing).
 
-- [ ] **3. JWT accepted and propagated via URLs** — `/provision?jwt=…&email=…` is trusted from query params with no session binding (`lib/routing/app_router.dart:179`), and the dashboard redirect puts the JWT in `?access_token=` (`lib/pages/provision_page.dart:87-89`). Bearer tokens leak via history/logs/Referer, and an attacker can deep-link a victim into an attacker-controlled session (login-CSRF).
+- [x] **3. JWT accepted and propagated via URLs** — `/provision?jwt=…&email=…` is trusted from query params with no session binding (`lib/routing/app_router.dart:179`), and the dashboard redirect puts the JWT in `?access_token=` (`lib/pages/provision_page.dart:87-89`). Bearer tokens leak via history/logs/Referer, and an attacker can deep-link a victim into an attacker-controlled session (login-CSRF).
 
-- [ ] **4. Signup has no rollback** — `workers/sender-worker/src/index.ts:96` runs Auth0 user creation and Supabase org creation concurrently in `Promise.all` with no compensating cleanup anywhere. Any mid-flow failure leaves orphans, and every retry then fails with "email already registered" — the email is permanently locked out of signup.
+- [x] **4. Signup has no rollback** — `workers/sender-worker/src/index.ts:96` runs Auth0 user creation and Supabase org creation concurrently in `Promise.all` with no compensating cleanup anywhere. Any mid-flow failure leaves orphans, and every retry then fails with "email already registered" — the email is permanently locked out of signup.
 
-- [ ] **5. No rate limiting on `/signin` and `/signup`** — sender-worker forwards arbitrary credentials to Auth0 ROPC with no KV/DO rate limiter, no CAPTCHA, and no `auth0-forwarded-for` header (so Auth0's own brute-force protection can't distinguish attackers from legitimate users). The sibling contact-form worker does have KV rate limiting. The verifier noted Auth0's built-in protections still apply crudely, so this is arguably medium-high.
+- [x] **5. No rate limiting on `/signin` and `/signup`** — sender-worker forwards arbitrary credentials to Auth0 ROPC with no KV/DO rate limiter, no CAPTCHA, and no `auth0-forwarded-for` header (so Auth0's own brute-force protection can't distinguish attackers from legitimate users). The sibling contact-form worker does have KV rate limiting. The verifier noted Auth0's built-in protections still apply crudely, so this is arguably medium-high.
 
-- [ ] **6. `workers/lib/supabase.ts:37` — duplicate-column filters are silently overwritten**, so date-range queries (`gte` + `lte` on the same column) lose their lower bound and daily/monthly rollups aggregate all history. String values are also unescaped. *(Same file as item 7, but a separate defect — `serializeFilters` still uses `url.searchParams.set`, which overwrites rather than appends.)*
+- [x] **6. `workers/lib/supabase.ts:37` — duplicate-column filters are silently overwritten**, so date-range queries (`gte` + `lte` on the same column) lose their lower bound and daily/monthly rollups aggregate all history. String values are also unescaped. *(Same file as item 7, but a separate defect — `serializeFilters` still uses `url.searchParams.set`, which overwrites rather than appends.)*
 
 - [x] **7. `workers/lib/supabase.ts:115` — `returning=representation` sent as a query parameter** instead of the PostgREST `Prefer: return=representation` header, so every gateway DB write path misbehaved/misreported. Confirmed independently by two area verifiers.
   **Fixed 2026-07-26.** See [Fix notes — item 7](#item-7--postgrest-prefer-header).
 
-- [ ] **8. Quota consumed before authentication** — `workers/api-gateway/src/index.ts:128` decrements quota before verifying credentials, so an unauthenticated attacker can exhaust any org's rate limit and monthly quota.
+- [x] **8. Quota consumed before authentication** — `workers/api-gateway/src/index.ts:128` decrements quota before verifying credentials, so an unauthenticated attacker can exhaust any org's rate limit and monthly quota.
 
-- [ ] **9. `workers/bootstrap-worker/src/bootstrap.ts:128` — `loadUsageSnapshot` queries columns that don't exist** on `usage_events`, so the usage snapshot is always zeros.
+- [x] **9. `workers/bootstrap-worker/src/bootstrap.ts:128` — `loadUsageSnapshot` queries columns that don't exist** on `usage_events`, so the usage snapshot is always zeros.
 
 ## Medium severity
 
@@ -52,14 +52,14 @@ Two high-severity findings were fixed on 2026-07-26 (items 2 and 7), along with 
 - [ ] `workers/api-gateway/src/lib/quota.ts:126` — plan-key mismatch (`starter` vs `DEFAULT_QUOTAS`' `free`), and a `quota_version` bump resets `monthlyUsed` mid-month.
 - [ ] `workers/api-gateway/src/routes/api-keys.ts:67` — any active org member, including viewers, can create/revoke org API keys (no role check).
 - [ ] `workers/stripe-webhook/src/index.ts:183` — dead-letter retries replay stale events with no ordering guard, able to regress billing state.
-- [ ] `workers/stripe-webhook/src/verify.ts:28` — signature parser keeps only the last `v1` value, so webhooks are rejected during Stripe secret rotation.
+- [x] `workers/stripe-webhook/src/verify.ts:28` — signature parser keeps only the last `v1` value, so webhooks are rejected during Stripe secret rotation.
 - [ ] `workers/stripe-webhook/src/index.ts:116` — returns HTTP 200 even when both the handler and dead-letter insert fail; the event is permanently lost.
 - [ ] `workers/sender-worker/src/index.ts:49` — `ALLOWED_ORIGINS_JSON` shape unvalidated: a JSON string turns the CORS allowlist into a substring match; a JSON object crashes every request.
 - [ ] `workers/sender-worker/src/supabase.ts:29` — `dedupSlug` collides for distinct emails (`a.b@`, `a-b@`, `a+b@` → same slug); the second signup fails permanently (compounds the no-rollback bug in item 4). The `tier` param is unused.
 - [ ] `workers/bootstrap-worker/src/index.ts:59` — no CORS/OPTIONS handling (`ALLOWED_ORIGINS_JSON` is dead config); unknown routes return 500 instead of 404.
-- [ ] `lib/pages/auth_page.dart:114` — mode toggle clears password state but not the visible field (`FormTextField` uses `initialValue`, not a controller), desyncing UI from validation.
-- [ ] `lib/widgets/consent/cookie_banner.dart:47` — analytics toggle defaults to ON (pre-ticked consent is invalid under GDPR).
-- [ ] `lib/widgets/sections/contact_section.dart:494` — form analytics hardcodes `success: true` before the request runs; and `:521` — state cleared on success but fields display stale text.
+- [x] `lib/pages/auth_page.dart:114` — mode toggle clears password state but not the visible field (`FormTextField` uses `initialValue`, not a controller), desyncing UI from validation.
+- [x] `lib/widgets/consent/cookie_banner.dart:47` — analytics toggle defaults to ON (pre-ticked consent is invalid under GDPR).
+- [x] `lib/widgets/sections/contact_section.dart:494` — form analytics hardcodes `success: true` before the request runs; and `:521` — state cleared on success but fields display stale text.
 - [ ] `content.yaml:873` — resources doc cards link to unrouted paths `/docs/api` and `/docs/compliance`.
 
 ## Low severity
@@ -67,17 +67,17 @@ Two high-severity findings were fixed on 2026-07-26 (items 2 and 7), along with 
 - [ ] `lib/services/consent_manager.dart:200` — consent downgrade never disables already-initialized trackers.
 - [ ] `lib/services/provisioning_service.dart:200` — `signUp` returns `AuthSuccess` with an empty JWT when the 201 body lacks `jwt`.
 - [ ] `lib/services/content_loader.dart:89` — failed `load()` raises an unhandled async error when there are no concurrent waiters.
-- [ ] `lib/pages/request_failure_page.dart:101` — "Go to Sign In" navigates to `/signin`, which does not exist (the router defines `/login`).
+- [x] `lib/pages/request_failure_page.dart:101` — "Go to Sign In" navigates to `/signin`, which does not exist (the router defines `/login`).
 - [ ] `lib/pages/dashboard_page.dart:17` — dashboard route family unreachable; nothing constructs `DashboardArgs`, so `/dashboard` always redirects to `/login`.
 - [ ] `lib/pages/oauth_callback_page.dart:211` — OAuth code callback spins forever; nothing exchanges the code.
-- [ ] `lib/pages/signup_page.dart:330` — success analytics and the Facebook Lead pixel fire before the signup request is attempted.
-- [ ] `lib/pages/status_result_page.dart:160` — spacing loop emits all spacers before the items instead of between them.
-- [ ] `lib/widgets/navigation/shared_app_bar.dart:62` — default CTA hardcodes the absolute production URL instead of an in-app route.
+- [x] `lib/pages/signup_page.dart:330` — success analytics and the Facebook Lead pixel fire before the signup request is attempted.
+- [x] `lib/pages/status_result_page.dart:160` — spacing loop emits all spacers before the items instead of between them.
+- [x] `lib/widgets/navigation/shared_app_bar.dart:62` — default CTA hardcodes the absolute production URL instead of an in-app route.
 - [ ] `workers/sender-worker/src/index.ts:87` — unhandled TypeError when email is a non-string; and `:295` — the checkout-session handler has no try/catch, so Stripe network failures escape unhandled.
-- [ ] `workers/lib/auth.ts:86` — `verifyJwt` accepts tokens with no/malformed `exp` as never-expiring (confirmed by two areas).
+- [x] `workers/lib/auth.ts:86` — `verifyJwt` accepts tokens with no/malformed `exp` as never-expiring (confirmed by two areas).
 - [ ] `workers/stripe-webhook/src/index.ts:67` — idempotency guard is check-then-act; concurrent deliveries process an event twice.
-- [ ] `workers/stripe-webhook/src/stripe-schemas.ts:23` — `InvoiceSchema` rejects `subscription: null`, dead-lettering every non-subscription invoice event.
-- [ ] `workers/contact-form/src/index.ts:414` — CSRF validation fails open when `CSRF_SECRET` is unset; and `:491` — CRLF from name/organization flows unsanitized into the email Subject header.
+- [x] `workers/stripe-webhook/src/stripe-schemas.ts:23` — `InvoiceSchema` rejects `subscription: null`, dead-lettering every non-subscription invoice event.
+- [x] `workers/contact-form/src/index.ts:414` — CSRF validation fails open when `CSRF_SECRET` is unset; and `:491` — CRLF from name/organization flows unsanitized into the email Subject header.
 - [ ] `workers/bootstrap-worker/src/bootstrap.ts:83` — crashes on `orgs[0].id` when memberships exist but no org row matches; the organizations table is fetched unfiltered.
 - [ ] `workers/cors-utils.ts:20` — reflects the caller's origin into `Access-Control-Allow-Origin` unconditionally; the allowlist only gates the credentials flag.
 - [ ] `workers/receiver-worker/src/index.ts:72` — the stub's replay protection is a 5-minute timestamp window with no nonce cache (local test double only).

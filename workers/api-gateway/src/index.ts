@@ -1,5 +1,4 @@
 import { ok, notFound } from '../../lib/http';
-import { requireBearerToken } from '../../lib/http/request';
 import { handleMe } from './routes/me';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal } from './routes/orgs';
 import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './routes/usage';
@@ -8,6 +7,7 @@ import { handleHealthCheck } from './routes/health';
 import { handleIngestEvent, handleIngestOtel, OTEL_INGEST_ROUTE } from './routes/ingest';
 import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
+import { preVerifyToken } from './lib/helpers';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -113,11 +113,17 @@ export default {
       const orgId = orgMatch[1];
       const subPath = orgMatch[2] ?? '';
 
-      // Require a bearer token before quota enforcement to prevent unauthenticated
-      // callers from triggering DO reads and leaking org existence via 429 vs 401.
-      // Full auth (JWT or API key) is delegated to each route handler.
-      const tokenResult = requireBearerToken(request);
-      if (!tokenResult.ok) return withSecurityHeaders(tokenResult.error);
+      // Verify the bearer token is authentic before consuming any quota.
+      // An invalid or missing token returns 401 without touching the quota DO,
+      // preventing unauthenticated callers from exhausting an org's quota.
+      const preAuth = await preVerifyToken(request, {
+        jwtSecret: env.SUPABASE_JWT_SECRET,
+        jwtIssuerUrl: env.SUPABASE_JWT_ISSUER,
+        hmacSecret: env.API_KEY_HMAC_SECRET,
+        supabaseUrl: env.SUPABASE_URL,
+        serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+      });
+      if (!preAuth.ok) return withSecurityHeaders(preAuth.error);
 
       const quotaOpts = {
         doNamespace: env.QUOTA_DO,

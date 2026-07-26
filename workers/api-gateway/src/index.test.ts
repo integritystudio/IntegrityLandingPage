@@ -76,7 +76,29 @@ describe('api-gateway', () => {
         makeEnv(),
       );
 
-      // Bearer token presence check runs before quota — no token means 401, not 429
+      // Token verification runs before quota — no token means 401, not 429
+      expect(res.status).toBe(401);
+      expect(quotaLib.enforceOrgQuota).not.toHaveBeenCalled();
+    });
+
+    it('returns 401 for an invalid bearer token without consuming quota', async () => {
+      vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({
+        ok: false,
+        response: new Response(
+          JSON.stringify({ error: { message: 'Too Many Requests', reason: 'minute_limit' } }),
+          { status: 429, headers: { 'Content-Type': 'application/json' } },
+        ),
+      });
+
+      // Present but cryptographically invalid JWT — passes presence check but fails verification
+      const res = await worker.fetch(
+        makeRequest('GET', '/v1/orgs/org-123/dashboard', {
+          headers: { Authorization: 'Bearer invalid.garbage.token' },
+        }),
+        makeEnv(),
+      );
+
+      // Token authentication failure must short-circuit before quota is decremented
       expect(res.status).toBe(401);
       expect(quotaLib.enforceOrgQuota).not.toHaveBeenCalled();
     });
