@@ -2,7 +2,7 @@ name = "api-gateway"
 main = "src/index.ts"
 compatibility_date = "2026-03-19"
 
-[env.production]
+# Production routes attached on every plain `wrangler deploy` (no --env needed).
 routes = [
   { pattern = "api.integritystudio.ai/v1/*", zone_name = "integritystudio.ai" }
 ]
