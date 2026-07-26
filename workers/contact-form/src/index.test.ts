@@ -5,7 +5,7 @@
  * Run with: npm test
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 
 // API response types
 interface ErrorResponse {
@@ -46,20 +46,39 @@ import {
   MAX_USE_CASE_LENGTH,
 } from '../../constants';
 
-// Mock environment
+// CSRF_SECRET included so POST requests don't fail the new fail-closed guard.
+// Tests that specifically need "no CSRF_SECRET" should use mockEnvNoCsrf.
 const mockEnv = {
   RESEND_API_KEY: 'test_resend_api_key',
   RECIPIENT_EMAIL: 'test@integritystudio.ai',
   SENDER_EMAIL: 'contact@integritystudio.ai',
-};
-
-// Mock environment with CSRF enabled
-const mockEnvWithCsrf = {
-  ...mockEnv,
   CSRF_SECRET: 'test_csrf_secret_key_12345',
 };
 
-// Helper to create mock Request with default allowed Origin
+// Explicit no-CSRF env for tests that exercise the "secret not configured" path.
+const mockEnvNoCsrf: typeof mockEnv & { CSRF_SECRET?: never } = {
+  RESEND_API_KEY: mockEnv.RESEND_API_KEY,
+  RECIPIENT_EMAIL: mockEnv.RECIPIENT_EMAIL,
+  SENDER_EMAIL: mockEnv.SENDER_EMAIL,
+};
+
+// Mock environment with CSRF enabled (same as mockEnv; kept for back-compat).
+const mockEnvWithCsrf = mockEnv;
+
+// A valid CSRF token generated once per suite against mockEnv.CSRF_SECRET.
+// createRequest() includes it by default so tests stay focused on their own concern.
+let _defaultCsrfToken = '';
+
+/**
+ * Returns an object with the default CSRF header for tests that build raw Requests.
+ * Spread into the headers literal: `{ ...csrfHeader(), 'Other-Header': 'value' }`.
+ * Returns {} if the token has not yet been generated.
+ */
+function csrfHeader(): Record<string, string> {
+  return _defaultCsrfToken ? { 'X-CSRF-Token': _defaultCsrfToken } : {};
+}
+
+// Helper to create mock Request with default allowed Origin and CSRF token.
 function createRequest(
   method: string,
   body?: object,
@@ -70,6 +89,10 @@ function createRequest(
     headers: {
       'Content-Type': 'application/json',
       'Origin': 'https://integritystudio.ai',
+      // Include a valid default CSRF token so non-CSRF tests pass the guard
+      // without having to generate their own token. Individual tests can override
+      // by passing their own 'X-CSRF-Token' header.
+      ...(_defaultCsrfToken ? { 'X-CSRF-Token': _defaultCsrfToken } : {}),
       ...headers,
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -106,6 +129,10 @@ async function generateTestCsrfToken(secret: string, timestamp?: number): Promis
 describe('Contact Form Worker', () => {
   let mockResendInstance: { emails: { send: ReturnType<typeof vi.fn> } };
 
+  beforeAll(async () => {
+    _defaultCsrfToken = await generateTestCsrfToken(mockEnv.CSRF_SECRET);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     _resetRateLimitState();
@@ -133,10 +160,11 @@ describe('Contact Form Worker', () => {
 
     it('handles GET requests for CSRF token (503 when not configured)', async () => {
       const request = createRequest('GET');
-      const response = await worker.fetch(request, mockEnv);
+      // Use no-CSRF env to test the "secret not configured" 503 path.
+      const response = await worker.fetch(request, mockEnvNoCsrf);
 
-      // GET is now used for CSRF token retrieval
-      // Returns 503 when CSRF_SECRET is not configured
+      // GET is used for CSRF token retrieval.
+      // Returns 503 when CSRF_SECRET is not configured.
       expect(response.status).toBe(503);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toContain('Service temporarily unavailable');
@@ -508,6 +536,7 @@ describe('Contact Form Worker', () => {
         headers: {
           'Content-Type': 'application/json',
           'Origin': 'https://integritystudio.ai',
+          ...csrfHeader(),
         },
         body: 'invalid json {',
       });
@@ -530,6 +559,7 @@ describe('Contact Form Worker', () => {
         headers: {
           'Content-Type': 'application/json',
           'Origin': 'https://integritystudio.ai',
+          ...csrfHeader(),
         },
         body: JSON.stringify({
           name: 'John Doe',
@@ -622,6 +652,7 @@ describe('Contact Form Worker', () => {
         headers: {
           'Content-Type': 'application/json',
           'Origin': 'http://localhost:8080',
+          ...csrfHeader(),
         },
         body: JSON.stringify({
           name: 'John Doe',
@@ -972,6 +1003,7 @@ describe('Contact Form Worker', () => {
           'Content-Type': 'application/json',
           'Origin': 'https://integritystudio.ai',
           'CF-Connecting-IP': '192.168.1.1',
+          ...csrfHeader(),
         },
         body: JSON.stringify({
           name: 'John Doe',
@@ -1050,6 +1082,7 @@ describe('Contact Form Worker', () => {
           'Content-Type': 'application/json',
           'Origin': 'https://integritystudio.ai',
           'CF-Connecting-IP': '192.168.1.200',
+          ...csrfHeader(),
         },
         body: JSON.stringify({
           name: 'John Doe',
@@ -1105,6 +1138,7 @@ describe('Contact Form Worker', () => {
           'Content-Type': 'application/json',
           'Origin': 'https://integritystudio.ai',
           'CF-Connecting-IP': '10.0.0.1',
+          ...csrfHeader(),
         },
         body: JSON.stringify({
           name: 'John Doe',
@@ -1149,6 +1183,7 @@ describe('Contact Form Worker', () => {
           'Content-Type': 'application/json',
           'Origin': 'https://integritystudio.ai',
           'X-Idempotency-Key': 'test-key-123',
+          ...csrfHeader(),
         },
         body: JSON.stringify({
           name: 'John Doe',
@@ -1167,6 +1202,7 @@ describe('Contact Form Worker', () => {
           'Content-Type': 'application/json',
           'Origin': 'https://integritystudio.ai',
           'X-Idempotency-Key': 'test-key-123',
+          ...csrfHeader(),
         },
         body: JSON.stringify({
           name: 'John Doe',
@@ -1343,6 +1379,7 @@ describe('Contact Form Worker', () => {
           'Content-Type': 'application/json',
           'Origin': 'https://integritystudio.ai',
           'X-Request-ID': 'client-trace-abc-123',
+          ...csrfHeader(),
         },
         body: JSON.stringify({
           name: 'John Doe',
@@ -1417,6 +1454,7 @@ describe('Contact Form Worker', () => {
             'Content-Type': 'application/json',
             'Origin': 'https://integritystudio.ai',
             'CF-Connecting-IP': `circuit-test-${i}`,
+            ...csrfHeader(),
           },
           body: JSON.stringify({
             name: 'John Doe',
@@ -1437,6 +1475,7 @@ describe('Contact Form Worker', () => {
           'Content-Type': 'application/json',
           'Origin': 'https://integritystudio.ai',
           'CF-Connecting-IP': 'circuit-test-after',
+          ...csrfHeader(),
         },
         body: JSON.stringify({
           name: 'John Doe',
@@ -1524,6 +1563,7 @@ describe('Contact Form Worker', () => {
           'Content-Type': 'application/json',
           'Origin': 'https://integritystudio.ai',
           'Content-Length': '20000',
+          ...csrfHeader(),
         },
         body: JSON.stringify({
           name: 'John Doe',
@@ -1551,6 +1591,7 @@ describe('Contact Form Worker', () => {
           'Content-Type': 'application/json',
           'Origin': 'https://integritystudio.ai',
           'Content-Length': '200',
+          ...csrfHeader(),
         },
         body: JSON.stringify({
           name: 'John Doe',
@@ -1578,7 +1619,8 @@ describe('Contact Form Worker', () => {
 
     it('returns 503 when CSRF secret not configured for GET', async () => {
       const request = createRequest('GET');
-      const response = await worker.fetch(request, mockEnv);
+      // Use the env without a CSRF_SECRET to exercise the "not configured" path.
+      const response = await worker.fetch(request, mockEnvNoCsrf);
 
       expect(response.status).toBe(503);
       const data = await response.json() as ErrorResponse;
@@ -1608,11 +1650,17 @@ describe('Contact Form Worker', () => {
     });
 
     it('rejects missing CSRF token when CSRF is enabled', async () => {
-      const request = createRequest('POST', {
-        name: 'John Doe',
-        email: 'john@example.com',
-        message: 'This is a valid message for testing.',
-      });
+      // Explicitly override the default CSRF token with an absent value so we
+      // can verify the guard fires even when createRequest would normally inject one.
+      const request = createRequest(
+        'POST',
+        {
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message for testing.',
+        },
+        { 'X-CSRF-Token': '' },
+      );
 
       const response = await worker.fetch(request, mockEnvWithCsrf);
 
@@ -1680,22 +1728,20 @@ describe('Contact Form Worker', () => {
       expect(data.error).toContain('Invalid CSRF');
     });
 
-    it('allows requests without CSRF when secret not configured', async () => {
-      // mockEnv doesn't have CSRF_SECRET, so CSRF validation is skipped
-      mockResendInstance.emails.send.mockResolvedValue({
-        data: { id: 'email_123' },
-        error: null,
-      });
-
+    it('rejects POST requests when CSRF_SECRET is not configured (fail closed)', async () => {
+      // When CSRF_SECRET is absent the worker must fail closed (503) rather than
+      // silently skipping the check. This prevents CSRF bypass on misconfigured deploys.
       const request = createRequest('POST', {
         name: 'John Doe',
         email: 'john@example.com',
         message: 'This is a valid message for testing.',
       });
 
-      const response = await worker.fetch(request, mockEnv);
+      const response = await worker.fetch(request, mockEnvNoCsrf);
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(503);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('Service temporarily unavailable');
     });
 
     it('includes X-CSRF-Token in CORS allowed headers', async () => {

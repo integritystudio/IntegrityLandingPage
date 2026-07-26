@@ -410,24 +410,36 @@ export default {
       );
     }
 
-    // Validate CSRF token (only if secret is configured)
-    if (env.CSRF_SECRET) {
-      const csrfToken = request.headers.get('X-CSRF-Token');
-      const csrfError = await validateCsrfToken(csrfToken, env.CSRF_SECRET);
-      if (csrfError) {
-        console.warn(JSON.stringify({
-          level: 'warn',
-          event: 'csrf_validation_failed',
-          requestId,
-          ip: clientIP,
-          error: csrfError,
-          timestamp: new Date().toISOString(),
-        }));
-        return new Response(
-          JSON.stringify({ error: csrfError }),
-          { status: 403, headers: responseHeaders }
-        );
-      }
+    // Validate CSRF token. Fail closed: if CSRF_SECRET is not configured,
+    // reject the request rather than silently bypassing the check.
+    if (!env.CSRF_SECRET) {
+      console.error(JSON.stringify({
+        level: 'error',
+        event: 'csrf_secret_missing_on_post',
+        requestId,
+        timestamp: new Date().toISOString(),
+        message: 'CSRF_SECRET not configured — rejecting POST to avoid fail-open',
+      }));
+      return new Response(
+        JSON.stringify({ error: 'Service temporarily unavailable' }),
+        { status: 503, headers: responseHeaders }
+      );
+    }
+    const csrfToken = request.headers.get('X-CSRF-Token');
+    const csrfError = await validateCsrfToken(csrfToken, env.CSRF_SECRET);
+    if (csrfError) {
+      console.warn(JSON.stringify({
+        level: 'warn',
+        event: 'csrf_validation_failed',
+        requestId,
+        ip: clientIP,
+        error: csrfError,
+        timestamp: new Date().toISOString(),
+      }));
+      return new Response(
+        JSON.stringify({ error: csrfError }),
+        { status: 403, headers: responseHeaders }
+      );
     }
 
     // Check idempotency key for duplicate submission prevention
@@ -479,6 +491,9 @@ export default {
       // Initialize Resend client
       const resend = new Resend(env.RESEND_API_KEY);
 
+      // Strip CR/LF from values interpolated into email headers to prevent CRLF injection.
+      const sanitizeHeader = (val: string): string => val.replace(/[\r\n]/g, '');
+
       // Send email via Resend with timeout protection
       let emailResult;
       let error;
@@ -488,7 +503,7 @@ export default {
             from: `Integrity Studio Contact <${env.SENDER_EMAIL}>`,
             to: [env.RECIPIENT_EMAIL],
             replyTo: data.email,
-            subject: `New Contact Form: ${data.name}${data.organization ? ` (${data.organization})` : ''}`,
+            subject: `New Contact Form: ${sanitizeHeader(data.name)}${data.organization ? ` (${sanitizeHeader(data.organization)})` : ''}`,
             html: `
               <h2>New Contact Form Submission</h2>
               <p><strong>Name:</strong> ${escapeHtml(data.name)}</p>
