@@ -77,6 +77,14 @@ export async function loadOrgContext(
     .filter((org) => orgIds.has(org.id))
     .map((org) => ({ ...org, role: roleByOrgId.get(org.id) as OrgRole }));
 
+  // Guard: membership rows exist but no matching organization row (referential integrity gap).
+  if (orgs.length === 0) {
+    console.error(
+      `loadBootstrapData: user ${userId} has ${memberships.length} membership(s) but no matching org rows`,
+    );
+    return { ok: false, error: notFound('No organization data found') };
+  }
+
   const requested = orgIdHeader ? orgs.find((o) => o.id === orgIdHeader) : undefined;
   const activeOrgId = requested?.id ?? orgs[0].id;
 

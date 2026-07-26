@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { verifySupabaseJwt, parseJwtHeader } from './auth';
 import worker from './index';
 import type { Env } from './index';
+import { loadOrgContext } from './bootstrap';
 
 const makeEnv = (overrides: Partial<Env> = {}): Env => ({
   SUPABASE_URL: 'https://test.supabase.co',
@@ -106,5 +107,39 @@ describe('auth', () => {
       expect(result.ok).toBe(false);
       expect(!result.ok && result.error).toBeDefined();
     });
+  });
+});
+
+describe('loadOrgContext — org row mismatch', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('returns 404 when membership rows exist but no matching org rows found', async () => {
+    // membership query returns a row for org-999, but org query returns no matching org
+    vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('organization_memberships')) {
+        return new Response(
+          JSON.stringify([{ organization_id: 'org-999', role: 'owner' }]),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url.includes('organizations')) {
+        // Returns an org with a DIFFERENT id — no match for org-999.
+        return new Response(
+          JSON.stringify([{ id: 'org-other', slug: 'other', name: 'Other', billing_status: 'active', current_plan: 'starter', quota_version: 1 }]),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      return new Response('', { status: 404 });
+    });
+
+    const result = await loadOrgContext(
+      'user-1', null, 'https://test.supabase.co', 'service-key',
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.status).toBe(404);
+    }
   });
 });
