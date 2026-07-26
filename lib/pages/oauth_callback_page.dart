@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/theme.dart';
@@ -8,6 +10,10 @@ import '../widgets/common/buttons.dart';
 import '../widgets/common/status_icon.dart';
 import '../widgets/navigation/shared_app_bar.dart';
 import '../widgets/sections/footer_section.dart';
+
+/// Seconds to wait for the backend to complete the token exchange before
+/// surfacing a timeout error to the user.
+const int _kExchangeTimeoutSeconds = 15;
 
 /// OAuth callback page for handling Google OAuth redirects.
 ///
@@ -46,11 +52,34 @@ class _OAuthCallbackPageState extends State<OAuthCallbackPage> {
   /// Result of CSRF state validation; null = no code/state received yet.
   bool? _stateValid;
 
+  /// True when the token-exchange confirmation window has expired.
+  bool _exchangeTimedOut = false;
+
+  Timer? _exchangeTimer;
+
   @override
   void initState() {
     super.initState();
     AnalyticsService.trackPageView('oauth_callback');
     _validateAndLog();
+    _startExchangeTimerIfNeeded();
+  }
+
+  /// Start a watchdog timer when an authorization code has been received and
+  /// the CSRF state check passed.  If the backend does not confirm a
+  /// successful exchange within [_kExchangeTimeoutSeconds] seconds, transition
+  /// to an error state instead of spinning forever.
+  void _startExchangeTimerIfNeeded() {
+    if (widget.code == null || widget.success) return;
+    _exchangeTimer = Timer(
+      Duration(seconds: _kExchangeTimeoutSeconds),
+      () {
+        if (mounted && !widget.success) {
+          setState(() => _exchangeTimedOut = true);
+          AnalyticsService.trackEvent(eventName: 'oauth_exchange_timeout');
+        }
+      },
+    );
   }
 
   /// Validate CSRF state (RFC 6749 §10.12) then log callback events.
@@ -123,6 +152,7 @@ class _OAuthCallbackPageState extends State<OAuthCallbackPage> {
 
   @override
   void dispose() {
+    _exchangeTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -144,6 +174,7 @@ class _OAuthCallbackPageState extends State<OAuthCallbackPage> {
                 errorDescription: widget.errorDescription,
                 success: widget.success,
                 stateValid: _stateValid,
+                exchangeTimedOut: _exchangeTimedOut,
               ),
             ),
             SliverToBoxAdapter(
@@ -170,6 +201,9 @@ class _OAuthCallbackContent extends StatelessWidget {
   /// Null = no code/state received; true = CSRF state matched; false = mismatch.
   final bool? stateValid;
 
+  /// True when the watchdog timer fired before the exchange was confirmed.
+  final bool exchangeTimedOut;
+
   const _OAuthCallbackContent({
     this.code,
     this.state,
@@ -177,6 +211,7 @@ class _OAuthCallbackContent extends StatelessWidget {
     this.errorDescription,
     this.success = false,
     this.stateValid,
+    this.exchangeTimedOut = false,
   });
 
   @override
@@ -206,6 +241,10 @@ class _OAuthCallbackContent extends StatelessWidget {
     // CSRF check: code received but state is invalid — reject.
     if (code != null && stateValid == false) {
       return _buildCsrfErrorState(context, isMobile);
+    }
+    // Watchdog: exchange confirmation never arrived — surface an error.
+    if (code != null && exchangeTimedOut) {
+      return _buildExchangeTimeoutState(context, isMobile);
     }
     // Auth code received but token exchange not yet confirmed — do not show success.
     if (code != null) return _buildPendingExchangeState(context, isMobile);
@@ -301,6 +340,46 @@ class _OAuthCallbackContent extends StatelessWidget {
         Text(
           'Security check failed: the request state did not match. '
           'This may indicate a CSRF attack. Please start the sign-in process again.',
+          style: AppTypography.bodyLG.copyWith(color: AppColors.gray300),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.md,
+          children: [
+            OutlineButton(
+              text: 'Back to Home',
+              onPressed: () => context.go('/'),
+            ),
+            GradientButton(
+              text: 'Try Again',
+              onPressed: () => context.go('/login'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Shown when the token-exchange watchdog expires before the backend confirms.
+  Widget _buildExchangeTimeoutState(BuildContext context, bool isMobile) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const StatusIcon.error(),
+        const SizedBox(height: AppSpacing.xl),
+        Text(
+          'Sign-In Timed Out',
+          style: (isMobile ? AppTypography.headingLG : AppTypography.headingXL)
+              .copyWith(color: Colors.white),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'The sign-in process took too long to complete. '
+          'Please try again — if the problem persists, contact support.',
           style: AppTypography.bodyLG.copyWith(color: AppColors.gray300),
           textAlign: TextAlign.center,
         ),

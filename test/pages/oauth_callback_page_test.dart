@@ -138,6 +138,54 @@ void main() {
       });
     });
 
+    group('exchange timeout', () {
+      testWidgets(
+          'shows "Completing Sign-In" before timeout elapses',
+          (tester) async {
+        await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
+
+        expect(find.text('Completing Sign-In'), findsOneWidget);
+        expect(find.text('Sign-In Timed Out'), findsNothing);
+      });
+
+      testWidgets(
+          'transitions to timeout error after watchdog fires',
+          (tester) async {
+        await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
+
+        // Advance fake clock past the timeout threshold.
+        await tester.pump(const Duration(seconds: 16));
+
+        expect(find.text('Sign-In Timed Out'), findsOneWidget);
+        expect(find.text('Completing Sign-In'), findsNothing);
+      });
+
+      testWidgets('timeout state shows Try Again and Back to Home buttons',
+          (tester) async {
+        await pumpOAuthCallbackPage(tester, code: 'test_auth_code');
+        await tester.pump(const Duration(seconds: 16));
+
+        expect(find.text('Try Again'), findsOneWidget);
+        expect(find.text('Back to Home'), findsOneWidget);
+      });
+
+      testWidgets(
+          'does not timeout when success=true is already set',
+          (tester) async {
+        await pumpOAuthCallbackPage(
+          tester,
+          code: 'test_auth_code',
+          success: true,
+        );
+
+        await tester.pump(const Duration(seconds: 16));
+
+        // Success state should remain — no timer is started when success=true.
+        expect(find.text('Authentication Successful'), findsOneWidget);
+        expect(find.text('Sign-In Timed Out'), findsNothing);
+      });
+    });
+
     group('error state', () {
       testWidgets('renders error icon when error is provided', (tester) async {
         await pumpOAuthCallbackPage(tester, error: 'access_denied');
