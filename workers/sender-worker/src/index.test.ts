@@ -790,6 +790,20 @@ describe('Sender Worker', () => {
       expect(data.error).toContain('email');
     });
 
+    it('returns 400 when email is a non-string (e.g. a number)', async () => {
+      const request = new Request('https://worker.test/signup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 42, password: 'S3cur3!pass' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as { error: string };
+      expect(data.error).toContain('email');
+    });
+
     it('returns 500 when Auth0 createUser fails', async () => {
       const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
@@ -1607,6 +1621,22 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(500);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toContain('URL');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 when Stripe fetch throws a network error', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockRejectedValueOnce(
+        new TypeError('Failed to fetch'),
+      );
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+      const response = await worker.fetch(request, stripeEnv);
+      expect(response.status).toBe(500);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toContain('unavailable');
       fetchSpy.mockRestore();
     });
   });

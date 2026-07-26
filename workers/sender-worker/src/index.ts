@@ -79,15 +79,15 @@ function isOriginAllowed(origin: string, env: Env): boolean {
 }
 
 async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Response> {
-  if (!req.email || !req.password) {
+  if (typeof req.email !== 'string' || typeof req.password !== 'string') {
     return errorResponse("missing email or password", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
   }
-  if (!EMAIL_REGEX.test(req.email as string)) {
+  if (!EMAIL_REGEX.test(req.email)) {
     return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
   }
 
-  const email = req.email as string;
-  const password = req.password as string;
+  const email = req.email;
+  const password = req.password;
   const providedName = typeof req.name === "string" && req.name.trim() ? req.name.trim() : null;
   const tierParsed = ApiKeyTierSchema.safeParse(req.tier);
   const tier: ApiKeyTier = tierParsed.success ? tierParsed.data : DEFAULT_TIER;
@@ -334,13 +334,19 @@ async function handleCreateCheckoutSession(env: Env, req: Record<string, unknown
   const planToPriceJson = env.STRIPE_PLAN_TO_PRICE_JSON ?? "{}";
   const appBaseUrl = env.APP_BASE_URL ?? DEFAULT_APP_BASE_URL;
 
-  const result = await createStripeCheckoutSession(
-    env.STRIPE_SECRET_KEY,
-    planToPriceJson,
-    appBaseUrl,
-    email,
-    tier,
-  );
+  let result: Awaited<ReturnType<typeof createStripeCheckoutSession>>;
+  try {
+    result = await createStripeCheckoutSession(
+      env.STRIPE_SECRET_KEY,
+      planToPriceJson,
+      appBaseUrl,
+      email,
+      tier,
+    );
+  } catch (err) {
+    console.error("[checkout] Stripe network error:", err instanceof Error ? err.message : err);
+    return errorResponse("checkout service unavailable", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
 
   if (!result.ok) {
     return errorResponse(result.error, ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
