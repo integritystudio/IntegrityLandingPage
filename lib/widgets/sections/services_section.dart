@@ -39,7 +39,7 @@ class ServicesSection extends StatelessWidget {
       description: '',
       services: [],
       ctaText: 'Start Free Trial',
-      ctaUrl: '/signup?tier=Team',
+      ctaUrl: Routes.signupGrowth,
     ),
   });
 

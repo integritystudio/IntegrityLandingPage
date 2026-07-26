@@ -161,7 +161,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: '/signup',
         builder: (context, state) => SignupPage(
-          tier: state.uri.queryParameters['tier'] ?? 'starter',
+          tier: SignupTiers.normalize(state.uri.queryParameters['tier']),
           onBack: _goHome(context),
         ),
       ),

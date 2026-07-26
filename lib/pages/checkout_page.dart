@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../config/content/constants.dart';
 import '../services/provisioning_service.dart';
 import '../services/url_launcher.dart';
 import '../theme/theme.dart';
@@ -38,7 +39,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       case CheckoutError():
         // Enterprise has custom pricing; no Stripe price may be configured yet.
         // The org is provisioned — route to success so the user isn't stranded.
-        if (widget.args.tier.toLowerCase() == 'enterprise') {
+        if (widget.args.tier.toLowerCase() == SignupTiers.enterprise) {
           context.go('/request_success');
         } else {
           context.go('/request_failure');

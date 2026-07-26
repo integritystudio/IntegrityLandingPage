@@ -38,7 +38,7 @@ class _SignupPageState extends State<SignupPage> {
   final _passwordController = TextEditingController();
   final _companyController = TextEditingController();
 
-  bool get _isEnterprise => widget.tier.toLowerCase() == 'enterprise';
+  bool get _isEnterprise => widget.tier.toLowerCase() == SignupTiers.enterprise;
 
   bool _isSubmitting = false;
   bool _agreedToTerms = false;
@@ -360,7 +360,7 @@ class _SignupPageState extends State<SignupPage> {
   /// Route to appropriate page based on tier after successful signup.
   void _routeAfterSignup(AuthSuccess result) {
     final tierLower = widget.tier.toLowerCase();
-    if (tierLower == 'growth' || tierLower == 'enterprise') {
+    if (tierLower == SignupTiers.growth || tierLower == SignupTiers.enterprise) {
       context.go(Routes.checkout, extra: CheckoutArgs(email: result.email, tier: widget.tier));
     } else {
       context.go(Routes.provision, extra: result);

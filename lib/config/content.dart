@@ -32,6 +32,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../services/content_loader.dart';
+import 'content/constants.dart';
 import 'content/models.dart';
 import 'content/comparison_content.dart';
 
@@ -232,7 +233,7 @@ abstract final class AppContent {
           );
         }).toList(),
         ctaText: ContentLoader.ctaStartFreeTrial,
-        ctaUrl: '/signup?tier=Team',
+        ctaUrl: Routes.signupGrowth,
       );
 
   /// Current about section content

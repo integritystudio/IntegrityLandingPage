@@ -88,6 +88,34 @@ abstract final class ExternalUrls {
 }
 
 // =============================================================================
+// SIGNUP TIERS
+// =============================================================================
+
+/// Canonical signup tier keys.
+///
+/// These must stay in sync with the `signup.tiers` keys in content.yaml and the
+/// backend `ApiKeyTierSchema` enum in workers/lib/types/schemas.ts. Pricing
+/// tiers are displayed under marketing names (e.g. 'Growth'), so any tier value
+/// arriving from a link or a pricing card must be passed through [normalize]
+/// before it is used for content lookups, routing, or provisioning.
+abstract final class SignupTiers {
+  static const String starter = 'starter';
+  static const String growth = 'growth';
+  static const String enterprise = 'enterprise';
+
+  static const String defaultTier = starter;
+
+  static const List<String> all = [starter, growth, enterprise];
+
+  /// Returns the canonical key for [tier], falling back to [defaultTier] when
+  /// the value is absent or unrecognized.
+  static String normalize(String? tier) {
+    final key = tier?.toLowerCase().trim() ?? '';
+    return all.contains(key) ? key : defaultTier;
+  }
+}
+
+// =============================================================================
 // INTERNAL ROUTES
 // =============================================================================
 
@@ -101,7 +129,7 @@ abstract final class Routes {
   static const String about = '/about';
   static const String contact = '/contact';
   static const String signup = '/signup';
-  static const String signupTeam = '/signup?tier=Team';
+  static const String signupGrowth = '$signup?tier=${SignupTiers.growth}';
   static const String login = '/login';
   static const String provision = '/provision';
   static const String checkout = '/checkout';
