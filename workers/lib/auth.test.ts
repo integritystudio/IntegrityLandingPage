@@ -111,6 +111,31 @@ describe('verifyJwt — exp claim', () => {
 });
 
 // ---------------------------------------------------------------------------
+// verifyJwt — exp missing or non-numeric
+// ---------------------------------------------------------------------------
+
+describe('verifyJwt — missing or non-numeric exp', () => {
+  it('rejects a token with no exp claim', async () => {
+    // Build a token without exp; JwtPayload type has exp: number but JS allows omission.
+    const token = await buildJwt({ sub: 'u1', iat: NOW } as Record<string, unknown>, SECRET);
+    const result = await verifyJwt(token, SECRET);
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a token with a string exp claim', async () => {
+    const token = await buildJwt({ sub: 'u1', exp: 'never', iat: NOW }, SECRET);
+    const result = await verifyJwt(token, SECRET);
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a token with null exp claim', async () => {
+    const token = await buildJwt({ sub: 'u1', exp: null, iat: NOW }, SECRET);
+    const result = await verifyJwt(token, SECRET);
+    expect(result.ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // verifyJwt — iss claim (V-02, already done)
 // ---------------------------------------------------------------------------
 

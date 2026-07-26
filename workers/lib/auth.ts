@@ -83,7 +83,10 @@ export async function verifyJwt(
   }
 
   const now = Math.floor(Date.now() / 1000);
-  if (payload.exp < now) {
+  // Reject tokens with a missing, non-numeric, or already-expired exp claim.
+  // typeof guard is required: undefined < now evaluates to false in JS, so an
+  // absent exp would otherwise be treated as a never-expiring token.
+  if (typeof payload.exp !== 'number' || payload.exp < now) {
     return { ok: false, error: unauthorized('JWT expired') };
   }
 
