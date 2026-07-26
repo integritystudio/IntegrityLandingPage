@@ -196,8 +196,12 @@ class ProvisioningService {
           : const <String, dynamic>{};
 
       if (response.statusCode == 201) {
+        final jwt = data['jwt'] as String?;
+        if (jwt == null || jwt.isEmpty) {
+          return const AuthError(error: 'Signup succeeded but no JWT returned');
+        }
         return AuthSuccess(
-          jwt: data['jwt'] as String? ?? '',
+          jwt: jwt,
           email: data['email'] as String? ?? email,
         );
       }

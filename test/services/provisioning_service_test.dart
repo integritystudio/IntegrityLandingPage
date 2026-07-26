@@ -649,6 +649,23 @@ void main() {
 
       expect(result, isA<AuthError>());
     });
+
+    test('returns AuthError when 201 body is missing jwt (malformed response)', () async {
+      // Server returned 201 but without a jwt field — treat as error, not success.
+      mockDio.mockPostResponse({'email': 'user@example.com'}, statusCode: 201);
+
+      final result = await ProvisioningService.signUp('user@example.com', 'secret123');
+
+      expect(result, isA<AuthError>());
+    });
+
+    test('returns AuthError when 201 body has empty jwt string', () async {
+      mockDio.mockPostResponse({'jwt': '', 'email': 'user@example.com'}, statusCode: 201);
+
+      final result = await ProvisioningService.signUp('user@example.com', 'secret123');
+
+      expect(result, isA<AuthError>());
+    });
   });
 
   group('createCheckoutSession', () {
