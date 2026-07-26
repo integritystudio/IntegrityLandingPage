@@ -196,9 +196,12 @@ class ConsentManager {
       );
     }
 
-    // Initialize analytics ONLY if consent was given
+    // Initialize analytics if consent was given; disable if consent was revoked
+    // (handles the downgrade case where analytics was previously enabled).
     if (prefs.analytics) {
       await _analytics.initialize();
+    } else {
+      _analytics.disable();
     }
 
     if (prefs.marketing) {

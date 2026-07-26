@@ -320,6 +320,22 @@ void main() {
         expect(mockAnalytics.initialized, isFalse);
       });
 
+      test('disables analytics on consent downgrade (analytics was enabled, now revoked)',
+          () async {
+        // Grant analytics consent first.
+        await ConsentManager.saveConsent(
+          ConsentPreferences(analytics: true, marketing: false),
+        );
+        expect(mockAnalytics.initialized, isTrue);
+        expect(mockAnalytics.disabled, isFalse);
+
+        // Revoke analytics consent — saveConsent must call disable().
+        await ConsentManager.saveConsent(
+          ConsentPreferences(analytics: false, marketing: false),
+        );
+        expect(mockAnalytics.disabled, isTrue);
+      });
+
       test('initializes Facebook Pixel when marketing consent given', () async {
         final prefs = ConsentPreferences(analytics: false, marketing: true);
         await ConsentManager.saveConsent(prefs);

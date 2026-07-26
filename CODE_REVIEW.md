@@ -64,7 +64,7 @@ Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (H
 
 ## Low severity
 
-- [ ] `lib/services/consent_manager.dart:200` — consent downgrade never disables already-initialized trackers.
+- [x] `lib/services/consent_manager.dart:200` — consent downgrade never disables already-initialized trackers.
 - [x] `lib/services/provisioning_service.dart:200` — `signUp` returns `AuthSuccess` with an empty JWT when the 201 body lacks `jwt`.
 - [x] `lib/services/content_loader.dart:89` — failed `load()` raises an unhandled async error when there are no concurrent waiters.
 - [x] `lib/pages/request_failure_page.dart:101` — "Go to Sign In" navigates to `/signin`, which does not exist (the router defines `/login`).
