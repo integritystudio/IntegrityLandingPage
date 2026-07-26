@@ -1,5 +1,61 @@
 import { describe, it, expect } from 'vitest';
 import { verifySupabaseJwt, parseJwtHeader } from './auth';
+import worker from './index';
+import type { Env } from './index';
+
+const makeEnv = (overrides: Partial<Env> = {}): Env => ({
+  SUPABASE_URL: 'https://test.supabase.co',
+  SUPABASE_SERVICE_ROLE_KEY: 'key',
+  SUPABASE_JWT_SECRET: 'secret',
+  ...overrides,
+});
+
+describe('bootstrap-worker routing', () => {
+  it('returns 204 with CORS headers for OPTIONS preflight', async () => {
+    const req = new Request('https://bootstrap.test/bootstrap', {
+      method: 'OPTIONS',
+      headers: { Origin: 'https://integritystudio.ai' },
+    });
+    const res = await worker.fetch(req, makeEnv());
+    expect(res.status).toBe(204);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://integritystudio.ai');
+    expect(res.headers.get('Access-Control-Allow-Methods')).toContain('POST');
+  });
+
+  it('returns 404 (not 500) for unknown routes', async () => {
+    const req = new Request('https://bootstrap.test/unknown', { method: 'GET' });
+    const res = await worker.fetch(req, makeEnv());
+    expect(res.status).toBe(404);
+  });
+
+  it('returns CORS header on 404 response', async () => {
+    const req = new Request('https://bootstrap.test/unknown', {
+      method: 'GET',
+      headers: { Origin: 'https://integritystudio.ai' },
+    });
+    const res = await worker.fetch(req, makeEnv());
+    expect(res.status).toBe(404);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBeTruthy();
+  });
+
+  it('returns 200 for /health', async () => {
+    const req = new Request('https://bootstrap.test/health', { method: 'GET' });
+    const res = await worker.fetch(req, makeEnv());
+    expect(res.status).toBe(200);
+  });
+
+  it('honors ALLOWED_ORIGINS_JSON for CORS', async () => {
+    const req = new Request('https://bootstrap.test/bootstrap', {
+      method: 'OPTIONS',
+      headers: { Origin: 'http://localhost:3000' },
+    });
+    const res = await worker.fetch(req, makeEnv({
+      ALLOWED_ORIGINS_JSON: JSON.stringify(['http://localhost:3000', 'https://integritystudio.ai']),
+    }));
+    expect(res.status).toBe(204);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:3000');
+  });
+});
 
 describe('auth', () => {
   describe('parseJwtHeader', () => {

@@ -64,6 +64,36 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
     expect(res.status).toBe(403);
   });
 
+  it('returns 403 when user role is viewer', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'viewer')] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'My Key' }),
+    });
+    const res = await handleCreateApiKey(req, 'org-id-1', makeOpts(mockSb));
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 403 when user role is billing_admin', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'billing_admin')] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'My Key' }),
+    });
+    const res = await handleCreateApiKey(req, 'org-id-1', makeOpts(mockSb));
+    expect(res.status).toBe(403);
+  });
+
   it('creates an API key for an org member and returns the token once', async () => {
     const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
     const insertedKey = {
@@ -163,6 +193,34 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
     const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
     const mockSb = {
       query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleRevokeApiKey(req, 'org-id-1', 'key-id', makeOpts(mockSb));
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 403 when user role is viewer', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'viewer')] }),
+      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
+    };
+    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const res = await handleRevokeApiKey(req, 'org-id-1', 'key-id', makeOpts(mockSb));
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 403 when user role is billing_admin', async () => {
+    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
+    const mockSb = {
+      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'billing_admin')] }),
       insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
     };
     const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', {

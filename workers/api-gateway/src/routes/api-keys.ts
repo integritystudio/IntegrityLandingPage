@@ -1,7 +1,7 @@
 import { ok, created, forbidden, notFound, serverError, badRequest } from '../../../lib/http';
 import { generateApiKey, hashApiKeySecret } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
-import type { OrgMembership, ApiKey } from '../../../lib/types';
+import type { OrgMembership, ApiKey, OrgRole } from '../../../lib/types';
 import { resolveJwt, writeAuditLog } from '../lib/helpers';
 
 interface ApiKeysHandlerOptions {
@@ -12,6 +12,9 @@ interface ApiKeysHandlerOptions {
   jwtIssuerUrl?: string;
   _sbOverride?: SupabaseClient;
 }
+
+/** Roles that may create or revoke org API keys (viewers and billing-only roles excluded). */
+const API_KEY_ROLES: OrgRole[] = ['owner', 'admin', 'member'];
 
 interface CreateApiKeyBody {
   name?: string;
@@ -66,6 +69,10 @@ export async function handleCreateApiKey(
 
   const membershipResult = await assertOrgMembership(auth.sub, orgId, sb);
   if (!membershipResult.ok) return membershipResult.error;
+
+  if (!API_KEY_ROLES.includes(membershipResult.membership.role)) {
+    return forbidden('Insufficient role to manage API keys');
+  }
 
   const user = await lookupUserByAuth0Id(auth.sub, sb);
   if (!user) return notFound('User not found');
@@ -141,6 +148,10 @@ export async function handleRevokeApiKey(
 
   const membershipResult = await assertOrgMembership(auth.sub, orgId, sb);
   if (!membershipResult.ok) return membershipResult.error;
+
+  if (!API_KEY_ROLES.includes(membershipResult.membership.role)) {
+    return forbidden('Insufficient role to manage API keys');
+  }
 
   const keyResult = await sb.query<ApiKey>('api_keys', {
     filters: [

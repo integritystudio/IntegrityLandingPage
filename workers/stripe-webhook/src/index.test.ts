@@ -206,7 +206,7 @@ describe('handleWebhook (fetch handler)', () => {
     expect(mockDb.addDeadLetter).toHaveBeenCalledWith('evt_fail', 'checkout.session.completed', expect.any(Object), 'DB write failed');
   });
 
-  it('addDeadLetter failure → CRITICAL error logged, 200 still returned', async () => {
+  it('addDeadLetter failure → CRITICAL error logged, 500 returned so Stripe retries', async () => {
     const body = JSON.stringify({ id: 'evt_lost', type: 'checkout.session.completed' });
     const request = await makeWebhookRequest(body);
 
@@ -215,7 +215,8 @@ describe('handleWebhook (fetch handler)', () => {
     mockDb.addDeadLetter.mockResolvedValue({ ok: false, error: 'DB unavailable' });
 
     const response = await worker.fetch(request, MOCK_ENV);
-    expect(response.status).toBe(200);
+    // 500 so Stripe retries — handler already failed with no side-effects
+    expect(response.status).toBe(500);
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('CRITICAL'),
       expect.any(String),

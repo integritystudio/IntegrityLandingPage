@@ -13,9 +13,9 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 | Severity | Total | Fixed | Open |
 |---|---|---|---|
 | High | 9 | 9 | 0 |
-| Medium | 16 | 4 | 12 |
+| Medium | 16 | 10 | 6 |
 | Low | 18 | 7 | 11 |
-| **Total** | **43** | **20** | **23** |
+| **Total** | **43** | **26** | **17** |
 
 Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (High), stripe-webhook verify + auth_page + cookie_banner + contact_section (Medium), and request_failure_page + auth.ts exp + stripe-schemas InvoiceSchema + contact-form CSRF/CRLF + signup_page analytics + status_result_page spacing + shared_app_bar URL (Low) were fixed on 2026-07-26 (backlog-implementer pass). Every other item is unverified-since-review and should be re-confirmed against current `main` before work starts.
 
@@ -50,13 +50,13 @@ Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (H
 - [ ] `workers/api-gateway/wrangler.toml:5` — routes exist only under `[env.production]` but deploy scripts never pass `--env`, so production routes are never attached; conversely `--env production` would lose the `QUOTA_DO` binding (not inherited).
 - [ ] `workers/api-gateway/src/durable-objects/quota.ts:229` — quota DO persists at most every 10s and never for sparse traffic; counts are lost on eviction, under-enforcing monthly limits.
 - [ ] `workers/api-gateway/src/lib/quota.ts:126` — plan-key mismatch (`starter` vs `DEFAULT_QUOTAS`' `free`), and a `quota_version` bump resets `monthlyUsed` mid-month.
-- [ ] `workers/api-gateway/src/routes/api-keys.ts:67` — any active org member, including viewers, can create/revoke org API keys (no role check).
+- [x] `workers/api-gateway/src/routes/api-keys.ts:67` — any active org member, including viewers, can create/revoke org API keys (no role check).
 - [ ] `workers/stripe-webhook/src/index.ts:183` — dead-letter retries replay stale events with no ordering guard, able to regress billing state.
 - [x] `workers/stripe-webhook/src/verify.ts:28` — signature parser keeps only the last `v1` value, so webhooks are rejected during Stripe secret rotation.
-- [ ] `workers/stripe-webhook/src/index.ts:116` — returns HTTP 200 even when both the handler and dead-letter insert fail; the event is permanently lost.
-- [ ] `workers/sender-worker/src/index.ts:49` — `ALLOWED_ORIGINS_JSON` shape unvalidated: a JSON string turns the CORS allowlist into a substring match; a JSON object crashes every request.
-- [ ] `workers/sender-worker/src/supabase.ts:29` — `dedupSlug` collides for distinct emails (`a.b@`, `a-b@`, `a+b@` → same slug); the second signup fails permanently (compounds the no-rollback bug in item 4). The `tier` param is unused.
-- [ ] `workers/bootstrap-worker/src/index.ts:59` — no CORS/OPTIONS handling (`ALLOWED_ORIGINS_JSON` is dead config); unknown routes return 500 instead of 404.
+- [x] `workers/stripe-webhook/src/index.ts:116` — returns HTTP 200 even when both the handler and dead-letter insert fail; the event is permanently lost.
+- [x] `workers/sender-worker/src/index.ts:49` — `ALLOWED_ORIGINS_JSON` shape unvalidated: a JSON string turns the CORS allowlist into a substring match; a JSON object crashes every request.
+- [x] `workers/sender-worker/src/supabase.ts:29` — `dedupSlug` collides for distinct emails (`a.b@`, `a-b@`, `a+b@` → same slug); the second signup fails permanently (compounds the no-rollback bug in item 4). The `tier` param is unused.
+- [x] `workers/bootstrap-worker/src/index.ts:59` — no CORS/OPTIONS handling (`ALLOWED_ORIGINS_JSON` is dead config); unknown routes return 500 instead of 404.
 - [x] `lib/pages/auth_page.dart:114` — mode toggle clears password state but not the visible field (`FormTextField` uses `initialValue`, not a controller), desyncing UI from validation.
 - [x] `lib/widgets/consent/cookie_banner.dart:47` — analytics toggle defaults to ON (pre-ticked consent is invalid under GDPR).
 - [x] `lib/widgets/sections/contact_section.dart:494` — form analytics hardcodes `success: true` before the request runs; and `:521` — state cleared on success but fields display stale text.
