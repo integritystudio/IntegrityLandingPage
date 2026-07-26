@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +7,8 @@ import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import 'package:integrity_studio_ai/widgets/common/form_fields.dart';
 import 'package:integrity_studio_ai/widgets/common/gradient_page_shell.dart';
 import '../helpers/test_helpers.dart';
+
+import '../helpers/mock_http_adapter.dart';
 
 void main() {
 
@@ -455,11 +456,11 @@ void main() {
     // -------------------------------------------------------------------------
 
     group('submission — non-enterprise', () {
-      late _MockProvisioningDio mockProvisioningDio;
+      late MockHttpAdapter adapter;
 
       setUp(() {
-        mockProvisioningDio = _MockProvisioningDio();
-        ProvisioningService.setDioForTesting(mockProvisioningDio);
+        adapter = MockHttpAdapter();
+        ProvisioningService.setDioForTesting(dioWithMockAdapter(adapter));
         ProvisioningService.retryDelay = (_) async {};
       });
 
@@ -470,7 +471,7 @@ void main() {
 
       testWidgets('routes to /provision on successful signup', (tester) async {
         setLargeViewport(tester);
-        mockProvisioningDio.mockPostResponse(
+        adapter.stubJson('POST', 
           {'jwt': 'test-jwt-123'},
           statusCode: 201,
         );
@@ -498,7 +499,7 @@ void main() {
 
       testWidgets('routes to /request_failure on failed signup', (tester) async {
         setLargeViewport(tester);
-        mockProvisioningDio.mockPostResponse(
+        adapter.stubJson('POST', 
           {'error': 'Email already in use'},
           statusCode: 409,
         );
@@ -519,6 +520,7 @@ void main() {
         await tester.tap(find.byType(GradientButton));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.text('request_failure_page'), findsOneWidget);
         expect(find.text('provision_page'), findsNothing);
@@ -526,7 +528,7 @@ void main() {
 
       testWidgets('routes to /checkout for growth tier on success', (tester) async {
         setLargeViewport(tester);
-        mockProvisioningDio.mockPostResponse(
+        adapter.stubJson('POST', 
           {'jwt': 'test-jwt-456', 'email': 'user@example.com'},
           statusCode: 201,
         );
@@ -559,11 +561,11 @@ void main() {
     // -------------------------------------------------------------------------
 
     group('submission — enterprise', () {
-      late _MockProvisioningDio mockProvisioningDio;
+      late MockHttpAdapter adapter;
 
       setUp(() {
-        mockProvisioningDio = _MockProvisioningDio();
-        ProvisioningService.setDioForTesting(mockProvisioningDio);
+        adapter = MockHttpAdapter();
+        ProvisioningService.setDioForTesting(dioWithMockAdapter(adapter));
         ProvisioningService.retryDelay = (_) async {};
       });
 
@@ -574,7 +576,7 @@ void main() {
 
       testWidgets('routes to /checkout on successful enterprise signup', (tester) async {
         setLargeViewport(tester);
-        mockProvisioningDio.mockPostResponse(
+        adapter.stubJson('POST', 
           {'jwt': 'test-jwt-789', 'email': 'corp@bigco.com'},
           statusCode: 201,
         );
@@ -605,7 +607,7 @@ void main() {
 
       testWidgets('routes to /request_failure on failed enterprise signup', (tester) async {
         setLargeViewport(tester);
-        mockProvisioningDio.mockPostResponse(
+        adapter.stubJson('POST', 
           {'error': 'Email already in use'},
           statusCode: 409,
         );
@@ -626,6 +628,7 @@ void main() {
 
         await tester.tap(find.byType(GradientButton));
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
         await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.text('request_failure_page'), findsOneWidget);
@@ -684,90 +687,3 @@ GoRouter _makeSignupRouterWithCheckout(String tier) => GoRouter(
         ),
       ],
     );
-
-// -----------------------------------------------------------------------------
-// Mock Dio for ProvisioningService
-// -----------------------------------------------------------------------------
-
-class _MockProvisioningDio implements Dio {
-  Map<String, dynamic> _postData = {};
-  int _postStatusCode = 201;
-
-  void mockPostResponse(Map<String, dynamic> data, {int statusCode = 201}) {
-    _postData = Map.of(data);
-    _postStatusCode = statusCode;
-  }
-
-  @override
-  Future<Response<T>> post<T>(
-    String path, {
-    Object? data,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-    ProgressCallback? onSendProgress,
-    ProgressCallback? onReceiveProgress,
-  }) async =>
-      Response<T>(
-        data: Map<String, dynamic>.from(_postData) as T,
-        statusCode: _postStatusCode,
-        requestOptions: RequestOptions(path: path),
-      );
-
-  @override
-  BaseOptions get options => BaseOptions();
-  @override
-  set options(BaseOptions options) {}
-  @override
-  Interceptors get interceptors => Interceptors();
-  @override
-  HttpClientAdapter get httpClientAdapter => throw UnimplementedError();
-  @override
-  set httpClientAdapter(HttpClientAdapter adapter) {}
-  @override
-  Transformer get transformer => throw UnimplementedError();
-  @override
-  set transformer(Transformer transformer) {}
-  @override
-  void close({bool force = false}) {}
-  @override
-  Dio clone({
-    BaseOptions? options,
-    Interceptors? interceptors,
-    HttpClientAdapter? httpClientAdapter,
-    Transformer? transformer,
-  }) => this;
-  @override
-  Future<Response<T>> get<T>(String path, {Object? data, Map<String, dynamic>? queryParameters, Options? options, CancelToken? cancelToken, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> getUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> postUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> delete<T>(String path, {Object? data, Map<String, dynamic>? queryParameters, Options? options, CancelToken? cancelToken}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> deleteUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken}) => throw UnimplementedError();
-  @override
-  Future<Response> download(String urlPath, dynamic savePath, {ProgressCallback? onReceiveProgress, Map<String, dynamic>? queryParameters, CancelToken? cancelToken, bool deleteOnError = true, String lengthHeader = Headers.contentLengthHeader, Object? data, Options? options, FileAccessMode fileAccessMode = FileAccessMode.write}) => throw UnimplementedError();
-  @override
-  Future<Response> downloadUri(Uri uri, dynamic savePath, {ProgressCallback? onReceiveProgress, CancelToken? cancelToken, bool deleteOnError = true, String lengthHeader = Headers.contentLengthHeader, Object? data, Options? options, FileAccessMode fileAccessMode = FileAccessMode.write}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> fetch<T>(RequestOptions requestOptions) => throw UnimplementedError();
-  @override
-  Future<Response<T>> head<T>(String path, {Object? data, Map<String, dynamic>? queryParameters, Options? options, CancelToken? cancelToken}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> headUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> patch<T>(String path, {Object? data, Map<String, dynamic>? queryParameters, Options? options, CancelToken? cancelToken, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> patchUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> put<T>(String path, {Object? data, Map<String, dynamic>? queryParameters, Options? options, CancelToken? cancelToken, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> putUri<T>(Uri uri, {Object? data, Options? options, CancelToken? cancelToken, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> request<T>(String path, {Object? data, Map<String, dynamic>? queryParameters, CancelToken? cancelToken, Options? options, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-  @override
-  Future<Response<T>> requestUri<T>(Uri uri, {Object? data, CancelToken? cancelToken, Options? options, ProgressCallback? onSendProgress, ProgressCallback? onReceiveProgress}) => throw UnimplementedError();
-}
-

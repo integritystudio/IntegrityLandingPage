@@ -4,19 +4,24 @@ Sync team Person JSON-LD in static HTML from lib/config/content/about_content.da
 
 The Dart `_team` list is the single source of truth for team members. This
 script parses it, resolves `ExternalUrls.founderLinkedIn` from content.yaml,
-rewrites the Person nodes inside the @graph of each target HTML file, and
-regenerates jsonld_combined.json via extract_jsonld.py.
+and rewrites the Person nodes inside the @graph of each target HTML file.
+
+jsonld_combined.json is a separately-enriched artifact (extra entities and
+per-person properties not present in the pages), so it is NOT regenerated;
+instead only the Dart-owned links are synced into its Person nodes: the
+member's LinkedIn/website in sameAs and url, dropping a website (and any
+@id minted from it) that the Dart source no longer declares.
 
 Usage:
-    python scripts/sync_team_jsonld.py            # rewrite HTML + combined JSON
-    python scripts/sync_team_jsonld.py --check    # exit 1 if HTML is out of sync
+    python scripts/sync_team_jsonld.py            # sync HTML + combined JSON
+    python scripts/sync_team_jsonld.py --check    # exit 1 if out of sync
 """
 
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DART_SOURCE = REPO_ROOT / "lib" / "config" / "content" / "about_content.dart"
@@ -135,14 +140,66 @@ def sync_html(html_path: Path, people: list[dict], check: bool) -> bool:
     return changed
 
 
+COMBINED_JSON = REPO_ROOT / "jsonld_combined.json"
+
+
+def sync_combined(members: list[dict], check: bool) -> bool:
+    """Sync Dart-owned links into the enriched combined graph. True if changed."""
+    original = COMBINED_JSON.read_text()
+    data = json.loads(original)
+    by_name = {m["name"]: m for m in members}
+    dead_hosts = set()
+
+    for node in data["@graph"]:
+        if node.get("@type") != "Person" or node.get("name") not in by_name:
+            continue
+        member = by_name[node["name"]]
+        website = member.get("websiteUrl")
+        linkedin = member.get("linkedInUrl")
+
+        same_as = node.get("sameAs", [])
+        if not isinstance(same_as, list):
+            same_as = [same_as]
+        stale_website = node.get("url") if node.get("url") != website else None
+        if stale_website:
+            same_as = [u for u in same_as if u != stale_website]
+            dead_hosts.add(urlparse(stale_website).hostname)
+        for link in (linkedin, website):
+            if link and link not in same_as:
+                same_as.append(link)
+        if same_as:
+            node["sameAs"] = same_as
+        if website:
+            node["url"] = website
+        else:
+            node.pop("url", None)
+
+    updated = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    # Repoint any @id minted from a dropped personal domain at the team page.
+    for host in dead_hosts:
+        pattern = re.compile(rf"https?://{re.escape(host)}/#person\b")
+        for match in set(pattern.findall(updated)):
+            node = next(n for n in data["@graph"] if n.get("@id") == match)
+            slug = re.sub(r"[^a-z0-9]+", "-", node["name"].lower()).strip("-")
+            updated = updated.replace(match, f"{SITE_URL}/team/{slug}#person")
+
+    changed = updated != original
+    if changed and not check:
+        COMBINED_JSON.write_text(updated)
+    return changed
+
+
 def main() -> None:
     check = "--check" in sys.argv[1:]
-    people = [person_node(m) for m in parse_team()]
+    members = parse_team()
+    people = [person_node(m) for m in members]
 
     changed = []
     for html_path in TARGET_HTML:
         if sync_html(html_path, people, check):
             changed.append(html_path.relative_to(REPO_ROOT))
+    if sync_combined(members, check):
+        changed.append(COMBINED_JSON.relative_to(REPO_ROOT))
 
     if check:
         if changed:
@@ -153,14 +210,8 @@ def main() -> None:
 
     for path in changed:
         print(f"updated {path}")
-
-    subprocess.run(
-        [sys.executable, str(REPO_ROOT / "scripts" / "extract_jsonld.py"),
-         "--combined", "--output", "json"],
-        cwd=REPO_ROOT,
-        check=True,
-    )
-    print("regenerated jsonld_combined.json")
+    if not changed:
+        print("already in sync")
 
 
 if __name__ == "__main__":

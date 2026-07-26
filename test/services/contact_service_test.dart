@@ -2,16 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/services/contact_service.dart';
 
+import '../helpers/mock_http_adapter.dart';
+
 /// Unit tests for ContactService.
 ///
 /// Tests validation, form submission, and email routing behavior.
-/// Uses mock Dio to simulate API responses.
+/// Uses a real Dio with a stubbed HttpClientAdapter transport.
 void main() {
-  late _MockDio mockDio;
+  late MockHttpAdapter adapter;
 
   setUp(() {
-    mockDio = _MockDio();
-    ContactService.setDioForTesting(mockDio);
+    adapter = MockHttpAdapter();
+    ContactService.setDioForTesting(dioWithMockAdapter(adapter));
     ContactService.retryDelay = (_) async {};
   });
 
@@ -271,10 +273,10 @@ void main() {
 
     test('submits valid form and returns success', () async {
       // Mock CSRF token response
-      mockDio.mockGetResponse({'csrfToken': 'test_token_123'});
+      adapter.stubJson('GET', {'csrfToken': 'test_token_123'});
 
       // Mock POST response
-      mockDio.mockPostResponse({
+      adapter.stubJson('POST', {
         'success': true,
         'message': "Thank you! We'll respond within 24 hours.",
         'submissionId': 'sub_abc123',
@@ -290,8 +292,8 @@ void main() {
     });
 
     test('handles server error response', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostResponse(
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubJson('POST', 
         {'success': false, 'error': 'Server error occurred'},
         statusCode: 200,
       );
@@ -303,8 +305,8 @@ void main() {
     });
 
     test('handles network timeout', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostError(DioExceptionType.connectionTimeout);
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubError('POST', DioExceptionType.connectionTimeout);
 
       final payload = ContactFormPayload(formData: validData);
       final response = await ContactService.submitForm(payload);
@@ -313,12 +315,12 @@ void main() {
       final error = response as ContactFormError;
       expect(error.error.toLowerCase(), contains('timed out'));
       // 1 initial attempt + 2 retries = 3 total POST calls
-      expect(mockDio.postCallCount, equals(3));
+      expect(adapter.requestCount('POST'), equals(3));
     });
 
     test('handles receive timeout', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostError(DioExceptionType.receiveTimeout);
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubError('POST', DioExceptionType.receiveTimeout);
 
       final payload = ContactFormPayload(formData: validData);
       final response = await ContactService.submitForm(payload);
@@ -327,12 +329,12 @@ void main() {
       final error = response as ContactFormError;
       expect(error.error.toLowerCase(), contains('timed out'));
       // 1 initial attempt + 2 retries = 3 total POST calls
-      expect(mockDio.postCallCount, equals(3));
+      expect(adapter.requestCount('POST'), equals(3));
     });
 
     test('handles 429 with Retry-After header', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostResponse(
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubJson('POST', 
         {'error': 'Too many requests', 'retryAfter': 45},
         statusCode: 429,
         headers: {'retry-after': ['45']},
@@ -348,8 +350,8 @@ void main() {
     });
 
     test('handles 429 without Retry-After header', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostResponse(
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubJson('POST', 
         {'error': 'Too many requests'},
         statusCode: 429,
       );
@@ -364,8 +366,8 @@ void main() {
     });
 
     test('handles 429 with zero Retry-After header', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostResponse(
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubJson('POST', 
         {'error': 'Too many requests'},
         statusCode: 429,
         headers: {'retry-after': ['0']},
@@ -381,8 +383,8 @@ void main() {
     });
 
     test('handles 429 with negative Retry-After header', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostResponse(
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubJson('POST', 
         {'error': 'Too many requests'},
         statusCode: 429,
         headers: {'retry-after': ['-5']},
@@ -398,8 +400,8 @@ void main() {
     });
 
     test('generates local_ prefix for synthetic submissionId', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostResponse({
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubJson('POST', {
         'success': true,
         'message': 'Thank you!',
         // No submissionId in response — triggers fallback
@@ -414,8 +416,8 @@ void main() {
     });
 
     test('handles 504 gateway timeout from worker', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostResponse(
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubJson('POST', 
         {'error': 'Email service timeout. Please try again.'},
         statusCode: 504,
       );
@@ -427,12 +429,12 @@ void main() {
       final error = response as ContactFormError;
       expect(error.error.toLowerCase(), contains('timeout'));
       // 1 initial attempt + 2 retries = 3 total POST calls
-      expect(mockDio.postCallCount, equals(3));
+      expect(adapter.requestCount('POST'), equals(3));
     });
 
     test('handles 500 internal server error with retries', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostResponse(
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubJson('POST', 
         {'error': 'Internal server error'},
         statusCode: 500,
       );
@@ -444,12 +446,12 @@ void main() {
       final error = response as ContactFormError;
       expect(error.error, 'Internal server error');
       // 1 initial attempt + 2 retries = 3 total POST calls
-      expect(mockDio.postCallCount, equals(3));
+      expect(adapter.requestCount('POST'), equals(3));
     });
 
     test('handles unexpected status codes gracefully', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostResponse(
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubJson('POST', 
         {'error': 'Validation failed'},
         statusCode: 422,
       );
@@ -463,8 +465,8 @@ void main() {
     });
 
     test('handles generic network error', () async {
-      mockDio.mockGetResponse({'csrfToken': 'test_token'});
-      mockDio.mockPostError(DioExceptionType.unknown);
+      adapter.stubJson('GET', {'csrfToken': 'test_token'});
+      adapter.stubError('POST', DioExceptionType.unknown);
 
       final payload = ContactFormPayload(formData: validData);
       final response = await ContactService.submitForm(payload);
@@ -475,8 +477,8 @@ void main() {
     });
 
     test('fetches fresh CSRF token per submission', () async {
-      mockDio.mockGetResponse({'csrfToken': 'original_token'});
-      mockDio.mockPostResponse({
+      adapter.stubJson('GET', {'csrfToken': 'original_token'});
+      adapter.stubJson('POST', {
         'success': true,
         'message': 'Success',
         'submissionId': 'sub_123',
@@ -487,8 +489,8 @@ void main() {
       await ContactService.submitForm(payload1);
 
       // Reset mock to return a new token
-      mockDio.mockGetResponse({'csrfToken': 'new_token'});
-      mockDio.mockPostResponse({
+      adapter.stubJson('GET', {'csrfToken': 'new_token'});
+      adapter.stubJson('POST', {
         'success': true,
         'message': 'Success',
         'submissionId': 'sub_456',
@@ -499,7 +501,7 @@ void main() {
       await ContactService.submitForm(payload2);
 
       // Verify GET was called twice (once for each submission)
-      expect(mockDio.getCallCount, 2);
+      expect(adapter.requestCount('GET'), 2);
     });
   });
 
@@ -569,242 +571,4 @@ void main() {
       expect(payload.timestamp, lessThanOrEqualTo(after));
     });
   });
-}
-
-/// Mock Dio for testing ContactService.
-class _MockDio implements Dio {
-  Map<String, dynamic>? _mockGetResponseData;
-  Map<String, dynamic>? _mockPostResponseData;
-  int _mockPostStatusCode = 200;
-  Map<String, List<String>> _mockPostHeaders = {};
-  DioExceptionType? _mockPostError;
-  int getCallCount = 0;
-  int postCallCount = 0;
-
-  void mockGetResponse(Map<String, dynamic> data) {
-    _mockGetResponseData = data;
-  }
-
-  void mockPostResponse(
-    Map<String, dynamic> data, {
-    int statusCode = 200,
-    Map<String, List<String>>? headers,
-  }) {
-    _mockPostResponseData = data;
-    _mockPostStatusCode = statusCode;
-    _mockPostHeaders = headers ?? {};
-    _mockPostError = null;
-  }
-
-  void mockPostError(DioExceptionType type) {
-    _mockPostError = type;
-  }
-
-  @override
-  Future<Response<T>> get<T>(
-    String path, {
-    Object? data,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-    ProgressCallback? onReceiveProgress,
-  }) async {
-    getCallCount++;
-    return Response<T>(
-      data: _mockGetResponseData as T,
-      statusCode: 200,
-      requestOptions: RequestOptions(path: path),
-    );
-  }
-
-  @override
-  Future<Response<T>> post<T>(
-    String path, {
-    Object? data,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-    ProgressCallback? onSendProgress,
-    ProgressCallback? onReceiveProgress,
-  }) async {
-    postCallCount++;
-    if (_mockPostError != null) {
-      throw DioException(
-        type: _mockPostError!,
-        requestOptions: RequestOptions(path: path),
-      );
-    }
-
-    return Response<T>(
-      data: _mockPostResponseData as T,
-      statusCode: _mockPostStatusCode,
-      headers: Headers.fromMap(_mockPostHeaders),
-      requestOptions: RequestOptions(path: path),
-    );
-  }
-
-  // Required interface implementations (not used in tests)
-  @override
-  BaseOptions get options => BaseOptions();
-
-  @override
-  set options(BaseOptions options) {}
-
-  @override
-  Interceptors get interceptors => Interceptors();
-
-  @override
-  HttpClientAdapter get httpClientAdapter => throw UnimplementedError();
-
-  @override
-  set httpClientAdapter(HttpClientAdapter adapter) {}
-
-  @override
-  Transformer get transformer => throw UnimplementedError();
-
-  @override
-  set transformer(Transformer transformer) {}
-
-  @override
-  void close({bool force = false}) {}
-
-  @override
-  Future<Response<T>> delete<T>(String path,
-          {Object? data,
-          Map<String, dynamic>? queryParameters,
-          Options? options,
-          CancelToken? cancelToken}) =>
-      throw UnimplementedError();
-
-  @override
-  Dio clone({
-    BaseOptions? options,
-    Interceptors? interceptors,
-    HttpClientAdapter? httpClientAdapter,
-    Transformer? transformer,
-  }) =>
-      this;
-
-  @override
-  Future<Response> download(String urlPath, dynamic savePath,
-          {ProgressCallback? onReceiveProgress,
-          Map<String, dynamic>? queryParameters,
-          CancelToken? cancelToken,
-          bool deleteOnError = true,
-          String lengthHeader = Headers.contentLengthHeader,
-          Object? data,
-          Options? options,
-          FileAccessMode fileAccessMode = FileAccessMode.write}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> fetch<T>(RequestOptions requestOptions) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> getUri<T>(Uri uri,
-          {Object? data,
-          Options? options,
-          CancelToken? cancelToken,
-          ProgressCallback? onReceiveProgress}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> head<T>(String path,
-          {Object? data,
-          Map<String, dynamic>? queryParameters,
-          Options? options,
-          CancelToken? cancelToken}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> headUri<T>(Uri uri,
-          {Object? data,
-          Options? options,
-          CancelToken? cancelToken}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> patch<T>(String path,
-          {Object? data,
-          Map<String, dynamic>? queryParameters,
-          Options? options,
-          CancelToken? cancelToken,
-          ProgressCallback? onSendProgress,
-          ProgressCallback? onReceiveProgress}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> patchUri<T>(Uri uri,
-          {Object? data,
-          Options? options,
-          CancelToken? cancelToken,
-          ProgressCallback? onSendProgress,
-          ProgressCallback? onReceiveProgress}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> postUri<T>(Uri uri,
-          {Object? data,
-          Options? options,
-          CancelToken? cancelToken,
-          ProgressCallback? onSendProgress,
-          ProgressCallback? onReceiveProgress}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> put<T>(String path,
-          {Object? data,
-          Map<String, dynamic>? queryParameters,
-          Options? options,
-          CancelToken? cancelToken,
-          ProgressCallback? onSendProgress,
-          ProgressCallback? onReceiveProgress}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> putUri<T>(Uri uri,
-          {Object? data,
-          Options? options,
-          CancelToken? cancelToken,
-          ProgressCallback? onSendProgress,
-          ProgressCallback? onReceiveProgress}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> request<T>(String path,
-          {Object? data,
-          Map<String, dynamic>? queryParameters,
-          CancelToken? cancelToken,
-          Options? options,
-          ProgressCallback? onSendProgress,
-          ProgressCallback? onReceiveProgress}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> requestUri<T>(Uri uri,
-          {Object? data,
-          CancelToken? cancelToken,
-          Options? options,
-          ProgressCallback? onSendProgress,
-          ProgressCallback? onReceiveProgress}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response<T>> deleteUri<T>(Uri uri,
-          {Object? data,
-          Options? options,
-          CancelToken? cancelToken}) =>
-      throw UnimplementedError();
-
-  @override
-  Future<Response> downloadUri(Uri uri, dynamic savePath,
-          {ProgressCallback? onReceiveProgress,
-          CancelToken? cancelToken,
-          bool deleteOnError = true,
-          String lengthHeader = Headers.contentLengthHeader,
-          Object? data,
-          Options? options,
-          FileAccessMode fileAccessMode = FileAccessMode.write}) =>
-      throw UnimplementedError();
 }
