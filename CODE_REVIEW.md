@@ -14,8 +14,8 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 |---|---|---|---|
 | High | 9 | 9 | 0 |
 | Medium | 16 | 15 | 1 |
-| Low | 18 | 9 | 9 |
-| **Total** | **43** | **33** | **10** |
+| Low | 18 | 11 | 7 |
+| **Total** | **43** | **35** | **8** |
 
 Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (High), stripe-webhook verify + auth_page + cookie_banner + contact_section (Medium), and request_failure_page + auth.ts exp + stripe-schemas InvoiceSchema + contact-form CSRF/CRLF + signup_page analytics + status_result_page spacing + shared_app_bar URL (Low) were fixed on 2026-07-26 (backlog-implementer pass). Every other item is unverified-since-review and should be re-confirmed against current `main` before work starts.
 
@@ -78,8 +78,8 @@ Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (H
 - [ ] `workers/stripe-webhook/src/index.ts:67` — idempotency guard is check-then-act; concurrent deliveries process an event twice.
 - [x] `workers/stripe-webhook/src/stripe-schemas.ts:23` — `InvoiceSchema` rejects `subscription: null`, dead-lettering every non-subscription invoice event.
 - [x] `workers/contact-form/src/index.ts:414` — CSRF validation fails open when `CSRF_SECRET` is unset; and `:491` — CRLF from name/organization flows unsanitized into the email Subject header.
-- [ ] `workers/bootstrap-worker/src/bootstrap.ts:83` — crashes on `orgs[0].id` when memberships exist but no org row matches; the organizations table is fetched unfiltered.
-- [ ] `workers/cors-utils.ts:20` — reflects the caller's origin into `Access-Control-Allow-Origin` unconditionally; the allowlist only gates the credentials flag.
+- [x] `workers/bootstrap-worker/src/bootstrap.ts:83` — crashes on `orgs[0].id` when memberships exist but no org row matches; the organizations table is fetched unfiltered.
+- [x] `workers/cors-utils.ts:20` — reflects the caller's origin into `Access-Control-Allow-Origin` unconditionally; the allowlist only gates the credentials flag.
 - [ ] `workers/receiver-worker/src/index.ts:72` — the stub's replay protection is a 5-minute timestamp window with no nonce cache (local test double only).
 - [ ] `test/unit/csp_config_test.dart:163` — the frame-ancestors clickjacking test passes by matching an HTML comment in `index.html`; the real policy lives in `web/_headers`, which the test never inspects, so it stays green if that protection is deleted. *(newly verified 2026-07-26)*
 

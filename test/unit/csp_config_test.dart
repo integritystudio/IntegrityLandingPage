@@ -160,11 +160,16 @@ void main() {
       );
     });
 
-    test('frame-ancestors prevents clickjacking', () {
+    test('frame-ancestors prevents clickjacking (enforced via _headers, not meta tag)', () {
+      // frame-ancestors only works in HTTP response headers, not in CSP meta tags.
+      // It must be in web/_headers so Cloudflare Pages injects it as a header.
+      // Checking index.html here would pass even if the protection were deleted,
+      // because the comment on line 23 of index.html also contains the string.
       expect(
-        indexHtml.contains("frame-ancestors 'self'"),
+        headersFile.contains("frame-ancestors 'self'"),
         isTrue,
-        reason: 'frame-ancestors should be self to prevent clickjacking attacks',
+        reason:
+            'frame-ancestors must be in web/_headers (HTTP header), not just in a comment in index.html',
       );
     });
 
