@@ -531,5 +531,18 @@ describe('QuotaDurableObject', () => {
       // Storage should remain empty (nothing to flush).
       expect(await storage.get('quota')).toBeUndefined();
     });
+
+    it('multiple requests within 10 s window do not reschedule the alarm', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { monthlyUsed: 0 });
+
+      await do_.fetch(checkReq());
+      const firstAlarm = storage.scheduledAlarmAt;
+      expect(firstAlarm).not.toBeNull();
+
+      // Second request — alarmArmed is still true, so scheduledAlarmAt must not change.
+      await do_.fetch(checkReq({ requestId: 'req-2' }));
+      expect(storage.scheduledAlarmAt).toBe(firstAlarm);
+    });
   });
 });
