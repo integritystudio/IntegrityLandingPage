@@ -571,7 +571,7 @@ class _DocsContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const DocBulletList(bulletColor: AppColors.warning, items: [
-                'Alerts API Reference \u2014 /docs/api#alerts',
+                'Alerts API Reference \u2014 /api#alerts',
                 'Slack Integration \u2014 /docs/integrations',
                 'Cost Tracking \u2014 /docs/observability',
                 'Dashboard Overview \u2014 /docs/quickstart',

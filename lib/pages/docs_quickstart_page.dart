@@ -654,7 +654,7 @@ curl https://api.integritystudio.ai/v1/health \\
               const DocBulletList(bulletColor: AppColors.success, items: [
                 'Set up alerts \u2014 /docs/alerts',
                 'Configure integrations \u2014 /docs/integrations',
-                'Explore the API \u2014 /docs/api',
+                'Explore the API \u2014 /api',
                 'Learn about compliance \u2014 /docs/tracing',
               ]),
             ],
