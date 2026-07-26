@@ -110,14 +110,13 @@ export function createSupabaseClient(
   ): Promise<OkResult<T[] | null> | ErrResult> {
     try {
       const url = new URL(`${supabaseUrl}/rest/v1/${table}`);
-
-      if (options?.returning !== false) {
-        url.searchParams.set('returning', 'representation');
-      }
+      const returning = options?.returning !== false;
 
       const response = await fetch(url, {
         method: 'POST',
-        headers,
+        headers: returning
+          ? { ...headers, 'prefer': 'return=representation' }
+          : headers,
         body: JSON.stringify(Array.isArray(records) ? records : [records]),
       });
 
@@ -125,7 +124,7 @@ export function createSupabaseClient(
         return extractHttpError(response);
       }
 
-      if (response.status === 201) {
+      if (returning && response.status === 201) {
         const data = await response.json();
         return { ok: true, data: Array.isArray(data) ? data : [data] };
       }
@@ -144,16 +143,15 @@ export function createSupabaseClient(
   ): Promise<OkResult<T[] | null> | ErrResult> {
     try {
       const url = new URL(`${supabaseUrl}/rest/v1/${table}`);
-
-      if (options?.returning !== false) {
-        url.searchParams.set('returning', 'representation');
-      }
+      const returning = options?.returning !== false;
 
       serializeFilters(url, filters);
 
       const response = await fetch(url, {
         method: 'PATCH',
-        headers,
+        headers: returning
+          ? { ...headers, 'prefer': 'return=representation' }
+          : headers,
         body: JSON.stringify(updates),
       });
 
@@ -161,7 +159,7 @@ export function createSupabaseClient(
         return extractHttpError(response);
       }
 
-      if (response.status === 200) {
+      if (returning && response.status === 200) {
         const data = await response.json();
         return { ok: true, data: Array.isArray(data) ? data : [data] };
       }
