@@ -256,16 +256,16 @@ async function handleSignIn(env: Env, req: Record<string, unknown>): Promise<Res
   if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID || !env.AUTH0_CLIENT_SECRET || !env.AUTH0_AUDIENCE) {
     return errorResponse("Auth0 not configured", ERROR_CODE.AUTH0_UNCONFIGURED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
-  if (!req.email || !req.password) {
+  if (typeof req.email !== 'string' || typeof req.password !== 'string') {
     return errorResponse("missing email or password", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
   }
-  if (!EMAIL_REGEX.test(req.email as string)) {
+  if (!EMAIL_REGEX.test(req.email)) {
     return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
   }
   try {
     const jwt = await auth0UserSignIn(
       env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
-      env.AUTH0_AUDIENCE, req.email as string, req.password as string,
+      env.AUTH0_AUDIENCE, req.email, req.password,
     );
     return json({ jwt, email: req.email });
   } catch (err) {

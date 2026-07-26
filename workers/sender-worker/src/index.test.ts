@@ -1173,6 +1173,20 @@ describe('Sender Worker', () => {
       expect(data.code).toBe('INVALID_EMAIL');
     });
 
+    it('returns 400 when email is a non-string (e.g. a number)', async () => {
+      const request = new Request('https://worker.test/signin', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 42, password: 'SecurePass123!' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as { error: string };
+      expect(data.error).toContain('email');
+    });
+
     it('returns 500 when Auth0 ROPC fails', async () => {
       const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
         new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 403 }),
