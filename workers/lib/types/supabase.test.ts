@@ -163,7 +163,7 @@ describe('InsertOptionsSchema', () => {
   });
 
   it('accepts representation returning', () => {
-    expect(InsertOptionsSchema.safeParse({ returning: 'representation', select: 'id' }).success).toBe(true);
+    expect(InsertOptionsSchema.safeParse({ returning: 'representation' }).success).toBe(true);
   });
 
   it('accepts minimal returning', () => {
@@ -180,8 +180,8 @@ describe('UpdateOptionsSchema', () => {
     expect(UpdateOptionsSchema.safeParse({}).success).toBe(true);
   });
 
-  it('accepts returning and select', () => {
-    expect(UpdateOptionsSchema.safeParse({ returning: 'representation', select: 'id,name' }).success).toBe(true);
+  it('accepts representation returning', () => {
+    expect(UpdateOptionsSchema.safeParse({ returning: 'representation' }).success).toBe(true);
   });
 
   it('rejects invalid returning', () => {

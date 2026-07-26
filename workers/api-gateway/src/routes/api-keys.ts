@@ -96,7 +96,7 @@ export async function handleCreateApiKey(
       status: 'active',
       expires_at: body.expires_at ?? null,
     },
-    { returning: true },
+    { returning: 'representation' },
   );
 
   if (!insertResult.ok || !Array.isArray(insertResult.data) || insertResult.data.length === 0) {
@@ -160,7 +160,7 @@ export async function handleRevokeApiKey(
     'api_keys',
     { status: 'revoked', revoked_at: revokedAt },
     [{ column: 'id', operator: 'eq', value: keyId }],
-    { returning: true },
+    { returning: 'representation' },
   );
 
   if (!updateResult.ok) {

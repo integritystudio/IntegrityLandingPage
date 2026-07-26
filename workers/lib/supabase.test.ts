@@ -5,6 +5,7 @@ const SUPABASE_URL = 'https://project.supabase.co';
 const SERVICE_ROLE_KEY = 'test-service-role-key';
 const PREFER_HEADER = 'prefer';
 const RETURN_REPRESENTATION = 'return=representation';
+const RETURN_MINIMAL = 'return=minimal';
 
 function lastRequest(fetchMock: ReturnType<typeof vi.fn>) {
   const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
@@ -38,13 +39,13 @@ describe('supabase client write paths', () => {
       expect(result).toEqual({ ok: true, data: [{ id: 'row-1' }] });
     });
 
-    it('omits the Prefer header and does not parse the empty body when returning is false', async () => {
+    it('asks for a minimal return and does not parse the empty body', async () => {
       fetchMock.mockResolvedValue(new Response(null, { status: 201 }));
       const sb = createSupabaseClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-      const result = await sb.insert('audit_log', { action: 'test' }, { returning: false });
+      const result = await sb.insert('audit_log', { action: 'test' }, { returning: 'minimal' });
 
-      expect(lastRequest(fetchMock).headers[PREFER_HEADER]).toBeUndefined();
+      expect(lastRequest(fetchMock).headers[PREFER_HEADER]).toBe(RETURN_MINIMAL);
       expect(result).toEqual({ ok: true, data: null });
     });
 
@@ -78,7 +79,7 @@ describe('supabase client write paths', () => {
       expect(result).toEqual({ ok: true, data: [{ id: 'row-1', status: 'revoked' }] });
     });
 
-    it('handles the 204 response when returning is false', async () => {
+    it('asks for a minimal return and handles the 204 response', async () => {
       fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
       const sb = createSupabaseClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -86,10 +87,10 @@ describe('supabase client write paths', () => {
         'api_keys',
         { status: 'revoked' },
         [{ column: 'id', operator: 'eq', value: 'row-1' }],
-        { returning: false },
+        { returning: 'minimal' },
       );
 
-      expect(lastRequest(fetchMock).headers[PREFER_HEADER]).toBeUndefined();
+      expect(lastRequest(fetchMock).headers[PREFER_HEADER]).toBe(RETURN_MINIMAL);
       expect(result).toEqual({ ok: true, data: null });
     });
   });

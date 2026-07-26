@@ -94,11 +94,22 @@ export const QueryOptionsSchema = z.object({
 export type QueryOptions = z.infer<typeof QueryOptionsSchema>;
 
 /**
+ * PostgREST `Prefer: return=...` values.
+ *
+ * 'representation' returns the affected rows; 'minimal' returns an empty body
+ * (201 for POST, 204 for PATCH).
+ */
+export const SupabaseReturningSchema = z.enum(['minimal', 'representation']);
+
+export type SupabaseReturning = z.infer<typeof SupabaseReturningSchema>;
+
+export const DEFAULT_RETURNING: SupabaseReturning = 'representation';
+
+/**
  * Insert options for Supabase REST
  */
 export const InsertOptionsSchema = z.object({
-  select: z.string().optional(),
-  returning: z.enum(['minimal', 'representation']).optional(),
+  returning: SupabaseReturningSchema.optional(),
 });
 
 export type InsertOptions = z.infer<typeof InsertOptionsSchema>;
@@ -107,8 +118,7 @@ export type InsertOptions = z.infer<typeof InsertOptionsSchema>;
  * Update options for Supabase REST
  */
 export const UpdateOptionsSchema = z.object({
-  select: z.string().optional(),
-  returning: z.enum(['minimal', 'representation']).optional(),
+  returning: SupabaseReturningSchema.optional(),
 });
 
 export type UpdateOptions = z.infer<typeof UpdateOptionsSchema>;

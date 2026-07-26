@@ -3,27 +3,32 @@
  * Uses native fetch API - no npm dependencies.
  */
 
-export interface SupabaseRow {
-  [key: string]: unknown;
-}
+import type {
+  InsertOptions,
+  QueryFilter,
+  QueryOptions,
+  SupabaseReturning,
+  SupabaseRow,
+  UpdateOptions,
+} from './types/supabase';
 
-export interface SupabaseQueryResult {
-  data: SupabaseRow[] | SupabaseRow | null;
-  error?: { message: string };
-}
+export type {
+  SupabaseQueryResult,
+  SupabaseRow,
+  SupabaseRpcResult,
+} from './types/supabase';
 
-export interface SupabaseRpcResult {
-  data: unknown;
-  error?: { message: string };
-}
+/** Mirrors DEFAULT_RETURNING in ./types/supabase, declared as a local literal so
+ * this module stays type-only against the schemas and does not pull Zod into
+ * workers that need nothing but REST calls. */
+const REPRESENTATION: SupabaseReturning = 'representation';
 
-type Filter = { column: string; operator: string; value: unknown };
 type OkResult<T> = { ok: true; data: T };
 type ErrResult = { ok: false; error: string };
 
 function serializeFilters(
   url: URL,
-  filters: Filter[],
+  filters: QueryFilter[],
 ): void {
   for (const { column, operator, value } of filters) {
     let serialized: string;
@@ -55,13 +60,7 @@ export function createSupabaseClient(
 
   async function query<T extends SupabaseRow = SupabaseRow>(
     table: string,
-    options?: {
-      select?: string;
-      filters?: Filter[];
-      order?: { column: string; ascending?: boolean };
-      limit?: number;
-      single?: boolean;
-    },
+    options?: QueryOptions,
   ): Promise<OkResult<T[] | T | null> | ErrResult> {
     try {
       const url = new URL(`${supabaseUrl}/rest/v1/${table}`);
@@ -106,17 +105,15 @@ export function createSupabaseClient(
   async function insert<T extends SupabaseRow = SupabaseRow>(
     table: string,
     records: T | T[],
-    options?: { returning?: boolean },
+    options?: InsertOptions,
   ): Promise<OkResult<T[] | null> | ErrResult> {
     try {
       const url = new URL(`${supabaseUrl}/rest/v1/${table}`);
-      const returning = options?.returning !== false;
+      const returning = options?.returning ?? REPRESENTATION;
 
       const response = await fetch(url, {
         method: 'POST',
-        headers: returning
-          ? { ...headers, 'prefer': 'return=representation' }
-          : headers,
+        headers: { ...headers, 'prefer': `return=${returning}` },
         body: JSON.stringify(Array.isArray(records) ? records : [records]),
       });
 
@@ -124,7 +121,7 @@ export function createSupabaseClient(
         return extractHttpError(response);
       }
 
-      if (returning && response.status === 201) {
+      if (returning === REPRESENTATION && response.status === 201) {
         const data = await response.json();
         return { ok: true, data: Array.isArray(data) ? data : [data] };
       }
@@ -138,20 +135,18 @@ export function createSupabaseClient(
   async function update<T extends SupabaseRow = SupabaseRow>(
     table: string,
     updates: Partial<T>,
-    filters: Filter[],
-    options?: { returning?: boolean },
+    filters: QueryFilter[],
+    options?: UpdateOptions,
   ): Promise<OkResult<T[] | null> | ErrResult> {
     try {
       const url = new URL(`${supabaseUrl}/rest/v1/${table}`);
-      const returning = options?.returning !== false;
+      const returning = options?.returning ?? REPRESENTATION;
 
       serializeFilters(url, filters);
 
       const response = await fetch(url, {
         method: 'PATCH',
-        headers: returning
-          ? { ...headers, 'prefer': 'return=representation' }
-          : headers,
+        headers: { ...headers, 'prefer': `return=${returning}` },
         body: JSON.stringify(updates),
       });
 
@@ -159,7 +154,7 @@ export function createSupabaseClient(
         return extractHttpError(response);
       }
 
-      if (returning && response.status === 200) {
+      if (returning === REPRESENTATION && response.status === 200) {
         const data = await response.json();
         return { ok: true, data: Array.isArray(data) ? data : [data] };
       }
