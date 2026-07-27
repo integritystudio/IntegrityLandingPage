@@ -17,7 +17,9 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 | Still open | 4 | [`docs/BACKLOG.md`](docs/BACKLOG.md) → CR01–CR04 |
 | Refuted | 3 | below |
 
-The 10 items that outlived the remediation pass became CR01–CR10: the 5 never fixed, 2 marked fixed but **not actually closed** — the auth rate limiter was inert because its KV namespace was never created (CR03), and the dashboard JWT moved to a URL fragment rather than out of the URL (CR04) — and 3 found while remediating. A follow-up pass closed CR05–CR10 and took a first step on CR01 and CR04.
+The 10 items that outlived the remediation pass became CR01–CR10: the 5 never fixed, 2 marked fixed but **not fully closed** — the auth rate limiter counts per isolate because its KV namespace was never created (CR03), and the dashboard JWT moved to a URL fragment rather than out of the URL (CR04) — and 3 found while remediating. A follow-up pass closed CR05–CR10 and took a first step on CR01 and CR04.
+
+One correction worth recording alongside the refuted claims below: CR03 was written up as "the limiter is inert / fails open", which was a misreading of an early return that skips only the KV tier. The in-memory tier above it already enforces the limit, and tests had proved that since the limiter landed. The item survives at lower severity. The lesson is the same one the refuted claims teach — quoting a line without tracing what runs before it produces a confident, wrong finding.
 
 **CR01–CR04 remain the worklist**, and the two partial ones are the ones to watch: `doppler.json` is untracked but still in git history with none of its secrets rotated, and the JWT still travels in a URL. Both had a step land that improves the record without reducing the exposure.
 

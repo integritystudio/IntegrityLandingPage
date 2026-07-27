@@ -122,6 +122,46 @@ describe('checkAuthRateLimit()', () => {
     expect(result.allowed).toBe(true);
   });
 
+  it('enforces the limit with no KV binding — an unbound namespace degrades accuracy, it does not disable limiting', async () => {
+    // Pins the semantics of the `if (!env.RATE_LIMIT_KV) return { allowed: true }`
+    // early return, which reads like a fail-open but is not one: the in-memory
+    // tier has already counted the request by that point. Guards against the
+    // check being "simplified" into an actual fail-open.
+    for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
+      expect((await checkAuthRateLimit('198.51.100.1', noKvEnv)).allowed).toBe(true);
+    }
+    expect((await checkAuthRateLimit('198.51.100.1', noKvEnv)).allowed).toBe(false);
+  });
+
+  it('warns once per isolate when RATE_LIMIT_KV is unbound, so a misconfigured deploy is visible', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await checkAuthRateLimit('198.51.100.2', noKvEnv);
+      await checkAuthRateLimit('198.51.100.3', noKvEnv);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain('RATE_LIMIT_KV is not bound');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('KV read failure degrades to the in-memory count rather than failing open', async () => {
+    const failingKv = {
+      get: vi.fn().mockRejectedValue(new Error('KV unavailable')),
+      put: vi.fn().mockRejectedValue(new Error('KV unavailable')),
+    } as unknown as KVNamespace;
+    const env = { RATE_LIMIT_KV: failingKv } as Pick<import('./types').Env, 'RATE_LIMIT_KV'>;
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
+        await checkAuthRateLimit('198.51.100.4', env);
+      }
+      expect((await checkAuthRateLimit('198.51.100.4', env)).allowed).toBe(false);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   it('returns 429 and Retry-After header for rate-limited signup requests', async () => {
     const env: Record<string, unknown> = {
       SHARED_SECRET: 'test-shared-secret-key',

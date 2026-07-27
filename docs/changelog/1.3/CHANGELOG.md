@@ -345,7 +345,7 @@ Remediation of the 8-area codebase review of the Flutter app and all Cloudflare 
 
 **Per-IP rate limiting on `/signup` and `/signin` (High)**
 - Added a KV-backed per-IP limiter for the credential endpoints, which previously forwarded arbitrary credentials to Auth0 ROPC with no throttle, CAPTCHA, or `auth0-forwarded-for` header.
-- **Not yet active:** the limiter fails open when `RATE_LIMIT_KV` is unbound, and the namespace has not been created, so the endpoints are still unprotected in every environment. Tracked as CR03.
+- **Degraded, not inactive:** `RATE_LIMIT_KV` has not been created, so counting is per isolate rather than shared across colos and distributed attempts are undercounted. The limit is still enforced. Tracked as CR03. (An earlier revision of this line said the limiter "fails open" and the endpoints were "unprotected" — that was a misreading of the early return at `utils.ts:86`, corrected 2026-07-27.)
 - Commits: `38b2878`, `a392cd6`
 
 **Quota enforced only after authentication (High)**

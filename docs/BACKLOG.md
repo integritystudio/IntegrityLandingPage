@@ -386,20 +386,24 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 
 ---
 
-### CR03: Auth rate limiter is inert — `RATE_LIMIT_KV` namespace was never created
+### CR03: Auth rate limiting is per-isolate only — `RATE_LIMIT_KV` namespace was never created
 
-**Priority:** P1 | **Source:** session 2026-07-26, verifying the review's remediation pass
-**Estimated:** 30 minutes
+**Priority:** P2 | **Source:** session 2026-07-26, verifying the review's remediation pass
+**Estimated:** 15 minutes (one `wrangler` command + two IDs)
 
-**Context:** The review's "no rate limiting on `/signin` and `/signup`" finding was marked fixed, and the limiter exists in `workers/sender-worker/src/utils.ts` — but it is keyed on an optional binding and `utils.ts:86` reads `if (!env.RATE_LIMIT_KV) return { allowed: true }`, so it **fails open**. The `[[kv_namespaces]]` block in `workers/sender-worker/wrangler.toml` is commented out, left as setup instructions. Until the namespace exists, the endpoints have exactly the brute-force exposure the finding described. This is the highest-value item here per minute spent: the code is written and only the binding is missing.
+> **Correction (2026-07-27).** This entry previously read "the limiter is inert" and "**fails open**", citing `utils.ts:86` (`if (!env.RATE_LIMIT_KV) return { allowed: true }`). That was a misreading of the early return, and it was wrong: the in-memory tier above line 86 has already counted the request and denies at the limit, so that line skips only the KV tier. Tests at `utils.test.ts` have proved 429-without-KV since `38b2878`. The item is real but much smaller than described, and has been repriced P1 → P2.
+
+**Context:** `checkAuthRateLimit()` in `workers/sender-worker/src/utils.ts` enforces `AUTH_RATE_LIMIT_MAX` (10 per 600s) per IP on `/signup` and `/signin`, returning 429 with `Retry-After`. It counts in memory first and always enforces on that count; `RATE_LIMIT_KV` adds an authoritative count shared across isolates and colos.
+
+The remaining gap is **accuracy, not absence**. In-memory state is per isolate, so an attacker who spreads attempts across colos, or who waits out isolate recycling, gets more than 10 attempts per window in aggregate. A single-connection brute force is still stopped. The `[[kv_namespaces]]` block in `wrangler.toml` is commented out because placeholder IDs break the deploy (`a392cd6`).
 
 **Scope:**
-1. `wrangler kv namespace create RATE_LIMIT_KV` (and `--preview`) for dev and prd.
-2. Uncomment the `[[kv_namespaces]]` block and fill in both IDs.
-3. Deploy and confirm a burst of requests returns 429.
-4. Decide whether failing open remains acceptable once the binding exists, or whether a missing binding should fail closed / alarm.
+1. ~~Make the degraded mode observable~~ — done 2026-07-27: warns once per isolate when the binding is absent, and the misleading "fail-open-looking" early return is documented and pinned by tests.
+2. `wrangler kv namespace create RATE_LIMIT_KV` and `wrangler kv namespace create RATE_LIMIT_KV --preview`.
+3. Uncomment the `[[kv_namespaces]]` block in `workers/sender-worker/wrangler.toml` and fill in both IDs.
+4. Deploy and confirm a burst returns 429. **Blocked on [[CR02]]** — `npm run deploy` currently publishes over the worker production uses, so there is no safe way to test this deploy first.
 
-**Status:** Open — deployment step, no code change required.
+**Status:** Open — needs Cloudflare credentials (`wrangler` is not authenticated in the agent environment). Steps 2–3 are the whole remaining fix; step 4 should wait for CR02.
 
 ---
 

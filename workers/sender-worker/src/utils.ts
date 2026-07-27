@@ -52,16 +52,38 @@ interface AuthRateLimitData { count: number; resetAt: number; }
 const inMemoryAuthRateLimit = new Map<string, AuthRateLimitData>();
 
 /**
- * Check whether the IP has exceeded the auth rate limit.
- * Uses KV for cross-DC accuracy when `env.RATE_LIMIT_KV` is bound;
- * falls back to per-isolate in-memory counting otherwise.
- *
- * Returns `{ allowed: false, retryAfterSeconds }` when the limit is exceeded.
+ * Whether this isolate has already logged the "KV not bound" warning.
+ * Logged once rather than per request so a misconfigured deploy is visible
+ * without flooding the logs at request volume.
  */
+let missingKvWarningLogged = false;
+
 /** Clear in-process rate limit store — intended for use in tests only. */
 export function clearAuthRateLimitStore(): void {
   inMemoryAuthRateLimit.clear();
+  missingKvWarningLogged = false;
 }
+
+/**
+ * Check whether the IP has exceeded the auth rate limit.
+ *
+ * Two tiers, and the distinction matters operationally:
+ *
+ * - **In-memory (always runs).** Counts per isolate. This enforces the limit
+ *   on its own — an unbound `RATE_LIMIT_KV` degrades accuracy, it does not
+ *   disable limiting. A caller hammering one isolate is denied at
+ *   `AUTH_RATE_LIMIT_MAX`.
+ * - **KV (when `env.RATE_LIMIT_KV` is bound).** Authoritative count shared
+ *   across isolates and colos. Without it, an attacker who spreads requests
+ *   across colos, or who waits out isolate recycling, gets more than
+ *   `AUTH_RATE_LIMIT_MAX` attempts per window in aggregate. That is the gap
+ *   the binding closes; see BACKLOG.md CR03.
+ *
+ * A KV error is not fatal: the in-memory tier has already counted the request,
+ * so the check degrades to the weaker tier rather than failing open.
+ *
+ * Returns `{ allowed: false, retryAfterSeconds }` when the limit is exceeded.
+ */
 
 export async function checkAuthRateLimit(
   ip: string,
@@ -83,7 +105,19 @@ export async function checkAuthRateLimit(
   }
 
   // --- KV check (authoritative cross-DC count when available) ---
-  if (!env.RATE_LIMIT_KV) return { allowed: true };
+  // Not a fail-open path: the in-memory tier above has already counted this
+  // request and denies at the limit. Returning early only skips the stronger
+  // cross-isolate count.
+  if (!env.RATE_LIMIT_KV) {
+    if (!missingKvWarningLogged) {
+      missingKvWarningLogged = true;
+      console.warn(
+        '[auth rate limit] RATE_LIMIT_KV is not bound; limiting per isolate only. ' +
+        'Cross-colo attempts are undercounted — bind the namespace in wrangler.toml (BACKLOG.md CR03).',
+      );
+    }
+    return { allowed: true };
+  }
 
   const kvKey = `auth_rl:${ip}`;
   try {
