@@ -536,3 +536,25 @@ Investigating CR11 established what the dev/prd boundary actually is, corrected 
 **Final state:** 3,001 Flutter tests and 1,018 worker tests passing; zero TypeScript errors across all seven workers; `shellcheck` clean.
 
 ---
+
+## [2026-07-27] - Route Inheritance Incident (CR13 filed)
+
+**A `wrangler deploy --env dev` from this repo took over a production hostname path for ~14 hours.** Recorded in full because the cause is a wrangler rule that is easy to get backwards, and because the guard test written to prevent exactly this asserted the wrong invariant and passed the whole time.
+
+**What happened.** `api-gateway`'s `[env.dev]` block was written with no `routes` key, on the belief that omitting it meant "no routes". The opposite is true: **`routes` is an inheritable key.** A named environment that omits it inherits the top-level routes. So deploying the dev environment created `api.integritystudio.ai/v1/* -> api-gateway-dev` — the production hostname bound to a Worker with zero secrets. Cloudflare's audit log dates it precisely: `route_create` at `05:26:15`, one second after `script_create api-gateway-dev`.
+
+Blast radius was limited by two accidents rather than by design: the Flutter app calls the `workers.dev` hostname, not the custom domain, and the production `api-gateway` it would otherwise have displaced was already answering 503. `/v1/*` had no dedicated route before, so those requests had been falling through to `obtool-api`.
+
+**Resolution.** The route was deleted, restoring the prior fall-through (verified: `/v1/me` now returns `obtool-api`'s error shape, not the gateway's). `[env.dev]` now carries an explicit `routes = []`, and redeploying `api-gateway-dev` was confirmed not to recreate it.
+
+**The test lesson.** `deploy-environments.test.ts` asserted `[env.dev]` had **no** `routes` key — the precise condition that causes the bug — and passed while production was misrouted. It now requires an explicit `routes = []` whenever the top level declares routes, and mutation-testing confirms removing the key fails the suite. The general trap:
+
+> Bindings (`durable_objects`, `services`, `vars`, `kv_namespaces`, …) are **not** inherited and must be repeated in a named environment. `routes` and `triggers` **are** inherited and must be explicitly emptied. The two rules point in opposite directions.
+
+The `crons = []` written for `stripe-webhook-dev` was correct for the same reason, and verified: `stripe-webhook-dev` has `schedules: []` while production retains its `*/15` cron.
+
+**CR13 filed.** `api-gateway/wrangler.toml` declares `api.integritystudio.ai/v1/*`, so a `deploy:prd` from this repo will claim that path — but `obtool-api`, owned by the observability-toolkit repo, holds `api.integritystudio.ai/*`. Two repos believe they own paths on the same hostname, and no one has decided which is right. Also corrected in CR12: its claim that the production route "is attached and the script runs" was evidence from `api-gateway-dev`. Production `api-gateway` has **no zone route at all**.
+
+**Final state:** 3,001 Flutter tests and 1,019 worker tests passing (lib 436); zero routes point at any `*-dev` Worker.
+
+---

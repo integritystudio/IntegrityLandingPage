@@ -23,16 +23,24 @@ new_classes = ["QuotaDurableObject"]
 
 # --- dev environment (`npm run deploy`) -------------------------------------
 # Publishes to a separate Worker so a local deploy cannot overwrite the one
-# api.integritystudio.ai points at. No `routes` here on purpose: dev is reached
-# at its workers.dev URL, and attaching the production hostname to a dev deploy
-# is the exact failure this environment exists to prevent.
+# api.integritystudio.ai points at.
 #
-# `durable_objects` is a non-inheritable key, so the QUOTA_DO binding has to be
-# repeated. The dev Worker gets its own DO namespace and its own quota counters
-# — dev traffic cannot consume a production org's quota. `migrations` IS
-# inheritable and applies here unchanged.
+# `routes = []` MUST be explicit, and is the whole reason this comment is long.
+# `routes` is an INHERITABLE key: a named environment that omits it inherits the
+# top-level routes and attaches them to the dev Worker. On 2026-07-27 that is
+# exactly what happened — `wrangler deploy --env dev` silently created
+# `api.integritystudio.ai/v1/* -> api-gateway-dev`, handing the production
+# hostname to a secret-less dev Worker. Deleting the key does not mean "no
+# routes"; it means "production's routes". Only `[]` means none.
+#
+# Contrast with `durable_objects`, which is NOT inheritable and therefore has to
+# be repeated below — the two rules pull in opposite directions, which is what
+# made the mistake easy. `migrations` is inheritable and applies here unchanged;
+# the dev Worker still gets its own DO namespace and quota counters, so dev
+# traffic cannot consume a production org's quota.
 [env.dev]
 name = "api-gateway-dev"
+routes = []
 
 [[env.dev.durable_objects.bindings]]
 name = "QUOTA_DO"

@@ -118,11 +118,32 @@ describe('worker deploy environments (CR02)', () => {
     expect(scripts['deploy:prd']).not.toContain('--env');
   });
 
-  it.each(WORKERS)('%s: [env.dev] declares no routes', (worker) => {
-    const dev = loadConfig(worker).env?.dev ?? {};
+  it.each(WORKERS)('%s: [env.dev] disclaims routes EXPLICITLY when production has them', (worker) => {
+    // `routes` is an INHERITABLE key. A named environment that omits it inherits
+    // the top-level routes and binds them to the dev Worker. On 2026-07-27 this
+    // handed `api.integritystudio.ai/v1/*` to the secret-less `api-gateway-dev`
+    // for ~14 hours. An earlier version of this test asserted `routes` was
+    // *absent* and passed the whole time — absence is the bug, not the fix.
+    // Only an explicit empty list detaches a named environment from production
+    // routes, so that is what this asserts.
+    const config = loadConfig(worker);
+    const dev = config.env?.dev ?? {};
+    const prodHasRoutes = Boolean(config.routes || config.route);
 
-    expect(dev.routes, `${worker} dev would attach a production hostname`).toBeUndefined();
+    if (prodHasRoutes) {
+      expect(dev.routes, `${worker} [env.dev] omits routes, so it INHERITS the production route`).toBe('[]');
+    }
+    // A dev environment must never name a route of its own either way.
     expect(dev.route).toBeUndefined();
+    if (dev.routes !== undefined) expect(dev.routes).toBe('[]');
+  });
+
+  it('inheritable-key trap is documented where it bites', () => {
+    // The two rules pull in opposite directions — bindings must be repeated,
+    // routes and triggers must be explicitly emptied — so the reasoning lives
+    // next to the config rather than only in a commit message.
+    const gateway = readFileSync(join(WORKERS_ROOT, 'api-gateway', 'wrangler.toml'), 'utf8');
+    expect(gateway).toMatch(/INHERITABLE/);
   });
 
   it.each(WORKERS)('%s: [env.dev] repeats every non-inheritable top-level binding', (worker) => {

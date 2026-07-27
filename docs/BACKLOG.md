@@ -414,6 +414,32 @@ The remaining gap is **accuracy, not absence**. In-memory state is per isolate, 
 
 ---
 
+### CR13: Decide what should serve `api.integritystudio.ai/v1/*` (cross-repo ownership)
+
+**Priority:** P2 | **Source:** session 2026-07-27, after a dev deploy inadvertently claimed the route
+**Estimated:** 30 minutes, once the ownership question is answered
+
+**Context:** `workers/api-gateway/wrangler.toml` declares `routes = [api.integritystudio.ai/v1/*]` at the top level, so a `npm run deploy:prd` from this repo **will claim that hostname path** for `api-gateway`. But the zone's routes are currently:
+
+| Pattern | Worker | Owned by |
+|---|---|---|
+| `api.integritystudio.ai/*` | `obtool-api` | observability-toolkit |
+| `ingest.integritystudio.ai/*` | `obtool-ingest` | observability-toolkit |
+
+`obtool-api` holds the wildcard, and there is no `/v1/*` route, so `/v1/*` requests currently fall through to `obtool-api`. Two repos therefore both believe they own paths under `api.integritystudio.ai`, and the more specific pattern wins whenever this repo deploys to production. Nobody has decided which is intended.
+
+**How this surfaced:** a `wrangler deploy --env dev` from this repo created `api.integritystudio.ai/v1/* -> api-gateway-dev` (route inheritance — see CR12's note and the comment in `api-gateway/wrangler.toml`). For roughly 14 hours on 2026-07-27, that path was served by a secret-less dev Worker. The route was deleted and the prior fall-through restored; the config now carries an explicit `routes = []` and a test enforces it.
+
+**Scope:**
+1. Decide whether `api.integritystudio.ai/v1/*` should be served by this repo's `api-gateway` or by `obtool-api`.
+2. If `api-gateway`: resolve [[CR12]] first (it has no secrets and answers 503), then `deploy:prd` to attach the route deliberately, and confirm with the observability-toolkit owner that removing `/v1/*` from `obtool-api`'s wildcard is safe.
+3. If `obtool-api`: delete the `routes` key from `workers/api-gateway/wrangler.toml` so a production deploy stops silently claiming a hostname this repo does not own, and point the Flutter `API_GATEWAY_URL` default at whatever is correct.
+4. Either way, stop relying on the `workers.dev` hostname as the app's production default (`dashboard_service.dart:16`, `provisioning_service.dart:22`).
+
+**Status:** Open — needs a cross-repo ownership decision. The unsafe intermediate state (dev Worker on the production hostname) is resolved.
+
+---
+
 ### CR12: Production `api-gateway` and `stripe-webhook` have zero secrets bound and are degraded
 
 **Priority:** P1 | **Source:** session 2026-07-27, auditing worker secrets while investigating CR11
@@ -437,7 +463,7 @@ GET https://api-gateway.alyshia-b38.workers.dev/health
 
 Verified by two independent sources: the Workers REST API, and `wrangler secret list --name api-gateway` returning `[]` (control: `sender-worker` returns 13 by the same method).
 
-So every authenticated route that touches Supabase — usage, entitlements, orgs, me, api-keys — cannot work, and `stripe-webhook` cannot verify a signature or reach the database, meaning subscription events are dropped rather than dead-lettered. This is a configuration gap, not DNS or routing: `api.integritystudio.ai/v1/me` returns the worker's own `401 Missing or invalid Bearer token`, so the route is attached and the script runs.
+So every authenticated route that touches Supabase — usage, entitlements, orgs, me, api-keys — cannot work, and `stripe-webhook` cannot verify a signature or reach the database, meaning subscription events are dropped rather than dead-lettered. **Correction (2026-07-27):** an earlier version of this entry cited `api.integritystudio.ai/v1/me` returning `401 Missing or invalid Bearer token` as proof the production route was attached and working. That response came from `api-gateway-dev`, not `api-gateway` — see CR13. Production `api-gateway` has **no zone route at all**; the only routes on `integritystudio.ai` are `api.integritystudio.ai/*` → `obtool-api` and `ingest.integritystudio.ai/*` → `obtool-ingest`. It is reachable solely at its `workers.dev` hostname, which is what the Flutter app calls.
 
 **`https://api-gateway.alyshia-b38.workers.dev` is the production gateway**, not a dev URL — and it is the URL the shipped app actually calls. It is the compile-time default for `API_GATEWAY_URL` in both `lib/services/dashboard_service.dart:16` and `lib/services/provisioning_service.dart:22`, and `ci.yml` builds with no `--dart-define`. The dev worker is the separate script `api-gateway-dev`, whose `workers.dev` subdomain is not even enabled (returns Cloudflare `1042`). So the 503 is on the live user path, not a back channel.
 
