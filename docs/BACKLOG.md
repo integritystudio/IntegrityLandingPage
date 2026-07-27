@@ -414,6 +414,34 @@ The remaining gap is **accuracy, not absence**. In-memory state is per isolate, 
 
 ---
 
+### CR15: Production `sender-worker` config drift found in the settings audit
+
+**Priority:** P3 | **Source:** session 2026-07-27, auditing `sender-worker-dev` against production
+**Estimated:** 20 minutes
+
+Two items, both on the production worker, both surfaced by diffing it against its new dev counterpart.
+
+**1. Workers Logs may not actually be on.** Production `sender-worker` reports `observability.enabled: false` with `observability.logs.enabled: true`; the dev worker reports `enabled: true` for both. The cause is `wrangler.toml`: the top-level block is
+
+```toml
+[observability]
+[observability.logs]
+enabled = true
+```
+
+— `[observability]` declares no `enabled` key, so it deploys as `false`, while `[env.dev.observability]` sets `enabled = true` explicitly and therefore differs. A changelog entry from 2026-04-03 records "Enabled observability logs on sender-worker", which may never have taken effect. This matters beyond tidiness: diagnosing [[CR12]] and confirming [[CR03]]'s rate limiter both depend on being able to read worker logs. Fix is `enabled = true` under `[observability]`, applied on the next `deploy:prd`.
+
+**2. Two stale secrets remain bound.** `RECEIVER_WORKER_URL` and `PROVISIONING_RECEIVER_WORKER_URL` are still set on production `sender-worker`, left over from before the service-binding migration (`d450ef4`). Nothing in `workers/sender-worker/src/` reads either name — verified by grep — so they are inert, but they are two more credentials in the blast radius of [[CR01]] and they imply an HTTP path to the receiver that no longer exists. Remove with:
+
+```bash
+npx wrangler secret delete RECEIVER_WORKER_URL --name sender-worker
+npx wrangler secret delete PROVISIONING_RECEIVER_WORKER_URL --name sender-worker
+```
+
+**Status:** Open — item 1 is a one-line config change deferred to the next production deploy; item 2 deletes production secrets and was not done unasked.
+
+---
+
 ### CR14: Superseded Worker versions stay publicly callable with live secrets
 
 **Priority:** P1 | **Source:** session 2026-07-27, auditing `api-gateway-dev` settings via the Cloudflare API
@@ -451,7 +479,7 @@ The 8-hex-character version prefix is not a meaningful secret: `wrangler` prints
        "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/sender-worker/subdomain"'
    ```
 3. Ask the `observability-toolkit` owner to do the same for `api-provisioning-receiver` (7 secrets, not deployable from here).
-4. Decide whether preview URLs are wanted at all on the `*-dev` workers. They are harmless while those workers hold no secrets, but [[CR11]] step 4 pushes secrets into them — set `preview_urls = false` there before that happens, or the same exposure is recreated in dev.
+4. ~~Decide whether preview URLs are wanted on the `*-dev` workers.~~ Resolved 2026-07-27. **`preview_urls` is an inheritable key** — verified by deploying `sender-worker-dev` and `integrity-studio-contact-dev` after setting it only at the top level, and confirming both flipped to `previews_enabled: false`. So no `[env.dev]` duplicate is needed, and the dev workers are already covered before [[CR11]] step 4 adds secrets. (Contrast with the *non*-inheritable binding keys — the asymmetry is documented in `api-gateway/wrangler.toml`.)
 5. Consider whether any retained version predates a *data-handling* change (schema, consent, retention), not just a security fix.
 
 **Status:** Open — config committed, production not yet mitigated. Steps 2–3 are production/cross-repo settings changes and were deliberately not made unasked.
@@ -555,8 +583,9 @@ Facts established while investigating, several of which correct earlier notes in
        | npx wrangler secret put "$s" --env dev
    done
    ```
-5. **Verify.** Run a dev signup against `sender-worker-dev` and confirm no row appears in the production `organizations` / `users` tables.
-6. **Point the E2E suite at the dev workers** via the `--dart-define` URLs in CLAUDE.md, so the corrected isolation claim becomes true rather than merely accurate.
+5. **Change `contact-form`'s dev recipient before giving dev a `RESEND_API_KEY`.** `[env.dev.vars]` currently carries the production addresses — `RECIPIENT_EMAIL = hello@integritystudio.ai`, `SENDER_EMAIL = contact@integritystudio.ai` — so the moment dev holds a Resend key, dev test submissions land in the real business inbox. Harmless today only because the key is absent and the worker fails closed without `CSRF_SECRET`.
+6. **Verify.** Run a dev signup against `sender-worker-dev` and confirm no row appears in the production `organizations` / `users` tables.
+7. **Point the E2E suite at the dev workers** via the `--dart-define` URLs in CLAUDE.md, so the corrected isolation claim becomes true rather than merely accurate.
 
 **Status:** Open — blocked on two owner decisions: whether to pay for a third Supabase project (step 1) and creating the Auth0 dev tenant (step 2), neither of which is scriptable with the credentials available. Everything downstream of those (steps 3–6) is mechanical and the runbook above is complete. The detector and the documentation corrections landed 2026-07-27.
 

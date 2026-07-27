@@ -582,3 +582,27 @@ A Cloudflare API audit of `api-gateway-dev`'s settings, run to confirm nothing e
 **Final state:** 3,001 Flutter tests and 1,021 worker tests passing; zero routes point at any `*-dev` Worker.
 
 ---
+
+## [2026-07-27] - Dev Worker Settings Audit (sender-worker-dev, contact-dev)
+
+Verified the two remaining dev Workers against their production counterparts via the Cloudflare API. The isolation claims made earlier all hold, and the diff against production surfaced three fixes.
+
+**Isolation confirmed by inspecting deployed state, not config:**
+- `sender-worker-dev` binds `RATE_LIMIT_KV` to the dev namespace `46a717cd…`, not production's `766332ec…`.
+- `integrity-studio-contact-dev` binds `5719e569…`, not production's `cf9d7d72…`, and repeats all five non-inheritable `vars` with `ENVIRONMENT = "development"`.
+- Both hold **zero secrets**; neither has crons or tail consumers; no zone route points at either.
+- `sender-worker-dev`'s `RECEIVER` binding does point at the production `api-provisioning-receiver`, exactly as documented — still CR02 item 5.
+
+**`preview_urls` is an inheritable key.** Set only at the top level, it propagated to both dev Workers on deploy — `previews_enabled` flipped to `false` on `sender-worker-dev` and `integrity-studio-contact-dev`. Verified rather than assumed, given that getting this backwards for `routes` caused the earlier incident. No `[env.dev]` duplicate is needed, and CR14's dev-side concern is closed before CR11 pushes secrets in. Production remains `true` until its next `deploy:prd`.
+
+**`npm run deploy` now works for every worker.** Only `sender-worker` had the Doppler wrapper; the other five ran bare `wrangler deploy --env dev` and failed with "necessary to set a CLOUDFLARE_API_TOKEN" unless one happened to be in the environment. All six now wrap with `doppler run --config dev`, so the documented dev-deploy command works as written.
+
+**CR15 filed — production `sender-worker` config drift**, both found by diffing against dev:
+- `observability.enabled` deploys as `false` while `logs.enabled` is `true`, because the top-level `[observability]` block declares no `enabled` key. Workers Logs may never have been on, despite a 2026-04-03 entry saying it was enabled — which matters because diagnosing CR12 and confirming CR03's limiter both need logs.
+- `RECEIVER_WORKER_URL` and `PROVISIONING_RECEIVER_WORKER_URL` are still bound, left from before the service-binding migration (`d450ef4`). No code reads either name; they are two more credentials inside CR01's blast radius.
+
+**CR11 gained a step:** `contact-form`'s dev vars carry the production `RECIPIENT_EMAIL` (`hello@integritystudio.ai`), so the moment dev holds a Resend key, dev test submissions reach the real inbox. Safe only because the key is absent and the worker fails closed without `CSRF_SECRET`.
+
+**Final state:** 3,001 Flutter tests and 1,021 worker tests passing; `previews_enabled: false` on both dev Workers; zero routes point at any `*-dev` Worker.
+
+---
