@@ -361,7 +361,7 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 3. Rotate every secret the bundle contains — assume the whole set is compromised.
 4. Confirm nothing in CI or the deploy scripts reads the file.
 
-**Status:** Open — step 2 rewrites history and step 3 is a live-credential rotation, so both need an owner and a maintenance window. See also [[W05]] (Doppler durability + rotation policy).
+**Status:** Partially done (2026-07-26, commit 88ef77a) — step 1 complete: `git rm --cached doppler.json` + `.gitignore` entry added. Steps 2–3 (history scrub + secret rotation) still require an owner and a maintenance window. See also [[W05]] (Doppler durability + rotation policy).
 
 ---
 
@@ -413,7 +413,7 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 2. Correct the comment at `provision_page.dart:87-89`, which overstates what a fragment protects.
 3. Requires a matching change in the dashboard app.
 
-**Status:** Open — cross-repo; the current state is a real improvement, not a complete fix.
+**Status:** Partially done (2026-07-26, commit d632263) — misleading comment corrected in `provision_page.dart:87-91`. Full fix (postMessage / exchange code) requires a coordinated change in the dashboard app.
 
 ---
 
@@ -429,7 +429,7 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 2. If a degraded 200 is deliberate for the usage endpoint, add an explicit `degraded: true` flag so callers can tell.
 3. Update the tests that currently pin the fail-open behavior.
 
-**Status:** Open — current behavior is pinned by tests, so a change will show in the diff.
+**Status:** ✅ Done (2026-07-26, commit d11cf38) — usage.ts returns 500 on DB error; entitlements returns 500 on DB error; both fail-open tests updated to expect 5xx.
 
 ---
 
@@ -444,7 +444,7 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 1. Split the branches: 5xx when `!result.ok`, 404 only on zero rows.
 2. Update the test that pins the current behavior.
 
-**Status:** Open — small, self-contained.
+**Status:** ✅ Done (2026-07-26, commit d11cf38) — me.ts splits !result.ok (500) from zero rows (404); test updated.
 
 ---
 
@@ -460,7 +460,7 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 2. Replace "None open" with a pointer to `docs/BACKLOG.md` and `CODE_REVIEW.md`.
 3. Correct the deployment section once [[CR02]] lands, or caveat it now.
 
-**Status:** Open — documentation only; step 3 is best done with [[CR02]].
+**Status:** ✅ Done (2026-07-26, commit 8d4c8e2) — test counts, Last Updated, Known Issues, and deploy command annotation updated. Step 3 (deployment section) caveated with CR02 note; full correction deferred to CR02 landing.
 
 ---
 
@@ -476,7 +476,7 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 2. Keep the genuine `length === 0` / null checks.
 3. Give `findOrgByStripeCustomerId` a type parameter instead of a cast.
 
-**Status:** Open — mechanical cleanup, no behavior change; best done in one sweep so the diff is easy to read.
+**Status:** ✅ Done (2026-07-26, commit 2ada4e9) — ~18 dead Array.isArray checks removed across api-gateway, bootstrap-worker, shared lib, and stripe-webhook. findOrgByStripeCustomerId now uses a type parameter instead of a cast. All 710 worker tests pass.
 
 ---
 
@@ -491,7 +491,7 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 1. Change the doubles' error fixtures to the real `HTTP <status>: <body>` form.
 2. Check whether any handler branches on error text.
 
-**Status:** Open — test-fidelity gap; `supabase.test.ts` itself now drives a real client and is unaffected.
+**Status:** ✅ Done (2026-07-26, commit 424bbd2) — subscription, checkout, and invoice handler test doubles now use 'HTTP 500: ...' / 'HTTP 409: ...' error format. No handler branches on error text.
 
 ---
 
@@ -506,7 +506,7 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 1. Decide whether the client should return `[]` rather than `[value]` when a select body is not an array, or whether `fetchPendingDeadLetters` should filter non-objects.
 2. Update the pinning test to match whichever contract is chosen.
 
-**Status:** Open — theoretical; worth a decision rather than a fix.
+**Status:** ✅ Done (2026-07-26, commit 1a8196a) — fetchPendingDeadLetters now filters non-object entries; pinning test updated from [null] to [].
 
 ---
 
@@ -522,3 +522,5 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 *Backlog-implementer session (2026-03-21): L23 rate-limit headers forwarded (e743c68, PASS); L25 OTEL_INGEST_ROUTE exported (2aa30eb, PASS); L24 start_time_ms upper bound refine (32658b9, PASS); L22 makeOpts typed as SupabaseClient|undefined (ce4c563, PASS); final review high finding addressed — applyRateLimitHeaders helper + boundary tests (5e5d2c4). Test Status: ✅ 122 api-gateway tests passing. Items completed: 4 (L22-L25). Remaining: T28 (design decision). Score: 10/10.*
 
 *Code-review remediation session (2026-07-26): recovered and consolidated the 8-area review (43 items / 51 findings), fixed the PostgREST `Prefer` header and the `/signup?tier=Team` routing break, then a backlog pass closed 38 more. Added CR01–CR10 for the remainder: the 5 items never fixed, 2 marked-fixed-but-not-closed (inert rate limiter, JWT still in a URL fragment), and 3 found while converting the api-gateway and stripe-webhook tests to drive a real Supabase client over a stubbed transport. Test Status: ✅ 3,001 Flutter + 984 worker tests passing; zero TypeScript errors across all 7 workers.*
+
+*Backlog-implementer session (2026-07-26): CR01 doppler.json removed from git + .gitignore (88ef77a); CR05 usage/entitlements endpoints return 5xx on DB error (d11cf38); CR06 me.ts splits DB error from 404 (d11cf38); CR04 provision_page.dart comment corrected (d632263); CR07 CLAUDE.md status block refreshed (8d4c8e2); CR08 ~18 dead Array.isArray checks removed (2ada4e9); CR09 handler test fixtures use HTTP-format errors (424bbd2); CR10 fetchPendingDeadLetters null phantom filtered (1a8196a). CR02 (dev/prod separation) and CR03 (RATE_LIMIT_KV) deferred — need live wrangler/CF operations. CR01 steps 2–3 (history scrub + rotation) deferred to maintenance window. CR04 full fix deferred — cross-repo. Test Status: ✅ 710 worker tests passing.*
