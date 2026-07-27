@@ -414,26 +414,73 @@ The remaining gap is **accuracy, not absence**. In-memory state is per isolate, 
 
 ---
 
-### CR11: Doppler `dev` and `prd` hold identical credentials — there is no dev environment
+### CR12: Production `api-gateway` and `stripe-webhook` have zero secrets bound and are degraded
 
-**Priority:** P1 | **Source:** session 2026-07-27, deploying the CR02 dev environments
-**Estimated:** 1–2 days (provisioning), plus a rotation window
+**Priority:** P1 | **Source:** session 2026-07-27, auditing worker secrets while investigating CR11
+**Estimated:** 30 minutes to restore, longer to explain
 
-**Context:** Hash-comparing the two Doppler configs shows `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `AUTH0_DOMAIN`, `SHARED_SECRET`, and `STRIPE_SECRET_KEY` are **byte-identical** between `--config dev` and `--config prd`. Every documented safety claim resting on that distinction is therefore false:
+**Context:** Querying the Workers API for the secrets bound to each deployed worker returns **zero** for both `api-gateway` and `stripe-webhook`:
 
-- CLAUDE.md's "Dev Config: local development, testing, E2E tests" describes a boundary that does not exist. A test run against `--config dev` writes to the production Supabase, creates real Auth0 users, and — if `STRIPE_SECRET_KEY` is a live key — moves real money.
-- "E2E tests use `--config dev` (isolated from prod)" in the deployment-safety list is wrong for the same reason.
-- It compounds [[CR01]]: the `doppler.json` bundle sitting in git history is often waved off as "only the dev secrets". It is not. Dev *is* prd, so that bundle is the full production credential set, and the rotation in CR01 is correspondingly more urgent.
-- It also caps [[CR02]]. The worker-level split is real and prevents overwrites, but pushing these secrets into the dev workers would make them production-capable. They were deliberately deployed **without secrets** for that reason, which is why they error on any route needing one.
+| Worker | Secrets bound | Last deployed |
+|---|---|---|
+| `sender-worker` | 13 | 2026-07-26 |
+| `integrity-studio-contact` | 2 (`CSRF_SECRET`, `RESEND_API_KEY`) | 2026-03-31 |
+| **`api-gateway`** | **0** | 2026-03-31 |
+| **`stripe-webhook`** | **0** | 2026-03-31 |
+
+`api-gateway`'s own `wrangler.toml` documents five required secrets (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `API_KEY_HMAC_SECRET`, `STRIPE_SECRET_KEY`). None are set. Its health endpoint confirms the consequence:
+
+```
+GET https://api-gateway.alyshia-b38.workers.dev/health
+503 {"database":"degraded","durableObjects":"healthy",...}
+```
+
+So every authenticated `api.integritystudio.ai/v1/*` route that touches Supabase — usage, entitlements, orgs, me, api-keys — cannot work, and `stripe-webhook` cannot verify a signature or reach the database, meaning subscription events are being dropped rather than dead-lettered. The route itself is attached and reachable (a request to `/v1/health` returns the worker's own JSON 404, not a Cloudflare error), so this is a configuration gap, not a DNS or routing one.
+
+Both Supabase projects are also `INACTIVE` (free-tier pause), which is a second, independent reason the database is unreachable.
 
 **Scope:**
-1. Decide the boundary: a separate Supabase project (or at minimum a separate schema with its own service-role key), a separate Auth0 tenant, and Stripe **test** keys.
-2. Populate the Doppler `dev` config with those values so `--config dev` means something.
-3. Push the dev secrets to the `*-dev` workers; confirm each points somewhere non-production before doing so.
-4. Re-verify that a dev signup creates no row in the production database.
-5. Correct the deployment-safety claims in CLAUDE.md once the boundary is real.
+1. Determine whether this is expected — i.e. whether the platform is pre-launch and these two workers were never configured, or whether secrets were lost in a redeploy. The 2026-03-31 timestamp on both suggests they have been in this state for ~4 months.
+2. If live traffic is expected: set the documented secrets (`wrangler secret put --name api-gateway`), resume the Supabase project, and re-check `/health`.
+3. Add `/health` to an uptime check so a degraded gateway is not discovered incidentally during a code review four months later.
+4. Reconcile with the many changelog entries describing api-gateway quota, usage, and entitlements work — that code has been shipped against a gateway that cannot reach its database.
 
-**Status:** Open — needs infrastructure provisioning decisions (which Supabase project, which Auth0 tenant, Stripe test mode) that are the owner's call, not a code change.
+**Status:** Open — needs an owner answer to step 1 before anything is changed. Not remediated in this session: setting production secrets on a live worker is not a change to make unasked, and the correct values depend on whether CR11's isolation work lands first.
+
+---
+
+### CR11: Doppler `dev` is not a separate environment
+
+**Priority:** P1 | **Source:** session 2026-07-27, deploying the CR02 dev environments
+**Estimated:** ~2 hours once the provisioning decisions are made
+
+**Detector:** `npm run check:env-isolation` — compares credential hashes between the two configs, prints no secret material, exits non-zero while they are shared. **Currently fails 10 of 10.** A green run is the definition of done for this item.
+
+**Context:** `--config dev` and `--config prd` resolve to the same Supabase project (`cfrbahzzklwrnmbtqojl`), the same Auth0 tenant, and the same `SHARED_SECRET`. Anything run against the dev config reads and writes production state. CLAUDE.md's "E2E tests use `--config dev` (isolated from prod)" was false and is now corrected in place.
+
+Facts established while investigating, several of which correct earlier notes in this file:
+
+- **Stripe is not exposed.** `STRIPE_SECRET_KEY` is **empty in all three configs**; the key actually in use is `STRIPE_API_KEY`, and it is `sk_test_…` in both dev and prd. An earlier version of this entry implied live-key risk — there is none. (Worth a separate question: production is configured with a *test* Stripe key.)
+- **The `stg` config is empty**, not a third environment — every credential above is unset in it. It is available to repurpose as the dev target.
+- **Worker secrets do not come from Doppler.** `wrangler deploy` does not convert ambient env vars into Worker secrets; they are set per worker with `wrangler secret put`. So this item does not by itself mean the deployed workers are misconfigured — it means every *local* and *CI* process using the dev config touches production.
+- **The `*-dev` workers have zero secrets bound** (verified via the Workers API) and were deployed that way deliberately. They cannot reach production data. Do not push the current dev values into them: that would create a second production-capable worker, not a dev environment.
+- **Both Supabase projects are `INACTIVE`** (free-tier pause), and the org has 2 of them. A third project may require a plan change — that is the decision blocking step 1.
+
+**Scope:**
+1. **Decide the Supabase boundary.** Either a new project (may need a paid plan — the org already has 2) or a separate schema in `cfrbahzzklwrnmbtqojl` with its own role. A separate schema is cheaper but shares the service-role key, so it does not isolate credentials — only a separate project makes the checker pass on `SUPABASE_SERVICE_ROLE_KEY`.
+2. **Create an Auth0 dev tenant** and a matching M2M + ROPC application pair. Not scriptable with the current credentials: the `AUTH0_CLI_*` M2M app is scoped to the existing tenant's Management API, so it cannot create tenants. Dashboard action.
+3. **Populate Doppler.** Write the new values into `dev` (or into the empty `stg` config, promoting it to the dev target). Re-run `npm run check:env-isolation` until it passes.
+4. **Push the dev secrets to the `*-dev` workers** — only after step 3 passes, never before:
+   ```bash
+   for s in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY AUTH0_DOMAIN AUTH0_CLIENT_ID AUTH0_CLIENT_SECRET AUTH0_CLI_ID AUTH0_CLI_SECRET AUTH0_AUDIENCE SHARED_SECRET; do
+     doppler secrets get "$s" --project integrity-studio --config dev --plain \
+       | npx wrangler secret put "$s" --env dev
+   done
+   ```
+5. **Verify.** Run a dev signup against `sender-worker-dev` and confirm no row appears in the production `organizations` / `users` tables.
+6. **Point the E2E suite at the dev workers** via the `--dart-define` URLs in CLAUDE.md, so the corrected isolation claim becomes true rather than merely accurate.
+
+**Status:** Open — blocked on two owner decisions: whether to pay for a third Supabase project (step 1) and creating the Auth0 dev tenant (step 2), neither of which is scriptable with the credentials available. Everything downstream of those (steps 3–6) is mechanical and the runbook above is complete. The detector and the documentation corrections landed 2026-07-27.
 
 ---
 

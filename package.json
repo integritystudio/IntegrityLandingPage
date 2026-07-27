@@ -22,6 +22,7 @@
     "lint": "flutter analyze",
     "lint:workers": "for w in workers/lib workers/contact-form workers/api-gateway workers/sender-worker workers/receiver-worker workers/stripe-webhook workers/bootstrap-worker; do (cd $w && npx tsc --noEmit) || exit 1; done",
     "test:provisioning": "bash test-provisioning-e2e.sh",
-    "test:workers": "for w in workers/lib workers/contact-form workers/api-gateway workers/sender-worker workers/receiver-worker workers/stripe-webhook workers/bootstrap-worker; do npm --prefix $w test || exit 1; done"
+    "test:workers": "for w in workers/lib workers/contact-form workers/api-gateway workers/sender-worker workers/receiver-worker workers/stripe-webhook workers/bootstrap-worker; do npm --prefix $w test || exit 1; done",
+    "check:env-isolation": "bash scripts/check-env-isolation.sh"
   }
 }

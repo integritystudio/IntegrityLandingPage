@@ -17,26 +17,28 @@ flutter run -d chrome \
 **Workers** (run from the individual worker directory)
 ```bash
 npm test                          # Unit tests (vitest)
-npm run deploy                    # Deploy with Doppler dev creds (⚠️ no env separation — see CR02)
-npm run deploy:prd                # Prod deploy (Doppler prd)
+npm run deploy                    # → <worker>-dev (wrangler --env dev); cannot touch production
+npm run deploy:prd                # → the live worker (top-level config + Doppler prd)
 wrangler dev --port 8787          # Local dev server
 ```
 
 ## Current Status
 
-**Phase**: Codebase Review Remediation — 46 findings fixed, CR01–CR04 open
-**Last Updated**: 2026-07-26
+**Phase**: Codebase Review Remediation — 48 findings fixed; CR01, CR04, CR11, CR12 open
+**Last Updated**: 2026-07-27
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ ~3,001 Flutter tests passing (~94% coverage); ~984 worker tests passing (6 workers + shared lib)
+**Test Status**: ✅ ~3,001 Flutter tests passing (~94% coverage); ~1,018 worker tests passing (6 workers + shared lib)
+**Deployed**: production `sender-worker` + `integrity-studio-contact` healthy; `api-gateway` **503/degraded** and `stripe-webhook` has no secrets bound (CR12); five `*-dev` workers deployed secret-less by design (CR11)
 
 See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recent changes.
 
 ### Known Issues
-Open items are tracked in [docs/BACKLOG.md](docs/BACKLOG.md). The four from the 2026-07-26 review that remain open:
-- **CR01 (P1)**: `doppler.json` history scrub + full secret rotation still required (file removed from tracking, but the bundle is still in history and nothing has been rotated)
-- **CR02 (P1)**: Worker dev/prod separation — `npm run deploy` currently writes to the same worker that production uses (no `[env]` blocks)
-- **CR11 (P1)**: Doppler `dev` and `prd` configs hold identical Supabase / Auth0 / Stripe / HMAC credentials — there is no credential-level dev environment, and `--config dev` is not a safety boundary
+Open items are tracked in [docs/BACKLOG.md](docs/BACKLOG.md):
+- **CR12 (P1)**: production `api-gateway` and `stripe-webhook` have **zero secrets bound**; the gateway answers `503 {"database":"degraded"}`. Both last deployed 2026-03-31. Needs an owner answer on whether this is pre-launch or a regression
+- **CR01 (P1)**: `doppler.json` history scrub + full secret rotation still required (untracked now, but the bundle is still in history and nothing has been rotated — and per CR11 those are the *production* credentials)
+- **CR11 (P1)**: Doppler `dev` holds the same Supabase project and Auth0 tenant as `prd` — `--config dev` is not a safety boundary. Detector: `npm run check:env-isolation` (fails 10/10). Blocked on provisioning decisions
 - **CR04 (P2)**: JWT passed in URL fragment to dashboard — cross-repo fix needed
+- **CR02**: ✅ closed 2026-07-27 — `npm run deploy` targets `--env dev`, verified live. Only the dev-receiver item remains
 
 ---
 
@@ -158,14 +160,20 @@ Without these the app uses the compile-time defaults in `lib/services/`, which p
 
 All five dev workers were deployed and verified on 2026-07-27; production was confirmed untouched by the same run.
 
-**⚠️ Dev workers are NOT data-isolated.** Doppler's `dev` and `prd` configs hold **identical** values for `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `AUTH0_DOMAIN`, `SHARED_SECRET`, and `STRIPE_SECRET_KEY`. Selecting `--config dev` therefore changes nothing about which database, Auth0 tenant, or Stripe account a worker talks to. The dev workers were deliberately deployed **without secrets** so they cannot reach production data; that is why they return errors on any route needing one. Do not push the `dev` Doppler secrets into them — that would create a second production-capable worker rather than a dev environment. Tracked as BACKLOG.md CR11.
+**⚠️ Dev workers are NOT data-isolated.** Doppler's `dev` and `prd` configs hold **identical** values for all 10 Supabase, Auth0, and HMAC credentials (`npm run check:env-isolation` reports which). Selecting `--config dev` therefore changes nothing about which database or Auth0 tenant is used. Stripe is *not* affected: `STRIPE_SECRET_KEY` is empty in both configs and the key in use, `STRIPE_API_KEY`, is `sk_test_…`. The dev workers were deliberately deployed **without secrets** so they cannot reach production data; that is why they return errors on any route needing one. Do not push the `dev` Doppler secrets into them — that would create a second production-capable worker rather than a dev environment. Tracked as BACKLOG.md CR11.
 
 **Also not isolated:** `sender-worker-dev` binds `RECEIVER` to the production `api-provisioning-receiver`, because no dev receiver is deployed (it lives in the `observability-toolkit` repo). Tracked as CR02 item 5.
 
 #### Doppler Configuration
 - **Project**: `integrity-studio`
-- **Dev Config** (`--config dev`): Local development, testing, E2E tests
+- **Dev Config** (`--config dev`): ⚠️ **not a separate environment.** Holds the same Supabase project, Auth0 tenant, and HMAC secret as `prd` — see CR11 and run `npm run check:env-isolation`
 - **Prd Config** (`--config prd`): Production deployments, secret rotation, sensitive operations
+- **Stg Config**: exists but is **empty** — every credential is unset
+
+Worker runtime secrets are **not** supplied by Doppler. `wrangler deploy` does not turn ambient env vars into Worker secrets; those are set per worker with `wrangler secret put`. Doppler's role at deploy time is to provide `CLOUDFLARE_API_TOKEN`. Check what a worker actually has bound with:
+```bash
+npx wrangler secret list --name <worker>          # or --env dev
+```
 
 #### Worker Deployment Overview
 
@@ -195,7 +203,7 @@ All five dev workers were deployed and verified on 2026-07-27; production was co
 - ✅ `deploy:prd` uses `--config prd` (never `dev`)
 - ✅ `npm run deploy` targets `--env dev`, so a local deploy cannot overwrite a production worker (enforced by `workers/lib/deploy-environments.test.ts`)
 - ✅ All workers have `deploy:prd` for emergency hotfixes
-- ✅ E2E tests use `--config dev` (isolated from prod)
+- ❌ **E2E tests use `--config dev`, which is NOT isolated from prod** — all 10 Supabase/Auth0/HMAC credentials are shared between the two configs. Verify with `npm run check:env-isolation` (currently fails 10/10). BACKLOG.md CR11
 - ✅ No hardcoded secrets in package.json or workflows
 - ⚠️ `doppler.json` remains in git history with its secrets unrotated (BACKLOG.md CR01)
 

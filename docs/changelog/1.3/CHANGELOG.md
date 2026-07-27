@@ -514,8 +514,25 @@ Per-worker dev targets, with the isolation each one gets:
 
 **KV namespaces created** (CR03 and CR02 item 6): production `sender-worker` binds `AUTH_RATE_LIMIT_KV`, `sender-worker-dev` binds its own `dev-RATE_LIMIT_KV`, and `integrity-studio-contact-dev` binds `CONTACT_RATE_LIMIT_KV_DEV` rather than the production namespace it would otherwise evict keys from. A test now asserts dev never shares a namespace with production.
 
-**Still open — and the more important finding:** the dev workers have **no data isolation**, because Doppler's `dev` and `prd` configs hold identical Supabase, Auth0, Stripe, and HMAC credentials. They were deployed *without secrets* on purpose; pushing the `dev` values into them would create a second production-capable worker rather than a dev environment. Tracked as CR11. `sender-worker-dev` also still binds `RECEIVER` to the production receiver (CR02 item 5, cross-repo).
+**Still open — and the more important finding:** the dev workers have **no data isolation**, because Doppler's `dev` and `prd` configs hold identical Supabase, Auth0, and HMAC credentials (10 of 10, per `npm run check:env-isolation`). Stripe turned out not to be affected — `STRIPE_SECRET_KEY` is empty in both and the key in use is `sk_test_…`. They were deployed *without secrets* on purpose; pushing the `dev` values into them would create a second production-capable worker rather than a dev environment. Tracked as CR11. `sender-worker-dev` also still binds `RECEIVER` to the production receiver (CR02 item 5, cross-repo).
 
 **Final state:** 3,001 Flutter tests and 1,012 worker tests passing; zero TypeScript errors across all seven workers.
+
+---
+
+## [2026-07-27] - Environment Isolation Detector (CR11 partial, CR12 filed)
+
+Investigating CR11 established what the dev/prd boundary actually is, corrected two claims this changelog had wrong, and turned up a production outage nobody had noticed.
+
+**`npm run check:env-isolation`** (`scripts/check-env-isolation.sh`) compares credential digests between the Doppler `dev` and `prd` configs and exits non-zero while they are shared. It prints hashes only, never secret material, so its output is safe to paste into a ticket. **It currently fails 10 of 10** — `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`, all five `AUTH0_*` credentials, and `SHARED_SECRET` are identical across the two configs. A green run is now the definition of done for CR11, which previously had no way to be verified.
+
+**Corrections to the entries above:**
+- **Stripe was never exposed.** The *Worker Deploy Separation* entry said dev and prd share Stripe credentials. `STRIPE_SECRET_KEY` is in fact empty in all three configs, and the key actually in use — `STRIPE_API_KEY` — is `sk_test_…` in both. There is no live-key risk. (Separately: production being configured with a test key is its own question.)
+- **The `stg` config is empty, not a third environment.** An earlier comparison read its blank values as "differs from prd"; `da39a3ee` is the SHA-1 of the empty string. It is unset, and therefore available to repurpose as the dev target.
+- **Worker secrets never came from Doppler.** `wrangler deploy` does not turn ambient env vars into Worker secrets; they are set per worker with `wrangler secret put`. Doppler's role at deploy time is to supply `CLOUDFLARE_API_TOKEN`. CLAUDE.md now says so, with the command to inspect what a worker actually has bound.
+
+**CR12 filed — production `api-gateway` is degraded.** Auditing bound secrets showed `api-gateway` and `stripe-webhook` have **zero**, against five documented as required for the gateway. `GET /health` returns `503 {"database":"degraded"}`. Both were last deployed 2026-03-31, so they appear to have been in this state for roughly four months, which means the quota, usage, and entitlements work recorded in this changelog has been shipping against a gateway that cannot reach its database. Not remediated here: setting production secrets is not a change to make unasked, and the right values depend on whether CR11's isolation work lands first.
+
+**Final state:** 3,001 Flutter tests and 1,018 worker tests passing; zero TypeScript errors across all seven workers; `shellcheck` clean.
 
 ---
