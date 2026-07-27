@@ -84,8 +84,11 @@ class _ProvisionPageState extends State<ProvisionPage> {
   }
 
   Future<void> _goToDashboard() async {
-    // Use hash fragment so the token is not sent to the server, not stored
-    // in browser history as a queryable entry, and not included in Referer.
+    // Use hash fragment so the token is not sent to the server and not
+    // included in Referer headers. Note: the fragment IS stored in browser
+    // history and is readable by any script on the dashboard origin via
+    // location.hash. Full fix (postMessage / single-use exchange code) requires
+    // a coordinated change in the dashboard app — see BACKLOG.md CR04.
     final encoded = Uri.encodeComponent(widget.auth.jwt);
     final uri = Uri.parse('${ExternalUrls.dashboardApp}#access_token=$encoded');
     await launchUrl(uri);
