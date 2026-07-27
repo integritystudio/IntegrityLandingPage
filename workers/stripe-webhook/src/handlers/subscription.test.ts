@@ -58,7 +58,7 @@ describe('handleSubscriptionUpdated', () => {
 
   it('returns { ok: false } when findOrgByStripeCustomerId fails', async () => {
     const event = makeSubEvent(VALID_SUBSCRIPTION);
-    const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: false, error: 'DB error' }) });
+    const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 500: Connection timeout' }) });
     const result = await handleSubscriptionUpdated(event, db);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to find org');
@@ -91,7 +91,7 @@ describe('handleSubscriptionUpdated', () => {
 
   it('returns { ok: false } when upsertSubscription fails', async () => {
     const event = makeSubEvent(VALID_SUBSCRIPTION);
-    const db = makeDb({ upsertSubscription: vi.fn().mockResolvedValue({ ok: false, error: 'Upsert fail' }) });
+    const db = makeDb({ upsertSubscription: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 409: Duplicate key violation' }) });
     const result = await handleSubscriptionUpdated(event, db, {});
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to upsert subscription');
@@ -127,7 +127,7 @@ describe('handleSubscriptionUpdated', () => {
 
   it('returns { ok: false } when updateOrgBillingStatus fails', async () => {
     const event = makeSubEvent(VALID_SUBSCRIPTION);
-    const db = makeDb({ updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: false, error: 'Update fail' }) });
+    const db = makeDb({ updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 500: DB connection error' }) });
     const result = await handleSubscriptionUpdated(event, db, {});
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to update org');
@@ -165,7 +165,7 @@ describe('handleSubscriptionDeleted', () => {
 
   it('returns { ok: false } when findOrgByStripeCustomerId fails', async () => {
     const event = makeSubEvent(VALID_SUBSCRIPTION);
-    const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: false, error: 'DB error' }) });
+    const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 500: Connection timeout' }) });
     const result = await handleSubscriptionDeleted(event, db);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to find org');
@@ -198,7 +198,7 @@ describe('handleSubscriptionDeleted', () => {
 
   it('returns { ok: false } when upsertSubscription fails', async () => {
     const event = makeSubEvent(VALID_SUBSCRIPTION);
-    const db = makeDb({ upsertSubscription: vi.fn().mockResolvedValue({ ok: false, error: 'Upsert fail' }) });
+    const db = makeDb({ upsertSubscription: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 409: Duplicate key violation' }) });
     const result = await handleSubscriptionDeleted(event, db);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to mark subscription canceled');
@@ -213,7 +213,7 @@ describe('handleSubscriptionDeleted', () => {
 
   it('returns { ok: false } when updateOrgBillingStatus fails', async () => {
     const event = makeSubEvent(VALID_SUBSCRIPTION);
-    const db = makeDb({ updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: false, error: 'Update fail' }) });
+    const db = makeDb({ updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 500: DB connection error' }) });
     const result = await handleSubscriptionDeleted(event, db);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to downgrade org');

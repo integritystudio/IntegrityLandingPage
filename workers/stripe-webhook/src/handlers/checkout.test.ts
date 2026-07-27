@@ -93,7 +93,7 @@ describe('handleCheckoutSessionCompleted', () => {
 
   it('returns { ok: false } when linkStripeCustomer fails', async () => {
     const event = makeEvent({ customer: 'cus_1', subscription: 'sub_1', metadata: { org_id: 'org-1' } });
-    const db = makeDb({ linkStripeCustomer: vi.fn().mockResolvedValue({ ok: false, error: 'DB error' }) });
+    const db = makeDb({ linkStripeCustomer: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 500: Connection timeout' }) });
     const result = await handleCheckoutSessionCompleted(event, db);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to link Stripe customer');
@@ -101,7 +101,7 @@ describe('handleCheckoutSessionCompleted', () => {
 
   it('returns { ok: false } when upsertSubscription fails', async () => {
     const event = makeEvent({ customer: 'cus_1', subscription: 'sub_1', metadata: { org_id: 'org-1' } });
-    const db = makeDb({ upsertSubscription: vi.fn().mockResolvedValue({ ok: false, error: 'Upsert fail' }) });
+    const db = makeDb({ upsertSubscription: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 409: Duplicate key violation' }) });
     const result = await handleCheckoutSessionCompleted(event, db);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to upsert subscription');

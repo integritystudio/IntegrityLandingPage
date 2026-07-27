@@ -59,7 +59,7 @@ describe('handleInvoicePaid', () => {
 
   it('returns { ok: false } when findOrgByStripeCustomerId fails', async () => {
     const event = makeEvent({ customer: 'cus_1', subscription: 'sub_1' });
-    const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: false, error: 'DB error' }) });
+    const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 500: Connection timeout' }) });
     const result = await handleInvoicePaid(event, db);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to find org');
@@ -76,7 +76,7 @@ describe('handleInvoicePaid', () => {
 
   it('returns { ok: false } when updateOrgBillingStatus fails', async () => {
     const event = makeEvent({ customer: 'cus_1', subscription: 'sub_1' });
-    const db = makeDb({ updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: false, error: 'Update fail' }) });
+    const db = makeDb({ updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 500: DB connection error' }) });
     const result = await handleInvoicePaid(event, db);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to update org');
@@ -115,7 +115,7 @@ describe('handleInvoicePaymentFailed', () => {
 
   it('returns { ok: false } when findOrgByStripeCustomerId fails', async () => {
     const event = makeEvent({ customer: 'cus_1' });
-    const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: false, error: 'DB error' }) });
+    const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 500: Connection timeout' }) });
     const result = await handleInvoicePaymentFailed(event, db);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to find org');
@@ -132,7 +132,7 @@ describe('handleInvoicePaymentFailed', () => {
 
   it('returns { ok: false } when updateOrgBillingStatus fails', async () => {
     const event = makeEvent({ customer: 'cus_1' });
-    const db = makeDb({ updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: false, error: 'Update fail' }) });
+    const db = makeDb({ updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 500: DB connection error' }) });
     const result = await handleInvoicePaymentFailed(event, db);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('Failed to update org');
