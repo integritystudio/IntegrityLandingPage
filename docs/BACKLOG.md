@@ -346,7 +346,7 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ## Code Review 2026-07-26 (CR01–CR10)
 
-Open items from the 8-area codebase review, plus issues found while remediating it. The review record, including the 40 findings already fixed and the 3 refuted claims, stays in [`CODE_REVIEW.md`](../CODE_REVIEW.md); this section is the actionable remainder.
+Open items from the 8-area codebase review, plus issues found while remediating it. The 40 findings already fixed are recorded in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md) under *Codebase Review Remediation*; the review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md). This section is the actionable remainder.
 
 ### CR01: `doppler.json` encrypted secrets bundle is committed to the repository
 

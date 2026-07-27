@@ -325,3 +325,123 @@ Consolidated and **removed** two dated point-in-time reports; their findings are
 **Docs merge:** folded `docs/usage-event-pipeline.md` (usage-aggregation architecture) into `docs/api-usage-ingestion.md` as an expanded "Aggregation Pipeline" section, then removed the standalone file — the API reference and its pipeline architecture now live in one doc.
 
 ---
+
+## [2026-07-26] - Codebase Review Remediation (40 findings)
+
+Remediation of the 8-area codebase review of the Flutter app and all Cloudflare Workers. 45 tracked items; the 40 below shipped. The 5 that did not, plus 5 issues found while remediating, are tracked as CR01–CR10 in [`docs/BACKLOG.md`](../../BACKLOG.md). Three further claims from the review were refuted during verification and are recorded in `CODE_REVIEW.md` so they are not re-reported.
+
+### Security & Privacy
+
+**Meta Pixel gated on marketing consent (High)**
+- `web/index.html` and `web/blog/index.html` loaded `js/meta-pixel.js` unconditionally in `<head>`, firing `fbq('init')` and `fbq('track','PageView')` for every visitor before the cookie banner rendered. `TrackingWeb.injectFacebookPixel()` was a no-op that only flipped a boolean, so the ConsentManager architecture was entirely bypassed — a GDPR/ePrivacy breach on a site that markets GDPR compliance.
+- The unconditional script tags are removed; `injectFacebookPixel()` now injects the script (async) and runs only after marketing consent.
+- Commits: `55550f2`, `81d0aa2`
+
+**JWT removed from application URLs (High)**
+- `/provision?jwt=…&email=…` was trusted from query parameters with no session binding, allowing an attacker to deep-link a victim into an attacker-controlled session (login-CSRF). That entry point is gone.
+- The dashboard handoff moved from `?access_token=` to a `#access_token=` fragment, which is not sent to the server — eliminating proxy/server-log and `Referer` leaks.
+- **Partially closed:** a fragment still lands in browser history and is readable via `location.hash`. Tracked as CR04.
+- Commits: `c55dcff`
+
+**Per-IP rate limiting on `/signup` and `/signin` (High)**
+- Added a KV-backed per-IP limiter for the credential endpoints, which previously forwarded arbitrary credentials to Auth0 ROPC with no throttle, CAPTCHA, or `auth0-forwarded-for` header.
+- **Not yet active:** the limiter fails open when `RATE_LIMIT_KV` is unbound, and the namespace has not been created, so the endpoints are still unprotected in every environment. Tracked as CR03.
+- Commits: `38b2878`, `a392cd6`
+
+**Quota enforced only after authentication (High)**
+- `workers/api-gateway/src/index.ts` decremented quota before verifying the bearer token, letting an unauthenticated caller exhaust any org's rate limit and monthly quota. The token is now verified first.
+- Commits: `d9ba71a`
+
+**Assorted auth and CORS hardening**
+- `verifyJwt` rejects tokens with a missing or non-numeric `exp` instead of treating them as never-expiring (`815d714`).
+- `buildCorsHeaders` no longer reflects an arbitrary caller origin into `Access-Control-Allow-Origin`; the allowlist previously gated only the credentials flag (`66f1825`).
+- contact-form fails closed when `CSRF_SECRET` is unset, and CRLF from name/organization is stripped before reaching the email `Subject` header (`510f2a1`).
+- `ALLOWED_ORIGINS_JSON` shape is validated — a JSON string previously turned the CORS allowlist into a substring match, and a JSON object crashed every request (`d7032fd`).
+- API-key create/revoke requires an owner or admin role; any active member, including viewers, could previously mint and revoke org keys (`3f57a8d`).
+
+### Provisioning & Signup
+
+**Signup rollback (High)**
+- `handleSignup` created the Auth0 user and Supabase org concurrently in `Promise.all` with no compensating cleanup, so any mid-flow failure orphaned records and every retry failed with "email already registered" — permanently locking that address out of signup.
+- Steps are now sequential with `auth0DeleteUser` rollback at each failure point.
+- Commits: `c75592c`
+
+**`dedupSlug` collisions**
+- `a.b@`, `a-b@`, and `a+b@` normalized to the same org slug, so the second signup hit the unique constraint and failed permanently. Distinct emails now produce distinct slugs.
+- Commits: `d7032fd`
+
+**Signup CTAs routed to a real tier (High)**
+- The hero, CTA, and services CTAs linked to `/signup?tier=Team`, a tier with no `signup.tiers` entry in content.yaml. `ContentLoader` returns `''` for missing keys, so the main conversion page rendered a blank heading, blank description, no feature list, and an unlabeled submit button; those signups also skipped checkout and took the free `/provision` path. Five call sites were affected, not the three first reported.
+- `Team` was the middle tier's name before content.yaml was renamed to `Growth` to match the backend `ApiKeyTierSchema` enum; the hardcoded links were never updated.
+- Also fixed a second bug in the same family: the pricing table passed its *display* name into the URL, producing `?tier=Growth`, which was forwarded verbatim to `ProvisioningService.signUp`. The backend `safeParse` of `'Growth'` fails and falls back to `DEFAULT_TIER`, so **paying Growth customers were being provisioned at the free starter tier**.
+- Added `SignupTiers` with the canonical keys and a `normalize()` the router applies to the query parameter, so the tier reaching content lookups, checkout routing, and provisioning is always canonical and an unknown value degrades to the default instead of rendering a blank page.
+- The stale `Team` name was then renamed to `Growth` everywhere it survived, and the unused `PricingContentVariants` / `ServicesContentVariants` — the dead Dart content the stale name came from — were deleted.
+- Commits: `7dada97`, `7227251`, `66a558b`
+
+**Other provisioning fixes**
+- `signUp` returns `AuthError` instead of an `AuthSuccess` carrying an empty JWT when a 201 body lacks the token (`8c64233`).
+- Sign-in routes to `/dashboard` rather than `/provision`, making the dashboard route family reachable (`03c8317`).
+- `handleSignup`/`handleSignIn` guard non-string email and password; the checkout-session handler wraps its Stripe call so a network failure no longer escapes unhandled (`cde2663`, `ecb91eb`).
+
+### Shared Worker Library
+
+**PostgREST `Prefer` header on insert/update (High)**
+- `insert()` and `update()` sent `returning=representation` as a query parameter, which PostgREST ignores. `insert()` therefore hard-failed every call — a bodyless 201 was passed to `response.json()`, the `SyntaxError` was swallowed by the catch, and the caller saw `{ ok: false }` after the row had been written. API-key creation returned 500 to the user after successfully writing the key; audit-log, usage-event, and webhook-log writes logged errors on success. `update()` silently returned `null` rows because it only parsed a body on 200 while PostgREST answered 204.
+- Both now send `Prefer: return=<value>` and gate body parsing on the same flag.
+- Commits: `6a9b664`
+
+**Duplicate-column filters no longer overwritten (High)**
+- `serializeFilters` used `searchParams.set`, so a `gte` + `lte` range on one column lost its lower bound and daily/monthly rollups aggregated all history. It now appends.
+- Commits: `d3d7594`
+
+**Supabase option schemas reconciled with the client**
+- `InsertOptionsSchema`/`UpdateOptionsSchema` described a contract the client did not implement — `returning` was a string enum in the schema and a boolean in the client, and both declared a `select` field the client never supported. The client now consumes those types, `returning` adopts the string form that maps onto the `Prefer` header, and the unimplemented `select` is dropped.
+- `query()` gained overloads: a plain select resolves to `T[]`, `single` resolves to `T | null`. This removed two unreachable branches in the Stripe admin (`toVoidResult`'s `?? 'Unknown error'` and a `!Array.isArray` guard that could never fire).
+- Commits: `23bf28a`, `41cc928`
+
+### API Gateway & Quota
+
+- Production routes moved to the top-level wrangler config; they lived only under `[env.production]`, which no deploy script targeted, so they were never attached (`a0fca5c`).
+- Quota Durable Object flushes state via an alarm instead of a ≤10s lazy save, so counts survive eviction and monthly limits stop under-enforcing (`d7e0872`, `4a962a6`).
+- Plan key renamed `free` → `starter` to match `DEFAULT_QUOTAS`, and a `quota_version` bump preserves `monthlyUsed` instead of resetting it mid-month (`dd35ab9`).
+- `loadUsageSnapshot` queries `usage_buckets_daily` rather than columns that do not exist on `usage_events`, which had made every snapshot zero (`d8c54b7`).
+- bootstrap-worker gained CORS/OPTIONS handling (`ALLOWED_ORIGINS_JSON` was dead config) and returns 404 rather than 500 for unknown routes; `loadOrgContext` no longer crashes on `orgs[0].id` when memberships exist but no org row matches (`3f57a8d`, `dedb5c7`).
+
+### Stripe Webhook
+
+- Idempotency is now an atomic `INSERT … ON CONFLICT DO NOTHING RETURNING` (`claimEvent`), replacing a check-then-act guard where two concurrent deliveries could both execute the handler. `unclaimEvent` removes the log entry when the handler fails so the dead-letter queue can still retry (`2fc79d8`).
+- Dead-letter retries are ordered by Stripe event creation time, so a replay can no longer regress billing state (`97551a1`).
+- The signature parser accepts multiple `v1` values, so webhooks are no longer rejected during secret rotation; `InvoiceSchema` accepts `subscription: null` instead of dead-lettering every non-subscription invoice (`b5c80e9`).
+- A handler failure whose dead-letter insert also fails now returns 500 rather than 200, so Stripe retries instead of the event being lost permanently (`3f57a8d`).
+
+### Flutter UI & Content
+
+- Consent downgrade disables already-initialized analytics instead of leaving trackers running (`3375c00`).
+- Cookie banner's analytics toggle defaults to off; a pre-ticked box is not valid consent under GDPR (`5fc47b3`).
+- Contact form no longer reports `success: true` before the request runs, and clears the visible fields rather than only the backing state (`5fc47b3`).
+- Auth page mode toggle clears the visible password field, not just its state (`5fc47b3`).
+- "Go to Sign In" targets `/login`, the route that exists; the status-result spacing loop emits spacers between items rather than all before them; the app-bar CTA uses an in-app route instead of a hardcoded production URL (`5fc47b3`).
+- Signup success analytics and the Facebook Lead pixel fire after the request succeeds, not before it is attempted (`5fc47b3`).
+- The OAuth code callback has a 15-second watchdog instead of spinning forever with nothing to exchange the code (`dd8e313`).
+- `ContentLoader.load()` no longer raises an unhandled async error when it fails with no concurrent waiters (`b3828b4`).
+- Resource doc cards point at `/api` and `/compliance`; the unrouted `/docs/api` and `/docs/compliance` links and their stale display text are corrected (`bc6d1af`, `4171eee`).
+
+### Test Infrastructure
+
+**Route and admin tests drive a real Supabase client**
+- Every api-gateway route test and the stripe-webhook admin test mocked the Supabase client, so no test could see a bug inside it — which is precisely why the `Prefer` header and duplicate-column filter bugs shipped unnoticed past 132 passing tests.
+- Those suites now build a real `createSupabaseClient` and stub `fetch` beneath it, via a shared helper (`workers/lib/test-helpers/supabase-fetch-stub.ts`) that dispatches on `"<METHOD> <table>"` and answers an unstubbed route with a loud 501 rather than a silent success. Assertions moved to the wire: filter serialization, request bodies, `Prefer` headers, and PostgREST's real status codes.
+- Both regressions were verified to fail the new tests when reintroduced.
+- This removed the last need for `_sbOverride`, a test-only escape hatch declared in five production option types, along with the unused `RequestOptions`/`MachineRequestOptions` interfaces that existed only to carry it.
+- api-gateway 132 → 146 tests; stripe-webhook 144 → 150.
+- Commits: `1cfee5f`, `79d1cc8`
+
+**Guard tests and repairs**
+- `signup_tier_consistency_test.dart` pins the tier contract: every canonical tier has complete signup content, every pricing tier in content.yaml maps to a signup entry, and no Dart file links to a non-canonical tier (`7dada97`).
+- The CSP frame-ancestors test inspects `web/_headers` instead of matching an HTML comment in `index.html`, where it would have stayed green if the real protection were deleted (`ab58431`).
+- First HTTP-level tests for the shared Supabase client (`6a9b664`).
+- Repaired tests left asserting pre-fix behavior, and eight TypeScript errors across bootstrap-worker, contact-form, and the stripe handler doubles (`b79ec16`, `59c47bb`).
+
+**Final state:** 3,001 Flutter tests and 984 worker tests passing; zero TypeScript errors across all seven workers.
+
+---
