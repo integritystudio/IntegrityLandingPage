@@ -243,7 +243,10 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
       console.error('fetchPendingDeadLetters DB error:', result.error);
       return [];
     }
-    return result.data;
+    // PostgREST always returns an array, but the client wraps any non-array
+    // body in one (e.g. a malformed null response surfaces as [null]).
+    // Filter to objects only so the retry loop never sees a phantom entry.
+    return result.data.filter((dl): dl is DeadLetter => dl !== null && typeof dl === 'object');
   }
 
   /** Mark a dead letter as resolved (successfully retried). */

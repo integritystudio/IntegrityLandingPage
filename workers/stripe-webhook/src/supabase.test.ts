@@ -85,11 +85,11 @@ describe('fetchPendingDeadLetters', () => {
     );
   });
 
-  it('non-array data → returned as the client wraps it, without error', async () => {
-    // PostgREST always answers a select with a JSON array, and the client wraps
-    // anything else in one, so a malformed `null` body surfaces as `[null]`,
-    // not `[]`. Nothing downstream filters that out — this pins the shape
-    // rather than asserting it is defended against.
+  it('non-array data → filtered out, returning empty array', async () => {
+    // PostgREST always answers a select with a JSON array, but the client wraps
+    // any non-array body in one, so a malformed null response surfaces as [null].
+    // fetchPendingDeadLetters filters non-object entries so the retry loop
+    // never receives a phantom dead letter.
     stubSupabase({
       [`GET ${DEAD_LETTERS_TABLE}`]: () =>
         new Response('null', { status: 200, headers: { 'content-type': 'application/json' } }),
@@ -97,7 +97,7 @@ describe('fetchPendingDeadLetters', () => {
 
     const result = await db.fetchPendingDeadLetters();
 
-    expect(result).toEqual([null]);
+    expect(result).toEqual([]);
   });
 
   it('empty result set → returns empty array without error', async () => {
