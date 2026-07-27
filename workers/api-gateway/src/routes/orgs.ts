@@ -9,7 +9,6 @@ interface OrgsHandlerOptions {
   supabaseUrl: string;
   serviceRoleKey: string;
   jwtIssuerUrl?: string;
-  _sbOverride?: SupabaseClient;
 }
 
 interface BillingPortalHandlerOptions extends OrgsHandlerOptions {
@@ -62,7 +61,7 @@ export async function handleListOrgs(
   const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
   const memberships = await loadUserMemberships(auth.sub, sb);
 
   if (memberships.length === 0) {
@@ -81,7 +80,7 @@ export async function handleOrgDashboard(
   const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
   const memberships = await loadUserMemberships(auth.sub, sb);
   const membership = memberships.find((m) => m.organization_id === orgId);
   if (!membership) return forbidden('Not a member of this organization');
@@ -121,7 +120,7 @@ export async function handleOrgBillingStatus(
   const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
   const memberships = await loadUserMemberships(auth.sub, sb);
   const membership = memberships.find((m) => m.organization_id === orgId);
   if (!membership) return forbidden('Not a member of this organization');
@@ -160,7 +159,7 @@ export async function handleBillingPortal(
   const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
   const memberships = await loadUserMemberships(auth.sub, sb);
   const membership = memberships.find((m) => m.organization_id === orgId);
   if (!membership) return forbidden('Not a member of this organization');

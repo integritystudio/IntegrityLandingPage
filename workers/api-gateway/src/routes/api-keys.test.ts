@@ -1,18 +1,35 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { handleCreateApiKey, handleRevokeApiKey } from './api-keys';
-import { hashApiKeySecret, API_KEY_REGEX } from '../../../lib/api-keys';
+import { hashApiKeySecret, parseApiKey, API_KEY_REGEX } from '../../../lib/api-keys';
+import {
+  createSupabaseFetchStub,
+  createdRows,
+  httpError,
+  noContent,
+  okRows,
+  updatedRows,
+  TEST_SERVICE_ROLE_KEY,
+  TEST_SUPABASE_URL,
+  type RouteResponder,
+  type SupabaseFetchStub,
+} from '../../../lib/test-helpers/supabase-fetch-stub';
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
 const HMAC_SECRET = 'test-hmac-secret-at-least-32-chars!';
 
-async function makeJwt(payload: Record<string, unknown>, secret: string): Promise<string> {
+const ORG_ID = 'org-id-1';
+const USER_ID = 'user-id-1';
+const KEY_ID = 'key-id';
+const REVOKED_AT = '2026-03-20T00:00:00Z';
+
+async function makeJwt(payload: Record<string, unknown>): Promise<string> {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const body = btoa(JSON.stringify({ exp: 9999999999, ...payload }))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const msg = `${header}.${body}`;
   const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
+    'raw', new TextEncoder().encode(JWT_SECRET),
     { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
   );
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
@@ -21,271 +38,395 @@ async function makeJwt(payload: Record<string, unknown>, secret: string): Promis
   return `${msg}.${sigB64}`;
 }
 
-const makeOpts = (sbOverride: any) => ({
+const opts = {
   jwtSecret: JWT_SECRET,
   hmacSecret: HMAC_SECRET,
-  supabaseUrl: 'https://test.supabase.co',
-  serviceRoleKey: 'key',
-  _sbOverride: sbOverride,
-});
+  supabaseUrl: TEST_SUPABASE_URL,
+  serviceRoleKey: TEST_SERVICE_ROLE_KEY,
+};
 
-const makeMembership = (orgId = 'org-id-1', role = 'owner') => ({
+/** Installs the stub as global fetch and returns it for assertions. */
+function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub {
+  const stub = createSupabaseFetchStub(routes);
+  vi.stubGlobal('fetch', stub.fetch);
+  return stub;
+}
+
+const makeMembership = (orgId = ORG_ID, role = 'owner') => ({
   organization_id: orgId,
-  user_id: 'user-id-1',
+  user_id: USER_ID,
   role,
   status: 'active',
 });
 
 const makeUser = () => ({
-  id: 'user-id-1',
-  auth0_id: 'user-id-1',
+  id: USER_ID,
+  auth0_id: USER_ID,
   email: 'user@test.com',
+});
+
+const makeInsertedKey = () => ({
+  id: 'new-key-id',
+  prefix: 'WILLBESET',
+  user_id: USER_ID,
+  organization_id: ORG_ID,
+  created_at: '2026-03-19T00:00:00Z',
+});
+
+const makeExistingKey = () => ({
+  id: KEY_ID,
+  organization_id: ORG_ID,
+  user_id: USER_ID,
+  status: 'active',
+  revoked_at: null,
+});
+
+const REPRESENTATION_PREFER = 'return=representation';
+const CREATED_STATUS = 201;
+
+/**
+ * PostgREST returns the inserted rows only when the request asked for them via
+ * the `Prefer` header; a `returning` query param is ignored and the response
+ * comes back bodiless. Modelling that here means the whole create path — not
+ * just the header assertion — fails if the client ever regresses.
+ */
+const preferAwareInsert = (rows: unknown[]): RouteResponder => (request) =>
+  request.headers['prefer'] === REPRESENTATION_PREFER
+    ? new Response(JSON.stringify(rows), {
+      status: CREATED_STATUS,
+      headers: { 'content-type': 'application/json' },
+    })
+    : new Response(null, { status: CREATED_STATUS });
+
+/** Membership lookup + user lookup + key insert + audit log — the create happy path. */
+const createRoutes = (
+  overrides: Record<string, RouteResponder> = {},
+): Record<string, RouteResponder> => ({
+  'GET organization_memberships': okRows([makeMembership()]),
+  'GET users': okRows([makeUser()]),
+  'POST api_keys': preferAwareInsert([makeInsertedKey()]),
+  'POST audit_log': createdRows([{ id: 'audit-1' }]),
+  ...overrides,
+});
+
+/** Membership lookup + key lookup + key update + audit log — the revoke happy path. */
+const revokeRoutes = (
+  overrides: Record<string, RouteResponder> = {},
+): Record<string, RouteResponder> => ({
+  'GET organization_memberships': okRows([makeMembership()]),
+  'GET api_keys': okRows([makeExistingKey()]),
+  'PATCH api_keys': updatedRows([{ ...makeExistingKey(), status: 'revoked', revoked_at: REVOKED_AT }]),
+  'POST audit_log': createdRows([{ id: 'audit-1' }]),
+  ...overrides,
+});
+
+const makeCreateRequest = (token: string, body: Record<string, unknown> = { name: 'My Key' }) =>
+  new Request('https://api.test/v1/orgs/org-id-1/api-keys', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+const makeRevokeRequest = (token: string) =>
+  new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+interface CreateApiKeyResponse {
+  id: string;
+  name: string;
+  prefix: string;
+  tier: string;
+  status: string;
+  expires_at: string | null;
+  created_at: string;
+  token: string;
+  hash?: unknown;
+}
+
+interface RevokeApiKeyResponse {
+  id: string;
+  status: string;
+  revoked_at: string;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('POST /v1/orgs/:orgId/api-keys', () => {
   it('returns 401 when no bearer token', async () => {
+    const stub = stubSupabase({});
     const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys', { method: 'POST' });
-    const res = await handleCreateApiKey(req, 'org-id-1', makeOpts(null));
+    const res = await handleCreateApiKey(req, ORG_ID, opts);
     expect(res.status).toBe(401);
+    // Auth is rejected before any Supabase traffic is issued.
+    expect(stub.requests).toEqual([]);
   });
 
   it('returns 403 when user is not a member', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'My Key' }),
-    });
-    const res = await handleCreateApiKey(req, 'org-id-1', makeOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes({ 'GET organization_memberships': okRows([]) }));
+    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
     expect(res.status).toBe(403);
+    // No key is minted when membership fails.
+    expect(stub.find('POST', 'api_keys')).toBeUndefined();
   });
 
   it('returns 403 when user role is viewer', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'viewer')] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'My Key' }),
-    });
-    const res = await handleCreateApiKey(req, 'org-id-1', makeOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes({
+      'GET organization_memberships': okRows([makeMembership(ORG_ID, 'viewer')]),
+    }));
+    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
     expect(res.status).toBe(403);
+    expect(stub.find('POST', 'api_keys')).toBeUndefined();
   });
 
   it('returns 403 when user role is billing_admin', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'billing_admin')] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'My Key' }),
-    });
-    const res = await handleCreateApiKey(req, 'org-id-1', makeOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes({
+      'GET organization_memberships': okRows([makeMembership(ORG_ID, 'billing_admin')]),
+    }));
+    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
     expect(res.status).toBe(403);
+    expect(stub.find('POST', 'api_keys')).toBeUndefined();
+  });
+
+  it('scopes the membership lookup to the user, org, and active status', async () => {
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes());
+    await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
+
+    const params = stub.find('GET', 'organization_memberships')!.url.searchParams;
+    expect(params.get('user_id')).toBe(`eq.${USER_ID}`);
+    expect(params.get('organization_id')).toBe(`eq.${ORG_ID}`);
+    expect(params.get('status')).toBe('eq.active');
+    expect(params.get('limit')).toBe('1');
+  });
+
+  it('returns 404 when the JWT subject has no users row', async () => {
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes({ 'GET users': okRows([]) }));
+    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
+    expect(res.status).toBe(404);
+    expect(stub.find('GET', 'users')!.url.searchParams.get('auth0_id')).toBe(`eq.${USER_ID}`);
+    expect(stub.find('POST', 'api_keys')).toBeUndefined();
   });
 
   it('creates an API key for an org member and returns the token once', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const insertedKey = {
-      id: 'new-key-id',
-      prefix: 'WILLBESET',
-      user_id: 'user-id-1',
-      organization_id: 'org-id-1',
-    };
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes());
 
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
-        .mockResolvedValueOnce({ ok: true, data: [makeUser()] }),
-      insert: vi.fn().mockResolvedValue({ ok: true, data: [insertedKey] }),
-      update: vi.fn(), rpc: vi.fn(),
-    };
-
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'CI Key' }),
-    });
-
-    const res = await handleCreateApiKey(req, 'org-id-1', makeOpts(mockSb));
+    const res = await handleCreateApiKey(
+      makeCreateRequest(token, { name: 'CI Key' }), ORG_ID, opts,
+    );
     expect(res.status).toBe(201);
-    const body = await res.json() as any;
+    const body = await res.json() as CreateApiKeyResponse;
     // Token must match the API key format
     expect(body.token).toMatch(API_KEY_REGEX);
     expect(body.id).toBe('new-key-id');
     expect(body.name).toBe('CI Key');
     // Hash is NOT returned — only the token (shown once)
     expect(body.hash).toBeUndefined();
+    // The row that actually went over the wire, with the columns PostgREST receives.
+    const insert = stub.find('POST', 'api_keys')!;
+    expect(insert.body).toEqual([
+      expect.objectContaining({
+        user_id: USER_ID,
+        organization_id: ORG_ID,
+        prefix: body.prefix,
+        name: 'CI Key',
+        tier: 'starter',
+        status: 'active',
+        expires_at: null,
+      }),
+    ]);
     // Audit log written: first call is membership check, second is user lookup, third is audit_log insert
-    expect(mockSb.insert).toHaveBeenCalledWith(
-      'audit_log',
-      expect.objectContaining({ action: 'api_key.created', target_type: 'api_key', actor_user_id: 'user-id-1' }),
-    );
+    expect(stub.find('POST', 'audit_log')!.body).toEqual([
+      expect.objectContaining({
+        action: 'api_key.created',
+        target_type: 'api_key',
+        target_id: 'new-key-id',
+        actor_user_id: USER_ID,
+        organization_id: ORG_ID,
+      }),
+    ]);
+  });
+
+  it('asks PostgREST for the inserted row via the Prefer header, not a query param', async () => {
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes());
+
+    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
+    expect(res.status).toBe(201);
+
+    const insert = stub.find('POST', 'api_keys')!;
+    // Regression guard: `returning` as a query param is silently ignored by
+    // PostgREST, so the insert succeeds but comes back without rows and the
+    // route 500s after already writing the key.
+    expect(insert.headers['prefer']).toBe('return=representation');
+    expect(insert.url.searchParams.get('returning')).toBeNull();
+  });
+
+  it('returns 500 when the insert succeeds but returns no representation', async () => {
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes({ 'POST api_keys': noContent() }));
+
+    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
+    expect(res.status).toBe(500);
+    // The write happened — this is the shape of the shipped Prefer-header bug.
+    expect(stub.find('POST', 'api_keys')).toBeDefined();
+    expect(stub.find('POST', 'audit_log')).toBeUndefined();
+  });
+
+  it('returns 500 when the key insert fails', async () => {
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    stubSupabase(createRoutes({ 'POST api_keys': httpError(500, 'DB error') }));
+    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
+    expect(res.status).toBe(500);
+  });
+
+  it('stores an HMAC hash of the secret, never the secret itself', async () => {
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes());
+
+    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
+    const body = await res.json() as CreateApiKeyResponse;
+    const parsed = parseApiKey(body.token);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+
+    const [row] = stub.find('POST', 'api_keys')!.body as Array<{ hash: string; prefix: string }>;
+    expect(row.prefix).toBe(parsed.prefix);
+    expect(row.hash).toBe(await hashApiKeySecret(parsed.secret, HMAC_SECRET));
+    expect(row.hash).not.toContain(parsed.secret);
   });
 
   it('writes audit log even when audit insert fails, and still returns 201', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const insertedKey = { id: 'new-key-id', prefix: 'WILLBESET', user_id: 'user-id-1', organization_id: 'org-id-1' };
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes({ 'POST audit_log': httpError(500, 'db error') }));
 
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
-        .mockResolvedValueOnce({ ok: true, data: [makeUser()] }),
-      insert: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [insertedKey] })
-        .mockResolvedValueOnce({ ok: false, error: 'db error' }),
-      update: vi.fn(), rpc: vi.fn(),
-    };
-
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'CI Key' }),
-    });
-
-    const res = await handleCreateApiKey(req, 'org-id-1', makeOpts(mockSb));
+    const res = await handleCreateApiKey(
+      makeCreateRequest(token, { name: 'CI Key' }), ORG_ID, opts,
+    );
     expect(res.status).toBe(201);
+    // The audit write was attempted; its failure is swallowed.
+    expect(stub.find('POST', 'audit_log')).toBeDefined();
   });
 
   it('accepts optional expires_at for key creation', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
-        .mockResolvedValueOnce({ ok: true, data: [makeUser()] }),
-      insert: vi.fn().mockResolvedValue({ ok: true, data: [{ id: 'key-id', prefix: 'abc', user_id: 'user-id-1', organization_id: 'org-id-1' }] }),
-      update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Expiring Key', expires_at: '2027-01-01T00:00:00Z' }),
-    });
-    const res = await handleCreateApiKey(req, 'org-id-1', makeOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes());
+    const res = await handleCreateApiKey(
+      makeCreateRequest(token, { name: 'Expiring Key', expires_at: '2027-01-01T00:00:00Z' }),
+      ORG_ID,
+      opts,
+    );
     expect(res.status).toBe(201);
     // Verify insert was called with expires_at
-    expect(mockSb.insert).toHaveBeenCalledWith(
-      'api_keys',
+    expect(stub.find('POST', 'api_keys')!.body).toEqual([
       expect.objectContaining({ expires_at: '2027-01-01T00:00:00Z' }),
-      expect.anything(),
-    );
+    ]);
+    const body = await res.json() as CreateApiKeyResponse;
+    expect(body.expires_at).toBe('2027-01-01T00:00:00Z');
   });
 });
 
 describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
   it('returns 401 when no bearer token', async () => {
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', { method: 'POST' });
-    const res = await handleRevokeApiKey(req, 'org-id-1', 'key-id', makeOpts(null));
+    const stub = stubSupabase({});
+    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', {
+      method: 'POST',
+    });
+    const res = await handleRevokeApiKey(req, ORG_ID, KEY_ID, opts);
     expect(res.status).toBe(401);
+    expect(stub.requests).toEqual([]);
   });
 
   it('returns 403 when user is not a member', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleRevokeApiKey(req, 'org-id-1', 'key-id', makeOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(revokeRoutes({ 'GET organization_memberships': okRows([]) }));
+    const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
     expect(res.status).toBe(403);
+    expect(stub.find('PATCH', 'api_keys')).toBeUndefined();
   });
 
   it('returns 403 when user role is viewer', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'viewer')] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleRevokeApiKey(req, 'org-id-1', 'key-id', makeOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(revokeRoutes({
+      'GET organization_memberships': okRows([makeMembership(ORG_ID, 'viewer')]),
+    }));
+    const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
     expect(res.status).toBe(403);
+    expect(stub.find('PATCH', 'api_keys')).toBeUndefined();
   });
 
   it('returns 403 when user role is billing_admin', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'billing_admin')] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleRevokeApiKey(req, 'org-id-1', 'key-id', makeOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(revokeRoutes({
+      'GET organization_memberships': okRows([makeMembership(ORG_ID, 'billing_admin')]),
+    }));
+    const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
     expect(res.status).toBe(403);
+    expect(stub.find('PATCH', 'api_keys')).toBeUndefined();
   });
 
   it('returns 404 when key does not belong to the org', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
-        .mockResolvedValueOnce({ ok: true, data: [] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleRevokeApiKey(req, 'org-id-1', 'key-id', makeOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(revokeRoutes({ 'GET api_keys': okRows([]) }));
+    const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
     expect(res.status).toBe(404);
+    // The lookup is scoped to both the key and the org, so a foreign key 404s.
+    const params = stub.find('GET', 'api_keys')!.url.searchParams;
+    expect(params.get('id')).toBe(`eq.${KEY_ID}`);
+    expect(params.get('organization_id')).toBe(`eq.${ORG_ID}`);
+    expect(stub.find('PATCH', 'api_keys')).toBeUndefined();
   });
 
   it('revokes the key and returns 200', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const existingKey = {
-      id: 'key-id',
-      organization_id: 'org-id-1',
-      user_id: 'user-id-1',
-      status: 'active',
-      revoked_at: null,
-    };
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(revokeRoutes());
 
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
-        .mockResolvedValueOnce({ ok: true, data: [existingKey] }),
-      insert: vi.fn().mockResolvedValue({ ok: true, data: [] }),
-      update: vi.fn().mockResolvedValue({ ok: true, data: [{ ...existingKey, status: 'revoked', revoked_at: '2026-03-20T00:00:00Z' }] }),
-      rpc: vi.fn(),
-    };
-
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-
-    const res = await handleRevokeApiKey(req, 'org-id-1', 'key-id', makeOpts(mockSb));
+    const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
-    expect(body.id).toBe('key-id');
+    const body = await res.json() as RevokeApiKeyResponse;
+    expect(body.id).toBe(KEY_ID);
     expect(body.status).toBe('revoked');
-    expect(mockSb.update).toHaveBeenCalledWith(
-      'api_keys',
-      expect.objectContaining({ status: 'revoked' }),
-      expect.any(Array),
-      expect.anything(),
+    const patch = stub.find('PATCH', 'api_keys')!;
+    expect(patch.body).toEqual(
+      expect.objectContaining({ status: 'revoked', revoked_at: body.revoked_at }),
     );
+    expect(patch.url.searchParams.get('id')).toBe(`eq.${KEY_ID}`);
     // Audit log written for revoke
-    expect(mockSb.insert).toHaveBeenCalledWith(
-      'audit_log',
-      expect.objectContaining({ action: 'api_key.revoked', target_type: 'api_key', target_id: 'key-id' }),
-    );
+    expect(stub.find('POST', 'audit_log')!.body).toEqual([
+      expect.objectContaining({
+        action: 'api_key.revoked',
+        target_type: 'api_key',
+        target_id: KEY_ID,
+        organization_id: ORG_ID,
+      }),
+    ]);
+  });
+
+  it('asks PostgREST for the updated row via the Prefer header, not a query param', async () => {
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(revokeRoutes());
+
+    const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
+    expect(res.status).toBe(200);
+
+    const patch = stub.find('PATCH', 'api_keys')!;
+    expect(patch.headers['prefer']).toBe('return=representation');
+    expect(patch.url.searchParams.get('returning')).toBeNull();
+  });
+
+  it('returns 500 when the revoke update fails', async () => {
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(revokeRoutes({ 'PATCH api_keys': httpError(500, 'DB error') }));
+    const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
+    expect(res.status).toBe(500);
+    expect(stub.find('POST', 'audit_log')).toBeUndefined();
   });
 });

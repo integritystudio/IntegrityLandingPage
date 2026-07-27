@@ -21,7 +21,6 @@ interface IngestHandlerOptions {
   jwtIssuerUrl?: string;
   /** Durable Object namespace for quota enforcement. Required for /v1/ingest/otel. */
   doNamespace?: DurableObjectNamespace;
-  _sbOverride?: SupabaseClient;
 }
 
 async function resolveAuth(
@@ -80,7 +79,7 @@ export async function handleIngestEvent(
   opts: IngestHandlerOptions,
   waitUntil?: (p: Promise<unknown>) => void,
 ): Promise<Response> {
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
   const auth = await resolveAuth(request, opts, sb);
   if (!auth.ok) return auth.error;
@@ -155,7 +154,7 @@ export async function handleIngestOtel(
   const parsedKey = parseApiKey(tokenResult.token);
   if (!parsedKey.ok) return unauthorized('OTEL ingest requires API key authentication');
 
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
   const keyResult = await verifyApiKey(tokenResult.token, opts.hmacSecret, sb);
   if (!keyResult.ok) return keyResult.error;
 

@@ -10,7 +10,6 @@ interface ApiKeysHandlerOptions {
   supabaseUrl: string;
   serviceRoleKey: string;
   jwtIssuerUrl?: string;
-  _sbOverride?: SupabaseClient;
 }
 
 /** Roles that may create or revoke org API keys (viewers and billing-only roles excluded). */
@@ -65,7 +64,7 @@ export async function handleCreateApiKey(
   const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
   const membershipResult = await assertOrgMembership(auth.sub, orgId, sb);
   if (!membershipResult.ok) return membershipResult.error;
@@ -144,7 +143,7 @@ export async function handleRevokeApiKey(
   const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
   const membershipResult = await assertOrgMembership(auth.sub, orgId, sb);
   if (!membershipResult.ok) return membershipResult.error;

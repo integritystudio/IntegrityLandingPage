@@ -1,8 +1,17 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { handleIngestEvent, handleIngestOtel } from './ingest';
 import { hashApiKeySecret } from '../../../lib/api-keys';
 import { MS_PER_DAY } from '../../../lib/constants';
-import type { SupabaseClient } from '../../../lib/supabase';
+import {
+  createSupabaseFetchStub,
+  createdRows,
+  httpError,
+  okRows,
+  TEST_SERVICE_ROLE_KEY,
+  TEST_SUPABASE_URL,
+  type RouteResponder,
+  type SupabaseFetchStub,
+} from '../../../lib/test-helpers/supabase-fetch-stub';
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
 const HMAC_SECRET = 'test-hmac-secret-at-least-32-chars!';
@@ -25,14 +34,15 @@ async function makeJwt(payload: Record<string, unknown>): Promise<string> {
 
 const ORG_ID = '00000000-0000-4000-8000-000000000001';
 const USER_ID = '00000000-0000-4000-8000-000000000002';
+const API_KEY_SECRET = 'testsecret32charsminimumvalue000';
+const API_KEY_TOKEN = `int_live_abc12345_${API_KEY_SECRET}`;
 
-const makeOpts = (sbOverride: SupabaseClient | undefined = undefined) => ({
+const opts = {
   jwtSecret: JWT_SECRET,
   hmacSecret: HMAC_SECRET,
-  supabaseUrl: 'https://test.supabase.co',
-  serviceRoleKey: 'key',
-  _sbOverride: sbOverride,
-});
+  supabaseUrl: TEST_SUPABASE_URL,
+  serviceRoleKey: TEST_SERVICE_ROLE_KEY,
+};
 
 const makeMembership = () => ({
   organization_id: ORG_ID,
@@ -41,7 +51,7 @@ const makeMembership = () => ({
   status: 'active',
 });
 
-const makeApiKeyRow = async (orgId = ORG_ID, prefix = 'abc12345', secret = 'testsecret32charsminimumvalue000') => ({
+const makeApiKeyRow = async (orgId = ORG_ID, prefix = 'abc12345', secret = API_KEY_SECRET) => ({
   id: 'key-id-1',
   user_id: USER_ID,
   organization_id: orgId,
@@ -54,6 +64,30 @@ const makeApiKeyRow = async (orgId = ORG_ID, prefix = 'abc12345', secret = 'test
   last_used_at: null,
   created_at: '2026-01-01T00:00:00Z',
   revoked_at: null,
+});
+
+/** Routes shared by every happy path: the event insert and the rollup it triggers. */
+const writeRoutes = (): Record<string, RouteResponder> => ({
+  'POST usage_events': createdRows([{ id: 'evt-1' }]),
+  'GET usage_events': okRows([]),
+  'POST usage_buckets_daily': createdRows([]),
+});
+
+/** Installs the stub as global fetch and returns it for assertions. */
+function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub {
+  const stub = createSupabaseFetchStub(routes);
+  vi.stubGlobal('fetch', stub.fetch);
+  return stub;
+}
+
+const jwtRoutes = (memberships = [makeMembership()]) => ({
+  'GET organization_memberships': okRows(memberships),
+  ...writeRoutes(),
+});
+
+const apiKeyRoutes = async (row?: Record<string, unknown>) => ({
+  'GET api_keys': okRows([row ?? await makeApiKeyRow()]),
+  ...writeRoutes(),
 });
 
 const validBody = () => ({
@@ -72,61 +106,65 @@ const makeRequest = (body: unknown, token: string) =>
     body: JSON.stringify(body),
   });
 
-const makeMockSb = (overrides: Partial<{
-  query: ReturnType<typeof vi.fn>;
-  insert: ReturnType<typeof vi.fn>;
-  upsert: ReturnType<typeof vi.fn>;
-}> = {}) => ({
-  query: overrides.query ?? vi.fn().mockResolvedValue({ ok: true, data: [makeMembership()] }),
-  insert: overrides.insert ?? vi.fn().mockResolvedValue({ ok: true, data: null }),
-  update: vi.fn(),
-  upsert: overrides.upsert ?? vi.fn().mockResolvedValue({ ok: true, data: null }),
-  rpc: vi.fn(),
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('POST /v1/ingest/events', () => {
   it('returns 401 when no auth header', async () => {
+    stubSupabase({});
     const req = new Request('https://api.test/v1/ingest/events', { method: 'POST' });
-    const res = await handleIngestEvent(req, makeOpts());
+    const res = await handleIngestEvent(req, opts);
     expect(res.status).toBe(401);
   });
 
   it('returns 422 when body is missing required fields', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = makeMockSb();
+    stubSupabase(jwtRoutes());
     const req = makeRequest({ org_id: ORG_ID }, token); // missing metric_key
-    const res = await handleIngestEvent(req, makeOpts(mockSb));
+    const res = await handleIngestEvent(req, opts);
     expect(res.status).toBe(422);
   });
 
   it('returns 403 when JWT user is not a member', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [] }) });
+    stubSupabase(jwtRoutes([]));
     const req = makeRequest(validBody(), token);
-    const res = await handleIngestEvent(req, makeOpts(mockSb));
+    const res = await handleIngestEvent(req, opts);
     expect(res.status).toBe(403);
   });
 
   it('returns 202 and request_id for valid JWT ingest', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = makeMockSb();
+    stubSupabase(jwtRoutes());
     const req = makeRequest(validBody(), token);
-    const res = await handleIngestEvent(req, makeOpts(mockSb));
+    const res = await handleIngestEvent(req, opts);
     expect(res.status).toBe(202);
-    const body = await res.json() as any;
+    const body = await res.json() as { ok: boolean; request_id: string };
     expect(body.ok).toBe(true);
     expect(typeof body.request_id).toBe('string');
   });
 
+  it('scopes the membership lookup to the user, org, and active status', async () => {
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const stub = stubSupabase(jwtRoutes());
+    await handleIngestEvent(makeRequest(validBody(), token), opts);
+
+    const params = stub.find('GET', 'organization_memberships')!.url.searchParams;
+    expect(params.get('user_id')).toBe(`eq.${USER_ID}`);
+    expect(params.get('organization_id')).toBe(`eq.${ORG_ID}`);
+    expect(params.get('status')).toBe('eq.active');
+  });
+
   it('inserts event with correct fields', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = makeMockSb();
+    const stub = stubSupabase(jwtRoutes());
     const payload = { ...validBody(), latency_ms: 120, status_code: 200 };
-    const req = makeRequest(payload, token);
-    await handleIngestEvent(req, makeOpts(mockSb));
+    await handleIngestEvent(makeRequest(payload, token), opts);
 
-    expect(mockSb.insert).toHaveBeenCalledWith(
-      'usage_events',
+    const insert = stub.find('POST', 'usage_events')!;
+    expect(insert.headers['prefer']).toBe('return=representation');
+    expect(insert.body).toEqual([
       expect.objectContaining({
         organization_id: ORG_ID,
         metric_key: 'api_requests',
@@ -135,41 +173,34 @@ describe('POST /v1/ingest/events', () => {
         latency_ms: 120,
         status_code: 200,
       }),
-    );
+    ]);
   });
 
   it('returns 202 for valid API key ingest', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
-    const req = makeRequest(validBody(), `int_live_abc12345_${secret}`);
-    const res = await handleIngestEvent(req, makeOpts(mockSb));
+    stubSupabase(await apiKeyRoutes());
+    const res = await handleIngestEvent(makeRequest(validBody(), API_KEY_TOKEN), opts);
     expect(res.status).toBe(202);
   });
 
   it('returns 403 when API key belongs to different org', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow('00000000-0000-4000-8000-000000000099');
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
-    const req = makeRequest(validBody(), `int_live_abc12345_${secret}`);
-    const res = await handleIngestEvent(req, makeOpts(mockSb));
+    const otherOrgKey = await makeApiKeyRow('00000000-0000-4000-8000-000000000099');
+    stubSupabase(await apiKeyRoutes(otherOrgKey));
+    const res = await handleIngestEvent(makeRequest(validBody(), API_KEY_TOKEN), opts);
     expect(res.status).toBe(403);
   });
 
   it('returns 500 when insert fails', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = makeMockSb({ insert: vi.fn().mockResolvedValue({ ok: false, error: 'DB error' }) });
-    const req = makeRequest(validBody(), token);
-    const res = await handleIngestEvent(req, makeOpts(mockSb));
+    stubSupabase({ ...jwtRoutes(), 'POST usage_events': httpError(500, 'DB error') });
+    const res = await handleIngestEvent(makeRequest(validBody(), token), opts);
     expect(res.status).toBe(500);
   });
 
   it('calls waitUntil with rollup promise when provided', async () => {
     const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
-    const mockSb = makeMockSb();
+    stubSupabase(jwtRoutes());
     const waitUntil = vi.fn();
-    const req = makeRequest(validBody(), token);
-    await handleIngestEvent(req, makeOpts(mockSb), waitUntil);
+    await handleIngestEvent(makeRequest(validBody(), token), opts, waitUntil);
     expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
   });
 });
@@ -194,60 +225,49 @@ const makeOtelRequest = (body: unknown, token: string) =>
 
 describe('POST /v1/ingest/otel', () => {
   it('returns 401 when no auth header', async () => {
+    stubSupabase({});
     const req = new Request('https://api.test/v1/ingest/otel', { method: 'POST' });
-    const res = await handleIngestOtel(req, makeOpts());
+    const res = await handleIngestOtel(req, opts);
     expect(res.status).toBe(401);
   });
 
   it('returns 401 when JWT is used instead of API key', async () => {
     const token = await makeJwt({ sub: USER_ID });
-    const mockSb = makeMockSb();
-    const req = makeOtelRequest({ spans: [validSpan()] }, token);
-    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    stubSupabase(jwtRoutes());
+    const res = await handleIngestOtel(makeOtelRequest({ spans: [validSpan()] }, token), opts);
     expect(res.status).toBe(401);
   });
 
   it('returns 422 when spans array is missing', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
-    const req = makeOtelRequest({}, `int_live_abc12345_${secret}`);
-    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    stubSupabase(await apiKeyRoutes());
+    const res = await handleIngestOtel(makeOtelRequest({}, API_KEY_TOKEN), opts);
     expect(res.status).toBe(422);
   });
 
   it('returns 422 when spans array is empty', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
-    const req = makeOtelRequest({ spans: [] }, `int_live_abc12345_${secret}`);
-    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    stubSupabase(await apiKeyRoutes());
+    const res = await handleIngestOtel(makeOtelRequest({ spans: [] }, API_KEY_TOKEN), opts);
     expect(res.status).toBe(422);
   });
 
   it('returns 202 with request_id and span_count for valid API key', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
-    const req = makeOtelRequest({ spans: [validSpan()] }, `int_live_abc12345_${secret}`);
-    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    stubSupabase(await apiKeyRoutes());
+    const res = await handleIngestOtel(
+      makeOtelRequest({ spans: [validSpan()] }, API_KEY_TOKEN), opts,
+    );
     expect(res.status).toBe(202);
-    const body = await res.json() as any;
+    const body = await res.json() as { ok: boolean; request_id: string; span_count: number };
     expect(body.ok).toBe(true);
     expect(typeof body.request_id).toBe('string');
     expect(body.span_count).toBe(1);
   });
 
   it('inserts usage event with correct fields', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    const stub = stubSupabase(await apiKeyRoutes());
     const spans = [validSpan(), { ...validSpan(), span_id: 'span002' }];
-    const req = makeOtelRequest({ spans }, `int_live_abc12345_${secret}`);
-    await handleIngestOtel(req, makeOpts(mockSb));
+    await handleIngestOtel(makeOtelRequest({ spans }, API_KEY_TOKEN), opts);
 
-    expect(mockSb.insert).toHaveBeenCalledWith(
-      'usage_events',
+    expect(stub.find('POST', 'usage_events')!.body).toEqual([
       expect.objectContaining({
         organization_id: ORG_ID,
         metric_key: 'otel_events',
@@ -256,69 +276,62 @@ describe('POST /v1/ingest/otel', () => {
         route: '/v1/ingest/otel',
         api_key_id: 'key-id-1',
       }),
-    );
+    ]);
   });
 
   it('returns 500 when insert fails', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
-    const mockSb = makeMockSb({
-      query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }),
-      insert: vi.fn().mockResolvedValue({ ok: false, error: 'DB error' }),
+    stubSupabase({
+      ...(await apiKeyRoutes()),
+      'POST usage_events': httpError(500, 'DB error'),
     });
-    const req = makeOtelRequest({ spans: [validSpan()] }, `int_live_abc12345_${secret}`);
-    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    const res = await handleIngestOtel(
+      makeOtelRequest({ spans: [validSpan()] }, API_KEY_TOKEN), opts,
+    );
     expect(res.status).toBe(500);
   });
 
   it('calls waitUntil with rollup promise when provided', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    stubSupabase(await apiKeyRoutes());
     const waitUntil = vi.fn();
-    const req = makeOtelRequest({ spans: [validSpan()] }, `int_live_abc12345_${secret}`);
-    await handleIngestOtel(req, makeOpts(mockSb), waitUntil);
+    await handleIngestOtel(
+      makeOtelRequest({ spans: [validSpan()] }, API_KEY_TOKEN), opts, waitUntil,
+    );
     expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
   });
 
   it('returns 422 when spans exceed the 1000-span limit', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    stubSupabase(await apiKeyRoutes());
     const tooManySpans = Array.from({ length: 1001 }, (_, i) => ({ ...validSpan(), span_id: `span${i}` }));
-    const req = makeOtelRequest({ spans: tooManySpans }, `int_live_abc12345_${secret}`);
-    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    const res = await handleIngestOtel(
+      makeOtelRequest({ spans: tooManySpans }, API_KEY_TOKEN), opts,
+    );
     expect(res.status).toBe(422);
   });
 
   it('accepts optional span attributes and status', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    stubSupabase(await apiKeyRoutes());
     const spanWithAttrs = {
       ...validSpan(),
       status: 'error' as const,
       attributes: { 'http.method': 'GET', 'http.status_code': 500, 'error': true },
     };
-    const req = makeOtelRequest({ spans: [spanWithAttrs] }, `int_live_abc12345_${secret}`);
-    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    const res = await handleIngestOtel(
+      makeOtelRequest({ spans: [spanWithAttrs] }, API_KEY_TOKEN), opts,
+    );
     expect(res.status).toBe(202);
   });
 
   it('returns 422 when start_time_ms is more than 1 day in the future', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    stubSupabase(await apiKeyRoutes());
     const futureSpan = { ...validSpan(), start_time_ms: Date.now() + 7 * MS_PER_DAY };
-    const req = makeOtelRequest({ spans: [futureSpan] }, `int_live_abc12345_${secret}`);
-    const res = await handleIngestOtel(req, makeOpts(mockSb));
+    const res = await handleIngestOtel(
+      makeOtelRequest({ spans: [futureSpan] }, API_KEY_TOKEN), opts,
+    );
     expect(res.status).toBe(422);
   });
 
   it('forwards rate-limit headers when doNamespace quota check passes', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
-    const mockSb = makeMockSb({ query: vi.fn().mockResolvedValue({ ok: true, data: [apiKeyRow] }) });
+    stubSupabase(await apiKeyRoutes());
     const mockDO = {
       idFromName: vi.fn().mockReturnValue('do-id'),
       get: vi.fn().mockReturnValue({
@@ -330,8 +343,10 @@ describe('POST /v1/ingest/otel', () => {
         ),
       }),
     } as unknown as DurableObjectNamespace;
-    const req = makeOtelRequest({ spans: [validSpan()] }, `int_live_abc12345_${secret}`);
-    const res = await handleIngestOtel(req, { ...makeOpts(mockSb), doNamespace: mockDO });
+    const res = await handleIngestOtel(
+      makeOtelRequest({ spans: [validSpan()] }, API_KEY_TOKEN),
+      { ...opts, doNamespace: mockDO },
+    );
     expect(res.status).toBe(202);
     expect(res.headers.get('X-RateLimit-Remaining-Minute')).toBe('42');
     expect(res.headers.get('X-RateLimit-Remaining-Monthly')).toBe('999');

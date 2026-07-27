@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { SupabaseClient } from '../supabase';
 
 // Base route options shared across handlers
 export const BaseRouteOptionsSchema = z.object({
@@ -30,15 +29,6 @@ export const EnvSchema = z.object({
 });
 
 export type Env = z.infer<typeof EnvSchema>;
-
-// Request/Response handling types
-export interface RequestOptions extends BaseRouteOptions {
-  _sbOverride?: SupabaseClient;
-}
-
-export interface MachineRequestOptions extends MachineRouteOptions {
-  _sbOverride?: SupabaseClient;
-}
 
 // Auth resolution result for dual JWT/API key auth
 export type AuthResult =

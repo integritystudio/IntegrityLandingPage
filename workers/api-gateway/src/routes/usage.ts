@@ -17,7 +17,6 @@ interface UsageHandlerOptions {
   supabaseUrl: string;
   serviceRoleKey: string;
   jwtIssuerUrl?: string;
-  _sbOverride?: SupabaseClient;
 }
 
 interface QuotaStatusHandlerOptions extends UsageHandlerOptions {
@@ -85,7 +84,7 @@ export async function handleUsageSummary(
   orgId: string,
   opts: UsageHandlerOptions,
 ): Promise<Response> {
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
   const auth = await resolveAuth(request, opts, sb);
   if (!auth.ok) return auth.error;
@@ -115,7 +114,7 @@ export async function handleOrgEntitlements(
   orgId: string,
   opts: UsageHandlerOptions,
 ): Promise<Response> {
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
   const auth = await resolveAuth(request, opts, sb);
   if (!auth.ok) return auth.error;
@@ -139,7 +138,7 @@ export async function handleQuotaStatus(
   orgId: string,
   opts: QuotaStatusHandlerOptions,
 ): Promise<Response> {
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
   const auth = await resolveAuth(request, opts, sb);
   if (!auth.ok) return auth.error;

@@ -1,5 +1,5 @@
 import { notFound, ok } from '../../../lib/http';
-import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
+import { createSupabaseClient } from '../../../lib/supabase';
 import { resolveJwt } from '../lib/helpers';
 
 interface MeHandlerOptions {
@@ -7,8 +7,6 @@ interface MeHandlerOptions {
   supabaseUrl: string;
   serviceRoleKey: string;
   jwtIssuerUrl?: string;
-  /** Injected in tests to skip real HTTP calls. */
-  _sbOverride?: SupabaseClient;
 }
 
 interface UserRow extends Record<string, unknown> {
@@ -24,7 +22,7 @@ export async function handleMe(request: Request, opts: MeHandlerOptions): Promis
   const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
-  const sb = opts._sbOverride ?? createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
   const result = await sb.query<UserRow>('users', {
     filters: [{ column: 'auth0_id', operator: 'eq', value: auth.sub }],

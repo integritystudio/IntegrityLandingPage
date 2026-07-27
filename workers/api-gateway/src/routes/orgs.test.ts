@@ -1,8 +1,22 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach, type Mock } from 'vitest';
+import type Stripe from 'stripe';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal } from './orgs';
-import type { Organization, OrgRole } from '../../../lib/types';
+import type { Entitlement, Organization, OrgMembership, OrgRole } from '../../../lib/types';
+import {
+  createSupabaseFetchStub,
+  createdRows,
+  okRows,
+  TEST_SERVICE_ROLE_KEY,
+  TEST_SUPABASE_URL,
+  type RouteResponder,
+  type SupabaseFetchStub,
+} from '../../../lib/test-helpers/supabase-fetch-stub';
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
+const ORG_ID = 'org-id-1';
+const OTHER_ORG_ID = 'org-id-2';
+const USER_ID = 'user-id-1';
+const RETURN_URL = 'https://app.integritystudio.ai/#/billing';
 
 async function makeJwt(payload: Record<string, unknown>, secret: string): Promise<string> {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
@@ -20,356 +34,319 @@ async function makeJwt(payload: Record<string, unknown>, secret: string): Promis
   return `${msg}.${sigB64}`;
 }
 
-const makeOrg = (overrides: Partial<Organization & { role: OrgRole }> = {}): Organization & { role: OrgRole } => ({
-  id: 'org-id-1',
+const makeOrg = (overrides: Partial<Organization> = {}): Organization => ({
+  id: ORG_ID,
   slug: 'test-org',
   name: 'Test Org',
   billing_status: 'active',
   current_plan: 'growth',
   quota_version: 1,
-  role: 'owner',
   ...overrides,
 });
 
-const makeMembership = (orgId = 'org-id-1', role: OrgRole = 'owner') => ({
+const makeMembership = (orgId = ORG_ID, role: OrgRole = 'owner'): OrgMembership => ({
   organization_id: orgId,
-  user_id: 'user-id-1',
+  user_id: USER_ID,
   role,
   status: 'active',
 });
 
-const makeOpts = (sbOverride: any) => ({
+const opts = {
   jwtSecret: JWT_SECRET,
-  supabaseUrl: 'https://test.supabase.co',
-  serviceRoleKey: 'key',
-  _sbOverride: sbOverride,
+  supabaseUrl: TEST_SUPABASE_URL,
+  serviceRoleKey: TEST_SERVICE_ROLE_KEY,
+};
+
+/** Installs the stub as global fetch and returns it for assertions. */
+function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub {
+  const stub = createSupabaseFetchStub(routes);
+  vi.stubGlobal('fetch', stub.fetch);
+  return stub;
+}
+
+/** Every handler here starts by resolving the caller's active memberships. */
+const membershipRoutes = (
+  memberships: OrgMembership[] = [makeMembership()],
+): Record<string, RouteResponder> => ({
+  'GET organization_memberships': okRows(memberships),
+});
+
+const authedRequest = (path: string, token: string, method = 'GET') =>
+  new Request(`https://api.test${path}`, {
+    method,
+    headers: { authorization: `Bearer ${token}` },
+  });
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('GET /v1/orgs', () => {
   it('returns 401 when no bearer token', async () => {
+    stubSupabase({});
     const req = new Request('https://api.test/v1/orgs', { method: 'GET' });
-    const res = await handleListOrgs(req, makeOpts(null));
+    const res = await handleListOrgs(req, opts);
     expect(res.status).toBe(401);
   });
 
   it('returns list of orgs the user belongs to', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const org = makeOrg();
-
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
-        .mockResolvedValueOnce({ ok: true, data: [org] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-
-    const req = new Request('https://api.test/v1/orgs', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const stub = stubSupabase({
+      ...membershipRoutes(),
+      'GET organizations': okRows([makeOrg()]),
     });
 
-    const res = await handleListOrgs(req, makeOpts(mockSb));
+    const res = await handleListOrgs(authedRequest('/v1/orgs', token), opts);
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
+    const body = await res.json() as { organizations: Array<Organization & { role: OrgRole }> };
     expect(body.organizations).toHaveLength(1);
-    expect(body.organizations[0].id).toBe('org-id-1');
+    expect(body.organizations[0].id).toBe(ORG_ID);
     expect(body.organizations[0].role).toBe('owner');
+
+    // The real client serializes the membership scoping into the query string.
+    const params = stub.find('GET', 'organization_memberships')!.url.searchParams;
+    expect(params.get('user_id')).toBe(`eq.${USER_ID}`);
+    expect(params.get('status')).toBe('eq.active');
+    expect(params.get('select')).toBe('organization_id, user_id, role, status');
   });
 
   it('passes org IDs as in-filter to DB query (H3)', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const org = makeOrg();
-
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
-        .mockResolvedValueOnce({ ok: true, data: [org] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-
-    const req = new Request('https://api.test/v1/orgs', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const stub = stubSupabase({
+      ...membershipRoutes([makeMembership(), makeMembership(OTHER_ORG_ID, 'admin')]),
+      'GET organizations': okRows([makeOrg(), makeOrg({ id: OTHER_ORG_ID, slug: 'other-org' })]),
     });
 
-    await handleListOrgs(req, makeOpts(mockSb));
+    const res = await handleListOrgs(authedRequest('/v1/orgs', token), opts);
 
-    const secondCall = mockSb.query.mock.calls[1];
-    expect(secondCall[1]).toMatchObject({
-      filters: expect.arrayContaining([
-        expect.objectContaining({ column: 'id', operator: 'in' }),
-      ]),
-    });
+    // PostgREST `in` takes a parenthesised, comma-joined list — assert the wire format.
+    const params = stub.find('GET', 'organizations')!.url.searchParams;
+    expect(params.get('id')).toBe(`in.(${ORG_ID},${OTHER_ORG_ID})`);
+
+    const body = await res.json() as { organizations: Array<Organization & { role: OrgRole }> };
+    expect(body.organizations.map((o) => o.role)).toEqual(['owner', 'admin']);
   });
 
   it('returns empty list when user has no memberships', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleListOrgs(req, makeOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const stub = stubSupabase(membershipRoutes([]));
+    const res = await handleListOrgs(authedRequest('/v1/orgs', token), opts);
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
+    const body = await res.json() as { organizations: unknown[] };
     expect(body.organizations).toEqual([]);
+    // No memberships means the organizations table is never queried.
+    expect(stub.find('GET', 'organizations')).toBeUndefined();
   });
 });
 
 describe('GET /v1/orgs/:orgId/dashboard', () => {
   it('returns 401 when no bearer token', async () => {
-    const req = new Request('https://api.test/v1/orgs/org-id-1/dashboard', { method: 'GET' });
-    const res = await handleOrgDashboard(req, 'org-id-1', makeOpts(null));
+    stubSupabase({});
+    const req = new Request(`https://api.test/v1/orgs/${ORG_ID}/dashboard`, { method: 'GET' });
+    const res = await handleOrgDashboard(req, ORG_ID, opts);
     expect(res.status).toBe(401);
   });
 
   it('returns 403 when user is not a member of the org', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/dashboard', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleOrgDashboard(req, 'org-id-1', makeOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    stubSupabase(membershipRoutes([]));
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/dashboard`, token);
+    const res = await handleOrgDashboard(req, ORG_ID, opts);
     expect(res.status).toBe(403);
   });
 
   it('returns dashboard summary when user is a member', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const org = makeOrg();
-    const entitlements = [
-      { organization_id: 'org-id-1', feature_key: 'api_keys_max', enabled: true, hard_limit: 10, soft_limit: null },
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const entitlements: Entitlement[] = [
+      { organization_id: ORG_ID, feature_key: 'api_keys_max', enabled: true, hard_limit: 10, soft_limit: null },
     ];
-
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
-        .mockResolvedValueOnce({ ok: true, data: [org] })
-        .mockResolvedValueOnce({ ok: true, data: entitlements }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-
-    const req = new Request('https://api.test/v1/orgs/org-id-1/dashboard', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
+    const stub = stubSupabase({
+      ...membershipRoutes(),
+      'GET organizations': okRows([makeOrg()]),
+      'GET entitlements': okRows(entitlements),
     });
 
-    const res = await handleOrgDashboard(req, 'org-id-1', makeOpts(mockSb));
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/dashboard`, token);
+    const res = await handleOrgDashboard(req, ORG_ID, opts);
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
-    expect(body.org.id).toBe('org-id-1');
+    const body = await res.json() as {
+      org: Organization;
+      role: OrgRole;
+      entitlements: Record<string, boolean | number | null>;
+    };
+    expect(body.org.id).toBe(ORG_ID);
     expect(body.role).toBe('owner');
-    expect(body.entitlements).toBeDefined();
+    expect(body.entitlements).toEqual({ api_keys_max: 10 });
+
+    const orgParams = stub.find('GET', 'organizations')!.url.searchParams;
+    expect(orgParams.get('id')).toBe(`eq.${ORG_ID}`);
+    expect(orgParams.get('limit')).toBe('1');
+    const entParams = stub.find('GET', 'entitlements')!.url.searchParams;
+    expect(entParams.get('organization_id')).toBe(`eq.${ORG_ID}`);
   });
 });
 
 describe('GET /v1/orgs/:orgId/billing-status', () => {
   it('returns 403 when user is not a member', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-status', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleOrgBillingStatus(req, 'org-id-1', makeOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    stubSupabase(membershipRoutes([]));
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-status`, token);
+    const res = await handleOrgBillingStatus(req, ORG_ID, opts);
     expect(res.status).toBe(403);
   });
 
   it('returns billing status for owner', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const org = makeOrg({ billing_status: 'active', current_plan: 'growth' });
-
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'owner')] })
-        .mockResolvedValueOnce({ ok: true, data: [org] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-
-    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-status', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const stub = stubSupabase({
+      ...membershipRoutes(),
+      'GET organizations': okRows([makeOrg({ billing_status: 'active', current_plan: 'growth' })]),
     });
 
-    const res = await handleOrgBillingStatus(req, 'org-id-1', makeOpts(mockSb));
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-status`, token);
+    const res = await handleOrgBillingStatus(req, ORG_ID, opts);
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
+    const body = await res.json() as {
+      org_id: string;
+      billing_status: string;
+      current_plan: string;
+      role: OrgRole;
+    };
     expect(body.billing_status).toBe('active');
     expect(body.current_plan).toBe('growth');
+    expect(body.org_id).toBe(ORG_ID);
+    expect(body.role).toBe('owner');
+
+    const params = stub.find('GET', 'organizations')!.url.searchParams;
+    expect(params.get('select')).toBe('id, billing_status, current_plan, quota_version');
+    expect(params.get('id')).toBe(`eq.${ORG_ID}`);
   });
 });
 
-const makePortalOpts = (sbOverride: any, stripeOverride?: any) => ({
-  jwtSecret: JWT_SECRET,
-  supabaseUrl: 'https://test.supabase.co',
-  serviceRoleKey: 'key',
+const makePortalOpts = (stripeOverride?: Stripe) => ({
+  ...opts,
   stripeSecretKey: 'sk_test_xxx',
-  returnUrl: 'https://app.integritystudio.ai/#/billing',
-  _sbOverride: sbOverride,
+  returnUrl: RETURN_URL,
   _stripeOverride: stripeOverride,
+});
+
+/** Minimal Stripe stand-in exposing only the billing-portal call the route uses. */
+const stripeWith = (create: Mock): Stripe =>
+  ({ billingPortal: { sessions: { create } } }) as unknown as Stripe;
+
+const portalRoutes = (
+  stripeCustomerId: string | null,
+  memberships: OrgMembership[] = [makeMembership()],
+): Record<string, RouteResponder> => ({
+  ...membershipRoutes(memberships),
+  'GET organizations': okRows([{ id: ORG_ID, stripe_customer_id: stripeCustomerId }]),
+  'POST audit_log': createdRows([]),
 });
 
 describe('POST /v1/orgs/:id/billing-portal', () => {
   it('returns 401 when no bearer token', async () => {
-    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', { method: 'POST' });
-    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(null));
+    stubSupabase({});
+    const req = new Request(`https://api.test/v1/orgs/${ORG_ID}/billing-portal`, { method: 'POST' });
+    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
     expect(res.status).toBe(401);
   });
 
   it('returns 403 when user is not a member', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    stubSupabase(membershipRoutes([]));
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
+    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
     expect(res.status).toBe(403);
   });
 
   it('returns 403 when user role is not owner or billing_admin', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'member')] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    stubSupabase(membershipRoutes([makeMembership(ORG_ID, 'member')]));
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
+    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
     expect(res.status).toBe(403);
   });
 
   it('returns 404 when org has no stripe_customer_id', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'owner')] })
-        .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: null }] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    stubSupabase(portalRoutes(null));
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
+    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
     expect(res.status).toBe(404);
   });
 
   it('returns 500 when stripe_customer_id has invalid format (H4)', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'owner')] })
-        .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: 'invalid-id' }] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    stubSupabase(portalRoutes('invalid-id'));
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
+    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
     expect(res.status).toBe(500);
   });
 
   it('returns portal URL for owner with stripe customer', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'owner')] })
-        .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: 'cus_123' }] }),
-      insert: vi.fn().mockResolvedValue({ ok: true, data: [] }),
-      update: vi.fn(), rpc: vi.fn(),
-    };
-    const mockStripe = {
-      billingPortal: {
-        sessions: {
-          create: vi.fn().mockResolvedValue({ url: 'https://billing.stripe.com/session/xxx' }),
-        },
-      },
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb, mockStripe));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const stub = stubSupabase(portalRoutes('cus_123'));
+    const create = vi.fn().mockResolvedValue({ url: 'https://billing.stripe.com/session/xxx' });
+
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
+    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts(stripeWith(create)));
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
+    const body = await res.json() as { url: string };
     expect(body.url).toBe('https://billing.stripe.com/session/xxx');
-    expect(mockStripe.billingPortal.sessions.create).toHaveBeenCalledWith({
+    expect(create).toHaveBeenCalledWith({
       customer: 'cus_123',
-      return_url: 'https://app.integritystudio.ai/#/billing',
+      return_url: RETURN_URL,
     });
+
     // Audit log written exactly once after successful portal session creation
-    expect(mockSb.insert).toHaveBeenCalledTimes(1);
-    expect(mockSb.insert).toHaveBeenCalledWith(
-      'audit_log',
-      expect.objectContaining({ action: 'billing_portal.accessed', target_type: 'org', target_id: 'org-id-1' }),
-    );
+    const audits = stub.findAll('POST', 'audit_log');
+    expect(audits).toHaveLength(1);
+    expect(audits[0].headers['prefer']).toBe('return=representation');
+    expect(audits[0].body).toEqual([
+      expect.objectContaining({
+        organization_id: ORG_ID,
+        action: 'billing_portal.accessed',
+        target_type: 'org',
+        target_id: ORG_ID,
+        metadata: { actor_auth0_id: USER_ID },
+      }),
+    ]);
   });
 
   it('returns portal URL for billing_admin role', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'billing_admin')] })
-        .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: 'cus_456' }] }),
-      insert: vi.fn().mockResolvedValue({ ok: true, data: [] }),
-      update: vi.fn(), rpc: vi.fn(),
-    };
-    const mockStripe = {
-      billingPortal: {
-        sessions: { create: vi.fn().mockResolvedValue({ url: 'https://billing.stripe.com/session/yyy' }) },
-      },
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb, mockStripe));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const stub = stubSupabase(portalRoutes('cus_456', [makeMembership(ORG_ID, 'billing_admin')]));
+    const create = vi.fn().mockResolvedValue({ url: 'https://billing.stripe.com/session/yyy' });
+
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
+    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts(stripeWith(create)));
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
+    const body = await res.json() as { url: string };
     expect(body.url).toBe('https://billing.stripe.com/session/yyy');
+    expect(create).toHaveBeenCalledWith({
+      customer: 'cus_456',
+      return_url: RETURN_URL,
+    });
+
     // Audit log written exactly once on billing_admin path
-    expect(mockSb.insert).toHaveBeenCalledTimes(1);
-    expect(mockSb.insert).toHaveBeenCalledWith(
-      'audit_log',
-      expect.objectContaining({ action: 'billing_portal.accessed', target_type: 'org', target_id: 'org-id-1' }),
-    );
+    const audits = stub.findAll('POST', 'audit_log');
+    expect(audits).toHaveLength(1);
+    expect(audits[0].body).toEqual([
+      expect.objectContaining({
+        action: 'billing_portal.accessed',
+        target_type: 'org',
+        target_id: ORG_ID,
+      }),
+    ]);
   });
 
   it('returns 500 when Stripe throws', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership('org-id-1', 'owner')] })
-        .mockResolvedValueOnce({ ok: true, data: [{ id: 'org-id-1', stripe_customer_id: 'cus_123' }] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const mockStripe = {
-      billingPortal: {
-        sessions: { create: vi.fn().mockRejectedValue(new Error('Stripe API error')) },
-      },
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/billing-portal', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleBillingPortal(req, 'org-id-1', makePortalOpts(mockSb, mockStripe));
+    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const stub = stubSupabase(portalRoutes('cus_123'));
+    const create = vi.fn().mockRejectedValue(new Error('Stripe API error'));
+
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
+    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts(stripeWith(create)));
     expect(res.status).toBe(500);
-    expect(mockSb.insert).not.toHaveBeenCalled();
+    expect(stub.findAll('POST', 'audit_log')).toHaveLength(0);
   });
 });

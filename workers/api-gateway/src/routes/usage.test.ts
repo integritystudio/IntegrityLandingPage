@@ -1,9 +1,24 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './usage';
 import { hashApiKeySecret } from '../../../lib/api-keys';
+import {
+  createSupabaseFetchStub,
+  httpError,
+  okRows,
+  TEST_SERVICE_ROLE_KEY,
+  TEST_SUPABASE_URL,
+  type RouteResponder,
+  type SupabaseFetchStub,
+} from '../../../lib/test-helpers/supabase-fetch-stub';
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
 const HMAC_SECRET = 'test-hmac-secret-at-least-32-chars!';
+
+const ORG_ID = 'org-id-1';
+const USER_ID = 'user-id-1';
+const API_KEY_PREFIX = 'abc12345';
+const API_KEY_SECRET = 'testsecret32charsminimumvalue000';
+const API_KEY_TOKEN = `int_live_${API_KEY_PREFIX}_${API_KEY_SECRET}`;
 
 async function makeJwt(payload: Record<string, unknown>, secret: string): Promise<string> {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
@@ -21,24 +36,23 @@ async function makeJwt(payload: Record<string, unknown>, secret: string): Promis
   return `${msg}.${sigB64}`;
 }
 
-const makeOpts = (sbOverride: any) => ({
+const opts = {
   jwtSecret: JWT_SECRET,
   hmacSecret: HMAC_SECRET,
-  supabaseUrl: 'https://test.supabase.co',
-  serviceRoleKey: 'key',
-  _sbOverride: sbOverride,
-});
+  supabaseUrl: TEST_SUPABASE_URL,
+  serviceRoleKey: TEST_SERVICE_ROLE_KEY,
+};
 
-const makeMembership = (orgId = 'org-id-1', role = 'owner') => ({
+const makeMembership = (orgId = ORG_ID, role = 'owner') => ({
   organization_id: orgId,
-  user_id: 'user-id-1',
+  user_id: USER_ID,
   role,
   status: 'active',
 });
 
-const makeApiKeyRow = async (orgId = 'org-id-1', prefix = 'abc12345', secret = 'testsecret32charsminimumvalue000') => ({
+const makeApiKeyRow = async (orgId = ORG_ID, prefix = API_KEY_PREFIX, secret = API_KEY_SECRET) => ({
   id: 'key-id-1',
-  user_id: 'user-id-1',
+  user_id: USER_ID,
   organization_id: orgId,
   prefix,
   hash: await hashApiKeySecret(secret, HMAC_SECRET),
@@ -51,155 +65,188 @@ const makeApiKeyRow = async (orgId = 'org-id-1', prefix = 'abc12345', secret = '
   revoked_at: null,
 });
 
+/** Installs the stub as global fetch and returns it for assertions. */
+function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub {
+  const stub = createSupabaseFetchStub(routes);
+  vi.stubGlobal('fetch', stub.fetch);
+  return stub;
+}
+
+const membershipRoute = (memberships = [makeMembership()]): Record<string, RouteResponder> => ({
+  'GET organization_memberships': okRows(memberships),
+});
+
+const apiKeyRoute = async (row?: Record<string, unknown>): Promise<Record<string, RouteResponder>> => ({
+  'GET api_keys': okRows([row ?? await makeApiKeyRow()]),
+});
+
+const makeJwtRequest = async (path: string) => {
+  const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+  return new Request(`https://api.test${path}`, {
+    method: 'GET',
+    headers: { authorization: `Bearer ${token}` },
+  });
+};
+
+const makeApiKeyRequest = (path: string) =>
+  new Request(`https://api.test${path}`, {
+    method: 'GET',
+    headers: { authorization: `Bearer ${API_KEY_TOKEN}` },
+  });
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('GET /v1/orgs/:orgId/usage/summary', () => {
+  const PATH = `/v1/orgs/${ORG_ID}/usage/summary`;
+
   it('returns 401 when no auth', async () => {
-    const req = new Request('https://api.test/v1/orgs/org-id-1/usage/summary', { method: 'GET' });
-    const res = await handleUsageSummary(req, 'org-id-1', makeOpts(null));
+    const stub = stubSupabase({});
+    const req = new Request(`https://api.test${PATH}`, { method: 'GET' });
+    const res = await handleUsageSummary(req, ORG_ID, opts);
     expect(res.status).toBe(401);
+    expect(stub.requests).toHaveLength(0);
   });
 
   it('returns 403 when JWT user is not a member', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/usage/summary', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleUsageSummary(req, 'org-id-1', makeOpts(mockSb));
+    const stub = stubSupabase(membershipRoute([]));
+    const res = await handleUsageSummary(await makeJwtRequest(PATH), ORG_ID, opts);
     expect(res.status).toBe(403);
+    expect(stub.findAll('GET', 'usage_buckets_daily')).toHaveLength(0);
   });
 
   it('returns usage summary for JWT-authenticated member', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
     const usageBuckets = [
-      { organization_id: 'org-id-1', bucket_date: '2026-03-01', metric_key: 'requests', total_quantity: 1234, request_count: 100, avg_latency_ms: 45 },
+      { organization_id: ORG_ID, bucket_date: '2026-03-01', metric_key: 'requests', total_quantity: 1234, request_count: 100, avg_latency_ms: 45 },
     ];
-
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
-        .mockResolvedValueOnce({ ok: true, data: usageBuckets }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/usage/summary', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
+    const stub = stubSupabase({
+      ...membershipRoute(),
+      'GET usage_buckets_daily': okRows(usageBuckets),
     });
-    const res = await handleUsageSummary(req, 'org-id-1', makeOpts(mockSb));
+
+    const res = await handleUsageSummary(await makeJwtRequest(PATH), ORG_ID, opts);
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
-    expect(body.org_id).toBe('org-id-1');
+    const body = await res.json() as { org_id: string; period_start: string; buckets: { total_quantity: number }[] };
+    expect(body.org_id).toBe(ORG_ID);
     expect(body.buckets).toHaveLength(1);
     expect(body.buckets[0].total_quantity).toBe(1234);
+
+    const memberParams = stub.find('GET', 'organization_memberships')!.url.searchParams;
+    expect(memberParams.get('user_id')).toBe(`eq.${USER_ID}`);
+    expect(memberParams.get('organization_id')).toBe(`eq.${ORG_ID}`);
+    expect(memberParams.get('status')).toBe('eq.active');
+    expect(memberParams.get('limit')).toBe('1');
+
+    const bucketParams = stub.find('GET', 'usage_buckets_daily')!.url.searchParams;
+    expect(bucketParams.get('organization_id')).toBe(`eq.${ORG_ID}`);
+    expect(bucketParams.get('bucket_date')).toBe(`gte.${body.period_start}`);
+    expect(bucketParams.get('order')).toBe('bucket_date.desc');
+    expect(bucketParams.get('select')).toContain('total_quantity');
   });
 
   it('returns usage summary for valid API key', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow();
     const usageBuckets = [
-      { organization_id: 'org-id-1', bucket_date: '2026-03-01', metric_key: 'requests', total_quantity: 999, request_count: 50, avg_latency_ms: 30 },
+      { organization_id: ORG_ID, bucket_date: '2026-03-01', metric_key: 'requests', total_quantity: 999, request_count: 50, avg_latency_ms: 30 },
     ];
-
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [apiKeyRow] })
-        .mockResolvedValueOnce({ ok: true, data: usageBuckets }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/usage/summary', {
-      method: 'GET',
-      headers: { authorization: `Bearer int_live_abc12345_${secret}` },
+    const stub = stubSupabase({
+      ...(await apiKeyRoute()),
+      'GET usage_buckets_daily': okRows(usageBuckets),
     });
-    const res = await handleUsageSummary(req, 'org-id-1', makeOpts(mockSb));
+
+    const res = await handleUsageSummary(makeApiKeyRequest(PATH), ORG_ID, opts);
     expect(res.status).toBe(200);
+
+    const keyParams = stub.find('GET', 'api_keys')!.url.searchParams;
+    expect(keyParams.get('prefix')).toBe(`eq.${API_KEY_PREFIX}`);
+    expect(keyParams.get('limit')).toBe('1');
+    // API keys carry their own org, so no membership lookup is needed.
+    expect(stub.findAll('GET', 'organization_memberships')).toHaveLength(0);
   });
 
   it('returns 403 when API key belongs to different org', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow('other-org-id');
-
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [apiKeyRow] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/usage/summary', {
-      method: 'GET',
-      headers: { authorization: `Bearer int_live_abc12345_${secret}` },
-    });
-    const res = await handleUsageSummary(req, 'org-id-1', makeOpts(mockSb));
+    const stub = stubSupabase(await apiKeyRoute(await makeApiKeyRow('other-org-id')));
+    const res = await handleUsageSummary(makeApiKeyRequest(PATH), ORG_ID, opts);
     expect(res.status).toBe(403);
+    expect(stub.findAll('GET', 'usage_buckets_daily')).toHaveLength(0);
+  });
+
+  it('returns 200 with empty buckets when the usage query fails', async () => {
+    stubSupabase({
+      ...membershipRoute(),
+      'GET usage_buckets_daily': httpError(500, 'DB error'),
+    });
+    const res = await handleUsageSummary(await makeJwtRequest(PATH), ORG_ID, opts);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { buckets: unknown[] };
+    expect(body.buckets).toEqual([]);
   });
 });
 
 describe('GET /v1/orgs/:orgId/entitlements', () => {
+  const PATH = `/v1/orgs/${ORG_ID}/entitlements`;
+
   it('returns 401 when no auth', async () => {
-    const req = new Request('https://api.test/v1/orgs/org-id-1/entitlements', { method: 'GET' });
-    const res = await handleOrgEntitlements(req, 'org-id-1', makeOpts(null));
+    const stub = stubSupabase({});
+    const req = new Request(`https://api.test${PATH}`, { method: 'GET' });
+    const res = await handleOrgEntitlements(req, ORG_ID, opts);
     expect(res.status).toBe(401);
+    expect(stub.requests).toHaveLength(0);
   });
 
   it('returns entitlements map for JWT-authenticated member', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
     const entitlements = [
-      { organization_id: 'org-id-1', feature_key: 'usage_dashboard', enabled: true, hard_limit: null, soft_limit: null },
-      { organization_id: 'org-id-1', feature_key: 'monthly_units', enabled: true, hard_limit: 500000, soft_limit: null },
-      { organization_id: 'org-id-1', feature_key: 'alerts', enabled: false, hard_limit: null, soft_limit: null },
+      { organization_id: ORG_ID, feature_key: 'usage_dashboard', enabled: true, hard_limit: null, soft_limit: null },
+      { organization_id: ORG_ID, feature_key: 'monthly_units', enabled: true, hard_limit: 500000, soft_limit: null },
+      { organization_id: ORG_ID, feature_key: 'alerts', enabled: false, hard_limit: null, soft_limit: null },
     ];
-
-    const mockSb = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ ok: true, data: [makeMembership()] })
-        .mockResolvedValueOnce({ ok: true, data: entitlements }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/entitlements', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
+    const stub = stubSupabase({
+      ...membershipRoute(),
+      'GET entitlements': okRows(entitlements),
     });
-    const res = await handleOrgEntitlements(req, 'org-id-1', makeOpts(mockSb));
+
+    const res = await handleOrgEntitlements(await makeJwtRequest(PATH), ORG_ID, opts);
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
+    const body = await res.json() as { entitlements: Record<string, boolean | number | null> };
     expect(body.entitlements.usage_dashboard).toBe(true);
     expect(body.entitlements.monthly_units).toBe(500000);
     expect(body.entitlements.alerts).toBe(false);
+
+    const entParams = stub.find('GET', 'entitlements')!.url.searchParams;
+    expect(entParams.get('organization_id')).toBe(`eq.${ORG_ID}`);
   });
 
   it('returns 403 when JWT user is not a member', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/entitlements', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleOrgEntitlements(req, 'org-id-1', makeOpts(mockSb));
+    const stub = stubSupabase(membershipRoute([]));
+    const res = await handleOrgEntitlements(await makeJwtRequest(PATH), ORG_ID, opts);
     expect(res.status).toBe(403);
+    expect(stub.findAll('GET', 'entitlements')).toHaveLength(0);
   });
 
   it('returns 403 when API key belongs to different org', async () => {
-    const secret = 'testsecret32charsminimumvalue000';
-    const apiKeyRow = await makeApiKeyRow('other-org-id');
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [apiKeyRow] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/entitlements', {
-      method: 'GET',
-      headers: { authorization: `Bearer int_live_abc12345_${secret}` },
-    });
-    const res = await handleOrgEntitlements(req, 'org-id-1', makeOpts(mockSb));
+    const stub = stubSupabase(await apiKeyRoute(await makeApiKeyRow('other-org-id')));
+    const res = await handleOrgEntitlements(makeApiKeyRequest(PATH), ORG_ID, opts);
     expect(res.status).toBe(403);
+    expect(stub.findAll('GET', 'entitlements')).toHaveLength(0);
+  });
+
+  it('returns an empty entitlements map when the entitlements query fails', async () => {
+    stubSupabase({
+      ...membershipRoute(),
+      'GET entitlements': httpError(500, 'DB error'),
+    });
+    const res = await handleOrgEntitlements(await makeJwtRequest(PATH), ORG_ID, opts);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { entitlements: Record<string, unknown> };
+    expect(body.entitlements).toEqual({});
   });
 });
 
 describe('GET /v1/orgs/:orgId/quota/status', () => {
-  const makeQuotaOpts = (sbOverride: any, doOverride?: any) => ({
-    ...makeOpts(sbOverride),
+  const PATH = `/v1/orgs/${ORG_ID}/quota/status`;
+
+  const makeQuotaOpts = (doOverride?: DurableObjectNamespace) => ({
+    ...opts,
     doNamespace: doOverride ?? {} as DurableObjectNamespace,
   });
 
@@ -213,33 +260,23 @@ describe('GET /v1/orgs/:orgId/quota/status', () => {
   } as unknown as DurableObjectNamespace);
 
   it('returns 401 when no auth', async () => {
-    const req = new Request('https://api.test/v1/orgs/org-id-1/quota/status', { method: 'GET' });
-    const res = await handleQuotaStatus(req, 'org-id-1', makeQuotaOpts(null));
+    const stub = stubSupabase({});
+    const req = new Request(`https://api.test${PATH}`, { method: 'GET' });
+    const res = await handleQuotaStatus(req, ORG_ID, makeQuotaOpts());
     expect(res.status).toBe(401);
+    expect(stub.requests).toHaveLength(0);
   });
 
   it('returns 403 when JWT user is not a member', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
-    const req = new Request('https://api.test/v1/orgs/org-id-1/quota/status', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleQuotaStatus(req, 'org-id-1', makeQuotaOpts(mockSb));
+    stubSupabase(membershipRoute([]));
+    const res = await handleQuotaStatus(await makeJwtRequest(PATH), ORG_ID, makeQuotaOpts());
     expect(res.status).toBe(403);
   });
 
   it('returns quota status for JWT-authenticated member', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership()] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
+    const stub = stubSupabase(membershipRoute());
     const quotaPayload = {
-      orgId: 'org-id-1',
+      orgId: ORG_ID,
       planKey: 'growth',
       quotaVersion: 2,
       minuteLimit: 60,
@@ -248,52 +285,48 @@ describe('GET /v1/orgs/:orgId/quota/status', () => {
       monthlyUsed: 12345,
       minuteWindowExpiresIn: 45000,
     };
-    const mockDo = makeDoNamespace(quotaPayload);
-    const req = new Request('https://api.test/v1/orgs/org-id-1/quota/status', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleQuotaStatus(req, 'org-id-1', makeQuotaOpts(mockSb, mockDo));
+    const res = await handleQuotaStatus(
+      await makeJwtRequest(PATH), ORG_ID, makeQuotaOpts(makeDoNamespace(quotaPayload)),
+    );
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
-    expect(body.org_id).toBe('org-id-1');
+    const body = await res.json() as {
+      org_id: string;
+      minuteLimit: number;
+      minuteUsed: number;
+      monthlyLimit: number | null;
+      monthlyUsed: number;
+      minuteWindowExpiresIn: number;
+    };
+    expect(body.org_id).toBe(ORG_ID);
     expect(body.minuteLimit).toBe(60);
     expect(body.minuteUsed).toBe(5);
     expect(body.monthlyLimit).toBe(500000);
     expect(body.monthlyUsed).toBe(12345);
     expect(body.minuteWindowExpiresIn).toBe(45000);
+    // Quota lives in the DO: membership is the only database round-trip.
+    expect(stub.requests).toHaveLength(1);
   });
 
   it('returns uninitialized status when DO is unavailable', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership()] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
+    stubSupabase(membershipRoute());
     const throwingDo = {
       idFromName: vi.fn().mockReturnValue('stub-id'),
       get: vi.fn().mockReturnValue({
         fetch: vi.fn().mockRejectedValue(new Error('DO unavailable')),
       }),
     } as unknown as DurableObjectNamespace;
-    const req = new Request('https://api.test/v1/orgs/org-id-1/quota/status', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleQuotaStatus(req, 'org-id-1', makeQuotaOpts(mockSb, throwingDo));
+    const res = await handleQuotaStatus(
+      await makeJwtRequest(PATH), ORG_ID, makeQuotaOpts(throwingDo),
+    );
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
+    const body = await res.json() as { status: string };
     expect(body.status).toBe('uninitialized');
   });
 
   it('returns quota status with null monthlyLimit for unlimited plan', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'u@test.com' }, JWT_SECRET);
-    const mockSb = {
-      query: vi.fn().mockResolvedValueOnce({ ok: true, data: [makeMembership()] }),
-      insert: vi.fn(), update: vi.fn(), rpc: vi.fn(),
-    };
+    stubSupabase(membershipRoute());
     const quotaPayload = {
-      orgId: 'org-id-1',
+      orgId: ORG_ID,
       planKey: 'enterprise',
       quotaVersion: 1,
       minuteLimit: 120,
@@ -302,14 +335,11 @@ describe('GET /v1/orgs/:orgId/quota/status', () => {
       monthlyUsed: 0,
       minuteWindowExpiresIn: 60000,
     };
-    const mockDo = makeDoNamespace(quotaPayload);
-    const req = new Request('https://api.test/v1/orgs/org-id-1/quota/status', {
-      method: 'GET',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    const res = await handleQuotaStatus(req, 'org-id-1', makeQuotaOpts(mockSb, mockDo));
+    const res = await handleQuotaStatus(
+      await makeJwtRequest(PATH), ORG_ID, makeQuotaOpts(makeDoNamespace(quotaPayload)),
+    );
     expect(res.status).toBe(200);
-    const body = await res.json() as any;
+    const body = await res.json() as { monthlyLimit: number | null; minuteLimit: number };
     expect(body.monthlyLimit).toBeNull();
     expect(body.minuteLimit).toBe(120);
   });
