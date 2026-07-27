@@ -1,35 +1,71 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createSupabaseAdmin } from './supabase';
 import { DEAD_LETTER_MAX_RETRIES } from '../../constants';
+import {
+  createSupabaseFetchStub,
+  createdRows,
+  httpError,
+  noContent,
+  okRows,
+  updatedRows,
+  TEST_SERVICE_ROLE_KEY,
+  TEST_SUPABASE_URL,
+  type RecordedRequest,
+  type RouteResponder,
+  type SupabaseFetchStub,
+} from '../../lib/test-helpers/supabase-fetch-stub';
 
-const { mockQuery, mockInsert, mockUpdate, mockUpsert, mockInsertOrIgnore, mockDeleteRows } = vi.hoisted(() => ({
-  mockQuery: vi.fn(),
-  mockInsert: vi.fn(),
-  mockUpdate: vi.fn(),
-  mockUpsert: vi.fn(),
-  mockInsertOrIgnore: vi.fn(),
-  mockDeleteRows: vi.fn(),
-}));
+/**
+ * These tests drive a REAL Supabase REST client (`createSupabaseAdmin` builds one
+ * internally) over a stubbed fetch transport. Mocking the client would hide the
+ * only thing this module does — mapping domain operations onto PostgREST calls —
+ * so every assertion below is against the actual wire format: verbs, tables,
+ * filter serialization, request bodies and `Prefer` headers.
+ */
 
-vi.mock('../../lib/supabase', () => ({
-  createSupabaseClient: () => ({
-    query: mockQuery,
-    insert: mockInsert,
-    update: mockUpdate,
-    upsert: mockUpsert,
-    insertOrIgnore: mockInsertOrIgnore,
-    deleteRows: mockDeleteRows,
-    rpc: vi.fn(),
-  }),
-}));
+const DEAD_LETTERS_TABLE = 'webhook_dead_letters';
+const EVENTS_LOG_TABLE = 'webhook_events_log';
+const ORGANIZATIONS_TABLE = 'organizations';
+const SUBSCRIPTIONS_TABLE = 'subscriptions';
+
+const RETURN_REPRESENTATION = 'return=representation';
+const RETURN_MINIMAL = 'return=minimal';
+const MERGE_DUPLICATES = 'resolution=merge-duplicates,return=representation';
+const IGNORE_DUPLICATES = 'resolution=ignore-duplicates,return=representation';
+
+const DEAD_LETTER_SELECT = 'id, stripe_event_id, event_type, payload, retry_count, max_retries';
+
+/** Installs the stub as global fetch and returns it for assertions. */
+function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub {
+  const stub = createSupabaseFetchStub(routes);
+  vi.stubGlobal('fetch', stub.fetch);
+  return stub;
+}
+
+function makeAdmin(): ReturnType<typeof createSupabaseAdmin> {
+  return createSupabaseAdmin(TEST_SUPABASE_URL, TEST_SERVICE_ROLE_KEY);
+}
+
+/** Body of an update/rpc-style request, which the client sends as a bare object. */
+function objectBody(request: RecordedRequest): Record<string, unknown> {
+  return request.body as Record<string, unknown>;
+}
+
+/** Body of an insert/upsert, which the client always wraps in an array. */
+function rowsBody(request: RecordedRequest): Array<Record<string, unknown>> {
+  return request.body as Array<Record<string, unknown>>;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('fetchPendingDeadLetters', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
   let consoleSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    db = makeAdmin();
     consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -38,20 +74,37 @@ describe('fetchPendingDeadLetters', () => {
   });
 
   it('DB error → console.error logged, empty array returned', async () => {
-    mockQuery.mockResolvedValue({ ok: false, error: 'Connection timeout' });
+    stubSupabase({ [`GET ${DEAD_LETTERS_TABLE}`]: httpError(500, 'Connection timeout') });
 
     const result = await db.fetchPendingDeadLetters();
 
     expect(result).toEqual([]);
     expect(consoleSpy).toHaveBeenCalledWith(
       'fetchPendingDeadLetters DB error:',
-      'Connection timeout',
+      'HTTP 500: Connection timeout',
     );
   });
 
-  it('non-array data → returns empty array without error', async () => {
-    mockQuery.mockResolvedValue({ ok: true, data: null });
+  it('non-array data → returned as the client wraps it, without error', async () => {
+    // PostgREST always answers a select with a JSON array, and the client wraps
+    // anything else in one — so the `!Array.isArray(result.data)` guard in
+    // fetchPendingDeadLetters is unreachable over a real transport. A malformed
+    // `null` body surfaces as `[null]`, not `[]`.
+    stubSupabase({
+      [`GET ${DEAD_LETTERS_TABLE}`]: () =>
+        new Response('null', { status: 200, headers: { 'content-type': 'application/json' } }),
+    });
+
     const result = await db.fetchPendingDeadLetters();
+
+    expect(result).toEqual([null]);
+  });
+
+  it('empty result set → returns empty array without error', async () => {
+    stubSupabase({ [`GET ${DEAD_LETTERS_TABLE}`]: okRows([]) });
+
+    const result = await db.fetchPendingDeadLetters();
+
     expect(result).toEqual([]);
   });
 
@@ -59,18 +112,41 @@ describe('fetchPendingDeadLetters', () => {
     const deadLetters = [
       { id: 'dl-1', stripe_event_id: 'evt_1', event_type: 'checkout.session.completed', payload: {}, retry_count: 0, max_retries: 5 },
     ];
-    mockQuery.mockResolvedValue({ ok: true, data: deadLetters });
+    stubSupabase({ [`GET ${DEAD_LETTERS_TABLE}`]: okRows(deadLetters) });
+
     const result = await db.fetchPendingDeadLetters();
+
     expect(result).toEqual(deadLetters);
   });
 
   it('passes custom limit to the query', async () => {
-    mockQuery.mockResolvedValue({ ok: true, data: [] });
+    const stub = stubSupabase({ [`GET ${DEAD_LETTERS_TABLE}`]: okRows([]) });
+
     await db.fetchPendingDeadLetters(10);
-    expect(mockQuery).toHaveBeenCalledWith(
-      'webhook_dead_letters',
-      expect.objectContaining({ limit: 10 }),
-    );
+
+    expect(stub.find('GET', DEAD_LETTERS_TABLE)!.url.searchParams.get('limit')).toBe('10');
+  });
+
+  it('sends select, ordering and all three retry filters on the wire', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    try {
+      const stub = stubSupabase({ [`GET ${DEAD_LETTERS_TABLE}`]: okRows([]) });
+
+      await db.fetchPendingDeadLetters();
+
+      const params = stub.find('GET', DEAD_LETTERS_TABLE)!.url.searchParams;
+      expect(params.get('select')).toBe(DEAD_LETTER_SELECT);
+      // getAll, not get: a filter that is dropped or overwritten during
+      // serialization silently widens the query, so assert the full multiset.
+      expect(params.getAll('status')).toEqual(['eq.pending']);
+      expect(params.getAll('next_retry_at')).toEqual(['lte.2026-01-01T00:00:00.000Z']);
+      expect(params.getAll('retry_count')).toEqual([`lt.${DEAD_LETTER_MAX_RETRIES}`]);
+      expect(params.get('order')).toBe('created_at.asc');
+      expect(params.get('limit')).toBe('50');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -78,26 +154,35 @@ describe('isEventProcessed', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    db = makeAdmin();
   });
 
   it('returns { ok: true, processed: true } when event exists in log', async () => {
-    mockQuery.mockResolvedValue({ ok: true, data: { id: 'evt_123' } });
+    const stub = stubSupabase({ [`GET ${EVENTS_LOG_TABLE}`]: okRows([{ id: 'evt_123' }]) });
+
     const result = await db.isEventProcessed('evt_123');
+
     expect(result).toEqual({ ok: true, processed: true });
+    const params = stub.find('GET', EVENTS_LOG_TABLE)!.url.searchParams;
+    expect(params.get('select')).toBe('id');
+    expect(params.getAll('stripe_event_id')).toEqual(['eq.evt_123']);
+    expect(params.get('limit')).toBe('1');
   });
 
   it('returns { ok: true, processed: false } when event not in log', async () => {
-    mockQuery.mockResolvedValue({ ok: true, data: null });
+    stubSupabase({ [`GET ${EVENTS_LOG_TABLE}`]: okRows([]) });
+
     const result = await db.isEventProcessed('evt_456');
+
     expect(result).toEqual({ ok: true, processed: false });
   });
 
   it('returns { ok: false, error } on DB query failure', async () => {
-    mockQuery.mockResolvedValue({ ok: false, error: 'Connection timeout' });
+    stubSupabase({ [`GET ${EVENTS_LOG_TABLE}`]: httpError(500, 'Connection timeout') });
+
     const result = await db.isEventProcessed('evt_789');
-    expect(result).toEqual({ ok: false, error: 'Connection timeout' });
+
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: Connection timeout' });
   });
 });
 
@@ -109,37 +194,52 @@ describe('linkStripeCustomer', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    db = makeAdmin();
   });
 
   it('returns { ok: true } and updates organizations table', async () => {
-    mockUpdate.mockResolvedValue({ ok: true });
+    const stub = stubSupabase({
+      [`PATCH ${ORGANIZATIONS_TABLE}`]: updatedRows([{ id: 'org-1', stripe_customer_id: 'cus_123' }]),
+    });
 
     const result = await db.linkStripeCustomer('org-1', 'cus_123');
 
     expect(result).toEqual({ ok: true });
-    expect(mockUpdate).toHaveBeenCalledWith(
-      'organizations',
-      { stripe_customer_id: 'cus_123' },
-      [{ column: 'id', operator: 'eq', value: 'org-1' }],
-    );
+    const patch = stub.find('PATCH', ORGANIZATIONS_TABLE)!;
+    expect(patch.body).toEqual({ stripe_customer_id: 'cus_123' });
+    expect(patch.url.searchParams.getAll('id')).toEqual(['eq.org-1']);
+    expect(patch.headers['prefer']).toBe(RETURN_REPRESENTATION);
+  });
+
+  it('authenticates every call with the service role key', async () => {
+    const stub = stubSupabase({ [`PATCH ${ORGANIZATIONS_TABLE}`]: updatedRows([]) });
+
+    await db.linkStripeCustomer('org-1', 'cus_123');
+
+    const patch = stub.find('PATCH', ORGANIZATIONS_TABLE)!;
+    expect(patch.headers['authorization']).toBe(`Bearer ${TEST_SERVICE_ROLE_KEY}`);
+    expect(patch.headers['apikey']).toBe(TEST_SERVICE_ROLE_KEY);
+    expect(patch.headers['content-type']).toBe('application/json');
+    expect(patch.url.origin).toBe(new URL(TEST_SUPABASE_URL).origin);
   });
 
   it('returns { ok: false, error } on DB failure', async () => {
-    mockUpdate.mockResolvedValue({ ok: false, error: 'Connection timeout' });
+    stubSupabase({ [`PATCH ${ORGANIZATIONS_TABLE}`]: httpError(500, 'Connection timeout') });
 
     const result = await db.linkStripeCustomer('org-1', 'cus_123');
 
-    expect(result).toEqual({ ok: false, error: 'Connection timeout' });
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: Connection timeout' });
   });
 
-  it('returns { ok: false, error: "Unknown error" } when DB result has no error field', async () => {
-    mockUpdate.mockResolvedValue({ ok: false });
+  it('returns { ok: false, error } when the DB failure carries no message body', async () => {
+    // The `?? 'Unknown error'` fallback in toVoidResult is unreachable against a
+    // real client: extractHttpError always produces an `HTTP <status>: ` prefix,
+    // so a bodyless failure still surfaces a non-empty error string.
+    stubSupabase({ [`PATCH ${ORGANIZATIONS_TABLE}`]: httpError(500, '') });
 
     const result = await db.linkStripeCustomer('org-1', 'cus_123');
 
-    expect(result).toEqual({ ok: false, error: 'Unknown error' });
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: ' });
   });
 });
 
@@ -151,73 +251,96 @@ describe('upsertSubscription', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
-    mockUpdate.mockResolvedValue({ ok: true }); // soft-delete step succeeds by default
+    db = makeAdmin();
+  });
+
+  /** Soft-delete step succeeds by default; callers override the POST route. */
+  const subscriptionRoutes = (
+    overrides: Record<string, RouteResponder> = {},
+  ): Record<string, RouteResponder> => ({
+    [`PATCH ${SUBSCRIPTIONS_TABLE}`]: updatedRows([]),
+    [`POST ${SUBSCRIPTIONS_TABLE}`]: createdRows([{ id: 'sub-row-1' }]),
+    ...overrides,
   });
 
   it('returns { ok: true } and calls upsert with correct conflict key', async () => {
-    mockUpsert.mockResolvedValue({ ok: true });
+    const stub = stubSupabase(subscriptionRoutes());
 
     const result = await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', 'active');
 
     expect(result).toEqual({ ok: true });
-    expect(mockUpsert).toHaveBeenCalledWith(
-      'subscriptions',
+    const post = stub.find('POST', SUBSCRIPTIONS_TABLE)!;
+    expect(post.url.searchParams.get('on_conflict')).toBe('organization_id,stripe_subscription_id');
+    expect(post.headers['prefer']).toBe(MERGE_DUPLICATES);
+    expect(rowsBody(post)).toEqual([
       expect.objectContaining({
         organization_id: 'org-1',
         stripe_subscription_id: 'sub_abc',
         stripe_price_id: 'price_xyz',
         status: 'active',
       }),
-      'organization_id,stripe_subscription_id',
-    );
+    ]);
+  });
+
+  it('stamps created_at and updated_at with the same timestamp as the soft-delete', async () => {
+    const stub = stubSupabase(subscriptionRoutes());
+
+    await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', 'active');
+
+    const cancelled = objectBody(stub.find('PATCH', SUBSCRIPTIONS_TABLE)!);
+    const [row] = rowsBody(stub.find('POST', SUBSCRIPTIONS_TABLE)!);
+    expect(row.created_at).toBe(row.updated_at);
+    expect(cancelled.updated_at).toBe(row.updated_at);
   });
 
   it('upserts with null price_id for stub rows from checkout handler', async () => {
-    mockUpsert.mockResolvedValue({ ok: true });
+    const stub = stubSupabase(subscriptionRoutes());
 
     const result = await db.upsertSubscription('org-1', 'sub_abc', null, 'active');
 
     expect(result).toEqual({ ok: true });
-    expect(mockUpsert).toHaveBeenCalledWith(
-      'subscriptions',
-      expect.objectContaining({ stripe_price_id: null }),
-      'organization_id,stripe_subscription_id',
-    );
+    // A dropped null would silently preserve the previous price, so assert the
+    // key is present on the wire and explicitly null.
+    const [row] = rowsBody(stub.find('POST', SUBSCRIPTIONS_TABLE)!);
+    expect(row).toHaveProperty('stripe_price_id', null);
   });
 
   it('returns { ok: false, error } on DB failure', async () => {
-    mockUpsert.mockResolvedValue({ ok: false, error: 'Duplicate key violation' });
+    stubSupabase(subscriptionRoutes({
+      [`POST ${SUBSCRIPTIONS_TABLE}`]: httpError(409, 'Duplicate key violation'),
+    }));
 
     const result = await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', 'active');
 
-    expect(result).toEqual({ ok: false, error: 'Duplicate key violation' });
+    expect(result).toEqual({ ok: false, error: 'HTTP 409: Duplicate key violation' });
   });
 
   it('soft-deletes prior subscriptions with a different ID before upsert', async () => {
-    mockUpsert.mockResolvedValue({ ok: true });
+    const stub = stubSupabase(subscriptionRoutes());
 
     await db.upsertSubscription('org-1', 'sub_new', 'price_xyz', 'active');
 
-    expect(mockUpdate).toHaveBeenCalledWith(
-      'subscriptions',
-      expect.objectContaining({ status: 'canceled' }),
-      [
-        { column: 'organization_id', operator: 'eq', value: 'org-1' },
-        { column: 'stripe_subscription_id', operator: 'neq', value: 'sub_new' },
-        { column: 'status', operator: 'neq', value: 'canceled' },
-      ],
+    const patch = stub.find('PATCH', SUBSCRIPTIONS_TABLE)!;
+    expect(objectBody(patch)).toEqual(expect.objectContaining({ status: 'canceled' }));
+    const params = patch.url.searchParams;
+    expect(params.getAll('organization_id')).toEqual(['eq.org-1']);
+    expect(params.getAll('stripe_subscription_id')).toEqual(['neq.sub_new']);
+    expect(params.getAll('status')).toEqual(['neq.canceled']);
+    // The cancel must be scoped before the upsert lands.
+    expect(stub.requests.indexOf(patch)).toBeLessThan(
+      stub.requests.indexOf(stub.find('POST', SUBSCRIPTIONS_TABLE)!),
     );
   });
 
   it('returns { ok: false } when soft-delete update fails', async () => {
-    mockUpdate.mockResolvedValue({ ok: false, error: 'DB connection error' });
+    const stub = stubSupabase(subscriptionRoutes({
+      [`PATCH ${SUBSCRIPTIONS_TABLE}`]: httpError(500, 'DB connection error'),
+    }));
 
     const result = await db.upsertSubscription('org-1', 'sub_new', 'price_xyz', 'active');
 
-    expect(result).toEqual({ ok: false, error: 'DB connection error' });
-    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: DB connection error' });
+    expect(stub.findAll('POST', SUBSCRIPTIONS_TABLE)).toHaveLength(0);
   });
 });
 
@@ -229,61 +352,55 @@ describe('updateOrgBillingStatus', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    db = makeAdmin();
   });
 
   it('updates billing_status only when planKey and bumpQuotaVersion omitted', async () => {
-    mockUpdate.mockResolvedValue({ ok: true });
+    const stub = stubSupabase({ [`PATCH ${ORGANIZATIONS_TABLE}`]: updatedRows([{ id: 'org-1' }]) });
 
     await db.updateOrgBillingStatus('org-1', 'active');
 
-    expect(mockUpdate).toHaveBeenCalledWith(
-      'organizations',
-      { billing_status: 'active' },
-      [{ column: 'id', operator: 'eq', value: 'org-1' }],
-    );
+    const patch = stub.find('PATCH', ORGANIZATIONS_TABLE)!;
+    expect(patch.body).toEqual({ billing_status: 'active' });
+    expect(patch.url.searchParams.getAll('id')).toEqual(['eq.org-1']);
   });
 
   it('includes current_plan when planKey provided', async () => {
-    mockUpdate.mockResolvedValue({ ok: true });
+    const stub = stubSupabase({ [`PATCH ${ORGANIZATIONS_TABLE}`]: updatedRows([{ id: 'org-1' }]) });
 
     await db.updateOrgBillingStatus('org-1', 'active', 'growth');
 
-    expect(mockUpdate).toHaveBeenCalledWith(
-      'organizations',
+    const patch = stub.find('PATCH', ORGANIZATIONS_TABLE)!;
+    expect(patch.body).toEqual(
       expect.objectContaining({ billing_status: 'active', current_plan: 'growth' }),
-      [{ column: 'id', operator: 'eq', value: 'org-1' }],
     );
+    expect(patch.url.searchParams.getAll('id')).toEqual(['eq.org-1']);
   });
 
   it('includes numeric quota_version when bumpQuotaVersion is true', async () => {
-    mockUpdate.mockResolvedValue({ ok: true });
+    const stub = stubSupabase({ [`PATCH ${ORGANIZATIONS_TABLE}`]: updatedRows([{ id: 'org-1' }]) });
 
     await db.updateOrgBillingStatus('org-1', 'active', undefined, true);
 
-    expect(mockUpdate).toHaveBeenCalledWith(
-      'organizations',
-      expect.objectContaining({ quota_version: expect.any(Number) }),
-      [{ column: 'id', operator: 'eq', value: 'org-1' }],
-    );
+    const patch = stub.find('PATCH', ORGANIZATIONS_TABLE)!;
+    expect(patch.body).toEqual(expect.objectContaining({ quota_version: expect.any(Number) }));
+    expect(patch.url.searchParams.getAll('id')).toEqual(['eq.org-1']);
   });
 
   it('does not include quota_version when bumpQuotaVersion is false', async () => {
-    mockUpdate.mockResolvedValue({ ok: true });
+    const stub = stubSupabase({ [`PATCH ${ORGANIZATIONS_TABLE}`]: updatedRows([{ id: 'org-1' }]) });
 
     await db.updateOrgBillingStatus('org-1', 'past_due', undefined, false);
 
-    const [, updates] = mockUpdate.mock.calls[0];
-    expect(updates).not.toHaveProperty('quota_version');
+    expect(objectBody(stub.find('PATCH', ORGANIZATIONS_TABLE)!)).not.toHaveProperty('quota_version');
   });
 
   it('returns { ok: false, error } on DB failure', async () => {
-    mockUpdate.mockResolvedValue({ ok: false, error: 'Row not found' });
+    stubSupabase({ [`PATCH ${ORGANIZATIONS_TABLE}`]: httpError(404, 'Row not found') });
 
     const result = await db.updateOrgBillingStatus('org-1', 'inactive');
 
-    expect(result).toEqual({ ok: false, error: 'Row not found' });
+    expect(result).toEqual({ ok: false, error: 'HTTP 404: Row not found' });
   });
 });
 
@@ -295,9 +412,8 @@ describe('addDeadLetter', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     vi.useFakeTimers();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    db = makeAdmin();
   });
 
   afterEach(() => {
@@ -306,7 +422,7 @@ describe('addDeadLetter', () => {
 
   it('inserts with correct fields and next_retry_at 60s in future', async () => {
     vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
-    mockInsert.mockResolvedValue({ ok: true });
+    const stub = stubSupabase({ [`POST ${DEAD_LETTERS_TABLE}`]: createdRows([{ id: 'dl-1' }]) });
 
     const result = await db.addDeadLetter(
       'evt_123',
@@ -316,8 +432,8 @@ describe('addDeadLetter', () => {
     );
 
     expect(result).toEqual({ ok: true });
-    expect(mockInsert).toHaveBeenCalledWith(
-      'webhook_dead_letters',
+    const insert = stub.find('POST', DEAD_LETTERS_TABLE)!;
+    expect(rowsBody(insert)).toEqual([
       expect.objectContaining({
         stripe_event_id: 'evt_123',
         event_type: 'checkout.session.completed',
@@ -329,15 +445,26 @@ describe('addDeadLetter', () => {
         next_retry_at: '2026-01-01T00:01:00.000Z',
         created_at: '2026-01-01T00:00:00.000Z',
       }),
-    );
+    ]);
+  });
+
+  it('requests the representation via the Prefer header, not a query param', async () => {
+    const stub = stubSupabase({ [`POST ${DEAD_LETTERS_TABLE}`]: createdRows([{ id: 'dl-1' }]) });
+
+    await db.addDeadLetter('evt_123', 'checkout.session.completed', {}, 'err');
+
+    const insert = stub.find('POST', DEAD_LETTERS_TABLE)!;
+    expect(insert.headers['prefer']).toBe(RETURN_REPRESENTATION);
+    expect(insert.url.searchParams.has('returning')).toBe(false);
+    expect([...insert.url.searchParams.keys()]).toEqual([]);
   });
 
   it('returns { ok: false, error } on DB failure', async () => {
-    mockInsert.mockResolvedValue({ ok: false, error: 'Insert failed' });
+    stubSupabase({ [`POST ${DEAD_LETTERS_TABLE}`]: httpError(500, 'Insert failed') });
 
     const result = await db.addDeadLetter('evt_123', 'checkout.session.completed', {}, 'err');
 
-    expect(result).toEqual({ ok: false, error: 'Insert failed' });
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: Insert failed' });
   });
 });
 
@@ -349,9 +476,8 @@ describe('failDeadLetter', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     vi.useFakeTimers();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    db = makeAdmin();
   });
 
   afterEach(() => {
@@ -360,42 +486,43 @@ describe('failDeadLetter', () => {
 
   it('increments count, stays pending, and sets next_retry_at when below maxRetries', async () => {
     vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
-    mockUpdate.mockResolvedValue({ ok: true });
+    const stub = stubSupabase({ [`PATCH ${DEAD_LETTERS_TABLE}`]: updatedRows([{ id: 'dl-1' }]) });
 
     await db.failDeadLetter('dl-1', 1, 5, 'transient error');
 
     // next_retry_at = now + 2^1 * 60_000ms = +2 min
-    expect(mockUpdate).toHaveBeenCalledWith(
-      'webhook_dead_letters',
+    const patch = stub.find('PATCH', DEAD_LETTERS_TABLE)!;
+    expect(patch.body).toEqual(
       expect.objectContaining({
         retry_count: 2,
         status: 'pending',
         next_retry_at: '2026-01-01T00:02:00.000Z',
         error_message: 'transient error',
       }),
-      [{ column: 'id', operator: 'eq', value: 'dl-1' }],
     );
+    expect(patch.url.searchParams.getAll('id')).toEqual(['eq.dl-1']);
   });
 
   it('sets status to abandoned and omits next_retry_at when newCount reaches maxRetries', async () => {
-    mockUpdate.mockResolvedValue({ ok: true });
+    const stub = stubSupabase({ [`PATCH ${DEAD_LETTERS_TABLE}`]: updatedRows([{ id: 'dl-1' }]) });
 
     await db.failDeadLetter('dl-1', 4, 5, 'final error');
 
-    const [table, updates, filter] = mockUpdate.mock.calls[0];
-    expect(table).toBe('webhook_dead_letters');
-    expect(filter).toEqual([{ column: 'id', operator: 'eq', value: 'dl-1' }]);
+    const patch = stub.find('PATCH', DEAD_LETTERS_TABLE)!;
+    const updates = objectBody(patch);
+    expect(patch.table).toBe(DEAD_LETTERS_TABLE);
+    expect(patch.url.searchParams.getAll('id')).toEqual(['eq.dl-1']);
     expect(updates.retry_count).toBe(5);
     expect(updates.status).toBe('abandoned');
     expect(updates).not.toHaveProperty('next_retry_at');
   });
 
   it('returns { ok: false, error } on DB failure', async () => {
-    mockUpdate.mockResolvedValue({ ok: false, error: 'Update failed' });
+    stubSupabase({ [`PATCH ${DEAD_LETTERS_TABLE}`]: httpError(500, 'Update failed') });
 
     const result = await db.failDeadLetter('dl-1', 0, 5, 'err');
 
-    expect(result).toEqual({ ok: false, error: 'Update failed' });
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: Update failed' });
   });
 });
 
@@ -407,29 +534,27 @@ describe('resolveDeadLetter', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    db = makeAdmin();
   });
 
   it('updates status to resolved and returns { ok: true }', async () => {
-    mockUpdate.mockResolvedValue({ ok: true });
+    const stub = stubSupabase({ [`PATCH ${DEAD_LETTERS_TABLE}`]: updatedRows([{ id: 'dl-1' }]) });
 
     const result = await db.resolveDeadLetter('dl-1');
 
     expect(result).toEqual({ ok: true });
-    expect(mockUpdate).toHaveBeenCalledWith(
-      'webhook_dead_letters',
-      expect.objectContaining({ status: 'resolved' }),
-      [{ column: 'id', operator: 'eq', value: 'dl-1' }],
-    );
+    const patch = stub.find('PATCH', DEAD_LETTERS_TABLE)!;
+    expect(patch.body).toEqual(expect.objectContaining({ status: 'resolved' }));
+    expect(objectBody(patch).resolved_at).toEqual(expect.any(String));
+    expect(patch.url.searchParams.getAll('id')).toEqual(['eq.dl-1']);
   });
 
   it('returns { ok: false, error } on DB failure', async () => {
-    mockUpdate.mockResolvedValue({ ok: false, error: 'Update failed' });
+    stubSupabase({ [`PATCH ${DEAD_LETTERS_TABLE}`]: httpError(500, 'Update failed') });
 
     const result = await db.resolveDeadLetter('dl-1');
 
-    expect(result).toEqual({ ok: false, error: 'Update failed' });
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: Update failed' });
   });
 });
 
@@ -441,29 +566,26 @@ describe('abandonDeadLetter', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    db = makeAdmin();
   });
 
   it('updates status to abandoned and returns { ok: true }', async () => {
-    mockUpdate.mockResolvedValue({ ok: true });
+    const stub = stubSupabase({ [`PATCH ${DEAD_LETTERS_TABLE}`]: updatedRows([{ id: 'dl-1' }]) });
 
     const result = await db.abandonDeadLetter('dl-1');
 
     expect(result).toEqual({ ok: true });
-    expect(mockUpdate).toHaveBeenCalledWith(
-      'webhook_dead_letters',
-      expect.objectContaining({ status: 'abandoned' }),
-      [{ column: 'id', operator: 'eq', value: 'dl-1' }],
-    );
+    const patch = stub.find('PATCH', DEAD_LETTERS_TABLE)!;
+    expect(patch.body).toEqual(expect.objectContaining({ status: 'abandoned' }));
+    expect(patch.url.searchParams.getAll('id')).toEqual(['eq.dl-1']);
   });
 
   it('returns { ok: false, error } on DB failure', async () => {
-    mockUpdate.mockResolvedValue({ ok: false, error: 'Update failed' });
+    stubSupabase({ [`PATCH ${DEAD_LETTERS_TABLE}`]: httpError(500, 'Update failed') });
 
     const result = await db.abandonDeadLetter('dl-1');
 
-    expect(result).toEqual({ ok: false, error: 'Update failed' });
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: Update failed' });
   });
 });
 
@@ -475,20 +597,23 @@ describe('findOrgByStripeCustomerId', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    db = makeAdmin();
   });
 
   it('returns { ok: true, orgId } when org found', async () => {
-    mockQuery.mockResolvedValue({ ok: true, data: { id: 'org-1' } });
+    const stub = stubSupabase({ [`GET ${ORGANIZATIONS_TABLE}`]: okRows([{ id: 'org-1' }]) });
 
     const result = await db.findOrgByStripeCustomerId('cus_123');
 
     expect(result).toEqual({ ok: true, orgId: 'org-1' });
+    const params = stub.find('GET', ORGANIZATIONS_TABLE)!.url.searchParams;
+    expect(params.get('select')).toBe('id');
+    expect(params.getAll('stripe_customer_id')).toEqual(['eq.cus_123']);
+    expect(params.get('limit')).toBe('1');
   });
 
   it('returns { ok: true, orgId: null } when no org found', async () => {
-    mockQuery.mockResolvedValue({ ok: true, data: null });
+    stubSupabase({ [`GET ${ORGANIZATIONS_TABLE}`]: okRows([]) });
 
     const result = await db.findOrgByStripeCustomerId('cus_unknown');
 
@@ -496,11 +621,11 @@ describe('findOrgByStripeCustomerId', () => {
   });
 
   it('returns { ok: false, error } on DB failure', async () => {
-    mockQuery.mockResolvedValue({ ok: false, error: 'Connection timeout' });
+    stubSupabase({ [`GET ${ORGANIZATIONS_TABLE}`]: httpError(500, 'Connection timeout') });
 
     const result = await db.findOrgByStripeCustomerId('cus_123');
 
-    expect(result).toEqual({ ok: false, error: 'Connection timeout' });
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: Connection timeout' });
   });
 });
 
@@ -512,28 +637,32 @@ describe('claimEvent', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    db = makeAdmin();
   });
 
   it('returns { ok: true, claimed: true } when row is newly inserted', async () => {
-    mockInsertOrIgnore.mockResolvedValue({ ok: true, data: [{ id: 'row_1' }] });
+    const stub = stubSupabase({ [`POST ${EVENTS_LOG_TABLE}`]: createdRows([{ id: 'row_1' }]) });
 
     const result = await db.claimEvent('evt_123', 'checkout.session.completed');
 
     expect(result).toEqual({ ok: true, claimed: true });
-    expect(mockInsertOrIgnore).toHaveBeenCalledWith(
-      'webhook_events_log',
+    const post = stub.find('POST', EVENTS_LOG_TABLE)!;
+    // The claim is only atomic if ON CONFLICT DO NOTHING actually reaches
+    // PostgREST — that lives entirely in the Prefer header and on_conflict param.
+    expect(post.headers['prefer']).toBe(IGNORE_DUPLICATES);
+    expect(post.url.searchParams.get('on_conflict')).toBe('stripe_event_id');
+    expect(rowsBody(post)).toEqual([
       expect.objectContaining({
         stripe_event_id: 'evt_123',
         event_type: 'checkout.session.completed',
+        processed_at: expect.any(String),
       }),
-      'stripe_event_id',
-    );
+    ]);
   });
 
   it('returns { ok: true, claimed: false } when row already exists (duplicate)', async () => {
-    mockInsertOrIgnore.mockResolvedValue({ ok: true, data: [] });
+    // PostgREST answers an ignored duplicate with 201 and an empty row array.
+    stubSupabase({ [`POST ${EVENTS_LOG_TABLE}`]: createdRows([]) });
 
     const result = await db.claimEvent('evt_123', 'invoice.paid');
 
@@ -541,11 +670,11 @@ describe('claimEvent', () => {
   });
 
   it('returns { ok: false, error } on DB failure', async () => {
-    mockInsertOrIgnore.mockResolvedValue({ ok: false, error: 'Insert failed' });
+    stubSupabase({ [`POST ${EVENTS_LOG_TABLE}`]: httpError(500, 'Insert failed') });
 
     const result = await db.claimEvent('evt_123', 'invoice.paid');
 
-    expect(result).toEqual({ ok: false, error: 'Insert failed' });
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: Insert failed' });
   });
 });
 
@@ -557,27 +686,36 @@ describe('unclaimEvent', () => {
   let db: ReturnType<typeof createSupabaseAdmin>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    db = createSupabaseAdmin('https://test.supabase.co', 'test-key');
+    db = makeAdmin();
   });
 
   it('deletes by stripe_event_id and returns { ok: true }', async () => {
-    mockDeleteRows.mockResolvedValue({ ok: true, data: null });
+    const stub = stubSupabase({ [`DELETE ${EVENTS_LOG_TABLE}`]: noContent() });
 
     const result = await db.unclaimEvent('evt_123');
 
     expect(result).toEqual({ ok: true });
-    expect(mockDeleteRows).toHaveBeenCalledWith(
-      'webhook_events_log',
-      [{ column: 'stripe_event_id', operator: 'eq', value: 'evt_123' }],
-    );
+    const del = stub.find('DELETE', EVENTS_LOG_TABLE)!;
+    // An unfiltered DELETE would wipe the whole idempotency log.
+    expect([...del.url.searchParams.keys()]).toEqual(['stripe_event_id']);
+    expect(del.url.searchParams.getAll('stripe_event_id')).toEqual(['eq.evt_123']);
+    expect(del.headers['prefer']).toBe(RETURN_MINIMAL);
+    expect(del.body).toBeUndefined();
   });
 
-  it('returns { ok: false, error } on DB failure', async () => {
-    mockDeleteRows.mockResolvedValue({ ok: false, error: 'Delete failed' });
+  it('treats a 200 delete response as success', async () => {
+    stubSupabase({ [`DELETE ${EVENTS_LOG_TABLE}`]: okRows([{ id: 'row_1' }]) });
 
     const result = await db.unclaimEvent('evt_123');
 
-    expect(result).toEqual({ ok: false, error: 'Delete failed' });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('returns { ok: false, error } on DB failure', async () => {
+    stubSupabase({ [`DELETE ${EVENTS_LOG_TABLE}`]: httpError(500, 'Delete failed') });
+
+    const result = await db.unclaimEvent('evt_123');
+
+    expect(result).toEqual({ ok: false, error: 'HTTP 500: Delete failed' });
   });
 });
