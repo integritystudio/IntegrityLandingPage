@@ -12,11 +12,14 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 
 | Outcome | Count | Location |
 |---|---|---|
-| Fixed | 40 | [`docs/changelog/1.3/CHANGELOG.md`](docs/changelog/1.3/CHANGELOG.md) → *Codebase Review Remediation* |
-| Still open | 5 | [`docs/BACKLOG.md`](docs/BACKLOG.md) → CR01–CR10 |
+| Fixed in the remediation pass | 40 | [`docs/changelog/1.3/CHANGELOG.md`](docs/changelog/1.3/CHANGELOG.md) → *Codebase Review Remediation* |
+| Fixed in the follow-up backlog pass | 6 | [`docs/changelog/1.3/CHANGELOG.md`](docs/changelog/1.3/CHANGELOG.md) → *Review Backlog Pass* |
+| Still open | 4 | [`docs/BACKLOG.md`](docs/BACKLOG.md) → CR01–CR04 |
 | Refuted | 3 | below |
 
-The backlog's CR01–CR10 is the worklist. It holds the 5 items that were never fixed, 2 that were marked fixed but are **not fully closed** — the auth rate limiter is inert because its KV namespace was never created (CR03), and the dashboard JWT moved to a URL fragment rather than out of the URL (CR04) — and 3 more found while remediating.
+The 10 items that outlived the remediation pass became CR01–CR10: the 5 never fixed, 2 marked fixed but **not actually closed** — the auth rate limiter was inert because its KV namespace was never created (CR03), and the dashboard JWT moved to a URL fragment rather than out of the URL (CR04) — and 3 found while remediating. A follow-up pass closed CR05–CR10 and took a first step on CR01 and CR04.
+
+**CR01–CR04 remain the worklist**, and the two partial ones are the ones to watch: `doppler.json` is untracked but still in git history with none of its secrets rotated, and the JWT still travels in a URL. Both had a step land that improves the record without reducing the exposure.
 
 One review item, the `workers/receiver-worker/src/index.ts:72` replay window, folded into the existing `W06` backlog entry instead of getting its own. That file is a local stub that is never deployed, and `W06` already tracks a nonce store for the production receiver, which is the real work.
 

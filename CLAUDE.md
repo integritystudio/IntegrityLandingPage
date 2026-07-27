@@ -24,7 +24,7 @@ wrangler dev --port 8787          # Local dev server
 
 ## Current Status
 
-**Phase**: Codebase Review Remediation (CR01–CR10)
+**Phase**: Codebase Review Remediation — 46 findings fixed, CR01–CR04 open
 **Last Updated**: 2026-07-26
 **Build Status**: ✅ Web build successful, running on localhost:8080
 **Test Status**: ✅ ~3,001 Flutter tests passing (~94% coverage); ~984 worker tests passing (6 workers + shared lib)
@@ -32,10 +32,10 @@ wrangler dev --port 8787          # Local dev server
 See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recent changes.
 
 ### Known Issues
-Open items are tracked in [docs/BACKLOG.md](docs/BACKLOG.md) and [CODE_REVIEW.md](CODE_REVIEW.md). Current open items include:
-- **CR01 (P1)**: `doppler.json` history scrub + full secret rotation still required (file removed from tracking; see BACKLOG.md)
+Open items are tracked in [docs/BACKLOG.md](docs/BACKLOG.md). The four from the 2026-07-26 review that remain open:
+- **CR01 (P1)**: `doppler.json` history scrub + full secret rotation still required (file removed from tracking, but the bundle is still in history and nothing has been rotated)
 - **CR02 (P1)**: Worker dev/prod separation — `npm run deploy` currently writes to the same worker that production uses (no `[env]` blocks)
-- **CR03 (P1)**: `RATE_LIMIT_KV` namespace not yet created — auth rate limiter is effectively disabled
+- **CR03 (P1)**: `RATE_LIMIT_KV` namespace not yet created — auth rate limiter is written but fails open, so `/signup` and `/signin` are unprotected
 - **CR04 (P2)**: JWT passed in URL fragment to dashboard — cross-repo fix needed
 
 ---

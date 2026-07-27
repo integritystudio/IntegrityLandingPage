@@ -445,3 +445,47 @@ Remediation of the 8-area codebase review of the Flutter app and all Cloudflare 
 **Final state:** 3,001 Flutter tests and 984 worker tests passing; zero TypeScript errors across all seven workers.
 
 ---
+
+## [2026-07-26] - Review Backlog Pass (CR01, CR04–CR10)
+
+A follow-up pass over the CR01–CR10 backlog left by the review remediation above. Eight items closed; **CR02 and CR03 remain open**, and CR01 and CR04 are closed only in part — see [`docs/BACKLOG.md`](../../BACKLOG.md) for what is left of each.
+
+### Security & Privacy
+
+**`doppler.json` removed from git tracking (CR01 — partial)**
+- The 37 KB Doppler encrypted secrets snapshot had been tracked since `faf0ccc`, giving anyone with repo read access an offline copy of every worker credential. It is now untracked and in `.gitignore`; the local file is untouched, so dev workflows are unaffected.
+- **Not closed:** the bundle is still in git history and none of the secrets it contains have been rotated. Removing the file from HEAD does not retract the copies. Tracked as CR01.
+- Commit: `88ef77a`
+
+**JWT fragment handoff comment corrected (CR04 — partial)**
+- The comment at `provision_page.dart` claimed a URL fragment keeps the token out of browser history. It does not: fragments are stored with the history entry and are readable by any script on the dashboard origin via `location.hash`. The comment now states the actual gap.
+- **Not closed:** this changed a comment, not behavior. The token still travels in a URL. The real fix — `postMessage` or a single-use exchange code — needs a coordinated change in the dashboard app. Tracked as CR04.
+- Commit: `d632263`
+
+### API Gateway
+
+**Usage, entitlements, and `/v1/me` no longer fail open on a DB error (CR05, CR06)**
+- `handleUsageSummary` and `handleOrgEntitlements` collapsed a Supabase 5xx into `HTTP 200` with an empty payload, so a caller could not distinguish an outage from an empty month. The entitlements case was worse: an empty map reads as *no features enabled*, silently downgrading every account for the duration of an outage.
+- `GET /v1/me` folded transport failures into `404 User not found`, telling authenticated callers their account did not exist — which a client may reasonably act on by signing the user out.
+- All three now return 500 on `!result.ok`, reserving the empty payload for a genuine empty result and 404 for a genuine zero-row lookup.
+- Commit: `d11cf38`
+
+### Code Health
+
+**Dead `Array.isArray` narrowing removed (CR08)**
+- The `query()` overloads added during the review pass mean a plain select already resolves to `T[]`, making `Array.isArray(result.data)` unreachable at ~19 sites across api-gateway, bootstrap-worker, the shared lib, and stripe-webhook. Two of them (`orgs.ts`) mapped "not an array" to "empty", which would have masked a real change in the client contract.
+- `findOrgByStripeCustomerId` now passes a type parameter to `query()` instead of casting `result.data as { id: string } | null`.
+- Commits: `2ada4e9`, `168e910`
+
+**`fetchPendingDeadLetters` filters phantom entries (CR10)**
+- The client wraps a non-array body into an array, so a malformed `null` select response surfaces as `[null]`, not `[]` — a dead letter with no fields handed straight to the retry loop. Non-object entries are now filtered out. Not reachable through PostgREST, which always answers a select with an array; this is robustness, and the test that pinned `[null]` now pins `[]`.
+- Commit: `1a8196a`
+
+### Documentation & Test Fidelity
+
+- CLAUDE.md's status block was stale on three counts: test counts (~2,726/~965 against actual 3,001/984), "Known Issues: None open" while two P1 security items were open, and a documented dev/prod deploy split that does not exist. Counts and known issues are corrected; the deploy command now carries a CR02 caveat rather than a false claim (`8d4c8e2`).
+- Stripe handler test doubles returned bare error strings like `'Connection timeout'`, a shape the real `SupabaseAdmin` never emits — every error it returns is `HTTP <status>: <body>`. Fixtures now use the real format. No handler branches on error text (`424bbd2`).
+
+**Final state:** 3,001 Flutter tests and 984 worker tests passing; zero TypeScript errors across all seven workers.
+
+---

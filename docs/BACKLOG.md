@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, `docs/changelog/1.2/CHANGELOG.md`, and `docs/changelog/1.3/CHANGELOG.md`.
 
-**Last Updated:** 2026-07-26 | **Phase:** Codebase review remediation — 40 of 45 review findings fixed; the 5 open items plus 5 issues found during remediation are tracked here as CR01–CR10 (2 × P1 security, 3 × P2, 5 × P3). Prior entry: Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete
+**Last Updated:** 2026-07-26 | **Phase:** Codebase review remediation — 46 findings fixed; 4 open, tracked here as CR01–CR04 (3 × P1, 1 × P2, all security or deploy-safety). CR01 and CR04 are partially done: the remaining steps are secret rotation and getting the JWT out of the URL. Prior entry: Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete
 
 ---
 
@@ -344,9 +344,11 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
-## Code Review 2026-07-26 (CR01–CR10)
+## Code Review 2026-07-26 (CR01–CR04 open)
 
-Open items from the 8-area codebase review, plus issues found while remediating it. The 40 findings already fixed are recorded in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md) under *Codebase Review Remediation*; the review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md). This section is the actionable remainder.
+Open items from the 8-area codebase review, plus issues found while remediating it. Everything already fixed is recorded in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md) — the 40 review findings under *Codebase Review Remediation*, and CR05–CR10 under *Review Backlog Pass*. The review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md). This section is the actionable remainder.
+
+**CR02 and CR03 are the only items here that are wholly untouched.** CR01 and CR04 each had a first step land; what remains of them is the part that actually closes the risk — rotating the exposed secrets, and getting the JWT out of the URL.
 
 ### CR01: `doppler.json` encrypted secrets bundle is committed to the repository
 
@@ -417,99 +419,6 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 
 ---
 
-### CR05: Usage and entitlements endpoints fail open, reporting a DB outage as valid empty data
-
-**Priority:** P2 | **Source:** session 2026-07-26, found converting api-gateway tests to a real Supabase client
-**Estimated:** 1–2 hours
-
-**Context:** `workers/api-gateway/src/routes/usage.ts:107` and `:130` both read `result.ok && Array.isArray(result.data) ? result.data : []` and then return `ok(...)`, so a Supabase 5xx produces **HTTP 200 with an empty payload**. A caller cannot distinguish "Supabase is down" from "no usage this month". The entitlements case is worse: `buildEntitlementMap([])` yields an empty map, so an outage presents as *no features enabled* and any client gating UI on entitlements silently downgrades the account. This was invisible until the tests started returning real failure responses instead of always-`ok` mocks.
-
-**Scope:**
-1. Return 5xx when `!result.ok`, reserving the empty payload for a genuine empty result.
-2. If a degraded 200 is deliberate for the usage endpoint, add an explicit `degraded: true` flag so callers can tell.
-3. Update the tests that currently pin the fail-open behavior.
-
-**Status:** ✅ Done (2026-07-26, commit d11cf38) — usage.ts returns 500 on DB error; entitlements returns 500 on DB error; both fail-open tests updated to expect 5xx.
-
----
-
-### CR06: `GET /v1/me` reports a database failure as `404 User not found`
-
-**Priority:** P2 | **Source:** session 2026-07-26, found converting api-gateway tests to a real Supabase client
-**Estimated:** 30 minutes
-
-**Context:** `workers/api-gateway/src/routes/me.ts:33` guards with `if (!result.ok || !Array.isArray(result.data) || result.data.length === 0)` and returns `notFound('User not found')`, collapsing a transport/DB error into the same response as a genuine zero-row result. During an outage every authenticated caller is told their account does not exist, which a client may reasonably act on by signing the user out.
-
-**Scope:**
-1. Split the branches: 5xx when `!result.ok`, 404 only on zero rows.
-2. Update the test that pins the current behavior.
-
-**Status:** ✅ Done (2026-07-26, commit d11cf38) — me.ts splits !result.ok (500) from zero rows (404); test updated.
-
----
-
-### CR07: CLAUDE.md status block is stale and contradicts the review
-
-**Priority:** P2 | **Source:** session 2026-07-26
-**Estimated:** 30 minutes
-
-**Context:** Three claims in CLAUDE.md are no longer true. **Test counts** (line 30) read "~2,726 Flutter tests … ~965 worker tests passing (5 workers + shared lib)"; the suites now stand at 3,001 Flutter and 984 worker tests across 6 workers plus the shared lib. **Known Issues** (line 34) says "None open", while `CODE_REVIEW.md` and this section track open items including two P1 security items. **Deployment** claims a dev/prod split that [[CR02]] shows does not exist.
-
-**Scope:**
-1. Refresh the test counts and `Last Updated`.
-2. Replace "None open" with a pointer to `docs/BACKLOG.md` and `CODE_REVIEW.md`.
-3. Correct the deployment section once [[CR02]] lands, or caveat it now.
-
-**Status:** ✅ Done (2026-07-26, commit 8d4c8e2) — test counts, Last Updated, Known Issues, and deploy command annotation updated. Step 3 (deployment section) caveated with CR02 note; full correction deferred to CR02 landing.
-
----
-
-### CR08: Redundant `Array.isArray(result.data)` narrowing at ~20 call sites
-
-**Priority:** P3 | **Source:** session 2026-07-26, follow-on from the `query()` overload
-**Estimated:** 1–2 hours
-
-**Context:** `sb.query()` previously declared `T[] | T | null` for every call, so callers had to narrow with `Array.isArray` before using the rows. It now has overloads — a plain select resolves to `T[]`, `single` resolves to `T | null` — so that narrowing is dead at roughly twenty call sites across `api-gateway` (routes and `aggregation.ts`), `bootstrap-worker`, and `lib/api-keys.ts`. They all still compile; the checks are simply unreachable noise, and a few (`orgs.ts:34`, `:52`) silently map "not an array" to "empty", which would mask a real change in the client contract. Same follow-on: `findOrgByStripeCustomerId` in `workers/stripe-webhook/src/supabase.ts` casts `result.data as { id: string } | null`, now only needed for the row shape — passing a type parameter to `query()` would remove it.
-
-**Scope:**
-1. Remove the dead `Array.isArray` narrowing where the overload makes it provably redundant.
-2. Keep the genuine `length === 0` / null checks.
-3. Give `findOrgByStripeCustomerId` a type parameter instead of a cast.
-
-**Status:** ✅ Done (2026-07-26, commit 2ada4e9) — ~18 dead Array.isArray checks removed across api-gateway, bootstrap-worker, shared lib, and stripe-webhook. findOrgByStripeCustomerId now uses a type parameter instead of a cast. All 710 worker tests pass.
-
----
-
-### CR09: Stripe handler tests assert error strings the admin can never produce
-
-**Priority:** P3 | **Source:** session 2026-07-26, found converting `stripe-webhook/src/supabase.test.ts`
-**Estimated:** 1–2 hours
-
-**Context:** `workers/stripe-webhook/src/handlers/*.test.ts` double `SupabaseAdmin` and assert bare error strings such as `'Connection timeout'` and `'Insert failed'`. Every error the real admin returns is `HTTP <status>: <body>`, so those assertions describe a shape production never emits — a handler that formats or matches on error text could be wrong in production while the tests stay green. The doubles themselves are appropriate (`SupabaseAdmin` is a domain port, unlike the REST client), so this is about fixture fidelity, not another conversion.
-
-**Scope:**
-1. Change the doubles' error fixtures to the real `HTTP <status>: <body>` form.
-2. Check whether any handler branches on error text.
-
-**Status:** ✅ Done (2026-07-26, commit 424bbd2) — subscription, checkout, and invoice handler test doubles now use 'HTTP 500: ...' / 'HTTP 409: ...' error format. No handler branches on error text.
-
----
-
-### CR10: `fetchPendingDeadLetters` can return a `[null]` phantom dead letter
-
-**Priority:** P3 | **Source:** session 2026-07-26, found converting `stripe-webhook/src/supabase.test.ts`
-**Estimated:** 30 minutes
-
-**Context:** `query()` wraps a non-array body into an array, so a malformed `null` response surfaces as `[null]`, not `[]`, and `fetchPendingDeadLetters` would hand that straight to the retry loop as a dead letter with no fields. The `!Array.isArray(result.data)` guard that appeared to defend against this never fired — `[null]` is itself an array — and was removed as dead code in `41cc928`. Not reachable through PostgREST, which always answers a select with an array, so this is robustness rather than a live bug. The current shape is pinned by the test `'non-array data → returned as the client wraps it, without error'`.
-
-**Scope:**
-1. Decide whether the client should return `[]` rather than `[value]` when a select body is not an array, or whether `fetchPendingDeadLetters` should filter non-objects.
-2. Update the pinning test to match whichever contract is chosen.
-
-**Status:** ✅ Done (2026-07-26, commit 1a8196a) — fetchPendingDeadLetters now filters non-object entries; pinning test updated from [null] to [].
-
----
-
 
 *Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to v1.2; CSP test failure diagnosed and fixed (47b4dc3); L16 + M37 migrated to v1.2 changelog (2 completed items). Test Status: ✅ ALL 2631 TESTS PASSING. Remaining: T25, T28, V02-Remaining, M34, M38, M39 (6 deferred/design-decision items). Score: 9/10.*
 
@@ -523,4 +432,4 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 
 *Code-review remediation session (2026-07-26): recovered and consolidated the 8-area review (43 items / 51 findings), fixed the PostgREST `Prefer` header and the `/signup?tier=Team` routing break, then a backlog pass closed 38 more. Added CR01–CR10 for the remainder: the 5 items never fixed, 2 marked-fixed-but-not-closed (inert rate limiter, JWT still in a URL fragment), and 3 found while converting the api-gateway and stripe-webhook tests to drive a real Supabase client over a stubbed transport. Test Status: ✅ 3,001 Flutter + 984 worker tests passing; zero TypeScript errors across all 7 workers.*
 
-*Backlog-implementer session (2026-07-26): CR01 doppler.json removed from git + .gitignore (88ef77a); CR05 usage/entitlements endpoints return 5xx on DB error (d11cf38); CR06 me.ts splits DB error from 404 (d11cf38); CR04 provision_page.dart comment corrected (d632263); CR07 CLAUDE.md status block refreshed (8d4c8e2); CR08 ~18 dead Array.isArray checks removed (2ada4e9); CR09 handler test fixtures use HTTP-format errors (424bbd2); CR10 fetchPendingDeadLetters null phantom filtered (1a8196a). CR02 (dev/prod separation) and CR03 (RATE_LIMIT_KV) deferred — need live wrangler/CF operations. CR01 steps 2–3 (history scrub + rotation) deferred to maintenance window. CR04 full fix deferred — cross-repo. Test Status: ✅ 710 worker tests passing.*
+*Backlog-implementer session (2026-07-26): CR01 doppler.json removed from git + .gitignore (88ef77a); CR05 usage/entitlements endpoints return 5xx on DB error (d11cf38); CR06 me.ts splits DB error from 404 (d11cf38); CR04 provision_page.dart comment corrected (d632263); CR07 CLAUDE.md status block refreshed (8d4c8e2); CR08 ~18 dead Array.isArray checks removed (2ada4e9); CR09 handler test fixtures use HTTP-format errors (424bbd2); CR10 fetchPendingDeadLetters null phantom filtered (1a8196a). CR02 (dev/prod separation) and CR03 (RATE_LIMIT_KV) deferred — need live wrangler/CF operations. CR01 steps 2–3 (history scrub + rotation) deferred to maintenance window. CR04 full fix deferred — cross-repo. CR05–CR10 migrated to the 1.3 changelog (*Review Backlog Pass*) and removed from this section. Test Status: ✅ 3,001 Flutter + 984 worker tests passing; zero TypeScript errors across all 7 workers.*
