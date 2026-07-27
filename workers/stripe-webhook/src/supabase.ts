@@ -24,8 +24,8 @@ type OkVoid = { ok: true };
 type Err = { ok: false; error: string };
 type VoidResult = OkVoid | Err;
 
-function toVoidResult(result: { ok: boolean; error?: string }): VoidResult {
-  return result.ok ? { ok: true } : { ok: false, error: result.error ?? 'Unknown error' };
+function toVoidResult(result: { ok: true } | Err): VoidResult {
+  return result.ok ? { ok: true } : { ok: false, error: result.error };
 }
 
 export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string) {
@@ -244,7 +244,6 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
       console.error('fetchPendingDeadLetters DB error:', result.error);
       return [];
     }
-    if (!Array.isArray(result.data)) return [];
     return result.data;
   }
 

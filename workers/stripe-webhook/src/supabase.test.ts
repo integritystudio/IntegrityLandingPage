@@ -87,9 +87,9 @@ describe('fetchPendingDeadLetters', () => {
 
   it('non-array data → returned as the client wraps it, without error', async () => {
     // PostgREST always answers a select with a JSON array, and the client wraps
-    // anything else in one — so the `!Array.isArray(result.data)` guard in
-    // fetchPendingDeadLetters is unreachable over a real transport. A malformed
-    // `null` body surfaces as `[null]`, not `[]`.
+    // anything else in one, so a malformed `null` body surfaces as `[null]`,
+    // not `[]`. Nothing downstream filters that out — this pins the shape
+    // rather than asserting it is defended against.
     stubSupabase({
       [`GET ${DEAD_LETTERS_TABLE}`]: () =>
         new Response('null', { status: 200, headers: { 'content-type': 'application/json' } }),

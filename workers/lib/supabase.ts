@@ -58,6 +58,16 @@ export function createSupabaseClient(
     'content-type': 'application/json',
   };
 
+  /** A select resolves to the matching rows. */
+  async function query<T extends SupabaseRow = SupabaseRow>(
+    table: string,
+    options?: QueryOptions & { single?: false },
+  ): Promise<OkResult<T[]> | ErrResult>;
+  /** With `single`, it resolves to the first row, or null when none matched. */
+  async function query<T extends SupabaseRow = SupabaseRow>(
+    table: string,
+    options: QueryOptions & { single: true },
+  ): Promise<OkResult<T | null> | ErrResult>;
   async function query<T extends SupabaseRow = SupabaseRow>(
     table: string,
     options?: QueryOptions,
