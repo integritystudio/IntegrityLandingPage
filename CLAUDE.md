@@ -24,21 +24,32 @@ wrangler dev --port 8787          # Local dev server
 
 ## Current Status
 
-**Phase**: Codebase Review Remediation — 48 findings fixed; CR01, CR04, CR11, CR12 open
+**Phase**: Codebase review remediation + worker deploy/settings audit — 48 findings fixed, 9 open as CR01–CR15
 **Last Updated**: 2026-07-27
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ ~3,001 Flutter tests passing (~94% coverage); ~1,018 worker tests passing (6 workers + shared lib)
-**Deployed**: production `sender-worker` + `integrity-studio-contact` healthy; `api-gateway` **503/degraded** and `stripe-webhook` has no secrets bound (CR12); five `*-dev` workers deployed secret-less by design (CR11)
+**Test Status**: ✅ 3,001 Flutter tests passing (~94% coverage); 1,021 worker tests passing (6 workers + shared lib); zero TypeScript errors; `flutter analyze` clean
+**Deployed**: production `sender-worker` + `integrity-studio-contact` healthy; `api-gateway` **503/degraded** and `stripe-webhook` has zero secrets bound (CR12). Five `*-dev` workers exist and are deliberately secret-less (CR11); no zone route points at any of them.
+**Pending a `deploy:prd`** — committed but not live: CR03's `RATE_LIMIT_KV` binding, CR14's `preview_urls = false`, CR15's observability block. CI deploys `sender-worker` on merge to `main`; other workers are manual.
 
 See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recent changes.
 
 ### Known Issues
-Open items are tracked in [docs/BACKLOG.md](docs/BACKLOG.md):
-- **CR12 (P1)**: production `api-gateway` and `stripe-webhook` have **zero secrets bound**; the gateway answers `503 {"database":"degraded"}`. Both last deployed 2026-03-31. Needs an owner answer on whether this is pre-launch or a regression
-- **CR01 (P1)**: `doppler.json` history scrub + full secret rotation still required (untracked now, but the bundle is still in history and nothing has been rotated — and per CR11 those are the *production* credentials)
-- **CR11 (P1)**: Doppler `dev` holds the same Supabase project and Auth0 tenant as `prd` — `--config dev` is not a safety boundary. Detector: `npm run check:env-isolation` (fails 10/10). Blocked on provisioning decisions
-- **CR04 (P2)**: JWT passed in URL fragment to dashboard — cross-repo fix needed
-- **CR02**: ✅ closed 2026-07-27 — `npm run deploy` targets `--env dev`, verified live. Only the dev-receiver item remains
+Nine items open, tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr15). None is blocked on code — each needs a credential decision, an answer about intent, or a production deploy.
+
+**P1**
+- **CR12**: production `api-gateway` and `stripe-webhook` have **zero secrets bound**; the gateway answers `503 {"database":"degraded"}`. Both last deployed 2026-03-31. Needs an owner answer: pre-launch, or a regression?
+- **CR01**: `doppler.json` history scrub + full secret rotation still required. Untracked now, but the bundle remains in git history and **nothing has been rotated** — and per CR11 those are the *production* credentials
+- **CR11**: Doppler `dev` holds the same Supabase project and Auth0 tenant as `prd`. `--config dev` is not a safety boundary. Detector: `npm run check:env-isolation` (fails 10/10). Blocked on provisioning decisions
+- **CR14**: superseded Worker versions stay publicly callable at preview URLs with live secrets — a 2026-04-20 `sender-worker` version answered 200. Config fixed; **production still exposed until deployed**
+
+**P2**
+- **CR13**: two repos claim `api.integritystudio.ai/v1/*` — this repo's `api-gateway` config vs `obtool-api`. Needs an ownership decision
+- **CR04**: JWT still passed to the dashboard in a URL fragment — cross-repo fix needed
+- **CR02**: ✅ mostly closed — `npm run deploy` targets `--env dev`, verified live. Only the dev receiver remains
+- **CR03**: ✅ done — KV namespaces created and bound; live in production on the next `deploy:prd`
+
+**P3**
+- **CR15**: observability fixed in config (was silently off in production for ~4 months); two stale secrets, `RECEIVER_WORKER_URL` and `PROVISIONING_RECEIVER_WORKER_URL`, still bound to production `sender-worker`
 
 ---
 

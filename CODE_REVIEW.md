@@ -14,14 +14,25 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 |---|---|---|
 | Fixed in the remediation pass | 40 | [`docs/changelog/1.3/CHANGELOG.md`](docs/changelog/1.3/CHANGELOG.md) → *Codebase Review Remediation* |
 | Fixed in the follow-up backlog pass | 6 | [`docs/changelog/1.3/CHANGELOG.md`](docs/changelog/1.3/CHANGELOG.md) → *Review Backlog Pass* |
-| Still open | 4 | [`docs/BACKLOG.md`](docs/BACKLOG.md) → CR01–CR04 |
+| Fixed in the deploy / settings work | 2 | changelog → *Worker Deploy Separation* (CR02), *Environment Isolation Detector* (CR03) |
+| Still open | 9 | [`docs/BACKLOG.md`](docs/BACKLOG.md) → CR01–CR15, with a status table |
 | Refuted | 3 | below |
 
-The 10 items that outlived the remediation pass became CR01–CR10: the 5 never fixed, 2 marked fixed but **not fully closed** — the auth rate limiter counts per isolate because its KV namespace was never created (CR03), and the dashboard JWT moved to a URL fragment rather than out of the URL (CR04) — and 3 found while remediating. A follow-up pass closed CR05–CR10 and took a first step on CR01 and CR04.
+The 10 items that outlived the remediation pass became CR01–CR10: the 5 never fixed, 2 marked fixed but **not fully closed**, and 3 found while remediating. A follow-up pass closed CR05–CR10.
 
-One correction worth recording alongside the refuted claims below: CR03 was written up as "the limiter is inert / fails open", which was a misreading of an early return that skips only the KV tier. The in-memory tier above it already enforces the limit, and tests had proved that since the limiter landed. The item survives at lower severity. The lesson is the same one the refuted claims teach — quoting a line without tracing what runs before it produces a confident, wrong finding.
+**The open count went up, not down, and that is the honest result.** Acting on CR02 and CR11 meant deploying and auditing the workers for the first time, and five further items surfaced (CR11–CR15) — including two the review could never have found by reading source, because they live in deployed state rather than in the repo: production `api-gateway` running with **zero secrets** and answering 503 for ~4 months (CR12), and superseded Worker versions still publicly callable with live secrets (CR14).
 
-**CR01–CR04 remain the worklist**, and the two partial ones are the ones to watch: `doppler.json` is untracked but still in git history with none of its secrets rotated, and the JWT still travels in a URL. Both had a step land that improves the record without reducing the exposure.
+### Corrections recorded during remediation
+
+A review is only as good as its willingness to retract. Three claims made confidently in this process turned out to be wrong:
+
+| Claim | Reality |
+|---|---|
+| CR03: "the auth rate limiter is inert / fails open" | A misreading of an early return that skips only the KV tier. The in-memory tier above it enforces the limit, and tests had proved so since the limiter landed. Repriced P1 → P2 |
+| "Dev and prd share a live Stripe key" | `STRIPE_SECRET_KEY` is empty in every config; the key in use is `STRIPE_API_KEY` = `sk_test_…`. No live-key exposure. Also: `stg` is empty, not a third environment |
+| "`[env.dev]` declares no routes, so dev cannot take a production hostname" | Backwards. `routes` is **inheritable** — omitting it inherits production's. A dev deploy consequently served `api.integritystudio.ai/v1/*` for ~14 hours, while the test written to prevent exactly that asserted the bug as its invariant and passed |
+
+The common thread is the same one the refuted claims below teach: quoting a line, or a config key, without tracing what actually runs produces a confident and wrong conclusion. Each is now pinned by a test that was mutation-checked rather than merely written.
 
 One review item, the `workers/receiver-worker/src/index.ts:72` replay window, folded into the existing `W06` backlog entry instead of getting its own. That file is a local stub that is never deployed, and `W06` already tracks a nonce store for the production receiver, which is the real work.
 

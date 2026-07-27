@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, `docs/changelog/1.2/CHANGELOG.md`, and `docs/changelog/1.3/CHANGELOG.md`.
 
-**Last Updated:** 2026-07-26 | **Phase:** Codebase review remediation — 46 findings fixed; 4 open, tracked here as CR01–CR04 (3 × P1, 1 × P2, all security or deploy-safety). CR01 and CR04 are partially done: the remaining steps are secret rotation and getting the JWT out of the URL. Prior entry: Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete
+**Last Updated:** 2026-07-27 | **Phase:** Codebase review remediation + worker deploy/settings audit — 48 findings fixed and migrated to the 1.3 changelog; **9 items open as CR01–CR15** (4 × P1, 4 × P2, 1 × P3), summarised in the table under *Code Review 2026-07-26 → 2026-07-27*. Tests: 3,001 Flutter + 1,021 worker passing, zero TypeScript errors, `flutter analyze` clean. Prior entry: Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete
 
 ---
 
@@ -344,11 +344,27 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
-## Code Review 2026-07-26 (CR01–CR04 open)
+## Code Review 2026-07-26 → 2026-07-27 (CR01–CR15)
 
-Open items from the 8-area codebase review, plus issues found while remediating it. Everything already fixed is recorded in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md) — the 40 review findings under *Codebase Review Remediation*, and CR05–CR10 under *Review Backlog Pass*. The review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md). This section is the actionable remainder.
+Started as the open remainder of the 8-area codebase review; CR11–CR15 were found afterwards while deploying and auditing the workers. Fixed work lives in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md); the review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md).
 
-**CR02 and CR03 are the only items here that are wholly untouched.** CR01 and CR04 each had a first step land; what remains of them is the part that actually closes the risk — rotating the exposed secrets, and getting the JWT out of the URL.
+| ID | P | Status | One line |
+|---|---|---|---|
+| [CR01](#cr01) | P1 | ⚠️ partial | Untracked, but the bundle is still in git history and **no secret has been rotated** |
+| [CR12](#cr12) | P1 | 🔴 open | Production `api-gateway` + `stripe-webhook` have **zero secrets**; gateway answers 503 |
+| [CR11](#cr11) | P1 | 🔴 open | Doppler `dev` == `prd`; no data isolation. Detector: `npm run check:env-isolation` |
+| [CR14](#cr14) | P1 | ⚠️ partial | Superseded versions publicly callable with live secrets; config fixed, **prod needs a deploy** |
+| [CR02](#cr02) | P2 | ✅ mostly | Dev/prod split done and verified live; only the dev receiver remains |
+| [CR04](#cr04) | P2 | ⚠️ partial | Comment corrected; JWT still travels in a URL fragment |
+| [CR13](#cr13) | P2 | 🔴 open | Two repos claim `api.integritystudio.ai/v1/*` — needs an ownership decision |
+| [CR03](#cr03) | P2 | ✅ done | KV namespaces created and bound; reaches prod on next `deploy:prd` |
+| [CR15](#cr15) | P3 | ⚠️ partial | Observability fixed in config; two stale prod secrets still bound |
+
+**Nothing here is blocked on code.** Every remaining item needs either a credential/provisioning decision (CR01, CR11), an answer about intent (CR12, CR13), or a production deploy to apply changes already committed (CR14, CR15, CR03).
+
+**Three items are only "fixed" in config and are not yet live in production**, because `deploy:prd` has not run: CR03's KV binding, CR14's `preview_urls = false`, and CR15's observability. CI deploys `sender-worker` on merge to `main`; the other workers deploy manually.
+
+<a id="cr01"></a>
 
 ### CR01: `doppler.json` encrypted secrets bundle is committed to the repository
 
@@ -366,6 +382,8 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 **Status:** Partially done (2026-07-26, commit 88ef77a) — step 1 complete: `git rm --cached doppler.json` + `.gitignore` entry added. Steps 2–3 (history scrub + secret rotation) still require an owner and a maintenance window. See also [[W05]] (Doppler durability + rotation policy).
 
 ---
+
+<a id="cr02"></a>
 
 ### CR02: Worker deploys have no dev/prod separation — `npm run deploy` overwrites production
 
@@ -393,6 +411,8 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 
 ---
 
+<a id="cr03"></a>
+
 ### CR03: Auth rate limiting is per-isolate only — `RATE_LIMIT_KV` namespace was never created
 
 **Priority:** P2 | **Source:** session 2026-07-26, verifying the review's remediation pass
@@ -414,39 +434,136 @@ The remaining gap is **accuracy, not absence**. In-memory state is per isolate, 
 
 ---
 
-### CR15: Production `sender-worker` config drift found in the settings audit
+<a id="cr04"></a>
 
-**Priority:** P3 | **Source:** session 2026-07-27, auditing `sender-worker-dev` against production
-**Estimated:** 20 minutes
+### CR04: Dashboard handoff still passes the JWT in a URL fragment
 
-Two items, both on the production worker, both surfaced by diffing it against its new dev counterpart.
+**Priority:** P2 | **Source:** session 2026-07-26, verifying the review's remediation pass
+**Estimated:** 3–4 hours (coordinated with the dashboard app)
 
-**1. Workers Logs are not on — config fixed 2026-07-27, reaches production on the next `deploy:prd`.** Production `sender-worker` reports `observability.enabled: false` with `observability.logs.enabled: true`; the dev worker reports `enabled: true` for both. The cause is `wrangler.toml`: the top-level block is
+**Context:** The review's "JWT accepted and propagated via URLs" finding was marked fixed. The `?jwt=` router entry point is genuinely gone, which removes the login-CSRF deep-link vector. The dashboard redirect moved from `?access_token=` to `#access_token=` (`lib/pages/provision_page.dart:90`), and a fragment is not sent to the server, so proxy/server-log and `Referer` leaks are closed. The token is still in a URL, though: fragments are stored with the browser-history entry — contrary to the comment on that line — and any script on the dashboard origin can read `location.hash`.
 
-```toml
-[observability]
-[observability.logs]
-enabled = true
-```
+**Scope:**
+1. Replace the fragment handoff with `postMessage` to the dashboard origin, or a single-use exchange code redeemed for the JWT.
+2. Correct the comment at `provision_page.dart:87-89`, which overstates what a fragment protects.
+3. Requires a matching change in the dashboard app.
 
-— `[observability]` declares no `enabled` key, so it deploys as `false`, while `[env.dev.observability]` sets `enabled = true` explicitly and therefore differs. A changelog entry from 2026-04-03 records "Enabled observability logs on sender-worker", which may never have taken effect. This matters beyond tidiness: diagnosing [[CR12]] and confirming [[CR03]]'s rate limiter both depend on being able to read worker logs.
-
-**Confirmed by experiment, not inference.** A scratch deploy of `bootstrap-worker-dev` with `logs.enabled = true` and `traces.enabled = true` but no parent `enabled` reported `observability.enabled: false`; adding `enabled = true` to the parent flipped it to `true`. The child tables alone do nothing. (Experiment reverted and the worker redeployed clean.)
-
-`sender-worker`'s config now sets `enabled = true` on the parent plus `logs` and `traces`, and `sender-worker-dev` verifies as `enabled=True logs=True invocation=True traces=True`. Production still reports `enabled: false` and will until the next `deploy:prd` — which CI runs automatically on merge to `main`.
-
-A second gotcha found the same way: **a named environment's `observability` block replaces the parent's rather than merging.** `[env.dev.observability]` had to repeat `traces` or dev would have silently run without them while production had them. This is a third distinct inheritance behaviour, alongside the non-inheritable bindings and the inheritable `routes`/`triggers`/`preview_urls`.
-
-**2. Two stale secrets remain bound.** `RECEIVER_WORKER_URL` and `PROVISIONING_RECEIVER_WORKER_URL` are still set on production `sender-worker`, left over from before the service-binding migration (`d450ef4`). Nothing in `workers/sender-worker/src/` reads either name — verified by grep — so they are inert, but they are two more credentials in the blast radius of [[CR01]] and they imply an HTTP path to the receiver that no longer exists. Remove with:
-
-```bash
-npx wrangler secret delete RECEIVER_WORKER_URL --name sender-worker
-npx wrangler secret delete PROVISIONING_RECEIVER_WORKER_URL --name sender-worker
-```
-
-**Status:** Open — item 1 is a one-line config change deferred to the next production deploy; item 2 deletes production secrets and was not done unasked.
+**Status:** Partially done (2026-07-26, commit d632263) — misleading comment corrected in `provision_page.dart:87-91`. Full fix (postMessage / exchange code) requires a coordinated change in the dashboard app.
 
 ---
+
+<a id="cr11"></a>
+
+### CR11: Doppler `dev` is not a separate environment
+
+**Priority:** P1 | **Source:** session 2026-07-27, deploying the CR02 dev environments
+**Estimated:** ~2 hours once the provisioning decisions are made
+
+**Detector:** `npm run check:env-isolation` — compares credential hashes between the two configs, prints no secret material, exits non-zero while they are shared. **Currently fails 10 of 10.** A green run is the definition of done for this item.
+
+**Context:** `--config dev` and `--config prd` resolve to the same Supabase project (`cfrbahzzklwrnmbtqojl`), the same Auth0 tenant, and the same `SHARED_SECRET`. Anything run against the dev config reads and writes production state. CLAUDE.md's "E2E tests use `--config dev` (isolated from prod)" was false and is now corrected in place.
+
+Facts established while investigating, several of which correct earlier notes in this file:
+
+- **Stripe is not exposed.** `STRIPE_SECRET_KEY` is **empty in all three configs**; the key actually in use is `STRIPE_API_KEY`, and it is `sk_test_…` in both dev and prd. An earlier version of this entry implied live-key risk — there is none. (Worth a separate question: production is configured with a *test* Stripe key.)
+- **The `stg` config is empty**, not a third environment — every credential above is unset in it. It is available to repurpose as the dev target.
+- **Worker secrets do not come from Doppler.** `wrangler deploy` does not convert ambient env vars into Worker secrets; they are set per worker with `wrangler secret put`. So this item does not by itself mean the deployed workers are misconfigured — it means every *local* and *CI* process using the dev config touches production.
+- **The `*-dev` workers have zero secrets bound** (verified via the Workers API) and were deployed that way deliberately. They cannot reach production data. Do not push the current dev values into them: that would create a second production-capable worker, not a dev environment.
+- **Both Supabase projects are `INACTIVE`** (free-tier pause), and the org has 2 of them. A third project may require a plan change — that is the decision blocking step 1.
+
+**Scope:**
+1. **Decide the Supabase boundary.** Either a new project (may need a paid plan — the org already has 2) or a separate schema in `cfrbahzzklwrnmbtqojl` with its own role. A separate schema is cheaper but shares the service-role key, so it does not isolate credentials — only a separate project makes the checker pass on `SUPABASE_SERVICE_ROLE_KEY`.
+2. **Create an Auth0 dev tenant** and a matching M2M + ROPC application pair. Not scriptable with the current credentials: the `AUTH0_CLI_*` M2M app is scoped to the existing tenant's Management API, so it cannot create tenants. Dashboard action.
+3. **Populate Doppler.** Write the new values into `dev` (or into the empty `stg` config, promoting it to the dev target). Re-run `npm run check:env-isolation` until it passes.
+4. **Push the dev secrets to the `*-dev` workers** — only after step 3 passes, never before:
+   ```bash
+   for s in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY AUTH0_DOMAIN AUTH0_CLIENT_ID AUTH0_CLIENT_SECRET AUTH0_CLI_ID AUTH0_CLI_SECRET AUTH0_AUDIENCE SHARED_SECRET; do
+     doppler secrets get "$s" --project integrity-studio --config dev --plain \
+       | npx wrangler secret put "$s" --env dev
+   done
+   ```
+5. **Change `contact-form`'s dev recipient before giving dev a `RESEND_API_KEY`.** `[env.dev.vars]` currently carries the production addresses — `RECIPIENT_EMAIL = hello@integritystudio.ai`, `SENDER_EMAIL = contact@integritystudio.ai` — so the moment dev holds a Resend key, dev test submissions land in the real business inbox. Harmless today only because the key is absent and the worker fails closed without `CSRF_SECRET`.
+6. **Verify.** Run a dev signup against `sender-worker-dev` and confirm no row appears in the production `organizations` / `users` tables.
+7. **Point the E2E suite at the dev workers** via the `--dart-define` URLs in CLAUDE.md, so the corrected isolation claim becomes true rather than merely accurate.
+
+**Status:** Open — blocked on two owner decisions: whether to pay for a third Supabase project (step 1) and creating the Auth0 dev tenant (step 2), neither of which is scriptable with the credentials available. Everything downstream of those (steps 3–6) is mechanical and the runbook above is complete. The detector and the documentation corrections landed 2026-07-27.
+
+---
+
+<a id="cr12"></a>
+
+### CR12: Production `api-gateway` and `stripe-webhook` have zero secrets bound and are degraded
+
+**Priority:** P1 | **Source:** session 2026-07-27, auditing worker secrets while investigating CR11
+**Estimated:** 30 minutes to restore, longer to explain
+
+**Context:** Querying the Workers API for the secrets bound to each deployed worker returns **zero** for both `api-gateway` and `stripe-webhook`:
+
+| Worker | Secrets bound | Last deployed |
+|---|---|---|
+| `sender-worker` | 13 | 2026-07-26 |
+| `integrity-studio-contact` | 2 (`CSRF_SECRET`, `RESEND_API_KEY`) | 2026-03-31 |
+| **`api-gateway`** | **0** | 2026-03-31 |
+| **`stripe-webhook`** | **0** | 2026-03-31 |
+
+`api-gateway`'s own `wrangler.toml` documents five required secrets (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `API_KEY_HMAC_SECRET`, `STRIPE_SECRET_KEY`). None are set. Its health endpoint confirms the consequence:
+
+```
+GET https://api-gateway.alyshia-b38.workers.dev/health
+503 {"database":"degraded","durableObjects":"healthy",...}
+```
+
+Verified by two independent sources: the Workers REST API, and `wrangler secret list --name api-gateway` returning `[]` (control: `sender-worker` returns 13 by the same method).
+
+So every authenticated route that touches Supabase — usage, entitlements, orgs, me, api-keys — cannot work, and `stripe-webhook` cannot verify a signature or reach the database, meaning subscription events are dropped rather than dead-lettered. **Correction (2026-07-27):** an earlier version of this entry cited `api.integritystudio.ai/v1/me` returning `401 Missing or invalid Bearer token` as proof the production route was attached and working. That response came from `api-gateway-dev`, not `api-gateway` — see CR13. Production `api-gateway` has **no zone route at all**; the only routes on `integritystudio.ai` are `api.integritystudio.ai/*` → `obtool-api` and `ingest.integritystudio.ai/*` → `obtool-ingest`. It is reachable solely at its `workers.dev` hostname, which is what the Flutter app calls.
+
+**`https://api-gateway.alyshia-b38.workers.dev` is the production gateway**, not a dev URL — and it is the URL the shipped app actually calls. It is the compile-time default for `API_GATEWAY_URL` in both `lib/services/dashboard_service.dart:16` and `lib/services/provisioning_service.dart:22`, and `ci.yml` builds with no `--dart-define`. The dev worker is the separate script `api-gateway-dev`. So the 503 is on the live user path, not a back channel.
+
+*(Correction: an earlier revision argued the two were distinct because `api-gateway-dev`'s `workers.dev` subdomain "is not even enabled — returns Cloudflare 1042". That was propagation lag moments after creation. The subdomain is enabled and now answers 503 with the same body as production. The workers are still demonstrably distinct — separate scripts, and separate Durable Object namespaces: `14813730…` bound to `api-gateway`, `30f146ce…` to `api-gateway-dev` — so the conclusion holds and the DO-isolation claim in the changelog is confirmed. Only that piece of evidence was wrong.)*
+
+`degraded` rather than `unhealthy` is consistent with unset secrets: `checkDatabase` gets `undefined` for `supabaseUrl`, the shared client catches the resulting invalid-URL throw and returns `{ok: false}`, which maps to `degraded`. It does not distinguish this from a reachable-but-failing database — and both causes are present, because **both Supabase projects are `INACTIVE`** (free-tier pause).
+
+**Monitoring trap:** the health route is `/health` at the root, but the custom domain only routes `api.integritystudio.ai/v1/*`, so the gateway's health check is unreachable there. Worse, `https://api.integritystudio.ai/health` returns **200** — served by the marketing site, nothing to do with the gateway. Any uptime check pointed at that URL is permanently green regardless of gateway state. Point step 3 at `https://api-gateway.alyshia-b38.workers.dev/health`, or add a `/v1/health` route.
+
+**Scope:**
+1. Determine whether this is expected — i.e. whether the platform is pre-launch and these two workers were never configured, or whether secrets were lost in a redeploy. The 2026-03-31 timestamp on both suggests they have been in this state for ~4 months.
+2. If live traffic is expected: set the documented secrets (`wrangler secret put --name api-gateway`), resume the Supabase project, and re-check `/health`.
+3. Add `/health` to an uptime check so a degraded gateway is not discovered incidentally during a code review four months later.
+4. Reconcile with the many changelog entries describing api-gateway quota, usage, and entitlements work — that code has been shipped against a gateway that cannot reach its database.
+
+**Status:** Open — needs an owner answer to step 1 before anything is changed. Not remediated in this session: setting production secrets on a live worker is not a change to make unasked, and the correct values depend on whether CR11's isolation work lands first.
+
+---
+
+<a id="cr13"></a>
+
+### CR13: Decide what should serve `api.integritystudio.ai/v1/*` (cross-repo ownership)
+
+**Priority:** P2 | **Source:** session 2026-07-27, after a dev deploy inadvertently claimed the route
+**Estimated:** 30 minutes, once the ownership question is answered
+
+**Context:** `workers/api-gateway/wrangler.toml` declares `routes = [api.integritystudio.ai/v1/*]` at the top level, so a `npm run deploy:prd` from this repo **will claim that hostname path** for `api-gateway`. But the zone's routes are currently:
+
+| Pattern | Worker | Owned by |
+|---|---|---|
+| `api.integritystudio.ai/*` | `obtool-api` | observability-toolkit |
+| `ingest.integritystudio.ai/*` | `obtool-ingest` | observability-toolkit |
+
+`obtool-api` holds the wildcard, and there is no `/v1/*` route, so `/v1/*` requests currently fall through to `obtool-api`. Two repos therefore both believe they own paths under `api.integritystudio.ai`, and the more specific pattern wins whenever this repo deploys to production. Nobody has decided which is intended.
+
+**How this surfaced:** a `wrangler deploy --env dev` from this repo created `api.integritystudio.ai/v1/* -> api-gateway-dev` (route inheritance — see CR12's note and the comment in `api-gateway/wrangler.toml`). For roughly 14 hours on 2026-07-27, that path was served by a secret-less dev Worker. The route was deleted and the prior fall-through restored; the config now carries an explicit `routes = []` and a test enforces it.
+
+**Scope:**
+1. Decide whether `api.integritystudio.ai/v1/*` should be served by this repo's `api-gateway` or by `obtool-api`.
+2. If `api-gateway`: resolve [[CR12]] first (it has no secrets and answers 503), then `deploy:prd` to attach the route deliberately, and confirm with the observability-toolkit owner that removing `/v1/*` from `obtool-api`'s wildcard is safe.
+3. If `obtool-api`: delete the `routes` key from `workers/api-gateway/wrangler.toml` so a production deploy stops silently claiming a hostname this repo does not own, and point the Flutter `API_GATEWAY_URL` default at whatever is correct.
+4. Either way, stop relying on the `workers.dev` hostname as the app's production default (`dashboard_service.dart:16`, `provisioning_service.dart:22`).
+
+**Status:** Open — needs a cross-repo ownership decision. The unsafe intermediate state (dev Worker on the production hostname) is resolved.
+
+---
+
+<a id="cr14"></a>
 
 ### CR14: Superseded Worker versions stay publicly callable with live secrets
 
@@ -492,127 +609,41 @@ The 8-hex-character version prefix is not a meaningful secret: `wrangler` prints
 
 ---
 
-### CR13: Decide what should serve `api.integritystudio.ai/v1/*` (cross-repo ownership)
+<a id="cr15"></a>
 
-**Priority:** P2 | **Source:** session 2026-07-27, after a dev deploy inadvertently claimed the route
-**Estimated:** 30 minutes, once the ownership question is answered
+### CR15: Production `sender-worker` config drift found in the settings audit
 
-**Context:** `workers/api-gateway/wrangler.toml` declares `routes = [api.integritystudio.ai/v1/*]` at the top level, so a `npm run deploy:prd` from this repo **will claim that hostname path** for `api-gateway`. But the zone's routes are currently:
+**Priority:** P3 | **Source:** session 2026-07-27, auditing `sender-worker-dev` against production
+**Estimated:** 20 minutes
 
-| Pattern | Worker | Owned by |
-|---|---|---|
-| `api.integritystudio.ai/*` | `obtool-api` | observability-toolkit |
-| `ingest.integritystudio.ai/*` | `obtool-ingest` | observability-toolkit |
+Two items, both on the production worker, both surfaced by diffing it against its new dev counterpart.
 
-`obtool-api` holds the wildcard, and there is no `/v1/*` route, so `/v1/*` requests currently fall through to `obtool-api`. Two repos therefore both believe they own paths under `api.integritystudio.ai`, and the more specific pattern wins whenever this repo deploys to production. Nobody has decided which is intended.
+**1. Workers Logs are not on — config fixed 2026-07-27, reaches production on the next `deploy:prd`.** Production `sender-worker` reports `observability.enabled: false` with `observability.logs.enabled: true`; the dev worker reports `enabled: true` for both. The cause is `wrangler.toml`: the top-level block is
 
-**How this surfaced:** a `wrangler deploy --env dev` from this repo created `api.integritystudio.ai/v1/* -> api-gateway-dev` (route inheritance — see CR12's note and the comment in `api-gateway/wrangler.toml`). For roughly 14 hours on 2026-07-27, that path was served by a secret-less dev Worker. The route was deleted and the prior fall-through restored; the config now carries an explicit `routes = []` and a test enforces it.
-
-**Scope:**
-1. Decide whether `api.integritystudio.ai/v1/*` should be served by this repo's `api-gateway` or by `obtool-api`.
-2. If `api-gateway`: resolve [[CR12]] first (it has no secrets and answers 503), then `deploy:prd` to attach the route deliberately, and confirm with the observability-toolkit owner that removing `/v1/*` from `obtool-api`'s wildcard is safe.
-3. If `obtool-api`: delete the `routes` key from `workers/api-gateway/wrangler.toml` so a production deploy stops silently claiming a hostname this repo does not own, and point the Flutter `API_GATEWAY_URL` default at whatever is correct.
-4. Either way, stop relying on the `workers.dev` hostname as the app's production default (`dashboard_service.dart:16`, `provisioning_service.dart:22`).
-
-**Status:** Open — needs a cross-repo ownership decision. The unsafe intermediate state (dev Worker on the production hostname) is resolved.
-
----
-
-### CR12: Production `api-gateway` and `stripe-webhook` have zero secrets bound and are degraded
-
-**Priority:** P1 | **Source:** session 2026-07-27, auditing worker secrets while investigating CR11
-**Estimated:** 30 minutes to restore, longer to explain
-
-**Context:** Querying the Workers API for the secrets bound to each deployed worker returns **zero** for both `api-gateway` and `stripe-webhook`:
-
-| Worker | Secrets bound | Last deployed |
-|---|---|---|
-| `sender-worker` | 13 | 2026-07-26 |
-| `integrity-studio-contact` | 2 (`CSRF_SECRET`, `RESEND_API_KEY`) | 2026-03-31 |
-| **`api-gateway`** | **0** | 2026-03-31 |
-| **`stripe-webhook`** | **0** | 2026-03-31 |
-
-`api-gateway`'s own `wrangler.toml` documents five required secrets (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `API_KEY_HMAC_SECRET`, `STRIPE_SECRET_KEY`). None are set. Its health endpoint confirms the consequence:
-
-```
-GET https://api-gateway.alyshia-b38.workers.dev/health
-503 {"database":"degraded","durableObjects":"healthy",...}
+```toml
+[observability]
+[observability.logs]
+enabled = true
 ```
 
-Verified by two independent sources: the Workers REST API, and `wrangler secret list --name api-gateway` returning `[]` (control: `sender-worker` returns 13 by the same method).
+— `[observability]` declares no `enabled` key, so it deploys as `false`, while `[env.dev.observability]` sets `enabled = true` explicitly and therefore differs. A changelog entry from 2026-04-03 records "Enabled observability logs on sender-worker", which may never have taken effect. This matters beyond tidiness: diagnosing [[CR12]] and confirming [[CR03]]'s rate limiter both depend on being able to read worker logs.
 
-So every authenticated route that touches Supabase — usage, entitlements, orgs, me, api-keys — cannot work, and `stripe-webhook` cannot verify a signature or reach the database, meaning subscription events are dropped rather than dead-lettered. **Correction (2026-07-27):** an earlier version of this entry cited `api.integritystudio.ai/v1/me` returning `401 Missing or invalid Bearer token` as proof the production route was attached and working. That response came from `api-gateway-dev`, not `api-gateway` — see CR13. Production `api-gateway` has **no zone route at all**; the only routes on `integritystudio.ai` are `api.integritystudio.ai/*` → `obtool-api` and `ingest.integritystudio.ai/*` → `obtool-ingest`. It is reachable solely at its `workers.dev` hostname, which is what the Flutter app calls.
+**Confirmed by experiment, not inference.** A scratch deploy of `bootstrap-worker-dev` with `logs.enabled = true` and `traces.enabled = true` but no parent `enabled` reported `observability.enabled: false`; adding `enabled = true` to the parent flipped it to `true`. The child tables alone do nothing. (Experiment reverted and the worker redeployed clean.)
 
-**`https://api-gateway.alyshia-b38.workers.dev` is the production gateway**, not a dev URL — and it is the URL the shipped app actually calls. It is the compile-time default for `API_GATEWAY_URL` in both `lib/services/dashboard_service.dart:16` and `lib/services/provisioning_service.dart:22`, and `ci.yml` builds with no `--dart-define`. The dev worker is the separate script `api-gateway-dev`. So the 503 is on the live user path, not a back channel.
+`sender-worker`'s config now sets `enabled = true` on the parent plus `logs` and `traces`, and `sender-worker-dev` verifies as `enabled=True logs=True invocation=True traces=True`. Production still reports `enabled: false` and will until the next `deploy:prd` — which CI runs automatically on merge to `main`.
 
-*(Correction: an earlier revision argued the two were distinct because `api-gateway-dev`'s `workers.dev` subdomain "is not even enabled — returns Cloudflare 1042". That was propagation lag moments after creation. The subdomain is enabled and now answers 503 with the same body as production. The workers are still demonstrably distinct — separate scripts, and separate Durable Object namespaces: `14813730…` bound to `api-gateway`, `30f146ce…` to `api-gateway-dev` — so the conclusion holds and the DO-isolation claim in the changelog is confirmed. Only that piece of evidence was wrong.)*
+A second gotcha found the same way: **a named environment's `observability` block replaces the parent's rather than merging.** `[env.dev.observability]` had to repeat `traces` or dev would have silently run without them while production had them. This is a third distinct inheritance behaviour, alongside the non-inheritable bindings and the inheritable `routes`/`triggers`/`preview_urls`.
 
-`degraded` rather than `unhealthy` is consistent with unset secrets: `checkDatabase` gets `undefined` for `supabaseUrl`, the shared client catches the resulting invalid-URL throw and returns `{ok: false}`, which maps to `degraded`. It does not distinguish this from a reachable-but-failing database — and both causes are present, because **both Supabase projects are `INACTIVE`** (free-tier pause).
+**2. Two stale secrets remain bound.** `RECEIVER_WORKER_URL` and `PROVISIONING_RECEIVER_WORKER_URL` are still set on production `sender-worker`, left over from before the service-binding migration (`d450ef4`). Nothing in `workers/sender-worker/src/` reads either name — verified by grep — so they are inert, but they are two more credentials in the blast radius of [[CR01]] and they imply an HTTP path to the receiver that no longer exists. Remove with:
 
-**Monitoring trap:** the health route is `/health` at the root, but the custom domain only routes `api.integritystudio.ai/v1/*`, so the gateway's health check is unreachable there. Worse, `https://api.integritystudio.ai/health` returns **200** — served by the marketing site, nothing to do with the gateway. Any uptime check pointed at that URL is permanently green regardless of gateway state. Point step 3 at `https://api-gateway.alyshia-b38.workers.dev/health`, or add a `/v1/health` route.
+```bash
+npx wrangler secret delete RECEIVER_WORKER_URL --name sender-worker
+npx wrangler secret delete PROVISIONING_RECEIVER_WORKER_URL --name sender-worker
+```
 
-**Scope:**
-1. Determine whether this is expected — i.e. whether the platform is pre-launch and these two workers were never configured, or whether secrets were lost in a redeploy. The 2026-03-31 timestamp on both suggests they have been in this state for ~4 months.
-2. If live traffic is expected: set the documented secrets (`wrangler secret put --name api-gateway`), resume the Supabase project, and re-check `/health`.
-3. Add `/health` to an uptime check so a degraded gateway is not discovered incidentally during a code review four months later.
-4. Reconcile with the many changelog entries describing api-gateway quota, usage, and entitlements work — that code has been shipped against a gateway that cannot reach its database.
-
-**Status:** Open — needs an owner answer to step 1 before anything is changed. Not remediated in this session: setting production secrets on a live worker is not a change to make unasked, and the correct values depend on whether CR11's isolation work lands first.
+**Status:** Open — item 1 is a one-line config change deferred to the next production deploy; item 2 deletes production secrets and was not done unasked.
 
 ---
-
-### CR11: Doppler `dev` is not a separate environment
-
-**Priority:** P1 | **Source:** session 2026-07-27, deploying the CR02 dev environments
-**Estimated:** ~2 hours once the provisioning decisions are made
-
-**Detector:** `npm run check:env-isolation` — compares credential hashes between the two configs, prints no secret material, exits non-zero while they are shared. **Currently fails 10 of 10.** A green run is the definition of done for this item.
-
-**Context:** `--config dev` and `--config prd` resolve to the same Supabase project (`cfrbahzzklwrnmbtqojl`), the same Auth0 tenant, and the same `SHARED_SECRET`. Anything run against the dev config reads and writes production state. CLAUDE.md's "E2E tests use `--config dev` (isolated from prod)" was false and is now corrected in place.
-
-Facts established while investigating, several of which correct earlier notes in this file:
-
-- **Stripe is not exposed.** `STRIPE_SECRET_KEY` is **empty in all three configs**; the key actually in use is `STRIPE_API_KEY`, and it is `sk_test_…` in both dev and prd. An earlier version of this entry implied live-key risk — there is none. (Worth a separate question: production is configured with a *test* Stripe key.)
-- **The `stg` config is empty**, not a third environment — every credential above is unset in it. It is available to repurpose as the dev target.
-- **Worker secrets do not come from Doppler.** `wrangler deploy` does not convert ambient env vars into Worker secrets; they are set per worker with `wrangler secret put`. So this item does not by itself mean the deployed workers are misconfigured — it means every *local* and *CI* process using the dev config touches production.
-- **The `*-dev` workers have zero secrets bound** (verified via the Workers API) and were deployed that way deliberately. They cannot reach production data. Do not push the current dev values into them: that would create a second production-capable worker, not a dev environment.
-- **Both Supabase projects are `INACTIVE`** (free-tier pause), and the org has 2 of them. A third project may require a plan change — that is the decision blocking step 1.
-
-**Scope:**
-1. **Decide the Supabase boundary.** Either a new project (may need a paid plan — the org already has 2) or a separate schema in `cfrbahzzklwrnmbtqojl` with its own role. A separate schema is cheaper but shares the service-role key, so it does not isolate credentials — only a separate project makes the checker pass on `SUPABASE_SERVICE_ROLE_KEY`.
-2. **Create an Auth0 dev tenant** and a matching M2M + ROPC application pair. Not scriptable with the current credentials: the `AUTH0_CLI_*` M2M app is scoped to the existing tenant's Management API, so it cannot create tenants. Dashboard action.
-3. **Populate Doppler.** Write the new values into `dev` (or into the empty `stg` config, promoting it to the dev target). Re-run `npm run check:env-isolation` until it passes.
-4. **Push the dev secrets to the `*-dev` workers** — only after step 3 passes, never before:
-   ```bash
-   for s in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY AUTH0_DOMAIN AUTH0_CLIENT_ID AUTH0_CLIENT_SECRET AUTH0_CLI_ID AUTH0_CLI_SECRET AUTH0_AUDIENCE SHARED_SECRET; do
-     doppler secrets get "$s" --project integrity-studio --config dev --plain \
-       | npx wrangler secret put "$s" --env dev
-   done
-   ```
-5. **Change `contact-form`'s dev recipient before giving dev a `RESEND_API_KEY`.** `[env.dev.vars]` currently carries the production addresses — `RECIPIENT_EMAIL = hello@integritystudio.ai`, `SENDER_EMAIL = contact@integritystudio.ai` — so the moment dev holds a Resend key, dev test submissions land in the real business inbox. Harmless today only because the key is absent and the worker fails closed without `CSRF_SECRET`.
-6. **Verify.** Run a dev signup against `sender-worker-dev` and confirm no row appears in the production `organizations` / `users` tables.
-7. **Point the E2E suite at the dev workers** via the `--dart-define` URLs in CLAUDE.md, so the corrected isolation claim becomes true rather than merely accurate.
-
-**Status:** Open — blocked on two owner decisions: whether to pay for a third Supabase project (step 1) and creating the Auth0 dev tenant (step 2), neither of which is scriptable with the credentials available. Everything downstream of those (steps 3–6) is mechanical and the runbook above is complete. The detector and the documentation corrections landed 2026-07-27.
-
----
-
-### CR04: Dashboard handoff still passes the JWT in a URL fragment
-
-**Priority:** P2 | **Source:** session 2026-07-26, verifying the review's remediation pass
-**Estimated:** 3–4 hours (coordinated with the dashboard app)
-
-**Context:** The review's "JWT accepted and propagated via URLs" finding was marked fixed. The `?jwt=` router entry point is genuinely gone, which removes the login-CSRF deep-link vector. The dashboard redirect moved from `?access_token=` to `#access_token=` (`lib/pages/provision_page.dart:90`), and a fragment is not sent to the server, so proxy/server-log and `Referer` leaks are closed. The token is still in a URL, though: fragments are stored with the browser-history entry — contrary to the comment on that line — and any script on the dashboard origin can read `location.hash`.
-
-**Scope:**
-1. Replace the fragment handoff with `postMessage` to the dashboard origin, or a single-use exchange code redeemed for the JWT.
-2. Correct the comment at `provision_page.dart:87-89`, which overstates what a fragment protects.
-3. Requires a matching change in the dashboard app.
-
-**Status:** Partially done (2026-07-26, commit d632263) — misleading comment corrected in `provision_page.dart:87-91`. Full fix (postMessage / exchange code) requires a coordinated change in the dashboard app.
-
----
-
 
 *Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to v1.2; CSP test failure diagnosed and fixed (47b4dc3); L16 + M37 migrated to v1.2 changelog (2 completed items). Test Status: ✅ ALL 2631 TESTS PASSING. Remaining: T25, T28, V02-Remaining, M34, M38, M39 (6 deferred/design-decision items). Score: 9/10.*
 
