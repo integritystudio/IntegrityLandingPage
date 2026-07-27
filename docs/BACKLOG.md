@@ -435,9 +435,15 @@ GET https://api-gateway.alyshia-b38.workers.dev/health
 503 {"database":"degraded","durableObjects":"healthy",...}
 ```
 
-So every authenticated `api.integritystudio.ai/v1/*` route that touches Supabase — usage, entitlements, orgs, me, api-keys — cannot work, and `stripe-webhook` cannot verify a signature or reach the database, meaning subscription events are being dropped rather than dead-lettered. The route itself is attached and reachable (a request to `/v1/health` returns the worker's own JSON 404, not a Cloudflare error), so this is a configuration gap, not a DNS or routing one.
+Verified by two independent sources: the Workers REST API, and `wrangler secret list --name api-gateway` returning `[]` (control: `sender-worker` returns 13 by the same method).
 
-Both Supabase projects are also `INACTIVE` (free-tier pause), which is a second, independent reason the database is unreachable.
+So every authenticated route that touches Supabase — usage, entitlements, orgs, me, api-keys — cannot work, and `stripe-webhook` cannot verify a signature or reach the database, meaning subscription events are dropped rather than dead-lettered. This is a configuration gap, not DNS or routing: `api.integritystudio.ai/v1/me` returns the worker's own `401 Missing or invalid Bearer token`, so the route is attached and the script runs.
+
+**`https://api-gateway.alyshia-b38.workers.dev` is the production gateway**, not a dev URL — and it is the URL the shipped app actually calls. It is the compile-time default for `API_GATEWAY_URL` in both `lib/services/dashboard_service.dart:16` and `lib/services/provisioning_service.dart:22`, and `ci.yml` builds with no `--dart-define`. The dev worker is the separate script `api-gateway-dev`, whose `workers.dev` subdomain is not even enabled (returns Cloudflare `1042`). So the 503 is on the live user path, not a back channel.
+
+`degraded` rather than `unhealthy` is consistent with unset secrets: `checkDatabase` gets `undefined` for `supabaseUrl`, the shared client catches the resulting invalid-URL throw and returns `{ok: false}`, which maps to `degraded`. It does not distinguish this from a reachable-but-failing database — and both causes are present, because **both Supabase projects are `INACTIVE`** (free-tier pause).
+
+**Monitoring trap:** the health route is `/health` at the root, but the custom domain only routes `api.integritystudio.ai/v1/*`, so the gateway's health check is unreachable there. Worse, `https://api.integritystudio.ai/health` returns **200** — served by the marketing site, nothing to do with the gateway. Any uptime check pointed at that URL is permanently green regardless of gateway state. Point step 3 at `https://api-gateway.alyshia-b38.workers.dev/health`, or add a `/v1/health` route.
 
 **Scope:**
 1. Determine whether this is expected — i.e. whether the platform is pre-launch and these two workers were never configured, or whether secrets were lost in a redeploy. The 2026-03-31 timestamp on both suggests they have been in this state for ~4 months.
