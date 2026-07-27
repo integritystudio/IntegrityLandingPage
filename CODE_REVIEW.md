@@ -13,9 +13,11 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 | Severity | Total | Fixed | Open |
 |---|---|---|---|
 | High | 9 | 9 | 0 |
-| Medium | 16 | 15 | 1 |
-| Low | 18 | 13 | 5 |
-| **Total** | **43** | **37** | **6** |
+| Medium | 16 | 14 | 2 |
+| Low | 18 | 17 | 1 |
+| **Total** | **43** | **40** | **3** |
+
+Two items are marked fixed but are **not fully closed** — see [Caveats on "fixed" items](#caveats-on-fixed-items) before treating them as done.
 
 Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (High), stripe-webhook verify + auth_page + cookie_banner + contact_section (Medium), and request_failure_page + auth.ts exp + stripe-schemas InvoiceSchema + contact-form CSRF/CRLF + signup_page analytics + status_result_page spacing + shared_app_bar URL (Low) were fixed on 2026-07-26 (backlog-implementer pass). Every other item is unverified-since-review and should be re-confirmed against current `main` before work starts.
 
@@ -75,7 +77,7 @@ Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (H
 - [x] `lib/widgets/navigation/shared_app_bar.dart:62` — default CTA hardcodes the absolute production URL instead of an in-app route.
 - [x] `workers/sender-worker/src/index.ts:87` — unhandled TypeError when email is a non-string; and `:295` — the checkout-session handler has no try/catch, so Stripe network failures escape unhandled.
 - [x] `workers/lib/auth.ts:86` — `verifyJwt` accepts tokens with no/malformed `exp` as never-expiring (confirmed by two areas).
-- [ ] `workers/stripe-webhook/src/index.ts:67` — idempotency guard is check-then-act; concurrent deliveries process an event twice.
+- [x] `workers/stripe-webhook/src/index.ts:67` — idempotency guard is check-then-act; concurrent deliveries process an event twice.
 - [x] `workers/stripe-webhook/src/stripe-schemas.ts:23` — `InvoiceSchema` rejects `subscription: null`, dead-lettering every non-subscription invoice event.
 - [x] `workers/contact-form/src/index.ts:414` — CSRF validation fails open when `CSRF_SECRET` is unset; and `:491` — CRLF from name/organization flows unsanitized into the email Subject header.
 - [x] `workers/bootstrap-worker/src/bootstrap.ts:83` — crashes on `orgs[0].id` when memberships exist but no org row matches; the organizations table is fetched unfiltered.
@@ -84,6 +86,14 @@ Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (H
 - [x] `test/unit/csp_config_test.dart:163` — the frame-ancestors clickjacking test passes by matching an HTML comment in `index.html`; the real policy lives in `web/_headers`, which the test never inspects, so it stays green if that protection is deleted. *(newly verified 2026-07-26)*
 
 ---
+
+## Caveats on "fixed" items
+
+Two items are checked off because the code change landed, but neither is fully closed. Verified against the tree on 2026-07-26.
+
+**High 5 — rate limiting on `/signin` and `/signup` is inert in every environment.** The limiter exists (`workers/sender-worker/src/utils.ts`) but is keyed on an optional binding, and `utils.ts:86` reads `if (!env.RATE_LIMIT_KV) return { allowed: true }` — it **fails open**. The `[[kv_namespaces]]` block in `workers/sender-worker/wrangler.toml` is commented out, left as setup instructions. Until someone runs `wrangler kv namespace create RATE_LIMIT_KV` and uncomments the binding in both dev and prd, the endpoints have exactly the same brute-force exposure the finding described. This is a deployment step, not a code change.
+
+**High 3 — the JWT is still in a URL, just a safer part of it.** The `?jwt=` router entry point is fully gone, which removes the login-CSRF deep-link vector. The dashboard handoff moved from `?access_token=` to `#access_token=` (`lib/pages/provision_page.dart:90`). A fragment is not sent to the server, so this does eliminate the proxy/server-log and Referer leaks — the worst part of the finding. It does **not** remove the token from browser history (fragments are stored with the history entry, contrary to the code comment there), and any script on the dashboard origin can still read `location.hash`. A postMessage or one-time-code exchange would close it properly.
 
 ## Fix notes
 

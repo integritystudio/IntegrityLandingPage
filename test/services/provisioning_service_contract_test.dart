@@ -357,7 +357,7 @@ void main() {
       });
     });
 
-    test('missing jwt on 201 defaults to empty string', () async {
+    test('missing jwt on 201 returns AuthError', () async {
       mockDio.mockPostResponse(
         {'auth0Sub': 'auth0|123'},
         statusCode: 201,
@@ -369,9 +369,10 @@ void main() {
         'password123',
       );
 
-      // Assert: service defaults to empty string when jwt is missing
-      expect(result, isA<AuthSuccess>());
-      expect((result as AuthSuccess).jwt, '');
+      // Assert: a 201 without a usable JWT is an error, not a session with an
+      // empty token.
+      expect(result, isA<AuthError>());
+      expect((result as AuthError).error, isNotEmpty);
     });
   });
 

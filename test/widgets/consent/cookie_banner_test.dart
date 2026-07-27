@@ -311,13 +311,13 @@ void main() {
         final switches = find.byType(Switch);
         expect(switches, findsNWidgets(3));
 
-        // Analytics switch (index 1) - initially true, toggle off
+        // Analytics switch (index 1) - GDPR requires opt-in, so it starts off
         var analyticsSwitch = tester.widgetList<Switch>(switches).elementAt(1);
-        expect(analyticsSwitch.value, isTrue);
+        expect(analyticsSwitch.value, isFalse);
         await tester.tap(switches.at(1));
         await tester.pump();
         analyticsSwitch = tester.widgetList<Switch>(switches).elementAt(1);
-        expect(analyticsSwitch.value, isFalse);
+        expect(analyticsSwitch.value, isTrue);
 
         // Marketing switch (index 2) - initially false, toggle on
         var marketingSwitch = tester.widgetList<Switch>(switches).elementAt(2);
