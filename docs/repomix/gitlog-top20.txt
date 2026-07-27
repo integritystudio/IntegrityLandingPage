@@ -1,9 +1,9 @@
 # Top 20 most-changed files (last 200 commits)
 # commits  file
-  30 workers/sender-worker/src/index.ts
-  23 workers/sender-worker/src/types.ts
+  31 workers/sender-worker/src/index.ts
+  24 workers/sender-worker/src/types.ts
   19 workers/sender-worker/src/supabase.ts
-  18 workers/sender-worker/src/index.test.ts
+  19 workers/sender-worker/src/index.test.ts
   13 CLAUDE.md
   13 .github/workflows/ci.yml
   11 workers/sender-worker/wrangler.toml
@@ -18,24 +18,24 @@
    7 test/integration/signup_flow_test.dart
    6 workers/sender-worker/package.json
    6 workers/lib/types/usage.ts
-   6 test/services/dashboard_service_test.dart
    6 test/pages/signup_page_test.dart
+   6 package.json
 
 # Recent commits touching these files
 
 ## workers/sender-worker/src/index.ts
+  6af4c77 2026-07-14 feat(sender): forward client IP to receiver as X-Forwarded-For
   1c3deb6 2026-06-27 refactor(workers): refactor index.e2e.test, index
   c8cff30 2026-06-26 feat(sender-worker): allow Cloudflare Pages preview-deploy CORS origins
   ec77bfa 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
   a2fbea5 2026-04-14 refactor(sender): replace receiver-forwarded sign_in with direct Auth0 ROPC
-  a51daef 2026-04-09 refactor(sender): move json helper to shared lib and serialize user insert before sign-in
 
 ## workers/sender-worker/src/types.ts
+  6af4c77 2026-07-14 feat(sender): forward client IP to receiver as X-Forwarded-For
   ec77bfa 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
   a2fbea5 2026-04-14 refactor(sender): replace receiver-forwarded sign_in with direct Auth0 ROPC
   0865782 2026-04-09 fix(sender): split AUTH0_CLIENT_* into ROPC and M2M credential pairs
   bca10fa 2026-04-07 fix(sender-worker): omit org_name default so receiver handles domain normalization
-  489be38 2026-04-07 feat(sender): add sign_in to ActionSchema and forward /signin to receiver
 
 ## workers/sender-worker/src/supabase.ts
   6907474 2026-04-07 fix(sender): use M2M credentials for Auth0 mgmt API and fix org membership FK race
@@ -45,11 +45,11 @@
   d04cbd9 2026-03-31 test(supabase): add comprehensive unit tests for dedupSlug function
 
 ## workers/sender-worker/src/index.test.ts
+  6af4c77 2026-07-14 feat(sender): forward client IP to receiver as X-Forwarded-For
   c8cff30 2026-06-26 feat(sender-worker): allow Cloudflare Pages preview-deploy CORS origins
   ec77bfa 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
   a2fbea5 2026-04-14 refactor(sender): replace receiver-forwarded sign_in with direct Auth0 ROPC
   0865782 2026-04-09 fix(sender): split AUTH0_CLIENT_* into ROPC and M2M credential pairs
-  bca10fa 2026-04-07 fix(sender-worker): omit org_name default so receiver handles domain normalization
 
 ## CLAUDE.md
   449a0ad 2026-06-27 docs(docs): update 4 files in docs
@@ -149,17 +149,17 @@
   32658b9 2026-03-21 fix(L24): add upper bound refine to OtelSpan start_time_ms
   c40a1c8 2026-03-21 fix(otel): add quota enforcement and bound attribute payload size
 
-## test/services/dashboard_service_test.dart
-  ca37b5d 2026-04-06 refactor(models): extract data models from services into dedicated model files
-  21b199d 2026-04-03 refactor(test): replace MockDio with shelf fake server in dashboard_service_test
-  1e91334 2026-03-22 fix(lint): resolve flutter analyze warnings
-  2ece18a 2026-03-21 test(L23): add fetchOrgList 401/403 tests and strengthen 403 assertion
-  c586ee8 2026-03-21 fix(L23): add 403 branch to _sanitizeReadError and apply to fetchOrgList
-
 ## test/pages/signup_page_test.dart
   f8993a0 2026-07-12 refactor(test): refactor 8 files in test
   0e7b463 2026-04-07 refactor(ui): apply GradientPageShell to signup_page
   0952373 2026-03-31 refactor(test): align signup tier URLs with content.yaml definitions
   f14ba4a 2026-03-27 feat(enterprise): wire enterprise tier through Auth0 signup and Stripe checkout
   4e5dd1b 2026-03-27 fix(signup): complete name/tier wiring and AuthError redirect to /request_failure
+
+## package.json
+  6d803fe 2026-04-06 chore(workers): add lint:workers and test:workers scripts, add sender-worker tsconfig
+  d39b867 2026-04-06 chore(deps): add freezed, json_serializable, and lint script
+  7e93324 2026-03-27 chore(deps): bump deps to latest and update Stripe API version
+  a9f122d 2026-03-26 feat(sender-worker): auto-provision personal org on signup
+  6342c20 2026-03-23 refactor(scripts): delegate e2e scripts to e2e/package.json using npm --prefix
 

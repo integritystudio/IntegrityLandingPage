@@ -489,3 +489,29 @@ A follow-up pass over the CR01–CR10 backlog left by the review remediation abo
 **Final state:** 3,001 Flutter tests and 984 worker tests passing; zero TypeScript errors across all seven workers.
 
 ---
+
+## [2026-07-27] - Worker Deploy Separation (CR02)
+
+`npm run deploy` no longer overwrites production.
+
+Every worker's `deploy` and `deploy:prd` ran the same plain `wrangler deploy` against a single-name `wrangler.toml`. Doppler selected which *secrets* were injected, not which *Worker* was written, so a local dev deploy published straight over the live one. For `sender-worker` that is the Worker the released site calls — `ci.yml` builds with no `--dart-define`, so the app falls back to the compile-time default in `lib/services/provisioning_service.dart`.
+
+**The shape of the fix:** the top-level block of each `wrangler.toml` *is* production and is untouched; `[env.dev]` is a separately-named overlay, and only `deploy` passes `--env dev`. The production deploy path is unchanged.
+
+This is deliberately not what CR02 originally proposed. Adding `[env.production]` and pointing `deploy:prd` at it would rename every production Worker (`sender-worker` → `sender-worker-production`), orphaning its Durable Object namespaces, routes, and crons, and breaking both the Flutter default URL and the receiver's service binding.
+
+Per-worker dev targets, with the isolation each one gets:
+- `api-gateway-dev` — its own `QUOTA_DO` namespace, so dev traffic cannot consume a production org's quota. No routes, so `api.integritystudio.ai` cannot be pointed at a dev deploy.
+- `stripe-webhook-dev` — `crons = []`. Two Workers draining `webhook_dead_letters` against one Supabase project would race over production rows every 15 minutes.
+- `integrity-studio-contact-dev` — no KV binding, `ENVIRONMENT=development`. Binding the production namespace would let a dev deploy evict live rate-limit and idempotency keys; unbound, the limiter degrades to in-memory and logs `rate_limit_kv_unavailable`.
+- `sender-worker-dev`, `bootstrap-worker-dev`, `receiver-worker-dev`.
+
+**Guarded by `workers/lib/deploy-environments.test.ts`** (25 tests): dev and production names must differ, `deploy` must pass `--env dev`, `deploy:prd` must not pass `--env`, `[env.dev]` must declare no routes, and every non-inheritable top-level key (`durable_objects`, `services`, `vars`, `kv_namespaces`, …) must be repeated under `[env.dev]` — wrangler does not inherit those, so omitting one yields a dev Worker silently missing a binding. Verified by mutation: reverting the deploy script, adding a production route to dev, and dropping the dev DO binding each fail the suite.
+
+**CR02a resolved:** api-gateway's routes reached top level in `a0fca5c` and now attach on `deploy:prd`; the `QUOTA_DO` binding is repeated under `[env.dev]` rather than moved.
+
+**Not closed:** nothing here has been deployed — validation is `wrangler deploy --dry-run --env dev` across all six workers plus the structural tests. `sender-worker-dev` still binds `RECEIVER` to the production receiver, since no dev receiver is deployed (it lives in the `observability-toolkit` repo), so `/send` from a dev deploy still reaches production. Tracked as CR02 items 5–7.
+
+**Final state:** 3,001 Flutter tests and 1,012 worker tests passing; zero TypeScript errors across all seven workers.
+
+---

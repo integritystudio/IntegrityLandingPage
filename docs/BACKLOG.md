@@ -369,20 +369,25 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 
 ### CR02: Worker deploys have no dev/prod separation — `npm run deploy` overwrites production
 
-**Priority:** P1 | **Source:** session 2026-07-26, codebase review (Medium)
-**Estimated:** 3–5 hours
+**Priority:** P2 (was P1 — the overwrite risk is closed; what remains is dev-environment fidelity) | **Source:** session 2026-07-26, codebase review (Medium)
+**Estimated:** 3–5 hours → ~1 hour remaining, plus a cross-repo change
 
 **Context:** Each worker's `deploy` (Doppler `dev`) and `deploy:prd` (Doppler `prd`) both run a plain `wrangler deploy` against a single-name `wrangler.toml` with no `[env]` blocks. Doppler changes only the credentials injected into the deploy process, not the deploy target, so a local `npm run deploy` publishes straight over the worker production uses. For `sender-worker` that is the exact worker the released site calls: `ci.yml:212` builds with no `--dart-define`, so the app falls back to the compile-time default `https://sender-worker.alyshia-b38.workers.dev` (`lib/services/provisioning_service.dart:15`). CLAUDE.md's claim that `npm run deploy` "deploys to dev environment" is false — there is no dev environment.
 
 **Scope:**
-1. Add `[env.dev]` / `[env.production]` blocks with distinct worker names per worker, or separate Cloudflare accounts.
-2. Make `deploy` pass `--env dev` and `deploy:prd` pass `--env production`; verify Durable Object bindings and migrations are inherited (see [[CR02a]] note below).
-3. Point the dev Flutter build at the dev worker via `--dart-define`.
-4. Correct the deployment section of CLAUDE.md.
+1. ~~Add `[env.dev]` blocks with distinct worker names per worker.~~ Done 2026-07-27.
+2. ~~Make `deploy` pass `--env dev`.~~ Done 2026-07-27. **`deploy:prd` deliberately still passes no `--env`** — see the design note below.
+3. ~~Point the dev Flutter build at the dev worker via `--dart-define`.~~ Documented in CLAUDE.md 2026-07-27.
+4. ~~Correct the deployment section of CLAUDE.md.~~ Done 2026-07-27.
+5. **Remaining — deploy a dev receiver.** `sender-worker-dev` still binds `RECEIVER` to the production `api-provisioning-receiver`; no dev receiver exists (it lives in the `observability-toolkit` repo). `/send` from a dev deploy reaches the production receiver. Cross-repo.
+6. **Remaining — optional.** Give `contact-form-dev` its own KV namespace (`wrangler kv namespace create`, ×2 for preview). Today it runs unbound and degrades to in-memory rate limiting, which is deliberate: binding the production namespace would let a dev deploy evict live rate-limit and idempotency keys.
+7. **Remaining — verify by deploying.** Nothing here has been deployed; wrangler is not authenticated in the agent environment. Validation so far is `wrangler deploy --dry-run --env dev` for all six workers plus the structural tests.
 
-**CR02a (same change):** `workers/api-gateway/wrangler.toml:5` defines routes only under `[env.production]`, but no deploy script passes `--env`, so those routes are never attached. Conversely `--env production` would drop the top-level `QUOTA_DO` durable-object binding, which named environments do not inherit. Both must be resolved together.
+**Design note — why production stayed on the top-level config.** The original scope proposed `[env.production]` with `deploy:prd --env production`. That would have been actively harmful: a named environment renames the Worker (`sender-worker` → `sender-worker-production`), orphaning its Durable Object namespaces, routes, and crons, and breaking both the Flutter compile-time default URL and the receiver's service binding. Instead the top-level block **is** production and is untouched; `[env.dev]` is the overlay. The production deploy path is byte-identical to before this change.
 
-**Status:** Open — infrastructure change affecting every worker; needs a deploy-safety plan before the first `--env` deploy.
+**CR02a — resolved.** The routes had already moved to top level in `a0fca5c`, so they now attach on the plain `deploy:prd`. The `QUOTA_DO` binding concern is handled by repeating it under `[env.dev]` (wrangler does not inherit `durable_objects` into named environments) while leaving the top-level binding in place. `migrations` is inheritable and applies to both. The unused `[env.staging]` block was left alone — dead, but harmless, and nothing deploys it.
+
+**Status:** Structurally done and guarded (2026-07-27) — `npm run deploy` can no longer overwrite a production worker, enforced by `workers/lib/deploy-environments.test.ts` (25 tests, mutation-verified). Open remainder: items 5–7, all requiring live credentials or a cross-repo change.
 
 ---
 

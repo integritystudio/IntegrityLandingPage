@@ -127,17 +127,36 @@ Choose the appropriate file based on the task:
 
 ### Worker Deployment
 
-All Cloudflare Workers use **Doppler for secret management**. Each worker has two deployment scripts:
+All Cloudflare Workers use **Doppler for secret management**. Each worker has two deployment scripts, and they publish to **two different Workers**:
 
 **Development (Local)**
 ```bash
-npm run deploy    # Uses --config dev, deploys to dev environment
+npm run deploy      # wrangler deploy --env dev → <worker>-dev, reachable at its workers.dev URL
 ```
 
 **Production (CI/CD)**
 ```bash
-npm run deploy:prd  # Uses --config prd, requires CI/CD context and Doppler token
+npm run deploy:prd  # wrangler deploy (top-level config) → the live worker; requires a Doppler prd token
 ```
+
+Deploy targets are set by the **wrangler environment**, not by Doppler. Doppler chooses which secrets get injected; `--env dev` chooses which Worker gets written. Both matter, and conflating them is what CR02 was about — before 2026-07-27 both scripts ran a plain `wrangler deploy` against a single-name config, so a local `npm run deploy` published straight over production.
+
+The top-level block of each `wrangler.toml` **is** the production config; `[env.dev]` is the dev overlay. Two consequences worth knowing before editing one:
+- `deploy:prd` must never pass `--env`. A named environment renames the Worker (`sender-worker` → `sender-worker-production`), which orphans its Durable Object namespaces, routes, and crons.
+- Wrangler does not inherit `durable_objects`, `services`, `vars`, `kv_namespaces`, `r2_buckets`, `d1_databases`, or `queues` into a named environment. Add one at the top level and you must repeat it under `[env.dev]` or the dev Worker silently loses the binding.
+
+Both rules are enforced by `workers/lib/deploy-environments.test.ts`.
+
+**Pointing the Flutter app at the dev workers**
+```bash
+flutter run -d chrome \
+  --dart-define=SENDER_WORKER_URL=https://sender-worker-dev.alyshia-b38.workers.dev \
+  --dart-define=API_GATEWAY_URL=https://api-gateway-dev.alyshia-b38.workers.dev \
+  --dart-define=CONTACT_API_URL=https://integrity-studio-contact-dev.alyshia-b38.workers.dev
+```
+Without these the app uses the compile-time defaults in `lib/services/`, which point at the **production** workers — including in `ci.yml`, which builds with no `--dart-define`.
+
+**Not yet isolated:** `sender-worker-dev` still binds `RECEIVER` to the production `api-provisioning-receiver`, because no dev receiver is deployed (it lives in the `observability-toolkit` repo). `/send` events from a dev deploy reach the production receiver. `contact-form-dev` runs without a KV binding and degrades to in-memory rate limiting. Both are noted in the respective `wrangler.toml` and tracked in BACKLOG.md CR02.
 
 #### Doppler Configuration
 - **Project**: `integrity-studio`
@@ -146,14 +165,15 @@ npm run deploy:prd  # Uses --config prd, requires CI/CD context and Doppler toke
 
 #### Worker Deployment Overview
 
-| Worker | Purpose | Dev Deploy | Prd Deploy | CI/CD Enabled |
-|--------|---------|-----------|-----------|--------------|
-| **sender-worker** | Inline signup/signin (Auth0+Supabase); HMAC-signs `/send` events to receiver | ✓ doppler dev | ✓ doppler prd | ✓ Yes (main) |
-| **api-provisioning-receiver** | Verifies signed requests, persists to Supabase (production receiver) | — | ✓ doppler prd | ✓ Yes (separate repo) |
-| **stripe-webhook** | Handles Stripe subscription events | ✓ wrangler | ✓ doppler prd | — |
-| **contact-form** | Processes contact form (Resend, KV rate limit) | ✓ wrangler | ✓ doppler prd | — |
-| **api-gateway** | API gateway (aggregation, quota) | ✓ wrangler | ✓ doppler prd | — |
-| **bootstrap-worker** | Bootstrap operations | ✓ wrangler | ✓ doppler prd | — |
+| Worker | Purpose | Production Worker | Dev Worker (`--env dev`) | CI/CD |
+|--------|---------|-------------------|--------------------------|-------|
+| **sender-worker** | Inline signup/signin (Auth0+Supabase); HMAC-signs `/send` events to receiver | `sender-worker` | `sender-worker-dev` | ✓ Yes (main) |
+| **api-provisioning-receiver** | Verifies signed requests, persists to Supabase (production receiver) | `api-provisioning-receiver` | — (separate repo) | ✓ Yes (separate repo) |
+| **stripe-webhook** | Handles Stripe subscription events | `stripe-webhook` | `stripe-webhook-dev` (no cron) | — |
+| **contact-form** | Processes contact form (Resend, KV rate limit) | `integrity-studio-contact` | `integrity-studio-contact-dev` (no KV) | — |
+| **api-gateway** | API gateway (aggregation, quota) | `api-gateway` | `api-gateway-dev` (own DO namespace) | — |
+| **bootstrap-worker** | Bootstrap operations | `bootstrap-worker` | `bootstrap-worker-dev` | — |
+| **receiver-worker** | Local stub / test double — not deployed | — | `receiver-worker-dev` | — |
 
 **Note:** `sender-worker` reaches the receiver via a service binding — `service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml` (the source of truth). The production receiver `api-provisioning-receiver` lives in the separate `observability-toolkit` repo (`services/api-provisioning-receiver/`) and is deployed from there. `workers/receiver-worker/` in this repo is a **local stub / test double** — it is not deployed and nothing binds to it.
 
@@ -169,9 +189,11 @@ npm run deploy:prd  # Uses --config prd, requires CI/CD context and Doppler toke
 **Deployment Safety**:
 - ✅ Production secrets managed via GitHub Secrets + Doppler
 - ✅ `deploy:prd` uses `--config prd` (never `dev`)
+- ✅ `npm run deploy` targets `--env dev`, so a local deploy cannot overwrite a production worker (enforced by `workers/lib/deploy-environments.test.ts`)
 - ✅ All workers have `deploy:prd` for emergency hotfixes
 - ✅ E2E tests use `--config dev` (isolated from prod)
 - ✅ No hardcoded secrets in package.json or workflows
+- ⚠️ `doppler.json` remains in git history with its secrets unrotated (BACKLOG.md CR01)
 
 ### Deployment Checklist
 

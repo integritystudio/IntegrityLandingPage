@@ -12,6 +12,35 @@ service = "api-provisioning-receiver"
 enabled = true
 invocation_logs = true
 
+# --- dev environment (`npm run deploy`) -------------------------------------
+# Publishes to a separate Worker. Previously `npm run deploy` published straight
+# over `sender-worker`, which is the Worker the released site calls: ci.yml
+# builds with no --dart-define, so the app falls back to the compile-time
+# default in lib/services/provisioning_service.dart.
+#
+# `services` and `observability` are non-inheritable keys and are repeated below.
+#
+# CAVEAT — this environment is not fully isolated. RECEIVER still binds to the
+# production `api-provisioning-receiver`, because no dev receiver is deployed
+# (it lives in the observability-toolkit repo). A `/send` event from a dev
+# deploy therefore reaches the production receiver. The inline /signup and
+# /signin paths do not go through RECEIVER and are isolated by whatever
+# Supabase and Auth0 credentials the Doppler `dev` config supplies. Deploying a
+# dev receiver and repointing this binding is tracked in BACKLOG.md CR02.
+[env.dev]
+name = "sender-worker-dev"
+
+[[env.dev.services]]
+binding = "RECEIVER"
+service = "api-provisioning-receiver"
+
+[env.dev.observability]
+enabled = true
+
+[env.dev.observability.logs]
+enabled = true
+invocation_logs = true
+
 # KV namespace for cross-isolate auth rate limiting on /signup and /signin.
 #
 # The limiter works without this binding — checkAuthRateLimit() always counts

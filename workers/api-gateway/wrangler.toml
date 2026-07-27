@@ -21,6 +21,23 @@ class_name = "QuotaDurableObject"
 tag = "v1"
 new_classes = ["QuotaDurableObject"]
 
+# --- dev environment (`npm run deploy`) -------------------------------------
+# Publishes to a separate Worker so a local deploy cannot overwrite the one
+# api.integritystudio.ai points at. No `routes` here on purpose: dev is reached
+# at its workers.dev URL, and attaching the production hostname to a dev deploy
+# is the exact failure this environment exists to prevent.
+#
+# `durable_objects` is a non-inheritable key, so the QUOTA_DO binding has to be
+# repeated. The dev Worker gets its own DO namespace and its own quota counters
+# — dev traffic cannot consume a production org's quota. `migrations` IS
+# inheritable and applies here unchanged.
+[env.dev]
+name = "api-gateway-dev"
+
+[[env.dev.durable_objects.bindings]]
+name = "QUOTA_DO"
+class_name = "QuotaDurableObject"
+
 # Secrets (set via: wrangler secret put <NAME>)
 # SUPABASE_URL
 # SUPABASE_SERVICE_ROLE_KEY

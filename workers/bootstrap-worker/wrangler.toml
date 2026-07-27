@@ -5,3 +5,9 @@ compatibility_date = "2026-03-19"
 # JWT secret for Supabase JWT verification (set via: wrangler secret put SUPABASE_JWT_SECRET)
 # Environment variables for Supabase credentials
 # SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in wrangler.toml or via env vars
+
+# --- dev environment (`npm run deploy`) -------------------------------------
+# Publishes to a separate Worker so a local deploy cannot overwrite production.
+# No bindings to repeat.
+[env.dev]
+name = "bootstrap-worker-dev"

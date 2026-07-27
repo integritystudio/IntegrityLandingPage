@@ -4,3 +4,12 @@ compatibility_date = "2026-03-19"
 
 # HMAC signing key (set via: wrangler secret put SHARED_SECRET)
 # Generate a secure random secret: openssl rand -base64 32
+
+# --- dev environment (`npm run deploy`) -------------------------------------
+# This Worker is a local stub / test double and is not part of any deployed
+# environment — production is `api-provisioning-receiver` in the
+# observability-toolkit repo, and nothing binds to this one. The dev
+# environment exists only so that if someone does run `npm run deploy`, it
+# cannot land on a name anything else might resolve.
+[env.dev]
+name = "receiver-worker-dev"

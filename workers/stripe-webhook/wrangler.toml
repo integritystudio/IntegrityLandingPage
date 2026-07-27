@@ -12,3 +12,17 @@ compatibility_date = "2026-03-19"
 # Note: Cloudflare API format requires: cron = "schedule"
 [triggers]
 crons = ["*/15 * * * *"]
+
+# --- dev environment (`npm run deploy`) -------------------------------------
+# Publishes to a separate Worker so a local deploy cannot overwrite the one
+# receiving live Stripe webhooks.
+#
+# `triggers` is non-inheritable, and the empty cron list is deliberate: the
+# dead-letter retry cron must not run in dev. Two Workers both draining
+# `webhook_dead_letters` against the same Supabase project would race each
+# other over production rows every 15 minutes.
+[env.dev]
+name = "stripe-webhook-dev"
+
+[env.dev.triggers]
+crons = []

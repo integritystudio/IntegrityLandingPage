@@ -22,3 +22,33 @@ RATE_LIMIT_WINDOW_SECONDS = "60"
 binding = "RATE_LIMIT_KV"
 id = "cf9d7d72bb07488faab8187ceb3589d4"
 preview_id = "fcd1e5c8e2f04d03a5ceda5f1b3373c3"
+
+# --- dev environment (`npm run deploy`) -------------------------------------
+# Publishes to a separate Worker so a local deploy cannot overwrite the one
+# handling live contact submissions.
+#
+# `vars` is non-inheritable and is repeated below with ENVIRONMENT flipped to
+# "development", which is what the structured rate-limit logs key on.
+#
+# No `kv_namespaces` here on purpose. Binding the production RATE_LIMIT_KV
+# would let a dev deploy evict and overwrite production rate-limit and
+# idempotency keys. Without the binding the limiter degrades to in-memory and
+# logs `rate_limit_kv_unavailable` (src/index.ts:132), which is the right
+# trade for dev. To give dev its own namespace:
+#   wrangler kv namespace create RATE_LIMIT_KV_DEV
+#   wrangler kv namespace create RATE_LIMIT_KV_DEV --preview
+# then add the block below with the real IDs (placeholder IDs break the
+# deploy — see a392cd6):
+#   [[env.dev.kv_namespaces]]
+#   binding = "RATE_LIMIT_KV"
+#   id = "<returned-namespace-id>"
+#   preview_id = "<returned-preview-namespace-id>"
+[env.dev]
+name = "integrity-studio-contact-dev"
+
+[env.dev.vars]
+RECIPIENT_EMAIL = "hello@integritystudio.ai"
+SENDER_EMAIL = "contact@integritystudio.ai"
+ENVIRONMENT = "development"
+RATE_LIMIT_MAX = "5"
+RATE_LIMIT_WINDOW_SECONDS = "60"

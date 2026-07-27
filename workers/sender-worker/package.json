@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "doppler run --project integrity-studio --config dev -- wrangler deploy",
+    "deploy": "doppler run --project integrity-studio --config dev -- wrangler deploy --env dev",
     "deploy:prd": "doppler run --project integrity-studio --config prd -- wrangler deploy",
     "tail": "wrangler tail",
     "test": "vitest run",
