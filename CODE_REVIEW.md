@@ -15,7 +15,10 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 | High | 9 | 9 | 0 |
 | Medium | 16 | 14 | 2 |
 | Low | 18 | 17 | 1 |
-| **Total** | **43** | **40** | **3** |
+| Found later | 2 | 0 | 2 |
+| **Total** | **45** | **40** | **5** |
+
+The "found later" row is not from the 8-area sweep — see [Found during follow-up work](#found-during-follow-up-work).
 
 Two items are marked fixed but are **not fully closed** — see [Caveats on "fixed" items](#caveats-on-fixed-items) before treating them as done.
 
@@ -84,6 +87,16 @@ Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (H
 - [x] `workers/cors-utils.ts:20` — reflects the caller's origin into `Access-Control-Allow-Origin` unconditionally; the allowlist only gates the credentials flag.
 - [ ] `workers/receiver-worker/src/index.ts:72` — the stub's replay protection is a 5-minute timestamp window with no nonce cache (local test double only).
 - [x] `test/unit/csp_config_test.dart:163` — the frame-ancestors clickjacking test passes by matching an HTML comment in `index.html`; the real policy lives in `web/_headers`, which the test never inspects, so it stays green if that protection is deleted. *(newly verified 2026-07-26)*
+
+---
+
+## Found during follow-up work
+
+Not part of the original review. Both surfaced on 2026-07-26 while converting the api-gateway route tests to drive a real Supabase client over a stubbed transport — the mocked tests only ever returned `{ ok: true }`, so neither failure path had ever been executed. Both are verified against the code, and current behavior is now pinned by tests so a deliberate change is visible in a diff.
+
+- [ ] **`workers/api-gateway/src/routes/usage.ts:107` and `:130` — usage and entitlements queries fail open, reporting a database outage as valid empty data.** Both read `result.ok && Array.isArray(result.data) ? result.data : []` and then return `ok(...)`, so a Supabase 5xx produces **HTTP 200 with an empty payload**. A caller cannot distinguish "Supabase is down" from "no usage this month". The entitlements case is the worse of the two: `buildEntitlementMap([])` yields an empty map, so an outage silently presents as *no features enabled* rather than as an error, and any client gating UI on entitlements will downgrade the account. Returning 5xx (or at minimum a `degraded` flag) would let callers tell the difference.
+
+- [ ] **`workers/api-gateway/src/routes/me.ts:33` — a database failure is reported to the client as `404 User not found`.** The guard `if (!result.ok || !Array.isArray(result.data) || result.data.length === 0)` collapses a transport/DB error and a genuine zero-row result into the same `notFound('User not found')`. During an outage every authenticated caller is told their account does not exist, which a client may reasonably act on by signing the user out. The two cases need separate branches: 5xx when `!result.ok`, 404 only on zero rows.
 
 ---
 
