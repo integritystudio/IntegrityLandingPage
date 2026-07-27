@@ -13,11 +13,19 @@
  *   2. `deploy` targets --env dev; `deploy:prd` stays on the top-level config.
  *      Switching prd to a named environment would rename the production
  *      workers and orphan their DO namespaces, routes, and crons.
- *   3. [env.dev] declares no routes. Wrangler would happily point a production
- *      hostname at a dev deploy.
+ *   3. [env.dev] sets `routes = []` EXPLICITLY when production declares routes.
+ *      `routes` is inheritable: omitting it inherits the production routes and
+ *      binds them to the dev worker. On 2026-07-27 that put a secret-less
+ *      api-gateway-dev on api.integritystudio.ai/v1/* for ~14 hours, while an
+ *      earlier version of rule 3 — asserting `routes` was absent — passed.
  *   4. Non-inheritable keys present at the top level are repeated under
  *      [env.dev]. Wrangler does not inherit these into named environments, so
  *      omitting one yields a dev worker silently missing a binding.
+ *   5. Workers holding secrets set `preview_urls = false`. Otherwise every
+ *      retained version stays publicly callable with the current secrets bound.
+ *
+ * Rules 3 and 4 point in opposite directions, which is what makes the mistake
+ * easy: repeat bindings, but explicitly empty routes and triggers.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -136,6 +144,18 @@ describe('worker deploy environments (CR02)', () => {
     // A dev environment must never name a route of its own either way.
     expect(dev.route).toBeUndefined();
     if (dev.routes !== undefined) expect(dev.routes).toBe('[]');
+  });
+
+  // Workers that hold secrets in production. Preview URLs publish every retained
+  // version at a public URL with the CURRENT secrets bound, so superseded code
+  // stays callable — verified 2026-07-27, when a 2026-04-20 sender-worker version
+  // answered 200 with all 13 secrets. See BACKLOG.md CR14.
+  const SECRET_BEARING = ['sender-worker', 'contact-form'] as const;
+
+  it.each(SECRET_BEARING)('%s: disables per-version preview URLs', (worker) => {
+    const config = loadConfig(worker);
+
+    expect(config.preview_urls, `${worker} binds secrets; preview URLs would keep superseded versions callable with them`).toBe(false);
   });
 
   it('inheritable-key trap is documented where it bites', () => {

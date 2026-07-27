@@ -3,6 +3,16 @@ main = "src/index.ts"
 compatibility_date = "2026-03-19"
 compatibility_flags = ["nodejs_compat"]
 
+# Disable per-version preview URLs. With them enabled, every retained version
+# gets a public `<version-prefix>-sender-worker.<subdomain>.workers.dev` URL with
+# the CURRENT secrets bound — so superseded code stays callable. Verified
+# 2026-07-27: the 2026-04-20 version answered 200, predating the per-IP auth
+# rate limit (38b2878), the signup compensating rollback (c75592c), and the CORS
+# origin-reflection fix (66f1825). Version IDs leak readily (wrangler prints one
+# on every deploy, and CI logs retain them), so this is not obscurity worth
+# relying on. BACKLOG.md CR14.
+preview_urls = false
+
 [[services]]
 binding = "RECEIVER"
 service = "api-provisioning-receiver"

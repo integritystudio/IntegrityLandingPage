@@ -414,6 +414,50 @@ The remaining gap is **accuracy, not absence**. In-memory state is per isolate, 
 
 ---
 
+### CR14: Superseded Worker versions stay publicly callable with live secrets
+
+**Priority:** P1 | **Source:** session 2026-07-27, auditing `api-gateway-dev` settings via the Cloudflare API
+**Estimated:** 15 minutes to mitigate; the audit of what old versions expose is longer
+
+**Context:** Every Worker in the account has `previews_enabled: true`. Cloudflare then publishes each retained version at `https://<version-id-prefix>-<script>.<subdomain>.workers.dev`, **with the script's current secrets bound**. Superseded code therefore stays live.
+
+Verified, not theoretical:
+
+| URL | Version date | Result |
+|---|---|---|
+| `6a5b6edf-sender-worker.…workers.dev/health` | 2026-07-26 (current) | `200` |
+| `b2c2b878-sender-worker.…workers.dev/health` | **2026-04-20** | **`200` — live** |
+| `15f2bcf0-sender-worker.…workers.dev/health` | 2026-04-10 | `404` (past retention) |
+
+The `b2c2b878` version predates this branch's security work: the per-IP auth rate limit (`38b2878`), the signup compensating rollback (`c75592c`), the CORS origin-reflection fix (`66f1825`), and the JWT-in-URL removal (`c55dcff`). It answers requests today with all 13 production secrets bound. **So merging and deploying this branch does not fully retire the vulnerabilities it fixes** — the un-fixed code remains reachable at a parallel URL.
+
+Workers with both secrets and preview URLs enabled:
+
+| Worker | Secrets | Notes |
+|---|---|---|
+| `sender-worker` | 13 | Auth0 ROPC + M2M, Supabase service-role, HMAC `SHARED_SECRET` |
+| `api-provisioning-receiver` | 7 | **Different repo** (`observability-toolkit`) — needs that owner |
+| `integrity-studio-contact` | 2 | `CSRF_SECRET`, `RESEND_API_KEY` |
+
+The 8-hex-character version prefix is not a meaningful secret: `wrangler` prints the full version ID on every deploy, so it lands in terminal scrollback and CI logs. This session printed one.
+
+**Scope:**
+1. ~~Set `preview_urls = false`~~ — done 2026-07-27 in `sender-worker` and `contact-form` `wrangler.toml`. **Takes effect on their next deploy**, so it is not yet mitigated in production.
+2. **Immediate mitigation without a deploy**, per worker:
+   ```bash
+   doppler run --project integrity-studio --config prd -- sh -c \
+     'curl -X POST -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+       -H "Content-Type: application/json" -d "{\"previews_enabled\":false}" \
+       "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/sender-worker/subdomain"'
+   ```
+3. Ask the `observability-toolkit` owner to do the same for `api-provisioning-receiver` (7 secrets, not deployable from here).
+4. Decide whether preview URLs are wanted at all on the `*-dev` workers. They are harmless while those workers hold no secrets, but [[CR11]] step 4 pushes secrets into them — set `preview_urls = false` there before that happens, or the same exposure is recreated in dev.
+5. Consider whether any retained version predates a *data-handling* change (schema, consent, retention), not just a security fix.
+
+**Status:** Open — config committed, production not yet mitigated. Steps 2–3 are production/cross-repo settings changes and were deliberately not made unasked.
+
+---
+
 ### CR13: Decide what should serve `api.integritystudio.ai/v1/*` (cross-repo ownership)
 
 **Priority:** P2 | **Source:** session 2026-07-27, after a dev deploy inadvertently claimed the route
@@ -465,7 +509,9 @@ Verified by two independent sources: the Workers REST API, and `wrangler secret 
 
 So every authenticated route that touches Supabase — usage, entitlements, orgs, me, api-keys — cannot work, and `stripe-webhook` cannot verify a signature or reach the database, meaning subscription events are dropped rather than dead-lettered. **Correction (2026-07-27):** an earlier version of this entry cited `api.integritystudio.ai/v1/me` returning `401 Missing or invalid Bearer token` as proof the production route was attached and working. That response came from `api-gateway-dev`, not `api-gateway` — see CR13. Production `api-gateway` has **no zone route at all**; the only routes on `integritystudio.ai` are `api.integritystudio.ai/*` → `obtool-api` and `ingest.integritystudio.ai/*` → `obtool-ingest`. It is reachable solely at its `workers.dev` hostname, which is what the Flutter app calls.
 
-**`https://api-gateway.alyshia-b38.workers.dev` is the production gateway**, not a dev URL — and it is the URL the shipped app actually calls. It is the compile-time default for `API_GATEWAY_URL` in both `lib/services/dashboard_service.dart:16` and `lib/services/provisioning_service.dart:22`, and `ci.yml` builds with no `--dart-define`. The dev worker is the separate script `api-gateway-dev`, whose `workers.dev` subdomain is not even enabled (returns Cloudflare `1042`). So the 503 is on the live user path, not a back channel.
+**`https://api-gateway.alyshia-b38.workers.dev` is the production gateway**, not a dev URL — and it is the URL the shipped app actually calls. It is the compile-time default for `API_GATEWAY_URL` in both `lib/services/dashboard_service.dart:16` and `lib/services/provisioning_service.dart:22`, and `ci.yml` builds with no `--dart-define`. The dev worker is the separate script `api-gateway-dev`. So the 503 is on the live user path, not a back channel.
+
+*(Correction: an earlier revision argued the two were distinct because `api-gateway-dev`'s `workers.dev` subdomain "is not even enabled — returns Cloudflare 1042". That was propagation lag moments after creation. The subdomain is enabled and now answers 503 with the same body as production. The workers are still demonstrably distinct — separate scripts, and separate Durable Object namespaces: `14813730…` bound to `api-gateway`, `30f146ce…` to `api-gateway-dev` — so the conclusion holds and the DO-isolation claim in the changelog is confirmed. Only that piece of evidence was wrong.)*
 
 `degraded` rather than `unhealthy` is consistent with unset secrets: `checkDatabase` gets `undefined` for `supabaseUrl`, the shared client catches the resulting invalid-URL throw and returns `{ok: false}`, which maps to `degraded`. It does not distinguish this from a reachable-but-failing database — and both causes are present, because **both Supabase projects are `INACTIVE`** (free-tier pause).
 

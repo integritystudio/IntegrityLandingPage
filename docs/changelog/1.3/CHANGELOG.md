@@ -558,3 +558,27 @@ The `crons = []` written for `stripe-webhook-dev` was correct for the same reaso
 **Final state:** 3,001 Flutter tests and 1,019 worker tests passing (lib 436); zero routes point at any `*-dev` Worker.
 
 ---
+
+## [2026-07-27] - Worker Settings Audit (CR14 filed)
+
+A Cloudflare API audit of `api-gateway-dev`'s settings, run to confirm nothing else had been attached unnoticed. Two results, one reassuring and one not.
+
+**Confirmed: Durable Object isolation is real.** The dev Worker has its own namespace — `14813730…` bound to `api-gateway`, `30f146ce…` to `api-gateway-dev` — so the claim in *Worker Deploy Separation* that dev traffic cannot consume a production org's quota holds. Settings are otherwise identical to production: same single `QUOTA_DO` binding, same compatibility date, no tail consumers, no logpush, no crons, zero secrets.
+
+**CR14 — superseded versions stay publicly callable with live secrets.** Every Worker in the account has `previews_enabled: true`, which publishes each retained version at `<version-prefix>-<script>.<subdomain>.workers.dev` **with the current secrets bound**. Verified by request, not inferred:
+
+| Version | Date | Result |
+|---|---|---|
+| `6a5b6edf` | 2026-07-26 (current) | `200` |
+| `b2c2b878` | **2026-04-20** | **`200` — live** |
+| `15f2bcf0` | 2026-04-10 | `404` (past retention) |
+
+`b2c2b878` predates the per-IP auth rate limit (`38b2878`), the signup compensating rollback (`c75592c`), the CORS origin-reflection fix (`66f1825`), and the JWT-in-URL removal (`c55dcff`) — and answers today with all 13 production secrets. **Merging this branch therefore does not fully retire the vulnerabilities it fixes**, because the un-fixed code stays reachable at a parallel URL. Three workers are affected: `sender-worker` (13 secrets), `api-provisioning-receiver` (7, different repo), `integrity-studio-contact` (2). The 8-character version prefix is not a secret — `wrangler` prints the full ID on every deploy, so it reaches terminal scrollback and CI logs.
+
+`preview_urls = false` is now set in `sender-worker` and `contact-form`, enforced by a test. **It takes effect on their next deploy, so production is not yet mitigated**; the no-deploy API mitigation is in CR14, and `api-provisioning-receiver` needs its own repo's owner.
+
+**Correction to *Worker Deploy Separation*:** that entry argued `api-gateway.alyshia-b38.workers.dev` and the dev worker were distinct because the dev subdomain "is not even enabled (Cloudflare 1042)". That was propagation lag seconds after creation; the subdomain is enabled and now answers. The workers are still distinct — separate scripts and separate DO namespaces — so the conclusion stands, but that evidence was wrong.
+
+**Final state:** 3,001 Flutter tests and 1,021 worker tests passing; zero routes point at any `*-dev` Worker.
+
+---

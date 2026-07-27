@@ -2,6 +2,11 @@ name = "integrity-studio-contact"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
+# No per-version preview URLs: this worker binds CSRF_SECRET and RESEND_API_KEY,
+# and preview URLs would keep superseded versions publicly callable with them.
+# See BACKLOG.md CR14.
+preview_urls = false
+
 [vars]
 RECIPIENT_EMAIL = "hello@integritystudio.ai"
 SENDER_EMAIL = "contact@integritystudio.ai"
