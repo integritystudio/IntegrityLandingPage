@@ -115,7 +115,7 @@ describe('loadOrgContext — org row mismatch', () => {
 
   it('returns 404 when membership rows exist but no matching org rows found', async () => {
     // membership query returns a row for org-999, but org query returns no matching org
-    vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes('organization_memberships')) {
         return new Response(

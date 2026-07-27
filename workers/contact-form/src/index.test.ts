@@ -56,7 +56,7 @@ const mockEnv = {
 };
 
 // Explicit no-CSRF env for tests that exercise the "secret not configured" path.
-const mockEnvNoCsrf: typeof mockEnv & { CSRF_SECRET?: never } = {
+const mockEnvNoCsrf: Omit<typeof mockEnv, 'CSRF_SECRET'> = {
   RESEND_API_KEY: mockEnv.RESEND_API_KEY,
   RECIPIENT_EMAIL: mockEnv.RECIPIENT_EMAIL,
   SENDER_EMAIL: mockEnv.SENDER_EMAIL,
