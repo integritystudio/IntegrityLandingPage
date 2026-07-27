@@ -1,4 +1,4 @@
-import { ok, forbidden, unauthorized } from '../../../lib/http';
+import { ok, forbidden, unauthorized, serverError } from '../../../lib/http';
 import { requireBearerToken } from '../../../lib/http/request';
 import { verifyJwt } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
@@ -104,9 +104,11 @@ export async function handleUsageSummary(
     order: { column: 'bucket_date', ascending: false },
   });
 
-  const buckets = result.ok && Array.isArray(result.data) ? result.data : [];
+  if (!result.ok) {
+    return serverError('Failed to load usage data');
+  }
 
-  return ok({ org_id: orgId, period_start: monthStart, buckets });
+  return ok({ org_id: orgId, period_start: monthStart, buckets: result.data });
 }
 
 export async function handleOrgEntitlements(
@@ -126,9 +128,11 @@ export async function handleOrgEntitlements(
     filters: [{ column: 'organization_id', operator: 'eq', value: orgId }],
   });
 
-  const entitlements = buildEntitlementMap(
-    result.ok && Array.isArray(result.data) ? result.data : [],
-  );
+  if (!result.ok) {
+    return serverError('Failed to load entitlements');
+  }
+
+  const entitlements = buildEntitlementMap(result.data);
 
   return ok({ org_id: orgId, entitlements });
 }

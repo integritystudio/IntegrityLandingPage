@@ -128,13 +128,13 @@ describe('GET /v1/me', () => {
     expect(stub.find('GET', 'users')!.url.searchParams.get('auth0_id')).toBe('eq.ghost-user');
   });
 
-  it('returns 404 when the user lookup fails', async () => {
+  it('returns 500 when the user lookup fails', async () => {
     const token = await makeJwt({ sub: 'user-id-1', email: 'user@example.com' }, JWT_SECRET);
     stubSupabase({ 'GET users': httpError(500, 'DB error') });
 
     const res = await handleMe(makeRequest(token), opts);
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(500);
   });
 
   it('omits db-only columns from the response body', async () => {

@@ -171,15 +171,13 @@ describe('GET /v1/orgs/:orgId/usage/summary', () => {
     expect(stub.findAll('GET', 'usage_buckets_daily')).toHaveLength(0);
   });
 
-  it('returns 200 with empty buckets when the usage query fails', async () => {
+  it('returns 500 when the usage query fails', async () => {
     stubSupabase({
       ...membershipRoute(),
       'GET usage_buckets_daily': httpError(500, 'DB error'),
     });
     const res = await handleUsageSummary(await makeJwtRequest(PATH), ORG_ID, opts);
-    expect(res.status).toBe(200);
-    const body = await res.json() as { buckets: unknown[] };
-    expect(body.buckets).toEqual([]);
+    expect(res.status).toBe(500);
   });
 });
 
@@ -230,15 +228,13 @@ describe('GET /v1/orgs/:orgId/entitlements', () => {
     expect(stub.findAll('GET', 'entitlements')).toHaveLength(0);
   });
 
-  it('returns an empty entitlements map when the entitlements query fails', async () => {
+  it('returns 500 when the entitlements query fails', async () => {
     stubSupabase({
       ...membershipRoute(),
       'GET entitlements': httpError(500, 'DB error'),
     });
     const res = await handleOrgEntitlements(await makeJwtRequest(PATH), ORG_ID, opts);
-    expect(res.status).toBe(200);
-    const body = await res.json() as { entitlements: Record<string, unknown> };
-    expect(body.entitlements).toEqual({});
+    expect(res.status).toBe(500);
   });
 });
 

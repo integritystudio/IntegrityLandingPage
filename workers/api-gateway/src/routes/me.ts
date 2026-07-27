@@ -1,4 +1,4 @@
-import { notFound, ok } from '../../../lib/http';
+import { notFound, ok, serverError } from '../../../lib/http';
 import { createSupabaseClient } from '../../../lib/supabase';
 import { resolveJwt } from '../lib/helpers';
 
@@ -30,7 +30,11 @@ export async function handleMe(request: Request, opts: MeHandlerOptions): Promis
     limit: 1,
   });
 
-  if (!result.ok || !Array.isArray(result.data) || result.data.length === 0) {
+  if (!result.ok) {
+    return serverError('Failed to load user profile');
+  }
+
+  if (result.data.length === 0) {
     return notFound('User not found');
   }
 
