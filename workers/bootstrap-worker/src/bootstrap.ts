@@ -144,8 +144,8 @@ export async function loadUsageSnapshot(
     ],
   });
 
-  if (!result.ok || !Array.isArray(result.data)) {
-    console.error('Failed to fetch usage snapshot:', result.ok ? 'unexpected data shape' : result.error);
+  if (!result.ok) {
+    console.error('Failed to fetch usage snapshot:', result.error);
     return EMPTY_USAGE;
   }
 

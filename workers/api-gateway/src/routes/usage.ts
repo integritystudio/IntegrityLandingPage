@@ -72,7 +72,7 @@ async function assertOrgAccess(
     limit: 1,
   });
 
-  if (!result.ok || !Array.isArray(result.data) || result.data.length === 0) {
+  if (!result.ok || result.data.length === 0) {
     return { ok: false, error: forbidden('Not a member of this organization') };
   }
 

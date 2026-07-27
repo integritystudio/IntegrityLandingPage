@@ -31,7 +31,7 @@ async function loadUserMemberships(
       { column: 'status', operator: 'eq', value: 'active' },
     ],
   });
-  if (!result.ok || !Array.isArray(result.data)) return [];
+  if (!result.ok) return [];
   return result.data;
 }
 
@@ -49,7 +49,7 @@ async function loadOrgsForMemberships(
     filters: [{ column: 'id', operator: 'in', value: [...orgIds] }],
   });
 
-  if (!result.ok || !Array.isArray(result.data)) return [];
+  if (!result.ok) return [];
 
   return result.data.map((org) => ({ ...org, role: roleByOrgId.get(org.id) as OrgRole }));
 }
@@ -91,7 +91,7 @@ export async function handleOrgDashboard(
     limit: 1,
   });
 
-  if (!orgResult.ok || !Array.isArray(orgResult.data) || orgResult.data.length === 0) {
+  if (!orgResult.ok || orgResult.data.length === 0) {
     return notFound('Organization not found');
   }
 
@@ -101,9 +101,7 @@ export async function handleOrgDashboard(
     filters: [{ column: 'organization_id', operator: 'eq', value: orgId }],
   });
 
-  const entitlements = buildEntitlementMap(
-    entResult.ok && Array.isArray(entResult.data) ? entResult.data : [],
-  );
+  const entitlements = buildEntitlementMap(entResult.ok ? entResult.data : []);
 
   return ok({
     org,
@@ -131,7 +129,7 @@ export async function handleOrgBillingStatus(
     limit: 1,
   });
 
-  if (!orgResult.ok || !Array.isArray(orgResult.data) || orgResult.data.length === 0) {
+  if (!orgResult.ok || orgResult.data.length === 0) {
     return serverError('Failed to load organization');
   }
 
@@ -177,7 +175,7 @@ export async function handleBillingPortal(
     },
   );
 
-  if (!orgResult.ok || !Array.isArray(orgResult.data) || orgResult.data.length === 0) {
+  if (!orgResult.ok || orgResult.data.length === 0) {
     return notFound('Organization not found');
   }
 

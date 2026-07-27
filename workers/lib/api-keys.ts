@@ -66,7 +66,7 @@ export async function verifyApiKey(
     limit: 1,
   });
 
-  if (!result.ok || !Array.isArray(result.data) || result.data.length === 0) {
+  if (!result.ok || result.data.length === 0) {
     return { ok: false, error: unauthorized('API key not found') };
   }
 

@@ -124,7 +124,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
   async function findOrgByStripeCustomerId(
     stripeCustomerId: string,
   ): Promise<{ ok: true; orgId: string | null } | Err> {
-    const result = await sb.query('organizations', {
+    const result = await sb.query<{ id: string }>('organizations', {
       select: 'id',
       filters: [{ column: 'stripe_customer_id', operator: 'eq', value: stripeCustomerId }],
       limit: 1,
@@ -135,8 +135,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
       return { ok: false, error: result.error };
     }
 
-    const org = result.data as { id: string } | null;
-    return { ok: true, orgId: org?.id ?? null };
+    return { ok: true, orgId: result.data?.id ?? null };
   }
 
   /**

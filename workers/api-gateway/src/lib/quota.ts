@@ -119,7 +119,7 @@ export async function enforceOrgQuota(
   });
 
   const org =
-    orgResult.ok && Array.isArray(orgResult.data) && orgResult.data.length > 0
+    orgResult.ok && orgResult.data.length > 0
       ? orgResult.data[0]
       : null;
 

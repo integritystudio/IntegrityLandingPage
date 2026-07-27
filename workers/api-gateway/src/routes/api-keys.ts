@@ -35,7 +35,7 @@ async function assertOrgMembership(
     limit: 1,
   });
 
-  if (!result.ok || !Array.isArray(result.data) || result.data.length === 0) {
+  if (!result.ok || result.data.length === 0) {
     return { ok: false, error: forbidden('Not a member of this organization') };
   }
 
@@ -52,7 +52,7 @@ async function lookupUserByAuth0Id(
     limit: 1,
   });
 
-  if (!result.ok || !Array.isArray(result.data) || result.data.length === 0) return null;
+  if (!result.ok || result.data.length === 0) return null;
   return result.data[0];
 }
 
@@ -160,7 +160,7 @@ export async function handleRevokeApiKey(
     limit: 1,
   });
 
-  if (!keyResult.ok || !Array.isArray(keyResult.data) || keyResult.data.length === 0) {
+  if (!keyResult.ok || keyResult.data.length === 0) {
     return notFound('API key not found');
   }
 
