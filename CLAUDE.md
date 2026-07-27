@@ -35,7 +35,7 @@ See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recen
 Open items are tracked in [docs/BACKLOG.md](docs/BACKLOG.md). The four from the 2026-07-26 review that remain open:
 - **CR01 (P1)**: `doppler.json` history scrub + full secret rotation still required (file removed from tracking, but the bundle is still in history and nothing has been rotated)
 - **CR02 (P1)**: Worker dev/prod separation — `npm run deploy` currently writes to the same worker that production uses (no `[env]` blocks)
-- **CR03 (P2)**: `RATE_LIMIT_KV` namespace not yet created — `/signup` and `/signin` are rate limited, but per isolate rather than across colos, so distributed attempts are undercounted
+- **CR11 (P1)**: Doppler `dev` and `prd` configs hold identical Supabase / Auth0 / Stripe / HMAC credentials — there is no credential-level dev environment, and `--config dev` is not a safety boundary
 - **CR04 (P2)**: JWT passed in URL fragment to dashboard — cross-repo fix needed
 
 ---
@@ -156,7 +156,11 @@ flutter run -d chrome \
 ```
 Without these the app uses the compile-time defaults in `lib/services/`, which point at the **production** workers — including in `ci.yml`, which builds with no `--dart-define`.
 
-**Not yet isolated:** `sender-worker-dev` still binds `RECEIVER` to the production `api-provisioning-receiver`, because no dev receiver is deployed (it lives in the `observability-toolkit` repo). `/send` events from a dev deploy reach the production receiver. `contact-form-dev` runs without a KV binding and degrades to in-memory rate limiting. Both are noted in the respective `wrangler.toml` and tracked in BACKLOG.md CR02.
+All five dev workers were deployed and verified on 2026-07-27; production was confirmed untouched by the same run.
+
+**⚠️ Dev workers are NOT data-isolated.** Doppler's `dev` and `prd` configs hold **identical** values for `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `AUTH0_DOMAIN`, `SHARED_SECRET`, and `STRIPE_SECRET_KEY`. Selecting `--config dev` therefore changes nothing about which database, Auth0 tenant, or Stripe account a worker talks to. The dev workers were deliberately deployed **without secrets** so they cannot reach production data; that is why they return errors on any route needing one. Do not push the `dev` Doppler secrets into them — that would create a second production-capable worker rather than a dev environment. Tracked as BACKLOG.md CR11.
+
+**Also not isolated:** `sender-worker-dev` binds `RECEIVER` to the production `api-provisioning-receiver`, because no dev receiver is deployed (it lives in the `observability-toolkit` repo). Tracked as CR02 item 5.
 
 #### Doppler Configuration
 - **Project**: `integrity-studio`

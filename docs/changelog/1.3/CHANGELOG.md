@@ -510,7 +510,11 @@ Per-worker dev targets, with the isolation each one gets:
 
 **CR02a resolved:** api-gateway's routes reached top level in `a0fca5c` and now attach on `deploy:prd`; the `QUOTA_DO` binding is repeated under `[env.dev]` rather than moved.
 
-**Not closed:** nothing here has been deployed — validation is `wrangler deploy --dry-run --env dev` across all six workers plus the structural tests. `sender-worker-dev` still binds `RECEIVER` to the production receiver, since no dev receiver is deployed (it lives in the `observability-toolkit` repo), so `/send` from a dev deploy still reaches production. Tracked as CR02 items 5–7.
+**Deployed and verified 2026-07-27.** `npm run deploy` was run for real in `workers/sender-worker` and landed on `sender-worker-dev`; all five dev workers were created, and the four production workers were confirmed unmodified afterwards by their `modified_on` timestamps. `sender-worker-dev` and `stripe-webhook-dev` return healthy; `integrity-studio-contact-dev` returns the same 403 its production counterpart does, so no regression.
+
+**KV namespaces created** (CR03 and CR02 item 6): production `sender-worker` binds `AUTH_RATE_LIMIT_KV`, `sender-worker-dev` binds its own `dev-RATE_LIMIT_KV`, and `integrity-studio-contact-dev` binds `CONTACT_RATE_LIMIT_KV_DEV` rather than the production namespace it would otherwise evict keys from. A test now asserts dev never shares a namespace with production.
+
+**Still open — and the more important finding:** the dev workers have **no data isolation**, because Doppler's `dev` and `prd` configs hold identical Supabase, Auth0, Stripe, and HMAC credentials. They were deployed *without secrets* on purpose; pushing the `dev` values into them would create a second production-capable worker rather than a dev environment. Tracked as CR11. `sender-worker-dev` also still binds `RECEIVER` to the production receiver (CR02 item 5, cross-repo).
 
 **Final state:** 3,001 Flutter tests and 1,012 worker tests passing; zero TypeScript errors across all seven workers.
 

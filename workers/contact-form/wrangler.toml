@@ -30,21 +30,15 @@ preview_id = "fcd1e5c8e2f04d03a5ceda5f1b3373c3"
 # `vars` is non-inheritable and is repeated below with ENVIRONMENT flipped to
 # "development", which is what the structured rate-limit logs key on.
 #
-# No `kv_namespaces` here on purpose. Binding the production RATE_LIMIT_KV
-# would let a dev deploy evict and overwrite production rate-limit and
-# idempotency keys. Without the binding the limiter degrades to in-memory and
-# logs `rate_limit_kv_unavailable` (src/index.ts:132), which is the right
-# trade for dev. To give dev its own namespace:
-#   wrangler kv namespace create RATE_LIMIT_KV_DEV
-#   wrangler kv namespace create RATE_LIMIT_KV_DEV --preview
-# then add the block below with the real IDs (placeholder IDs break the
-# deploy — see a392cd6):
-#   [[env.dev.kv_namespaces]]
-#   binding = "RATE_LIMIT_KV"
-#   id = "<returned-namespace-id>"
-#   preview_id = "<returned-preview-namespace-id>"
+# Dev binds its OWN namespace (created 2026-07-27), never the production one —
+# a dev deploy sharing it would evict live rate-limit and idempotency keys.
 [env.dev]
 name = "integrity-studio-contact-dev"
+
+[[env.dev.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "5719e56903b94ca5bf55cb8175d2e2a9"        # CONTACT_RATE_LIMIT_KV_DEV
+preview_id = "5719e56903b94ca5bf55cb8175d2e2a9"
 
 [env.dev.vars]
 RECIPIENT_EMAIL = "hello@integritystudio.ai"

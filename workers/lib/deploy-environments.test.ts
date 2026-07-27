@@ -131,14 +131,21 @@ describe('worker deploy environments (CR02)', () => {
 
     for (const key of NON_INHERITABLE) {
       if (!(key in config)) continue;
-      // contact-form deliberately omits kv_namespaces in dev so a dev deploy
-      // cannot evict production rate-limit and idempotency keys; the limiter
-      // degrades to in-memory. Documented in its wrangler.toml.
-      if (worker === 'contact-form' && key === 'kv_namespaces') {
-        expect(dev[key], 'contact-form dev must not bind the production KV namespace').toBeUndefined();
-        continue;
-      }
       expect(dev[key], `${worker} [env.dev] is missing ${key}, which wrangler does not inherit`).toBeDefined();
+    }
+  });
+
+  it.each(WORKERS)('%s: dev never shares a KV namespace with production', (worker) => {
+    // Sharing one would let a dev deploy evict live rate-limit and idempotency
+    // keys. Each worker that binds KV has a dedicated dev namespace.
+    const config = loadConfig(worker);
+    const prodNamespaces = (config.kv_namespaces ?? []) as Record<string, string>[];
+    const devNamespaces = (config.env?.dev?.kv_namespaces ?? []) as Record<string, string>[];
+    if (!prodNamespaces.length || !devNamespaces.length) return;
+
+    const prodIds = new Set(prodNamespaces.map((n) => n.id));
+    for (const namespace of devNamespaces) {
+      expect(prodIds.has(namespace.id), `${worker} dev binds ${namespace.binding} to the production namespace ${namespace.id}`).toBe(false);
     }
   });
 

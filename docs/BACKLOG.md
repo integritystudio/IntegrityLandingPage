@@ -380,14 +380,16 @@ Open items from the 8-area codebase review, plus issues found while remediating 
 3. ~~Point the dev Flutter build at the dev worker via `--dart-define`.~~ Documented in CLAUDE.md 2026-07-27.
 4. ~~Correct the deployment section of CLAUDE.md.~~ Done 2026-07-27.
 5. **Remaining — deploy a dev receiver.** `sender-worker-dev` still binds `RECEIVER` to the production `api-provisioning-receiver`; no dev receiver exists (it lives in the `observability-toolkit` repo). `/send` from a dev deploy reaches the production receiver. Cross-repo.
-6. **Remaining — optional.** Give `contact-form-dev` its own KV namespace (`wrangler kv namespace create`, ×2 for preview). Today it runs unbound and degrades to in-memory rate limiting, which is deliberate: binding the production namespace would let a dev deploy evict live rate-limit and idempotency keys.
-7. **Remaining — verify by deploying.** Nothing here has been deployed; wrangler is not authenticated in the agent environment. Validation so far is `wrangler deploy --dry-run --env dev` for all six workers plus the structural tests.
+6. ~~Give `contact-form-dev` its own KV namespace.~~ Done 2026-07-27 — `CONTACT_RATE_LIMIT_KV_DEV` (`5719e569…`), distinct from the production namespace so a dev deploy cannot evict live rate-limit and idempotency keys. A test now asserts dev never shares a namespace with production.
+7. ~~Verify by deploying.~~ Done 2026-07-27 — `npm run deploy` was run for real in `workers/sender-worker` and landed on `sender-worker-dev`, not `sender-worker`. All five dev workers deployed; the four production workers were confirmed unmodified afterwards by their `modified_on` timestamps.
 
 **Design note — why production stayed on the top-level config.** The original scope proposed `[env.production]` with `deploy:prd --env production`. That would have been actively harmful: a named environment renames the Worker (`sender-worker` → `sender-worker-production`), orphaning its Durable Object namespaces, routes, and crons, and breaking both the Flutter compile-time default URL and the receiver's service binding. Instead the top-level block **is** production and is untouched; `[env.dev]` is the overlay. The production deploy path is byte-identical to before this change.
 
 **CR02a — resolved.** The routes had already moved to top level in `a0fca5c`, so they now attach on the plain `deploy:prd`. The `QUOTA_DO` binding concern is handled by repeating it under `[env.dev]` (wrangler does not inherit `durable_objects` into named environments) while leaving the top-level binding in place. `migrations` is inheritable and applies to both. The unused `[env.staging]` block was left alone — dead, but harmless, and nothing deploys it.
 
-**Status:** Structurally done and guarded (2026-07-27) — `npm run deploy` can no longer overwrite a production worker, enforced by `workers/lib/deploy-environments.test.ts` (25 tests, mutation-verified). Open remainder: items 5–7, all requiring live credentials or a cross-repo change.
+**Status:** Done and verified live (2026-07-27) — `npm run deploy` can no longer overwrite a production worker, enforced by `workers/lib/deploy-environments.test.ts` (31 tests, mutation-verified) and confirmed by an actual deploy. Only item 5 remains (dev receiver, cross-repo).
+
+**Read [[CR11]] before treating the dev workers as an environment.** The structural split is real, but Doppler's `dev` and `prd` configs hold identical credentials, so there is no data isolation behind it. The dev workers were deployed without secrets on purpose.
 
 ---
 
@@ -408,7 +410,30 @@ The remaining gap is **accuracy, not absence**. In-memory state is per isolate, 
 3. Uncomment the `[[kv_namespaces]]` block in `workers/sender-worker/wrangler.toml` and fill in both IDs.
 4. Deploy and confirm a burst returns 429. **Blocked on [[CR02]]** — `npm run deploy` currently publishes over the worker production uses, so there is no safe way to test this deploy first.
 
-**Status:** Open — needs Cloudflare credentials (`wrangler` is not authenticated in the agent environment). Steps 2–3 are the whole remaining fix; step 4 should wait for CR02.
+**Status:** ✅ Done (2026-07-27) — namespaces created and bound. Production `sender-worker` binds `AUTH_RATE_LIMIT_KV` (`766332ec…`); `sender-worker-dev` binds its own `dev-RATE_LIMIT_KV` (`46a717cd…`). Titled `AUTH_RATE_LIMIT_KV` rather than `RATE_LIMIT_KV` because contact-form already owned that title — the two workers must not share a namespace. The binding reaches production on the next `deploy:prd`; `sender-worker-dev` is deployed and healthy with it bound.
+
+---
+
+### CR11: Doppler `dev` and `prd` hold identical credentials — there is no dev environment
+
+**Priority:** P1 | **Source:** session 2026-07-27, deploying the CR02 dev environments
+**Estimated:** 1–2 days (provisioning), plus a rotation window
+
+**Context:** Hash-comparing the two Doppler configs shows `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `AUTH0_DOMAIN`, `SHARED_SECRET`, and `STRIPE_SECRET_KEY` are **byte-identical** between `--config dev` and `--config prd`. Every documented safety claim resting on that distinction is therefore false:
+
+- CLAUDE.md's "Dev Config: local development, testing, E2E tests" describes a boundary that does not exist. A test run against `--config dev` writes to the production Supabase, creates real Auth0 users, and — if `STRIPE_SECRET_KEY` is a live key — moves real money.
+- "E2E tests use `--config dev` (isolated from prod)" in the deployment-safety list is wrong for the same reason.
+- It compounds [[CR01]]: the `doppler.json` bundle sitting in git history is often waved off as "only the dev secrets". It is not. Dev *is* prd, so that bundle is the full production credential set, and the rotation in CR01 is correspondingly more urgent.
+- It also caps [[CR02]]. The worker-level split is real and prevents overwrites, but pushing these secrets into the dev workers would make them production-capable. They were deliberately deployed **without secrets** for that reason, which is why they error on any route needing one.
+
+**Scope:**
+1. Decide the boundary: a separate Supabase project (or at minimum a separate schema with its own service-role key), a separate Auth0 tenant, and Stripe **test** keys.
+2. Populate the Doppler `dev` config with those values so `--config dev` means something.
+3. Push the dev secrets to the `*-dev` workers; confirm each points somewhere non-production before doing so.
+4. Re-verify that a dev signup creates no row in the production database.
+5. Correct the deployment-safety claims in CLAUDE.md once the boundary is real.
+
+**Status:** Open — needs infrastructure provisioning decisions (which Supabase project, which Auth0 tenant, Stripe test mode) that are the owner's call, not a code change.
 
 ---
 

@@ -34,6 +34,13 @@ name = "sender-worker-dev"
 binding = "RECEIVER"
 service = "api-provisioning-receiver"
 
+# Own namespace, so dev rate-limit counters cannot evict production ones.
+# `kv_namespaces` is non-inheritable and must be repeated here.
+[[env.dev.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "46a717cd692a4cc2969bff9504bcc87b"        # dev-RATE_LIMIT_KV
+preview_id = "46a717cd692a4cc2969bff9504bcc87b"
+
 [env.dev.observability]
 enabled = true
 
@@ -41,24 +48,22 @@ enabled = true
 enabled = true
 invocation_logs = true
 
-# KV namespace for cross-isolate auth rate limiting on /signup and /signin.
+# KV namespace for cross-isolate auth rate limiting on /signup and /signin
+# (BACKLOG.md CR03). Created 2026-07-27.
 #
-# The limiter works without this binding — checkAuthRateLimit() always counts
-# in memory first and denies at AUTH_RATE_LIMIT_MAX (10 per 600s). What the
-# binding adds is a count shared across isolates and colos. Without it a
-# caller who spreads requests across colos, or waits out isolate recycling,
-# gets more than the limit in aggregate. The worker logs a warning on first
-# request when the binding is absent. Tracked as BACKLOG.md CR03.
+# The limiter enforces the limit without this binding — checkAuthRateLimit()
+# counts in memory first and denies at AUTH_RATE_LIMIT_MAX (10 per 600s). What
+# the binding adds is a count shared across isolates and colos, so attempts
+# spread across colos are no longer undercounted.
 #
-# To enable (both commands, then uncomment the block below with the real IDs —
-# leaving placeholder IDs in place breaks the deploy, see a392cd6):
-#   wrangler kv namespace create RATE_LIMIT_KV
-#   wrangler kv namespace create RATE_LIMIT_KV --preview
-#
-# [[kv_namespaces]]
-# binding = "RATE_LIMIT_KV"
-# id = "<returned-namespace-id>"
-# preview_id = "<returned-preview-namespace-id>"
+# Titled AUTH_RATE_LIMIT_KV rather than RATE_LIMIT_KV because contact-form
+# already owns a namespace by that title; the two workers must not share one.
+# `preview_id` points at the dev namespace on purpose, so a local
+# `wrangler dev` writes rate-limit keys to dev rather than production.
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "766332ec6de3462fb29777aa1b6bc9d3"        # AUTH_RATE_LIMIT_KV
+preview_id = "46a717cd692a4cc2969bff9504bcc87b" # dev-RATE_LIMIT_KV
 
 # Secrets (set via wrangler secret put or doppler):
 #   SHARED_SECRET              — HMAC key; must match provisioning receiver
