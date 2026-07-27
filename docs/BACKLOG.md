@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, `docs/changelog/1.2/CHANGELOG.md`, and `docs/changelog/1.3/CHANGELOG.md`.
 
-**Last Updated:** 2026-07-27 | **Phase:** Codebase review remediation + worker deploy/settings audit — 48 findings fixed and migrated to the 1.3 changelog; **9 items open as CR01–CR15** (4 × P1, 4 × P2, 1 × P3), summarised in the table under *Code Review 2026-07-26 → 2026-07-27*. Tests: 3,001 Flutter + 1,021 worker passing, zero TypeScript errors, `flutter analyze` clean. Prior entry: Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete
+**Last Updated:** 2026-07-27 | **Phase:** Codebase review remediation + worker deploy/settings audit — 48 findings fixed and migrated to the 1.3 changelog; **10 items open as CR01–CR16** (4 × P1, 5 × P2, 1 × P3), summarised in the table under *Code Review 2026-07-26 → 2026-07-27*. Tests: 3,001 Flutter + 1,021 worker passing, zero TypeScript errors, `flutter analyze` clean. Prior entry: Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete
 
 ---
 
@@ -344,9 +344,9 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 ---
 
-## Code Review 2026-07-26 → 2026-07-27 (CR01–CR15)
+## Code Review 2026-07-26 → 2026-07-27 (CR01–CR16)
 
-Started as the open remainder of the 8-area codebase review; CR11–CR15 were found afterwards while deploying and auditing the workers. Fixed work lives in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md); the review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md).
+Started as the open remainder of the 8-area codebase review; CR11–CR15 were found afterwards while deploying and auditing the workers, and CR16 while reading the deployed `obtool-*` scripts to settle CR13. Fixed work lives in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md); the review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md).
 
 | ID | P | Status | One line |
 |---|---|---|---|
@@ -356,11 +356,12 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR14](#cr14) | P1 | ⚠️ partial | Superseded versions publicly callable with live secrets; config fixed, **prod needs a deploy** |
 | [CR02](#cr02) | P2 | ✅ mostly | Dev/prod split done and verified live; only the dev receiver remains |
 | [CR04](#cr04) | P2 | ⚠️ partial | Comment corrected; JWT still travels in a URL fragment |
-| [CR13](#cr13) | P2 | 🔴 open | Two repos claim `api.integritystudio.ai/v1/*` — needs an ownership decision |
+| [CR13](#cr13) | P2 | 🔴 open | One hostname, two complementary services — `obtool-api`'s wildcard swallows the gateway's paths |
+| [CR16](#cr16) | P2 | 🔴 open | Two OTEL ingestion pipelines in two repos, writing to R2+D1 and to Supabase |
 | [CR03](#cr03) | P2 | ✅ done | KV namespaces created and bound; reaches prod on next `deploy:prd` |
-| [CR15](#cr15) | P3 | ⚠️ partial | Observability fixed in config; two stale prod secrets still bound |
+| [CR15](#cr15) | P3 | ⚠️ partial | Observability fixed in config; **four** stale prod secrets still bound |
 
-**Nothing here is blocked on code.** Every remaining item needs either a credential/provisioning decision (CR01, CR11), an answer about intent (CR12, CR13), or a production deploy to apply changes already committed (CR14, CR15, CR03).
+**Nothing here is blocked on code.** Every remaining item needs either a credential/provisioning decision (CR01, CR11), an answer about intent (CR12, CR13, CR16), or a production deploy to apply changes already committed (CR14, CR15, CR03).
 
 **Three items are only "fixed" in config and are not yet live in production**, because `deploy:prd` has not run: CR03's KV binding, CR14's `preview_urls = false`, and CR15's observability. CI deploys `sender-worker` on merge to `main`; the other workers deploy manually.
 
@@ -523,7 +524,9 @@ So every authenticated route that touches Supabase — usage, entitlements, orgs
 
 `degraded` rather than `unhealthy` is consistent with unset secrets: `checkDatabase` gets `undefined` for `supabaseUrl`, the shared client catches the resulting invalid-URL throw and returns `{ok: false}`, which maps to `degraded`. It does not distinguish this from a reachable-but-failing database — and both causes are present, because **both Supabase projects are `INACTIVE`** (free-tier pause).
 
-**Monitoring trap:** the health route is `/health` at the root, but the custom domain only routes `api.integritystudio.ai/v1/*`, so the gateway's health check is unreachable there. Worse, `https://api.integritystudio.ai/health` returns **200** — served by the marketing site, nothing to do with the gateway. Any uptime check pointed at that URL is permanently green regardless of gateway state. Point step 3 at `https://api-gateway.alyshia-b38.workers.dev/health`, or add a `/v1/health` route.
+**Monitoring trap:** `https://api.integritystudio.ai/health` returns **200**, so any uptime check pointed there is permanently green regardless of gateway state. Point step 3 at `https://api-gateway.alyshia-b38.workers.dev/health` instead.
+
+**Corrected 2026-07-27:** this previously attributed that 200 to "the marketing site, nothing to do with the gateway", and said the custom domain "only routes `/v1/*`". Both are wrong. The zone route is `api.integritystudio.ai/*` → `obtool-api` (a wildcard, not `/v1/*`), and the 200 is `obtool-api`'s own health endpoint — the body is `{"status":"ok","d1":"connected"}`, and `obtool-api` is the only worker in the account binding D1. The conclusion stands; the stated cause does not, which matters if someone tries to fix this by looking at the marketing site.
 
 **Scope:**
 1. Determine whether this is expected — i.e. whether the platform is pre-launch and these two workers were never configured, or whether secrets were lost in a redeploy. The 2026-03-31 timestamp on both suggests they have been in this state for ~4 months.
@@ -549,17 +552,37 @@ So every authenticated route that touches Supabase — usage, entitlements, orgs
 | `api.integritystudio.ai/*` | `obtool-api` | observability-toolkit |
 | `ingest.integritystudio.ai/*` | `obtool-ingest` | observability-toolkit |
 
-`obtool-api` holds the wildcard, and there is no `/v1/*` route, so `/v1/*` requests currently fall through to `obtool-api`. Two repos therefore both believe they own paths under `api.integritystudio.ai`, and the more specific pattern wins whenever this repo deploys to production. Nobody has decided which is intended.
+`obtool-api` holds the wildcard, and there is no `/v1/*` route, so `/v1/*` requests currently fall through to `obtool-api`. The more specific pattern wins whenever this repo deploys to production.
+
+**Corrected 2026-07-27 — this entry was mis-specified.** It described a contest over the same paths. Reading both deployed scripts (`GET /accounts/:id/workers/scripts/:name`) shows **zero overlap**:
+
+| `obtool-api` serves | `api-gateway` serves |
+|---|---|
+| `/v1/traces`, `/v1/traces/:id`, `/v1/traces/:id/raw`, `/v1/sessions`, `/v1/sessions/:id`, `/v1/metrics`, `/v1/metrics/histograms`, `/v1/logs`, `/v1/cost`, `/v1/datasets`, `/v1/datasets/:id` | `/v1/me`, `/v1/orgs`, `/v1/orgs/:id/{dashboard,billing-status,usage/summary,entitlements,quota/status,billing-portal,api-keys}`, `/v1/ingest/events`, `/v1/ingest/otel` |
+
+These are complementary halves of one product API — a telemetry data plane and an account/billing control plane. Nobody is claiming anybody's path. The real problem is the **wildcard**: `obtool-api` holds `/*` and auth-gates before routing, so it answers `401` for the gateway's paths rather than passing them on. (That auth-before-routing behaviour is also why external probing proves nothing — `/v1/nonexistent-xyz` returns `401` too.) So the question is not *who wins the hostname* but *how one hostname is split across two complementary workers*, which has a different and larger answer set — see Scope.
 
 **How this surfaced:** a `wrangler deploy --env dev` from this repo created `api.integritystudio.ai/v1/* -> api-gateway-dev` (route inheritance — see CR12's note and the comment in `api-gateway/wrangler.toml`). For roughly 14 hours on 2026-07-27, that path was served by a secret-less dev Worker. The route was deleted and the prior fall-through restored; the config now carries an explicit `routes = []` and a test enforces it.
 
-**Scope:**
-1. Decide whether `api.integritystudio.ai/v1/*` should be served by this repo's `api-gateway` or by `obtool-api`.
-2. If `api-gateway`: resolve [[CR12]] first (it has no secrets and answers 503), then `deploy:prd` to attach the route deliberately, and confirm with the observability-toolkit owner that removing `/v1/*` from `obtool-api`'s wildcard is safe.
-3. If `obtool-api`: delete the `routes` key from `workers/api-gateway/wrangler.toml` so a production deploy stops silently claiming a hostname this repo does not own, and point the Flutter `API_GATEWAY_URL` default at whatever is correct.
-4. Either way, stop relying on the `workers.dev` hostname as the app's production default (`dashboard_service.dart:16`, `provisioning_service.dart:22`).
+**Scope — defusing and deciding are separable, and step 1 should not wait:**
 
-**Status:** Open — needs a cross-repo ownership decision. The unsafe intermediate state (dev Worker on the production hostname) is resolved.
+1. **Defuse now, independent of the architecture.** Delete the `routes` key from `workers/api-gateway/wrangler.toml`. The shipped app calls `workers.dev` directly, so this costs nothing and permanently removes the landmine. Every option below is easier to reach from a safe state.
+2. **Do not route anything to the gateway until [[CR12]] is fixed.** It has zero secrets and answers `{"database":"degraded"}`. Routing live traffic to it converts a dormant problem into an outage.
+3. **Then choose a topology:**
+
+| | Approach | Trade-off |
+|---|---|---|
+| **A** | Concede — gateway stays on `workers.dev` | Zero risk, one-line diff, no branded hostname |
+| **B** | Path-split: `/v1/me`, `/v1/orgs*`, `/v1/ingest/*` as separate routes | Keeps one hostname, but the route list becomes a hand-maintained mirror of a dispatch table in another repo. **Never `/v1/*` here** — that is the trap as currently armed and would swallow all of `obtool-api` |
+| **C** | Separate hostname, e.g. `accounts.integritystudio.ai/*` | Matches the existing per-service `api.`/`ingest.` convention; one hostname per repo, no cross-repo route coordination. Costs a DNS record, a Flutter default, and doc updates |
+| **D** | Single front door — `obtool-api` service-binds unmatched `/v1` paths to `api-gateway` | Best external DX. Requires changes in a repo this one does not own, and couples the two auth models |
+
+4. Settle [[CR16]] before committing to B or D — if the gateway loses its OTEL path, the surface needing a hostname shrinks and C gets cheaper.
+5. Either way, stop relying on the `workers.dev` hostname as the app's production default (`dashboard_service.dart:16`, `provisioning_service.dart:22`).
+
+**Suggested:** A now, C later. A defuses immediately at no cost; C beats B by not making the route list a cross-repo consistency contract, and beats D by needing no changes in the observability-toolkit repo.
+
+**Status:** Open — needs a hostname-topology decision, not an ownership one. The unsafe intermediate state (dev Worker on the production hostname) is resolved, but the production trap in step 1 is still armed.
 
 ---
 
@@ -634,14 +657,69 @@ enabled = true
 
 A second gotcha found the same way: **a named environment's `observability` block replaces the parent's rather than merging.** `[env.dev.observability]` had to repeat `traces` or dev would have silently run without them while production had them. This is a third distinct inheritance behaviour, alongside the non-inheritable bindings and the inheritable `routes`/`triggers`/`preview_urls`.
 
-**2. Two stale secrets remain bound.** `RECEIVER_WORKER_URL` and `PROVISIONING_RECEIVER_WORKER_URL` are still set on production `sender-worker`, left over from before the service-binding migration (`d450ef4`). Nothing in `workers/sender-worker/src/` reads either name — verified by grep — so they are inert, but they are two more credentials in the blast radius of [[CR01]] and they imply an HTTP path to the receiver that no longer exists. Remove with:
+**2. Four stale secrets remain bound.** Production `sender-worker` has 13 secrets. Diffing all of them against the non-test source (`env.NAME` references across the 7 files in `workers/sender-worker/src/`) shows **four are never read**:
+
+| Secret | Why it is stale |
+|---|---|
+| `RECEIVER_WORKER_URL` | pre-dates the service-binding migration (`d450ef4`) |
+| `PROVISIONING_RECEIVER_WORKER_URL` | same |
+| `AUTH0_CLI_AUDIENCE` | not read, and not declared in the `Env` type |
+| `SUPABASE_ANON_KEY` | same — the worker uses the service-role key |
+
+**Corrected 2026-07-27:** this item previously said *two*. The count came from grepping only for the names already suspected, rather than diffing the full bound set against source. `AUTH0_CLI_AUDIENCE` and `SUPABASE_ANON_KEY` were missed. All four are inert, but each is another credential inside [[CR01]]'s blast radius, and the two URL secrets imply an HTTP path to the receiver that no longer exists. Remove with:
 
 ```bash
 npx wrangler secret delete RECEIVER_WORKER_URL --name sender-worker
 npx wrangler secret delete PROVISIONING_RECEIVER_WORKER_URL --name sender-worker
+npx wrangler secret delete AUTH0_CLI_AUDIENCE --name sender-worker
+npx wrangler secret delete SUPABASE_ANON_KEY --name sender-worker
 ```
 
 **Status:** Open — item 1 is a one-line config change deferred to the next production deploy; item 2 deletes production secrets and was not done unasked.
+
+---
+
+<a id="cr16"></a>
+
+### CR16: Two telemetry ingestion pipelines exist in two repos, writing to two backends
+
+**Priority:** P2 | **Source:** session 2026-07-27, reading both deployed scripts while analysing [[CR13]]
+**Estimated:** 1 hour to remove the duplicate; longer if the gateway's pipeline is the one kept
+
+**Context:** The product has **two OTEL ingestion endpoints**, implemented independently in two repos, persisting to two different storage systems. Neither is aware of the other.
+
+| | `obtool-ingest` (observability-toolkit) | `api-gateway` (this repo) |
+|---|---|---|
+| Hostname | `ingest.integritystudio.ai/*` — attached | none — no zone route |
+| Path | `/v1/:signal` (`traces`, `metrics`, `logs`, `evaluations`), `/v1/ingest/backfill` | `/v1/ingest/otel`, `/v1/ingest/events` |
+| Storage | R2 `obtool-telemetry` + D1 `obtool_telemetry_db` | Supabase `usage_events.metadata.spans` (jsonb) |
+| Auth | KV `AUTH` | HMAC API key verified against Supabase |
+| Dedup | KV `DEDUP` | none |
+| Quota | none | per-org via `QUOTA_DO` |
+| Wire format | per-signal | `{spans: [...]}`, max 1,000, custom flat `OtelSpanSchema` |
+
+The two are not variants of one design — they disagree on transport shape, auth, dedup, and where telemetry lives.
+
+**How this arose:** `obtool-ingest` and the `obtool-telemetry` R2 bucket were created 2026-02-24. `/v1/ingest/otel` was added a month later, on 2026-03-21, by a backlog-implementer session closing an `OTEL-1` item against the payments roadmap's "Telemetry/monitoring setup" checkbox (`1b771e3`, `c40a1c8`) — see the session log at the foot of this file. The endpoint satisfied the checkbox; nothing checked whether an ingestion pipeline already existed. `CLAUDE.md` has documented `ingest.integritystudio.ai` as *the* telemetry endpoint throughout.
+
+**Note the scope:** only `/v1/ingest/otel` is duplicative. `/v1/ingest/events` takes `metric_key` + `quantity` and is genuine usage metering for billing and quota — a different concern with no counterpart in `obtool-ingest`, and it should survive whatever is decided here.
+
+**Why it has not caused an incident:** the gateway's pipeline has never run in production. It has had **zero secrets since 2026-03-31** ([[CR12]]), so it cannot reach Supabase, and it holds no zone route ([[CR13]]), so it is unreachable at `api.integritystudio.ai` regardless. No Dart code calls either gateway ingest path — only documentation references them. The duplicate is dormant, not live.
+
+**Two things verified so they are not re-raised:**
+- `rollupDailyBucket` selects only `organization_id, metric_key, quantity, latency_ms` (`aggregation.ts:45`), so stored span payloads are **not** dragged through daily aggregation.
+- `usage_events.metadata` is `jsonb not null default '{}'` with no partitioning, and there is no purge or retention job anywhere in this repo. If the gateway's OTEL path is ever switched on, full span payloads accumulate indefinitely in a billing ledger table.
+
+**Published documentation points at a dead endpoint.** `docs/api-usage-ingestion.md` instructs callers to `POST https://api.integritystudio.ai/v1/ingest/events`. No deployed worker serves that path on that hostname: `obtool-api` holds the wildcard, auth-gates every `/v1/*` path before routing, and does not implement it. This is broken today and independently of the decision below.
+
+**Scope:**
+1. Decide whether the product has **one** telemetry ingestion pipeline or two. If two, write down what distinguishes them; if one, name the canonical pipeline.
+2. If `obtool-ingest` is canonical (it is older, routed, and the documented endpoint): remove `handleIngestOtel`, `OTEL_INGEST_ROUTE`, `IngestOtelRequestSchema`, `OtelSpanSchema`, and `IngestOtelMetadataSchema`; keep `/v1/ingest/events` for metering.
+3. If the gateway's is canonical: justify Supabase jsonb as a span store against R2 + D1, add a retention policy for `usage_events.metadata`, and reconcile the wire format so callers are not asked to speak two dialects.
+4. Fix `docs/api-usage-ingestion.md` either way — it currently publishes an endpoint nothing serves.
+5. Fold the answer into [[CR13]]: if the gateway loses its OTEL path, the surface needing a hostname shrinks, which narrows the routing options.
+
+**Status:** Open — needs a product-architecture decision, not code. Dormant while [[CR12]] and [[CR13]] keep the gateway's pipeline unreachable; both of those resolving is what would make this live.
 
 ---
 

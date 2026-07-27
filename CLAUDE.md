@@ -24,7 +24,7 @@ wrangler dev --port 8787          # Local dev server
 
 ## Current Status
 
-**Phase**: Codebase review remediation + worker deploy/settings audit — 48 findings fixed, 9 open as CR01–CR15
+**Phase**: Codebase review remediation + worker deploy/settings audit — 48 findings fixed, 10 open as CR01–CR16
 **Last Updated**: 2026-07-27
 **Build Status**: ✅ Web build successful, running on localhost:8080
 **Test Status**: ✅ 3,001 Flutter tests passing (~94% coverage); 1,021 worker tests passing (6 workers + shared lib); zero TypeScript errors; `flutter analyze` clean
@@ -34,7 +34,9 @@ wrangler dev --port 8787          # Local dev server
 See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recent changes.
 
 ### Known Issues
-Nine items open, tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr15). None is blocked on code — each needs a credential decision, an answer about intent, or a production deploy.
+Ten items open, tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr16). None is blocked on code — each needs a credential decision, an answer about intent, or a production deploy.
+
+⚠️ **Armed trap:** `workers/api-gateway/wrangler.toml` declares `api.integritystudio.ai/v1/*` at the top level, which is what `deploy:prd` publishes. That path is currently served by `obtool-api` via a `/*` wildcard, and Cloudflare resolves overlapping routes by longest match — so the next `deploy:prd` in that directory moves live `/v1` traffic onto a worker with zero secrets. See CR13 step 1.
 
 **P1**
 - **CR12**: production `api-gateway` and `stripe-webhook` have **zero secrets bound**; the gateway answers `503 {"database":"degraded"}`. Both last deployed 2026-03-31. Needs an owner answer: pre-launch, or a regression?
@@ -43,13 +45,14 @@ Nine items open, tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.m
 - **CR14**: superseded Worker versions stay publicly callable at preview URLs with live secrets — a 2026-04-20 `sender-worker` version answered 200. Config fixed; **production still exposed until deployed**
 
 **P2**
-- **CR13**: two repos claim `api.integritystudio.ai/v1/*` — this repo's `api-gateway` config vs `obtool-api`. Needs an ownership decision
+- **CR13**: one hostname, two complementary services. `obtool-api`'s `/*` wildcard swallows the gateway's paths and 401s them; the two share **no** paths. Needs a topology decision (concede / path-split / separate hostname / front door), not an ownership one
+- **CR16**: two OTEL ingestion pipelines exist — `obtool-ingest` → R2+D1 at `ingest.integritystudio.ai`, and `api-gateway`'s `/v1/ingest/otel` → Supabase `usage_events.metadata`. Different wire formats, auth, and dedup. Dormant only because the gateway has no secrets and no route
 - **CR04**: JWT still passed to the dashboard in a URL fragment — cross-repo fix needed
 - **CR02**: ✅ mostly closed — `npm run deploy` targets `--env dev`, verified live. Only the dev receiver remains
 - **CR03**: ✅ done — KV namespaces created and bound; live in production on the next `deploy:prd`
 
 **P3**
-- **CR15**: observability fixed in config (was silently off in production for ~4 months); two stale secrets, `RECEIVER_WORKER_URL` and `PROVISIONING_RECEIVER_WORKER_URL`, still bound to production `sender-worker`
+- **CR15**: observability fixed in config (was silently off in production for ~4 months); **four** stale secrets still bound to production `sender-worker` — `RECEIVER_WORKER_URL`, `PROVISIONING_RECEIVER_WORKER_URL`, `AUTH0_CLI_AUDIENCE`, `SUPABASE_ANON_KEY`
 
 ---
 

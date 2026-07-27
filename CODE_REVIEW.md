@@ -15,7 +15,7 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 | Fixed in the remediation pass | 40 | [`docs/changelog/1.3/CHANGELOG.md`](docs/changelog/1.3/CHANGELOG.md) → *Codebase Review Remediation* |
 | Fixed in the follow-up backlog pass | 6 | [`docs/changelog/1.3/CHANGELOG.md`](docs/changelog/1.3/CHANGELOG.md) → *Review Backlog Pass* |
 | Fixed in the deploy / settings work | 2 | changelog → *Worker Deploy Separation* (CR02), *Environment Isolation Detector* (CR03) |
-| Still open | 9 | [`docs/BACKLOG.md`](docs/BACKLOG.md) → CR01–CR15, with a status table |
+| Still open | 10 | [`docs/BACKLOG.md`](docs/BACKLOG.md) → CR01–CR16, with a status table |
 | Refuted | 3 | below |
 
 The 10 items that outlived the remediation pass became CR01–CR10: the 5 never fixed, 2 marked fixed but **not fully closed**, and 3 found while remediating. A follow-up pass closed CR05–CR10.
