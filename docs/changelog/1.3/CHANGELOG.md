@@ -606,3 +606,35 @@ Verified the two remaining dev Workers against their production counterparts via
 **Final state:** 3,001 Flutter tests and 1,021 worker tests passing; `previews_enabled: false` on both dev Workers; zero routes point at any `*-dev` Worker.
 
 ---
+
+## [2026-07-27] - Observability Actually Enabled on sender-worker (CR15 item 1)
+
+`workers/sender-worker/wrangler.toml` now sets:
+
+```toml
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+```
+
+**The `enabled = true` on the parent table is the part that matters**, and it was the missing piece. Verified by experiment rather than assumed: a scratch deploy of `bootstrap-worker-dev` carrying `logs.enabled = true` and `traces.enabled = true` but no parent `enabled` reported `observability.enabled: false`; adding the parent line flipped it to `true`. The child tables alone do nothing. So the 2026-04-03 entry recording "Enabled observability logs on sender-worker" never took effect — production has been running with observability off for ~4 months, which is also why there were no logs to consult while diagnosing CR12.
+
+A second behaviour surfaced while confirming it: **a named environment's `observability` block replaces the parent's rather than merging into it.** `[env.dev.observability]` already set `enabled` and `logs`, so it did not pick up the new top-level `traces` and dev came back `traces=False` while production config said true. Repeating `traces` under `[env.dev.observability.traces]` fixed it; `sender-worker-dev` now verifies as `enabled=True logs=True invocation=True traces=True`.
+
+That is a third distinct inheritance rule in this file, and they do not agree with each other:
+
+| Key | Behaviour in a named environment |
+|---|---|
+| `durable_objects`, `services`, `vars`, `kv_namespaces`, … | **Not** inherited — must be repeated |
+| `routes`, `triggers`, `preview_urls` | **Inherited** — must be explicitly emptied to opt out |
+| `observability` | **Replaced wholesale** when the child declares it at all |
+
+**Production is not yet affected** — it still reports `observability.enabled: false` and will until the next `deploy:prd`, which CI runs on merge to `main`. Binding resolution was re-checked after the edit: production resolves `RATE_LIMIT_KV` to `766332ec…` and dev to `46a717cd…`, unchanged.
+
+---

@@ -421,7 +421,7 @@ The remaining gap is **accuracy, not absence**. In-memory state is per isolate, 
 
 Two items, both on the production worker, both surfaced by diffing it against its new dev counterpart.
 
-**1. Workers Logs may not actually be on.** Production `sender-worker` reports `observability.enabled: false` with `observability.logs.enabled: true`; the dev worker reports `enabled: true` for both. The cause is `wrangler.toml`: the top-level block is
+**1. Workers Logs are not on — config fixed 2026-07-27, reaches production on the next `deploy:prd`.** Production `sender-worker` reports `observability.enabled: false` with `observability.logs.enabled: true`; the dev worker reports `enabled: true` for both. The cause is `wrangler.toml`: the top-level block is
 
 ```toml
 [observability]
@@ -429,7 +429,13 @@ Two items, both on the production worker, both surfaced by diffing it against it
 enabled = true
 ```
 
-— `[observability]` declares no `enabled` key, so it deploys as `false`, while `[env.dev.observability]` sets `enabled = true` explicitly and therefore differs. A changelog entry from 2026-04-03 records "Enabled observability logs on sender-worker", which may never have taken effect. This matters beyond tidiness: diagnosing [[CR12]] and confirming [[CR03]]'s rate limiter both depend on being able to read worker logs. Fix is `enabled = true` under `[observability]`, applied on the next `deploy:prd`.
+— `[observability]` declares no `enabled` key, so it deploys as `false`, while `[env.dev.observability]` sets `enabled = true` explicitly and therefore differs. A changelog entry from 2026-04-03 records "Enabled observability logs on sender-worker", which may never have taken effect. This matters beyond tidiness: diagnosing [[CR12]] and confirming [[CR03]]'s rate limiter both depend on being able to read worker logs.
+
+**Confirmed by experiment, not inference.** A scratch deploy of `bootstrap-worker-dev` with `logs.enabled = true` and `traces.enabled = true` but no parent `enabled` reported `observability.enabled: false`; adding `enabled = true` to the parent flipped it to `true`. The child tables alone do nothing. (Experiment reverted and the worker redeployed clean.)
+
+`sender-worker`'s config now sets `enabled = true` on the parent plus `logs` and `traces`, and `sender-worker-dev` verifies as `enabled=True logs=True invocation=True traces=True`. Production still reports `enabled: false` and will until the next `deploy:prd` — which CI runs automatically on merge to `main`.
+
+A second gotcha found the same way: **a named environment's `observability` block replaces the parent's rather than merging.** `[env.dev.observability]` had to repeat `traces` or dev would have silently run without them while production had them. This is a third distinct inheritance behaviour, alongside the non-inheritable bindings and the inheritable `routes`/`triggers`/`preview_urls`.
 
 **2. Two stale secrets remain bound.** `RECEIVER_WORKER_URL` and `PROVISIONING_RECEIVER_WORKER_URL` are still set on production `sender-worker`, left over from before the service-binding migration (`d450ef4`). Nothing in `workers/sender-worker/src/` reads either name — verified by grep — so they are inert, but they are two more credentials in the blast radius of [[CR01]] and they imply an HTTP path to the receiver that no longer exists. Remove with:
 

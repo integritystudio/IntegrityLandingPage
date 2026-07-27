@@ -17,10 +17,22 @@ preview_urls = false
 binding = "RECEIVER"
 service = "api-provisioning-receiver"
 
+# `enabled` on the parent table is required, not decorative. Without it the
+# Worker deploys with `observability.enabled: false` even when `logs.enabled`
+# and `traces.enabled` are both true — verified 2026-07-27 against a scratch
+# deploy of bootstrap-worker-dev, which reported `enabled: false` with the
+# child tables set and `enabled: true` once this line was added. That omission
+# is why production has been running with observability off since the
+# 2026-04-03 change that believed it had switched logs on (BACKLOG.md CR15).
 [observability]
+enabled = true
+
 [observability.logs]
 enabled = true
 invocation_logs = true
+
+[observability.traces]
+enabled = true
 
 # --- dev environment (`npm run deploy`) -------------------------------------
 # Publishes to a separate Worker. Previously `npm run deploy` published straight
@@ -57,6 +69,12 @@ enabled = true
 [env.dev.observability.logs]
 enabled = true
 invocation_logs = true
+
+# A named environment's observability block REPLACES the parent's rather than
+# merging into it, so traces must be repeated here or dev silently runs without
+# them while production has them.
+[env.dev.observability.traces]
+enabled = true
 
 # KV namespace for cross-isolate auth rate limiting on /signup and /signin
 # (BACKLOG.md CR03). Created 2026-07-27.
