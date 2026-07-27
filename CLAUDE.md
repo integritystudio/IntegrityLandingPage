@@ -17,22 +17,26 @@ flutter run -d chrome \
 **Workers** (run from the individual worker directory)
 ```bash
 npm test                          # Unit tests (vitest)
-npm run deploy                    # Dev deploy (Doppler dev)
+npm run deploy                    # Deploy with Doppler dev creds (⚠️ no env separation — see CR02)
 npm run deploy:prd                # Prod deploy (Doppler prd)
 wrangler dev --port 8787          # Local dev server
 ```
 
 ## Current Status
 
-**Phase**: Testing Infrastructure & Error Handling ✅ COMPLETE
-**Last Updated**: 2026-06-27
+**Phase**: Codebase Review Remediation (CR01–CR10)
+**Last Updated**: 2026-07-26
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ ~2,726 Flutter tests passing (~94% coverage); ~965 worker tests passing (5 workers + shared lib)
+**Test Status**: ✅ ~3,001 Flutter tests passing (~94% coverage); ~984 worker tests passing (6 workers + shared lib)
 
 See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recent changes.
 
 ### Known Issues
-- None open. (Contact-form CORS now honors `ALLOWED_ORIGINS_JSON` — add `http://localhost:<port>` to the **dev** Doppler config to allow localhost; prod defaults unchanged.)
+Open items are tracked in [docs/BACKLOG.md](docs/BACKLOG.md) and [CODE_REVIEW.md](CODE_REVIEW.md). Current open items include:
+- **CR01 (P1)**: `doppler.json` history scrub + full secret rotation still required (file removed from tracking; see BACKLOG.md)
+- **CR02 (P1)**: Worker dev/prod separation — `npm run deploy` currently writes to the same worker that production uses (no `[env]` blocks)
+- **CR03 (P1)**: `RATE_LIMIT_KV` namespace not yet created — auth rate limiter is effectively disabled
+- **CR04 (P2)**: JWT passed in URL fragment to dashboard — cross-repo fix needed
 
 ---
 
