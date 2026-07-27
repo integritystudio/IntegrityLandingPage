@@ -2,7 +2,7 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, `docs/changelog/1.2/CHANGELOG.md`, and `docs/changelog/1.3/CHANGELOG.md`.
 
-**Last Updated:** 2026-07-12 | **Phase:** Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete
+**Last Updated:** 2026-07-26 | **Phase:** Codebase review remediation — 40 of 45 review findings fixed; the 5 open items plus 5 issues found during remediation are tracked here as CR01–CR10 (2 × P1 security, 3 × P2, 5 × P3). Prior entry: Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete
 
 ---
 
@@ -340,7 +340,173 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 - `workers/sender-worker/src/` — emit nonce header if not reusing the signature
 - `docs/api-provisioning.md` (Production Hardening) — move from Remaining to Shipped on completion
 
-**Status:** Open — design decision (KV vs Durable Object; nonce vs signature dedup); receiver-side change lives in the `observability-toolkit` repo. See also [[W04]] (provisioning observability).
+**Status:** Open — design decision (KV vs Durable Object; nonce vs signature dedup); receiver-side change lives in the `observability-toolkit` repo. See also [[W04]] (provisioning observability). The 2026-07-26 review raised the same gap against `workers/receiver-worker/src/index.ts:72`; that file is the local stub / test double and is not deployed, so this item remains the only real work — no separate entry was created for it.
+
+---
+
+## Code Review 2026-07-26 (CR01–CR10)
+
+Open items from the 8-area codebase review, plus issues found while remediating it. The review record, including the 40 findings already fixed and the 3 refuted claims, stays in [`CODE_REVIEW.md`](../CODE_REVIEW.md); this section is the actionable remainder.
+
+### CR01: `doppler.json` encrypted secrets bundle is committed to the repository
+
+**Priority:** P1 | **Source:** session 2026-07-26, codebase review (Medium)
+**Estimated:** 2–4 hours + rotation window
+
+**Context:** `doppler.json` at the repo root is a 37 KB Doppler CLI encrypted secrets snapshot (`4:base64:500000:<salt>-…`), tracked in git since commit `faf0ccc`. Anyone with repo read access holds a permanent offline copy of every worker secret — Auth0 client secrets, the Supabase service-role key, Stripe keys, the HMAC shared secret — decryptable the moment any Doppler token leaks, or brute-forceable offline at leisure. Rotating a leaked token does not retract the copy. This also contradicts the repo's own deployment-safety claim of "no hardcoded secrets".
+
+**Scope:**
+1. `git rm --cached doppler.json`; add to `.gitignore`.
+2. Scrub it from history (`git filter-repo` or BFG) and force-push; coordinate with anyone holding clones.
+3. Rotate every secret the bundle contains — assume the whole set is compromised.
+4. Confirm nothing in CI or the deploy scripts reads the file.
+
+**Status:** Open — step 2 rewrites history and step 3 is a live-credential rotation, so both need an owner and a maintenance window. See also [[W05]] (Doppler durability + rotation policy).
+
+---
+
+### CR02: Worker deploys have no dev/prod separation — `npm run deploy` overwrites production
+
+**Priority:** P1 | **Source:** session 2026-07-26, codebase review (Medium)
+**Estimated:** 3–5 hours
+
+**Context:** Each worker's `deploy` (Doppler `dev`) and `deploy:prd` (Doppler `prd`) both run a plain `wrangler deploy` against a single-name `wrangler.toml` with no `[env]` blocks. Doppler changes only the credentials injected into the deploy process, not the deploy target, so a local `npm run deploy` publishes straight over the worker production uses. For `sender-worker` that is the exact worker the released site calls: `ci.yml:212` builds with no `--dart-define`, so the app falls back to the compile-time default `https://sender-worker.alyshia-b38.workers.dev` (`lib/services/provisioning_service.dart:15`). CLAUDE.md's claim that `npm run deploy` "deploys to dev environment" is false — there is no dev environment.
+
+**Scope:**
+1. Add `[env.dev]` / `[env.production]` blocks with distinct worker names per worker, or separate Cloudflare accounts.
+2. Make `deploy` pass `--env dev` and `deploy:prd` pass `--env production`; verify Durable Object bindings and migrations are inherited (see [[CR02a]] note below).
+3. Point the dev Flutter build at the dev worker via `--dart-define`.
+4. Correct the deployment section of CLAUDE.md.
+
+**CR02a (same change):** `workers/api-gateway/wrangler.toml:5` defines routes only under `[env.production]`, but no deploy script passes `--env`, so those routes are never attached. Conversely `--env production` would drop the top-level `QUOTA_DO` durable-object binding, which named environments do not inherit. Both must be resolved together.
+
+**Status:** Open — infrastructure change affecting every worker; needs a deploy-safety plan before the first `--env` deploy.
+
+---
+
+### CR03: Auth rate limiter is inert — `RATE_LIMIT_KV` namespace was never created
+
+**Priority:** P1 | **Source:** session 2026-07-26, verifying the review's remediation pass
+**Estimated:** 30 minutes
+
+**Context:** The review's "no rate limiting on `/signin` and `/signup`" finding was marked fixed, and the limiter exists in `workers/sender-worker/src/utils.ts` — but it is keyed on an optional binding and `utils.ts:86` reads `if (!env.RATE_LIMIT_KV) return { allowed: true }`, so it **fails open**. The `[[kv_namespaces]]` block in `workers/sender-worker/wrangler.toml` is commented out, left as setup instructions. Until the namespace exists, the endpoints have exactly the brute-force exposure the finding described. This is the highest-value item here per minute spent: the code is written and only the binding is missing.
+
+**Scope:**
+1. `wrangler kv namespace create RATE_LIMIT_KV` (and `--preview`) for dev and prd.
+2. Uncomment the `[[kv_namespaces]]` block and fill in both IDs.
+3. Deploy and confirm a burst of requests returns 429.
+4. Decide whether failing open remains acceptable once the binding exists, or whether a missing binding should fail closed / alarm.
+
+**Status:** Open — deployment step, no code change required.
+
+---
+
+### CR04: Dashboard handoff still passes the JWT in a URL fragment
+
+**Priority:** P2 | **Source:** session 2026-07-26, verifying the review's remediation pass
+**Estimated:** 3–4 hours (coordinated with the dashboard app)
+
+**Context:** The review's "JWT accepted and propagated via URLs" finding was marked fixed. The `?jwt=` router entry point is genuinely gone, which removes the login-CSRF deep-link vector. The dashboard redirect moved from `?access_token=` to `#access_token=` (`lib/pages/provision_page.dart:90`), and a fragment is not sent to the server, so proxy/server-log and `Referer` leaks are closed. The token is still in a URL, though: fragments are stored with the browser-history entry — contrary to the comment on that line — and any script on the dashboard origin can read `location.hash`.
+
+**Scope:**
+1. Replace the fragment handoff with `postMessage` to the dashboard origin, or a single-use exchange code redeemed for the JWT.
+2. Correct the comment at `provision_page.dart:87-89`, which overstates what a fragment protects.
+3. Requires a matching change in the dashboard app.
+
+**Status:** Open — cross-repo; the current state is a real improvement, not a complete fix.
+
+---
+
+### CR05: Usage and entitlements endpoints fail open, reporting a DB outage as valid empty data
+
+**Priority:** P2 | **Source:** session 2026-07-26, found converting api-gateway tests to a real Supabase client
+**Estimated:** 1–2 hours
+
+**Context:** `workers/api-gateway/src/routes/usage.ts:107` and `:130` both read `result.ok && Array.isArray(result.data) ? result.data : []` and then return `ok(...)`, so a Supabase 5xx produces **HTTP 200 with an empty payload**. A caller cannot distinguish "Supabase is down" from "no usage this month". The entitlements case is worse: `buildEntitlementMap([])` yields an empty map, so an outage presents as *no features enabled* and any client gating UI on entitlements silently downgrades the account. This was invisible until the tests started returning real failure responses instead of always-`ok` mocks.
+
+**Scope:**
+1. Return 5xx when `!result.ok`, reserving the empty payload for a genuine empty result.
+2. If a degraded 200 is deliberate for the usage endpoint, add an explicit `degraded: true` flag so callers can tell.
+3. Update the tests that currently pin the fail-open behavior.
+
+**Status:** Open — current behavior is pinned by tests, so a change will show in the diff.
+
+---
+
+### CR06: `GET /v1/me` reports a database failure as `404 User not found`
+
+**Priority:** P2 | **Source:** session 2026-07-26, found converting api-gateway tests to a real Supabase client
+**Estimated:** 30 minutes
+
+**Context:** `workers/api-gateway/src/routes/me.ts:33` guards with `if (!result.ok || !Array.isArray(result.data) || result.data.length === 0)` and returns `notFound('User not found')`, collapsing a transport/DB error into the same response as a genuine zero-row result. During an outage every authenticated caller is told their account does not exist, which a client may reasonably act on by signing the user out.
+
+**Scope:**
+1. Split the branches: 5xx when `!result.ok`, 404 only on zero rows.
+2. Update the test that pins the current behavior.
+
+**Status:** Open — small, self-contained.
+
+---
+
+### CR07: CLAUDE.md status block is stale and contradicts the review
+
+**Priority:** P2 | **Source:** session 2026-07-26
+**Estimated:** 30 minutes
+
+**Context:** Three claims in CLAUDE.md are no longer true. **Test counts** (line 30) read "~2,726 Flutter tests … ~965 worker tests passing (5 workers + shared lib)"; the suites now stand at 3,001 Flutter and 984 worker tests across 6 workers plus the shared lib. **Known Issues** (line 34) says "None open", while `CODE_REVIEW.md` and this section track open items including two P1 security items. **Deployment** claims a dev/prod split that [[CR02]] shows does not exist.
+
+**Scope:**
+1. Refresh the test counts and `Last Updated`.
+2. Replace "None open" with a pointer to `docs/BACKLOG.md` and `CODE_REVIEW.md`.
+3. Correct the deployment section once [[CR02]] lands, or caveat it now.
+
+**Status:** Open — documentation only; step 3 is best done with [[CR02]].
+
+---
+
+### CR08: Redundant `Array.isArray(result.data)` narrowing at ~20 call sites
+
+**Priority:** P3 | **Source:** session 2026-07-26, follow-on from the `query()` overload
+**Estimated:** 1–2 hours
+
+**Context:** `sb.query()` previously declared `T[] | T | null` for every call, so callers had to narrow with `Array.isArray` before using the rows. It now has overloads — a plain select resolves to `T[]`, `single` resolves to `T | null` — so that narrowing is dead at roughly twenty call sites across `api-gateway` (routes and `aggregation.ts`), `bootstrap-worker`, and `lib/api-keys.ts`. They all still compile; the checks are simply unreachable noise, and a few (`orgs.ts:34`, `:52`) silently map "not an array" to "empty", which would mask a real change in the client contract. Same follow-on: `findOrgByStripeCustomerId` in `workers/stripe-webhook/src/supabase.ts` casts `result.data as { id: string } | null`, now only needed for the row shape — passing a type parameter to `query()` would remove it.
+
+**Scope:**
+1. Remove the dead `Array.isArray` narrowing where the overload makes it provably redundant.
+2. Keep the genuine `length === 0` / null checks.
+3. Give `findOrgByStripeCustomerId` a type parameter instead of a cast.
+
+**Status:** Open — mechanical cleanup, no behavior change; best done in one sweep so the diff is easy to read.
+
+---
+
+### CR09: Stripe handler tests assert error strings the admin can never produce
+
+**Priority:** P3 | **Source:** session 2026-07-26, found converting `stripe-webhook/src/supabase.test.ts`
+**Estimated:** 1–2 hours
+
+**Context:** `workers/stripe-webhook/src/handlers/*.test.ts` double `SupabaseAdmin` and assert bare error strings such as `'Connection timeout'` and `'Insert failed'`. Every error the real admin returns is `HTTP <status>: <body>`, so those assertions describe a shape production never emits — a handler that formats or matches on error text could be wrong in production while the tests stay green. The doubles themselves are appropriate (`SupabaseAdmin` is a domain port, unlike the REST client), so this is about fixture fidelity, not another conversion.
+
+**Scope:**
+1. Change the doubles' error fixtures to the real `HTTP <status>: <body>` form.
+2. Check whether any handler branches on error text.
+
+**Status:** Open — test-fidelity gap; `supabase.test.ts` itself now drives a real client and is unaffected.
+
+---
+
+### CR10: `fetchPendingDeadLetters` can return a `[null]` phantom dead letter
+
+**Priority:** P3 | **Source:** session 2026-07-26, found converting `stripe-webhook/src/supabase.test.ts`
+**Estimated:** 30 minutes
+
+**Context:** `query()` wraps a non-array body into an array, so a malformed `null` response surfaces as `[null]`, not `[]`, and `fetchPendingDeadLetters` would hand that straight to the retry loop as a dead letter with no fields. The `!Array.isArray(result.data)` guard that appeared to defend against this never fired — `[null]` is itself an array — and was removed as dead code in `41cc928`. Not reachable through PostgREST, which always answers a select with an array, so this is robustness rather than a live bug. The current shape is pinned by the test `'non-array data → returned as the client wraps it, without error'`.
+
+**Scope:**
+1. Decide whether the client should return `[]` rather than `[value]` when a select body is not an array, or whether `fetchPendingDeadLetters` should filter non-objects.
+2. Update the pinning test to match whichever contract is chosen.
+
+**Status:** Open — theoretical; worth a decision rather than a fix.
 
 ---
 
@@ -354,3 +520,5 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 *Backlog-implementer session (2026-03-21): OTEL-1 POST /v1/ingest/otel implemented — OtelSpanSchema, IngestOtelRequestSchema, handleIngestOtel with API-key auth + quota enforcement + attribute size caps (1b771e3, c40a1c8, PASS); 10 new tests. Payments roadmap "Telemetry/monitoring setup" item DONE. Test Status: ✅ 120 api-gateway tests passing. Items completed: 1. Remaining: T28 (design decision). Score: 9/10.*
 
 *Backlog-implementer session (2026-03-21): L23 rate-limit headers forwarded (e743c68, PASS); L25 OTEL_INGEST_ROUTE exported (2aa30eb, PASS); L24 start_time_ms upper bound refine (32658b9, PASS); L22 makeOpts typed as SupabaseClient|undefined (ce4c563, PASS); final review high finding addressed — applyRateLimitHeaders helper + boundary tests (5e5d2c4). Test Status: ✅ 122 api-gateway tests passing. Items completed: 4 (L22-L25). Remaining: T28 (design decision). Score: 10/10.*
+
+*Code-review remediation session (2026-07-26): recovered and consolidated the 8-area review (43 items / 51 findings), fixed the PostgREST `Prefer` header and the `/signup?tier=Team` routing break, then a backlog pass closed 38 more. Added CR01–CR10 for the remainder: the 5 items never fixed, 2 marked-fixed-but-not-closed (inert rate limiter, JWT still in a URL fragment), and 3 found while converting the api-gateway and stripe-webhook tests to drive a real Supabase client over a stubbed transport. Test Status: ✅ 3,001 Flutter + 984 worker tests passing; zero TypeScript errors across all 7 workers.*

@@ -10,7 +10,7 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 
 ## Status
 
-| Severity | Total | Fixed | Open |
+| Severity | Total | Fixed | Not fixed |
 |---|---|---|---|
 | High | 9 | 9 | 0 |
 | Medium | 16 | 14 | 2 |
@@ -18,9 +18,9 @@ The original run finished all 8 area sweeps, but rate limits killed the last ver
 | Found later | 2 | 0 | 2 |
 | **Total** | **45** | **40** | **5** |
 
-The "found later" row is not from the 8-area sweep — see [Found during follow-up work](#found-during-follow-up-work).
+**This file is the review record, not a worklist.** Every item still needing work has been moved to [`docs/BACKLOG.md`](docs/BACKLOG.md) as **CR01–CR10**, which is the single place to pick work up. That covers the 5 unfixed items above, the 2 marked fixed but not fully closed, and 3 more found while remediating. Unchecked boxes below are kept so the review reads as it was written; each one names its backlog entry.
 
-Two items are marked fixed but are **not fully closed** — see [Caveats on "fixed" items](#caveats-on-fixed-items) before treating them as done.
+The "found later" row is not from the 8-area sweep — see [Found during follow-up work](#found-during-follow-up-work).
 
 Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (High), stripe-webhook verify + auth_page + cookie_banner + contact_section (Medium), and request_failure_page + auth.ts exp + stripe-schemas InvoiceSchema + contact-form CSRF/CRLF + signup_page analytics + status_result_page spacing + shared_app_bar URL (Low) were fixed on 2026-07-26 (backlog-implementer pass). Every other item is unverified-since-review and should be re-confirmed against current `main` before work starts.
 
@@ -50,8 +50,8 @@ Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (H
 
 ## Medium severity
 
-- [ ] **`doppler.json` — full encrypted secrets export committed to the repo** (37 KB, tracked since commit `faf0ccc`). Anyone with repo read access holds a permanent offline copy of all worker secrets, decryptable the moment any Doppler token leaks. Rotation can't retract it; it needs removal + history scrub + secret rotation. *(newly verified 2026-07-26)*
-- [ ] **No dev/prod environment separation for worker deploys** — `npm run deploy` (Doppler dev) and `deploy:prd` both run plain `wrangler deploy` against the same single-name `wrangler.toml`, so a "dev" deploy overwrites the production sender-worker — the exact worker the CI-built Flutter site calls (default URL in `provisioning_service.dart:15`, no `--dart-define` in `ci.yml`). CLAUDE.md's "deploys to dev environment" claim is false. Same pattern in the other workers. *(newly verified 2026-07-26)*
+- [ ] **`doppler.json` — full encrypted secrets export committed to the repo** (37 KB, tracked since commit `faf0ccc`). Anyone with repo read access holds a permanent offline copy of all worker secrets, decryptable the moment any Doppler token leaks. Rotation can't retract it; it needs removal + history scrub + secret rotation. *(newly verified 2026-07-26)* **Moved to `docs/BACKLOG.md` as CR01.**
+- [ ] **No dev/prod environment separation for worker deploys** — `npm run deploy` (Doppler dev) and `deploy:prd` both run plain `wrangler deploy` against the same single-name `wrangler.toml`, so a "dev" deploy overwrites the production sender-worker — the exact worker the CI-built Flutter site calls (default URL in `provisioning_service.dart:15`, no `--dart-define` in `ci.yml`). CLAUDE.md's "deploys to dev environment" claim is false. Same pattern in the other workers. *(newly verified 2026-07-26)* **Moved to `docs/BACKLOG.md` as CR02**, together with the api-gateway route/binding item above (CR02a).
 - [x] `workers/api-gateway/wrangler.toml:5` — routes exist only under `[env.production]` but deploy scripts never pass `--env`, so production routes are never attached; conversely `--env production` would lose the `QUOTA_DO` binding (not inherited).
 - [x] `workers/api-gateway/src/durable-objects/quota.ts:229` — quota DO persists at most every 10s and never for sparse traffic; counts are lost on eviction, under-enforcing monthly limits.
 - [x] `workers/api-gateway/src/lib/quota.ts:126` — plan-key mismatch (`starter` vs `DEFAULT_QUOTAS`' `free`), and a `quota_version` bump resets `monthlyUsed` mid-month.
@@ -85,28 +85,28 @@ Items 2 and 7 were fixed on 2026-07-26 (initial pass). Items 1, 3, 4, 5, 6, 9 (H
 - [x] `workers/contact-form/src/index.ts:414` — CSRF validation fails open when `CSRF_SECRET` is unset; and `:491` — CRLF from name/organization flows unsanitized into the email Subject header.
 - [x] `workers/bootstrap-worker/src/bootstrap.ts:83` — crashes on `orgs[0].id` when memberships exist but no org row matches; the organizations table is fetched unfiltered.
 - [x] `workers/cors-utils.ts:20` — reflects the caller's origin into `Access-Control-Allow-Origin` unconditionally; the allowlist only gates the credentials flag.
-- [ ] `workers/receiver-worker/src/index.ts:72` — the stub's replay protection is a 5-minute timestamp window with no nonce cache (local test double only).
+- [ ] `workers/receiver-worker/src/index.ts:72` — the stub's replay protection is a 5-minute timestamp window with no nonce cache (local test double only). **Folded into the existing `W06` backlog item**, which already covers a nonce store for the production receiver; the file here is not deployed, so no separate entry was created.
 - [x] `test/unit/csp_config_test.dart:163` — the frame-ancestors clickjacking test passes by matching an HTML comment in `index.html`; the real policy lives in `web/_headers`, which the test never inspects, so it stays green if that protection is deleted. *(newly verified 2026-07-26)*
 
 ---
 
 ## Found during follow-up work
 
-Not part of the original review. Both surfaced on 2026-07-26 while converting the api-gateway route tests to drive a real Supabase client over a stubbed transport — the mocked tests only ever returned `{ ok: true }`, so neither failure path had ever been executed. Both are verified against the code, and current behavior is now pinned by tests so a deliberate change is visible in a diff.
+Not part of the original review. Both surfaced on 2026-07-26 while converting the api-gateway route tests to drive a real Supabase client over a stubbed transport — the mocked tests only ever returned `{ ok: true }`, so neither failure path had ever been executed. Both are verified against the code, and current behavior is now pinned by tests so a deliberate change is visible in a diff. **Moved to `docs/BACKLOG.md` as CR05 and CR06.**
 
-- [ ] **`workers/api-gateway/src/routes/usage.ts:107` and `:130` — usage and entitlements queries fail open, reporting a database outage as valid empty data.** Both read `result.ok && Array.isArray(result.data) ? result.data : []` and then return `ok(...)`, so a Supabase 5xx produces **HTTP 200 with an empty payload**. A caller cannot distinguish "Supabase is down" from "no usage this month". The entitlements case is the worse of the two: `buildEntitlementMap([])` yields an empty map, so an outage silently presents as *no features enabled* rather than as an error, and any client gating UI on entitlements will downgrade the account. Returning 5xx (or at minimum a `degraded` flag) would let callers tell the difference.
+- [ ] **`workers/api-gateway/src/routes/usage.ts:107` and `:130` — usage and entitlements queries fail open, reporting a database outage as valid empty data.** Both read `result.ok && Array.isArray(result.data) ? result.data : []` and then return `ok(...)`, so a Supabase 5xx produces **HTTP 200 with an empty payload**. A caller cannot distinguish "Supabase is down" from "no usage this month". The entitlements case is the worse of the two: `buildEntitlementMap([])` yields an empty map, so an outage silently presents as *no features enabled* rather than as an error, and any client gating UI on entitlements will downgrade the account. Returning 5xx (or at minimum a `degraded` flag) would let callers tell the difference. **→ CR05.**
 
-- [ ] **`workers/api-gateway/src/routes/me.ts:33` — a database failure is reported to the client as `404 User not found`.** The guard `if (!result.ok || !Array.isArray(result.data) || result.data.length === 0)` collapses a transport/DB error and a genuine zero-row result into the same `notFound('User not found')`. During an outage every authenticated caller is told their account does not exist, which a client may reasonably act on by signing the user out. The two cases need separate branches: 5xx when `!result.ok`, 404 only on zero rows.
+- [ ] **`workers/api-gateway/src/routes/me.ts:33` — a database failure is reported to the client as `404 User not found`.** The guard `if (!result.ok || !Array.isArray(result.data) || result.data.length === 0)` collapses a transport/DB error and a genuine zero-row result into the same `notFound('User not found')`. During an outage every authenticated caller is told their account does not exist, which a client may reasonably act on by signing the user out. The two cases need separate branches: 5xx when `!result.ok`, 404 only on zero rows. **→ CR06.**
 
 ---
 
 ## Caveats on "fixed" items
 
-Two items are checked off because the code change landed, but neither is fully closed. Verified against the tree on 2026-07-26.
+Two items are checked off because the code change landed, but neither is fully closed. Verified against the tree on 2026-07-26. **Moved to `docs/BACKLOG.md` as CR03 and CR04.**
 
-**High 5 — rate limiting on `/signin` and `/signup` is inert in every environment.** The limiter exists (`workers/sender-worker/src/utils.ts`) but is keyed on an optional binding, and `utils.ts:86` reads `if (!env.RATE_LIMIT_KV) return { allowed: true }` — it **fails open**. The `[[kv_namespaces]]` block in `workers/sender-worker/wrangler.toml` is commented out, left as setup instructions. Until someone runs `wrangler kv namespace create RATE_LIMIT_KV` and uncomments the binding in both dev and prd, the endpoints have exactly the same brute-force exposure the finding described. This is a deployment step, not a code change.
+**High 5 — rate limiting on `/signin` and `/signup` is inert in every environment.** The limiter exists (`workers/sender-worker/src/utils.ts`) but is keyed on an optional binding, and `utils.ts:86` reads `if (!env.RATE_LIMIT_KV) return { allowed: true }` — it **fails open**. The `[[kv_namespaces]]` block in `workers/sender-worker/wrangler.toml` is commented out, left as setup instructions. Until someone runs `wrangler kv namespace create RATE_LIMIT_KV` and uncomments the binding in both dev and prd, the endpoints have exactly the same brute-force exposure the finding described. This is a deployment step, not a code change. **→ CR03.**
 
-**High 3 — the JWT is still in a URL, just a safer part of it.** The `?jwt=` router entry point is fully gone, which removes the login-CSRF deep-link vector. The dashboard handoff moved from `?access_token=` to `#access_token=` (`lib/pages/provision_page.dart:90`). A fragment is not sent to the server, so this does eliminate the proxy/server-log and Referer leaks — the worst part of the finding. It does **not** remove the token from browser history (fragments are stored with the history entry, contrary to the code comment there), and any script on the dashboard origin can still read `location.hash`. A postMessage or one-time-code exchange would close it properly.
+**High 3 — the JWT is still in a URL, just a safer part of it.** The `?jwt=` router entry point is fully gone, which removes the login-CSRF deep-link vector. The dashboard handoff moved from `?access_token=` to `#access_token=` (`lib/pages/provision_page.dart:90`). A fragment is not sent to the server, so this does eliminate the proxy/server-log and Referer leaks — the worst part of the finding. It does **not** remove the token from browser history (fragments are stored with the history entry, contrary to the code comment there), and any script on the dashboard origin can still read `location.hash`. A postMessage or one-time-code exchange would close it properly. **→ CR04.**
 
 ## Fix notes
 
