@@ -28,6 +28,9 @@ build/web/
 .env.local
 .env.*.local
 
+# Doppler CLI secrets snapshot — contains encrypted secrets; never commit
+doppler.json
+
 # Coverage
 coverage/
 coverage_report/
