@@ -17,6 +17,7 @@ const ORG_ID = 'org-id-1';
 const OTHER_ORG_ID = 'org-id-2';
 const USER_ID = 'user-id-1';
 const RETURN_URL = 'https://app.integritystudio.ai/#/billing';
+const API_KEY_TOKEN = 'int_live_abc12345_0123456789abcdef';
 
 async function makeJwt(payload: Record<string, unknown>, secret: string): Promise<string> {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
@@ -248,6 +249,15 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
     const req = new Request(`https://api.test/v1/orgs/${ORG_ID}/billing-portal`, { method: 'POST' });
     const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
     expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for an API key token rather than an opaque 401', async () => {
+    stubSupabase({});
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, API_KEY_TOKEN, 'POST');
+    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: { message: string } };
+    expect(body.error.message).toContain('API keys are not accepted');
   });
 
   it('returns 403 when user is not a member', async () => {

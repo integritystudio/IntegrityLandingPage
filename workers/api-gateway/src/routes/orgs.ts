@@ -1,6 +1,8 @@
 import Stripe from 'stripe';
 import { ok, forbidden, notFound, serverError } from '../../../lib/http';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
+import { requireBearerToken } from '../../../lib/http/request';
+import { parseApiKey } from '../../../lib/api-keys';
 import type { Organization, OrgRole, OrgMembership, Entitlement } from '../../../lib/types';
 import { resolveJwt, buildEntitlementMap, writeAuditLog } from '../lib/helpers';
 
@@ -147,13 +149,22 @@ export async function handleOrgBillingStatus(
 /**
  * POST /v1/orgs/:id/billing-portal
  * Creates a Stripe Customer Portal session and returns the session URL.
- * Requires owner or billing_admin role.
+ * Requires a user session (Supabase JWT) with owner or billing_admin role.
+ * API keys are rejected with 403 — the shared `preVerifyToken` gate accepts
+ * them, so without this check a key-authenticated caller would fall through to
+ * `resolveJwt` and get an opaque 401 instead of "keys can't do this".
  */
 export async function handleBillingPortal(
   request: Request,
   orgId: string,
   opts: BillingPortalHandlerOptions,
 ): Promise<Response> {
+  const tokenResult = requireBearerToken(request);
+  if (!tokenResult.ok) return tokenResult.error;
+  if (parseApiKey(tokenResult.token).ok) {
+    return forbidden('Billing portal requires a user session; API keys are not accepted');
+  }
+
   const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
