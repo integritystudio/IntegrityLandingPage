@@ -8,7 +8,10 @@
 alter table if exists public.auth_user_links enable row level security;
 
 -- RLS Policy: Users can view their own auth_user_link
-create policy if not exists "users_view_own_auth_link"
+-- Postgres has no IF NOT EXISTS for CREATE POLICY; drop-then-create is the
+-- idempotent form.
+drop policy if exists "users_view_own_auth_link" on public.auth_user_links;
+create policy "users_view_own_auth_link"
   on public.auth_user_links for select
   using (auth.uid() = auth_user_id);
 
@@ -26,7 +29,8 @@ create index if not exists idx_users_auth_user_id on public.users(auth_user_id);
 alter table public.api_keys enable row level security;
 
 -- RLS Policy: Users can view their own API keys
-create policy if not exists "users_view_own_api_keys"
+drop policy if exists "users_view_own_api_keys" on public.api_keys;
+create policy "users_view_own_api_keys"
   on public.api_keys for select
   using (
     user_id in (
