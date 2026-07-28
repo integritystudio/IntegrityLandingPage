@@ -9,7 +9,8 @@
     "deploy:prd": "doppler run --project integrity-studio --config prd -- wrangler deploy",
     "tail": "wrangler tail",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:live": "doppler run --project integrity-studio --config dev -- vitest run --config vitest.live.config.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241205.0",
