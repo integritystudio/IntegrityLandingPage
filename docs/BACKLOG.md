@@ -427,7 +427,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | ID | P | Status | One line |
 |---|---|---|---|
 | [CR01](#cr01) | P1 | ⚠️ partial | Untracked, but the bundle is still in git history and **no secret has been rotated**. Supabase key is now `sb_secret_`, so that part is cheaper than assumed |
-| [CR18](#cr18) | P1 | 🔴 open | **Two different Stripe accounts.** No live secret key exists anywhere, so production `stripe-webhook` cannot be completed |
+| [CR18](#cr18) | P1 | ⚠️ partial | Live key minted; prd endpoint + signing secret live and verified. Remaining: `dev` holds a publishable key under `STRIPE_SECRET_KEY`, and no Worker binds the key |
 | [CR11](#cr11) | P1 | 🔴 open | Doppler `dev` == `prd`; no data isolation. Detector: `npm run check:env-isolation`. **Covers no Stripe credential** |
 | [CR12](#cr12) | P1 | ⚠️ partial | `api-gateway` now **healthy** (3 secrets bound). Still missing `API_KEY_HMAC_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
 | [CR14](#cr14) | P1 | ⚠️ partial | Closed on `api-gateway` + `stripe-webhook`. **Still exposed:** `sender-worker` (13 secrets), `integrity-studio-contact`, `api-provisioning-receiver` |
@@ -919,7 +919,21 @@ Different account IDs mean these are not the test and live halves of one account
 
 **Already done (test mode only):** endpoint `we_1Ty14zBWbFuvm1I6rvLOD5OW` is registered on the sandbox account against `stripe-webhook-dev`, `api_version` pinned to `2025-09-30.clover`, subscribed to the five events the handlers implement. Its signing secret is bound to that Worker and stored in Doppler `dev`. Signature verification is proven end to end by `workers/stripe-webhook/src/webhook-signature.live.test.ts` (`npm run test:live`).
 
-**Status:** 🔴 Open — blocked on an owner decision (which account) plus one Dashboard action (mint the key) that no API can perform.
+**Status:** ⚠️ Mostly resolved (2026-07-28) — the blocker cleared when a live key was minted in the Dashboard.
+
+**Resolved:**
+- **Production account is `acct_1SN2e7AwEfePbhfk`** ("Integrity Studio", US, `charges_enabled`, `payouts_enabled`). Question in scope item 1 is answered.
+- `prd`'s `STRIPE_API_KEY` is now an **`rk_live_` restricted key** on that account — no longer the publishable key the table above describes. Verified against `GET /v1/account` → `200`.
+- **`STRIPE_SECRET_KEY` (`prd`) now holds that same restricted key.** Chosen over the full-access `sk_live_` for least privilege; the `sk_live_` remains in Doppler secret history. Write scopes verified without creating objects (probe reaches parameter validation, which is past the permission gate): `checkout/sessions`, `billing_portal/sessions`, `webhook_endpoints`, `customers` — everything this repo exercises.
+- **Live-mode endpoint registered:** `we_1Ty29dAwEfePbhfkky1OeqQu` → `https://stripe-webhook.alyshia-b38.workers.dev/webhook`, `api_version=2025-09-30.clover`, the five implemented events, `livemode=true`.
+- **`STRIPE_WEBHOOK_SECRET` stored in Doppler `prd` and bound to production `stripe-webhook`.** Proven end to end with a control: correct secret → `200`, wrong secret → `401 Invalid Stripe signature`.
+
+**Still open:**
+1. **Doppler `dev` is now actively wrong.** `dev`'s `STRIPE_SECRET_KEY` holds a **`pk_live_` publishable key belonging to the production account** — a publishable key under a secret-key name, so every server-side call made with it fails `Permission denied`. `dev`'s `STRIPE_API_KEY` is the sandbox `sk_test_`. The two names mean different things in each config.
+2. **`STRIPE_API_KEY` and `STRIPE_SECRET_KEY` in `prd` now hold the identical value.** Scope item 4's rename is superseded: decide whether `STRIPE_API_KEY` should be dropped or repointed at the publishable key, and note that rotating one will not rotate the other.
+3. Scope item 5 is untouched — `scripts/check-env-isolation.sh` still compares no Stripe credential.
+4. **`STRIPE_SECRET_KEY` is bound to no Worker.** `api-gateway` (`src/index.ts:164`, billing portal) and `sender-worker` (`src/index.ts:322,340`, checkout) both read it and both still lack it.
+5. **The live Customer Portal has no configuration** (`GET /v1/billing_portal/configurations` → 0). `billing_portal.sessions.create` will fail at runtime until one is created in the Dashboard, independent of the key.
 
 ---
 
