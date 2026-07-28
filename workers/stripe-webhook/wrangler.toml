@@ -2,6 +2,12 @@ name = "stripe-webhook"
 main = "src/index.ts"
 compatibility_date = "2026-03-19"
 
+# Retained versions are otherwise published at per-version workers.dev URLs with
+# the script's CURRENT secrets bound, so superseded code stays callable. Left
+# unset this defaults to true, which would re-expose the worker on the next
+# deploy even after the live setting is turned off. BACKLOG.md CR14.
+preview_urls = false
+
 # Stripe webhook secret (set via: wrangler secret put STRIPE_WEBHOOK_SECRET)
 # Retrieve from Stripe Dashboard > Developers > Webhooks > Signing secret
 

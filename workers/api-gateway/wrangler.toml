@@ -2,6 +2,12 @@ name = "api-gateway"
 main = "src/index.ts"
 compatibility_date = "2026-03-19"
 
+# Retained versions are otherwise published at per-version workers.dev URLs with
+# the script's CURRENT secrets bound, so superseded code stays callable. Left
+# unset this defaults to true, which would re-expose the worker on the next
+# deploy even after the live setting is turned off. BACKLOG.md CR14.
+preview_urls = false
+
 # Production routes attached on every plain `wrangler deploy` (no --env needed).
 routes = [
   { pattern = "api.integritystudio.ai/v1/*", zone_name = "integritystudio.ai" }
