@@ -15,6 +15,9 @@
 # Known limits:
 #   - Checks object *presence* only, not column types, constraints, or defaults.
 #   - Cannot verify DML-only migrations.
+#   - Parses single-line CREATE TABLE/FUNCTION declarations only; multi-line
+#     statements (CREATE TABLE\n  public.name) will be missed.  Supabase
+#     migrations in this repo use single-line declarations throughout.
 #   - Skips triggers: 20260320010002's triggers are deliberately absent
 #     (duplicated by phase1_consolidated; see BACKLOG.md CR17).
 #
