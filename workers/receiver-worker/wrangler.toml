@@ -5,6 +5,22 @@ compatibility_date = "2026-03-19"
 # HMAC signing key (set via: wrangler secret put SHARED_SECRET)
 # Generate a secure random secret: openssl rand -base64 32
 
+# Observability. Carried here for consistency with the other Workers and so the
+# deploy-safety test can assert one rule for all of them; this stub is not
+# deployed, so it has no practical effect. The parent `enabled` is required —
+# without it a Worker deploys with observability OFF even when the child tables
+# are both true (BACKLOG.md CR15). A named environment REPLACES this block
+# rather than merging, so [env.dev] repeats it below.
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+
 # --- dev environment (`npm run deploy`) -------------------------------------
 # This Worker is a local stub / test double and is not part of any deployed
 # environment — production is `api-provisioning-receiver` in the
@@ -13,3 +29,13 @@ compatibility_date = "2026-03-19"
 # cannot land on a name anything else might resolve.
 [env.dev]
 name = "receiver-worker-dev"
+
+[env.dev.observability]
+enabled = true
+
+[env.dev.observability.logs]
+enabled = true
+invocation_logs = true
+
+[env.dev.observability.traces]
+enabled = true

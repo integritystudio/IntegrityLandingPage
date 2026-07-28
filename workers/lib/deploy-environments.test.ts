@@ -190,6 +190,50 @@ describe('worker deploy environments (CR02)', () => {
     }
   });
 
+  // Observability (BACKLOG.md CR15 / W04). The parent `enabled` is required:
+  // wrangler deploys `observability.enabled: false` when only the child tables
+  // are set, so a config that *looks* instrumented emits nothing. Production
+  // sender-worker ran that way for ~4 months, and the other five Workers had no
+  // observability block at all — which is why CR12's four-month gateway outage
+  // and stripe-webhook's silently-failing cron went unnoticed. These assertions
+  // encode the shape that actually works.
+  describe('observability', () => {
+    it.each(WORKERS)('%s: enables observability with the required parent flag', (worker) => {
+      const observability = loadConfig(worker).observability as Record<string, unknown> | undefined;
+
+      expect(observability, `${worker} has no [observability]; it will emit no logs or traces`).toBeDefined();
+      expect(
+        observability!.enabled,
+        `${worker} omits [observability] enabled — child tables alone deploy as disabled`,
+      ).toBe(true);
+    });
+
+    it.each(WORKERS)('%s: captures logs with invocation logs on', (worker) => {
+      const observability = loadConfig(worker).observability as
+        | { logs?: Record<string, unknown> }
+        | undefined;
+
+      expect(observability?.logs?.enabled, `${worker} does not enable observability logs`).toBe(true);
+      expect(
+        observability?.logs?.invocation_logs,
+        `${worker} omits invocation_logs, so request-level records are dropped`,
+      ).toBe(true);
+    });
+
+    it.each(WORKERS)('%s: [env.dev] repeats observability, which is REPLACED not merged', (worker) => {
+      // A named environment's observability block overwrites the parent's
+      // wholesale. Omitting it under [env.dev] means the dev Worker silently
+      // runs uninstrumented while production is instrumented — the same class of
+      // asymmetry as the non-inheritable bindings above, but with the opposite
+      // failure signature (silence rather than a missing binding error).
+      const dev = loadConfig(worker).env?.dev ?? {};
+      const devObservability = dev.observability as Record<string, unknown> | undefined;
+
+      expect(devObservability, `${worker} [env.dev] omits observability; it replaces, not merges`).toBeDefined();
+      expect(devObservability!.enabled).toBe(true);
+    });
+  });
+
   it('stripe-webhook dev does not run the dead-letter cron', () => {
     // Two workers draining webhook_dead_letters against one Supabase project
     // would race over production rows every 15 minutes.

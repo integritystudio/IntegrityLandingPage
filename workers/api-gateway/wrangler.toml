@@ -21,6 +21,23 @@ class_name = "QuotaDurableObject"
 tag = "v1"
 new_classes = ["QuotaDurableObject"]
 
+# Observability. The parent `enabled` is required, not decorative: without it a
+# Worker deploys with observability OFF even when the child tables are both
+# true. That omission is why production `sender-worker` ran unmonitored for ~4
+# months (BACKLOG.md CR15). This Worker had no observability block at all, so it
+# has never emitted logs or traces — which is also why CR12's four-month outage
+# went unnoticed. A named environment REPLACES this block rather than merging
+# into it, so [env.dev] repeats it below (BACKLOG.md W04).
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+
 # --- dev environment (`npm run deploy`) -------------------------------------
 # Publishes to a separate Worker so a local deploy cannot overwrite the one
 # api.integritystudio.ai points at.
@@ -45,6 +62,16 @@ routes = []
 [[env.dev.durable_objects.bindings]]
 name = "QUOTA_DO"
 class_name = "QuotaDurableObject"
+
+[env.dev.observability]
+enabled = true
+
+[env.dev.observability.logs]
+enabled = true
+invocation_logs = true
+
+[env.dev.observability.traces]
+enabled = true
 
 # Secrets (set via: wrangler secret put <NAME>)
 # SUPABASE_URL

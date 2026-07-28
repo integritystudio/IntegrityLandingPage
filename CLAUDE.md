@@ -27,9 +27,9 @@ wrangler dev --port 8787          # Local dev server
 **Phase**: Codebase review remediation + worker deploy/settings audit — 48 findings fixed, 10 open as CR01–CR16
 **Last Updated**: 2026-07-27
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ 3,001 Flutter tests passing (~94% coverage); 1,021 worker tests passing (6 workers + shared lib); zero TypeScript errors; `flutter analyze` clean
+**Test Status**: ✅ 3,001 Flutter tests passing (~94% coverage); 1,039 worker tests passing (6 workers + shared lib); zero TypeScript errors; `flutter analyze` clean
 **Deployed**: production `sender-worker` + `integrity-studio-contact` healthy; `api-gateway` **503/degraded** and `stripe-webhook` has zero secrets bound (CR12). Five `*-dev` workers exist and are deliberately secret-less (CR11); no zone route points at any of them.
-**Pending a `deploy:prd`** — committed but not live: CR03's `RATE_LIMIT_KV` binding, CR14's `preview_urls = false`, CR15's observability block. CI deploys `sender-worker` on merge to `main`; other workers are manual.
+**Pending a `deploy:prd`** — committed but not live: CR03's `RATE_LIMIT_KV` binding, CR14's `preview_urls = false`, and observability on all six workers (CR15 + W04 step 1). CI deploys `sender-worker` on merge to `main`; other workers are manual.
 
 See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recent changes.
 

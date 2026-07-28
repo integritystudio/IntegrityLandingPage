@@ -309,13 +309,24 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 **Priority:** P2 | **Source:** session 2026-06-27, reconciled from provisioning setup notes (now consolidated into `docs/provisioning-environment-setup.md`) — open items "Monitoring and alerting — must implement", "Monitoring Dashboards — Cloudflare Analytics"
 **Estimated:** 4–6 hours
 
-**Context:** `sender-worker` has `[observability.logs]` with `invocation_logs = true` (`workers/sender-worker/wrangler.toml`), so logs are captured, but there is **no alerting and no dashboard** for the provisioning path (`sender-worker` → `api-provisioning-receiver`). The setup summary flagged this as "must implement" but it was never tracked as a real item. `api-provisioning-receiver` lives in the `observability-toolkit` repo, so end-to-end provisioning observability spans both repos.
+**Context:** there is **no alerting and no dashboard** for the provisioning path (`sender-worker` → `api-provisioning-receiver`). The setup summary flagged this as "must implement" but it was never tracked as a real item. `api-provisioning-receiver` lives in the `observability-toolkit` repo, so end-to-end provisioning observability spans both repos.
+
+> **⚠️ Audit 2026-07-27 — this item's premise was wrong.** It previously opened "`sender-worker` has `[observability.logs]` with `invocation_logs = true` … **so logs are captured**". They were not. The deployed worker reported `observability: {"enabled": false, logs: {"enabled": true, …}}` — the parent `enabled` flag was never set, which silently disables the whole block regardless of the child tables ([[CR15]]). Worse, the **other five Workers had no `[observability]` block at all**, so the repo had essentially no telemetry anywhere. Step 2 was not "logs exist, add a dashboard"; it was starting from nothing.
+
+**✅ Step 0 done (2026-07-27) — instrumentation now exists in config.** All six Workers declare `[observability]` with the required parent `enabled = true`, plus `logs.enabled`, `invocation_logs`, and `traces.enabled`, at **both** the top level and under `[env.dev]` (a named environment *replaces* the parent block rather than merging into it, so it must be repeated). Guarded by 18 new assertions in `workers/lib/deploy-environments.test.ts`, mutation-verified: removing the parent flag, disabling logs, dropping `invocation_logs`, or deleting the `[env.dev]` block each fails the suite. All 12 configurations validate under `wrangler deploy --dry-run`. **Not yet live** — every Worker needs a `deploy:prd` for this to take effect; CI covers `sender-worker` only.
+
+What this unblocks, and what it does not: the signals in step 1 will exist once deployed, so steps 2–4 become real work rather than speculation. It does **not** by itself produce a dashboard or an alert.
+
+**Correct target for this work:** route through `ingest.integritystudio.ai` / `observability-toolkit`, as step 2 already suggests. That is Integrity Studio's **internal** OTEL pipeline and is the right destination for worker self-monitoring. Do **not** redirect it to `api-gateway`'s `/v1/ingest/otel`, which is the **customer-facing** ingestion path — see [[CR16]] for why the two are separate.
 
 **Scope:**
-1. Define the signals that matter: `/send` error rate (esp. 502 "receiver-worker unreachable", 500 `INTERNAL_ERROR`), receiver 401s (signature/replay failures — possible attack or key-rotation drift), provisioning latency, Auth0/Supabase call failures.
-2. Stand up a dashboard (Cloudflare Workers Analytics, or route through the existing OTEL pipeline — see `ingest.integritystudio.ai` / `observability-toolkit`) covering sender + receiver.
-3. Add alerting on error-rate and 401-spike thresholds (channel/owner TBD).
-4. Document the dashboard + alert runbook; cross-link from `docs/api-provisioning.md`.
+1. ✅ **Done** — enable observability on every Worker so there is something to observe (see Step 0 above). Deploy to make it live.
+2. Define the signals that matter: `/send` error rate (esp. 502 "receiver-worker unreachable", 500 `INTERNAL_ERROR`), receiver 401s (signature/replay failures — possible attack or key-rotation drift), provisioning latency, Auth0/Supabase call failures. Add `stripe-webhook`'s dead-letter cron to this list: it fires every 15 minutes and has been failing silently since 2026-03-31 ([[CR12]]) precisely because nothing was watching.
+3. Stand up a dashboard (Cloudflare Workers Analytics, or route through the existing internal OTEL pipeline) covering sender + receiver.
+4. Add alerting on error-rate and 401-spike thresholds (channel/owner TBD).
+5. Document the dashboard + alert runbook; cross-link from `docs/api-provisioning.md`.
+
+**Cost note before deploying:** `head_sampling_rate` defaults to `1` (100%) and `invocation_logs` records every request. That is the right setting for current traffic — these Workers are near-idle — but `api-gateway`'s ingest path is designed for customer volume ([[CR16]]), so revisit sampling there before it carries real load.
 
 **Notes / overlap:**
 - [[T28]] already calls for a Cloudflare Durable Object metrics dashboard for quota eviction — narrower, but fold into the same dashboard effort if convenient.
@@ -326,7 +337,7 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 - `docs/api-provisioning.md` (link runbook)
 - `observability-toolkit` (receiver-side spans/metrics)
 
-**Status:** Open — reconciled from setup-summary intentions; needs signal definition + alert-channel decision. See also [[T28]].
+**Status:** Open — instrumentation landed in config (step 1 ✅) and needs a `deploy:prd` per Worker to go live. Remaining work is signal definition, dashboard, and an alert-channel decision. See also [[T28]] (its DO-metrics dashboard folds into step 3) and [[CR15]].
 
 ---
 
