@@ -434,7 +434,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR02](#cr02) | P2 | ✅ mostly | Dev/prod split done and verified live; only the dev receiver remains |
 | [CR04](#cr04) | P2 | ⚠️ partial | Comment corrected; JWT still travels in a URL fragment |
 | [CR13](#cr13) | P2 | 🔴 open | Trap **still armed**, and now likelier to be tripped — `api-gateway`'s config changed, so someone may deploy it |
-| [CR17](#cr17) | P2 | ⚠️ partial | Migration ledger had recorded migrations that never ran. Repaired; **no drift detection exists** |
+| [CR17](#cr17) | P2 | ✅ done | Migration ledger repaired; drift detector in CI (`scripts/check-migration-drift.sh` + `migration-drift-check` job) |
 | [CR19](#cr19) | P2 | ✅ done | `stripe-webhook` org-not-found now returns `{ ok: false }` → unclaimEvent + dead-letter (commits eaaa199, 9741594) |
 | [CR20](#cr20) | P2 | 🔴 open | `stripe-webhook` returns 200 on failure, discarding Stripe's 3-day retry in favour of a cron |
 | [CR03](#cr03) | P2 | ✅ done | KV namespaces created and bound; reaches prod on next `deploy:prd` |
@@ -881,11 +881,11 @@ The differing auth, quota, and storage choices follow from the audience split: t
 **Deliberately left divergent:** `20260320010002` still shows applied with 4 objects missing. Its `trigger_update_*_timestamp` triggers duplicate the `update_*_updated_at` triggers `phase1_consolidated` already installed on the same four tables; re-running it would double-fire timestamp maintenance on every row update for no benefit. Recorded here rather than forced into agreement.
 
 **Remaining work:**
-1. **There is no drift detection.** Nothing would have caught this, and nothing would catch it recurring. A CI step comparing `information_schema` against the migration files — the throwaway script written for this session did exactly that — would. Note the limits of that approach: it compares object *presence* (tables, columns, indexes, triggers, functions, policies, enums), not column types, constraints, or defaults, and it cannot diff DML-only migrations.
-2. **Decide a policy on `migration repair --status applied`.** It should be a last resort with a written reason, not a way past a red push.
-3. Consider whether `20260320010002` should be deleted outright rather than left permanently divergent.
+1. ✅ **Drift detector shipped.** `scripts/check-migration-drift.sh` parses every migration file for `CREATE TABLE` and `CREATE [OR REPLACE] FUNCTION` statements, queries the live database via the Supabase Management API, and reports any missing objects. Run with `npm run check:migration-drift` (needs `SUPABASE_ACCESS_TOKEN`). A `migration-drift-check` CI job runs it on every push to `main` using `DOPPLER_TOKEN` to supply the credential. Known limits: checks object *presence* only (not column types, constraints, or defaults); cannot verify DML-only migrations; skips triggers because `20260320010002`'s triggers are deliberately absent (see above).
+2. **Policy on `migration repair --status applied`**: treat it as a last resort that requires a written reason committed alongside the repair. The command writes a ledger row without executing SQL — it is the correct tool for a migration that has already been applied by other means, and the wrong tool for bypassing a failing push. The two-step safe form is `--status reverted` + fix + `db push`, not `--status applied`. This is documented in `CLAUDE.md` ("Two hard-won rules") but not enforced by any tooling.
+3. `20260320010002` — leaving permanently divergent (4 triggers absent, documented above). Deleting the file would remove a record of why the triggers that do exist came from `phase1_consolidated` rather than this file, which is more confusing than the divergence.
 
-**Status:** ⚠️ Partial — the schema is correct and in sync; the process gap that allowed it is open.
+**Status:** ✅ Done — schema in sync; drift detector in CI; policy documented.
 
 ---
 

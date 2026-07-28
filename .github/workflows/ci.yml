@@ -282,6 +282,34 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy build/web --project-name=integritystudio-ai --commit-dirty=true
 
+  migration-drift-check:
+    name: Migration Drift Check
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # continue-on-error so a Doppler outage never blocks a deploy; the job
+    # still fails visibly in the Actions UI.
+    continue-on-error: true
+
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install Doppler CLI
+        run: curl -Ls https://cli.doppler.com/install.sh | sudo sh
+
+      - name: Run migration drift check
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          SUPABASE_ACCESS_TOKEN=$(doppler secrets get SUPABASE_ACCESS_TOKEN \
+            --project integrity-studio --config prd --plain)
+          export SUPABASE_ACCESS_TOKEN
+          bash scripts/check-migration-drift.sh
+
   deploy-sender-worker:
     name: Deploy Sender Worker
     runs-on: ubuntu-latest
