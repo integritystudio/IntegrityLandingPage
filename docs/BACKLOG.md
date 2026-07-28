@@ -428,12 +428,12 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 |---|---|---|---|
 | [CR01](#cr01) | P1 | ⚠️ partial | Untracked, but the bundle is still in git history and **no secret has been rotated**. Supabase key is now `sb_secret_`, so that part is cheaper than assumed |
 | [CR18](#cr18) | P1 | ⚠️ partial | Live key minted; prd endpoint + signing secret live and verified. Remaining: `dev` holds a publishable key under `STRIPE_SECRET_KEY`, and no Worker binds the key |
-| [CR11](#cr11) | P1 | 🔴 open | Doppler `dev` == `prd`; no data isolation. Detector: `npm run check:env-isolation`. **Covers no Stripe credential** |
+| [CR11](#cr11) | P1 | 🔴 open | Doppler `dev` == `prd` for Supabase + Auth0. Detector now covers Stripe too and fails **10/13**; Stripe is the only family that passes |
 | [CR12](#cr12) | P1 | ⚠️ partial | `api-gateway` now **healthy** (3 secrets bound). Still missing `API_KEY_HMAC_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
 | [CR14](#cr14) | P1 | ⚠️ partial | Closed on `api-gateway` + `stripe-webhook`. **Still exposed:** `sender-worker` (13 secrets), `integrity-studio-contact`, `api-provisioning-receiver` |
 | [CR02](#cr02) | P2 | ✅ mostly | Dev/prod split done and verified live; only the dev receiver remains |
 | [CR04](#cr04) | P2 | ⚠️ partial | Comment corrected; JWT still travels in a URL fragment |
-| [CR13](#cr13) | P2 | 🔴 open | Trap **still armed**, and now likelier to be tripped — `api-gateway`'s config changed, so someone may deploy it |
+| [CR13](#cr13) | P2 | 🔴 open | Trap **still armed** — and now *blocking*. `api-gateway`'s deployed code is from **2026-03-31**, so [[CR22]] and the `d9ba71a` auth fix cannot ship until the `routes` key goes |
 | [CR17](#cr17) | P2 | ✅ done | Migration ledger repaired; drift detector in CI (`scripts/check-migration-drift.sh` + `migration-drift-check` job) |
 | [CR19](#cr19) | P2 | ✅ done | `stripe-webhook` org-not-found now returns `{ ok: false }` → unclaimEvent + dead-letter (commits eaaa199, 9741594) |
 | [CR20](#cr20) | P2 | 🔴 open | `stripe-webhook` returns 200 on failure, discarding Stripe's 3-day retry in favour of a cron |
@@ -443,6 +443,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR16](#cr16) | P3 | 📋 by design | Internal vs customer-facing OTEL pipelines — deliberate; **do not de-duplicate**. Convergence deferred |
 | [CR22](#cr22) | P3 | 🔴 open | Billing-portal API-key 403 merged + tested; **not deployed** — `api-gateway` deploy blocked on [[CR13]] step 1 |
 | [CR23](#cr23) | P3 | 🔴 open | Revoked/expired keys still 401 from `preVerifyToken`; response depends on key *state*. Needs a decision |
+| [CR24](#cr24) | P2 | 🔴 open | **Legacy Supabase `anon` + `service_role` JWT keys are still enabled** and unused. One Management API call disables them |
 
 **Two items are now blocked on code** — [[CR20]] and [[CR21]] are defects in `workers/stripe-webhook/src/`, found by reading the implementation against Stripe's webhook documentation. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). Everything else still needs a credential/provisioning decision (CR01, CR11, CR18), an answer about intent (CR13, CR16), or a production deploy (CR14, CR15, CR03).
 
@@ -580,6 +581,15 @@ Facts established while investigating, several of which correct earlier notes in
 
 **Status:** Open — blocked on two owner decisions: whether to pay for a third Supabase project (step 1) and creating the Auth0 dev tenant (step 2), neither of which is scriptable with the credentials available. Everything downstream of those (steps 3–6) is mechanical and the runbook above is complete. The detector and the documentation corrections landed 2026-07-27.
 
+**Update 2026-07-28 — the detector now covers Stripe, and Stripe is the only family that passes (10/13 failing).**
+
+Two findings from probing what the Management APIs can actually do:
+
+- **`POST /v1/projects` is available to the `sbp_` token**, so step 1 is scriptable after all. What it is blocked on is the *spend decision*, not tooling. The account currently holds one active project (`IntegrityStudio`) plus `atx_movement`, which is `INACTIVE` and unrelated.
+- **There is a tempting false fix, and the detector now refuses it.** `POST /v1/projects/{ref}/api-keys` mints an `sb_secret_` key carrying `secret_jwt_template {role: service_role}`. Pointing `dev` at a freshly minted key would make `SUPABASE_SERVICE_ROLE_KEY` differ, so the hash table would print `ok (distinct)` — while the key still bypasses RLS on the **production** database. It would also only reach 2 of the 4 Supabase rows: `SUPABASE_URL` derives from the project ref and `SUPABASE_JWT_SECRET` is one-per-project, so neither can differ within a single project. Net effect would be trading a loud accurate failure for a quiet misleading one. `scripts/check-env-isolation.sh` now detects the shared `SUPABASE_URL` and says so explicitly (commit `0bc8f3a`).
+
+The general lesson is the same one [[CR18]] taught with a `pk_live_` key: **distinctness is necessary but never sufficient.** A credential can differ from production's and still authenticate against production.
+
 ---
 
 <a id="cr12"></a>
@@ -642,13 +652,23 @@ So every authenticated route that touches Supabase — usage, entitlements, orgs
 | `api-gateway` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET` | `200 {"database":"healthy"}` |
 | `stripe-webhook` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | tables exist; cron can now drain |
 
-**Three remain, and none can be bound because no value exists:**
+**Two of the three cleared on 2026-07-28 when [[CR18]] unblocked; one remains:**
 
-1. **`API_KEY_HMAC_SECRET`** (`api-gateway`) — empty in Doppler. Deliberately **not** generated: API keys are minted by `api-provisioning-receiver` in the `observability-toolkit` repo, which hashes them with its own copy. Inventing a value here would silently fail to verify every existing key. The canonical value must come from that Worker's owner. Until then, API-key-authenticated routes (`/v1/ingest/*`) stay broken while JWT routes work.
-2. **`STRIPE_SECRET_KEY`** (`api-gateway`) — empty in all three configs, so the billing portal stays down. Blocked on [[CR18]].
-3. **`STRIPE_WEBHOOK_SECRET`** (`stripe-webhook`) — a signing secret only exists once an endpoint is registered, and no live-mode endpoint can be created without a live secret key. Blocked on [[CR18]].
+1. 🔴 **`API_KEY_HMAC_SECRET`** (`api-gateway`) — still empty in Doppler. Deliberately **not** generated: API keys are minted by `api-provisioning-receiver` in the `observability-toolkit` repo, which hashes them with its own copy. Inventing a value here would silently fail to verify every existing key. The canonical value must come from that Worker's owner. Until then, API-key-authenticated routes (`/v1/ingest/*`) stay broken while JWT routes work.
+2. ✅ **`STRIPE_SECRET_KEY`** (`api-gateway`, and `sender-worker`) — bound 2026-07-28 with the `rk_live_` restricted key. `sender-worker` verified reading it. The billing portal is separately unblocked now that a live Customer Portal configuration exists (`bpc_1Ty2XDAwEfePbhfk9PndBNgW`); a real session was created against it to prove the call works.
+3. ✅ **`STRIPE_WEBHOOK_SECRET`** (`stripe-webhook`) — bound 2026-07-28 from live endpoint `we_1Ty29dAwEfePbhfkky1OeqQu`, verified with a wrong-secret control (200 vs 401).
 
-One side effect worth watching: `stripe-webhook`'s `*/15` dead-letter cron now has database access and a table to read, so the ~96 silent failures a day should stop. Nothing has confirmed a successful cron run yet — worth checking once [[CR15]]'s observability is deployed.
+**Updated worker state (2026-07-28):**
+
+| Worker | Bound | Health |
+|---|---|---|
+| `api-gateway` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `STRIPE_SECRET_KEY` | `/health` 200 |
+| `stripe-webhook` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_WEBHOOK_SECRET` | signed probe → `processed:true`; replay → `already_processed` |
+| `sender-worker` | 13 existing + `STRIPE_SECRET_KEY` | `/health` 200 |
+
+**A caveat that only surfaced when the secret finally worked.** Binding `STRIPE_WEBHOOK_SECRET` let a signed request reach the handler for the first time, and it returned `"Failed to log processed event"` — a string absent from current source. Production `stripe-webhook` had been running 2026-03-31 code that could not write `webhook_events_log`. Supabase was not at fault; the prd key inserts and deletes against that table cleanly. Redeploying fixed it. **The same check has not been done for `api-gateway`, whose deployed code is also from 2026-03-31 and cannot be redeployed until [[CR13]] step 1.** Assume its behaviour does not match this repo.
+
+One side effect worth watching: `stripe-webhook`'s `*/15` dead-letter cron now has database access, a table to read, and current code. Nothing has confirmed a successful cron run yet — worth checking now that observability is deployed on that Worker.
 
 ---
 
@@ -1047,6 +1067,33 @@ That split is arguably correct — the token genuinely is invalid — but it mea
 **Scope:** decide whether response shape should key off credential *type* before credential *validity*; if yes, hoist the type check into `preVerifyToken` with a per-route allowlist and re-verify the ordering assumptions in `orgs.test.ts`, `usage.test.ts`, and `ingest.test.ts`.
 
 **Status:** 🔴 Open — needs a decision, not a fix. Low urgency; no caller is affected while API-key auth is broken ([[CR12]]).
+
+---
+
+<a id="cr24"></a>
+
+### CR24: Legacy Supabase `anon` + `service_role` JWT keys are still enabled
+
+**Priority:** P2 | **Source:** session 2026-07-28, enumerating `GET /v1/projects/{ref}/api-keys`
+**Estimated:** 5 minutes, plus one cross-repo check
+
+**Context:** project `cfrbahzzklwrnmbtqojl` still has the original JWT-format keys active alongside the `sb_*` keys that replaced them. `GET /v1/projects/{ref}/api-keys/legacy` returns `enabled: true`.
+
+Two properties make this worth closing rather than leaving:
+
+1. **The legacy `service_role` JWT bypasses RLS**, exactly like the `sb_secret_` key in use. It is a second, older credential with full read/write on every table — including the three whose RLS was only enabled on 2026-07-27.
+2. **It is disclosed in plaintext by the Management API.** `GET /v1/projects/{ref}/api-keys` masks `sb_secret_` values (`sb_secret_OBc1n···`) but returns legacy keys as complete JWTs. Anything that can read that endpoint — any holder of the `sbp_` access token, which includes Doppler `prd` and therefore anyone with the unrotated token from [[CR01]] — can retrieve them in full. **This happened during the session that filed this item: a routine enumeration printed both JWTs into a transcript.**
+
+**Evidence they are unused (checked, not assumed):**
+- All four Doppler Supabase values, in both `dev` and `prd`, are the new format (`sb_secret_` / `sb_publishable_`) — none begins `eyJ`.
+- No non-test code in this repo reads `SUPABASE_ANON_KEY`; the workers read `SUPABASE_SERVICE_ROLE_KEY`, which holds `sb_secret_OBc1n…`.
+
+**Scope:**
+1. Confirm `api-provisioning-receiver` (in `observability-toolkit`) does not use a legacy key. **This repo cannot answer that** — it is the one unchecked consumer.
+2. Disable via `PUT /v1/projects/{ref}/api-keys/legacy` with `{"enabled": false}`. Reversible through the same endpoint, so the blast radius of getting step 1 wrong is one API call.
+3. Treat the two JWTs as disclosed and rotate if anything turns out to depend on them — disabling is not rotation, and re-enabling would restore the same key material.
+
+**Status:** 🔴 Open — safe to disable as far as this repo is concerned; blocked only on the cross-repo check in step 1.
 
 ---
 

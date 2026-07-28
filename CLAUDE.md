@@ -46,19 +46,33 @@ where n.nspname='public' and c.relkind='r' and c.relrowsecurity=false;
 
 ## Current Status
 
-**Phase**: Codebase review remediation + worker deploy/settings audit + database/secret remediation — 48 findings fixed, 13 open as CR01–CR21
-**Last Updated**: 2026-07-27 (evening)
+**Phase**: Codebase review remediation + worker deploy/settings audit + database/secret remediation — CR01–CR24 tracked, see the status table in [docs/BACKLOG.md](docs/BACKLOG.md)
+**Last Updated**: 2026-07-28
 **Build Status**: ✅ Web build successful, running on localhost:8080
 **Test Status**: ✅ 3,001 Flutter tests passing (~94% coverage); 1,039 worker tests passing (6 workers + shared lib); zero TypeScript errors; `flutter analyze` clean. Plus 5 opt-in live signature tests — `cd workers/stripe-webhook && npm run test:live` (excluded from `npm test`; skips cleanly without credentials)
 **Database**: ✅ Supabase `cfrbahzzklwrnmbtqojl` is `ACTIVE_HEALTHY`; 10 migrations applied and `supabase migration list` reports zero out of sync. The ledger previously claimed migrations that had never run (CR17) — including the one creating `stripe-webhook`'s tables. RLS is now enabled on every table in `public`.
 **Deployed**: production `sender-worker` + `integrity-studio-contact` healthy. **`api-gateway` is healthy** — `200 {"database":"healthy"}` since 2026-07-27, with `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_JWT_SECRET` bound (CR12 partial). **`stripe-webhook` is fully wired as of 2026-07-28** — Supabase pair plus `STRIPE_WEBHOOK_SECRET`, and redeployed from current source. Its production code had been stuck at 2026-03-31 and could not write `webhook_events_log`; a signed probe now returns `{"ok":true,"processed":true}` and a replay returns `already_processed`. Five `*-dev` workers are deliberately secret-less (CR11) except `stripe-webhook-dev`, which holds a sandbox `STRIPE_API_KEY` + `STRIPE_WEBHOOK_SECRET` for live signature testing. No zone route points at any dev worker.
 **Stripe**: production account is **`acct_1SN2e7AwEfePbhfk`**. Two endpoints, both pinned to `api_version=2025-09-30.clover` and subscribed to the five implemented events: test-mode `we_1Ty14zBWbFuvm1I6rvLOD5OW` → `stripe-webhook-dev`, and **live-mode `we_1Ty29dAwEfePbhfkky1OeqQu` → production `stripe-webhook`** (registered 2026-07-28, signature verification proven with a wrong-secret control). `prd`'s `STRIPE_SECRET_KEY` holds an **`rk_live_` restricted key** (least privilege; the `sk_live_` is retained in Doppler history) — bound to `api-gateway` and `sender-worker` on 2026-07-28 (`sender-worker` verified reading it — checkout now reaches validation instead of `"Stripe not configured"`). `api-gateway`'s billing portal is unblocked as of 2026-07-28 — the live Customer Portal now has a configuration (`bpc_1Ty2XDAwEfePbhfk9PndBNgW`), and a real session was created against it to prove the call works. The route itself is still unexercised because it needs a JWT. Doppler `dev` now holds only sandbox Stripe values — `STRIPE_SECRET_KEY` was a `pk_live_` publishable key on the *production* account until 2026-07-28 and is now the sandbox `sk_test_`. **Stripe is the one credential family where `dev` really is isolated from `prd`**: `acct_1SN2eDBWbFuvm1I6` is confirmed as "Integrity Studio sandbox". That is not true of Supabase or Auth0 — see CR11. See CR18.
-**Pending a `deploy:prd`** — committed but not live: CR03's `RATE_LIMIT_KV` binding and observability on all six workers (CR15 + W04 step 1). CR14's `preview_urls` is already live on `api-gateway` and `stripe-webhook` via the API. CI deploys `sender-worker` on merge to `main`; other workers are manual.
+**Pending a `deploy:prd`** — committed but not live: CR03's `RATE_LIMIT_KV` binding and observability (CR15 + W04 step 1) on the five workers other than `stripe-webhook`, which was deployed 2026-07-28. CR14's `preview_urls` is already live on `api-gateway` and `stripe-webhook` via the API. CI deploys `sender-worker` on merge to `main`; other workers are manual.
+
+⚠️ **Deployed code is not this repo's code, and the gap is measured in months.** Check before assuming a Worker behaves like `main`:
+
+| Worker | Last **code** deploy | How it updates |
+|---|---|---|
+| `stripe-webhook` | **2026-07-28** ✅ current | manual |
+| `sender-worker` | 2026-07-26 04:08 | CI on merge to `main` |
+| `api-gateway` | **2026-03-31** | manual — **blocked by CR13** |
+
+Deployment history is misleading here: `api-gateway` shows three 2026-07-28 02:36 entries and one at 04:18, but those are `wrangler secret put` calls. Binding a secret creates a deployment **without shipping code**. Read the timestamps as "bindings changed", not "code shipped". `stripe-webhook` was found this way — its 2026-03-31 build could not write `webhook_events_log`, which only became visible once a signed request could reach the handler.
+
+None of the ~20 unpushed commits on `fix/review-supabase-writes-and-signup-tiers` are deployed anywhere, including `d9ba71a` (verify bearer token before quota enforcement) and CR22's billing-portal fix — both `api-gateway`, both blocked behind CR13 step 1.
 
 See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recent changes.
 
 ### Known Issues
-Thirteen items open, tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr16). **Three are now blocked on code** (CR19–CR21, all defects in `workers/stripe-webhook/src/`); the rest need a credential decision, an answer about intent, or a production deploy.
+Tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr16), now CR01–CR24. **CR17 and CR19 closed 2026-07-28**; CR18 and CR12 went from blocking to mostly-resolved once a live Stripe key was minted. What remains needs a credential decision, an answer about intent, or a production deploy.
+
+**The single highest-leverage open item is CR13 step 1** — deleting the `routes` key from `workers/api-gateway/wrangler.toml`. It has no live effect, and it is the precondition for deploying `api-gateway` at all. Behind it sit four months of undeployed fixes including `d9ba71a` (verify bearer token before quota enforcement) and CR22's billing-portal 403.
 
 ⚠️ **Armed trap — do not run `deploy:prd` in `workers/api-gateway`.** Its `wrangler.toml` declares `api.integritystudio.ai/v1/*` at the top level, which is what `deploy:prd` publishes. That path is served by `obtool-api` via a `/*` wildcard, and Cloudflare resolves overlapping routes by longest match — so a deploy captures **all** `/v1` traffic, including `obtool-api`'s `/v1/traces`, `/v1/sessions`, and `/v1/metrics`, which `api-gateway` does not implement. The risk went **up** on 2026-07-27: that file was edited (for CR14), giving someone a reason to deploy it. CR13 step 1 (delete the `routes` key) has no live effect and defuses it.
 

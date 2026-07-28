@@ -326,6 +326,45 @@ Consolidated and **removed** two dated point-in-time reports; their findings are
 
 ---
 
+## [2026-07-28] - Stripe Production Cutover, CR17/CR19 Closed, Isolation Detector Hardened
+
+The day a live Stripe secret key was minted, which unblocked a chain of items that had all been waiting on the same missing credential ([[CR18]]). Everything below was verified against the live system rather than against config.
+
+### Stripe — production is now wired end to end
+
+- **Production account confirmed as `acct_1SN2e7AwEfePbhfk`** ("Integrity Studio"), settling a question CR18 had recorded as unconfirmed. The second account, `acct_1SN2eDBWbFuvm1I6`, reports its display name as **"Integrity Studio sandbox"** — a sandbox of the same business, not an unrelated account.
+- **Live endpoint `we_1Ty29dAwEfePbhfkky1OeqQu`** registered against production `stripe-webhook`, `api_version` pinned to `2025-09-30.clover`, subscribed to exactly the five events the handlers implement.
+- **`STRIPE_WEBHOOK_SECRET`** stored in Doppler `prd` and bound. Verified with a control rather than a single happy path: correct secret → `200`, wrong secret → `401 Invalid Stripe signature`.
+- **`STRIPE_SECRET_KEY` (`prd`) holds an `rk_live_` restricted key**, chosen over the full-access `sk_live_` for least privilege (the `sk_live_` remains in Doppler history). Write scopes were verified *without creating objects*, by confirming each probe reached parameter validation — which is past the permission gate. Bound to `api-gateway` and `sender-worker`; `sender-worker` verified reading it (`/create-checkout-session` moved from `"Stripe not configured"` to `"invalid email"`).
+- **Live Customer Portal configured** (`bpc_1Ty2XDAwEfePbhfk9PndBNgW`). `GET /v1/billing_portal/configurations` had returned 0 earlier the same day, which would have failed every portal call regardless of the key.
+- **Doppler `dev` de-pointed from production.** Its `STRIPE_SECRET_KEY` had held a `pk_live_` publishable key belonging to the *production* account — wrong type for the name, so server-side calls failed `Permission denied`, and aimed at prod. Now the sandbox `sk_test_`.
+
+### A four-month-old deploy, found only because the secret finally worked
+
+Binding the signing secret let a signed request reach the handler for the first time, and it answered `"Failed to log processed event"` — **a string absent from current source**. Production `stripe-webhook` had been running 2026-03-31 code that could not write `webhook_events_log`. Supabase was not at fault: the prd key inserts and deletes against that table cleanly. Redeploying fixed it; a signed probe now returns `processed:true` and a replay returns `already_processed`.
+
+The same audit found **`api-gateway`'s deployed code is also from 2026-03-31**, and it cannot be redeployed until [[CR13]] step 1 removes the `routes` key. Its three 2026-07-28 deployment entries are `wrangler secret put` calls — **binding a secret creates a deployment without shipping code**, which is what made the staleness invisible.
+
+### CR17 and CR19 closed
+
+- **CR19** — `subscription.ts` and `invoice.ts` now return `{ ok: false }` on org-not-found, routing out-of-order events through `unclaimEvent` + `addDeadLetter` instead of claiming them as processed. Commits `eaaa199`, `9741594`. The retry window is governed by the `*/15` cron rather than the backoff (every delay is shorter than the cron gap), so five attempts span ~60–75 minutes, not the ~16 of nominal backoff — a figure corrected in `e657dd2`.
+- **CR17** — `scripts/check-migration-drift.sh` queries actual object existence via the Management API rather than the ledger, which is the distinction that made CR17 possible in the first place. Wired into CI. Commits `0f9674a`, `9b166ef`.
+
+### Isolation detector: distinctness is necessary but never sufficient
+
+`scripts/check-env-isolation.sh` grew from 10 credentials to 13 and gained two assertions, both motivated by real false-pass paths rather than hypotheticals:
+
+- **Stripe key mode.** This morning's `dev` value differed from prd's, so a hash-only check reported `ok (distinct)` — while being a `pk_live_` key on the production account. The new check reads mode from the key prefix and requires `_test_` in dev, `_live_` in prd. Mutation-checked against the real historical state, not merely written.
+- **Supabase project scope.** `POST /v1/projects/{ref}/api-keys` can mint an `sb_secret_` carrying `role: service_role`, which would make `SUPABASE_SERVICE_ROLE_KEY` differ while still bypassing RLS on production. Since `SUPABASE_URL` derives from the project ref and cannot differ within one project, a shared URL now triggers an explicit warning naming the credentials whose hashes are meaningless.
+
+Result: 10/13 failing, all Supabase and Auth0 ([[CR11]]). Stripe is the only family that passes.
+
+### Filed
+
+- **CR24** — legacy Supabase `anon` + `service_role` JWT keys are still enabled and unused. The Management API returns them as **full plaintext JWTs** while masking `sb_secret_` values, and the legacy `service_role` key bypasses RLS. One `PUT` disables them, pending a cross-repo check on `api-provisioning-receiver`.
+
+---
+
 ## [2026-07-26] - Codebase Review Remediation (40 findings)
 
 Remediation of the 8-area codebase review of the Flutter app and all Cloudflare Workers. 45 tracked items; the 40 below shipped. The 5 that did not, plus 5 issues found while remediating, are tracked as CR01–CR10 in [`docs/BACKLOG.md`](../../BACKLOG.md). Three further claims from the review were refuted during verification and are recorded in `CODE_REVIEW.md` so they are not re-reported.
