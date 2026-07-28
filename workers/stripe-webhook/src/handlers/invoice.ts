@@ -4,7 +4,9 @@ import { InvoiceSchema } from '../stripe-schemas';
 
 /**
  * Resolves the org ID for a given Stripe customer ID.
- * Returns null orgId (with ok: true) when no org is found — caller decides whether to skip.
+ * Returns { ok: false } when no org is found — the caller propagates this as a
+ * retryable failure so the event reaches the dead-letter queue rather than being
+ * silently claimed. The org may arrive later when checkout.session.completed fires.
  */
 async function resolveOrgId(
   customerId: string,
