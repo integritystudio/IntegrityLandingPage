@@ -2,7 +2,11 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, `docs/changelog/1.2/CHANGELOG.md`, and `docs/changelog/1.3/CHANGELOG.md`.
 
-**Last Updated:** 2026-07-27 | **Phase:** Codebase review remediation + worker deploy/settings audit — 48 findings fixed and migrated to the 1.3 changelog; **10 items open as CR01–CR16** (4 × P1, 4 × P2, 2 × P3 — one of which, CR16, is by-design rather than a defect), summarised in the table under *Code Review 2026-07-26 → 2026-07-27*. Tests: 3,001 Flutter + 1,021 worker passing, zero TypeScript errors, `flutter analyze` clean. Prior entry: Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete — **superseded 2026-07-27: V02 is code-complete but non-functional in production, because `api-gateway` has had zero secrets since 2026-03-31 (CR12). Several ✅ items are "merged and unit-tested" rather than working; see the audit note at the head of Phase 4.**
+**Last Updated:** 2026-07-27 (evening — database + worker remediation session) | **Phase:** Codebase review remediation + worker deploy/settings audit + **database/secret remediation**. 48 findings fixed and migrated to the 1.3 changelog; **13 items open as CR01–CR21**, summarised in the table under *Code Review 2026-07-26 → 2026-07-27*.
+
+> **Session 2026-07-27 evening — what changed on production.** Four things were repaired, and each one uncovered the next. The Supabase **migration ledger was lying**: two migrations were recorded as applied whose objects had never existed ([[CR17]]), including the one creating `stripe-webhook`'s two tables — so that Worker was structurally broken *beneath* its missing secrets. The ledger was repaired and all migrations applied; the schema is now in sync. Three tables were then found **anon-readable** because RLS was omitted on the assumption that service-role-only access made it private; RLS is now on. Secrets were bound to the two Workers that had none, and **`api-gateway` returns `200 {"database":"healthy"}` for the first time since 2026-03-31** — [[CR12]] is now partially closed and the V02 dashboard has a working backend. A test-mode Stripe endpoint was registered against the dev Worker and signature verification proven end to end with a new live test suite.
+>
+> Three claims repeated across this file, `CLAUDE.md`, `CODE_REVIEW.md`, and the 1.3 changelog were **wrong** and are corrected in place: `STRIPE_API_KEY` is not `sk_test_` in both configs ([[CR18]]), the Supabase project is not paused, and `doppler run` cannot be trusted to report which value a config holds. Tests: 3,001 Flutter + 1,021 worker passing, zero TypeScript errors, `flutter analyze` clean. Prior entry: Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete — **superseded twice: on 2026-07-27 morning V02 was found code-complete but non-functional (`api-gateway` had zero secrets since 2026-03-31, CR12); on 2026-07-27 evening the gateway was restored to `200 {"database":"healthy"}` and the backend now works. The habit that produced the error stands, though — several ✅ items meant "merged and unit-tested" rather than "working in production"; see the audit note at the head of Phase 4.**
 
 ---
 
@@ -19,6 +23,10 @@ Open and deferred items only. Completed items are migrated to `docs/changelog/1.
 > | H1 Stripe Zod schemas | `stripe-webhook` | **Zero secrets and zero bindings**; cannot verify a signature or reach the database. Its `*/15` dead-letter cron is nonetheless live and has been failing silently ~96×/day since 2026-03-31 |
 >
 > The code in these items is real and tested — 1,021 worker tests pass. What was never verified is that the deployed Workers could execute it. Each ✅ above should be read as "code merged and unit-tested", and the product-level claim deferred until [[CR12]] is resolved. This gap is the reason [[CR12]] and [[CR14]] were found by auditing deployed state rather than by reading source, and it is worth remembering the next time a phase is declared complete.
+>
+> **✅ Update 2026-07-27 evening — the `api-gateway` row is resolved.** Secrets are bound and `GET /health` returns `200 {"database":"healthy","durableObjects":"healthy"}`. V02's dashboard, T26/T27 quota integration, and V-02 issuer validation now run against a gateway that can reach its database, so those ✅ marks finally mean what they appear to mean. Two caveats: `API_KEY_HMAC_SECRET` is still unbound, so API-key-authenticated routes remain broken while JWT routes work; and there is still no zone route ([[CR13]]), so the app reaches it only at `workers.dev`.
+>
+> **The `stripe-webhook` row is only half-resolved,** and the reason is worth recording: missing secrets were never the whole story. **Its two tables did not exist** ([[CR17]]) — the migration creating them was recorded as applied but had never run. Both are now fixed, so the dead-letter cron can finally function, but the Worker still cannot verify a signature ([[CR18]]) and no endpoint has ever pointed at it. The lesson generalises past "check the deploy": a phase can also be blocked by schema that the migration ledger *claims* is present.
 
 **Completed in this session (2026-03-20 to 2026-03-21):**
 - ✅ Sender-Worker UI Implementation — AuthPage, ProvisionPage, SenderHealthPage with JWT flow (commit 9ea6256)
@@ -40,7 +48,13 @@ Open and deferred items only. Completed items are migrated to `docs/changelog/1.
 
 **v1 release items — ✅ COMPLETE (2026-07-12):**
 
-### V02: Flutter Dashboard UI — ✅ code complete, ⚠️ **non-functional in production**
+### V02: Flutter Dashboard UI — ✅ code complete, ✅ **backend restored 2026-07-27 evening**
+
+> **✅ Resolved 2026-07-27 evening.** `api-gateway` now has `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_JWT_SECRET` bound and answers `200 {"database":"healthy"}`, so `GET /v1/orgs/:id/dashboard`, `/usage/summary`, `/entitlements`, and `/quota/status` can return data. The dashboard was showing error states on every panel from 2026-03-31 until this fix — roughly four months.
+>
+> **Two things still do not work.** Step 5's `POST /v1/orgs/:id/billing-portal` needs `STRIPE_SECRET_KEY`, which is empty in every Doppler config ([[CR18]]), so "Manage Billing" still fails. And `API_KEY_HMAC_SECRET` is unbound, so anything authenticating by API key rather than JWT stays broken. **Nobody has yet loaded the dashboard against the restored gateway** — the health check and a `401` on `/v1/me` are the only verification so far. Worth an actual end-to-end pass before calling this done.
+>
+> The original audit note follows, kept because its reasoning is still the right lens.
 
 > **⚠️ Audit 2026-07-27 — "COMPLETE" is true of the code and false of the product.** Every endpoint this dashboard consumes is served by `api-gateway`, which has had **zero secrets bound since 2026-03-31** and answers `503 {"database":"degraded"}` ([[CR12]]). `GET /v1/orgs/:id/dashboard`, `/usage/summary`, and `/entitlements` therefore cannot return data, and step 5's `POST /v1/orgs/:id/billing-portal` additionally needs a `STRIPE_SECRET_KEY` that is not bound either. This is not a routing problem — the app calls `api-gateway.alyshia-b38.workers.dev` directly (`dashboard_service.dart:16`), and that hostname is reachable; the worker behind it cannot reach its database. **A user who opened the dashboard at any point in the last ~4 months saw error states on every panel.** Resolving [[CR12]] is what makes this item's ✅ real.
 
@@ -242,6 +256,8 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 > Two things that raise the stakes once it does run: quota gates the **customer-facing** ingestion path ([[CR16]]), so dropped counts are a billing-accuracy question and not just an internal one; and the DO namespaces are confirmed distinct between environments (`14813730…` production, `30f146ce…` dev), so dev traffic cannot pollute production counters — that part is sound.
 >
 > **Sequence:** [[CR12]] → [[CR15]]-style observability on the gateway → measure → then decide the durability trade-off. Deciding it now would be picking a number from nothing.
+>
+> **Update 2026-07-27 evening — the first gate has opened.** [[CR12]] is largely resolved: the gateway has database access and answers healthy, so the quota system *can* now run. Two blockers remain before the measurement in step 1 is possible. Observability is configured but **not deployed** ([[W04]] step 1), so the Worker still emits nothing; and there is still no zone route ([[CR13]]), so real customer traffic cannot reach it. The sequence is unchanged, it has simply advanced one step.
 
 **Scope:**
 1. Evaluate risk appetite: Is 10-second data loss acceptable for quota tracking? (likely yes for low-tier plans, needs confirmation)
@@ -339,6 +355,10 @@ What this unblocks, and what it does not: the signals in step 1 will exist once 
 
 **Status:** Open — instrumentation landed in config (step 1 ✅) and needs a `deploy:prd` per Worker to go live. Remaining work is signal definition, dashboard, and an alert-channel decision. See also [[T28]] (its DO-metrics dashboard folds into step 3) and [[CR15]].
 
+> **Update 2026-07-27 evening — this is now the most valuable unblocked item, and one deploy is unsafe.** Several things that just changed can only be confirmed by observability nobody can read yet: whether `stripe-webhook`'s `*/15` cron now succeeds ([[CR20]] step 4), whether `api-gateway` serves real dashboard requests ([[V02]]), and the quota measurements [[T28]] needs. Step 2's signal list should add **dead-letter queue depth** and **cron success/failure**, both newly meaningful now that the table exists ([[CR17]]).
+>
+> **Caveat on deploying:** `api-gateway` is the one Worker whose `deploy:prd` is currently unsafe — see the escalation note on [[CR13]]. Deploy the other five first, or clear CR13 step 1 beforehand.
+
 ---
 
 ## W05: Verify & document prod secret durability + rotation cadence under Doppler
@@ -366,6 +386,14 @@ What this unblocks, and what it does not: the signals in step 1 will exist once 
 - `CLAUDE.md` "Secret Rotation" section (confirm/expand)
 
 **Status:** Open — verification + documentation only; key-rotation mechanism already shipped. See also [[W02]] (Doppler-stored `CLOUDFLARE_ACCOUNT_ID`).
+
+> **Update 2026-07-27 evening — three corrections to step 1's premise.**
+>
+> **`STRIPE_*` is not just unbound, it does not exist.** This note said `STRIPE_*` "is not bound to `sender-worker`", implying the value existed and needed binding. `STRIPE_SECRET_KEY` is empty in all three Doppler configs, so there is nothing to bind. See [[CR18]].
+>
+> **A new secret now needs a durability answer.** `STRIPE_WEBHOOK_SECRET` was added to Doppler `dev` on 2026-07-27 because Stripe returns a signing secret **only** from the endpoint-create call and will not disclose it on retrieve — verified. Without that copy, the value would exist solely inside an unreadable Cloudflare binding and would be unrecoverable if the Worker were rebuilt. That makes Doppler load-bearing for recovery here in a way step 2 should account for, and it is a good argument for formally accepting Doppler as the system of record rather than adding a second vault.
+>
+> **Do not trust `doppler run` when verifying what a config holds** — use `doppler secrets get --plain` and compare hashes. See the corrected bullet in [[CR11]].
 
 ---
 
@@ -398,20 +426,27 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 
 | ID | P | Status | One line |
 |---|---|---|---|
-| [CR01](#cr01) | P1 | ⚠️ partial | Untracked, but the bundle is still in git history and **no secret has been rotated** |
-| [CR12](#cr12) | P1 | 🔴 open | Production `api-gateway` + `stripe-webhook` have **zero secrets**; gateway answers 503 |
-| [CR11](#cr11) | P1 | 🔴 open | Doppler `dev` == `prd`; no data isolation. Detector: `npm run check:env-isolation` |
-| [CR14](#cr14) | P1 | ⚠️ partial | Superseded versions publicly callable with live secrets; config fixed, **prod needs a deploy** |
+| [CR01](#cr01) | P1 | ⚠️ partial | Untracked, but the bundle is still in git history and **no secret has been rotated**. Supabase key is now `sb_secret_`, so that part is cheaper than assumed |
+| [CR18](#cr18) | P1 | 🔴 open | **Two different Stripe accounts.** No live secret key exists anywhere, so production `stripe-webhook` cannot be completed |
+| [CR11](#cr11) | P1 | 🔴 open | Doppler `dev` == `prd`; no data isolation. Detector: `npm run check:env-isolation`. **Covers no Stripe credential** |
+| [CR12](#cr12) | P1 | ⚠️ partial | `api-gateway` now **healthy** (3 secrets bound). Still missing `API_KEY_HMAC_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
+| [CR14](#cr14) | P1 | ⚠️ partial | Closed on `api-gateway` + `stripe-webhook`. **Still exposed:** `sender-worker` (13 secrets), `integrity-studio-contact`, `api-provisioning-receiver` |
 | [CR02](#cr02) | P2 | ✅ mostly | Dev/prod split done and verified live; only the dev receiver remains |
 | [CR04](#cr04) | P2 | ⚠️ partial | Comment corrected; JWT still travels in a URL fragment |
-| [CR13](#cr13) | P2 | 🔴 open | One hostname, two complementary services — `obtool-api`'s wildcard swallows the gateway's paths |
+| [CR13](#cr13) | P2 | 🔴 open | Trap **still armed**, and now likelier to be tripped — `api-gateway`'s config changed, so someone may deploy it |
+| [CR17](#cr17) | P2 | ⚠️ partial | Migration ledger had recorded migrations that never ran. Repaired; **no drift detection exists** |
+| [CR19](#cr19) | P2 | 🔴 open | **Code bug.** `stripe-webhook` silently swallows out-of-order events — claimed as processed, never retried |
+| [CR20](#cr20) | P2 | 🔴 open | `stripe-webhook` returns 200 on failure, discarding Stripe's 3-day retry in favour of a cron |
 | [CR03](#cr03) | P2 | ✅ done | KV namespaces created and bound; reaches prod on next `deploy:prd` |
 | [CR15](#cr15) | P3 | ⚠️ partial | Observability fixed in config; **four** stale prod secrets still bound |
+| [CR21](#cr21) | P3 | 🔴 open | `stripe-webhook` processes synchronously against Stripe's "return 2xx first" guidance |
 | [CR16](#cr16) | P3 | 📋 by design | Internal vs customer-facing OTEL pipelines — deliberate; **do not de-duplicate**. Convergence deferred |
 
-**Nothing here is blocked on code.** Every remaining item needs either a credential/provisioning decision (CR01, CR11), an answer about intent (CR12, CR13, CR16), or a production deploy to apply changes already committed (CR14, CR15, CR03).
+**Three items are now blocked on code, which was not true before.** [[CR19]], [[CR20]], and [[CR21]] are defects in `workers/stripe-webhook/src/`, found by reading the implementation against Stripe's webhook documentation. Everything else still needs a credential/provisioning decision (CR01, CR11, CR18), an answer about intent (CR13, CR16), or a production deploy (CR14, CR15, CR03).
 
-**Three items are only "fixed" in config and are not yet live in production**, because `deploy:prd` has not run: CR03's KV binding, CR14's `preview_urls = false`, and CR15's observability. CI deploys `sender-worker` on merge to `main`; the other workers deploy manually.
+**Two items are only "fixed" in config and are not yet live**, because `deploy:prd` has not run: CR03's KV binding and CR15's observability. CR14's `preview_urls` is now live on two Workers via the API, independent of any deploy. CI deploys `sender-worker` on merge to `main`; the others are manual.
+
+⚠️ **Do not run `deploy:prd` in `workers/api-gateway`** until [[CR13]] step 1 is done — its `routes` key would capture all of `/v1/*` from `obtool-api`.
 
 <a id="cr01"></a>
 
@@ -429,6 +464,10 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 4. Confirm nothing in CI or the deploy scripts reads the file.
 
 **Status:** Partially done (2026-07-26, commit 88ef77a) — step 1 complete: `git rm --cached doppler.json` + `.gitignore` entry added. Steps 2–3 (history scrub + secret rotation) still require an owner and a maintenance window. See also [[W05]] (Doppler durability + rotation policy).
+
+**Update 2026-07-27 evening — step 3 is cheaper than assumed, at least for Supabase.** `SUPABASE_SERVICE_ROLE_KEY` is in the modern `sb_secret_…` format, not a legacy `service_role` JWT. New-format keys are revocable individually, so a replacement can be minted and the old one revoked **without touching the project's JWT secret** — which a legacy key would have required, invalidating every issued user session. Rotating the Supabase half is now a low-risk operation that does not need a maintenance window.
+
+Also relevant: the file is still on disk at the repo root (untracked), and `~/.doppler/fallback/` holds dozens of cached credential snapshots. Both are offline copies of the unrotated secret set, and the fallback cache is the suspected cause of the stale-read described in [[CR11]]. A scrub should account for both, not just git history.
 
 ---
 
@@ -514,11 +553,13 @@ The remaining gap is **accuracy, not absence**. In-memory state is per isolate, 
 
 Facts established while investigating, several of which correct earlier notes in this file:
 
-- **Stripe is not exposed.** `STRIPE_SECRET_KEY` is **empty in all three configs**; the key actually in use is `STRIPE_API_KEY`, and it is `sk_test_…` in both dev and prd. An earlier version of this entry implied live-key risk — there is none. (Worth a separate question: production is configured with a *test* Stripe key.)
+- **Stripe is not exposed — but this bullet was wrong about why. Corrected 2026-07-27 evening.** It read "`STRIPE_API_KEY` … is `sk_test_…` in both dev and prd". It is not. `prd` holds a **`pk_live_…` publishable key** and `dev` holds an `sk_test_…` secret key, and they belong to **two different Stripe accounts**. The conclusion survives — a publishable key is public by design, so there is no exposure — but the reasoning does not, and the real picture is worse: `STRIPE_SECRET_KEY` (the name the code actually reads) is empty everywhere, so **no Worker can make a server-side Stripe call at all**. See [[CR18]]. The bad reading came from `echo -n` inside POSIX `sh`, which emits the flag literally and shifted the prefix by three characters.
+- **The isolation detector covers no Stripe credential.** `SECRETS` in `scripts/check-env-isolation.sh` lists only the Supabase, Auth0, and `SHARED_SECRET` values. A green run says nothing about Stripe. Harmless while the two configs hold different key *types*, but it should not be read as blanket coverage.
 - **The `stg` config is empty**, not a third environment — every credential above is unset in it. It is available to repurpose as the dev target.
 - **Worker secrets do not come from Doppler.** `wrangler deploy` does not convert ambient env vars into Worker secrets; they are set per worker with `wrangler secret put`. So this item does not by itself mean the deployed workers are misconfigured — it means every *local* and *CI* process using the dev config touches production.
-- **The `*-dev` workers have zero secrets bound** (verified via the Workers API) and were deployed that way deliberately. They cannot reach production data. Do not push the current dev values into them: that would create a second production-capable worker, not a dev environment.
-- **Both Supabase projects are `INACTIVE`** (free-tier pause), and the org has 2 of them. A third project may require a plan change — that is the decision blocking step 1.
+- **The `*-dev` workers have zero secrets bound** (verified via the Workers API) and were deployed that way deliberately. They cannot reach production data. Do not push the current dev values into them: that would create a second production-capable worker, not a dev environment. **One exception since 2026-07-27 evening:** `stripe-webhook-dev` holds `STRIPE_API_KEY` (sandbox `sk_test_`) and `STRIPE_WEBHOOK_SECRET` (test-mode signing secret). Both are sandbox-only and reach no production system, which is exactly why they were safe to bind — and it is still true that no Supabase or Auth0 credential may be pushed to a dev Worker until this item passes.
+- **Corrected 2026-07-27 evening: the projects are not both paused.** This read "Both Supabase projects are `INACTIVE` (free-tier pause)". Per the Management API, `cfrbahzzklwrnmbtqojl` ("IntegrityStudio") is **`ACTIVE_HEALTHY`**; the `INACTIVE` one is `kvbcgfttukwciiwieezp` ("atx_movement"), an unrelated project. The org has 2 projects, so a third may still require a plan change — that part of the decision blocking step 1 stands.
+- **Read Doppler values with `doppler secrets get --plain`, never `doppler run`.** On 2026-07-27 a `doppler run --config prd` reported a value that `doppler secrets get --config prd --plain` contradicted, and Stripe's API confirmed the latter. `~/.doppler/fallback/` holds cached snapshots and `doppler.json` still sits at the repo root ([[CR01]]), so a silently-served stale snapshot is the likely mechanism. Fingerprint before acting: prefix + length + `shasum | cut -c1-12` reveals a mismatch without printing secret material. The detector script already uses the safe form, so its 10-of-10 result is trustworthy.
 
 **Scope:**
 1. **Decide the Supabase boundary.** Either a new project (may need a paid plan — the org already has 2) or a separate schema in `cfrbahzzklwrnmbtqojl` with its own role. A separate schema is cheaper but shares the service-role key, so it does not isolate credentials — only a separate project makes the checker pass on `SUPABASE_SERVICE_ROLE_KEY`.
@@ -542,6 +583,16 @@ Facts established while investigating, several of which correct earlier notes in
 <a id="cr12"></a>
 
 ### CR12: Production `api-gateway` and `stripe-webhook` have zero secrets bound and are degraded
+
+> **✅ Largely resolved 2026-07-27 evening — `api-gateway` is healthy.** `GET /health` returns `200 {"database":"healthy","durableObjects":"healthy"}`, up from `503 {"database":"degraded"}`, and `/v1/me` correctly answers `401` to an anonymous caller. Three secrets were bound: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`. **This is what makes [[V02]]'s dashboard real** — its endpoints can return data for the first time since 2026-03-31.
+>
+> **Step 1 answered by evidence: pre-launch, not a regression.** No Stripe webhook endpoint has ever been registered on either account (verified against both the v1 `webhook_endpoints` and v2 `event_destinations` APIs, both returning zero), so `stripe-webhook` was never receiving traffic to lose. Nothing was dropped; nothing was ever sent.
+>
+> **The premise was also incomplete.** Missing secrets were not the only reason `stripe-webhook` could not work — **its two tables did not exist** ([[CR17]]). Binding secrets alone would have left every event failing on a 404 from PostgREST. Both are now fixed.
+>
+> **Corrected:** this entry says both Supabase projects are `INACTIVE`. The project that matters, `cfrbahzzklwrnmbtqojl` ("IntegrityStudio"), is **`ACTIVE_HEALTHY`**. The `INACTIVE` one is `kvbcgfttukwciiwieezp` ("atx_movement"), an unrelated project. No resume step is needed.
+>
+> **What remains:** three secrets that do not exist anywhere to bind — see Status below.
 
 **Priority:** P1 | **Source:** session 2026-07-27, auditing worker secrets while investigating CR11
 **Estimated:** 30 minutes to restore, longer to explain
@@ -570,7 +621,7 @@ So every authenticated route that touches Supabase — usage, entitlements, orgs
 
 *(Correction: an earlier revision argued the two were distinct because `api-gateway-dev`'s `workers.dev` subdomain "is not even enabled — returns Cloudflare 1042". That was propagation lag moments after creation. The subdomain is enabled and now answers 503 with the same body as production. The workers are still demonstrably distinct — separate scripts, and separate Durable Object namespaces: `14813730…` bound to `api-gateway`, `30f146ce…` to `api-gateway-dev` — so the conclusion holds and the DO-isolation claim in the changelog is confirmed. Only that piece of evidence was wrong.)*
 
-`degraded` rather than `unhealthy` is consistent with unset secrets: `checkDatabase` gets `undefined` for `supabaseUrl`, the shared client catches the resulting invalid-URL throw and returns `{ok: false}`, which maps to `degraded`. It does not distinguish this from a reachable-but-failing database — and both causes are present, because **both Supabase projects are `INACTIVE`** (free-tier pause).
+`degraded` rather than `unhealthy` is consistent with unset secrets: `checkDatabase` gets `undefined` for `supabaseUrl`, the shared client catches the resulting invalid-URL throw and returns `{ok: false}`, which maps to `degraded`. It does not distinguish this from a reachable-but-failing database. ~~Both causes are present, because both Supabase projects are `INACTIVE` (free-tier pause).~~ **Wrong — corrected 2026-07-27 evening.** Only one cause was present. `cfrbahzzklwrnmbtqojl` is `ACTIVE_HEALTHY`; binding the three secrets alone flipped `/health` to `200 {"database":"healthy"}` with no resume step. The `INACTIVE` project is `kvbcgfttukwciiwieezp` ("atx_movement"), unrelated to this repo.
 
 **Monitoring trap:** `https://api.integritystudio.ai/health` returns **200**, so any uptime check pointed there is permanently green regardless of gateway state. Point step 3 at `https://api-gateway.alyshia-b38.workers.dev/health` instead.
 
@@ -582,7 +633,20 @@ So every authenticated route that touches Supabase — usage, entitlements, orgs
 3. Add `/health` to an uptime check so a degraded gateway is not discovered incidentally during a code review four months later.
 4. Reconcile with the many changelog entries describing api-gateway quota, usage, and entitlements work — that code has been shipped against a gateway that cannot reach its database.
 
-**Status:** Open — needs an owner answer to step 1 before anything is changed. Not remediated in this session: setting production secrets on a live worker is not a change to make unasked, and the correct values depend on whether CR11's isolation work lands first.
+**Status:** ⚠️ Partial (2026-07-27 evening). Bound and verified:
+
+| Worker | Bound | Health |
+|---|---|---|
+| `api-gateway` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET` | `200 {"database":"healthy"}` |
+| `stripe-webhook` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | tables exist; cron can now drain |
+
+**Three remain, and none can be bound because no value exists:**
+
+1. **`API_KEY_HMAC_SECRET`** (`api-gateway`) — empty in Doppler. Deliberately **not** generated: API keys are minted by `api-provisioning-receiver` in the `observability-toolkit` repo, which hashes them with its own copy. Inventing a value here would silently fail to verify every existing key. The canonical value must come from that Worker's owner. Until then, API-key-authenticated routes (`/v1/ingest/*`) stay broken while JWT routes work.
+2. **`STRIPE_SECRET_KEY`** (`api-gateway`) — empty in all three configs, so the billing portal stays down. Blocked on [[CR18]].
+3. **`STRIPE_WEBHOOK_SECRET`** (`stripe-webhook`) — a signing secret only exists once an endpoint is registered, and no live-mode endpoint can be created without a live secret key. Blocked on [[CR18]].
+
+One side effect worth watching: `stripe-webhook`'s `*/15` dead-letter cron now has database access and a table to read, so the ~96 silent failures a day should stop. Nothing has confirmed a successful cron run yet — worth checking once [[CR15]]'s observability is deployed.
 
 ---
 
@@ -615,7 +679,7 @@ These are complementary halves of one product API — a telemetry data plane and
 **Scope — defusing and deciding are separable, and step 1 should not wait:**
 
 1. **Defuse now, independent of the architecture.** Delete the `routes` key from `workers/api-gateway/wrangler.toml`. The shipped app calls `workers.dev` directly, so this costs nothing and permanently removes the landmine. Every option below is easier to reach from a safe state.
-2. **Do not route anything to the gateway until [[CR12]] is fixed.** It has zero secrets and answers `{"database":"degraded"}`. Routing live traffic to it converts a dormant problem into an outage.
+2. ~~**Do not route anything to the gateway until [[CR12]] is fixed.** It has zero secrets and answers `{"database":"degraded"}`.~~ **Largely satisfied 2026-07-27 evening** — the gateway now answers `200 {"database":"healthy"}`. Two caveats before reading this as "safe to route": `API_KEY_HMAC_SECRET` is still unbound, so API-key-authenticated paths (`/v1/ingest/*`) would 401; and the danger in step 1 was never the gateway's health, it is that `/v1/*` is **more specific than `obtool-api`'s `/*`** and would capture that Worker's telemetry paths. A healthy gateway makes the trap *more* tempting, not less dangerous.
 3. **Then choose a topology:**
 
 | | Approach | Trade-off |
@@ -630,7 +694,13 @@ These are complementary halves of one product API — a telemetry data plane and
 
 **Suggested:** step 1 (delete the `routes` key) immediately and unconditionally — it is safe, reversible, and independent of everything else. Defer the destination until `obtool-api`'s audience is settled, because that answer decides between "gateway takes `api.integritystudio.ai`" and options C/D.
 
-**Status:** Open — needs a hostname-topology decision, not an ownership one. The unsafe intermediate state (dev Worker on the production hostname) is resolved, but the production trap in step 1 is still armed.
+**Status:** 🔴 Open — needs a hostname-topology decision, not an ownership one. The unsafe intermediate state (dev Worker on the production hostname) is resolved, but the production trap in step 1 is still armed.
+
+> **⚠️ Escalated 2026-07-27 evening — the trap is now likelier to be tripped.** Two things changed. `workers/api-gateway/wrangler.toml` was edited (adding `preview_urls = false` for [[CR14]]), which gives someone a reason to run `deploy:prd` in that directory where previously there was none. And step 2's argument for waiting — "do not route anything to the gateway until [[CR12]] is fixed" — has partly expired now that the gateway answers healthy, which makes routing to it *look* safe.
+>
+> It is not safe. The declared route is `api.integritystudio.ai/v1/*`, which is more specific than `obtool-api`'s `/*` wildcard, so a deploy captures **all** `/v1` traffic — including `obtool-api`'s `/v1/traces`, `/v1/sessions`, `/v1/metrics`, `/v1/logs`, `/v1/cost`, and `/v1/datasets`, none of which `api-gateway` implements. They would start returning 404.
+>
+> **Step 1 (delete the `routes` key) has no live effect and should just be done.** Routes only change on deploy, so removing the key from the config changes nothing running today and makes the config safe to deploy. It was left in place only because it is a routing decision rather than cleanup.
 
 ---
 
@@ -676,7 +746,21 @@ The 8-hex-character version prefix is not a meaningful secret: `wrangler` prints
 4. ~~Decide whether preview URLs are wanted on the `*-dev` workers.~~ Resolved 2026-07-27. **`preview_urls` is an inheritable key** — verified by deploying `sender-worker-dev` and `integrity-studio-contact-dev` after setting it only at the top level, and confirming both flipped to `previews_enabled: false`. So no `[env.dev]` duplicate is needed, and the dev workers are already covered before [[CR11]] step 4 adds secrets. (Contrast with the *non*-inheritable binding keys — the asymmetry is documented in `api-gateway/wrangler.toml`.)
 5. Consider whether any retained version predates a *data-handling* change (schema, consent, retention), not just a security fix.
 
-**Status:** Open — config committed, production not yet mitigated. Steps 2–3 are production/cross-repo settings changes and were deliberately not made unasked.
+**Status:** ⚠️ Partial (2026-07-27 evening) — closed on two Workers, still open on three.
+
+**Closed:** `api-gateway` and `stripe-webhook` now report `previews_enabled: false` live, applied via the step 2 API call **before** [[CR12]]'s secrets were bound, so those secrets were never exposed on a retained version. A second gap was found and fixed while doing it: **neither `wrangler.toml` set `preview_urls` at all**, and the key defaults to `true`, so the next `deploy:prd` would have silently re-enabled previews. Both configs now set it explicitly, matching `sender-worker` and `contact-form`.
+
+**Still exposed — these hold secrets and still answer on per-version URLs:**
+
+| Worker | Secrets | Fix |
+|---|---|---|
+| `sender-worker` | 13 | Config already correct; one `deploy:prd`, or the step 2 API call for immediate effect |
+| `integrity-studio-contact` | 2 | Same |
+| `api-provisioning-receiver` | 7 | **Cross-repo** — needs the `observability-toolkit` owner (step 3) |
+
+The step 2 command applies to any of them by name. Note it must include `"enabled":true` alongside `"previews_enabled":false`, or the Worker's `workers.dev` hostname is switched off — which for `api-gateway` is the hostname the shipped Flutter app calls.
+
+Step 5 (auditing whether any retained version predates a *data-handling* change) is still not done.
 
 ---
 
@@ -766,6 +850,137 @@ The differing auth, quota, and storage choices follow from the audience split: t
 **Verified so it is not re-raised:** `rollupDailyBucket` selects only `organization_id, metric_key, quantity, latency_ms` (`aggregation.ts:45`), so stored span payloads are **not** dragged through daily aggregation.
 
 **Status:** Not a defect — design intent, now recorded. No work scheduled on the split itself. Items 1–3 above are real and belong to [[CR12]] and [[CR13]]; this entry exists mainly so the two-pipeline arrangement is not "tidied up" by someone who finds it without the context.
+
+**Update 2026-07-27 evening:** item 2 is half-resolved — `api-gateway` now has database access and answers healthy ([[CR12]]), so the customer-facing pipeline *can* reach Supabase. It still has no zone route ([[CR13]]) and `API_KEY_HMAC_SECRET` is unbound, so `/v1/ingest/otel` cannot authenticate a customer API key. Item 1 (the published entry point returning nothing) and item 3 (undefined retention for customer span volume) are unchanged and still gate launch.
+
+---
+
+<a id="cr17"></a>
+
+### CR17: The Supabase migration ledger recorded migrations that had never run
+
+**Priority:** P2 | **Source:** session 2026-07-27 evening, diffing local migrations against the live schema
+**Estimated:** repair done; ~2 hours for the drift detector
+
+**Context:** `supabase_migrations.schema_migrations` listed 8 of 9 local migrations as applied. Only 5 were. The ledger is what `supabase db push` consults, so the missing ones were being **skipped as already-done** on every deploy.
+
+| Migration | Ledger said | Reality |
+|---|---|---|
+| `20260320010001_phase1_integrate_existing_schema` | applied | **0 of 3 unique objects existed** |
+| `20260320010002_add_phase1_update_triggers` | applied | function yes, **4 triggers missing** |
+| `20260321000000_add_webhook_dead_letters` | applied | **both tables missing, in every schema** |
+| `20260717000000_provisioned_dashboard_viewer_default_role` | absent | partly reflected in data |
+
+**Two root causes, both worth remembering:**
+
+1. **`create policy if not exists` is not valid PostgreSQL.** There is no `IF NOT EXISTS` for `CREATE POLICY`. That statement sits at line 11 of `20260320010001`, so the file aborts there and everything after it silently never ran. The idempotent form is `drop policy if exists` then `create policy`, which is what the file now uses.
+2. **Someone ran `supabase migration repair --status applied`.** That command writes the ledger row *including the full `statements` array read from the local file* without executing any of it — which is exactly the fingerprint observed: complete recorded SQL, zero corresponding objects. It is the natural thing to do when a push keeps failing, and it converts a loud failure into a silent one.
+
+**Resolved:** ledger repaired with `migration repair --status reverted`, the invalid syntax fixed, and `db push --include-all` applied all three (the two out-of-order ones need `--include-all` because they sort before the last applied version). `supabase migration list` now reports 10 migrations with zero out of sync.
+
+**Deliberately left divergent:** `20260320010002` still shows applied with 4 objects missing. Its `trigger_update_*_timestamp` triggers duplicate the `update_*_updated_at` triggers `phase1_consolidated` already installed on the same four tables; re-running it would double-fire timestamp maintenance on every row update for no benefit. Recorded here rather than forced into agreement.
+
+**Remaining work:**
+1. **There is no drift detection.** Nothing would have caught this, and nothing would catch it recurring. A CI step comparing `information_schema` against the migration files — the throwaway script written for this session did exactly that — would. Note the limits of that approach: it compares object *presence* (tables, columns, indexes, triggers, functions, policies, enums), not column types, constraints, or defaults, and it cannot diff DML-only migrations.
+2. **Decide a policy on `migration repair --status applied`.** It should be a last resort with a written reason, not a way past a red push.
+3. Consider whether `20260320010002` should be deleted outright rather than left permanently divergent.
+
+**Status:** ⚠️ Partial — the schema is correct and in sync; the process gap that allowed it is open.
+
+---
+
+<a id="cr18"></a>
+
+### CR18: Two Stripe accounts, no live secret key, and no way to complete the production webhook
+
+**Priority:** P1 | **Source:** session 2026-07-27 evening, registering a Stripe endpoint
+**Estimated:** 15 minutes once the account question is answered
+
+**Context:** the Stripe credentials in Doppler point at **two different accounts**, and neither gives server-side live access.
+
+| Config | `STRIPE_API_KEY` | Kind | Account |
+|---|---|---|---|
+| `prd` | `pk_live_…` | **publishable** (public by design) | `acct_1SN2e7AwEfePbhfk` |
+| `dev` | `sk_test_…` | secret, test mode | `acct_1SN2eDBWbFuvm1I6` |
+| `stg` | unset | — | — |
+
+`STRIPE_SECRET_KEY` — the variable the code actually reads (`api-gateway/src/index.ts:21`, `sender-worker/src/types.ts:213`) — is **empty in all three configs**. `STRIPE_API_KEY` is read by no code in this repo at all; it appears only in documentation. So `sender-worker`'s `{"error":"Stripe not configured"}` on checkout is not a missing binding, it is a credential that has never existed.
+
+Different account IDs mean these are not the test and live halves of one account — most likely one is a Stripe Sandbox, which gets its own `acct_` id. That is unconfirmed.
+
+**Why this blocks [[CR12]]:** a webhook signing secret is only issued when an endpoint is created, and creating a **live-mode** endpoint requires a live secret key. No live secret key exists, so production `stripe-webhook` cannot be completed. **Stripe has no API for creating secret API keys** — not via the MCP, not via curl, not via the CLI. It is a Dashboard-only action, so this needs a human once.
+
+**Scope:**
+1. **Decide which account is production.** If `acct_1SN2eDBWbFuvm1I6` is a Sandbox of `acct_1SN2e7AwEfePbhfk`, the live key comes from the same Dashboard. If they are unrelated accounts, decide which one the product bills through before minting anything.
+2. Create an `sk_live_…` (or a restricted key with the needed permissions) in the Dashboard and put it in Doppler `prd` as **`STRIPE_SECRET_KEY`**, the name the code reads.
+3. Register a **live-mode** endpoint at production `stripe-webhook`'s URL and bind the returned `secret` as `STRIPE_WEBHOOK_SECRET`. Use `POST /v1/webhook_endpoints` with `api_version` pinned; see [[CR20]] for what to check first.
+4. **Rename `prd`'s `STRIPE_API_KEY` to `STRIPE_PUBLISHABLE_KEY`.** The generic name is what caused four documents — and a prior session — to describe it as the key in use.
+5. Add the Stripe credentials to `SECRETS` in `scripts/check-env-isolation.sh` so [[CR11]]'s detector actually covers them.
+
+**Already done (test mode only):** endpoint `we_1Ty14zBWbFuvm1I6rvLOD5OW` is registered on the sandbox account against `stripe-webhook-dev`, `api_version` pinned to `2025-09-30.clover`, subscribed to the five events the handlers implement. Its signing secret is bound to that Worker and stored in Doppler `dev`. Signature verification is proven end to end by `workers/stripe-webhook/src/webhook-signature.live.test.ts` (`npm run test:live`).
+
+**Status:** 🔴 Open — blocked on an owner decision (which account) plus one Dashboard action (mint the key) that no API can perform.
+
+---
+
+<a id="cr19"></a>
+
+### CR19: `stripe-webhook` silently swallows out-of-order events
+
+**Priority:** P2 | **Source:** session 2026-07-27 evening, reading the handlers against Stripe's webhook documentation
+**Estimated:** 1–2 hours
+
+**Context:** Stripe explicitly does not guarantee ordering, and documents the exact sequence you hit — `customer.subscription.created`, `invoice.created`, `invoice.paid` can arrive in any order.
+
+Every handler resolves the org from `stripe_customer_id` and, when the lookup is empty, logs a warning and returns `{ok: true}` — `subscription.ts:32-34` and `:89-91`, `invoice.ts:17-19`, and the metadata equivalent at `checkout.ts:25-27`. Because `claimEvent` runs *before* the handler, the event is already recorded as processed. The Worker then returns 200, so Stripe never retries.
+
+**The failure:** a `customer.subscription.updated` that overtakes the `checkout.session.completed` which would have created the org link is **permanently lost** — no dead-letter row, no retry, no error, and a log line nobody is reading ([[CR15]]). This is a silent revenue-state bug, not a cosmetic one.
+
+**Scope:**
+1. Treat "org not found" as a retryable failure so it reaches `webhook_dead_letters` instead of being claimed as done.
+2. Alternatively, follow Stripe's own advice and fetch the missing object from the API rather than giving up.
+3. Only release the claim on paths that genuinely did nothing — the existing `unclaimEvent` path is the right model.
+4. Add a test asserting an unmatched customer does **not** leave a satisfied claim behind.
+
+**Status:** 🔴 Open — real code defect. Worth fixing before a live endpoint is registered ([[CR18]]), because live traffic is exactly where out-of-order delivery shows up.
+
+---
+
+<a id="cr20"></a>
+
+### CR20: `stripe-webhook` discards Stripe's 3-day retry in favour of a cron
+
+**Priority:** P2 | **Source:** session 2026-07-27 evening, reading the handlers against Stripe's webhook documentation
+**Estimated:** 2–3 hours, mostly deciding
+
+**Context:** on handler failure the Worker writes a dead-letter row and returns **200**, with the comment "Return 200 to suppress Stripe's built-in retry (we own the retry schedule)". Stripe would otherwise retry for **three days with exponential backoff** in live mode. That is a real guarantee being traded away for a `*/15` cron.
+
+The trade is only sound if the replacement works, and for four months it did not: the Worker had zero secrets ([[CR12]]) and its dead-letter table did not exist ([[CR17]]). Had an endpoint been registered, a failing event would have been claimed, unclaimed, failed its dead-letter insert, returned 200, and vanished — with Stripe explicitly instructed not to retry.
+
+Both underlying faults are now fixed, so the cron can function. The design question stands.
+
+**Scope:**
+1. Decide whether owning the retry schedule is worth it. Returning 5xx and letting Stripe retry for three days is simpler, needs no cron, and no table.
+2. If keeping the cron: alert on dead-letter depth and on cron failure ([[W04]] step 2 already lists this).
+3. Note sandbox retries are only 3 attempts over a few hours, so testing there understates live behaviour.
+4. Confirm a successful cron run has actually happened since secrets were bound. Nothing has verified this yet.
+
+**Status:** 🔴 Open — design decision, now actually testable for the first time.
+
+---
+
+<a id="cr21"></a>
+
+### CR21: `stripe-webhook` processes synchronously before responding
+
+**Priority:** P3 | **Source:** session 2026-07-27 evening, reading the handlers against Stripe's webhook documentation
+**Estimated:** 1 hour
+
+**Context:** Stripe's guidance is to return `2xx` **before** any complex logic, and it warns specifically about spikes when subscriptions renew at the start of a month. `handleWebhook` does the full Supabase round trip — claim, handler, and possibly a dead-letter write — before responding.
+
+Severity is limited by the atomic claim: a timeout followed by a Stripe retry hits `already_processed` and returns 200, so it degrades to noise and failed-delivery records rather than double-processing. `ctx.waitUntil()` is the Workers-native fix, and the pattern is already used elsewhere in this codebase (M40's audit-log write).
+
+**Status:** 🔴 Open — low urgency while volume is zero; revisit before launch.
 
 ---
 

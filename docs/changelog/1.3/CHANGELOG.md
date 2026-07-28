@@ -527,7 +527,7 @@ Investigating CR11 established what the dev/prd boundary actually is, corrected 
 **`npm run check:env-isolation`** (`scripts/check-env-isolation.sh`) compares credential digests between the Doppler `dev` and `prd` configs and exits non-zero while they are shared. It prints hashes only, never secret material, so its output is safe to paste into a ticket. **It currently fails 10 of 10** — `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`, all five `AUTH0_*` credentials, and `SHARED_SECRET` are identical across the two configs. A green run is now the definition of done for CR11, which previously had no way to be verified.
 
 **Corrections to the entries above:**
-- **Stripe was never exposed.** The *Worker Deploy Separation* entry said dev and prd share Stripe credentials. `STRIPE_SECRET_KEY` is in fact empty in all three configs, and the key actually in use — `STRIPE_API_KEY` — is `sk_test_…` in both. There is no live-key risk. (Separately: production being configured with a test key is its own question.)
+- **Stripe was never exposed.** The *Worker Deploy Separation* entry said dev and prd share Stripe credentials. `STRIPE_SECRET_KEY` is in fact empty in all three configs. There is no live-key risk. ⚠️ **The rest of this bullet was wrong and is retracted (2026-07-27 evening).** It claimed `STRIPE_API_KEY` is `sk_test_…` in both configs; `prd` holds a `pk_live_…` *publishable* key and `dev` an `sk_test_…` secret key, for two different Stripe accounts. No exposure either way — publishable keys are public by design — but `STRIPE_API_KEY` is read by no code in this repo, so no worker can make a server-side Stripe call. See BACKLOG.md CR18.
 - **The `stg` config is empty, not a third environment.** An earlier comparison read its blank values as "differs from prd"; `da39a3ee` is the SHA-1 of the empty string. It is unset, and therefore available to repurpose as the dev target.
 - **Worker secrets never came from Doppler.** `wrangler deploy` does not turn ambient env vars into Worker secrets; they are set per worker with `wrangler secret put`. Doppler's role at deploy time is to supply `CLOUDFLARE_API_TOKEN`. CLAUDE.md now says so, with the command to inspect what a worker actually has bound.
 
@@ -636,5 +636,70 @@ That is a third distinct inheritance rule in this file, and they do not agree wi
 | `observability` | **Replaced wholesale** when the child declares it at all |
 
 **Production is not yet affected** — it still reports `observability.enabled: false` and will until the next `deploy:prd`, which CI runs on merge to `main`. Binding resolution was re-checked after the edit: production resolves `RATE_LIMIT_KV` to `766332ec…` and dev to `46a717cd…`, unchanged.
+
+---
+
+## [2026-07-27 evening] - Database Remediation, Secret Binding & Stripe Endpoint (CR12 partial, CR14 partial, CR17/CR18 filed)
+
+A session that started as "is there a dev-specific Stripe webhook?" and ended with production `api-gateway` healthy for the first time in four months. Each fix uncovered the layer beneath it.
+
+### The migration ledger was lying (CR17)
+
+`supabase_migrations.schema_migrations` listed 8 of 9 local migrations as applied. **Only 5 were.** Most consequentially, `20260321000000_add_webhook_dead_letters` was recorded as applied while `webhook_dead_letters` and `webhook_events_log` **existed in no schema at all** — meaning `stripe-webhook` was structurally broken *beneath* its missing secrets, and binding secrets alone would have left every event failing on a PostgREST 404.
+
+Two root causes, both worth carrying forward:
+
+- **`create policy if not exists` is not valid PostgreSQL.** There is no `IF NOT EXISTS` for `CREATE POLICY`. That statement sits at line 11 of `20260320010001`, so the file aborted there and every statement after it silently never ran. Replaced with `drop policy if exists` + `create policy`; the live predicate was confirmed byte-identical first, so the recreate was a semantic no-op.
+- **`supabase migration repair --status applied` writes the ledger row — including the full `statements` array read from the local file — without executing any of it.** That is exactly the fingerprint found: complete recorded SQL, zero corresponding objects. It is the natural move when a push keeps failing, and it converts a loud failure into a silent one.
+
+Repaired with `migration repair --status reverted` followed by `db push --include-all` (the two out-of-order migrations sort before the last applied version, so a plain push skips them). `supabase migration list` now reports **10 migrations, zero out of sync**.
+
+Left deliberately divergent: `20260320010002` still shows applied with 4 triggers missing. They duplicate the `update_*_updated_at` triggers `phase1_consolidated` already installed on the same tables, so re-running would double-fire timestamp maintenance for no benefit.
+
+### RLS off is not private — three tables were world-readable
+
+Applying the dead-letter migration created two tables with RLS deliberately omitted, its comment reasoning that only the service-role key touches them. **That reasoning is wrong:** PostgREST exposes every table in the `public` schema, so RLS-off means the *publishable* anon key can read them. Verified — an anon `GET` returned `200` on `webhook_dead_letters`, `webhook_events_log`, and the pre-existing `stripe_events`. Since `webhook_dead_letters` stores the complete Stripe event payload, that would have become a customer-billing-data disclosure path on the first processed event.
+
+Closed with `20260727000000_enable_rls_on_webhook_tables.sql` — a migration rather than an ad-hoc `ALTER`, so the files stay the source of truth. RLS on, zero policies: anon and authenticated denied, `service_role` unaffected. **Zero tables in `public` now have RLS disabled.**
+
+Verifying this needs care, because the obvious check misleads: RLS denial returns an empty result set, not an error, so anon still gets `200 []` on an empty table. The proof is on a populated one — `users` returns 0 rows to anon and 26 to the service role.
+
+### Secrets bound; `api-gateway` restored (CR12 partial)
+
+| Worker | Bound | Result |
+|---|---|---|
+| `api-gateway` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET` | `503 {"database":"degraded"}` → **`200 {"database":"healthy"}`** |
+| `stripe-webhook` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | cron can finally reach its table |
+
+This is what makes V02's dashboard real — its endpoints have been unable to return data since 2026-03-31. `/v1/me` correctly answers `401` to an anonymous caller.
+
+**CR12 step 1 is answered by evidence: pre-launch, not a regression.** No Stripe webhook endpoint had ever been registered on either account — verified against both the v1 `webhook_endpoints` and v2 `event_destinations` APIs. Nothing was ever dropped because nothing was ever sent.
+
+Three secrets could not be bound because no value exists anywhere: `API_KEY_HMAC_SECRET` (canonical copy lives on `api-provisioning-receiver` in another repo; generating a new one would silently invalidate every existing API key), `STRIPE_SECRET_KEY`, and `STRIPE_WEBHOOK_SECRET`.
+
+### Preview URLs closed before secrets were bound (CR14 partial)
+
+All four production Workers still had `previews_enabled: true`, which publishes every retained version at its own URL **with the script's current secrets**. Binding secrets first would have created exactly the exposure CR14 documents, so previews were disabled on `api-gateway` and `stripe-webhook` beforehand — with `"enabled":true` passed alongside, since for `api-gateway` the `workers.dev` hostname is what the shipped app calls.
+
+A second gap surfaced: **neither `wrangler.toml` set `preview_urls` at all**, and it defaults to `true`, so the next deploy would have silently re-enabled previews. Both configs now set it explicitly. Still exposed: `sender-worker` (13 secrets), `integrity-studio-contact`, and cross-repo `api-provisioning-receiver`.
+
+### Stripe endpoint registered, signature verification proven (CR18 filed)
+
+Endpoint `we_1Ty14zBWbFuvm1I6rvLOD5OW` → `stripe-webhook-dev`, **test mode**, `api_version` pinned to `2025-09-30.clover`, subscribed to the five events the handlers implement. Pointed at the dev Worker deliberately: production now holds live Supabase credentials, so sandbox test events would otherwise write into the production ledger tables.
+
+Three details worth recording:
+- **v1, not v2.** `POST /v1/webhook_endpoints` yields snapshot events, which is what the handlers parse via `event.data.object`. The v2 `event_destinations` example in Stripe's docs passes `"event_payload": "thin"`, which would break every handler.
+- **The signing secret is returned only from the create call** — `GET /v1/webhook_endpoints/:id` omits it, verified. Stored in Doppler `dev`, since otherwise it would exist solely inside an unreadable Cloudflare binding.
+- **`api_version` as a body parameter is not the `Stripe-Version` header.** The header shapes the API response you receive; the parameter shapes the events delivered to your endpoint. The account default was measured (`2025-09-30.clover`) rather than copied from the docs example.
+
+**New test suite:** `workers/stripe-webhook/src/webhook-signature.live.test.ts`, run with `npm run test:live`. Five tests covering a valid signature, the multi-`v1` rotation branch, a tampered signature, a stale timestamp, and a missing header. Mutation-verified — with a deliberately wrong secret, exactly the two accept-tests fail. It uses Web Crypto rather than `node:crypto` so it typechecks against `@cloudflare/workers-types`, and the base vitest config now excludes `*.live.test.ts` so it stays out of CI.
+
+Incidental: Cloudflare rejects `Python-urllib` with error 1010 before the request reaches the Worker. The first probe looked like three 403s and proved nothing; Stripe's own user agent passes.
+
+### Corrections to earlier entries in this file
+
+- **`STRIPE_API_KEY` is not `sk_test_` in both configs** — see the retraction on the *Environment Isolation Detector* entry above. Two different Stripe accounts, and the `prd` value is publishable.
+- **The Supabase project is not paused.** Earlier entries state both projects are `INACTIVE`. `cfrbahzzklwrnmbtqojl` ("IntegrityStudio") is `ACTIVE_HEALTHY`; the `INACTIVE` one is `kvbcgfttukwciiwieezp` ("atx_movement"), unrelated. No resume step is needed to fix CR12.
+- **`doppler run` cannot be trusted to report which value a config holds.** One invocation returned a value that `doppler secrets get --plain` and the upstream API both contradicted; `~/.doppler/fallback/` caches snapshots. Compounded by `sh -c 'echo -n "$V"'` printing the literal `-n `. Use `printf '%s'` and compare hashes.
 
 ---

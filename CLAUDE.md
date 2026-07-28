@@ -20,38 +20,67 @@ npm test                          # Unit tests (vitest)
 npm run deploy                    # → <worker>-dev (wrangler --env dev); cannot touch production
 npm run deploy:prd                # → the live worker (top-level config + Doppler prd)
 wrangler dev --port 8787          # Local dev server
+
+# Opt-in suites (excluded from `npm test`; skip cleanly without credentials)
+npm run test:live                 # stripe-webhook: real Stripe-signed requests to the deployed dev Worker
+                                  # sender-worker: real Auth0 Management API calls
+npm run test:e2e                  # sender-worker: workerd runtime with mocked outbound calls
+```
+
+**Supabase** (migrations are the source of truth for schema)
+```bash
+export SUPABASE_ACCESS_TOKEN=$(doppler secrets get SUPABASE_ACCESS_TOKEN --project integrity-studio --config prd --plain)
+export SUPABASE_DB_PASSWORD=$(doppler secrets get SUPABASE_DB_PASSWORD --project integrity-studio --config prd --plain)
+supabase migration list --linked   # local vs remote; any blank `remote` column is pending
+supabase db push --dry-run         # preview; add --include-all if a file sorts before the last applied version
+supabase db push                   # apply
+```
+Two hard-won rules. **`create policy if not exists` is invalid PostgreSQL** — there is no `IF NOT EXISTS` for `CREATE POLICY`; use `drop policy if exists` then `create policy`. And **`migration repair --status applied` writes a ledger row without executing the SQL**, which is how two migrations came to be recorded as applied while their tables did not exist (BACKLOG.md CR17). Treat it as a last resort, never as a way past a failing push.
+
+**RLS is not optional for privacy.** PostgREST exposes every table in the `public` schema, so a table with RLS off is readable with the *publishable* anon key regardless of which key your workers use. Enabling RLS with **zero policies** denies anon and authenticated while `service_role` bypasses it — that is the correct posture for server-only tables. Verify with the catalog, not a status code: RLS denial returns `200 []`, not an error.
+```bash
+# any table here is publicly readable
+select relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+where n.nspname='public' and c.relkind='r' and c.relrowsecurity=false;
 ```
 
 ## Current Status
 
-**Phase**: Codebase review remediation + worker deploy/settings audit — 48 findings fixed, 10 open as CR01–CR16
-**Last Updated**: 2026-07-27
+**Phase**: Codebase review remediation + worker deploy/settings audit + database/secret remediation — 48 findings fixed, 13 open as CR01–CR21
+**Last Updated**: 2026-07-27 (evening)
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ 3,001 Flutter tests passing (~94% coverage); 1,039 worker tests passing (6 workers + shared lib); zero TypeScript errors; `flutter analyze` clean
-**Deployed**: production `sender-worker` + `integrity-studio-contact` healthy; `api-gateway` **503/degraded** and `stripe-webhook` has zero secrets bound (CR12). Five `*-dev` workers exist and are deliberately secret-less (CR11); no zone route points at any of them.
-**Pending a `deploy:prd`** — committed but not live: CR03's `RATE_LIMIT_KV` binding, CR14's `preview_urls = false`, and observability on all six workers (CR15 + W04 step 1). CI deploys `sender-worker` on merge to `main`; other workers are manual.
+**Test Status**: ✅ 3,001 Flutter tests passing (~94% coverage); 1,039 worker tests passing (6 workers + shared lib); zero TypeScript errors; `flutter analyze` clean. Plus 5 opt-in live signature tests — `cd workers/stripe-webhook && npm run test:live` (excluded from `npm test`; skips cleanly without credentials)
+**Database**: ✅ Supabase `cfrbahzzklwrnmbtqojl` is `ACTIVE_HEALTHY`; 10 migrations applied and `supabase migration list` reports zero out of sync. The ledger previously claimed migrations that had never run (CR17) — including the one creating `stripe-webhook`'s tables. RLS is now enabled on every table in `public`.
+**Deployed**: production `sender-worker` + `integrity-studio-contact` healthy. **`api-gateway` is healthy** — `200 {"database":"healthy"}` since 2026-07-27, with `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_JWT_SECRET` bound (CR12 partial). `stripe-webhook` has the Supabase pair bound but no signing secret, so it cannot verify a webhook (CR18). Five `*-dev` workers are deliberately secret-less (CR11) except `stripe-webhook-dev`, which holds a sandbox `STRIPE_API_KEY` + `STRIPE_WEBHOOK_SECRET` for live signature testing. No zone route points at any dev worker.
+**Stripe**: one **test-mode** endpoint registered (`we_1Ty14zBWbFuvm1I6rvLOD5OW` → `stripe-webhook-dev`, `api_version=2025-09-30.clover`). **No live-mode endpoint and no live secret key exist** — see CR18.
+**Pending a `deploy:prd`** — committed but not live: CR03's `RATE_LIMIT_KV` binding and observability on all six workers (CR15 + W04 step 1). CR14's `preview_urls` is already live on `api-gateway` and `stripe-webhook` via the API. CI deploys `sender-worker` on merge to `main`; other workers are manual.
 
 See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recent changes.
 
 ### Known Issues
-Ten items open, tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr16). None is blocked on code — each needs a credential decision, an answer about intent, or a production deploy.
+Thirteen items open, tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr16). **Three are now blocked on code** (CR19–CR21, all defects in `workers/stripe-webhook/src/`); the rest need a credential decision, an answer about intent, or a production deploy.
 
-⚠️ **Armed trap:** `workers/api-gateway/wrangler.toml` declares `api.integritystudio.ai/v1/*` at the top level, which is what `deploy:prd` publishes. That path is currently served by `obtool-api` via a `/*` wildcard, and Cloudflare resolves overlapping routes by longest match — so the next `deploy:prd` in that directory moves live `/v1` traffic onto a worker with zero secrets. See CR13 step 1.
+⚠️ **Armed trap — do not run `deploy:prd` in `workers/api-gateway`.** Its `wrangler.toml` declares `api.integritystudio.ai/v1/*` at the top level, which is what `deploy:prd` publishes. That path is served by `obtool-api` via a `/*` wildcard, and Cloudflare resolves overlapping routes by longest match — so a deploy captures **all** `/v1` traffic, including `obtool-api`'s `/v1/traces`, `/v1/sessions`, and `/v1/metrics`, which `api-gateway` does not implement. The risk went **up** on 2026-07-27: that file was edited (for CR14), giving someone a reason to deploy it. CR13 step 1 (delete the `routes` key) has no live effect and defuses it.
 
 **P1**
-- **CR12**: production `api-gateway` and `stripe-webhook` have **zero secrets bound**; the gateway answers `503 {"database":"degraded"}`. Both last deployed 2026-03-31. Needs an owner answer: pre-launch, or a regression?
-- **CR01**: `doppler.json` history scrub + full secret rotation still required. Untracked now, but the bundle remains in git history and **nothing has been rotated** — and per CR11 those are the *production* credentials
-- **CR11**: Doppler `dev` holds the same Supabase project and Auth0 tenant as `prd`. `--config dev` is not a safety boundary. Detector: `npm run check:env-isolation` (fails 10/10). Blocked on provisioning decisions
-- **CR14**: superseded Worker versions stay publicly callable at preview URLs with live secrets — a 2026-04-20 `sender-worker` version answered 200. Config fixed; **production still exposed until deployed**
+- **CR18**: **two different Stripe accounts** — `prd` holds a `pk_live_` *publishable* key, `dev` an `sk_test_` secret key. `STRIPE_SECRET_KEY` (what the code reads) is empty everywhere, so **no worker can make a server-side Stripe call**. Stripe has no API to create secret keys; this needs one Dashboard action plus a decision about which account is production
+- **CR01**: `doppler.json` history scrub + full secret rotation still required. **Nothing has been rotated.** The Supabase half is cheaper than assumed — `sb_secret_` keys are individually revocable without rotating the project JWT secret
+- **CR11**: Doppler `dev` holds the same Supabase project and Auth0 tenant as `prd`. `--config dev` is not a safety boundary. Detector: `npm run check:env-isolation` (fails 10/10) — note it **covers no Stripe credential**
+- **CR12**: ⚠️ partial — `api-gateway` restored to healthy. Still missing `API_KEY_HMAC_SECRET` (canonical value lives on the receiver in `observability-toolkit`), `STRIPE_SECRET_KEY`, and `STRIPE_WEBHOOK_SECRET`
+- **CR14**: ⚠️ partial — closed on `api-gateway` + `stripe-webhook`. **Still exposed:** `sender-worker` (13 secrets), `integrity-studio-contact`, and cross-repo `api-provisioning-receiver` (7)
 
 **P2**
-- **CR13**: one hostname, two complementary services. `obtool-api`'s `/*` wildcard swallows the gateway's paths and 401s them; the two share **no** paths. Needs a topology decision, not an ownership one. `api-gateway` is customer-facing, so it needs a branded hostname eventually — open question is whether that should be `api.integritystudio.ai` itself
+- **CR19**: 🔴 **code bug** — `stripe-webhook` marks out-of-order events as processed and returns 200, so an event arriving before its org link exists is lost with no dead-letter row and no retry
+- **CR20**: 🔴 `stripe-webhook` returns 200 on handler failure, discarding Stripe's 3-day retry in favour of the `*/15` cron. Defensible only if the cron is monitored — it isn't yet
+- **CR17**: ⚠️ partial — migration ledger had recorded migrations that never ran; repaired, but **no drift detection exists** to stop it recurring
+- **CR13**: hostname topology — see the armed-trap note above
 - **CR04**: JWT still passed to the dashboard in a URL fragment — cross-repo fix needed
 - **CR02**: ✅ mostly closed — `npm run deploy` targets `--env dev`, verified live. Only the dev receiver remains
 - **CR03**: ✅ done — KV namespaces created and bound; live in production on the next `deploy:prd`
 
 **P3**
-- **CR15**: observability fixed in config (was silently off in production for ~4 months); **four** stale secrets still bound to production `sender-worker` — `RECEIVER_WORKER_URL`, `PROVISIONING_RECEIVER_WORKER_URL`, `AUTH0_CLI_AUDIENCE`, `SUPABASE_ANON_KEY`
+- **CR15**: observability fixed in config (was silently off in production for ~4 months) but **not deployed**, which now blocks confirming several things this session changed; **four** stale secrets still bound to production `sender-worker` — `RECEIVER_WORKER_URL`, `PROVISIONING_RECEIVER_WORKER_URL`, `AUTH0_CLI_AUDIENCE`, `SUPABASE_ANON_KEY`
+- **CR21**: `stripe-webhook` processes synchronously rather than returning 2xx first; use `ctx.waitUntil()`
 - **CR16**: 📋 by design, not a defect. `obtool-ingest` (→ R2+D1) is Integrity Studio's **internal** OTEL pipeline; `api-gateway`'s `/v1/ingest/otel` (→ Supabase) is the **customer-facing** one. **Do not de-duplicate these.** Folding obtool-ingest into api-gateway is an eventual goal, explicitly not current priority
 
 ---
@@ -175,7 +204,7 @@ Without these the app uses the compile-time defaults in `lib/services/`, which p
 
 All five dev workers were deployed and verified on 2026-07-27; production was confirmed untouched by the same run.
 
-**⚠️ Dev workers are NOT data-isolated.** Doppler's `dev` and `prd` configs hold **identical** values for all 10 Supabase, Auth0, and HMAC credentials (`npm run check:env-isolation` reports which). Selecting `--config dev` therefore changes nothing about which database or Auth0 tenant is used. Stripe is *not* affected: `STRIPE_SECRET_KEY` is empty in both configs and the key in use, `STRIPE_API_KEY`, is `sk_test_…`. The dev workers were deliberately deployed **without secrets** so they cannot reach production data; that is why they return errors on any route needing one. Do not push the `dev` Doppler secrets into them — that would create a second production-capable worker rather than a dev environment. Tracked as BACKLOG.md CR11.
+**⚠️ Dev workers are NOT data-isolated.** Doppler's `dev` and `prd` configs hold **identical** values for all 10 Supabase, Auth0, and HMAC credentials (`npm run check:env-isolation` reports which). Selecting `--config dev` therefore changes nothing about which database or Auth0 tenant is used. Stripe is *not* affected, but not for the reason previously stated here (corrected 2026-07-27): `prd`'s `STRIPE_API_KEY` is a **`pk_live_` publishable key** and `dev`'s is an `sk_test_` secret key, belonging to **two different Stripe accounts**. A publishable key is public by design, so there is no exposure — but `STRIPE_SECRET_KEY`, the name the code actually reads, is empty in all three configs, so no worker can make a server-side Stripe call at all. `check:env-isolation` compares no Stripe credential. See BACKLOG.md CR18. The dev workers were deliberately deployed **without secrets** so they cannot reach production data; that is why they return errors on any route needing one. Do not push the `dev` Doppler secrets into them — that would create a second production-capable worker rather than a dev environment. Tracked as BACKLOG.md CR11.
 
 **Also not isolated:** `sender-worker-dev` binds `RECEIVER` to the production `api-provisioning-receiver`, because no dev receiver is deployed (it lives in the `observability-toolkit` repo). Tracked as CR02 item 5.
 
@@ -189,6 +218,13 @@ Worker runtime secrets are **not** supplied by Doppler. `wrangler deploy` does n
 ```bash
 npx wrangler secret list --name <worker>          # or --env dev
 ```
+
+**Read Doppler values with `doppler secrets get --plain`, not `doppler run`.** On 2026-07-27 a `doppler run --config prd` reported a value that `doppler secrets get --config prd --plain` contradicted, and the upstream API confirmed the latter. `~/.doppler/fallback/` caches credential snapshots, so a stale one can be served silently. Two traps compound it: `sh -c 'echo -n "$V"'` prints the literal `-n ` (POSIX `sh`, not bash) and corrupts any prefix check — use `printf '%s'` — and a prefix alone is weak evidence. Fingerprint instead, which never prints secret material:
+```bash
+v=$(doppler secrets get NAME --project integrity-studio --config prd --plain | tr -d '\n')
+printf 'len=%s sha=%s\n' "${#v}" "$(printf '%s' "$v" | shasum | cut -c1-12)"
+```
+When binding a secret to a Worker, pipe that captured value into `wrangler secret put` rather than letting `doppler run` inject it.
 
 #### Worker Deployment Overview
 
