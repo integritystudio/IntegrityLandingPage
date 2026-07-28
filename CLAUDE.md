@@ -45,14 +45,14 @@ Ten items open, tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md
 - **CR14**: superseded Worker versions stay publicly callable at preview URLs with live secrets — a 2026-04-20 `sender-worker` version answered 200. Config fixed; **production still exposed until deployed**
 
 **P2**
-- **CR13**: one hostname, two complementary services. `obtool-api`'s `/*` wildcard swallows the gateway's paths and 401s them; the two share **no** paths. Needs a topology decision (concede / path-split / separate hostname / front door), not an ownership one
-- **CR16**: two OTEL ingestion pipelines exist — `obtool-ingest` → R2+D1 at `ingest.integritystudio.ai`, and `api-gateway`'s `/v1/ingest/otel` → Supabase `usage_events.metadata`. Different wire formats, auth, and dedup. Dormant only because the gateway has no secrets and no route
+- **CR13**: one hostname, two complementary services. `obtool-api`'s `/*` wildcard swallows the gateway's paths and 401s them; the two share **no** paths. Needs a topology decision, not an ownership one. `api-gateway` is customer-facing, so it needs a branded hostname eventually — open question is whether that should be `api.integritystudio.ai` itself
 - **CR04**: JWT still passed to the dashboard in a URL fragment — cross-repo fix needed
 - **CR02**: ✅ mostly closed — `npm run deploy` targets `--env dev`, verified live. Only the dev receiver remains
 - **CR03**: ✅ done — KV namespaces created and bound; live in production on the next `deploy:prd`
 
 **P3**
 - **CR15**: observability fixed in config (was silently off in production for ~4 months); **four** stale secrets still bound to production `sender-worker` — `RECEIVER_WORKER_URL`, `PROVISIONING_RECEIVER_WORKER_URL`, `AUTH0_CLI_AUDIENCE`, `SUPABASE_ANON_KEY`
+- **CR16**: 📋 by design, not a defect. `obtool-ingest` (→ R2+D1) is Integrity Studio's **internal** OTEL pipeline; `api-gateway`'s `/v1/ingest/otel` (→ Supabase) is the **customer-facing** one. **Do not de-duplicate these.** Folding obtool-ingest into api-gateway is an eventual goal, explicitly not current priority
 
 ---
 

@@ -357,9 +357,9 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR02](#cr02) | P2 | ✅ mostly | Dev/prod split done and verified live; only the dev receiver remains |
 | [CR04](#cr04) | P2 | ⚠️ partial | Comment corrected; JWT still travels in a URL fragment |
 | [CR13](#cr13) | P2 | 🔴 open | One hostname, two complementary services — `obtool-api`'s wildcard swallows the gateway's paths |
-| [CR16](#cr16) | P2 | 🔴 open | Two OTEL ingestion pipelines in two repos, writing to R2+D1 and to Supabase |
 | [CR03](#cr03) | P2 | ✅ done | KV namespaces created and bound; reaches prod on next `deploy:prd` |
 | [CR15](#cr15) | P3 | ⚠️ partial | Observability fixed in config; **four** stale prod secrets still bound |
+| [CR16](#cr16) | P3 | 📋 by design | Internal vs customer-facing OTEL pipelines — deliberate; **do not de-duplicate**. Convergence deferred |
 
 **Nothing here is blocked on code.** Every remaining item needs either a credential/provisioning decision (CR01, CR11), an answer about intent (CR12, CR13, CR16), or a production deploy to apply changes already committed (CR14, CR15, CR03).
 
@@ -572,15 +572,15 @@ These are complementary halves of one product API — a telemetry data plane and
 
 | | Approach | Trade-off |
 |---|---|---|
-| **A** | Concede — gateway stays on `workers.dev` | Zero risk, one-line diff, no branded hostname |
+| **A** | Concede — gateway stays on `workers.dev` | Zero risk, one-line diff. **Viable only as a temporary defusal, not an end state** — see below |
 | **B** | Path-split: `/v1/me`, `/v1/orgs*`, `/v1/ingest/*` as separate routes | Keeps one hostname, but the route list becomes a hand-maintained mirror of a dispatch table in another repo. **Never `/v1/*` here** — that is the trap as currently armed and would swallow all of `obtool-api` |
-| **C** | Separate hostname, e.g. `accounts.integritystudio.ai/*` | Matches the existing per-service `api.`/`ingest.` convention; one hostname per repo, no cross-repo route coordination. Costs a DNS record, a Flutter default, and doc updates |
+| **C** | Give the gateway its own branded hostname | Matches the existing per-service convention; one hostname per repo, no cross-repo route coordination. Costs a DNS record, a Flutter default, and doc updates |
 | **D** | Single front door — `obtool-api` service-binds unmatched `/v1` paths to `api-gateway` | Best external DX. Requires changes in a repo this one does not own, and couples the two auth models |
 
-4. Settle [[CR16]] before committing to B or D — if the gateway loses its OTEL path, the surface needing a hostname shrinks and C gets cheaper.
+4. **`api-gateway` is the customer-facing API** ([[CR16]]), so it needs a real hostname eventually — customers cannot be handed `api-gateway.alyshia-b38.workers.dev` as an integration target, and `docs/api-usage-ingestion.md` already publishes `api.integritystudio.ai` as theirs. That rules **A out as a destination**, though not as today's safe parking spot. It also raises a question this entry cannot answer from the repo: `obtool-ingest` is internal, but **is `obtool-api` internal too?** If both `obtool-*` workers are internal, then the most customer-looking hostname in the account is serving internal telemetry while the actual customer API has none — and the right answer may be to *give `api.integritystudio.ai` to the gateway* and move the obtool stack to an internal name, rather than routing around it.
 5. Either way, stop relying on the `workers.dev` hostname as the app's production default (`dashboard_service.dart:16`, `provisioning_service.dart:22`).
 
-**Suggested:** A now, C later. A defuses immediately at no cost; C beats B by not making the route list a cross-repo consistency contract, and beats D by needing no changes in the observability-toolkit repo.
+**Suggested:** step 1 (delete the `routes` key) immediately and unconditionally — it is safe, reversible, and independent of everything else. Defer the destination until `obtool-api`'s audience is settled, because that answer decides between "gateway takes `api.integritystudio.ai`" and options C/D.
 
 **Status:** Open — needs a hostname-topology decision, not an ownership one. The unsafe intermediate state (dev Worker on the production hostname) is resolved, but the production trap in step 1 is still armed.
 
@@ -681,16 +681,19 @@ npx wrangler secret delete SUPABASE_ANON_KEY --name sender-worker
 
 <a id="cr16"></a>
 
-### CR16: Two telemetry ingestion pipelines exist in two repos, writing to two backends
+### CR16: Internal and customer-facing OTEL pipelines run separately — convergence is deferred, not pending
 
-**Priority:** P2 | **Source:** session 2026-07-27, reading both deployed scripts while analysing [[CR13]]
-**Estimated:** 1 hour to remove the duplicate; longer if the gateway's pipeline is the one kept
+> **⚠️ Do not "de-duplicate" these.** An earlier version of this entry read the two pipelines as an accidental fork and instructed removing `handleIngestOtel` from `api-gateway`. That is wrong and would delete the **customer-facing** ingestion path. Corrected 2026-07-27 on owner clarification; see *What this entry got wrong* below.
 
-**Context:** The product has **two OTEL ingestion endpoints**, implemented independently in two repos, persisting to two different storage systems. Neither is aware of the other.
+**Priority:** P3 | **Source:** session 2026-07-27, reading both deployed scripts while analysing [[CR13]]; intent corrected by owner
+**Estimated:** no work scheduled — convergence is an eventual goal, explicitly not a current priority
+
+**Context — the split is deliberate.** Two OTEL ingestion pipelines exist because they serve **two different populations**:
 
 | | `obtool-ingest` (observability-toolkit) | `api-gateway` (this repo) |
 |---|---|---|
-| Hostname | `ingest.integritystudio.ai/*` — attached | none — no zone route |
+| **Audience** | **Integrity Studio's own internal telemetry** | **customers / end users** |
+| Hostname | `ingest.integritystudio.ai/*` — attached | none — no zone route ([[CR13]]) |
 | Path | `/v1/:signal` (`traces`, `metrics`, `logs`, `evaluations`), `/v1/ingest/backfill` | `/v1/ingest/otel`, `/v1/ingest/events` |
 | Storage | R2 `obtool-telemetry` + D1 `obtool_telemetry_db` | Supabase `usage_events.metadata.spans` (jsonb) |
 | Auth | KV `AUTH` | HMAC API key verified against Supabase |
@@ -698,28 +701,23 @@ npx wrangler secret delete SUPABASE_ANON_KEY --name sender-worker
 | Quota | none | per-org via `QUOTA_DO` |
 | Wire format | per-signal | `{spans: [...]}`, max 1,000, custom flat `OtelSpanSchema` |
 
-The two are not variants of one design — they disagree on transport shape, auth, dedup, and where telemetry lives.
+The differing auth, quota, and storage choices follow from the audience split: the customer-facing path needs per-org quota and API-key auth because it is metered and multi-tenant; the internal path does not.
 
-**How this arose:** `obtool-ingest` and the `obtool-telemetry` R2 bucket were created 2026-02-24. `/v1/ingest/otel` was added a month later, on 2026-03-21, by a backlog-implementer session closing an `OTEL-1` item against the payments roadmap's "Telemetry/monitoring setup" checkbox (`1b771e3`, `c40a1c8`) — see the session log at the foot of this file. The endpoint satisfied the checkbox; nothing checked whether an ingestion pipeline already existed. `CLAUDE.md` has documented `ingest.integritystudio.ai` as *the* telemetry endpoint throughout.
+**Eventual direction:** fold `obtool-ingest` into the public-facing `api-gateway`, so one pipeline serves both. This is a stated end-state, **not scheduled work** — it should not be started as cleanup, and the current two-pipeline arrangement is correct until it is.
 
-**Note the scope:** only `/v1/ingest/otel` is duplicative. `/v1/ingest/events` takes `metric_key` + `quantity` and is genuine usage metering for billing and quota — a different concern with no counterpart in `obtool-ingest`, and it should survive whatever is decided here.
+**What this entry got wrong.** It was originally filed as an accidental duplicate, inferred from the commit trail: `obtool-ingest` and its R2 bucket were created 2026-02-24, and `/v1/ingest/otel` was added a month later on 2026-03-21 by a backlog-implementer session closing an `OTEL-1` item against the payments roadmap's "Telemetry/monitoring setup" checkbox (`1b771e3`, `c40a1c8`). The chronology is accurate; the conclusion drawn from it was not. Later-and-similar is not the same as redundant, and no amount of reading the two repos would have revealed the audience split — that is product intent, and it was not written down anywhere. Recording it here is the fix.
 
-**Why it has not caused an incident:** the gateway's pipeline has never run in production. It has had **zero secrets since 2026-03-31** ([[CR12]]), so it cannot reach Supabase, and it holds no zone route ([[CR13]]), so it is unreachable at `api.integritystudio.ai` regardless. No Dart code calls either gateway ingest path — only documentation references them. The duplicate is dormant, not live.
+**Note the scope:** `/v1/ingest/events` takes `metric_key` + `quantity` and is usage metering for billing and quota — a third, separate concern from either telemetry pipeline.
 
-**Two things verified so they are not re-raised:**
-- `rollupDailyBucket` selects only `organization_id, metric_key, quantity, latency_ms` (`aggregation.ts:45`), so stored span payloads are **not** dragged through daily aggregation.
-- `usage_events.metadata` is `jsonb not null default '{}'` with no partitioning, and there is no purge or retention job anywhere in this repo. If the gateway's OTEL path is ever switched on, full span payloads accumulate indefinitely in a billing ledger table.
+**What is actually actionable now** — none of it is the pipeline split:
 
-**Published documentation points at a dead endpoint.** `docs/api-usage-ingestion.md` instructs callers to `POST https://api.integritystudio.ai/v1/ingest/events`. No deployed worker serves that path on that hostname: `obtool-api` holds the wildcard, auth-gates every `/v1/*` path before routing, and does not implement it. This is broken today and independently of the decision below.
+1. **The documented customer entry point is dead.** `docs/api-usage-ingestion.md` instructs customers to `POST https://api.integritystudio.ai/v1/ingest/events`. No deployed worker serves that path on that hostname — `obtool-api` holds the `/*` wildcard, auth-gates every `/v1/*` path before routing, and does not implement it. Now that this is confirmed customer-facing, it is a **launch blocker rather than a stale doc**: the published integration instructions cannot work.
+2. **The customer-facing pipeline has never run in production.** Zero secrets since 2026-03-31 ([[CR12]]) so it cannot reach Supabase, and no zone route ([[CR13]]) so it is unreachable at a branded hostname. Both must resolve before any customer can send a span.
+3. **Retention is undefined for customer span volume.** `usage_events.metadata` is `jsonb not null default '{}'`, unpartitioned, with no purge or retention job anywhere in this repo. Internal-only volume would be tolerable; customer volume accumulating indefinitely in a billing ledger table is not. Decide retention before the path is switched on, not after.
 
-**Scope:**
-1. Decide whether the product has **one** telemetry ingestion pipeline or two. If two, write down what distinguishes them; if one, name the canonical pipeline.
-2. If `obtool-ingest` is canonical (it is older, routed, and the documented endpoint): remove `handleIngestOtel`, `OTEL_INGEST_ROUTE`, `IngestOtelRequestSchema`, `OtelSpanSchema`, and `IngestOtelMetadataSchema`; keep `/v1/ingest/events` for metering.
-3. If the gateway's is canonical: justify Supabase jsonb as a span store against R2 + D1, add a retention policy for `usage_events.metadata`, and reconcile the wire format so callers are not asked to speak two dialects.
-4. Fix `docs/api-usage-ingestion.md` either way — it currently publishes an endpoint nothing serves.
-5. Fold the answer into [[CR13]]: if the gateway loses its OTEL path, the surface needing a hostname shrinks, which narrows the routing options.
+**Verified so it is not re-raised:** `rollupDailyBucket` selects only `organization_id, metric_key, quantity, latency_ms` (`aggregation.ts:45`), so stored span payloads are **not** dragged through daily aggregation.
 
-**Status:** Open — needs a product-architecture decision, not code. Dormant while [[CR12]] and [[CR13]] keep the gateway's pipeline unreachable; both of those resolving is what would make this live.
+**Status:** Not a defect — design intent, now recorded. No work scheduled on the split itself. Items 1–3 above are real and belong to [[CR12]] and [[CR13]]; this entry exists mainly so the two-pipeline arrangement is not "tidied up" by someone who finds it without the context.
 
 ---
 
