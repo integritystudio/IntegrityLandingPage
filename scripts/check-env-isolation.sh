@@ -66,6 +66,24 @@ STRIPE_MODED_KEYS=(
 LIVE_KEY_RE='^(sk|rk|pk)_live_'
 TEST_KEY_RE='^(sk|rk|pk)_test_'
 
+# Supabase has the same "distinct but not isolated" hole, reachable by accident.
+#
+# `POST /v1/projects/{ref}/api-keys` mints a new `sb_secret_` key carrying
+# secret_jwt_template {role: service_role}. Pointing dev at one would make
+# SUPABASE_SERVICE_ROLE_KEY differ — so the table above would say "ok
+# (distinct)" — while the key still bypasses RLS on the PRODUCTION database.
+# It would quiet the detector without isolating anything.
+#
+# SUPABASE_URL is the tell, because it is derived from the project ref and
+# cannot differ within one project. If it is shared, every other Supabase
+# credential is non-isolating by construction no matter what its hash says.
+# Real isolation requires a second Supabase project (`POST /v1/projects`).
+SUPABASE_PROJECT_SCOPED=(
+  SUPABASE_SERVICE_ROLE_KEY
+  SUPABASE_ANON_KEY
+  SUPABASE_JWT_SECRET
+)
+
 command -v doppler >/dev/null 2>&1 || { echo "doppler CLI not installed"; exit 2; }
 doppler me >/dev/null 2>&1 || { echo "doppler not authenticated — run 'doppler login'"; exit 2; }
 
@@ -104,6 +122,18 @@ for secret in "${SECRETS[@]}"; do
 done
 
 echo
+if [[ "$(digest SUPABASE_URL "$BASE_CONFIG")" == "$(digest SUPABASE_URL "$PROD_CONFIG")" ]]; then
+  cat <<EOF
+SUPABASE SCOPE: both configs share one SUPABASE_URL, so they are the same
+project. ${SUPABASE_PROJECT_SCOPED[*]} therefore cannot
+isolate anything, whatever their hashes say above — a per-config
+\`sb_secret_\` minted via POST /v1/projects/{ref}/api-keys would read
+"ok (distinct)" here while still bypassing RLS on production. Isolation
+requires a second project (POST /v1/projects). See BACKLOG.md CR11.
+EOF
+  echo
+fi
+
 printf '%-30s %-14s %-14s %s\n' "STRIPE KEY MODE" "$BASE_CONFIG" "$PROD_CONFIG" "VERDICT"
 printf '%s\n' "----------------------------------------------------------------------"
 
