@@ -435,14 +435,14 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR04](#cr04) | P2 | ⚠️ partial | Comment corrected; JWT still travels in a URL fragment |
 | [CR13](#cr13) | P2 | 🔴 open | Trap **still armed**, and now likelier to be tripped — `api-gateway`'s config changed, so someone may deploy it |
 | [CR17](#cr17) | P2 | ⚠️ partial | Migration ledger had recorded migrations that never ran. Repaired; **no drift detection exists** |
-| [CR19](#cr19) | P2 | 🔴 open | **Code bug.** `stripe-webhook` silently swallows out-of-order events — claimed as processed, never retried |
+| [CR19](#cr19) | P2 | ✅ done | `stripe-webhook` org-not-found now returns `{ ok: false }` → unclaimEvent + dead-letter (commits eaaa199, 9741594) |
 | [CR20](#cr20) | P2 | 🔴 open | `stripe-webhook` returns 200 on failure, discarding Stripe's 3-day retry in favour of a cron |
 | [CR03](#cr03) | P2 | ✅ done | KV namespaces created and bound; reaches prod on next `deploy:prd` |
 | [CR15](#cr15) | P3 | ⚠️ partial | Observability fixed in config; **four** stale prod secrets still bound |
 | [CR21](#cr21) | P3 | 🔴 open | `stripe-webhook` processes synchronously against Stripe's "return 2xx first" guidance |
 | [CR16](#cr16) | P3 | 📋 by design | Internal vs customer-facing OTEL pipelines — deliberate; **do not de-duplicate**. Convergence deferred |
 
-**Three items are now blocked on code, which was not true before.** [[CR19]], [[CR20]], and [[CR21]] are defects in `workers/stripe-webhook/src/`, found by reading the implementation against Stripe's webhook documentation. Everything else still needs a credential/provisioning decision (CR01, CR11, CR18), an answer about intent (CR13, CR16), or a production deploy (CR14, CR15, CR03).
+**Two items are now blocked on code** — [[CR20]] and [[CR21]] are defects in `workers/stripe-webhook/src/`, found by reading the implementation against Stripe's webhook documentation. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). Everything else still needs a credential/provisioning decision (CR01, CR11, CR18), an answer about intent (CR13, CR16), or a production deploy (CR14, CR15, CR03).
 
 **Two items are only "fixed" in config and are not yet live**, because `deploy:prd` has not run: CR03's KV binding and CR15's observability. CR14's `preview_urls` is now live on two Workers via the API, independent of any deploy. CI deploys `sender-worker` on merge to `main`; the others are manual.
 
@@ -942,7 +942,7 @@ Every handler resolves the org from `stripe_customer_id` and, when the lookup is
 3. Only release the claim on paths that genuinely did nothing — the existing `unclaimEvent` path is the right model.
 4. Add a test asserting an unmatched customer does **not** leave a satisfied claim behind.
 
-**Status:** 🔴 Open — real code defect. Worth fixing before a live endpoint is registered ([[CR18]]), because live traffic is exactly where out-of-order delivery shows up.
+**Status:** ✅ Done (2026-07-27, commits eaaa199, 9741594) — `subscription.ts` and `invoice.ts` now return `{ ok: false }` when org-not-found, routing the event through the existing `unclaimEvent` + `addDeadLetter` path in `index.ts`. The cron retries up to 5 times with exponential backoff (~31 min total). `checkout.ts` is unchanged — missing `org_id` in metadata means the checkout is not from this system, so `{ ok: true }` (no-op) remains correct. Four handler tests updated; one integration test added in `index.test.ts` asserting `unclaimEvent` and `addDeadLetter` are called on org-not-found. 151 tests passing.
 
 ---
 
