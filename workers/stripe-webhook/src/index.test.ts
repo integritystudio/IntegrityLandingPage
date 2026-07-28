@@ -286,6 +286,30 @@ describe('handleWebhook (fetch handler)', () => {
     expect(mockDb.addDeadLetter).toHaveBeenCalled();
   });
 
+  it('org-not-found result → unclaimEvent called + addDeadLetter called (event not silently dropped)', async () => {
+    const body = JSON.stringify({ id: 'evt_orphan', type: 'customer.subscription.updated', data: { object: {} } });
+    const request = await makeWebhookRequest(body);
+
+    mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
+    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: false, error: 'No org found for Stripe customer cus_orphan' });
+    mockDb.unclaimEvent.mockResolvedValue({ ok: true });
+    mockDb.addDeadLetter.mockResolvedValue({ ok: true });
+
+    const response = await worker.fetch(request, MOCK_ENV);
+    const json = await response.json<{ ok: boolean; processed: boolean; error: string }>();
+
+    expect(response.status).toBe(200);
+    expect(json.processed).toBe(false);
+    expect(json.error).toContain('No org found for Stripe customer');
+    expect(mockDb.unclaimEvent).toHaveBeenCalledWith('evt_orphan');
+    expect(mockDb.addDeadLetter).toHaveBeenCalledWith(
+      'evt_orphan',
+      'customer.subscription.updated',
+      expect.any(Object),
+      expect.stringContaining('No org found for Stripe customer'),
+    );
+  });
+
   it('customer.subscription.deleted event → handleSubscriptionDeleted called, processed:true returned', async () => {
     const body = JSON.stringify({ id: 'evt_del', type: 'customer.subscription.deleted', data: { object: {} } });
     const request = await makeWebhookRequest(body);

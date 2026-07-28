@@ -26,12 +26,6 @@ function makeEvent(object: Record<string, unknown>): StripeEvent {
 }
 
 describe('handleInvoicePaid', () => {
-  let consoleSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  });
-
   it('returns { ok: false } when payload fails schema validation', async () => {
     // customer must be a string; pass a number to fail the schema
     const event = makeEvent({ customer: 123, subscription: 'sub_1' });
@@ -65,13 +59,13 @@ describe('handleInvoicePaid', () => {
     if (!result.ok) expect(result.error).toContain('Failed to find org');
   });
 
-  it('returns { ok: true } silently when no org is found for the customer', async () => {
+  it('returns { ok: false } when no org found for customer (retryable, will dead-letter)', async () => {
     const event = makeEvent({ customer: 'cus_orphan', subscription: 'sub_1' });
     const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: true, orgId: null }) });
     const result = await handleInvoicePaid(event, db);
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('No org found for Stripe customer cus_orphan');
     expect(db.updateOrgBillingStatus).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalled();
   });
 
   it('returns { ok: false } when updateOrgBillingStatus fails', async () => {
@@ -92,12 +86,6 @@ describe('handleInvoicePaid', () => {
 });
 
 describe('handleInvoicePaymentFailed', () => {
-  let consoleSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  });
-
   it('returns { ok: false } when payload fails schema validation', async () => {
     const event = makeEvent({ customer: 123 });
     const db = makeDb();
@@ -121,13 +109,13 @@ describe('handleInvoicePaymentFailed', () => {
     if (!result.ok) expect(result.error).toContain('Failed to find org');
   });
 
-  it('returns { ok: true } silently when no org is found for the customer', async () => {
+  it('returns { ok: false } when no org found for customer (retryable, will dead-letter)', async () => {
     const event = makeEvent({ customer: 'cus_orphan' });
     const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: true, orgId: null }) });
     const result = await handleInvoicePaymentFailed(event, db);
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('No org found for Stripe customer cus_orphan');
     expect(db.updateOrgBillingStatus).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalled();
   });
 
   it('returns { ok: false } when updateOrgBillingStatus fails', async () => {

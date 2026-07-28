@@ -30,8 +30,7 @@ export async function handleSubscriptionUpdated(
   }
 
   if (!findResult.orgId) {
-    console.warn(`No org found for Stripe customer ${subscription.customer}`);
-    return { ok: true };
+    return { ok: false, error: `No org found for Stripe customer ${subscription.customer}` };
   }
 
   const firstItem = subscription.items?.data?.[0];
@@ -87,8 +86,7 @@ export async function handleSubscriptionDeleted(
   }
 
   if (!findResult.orgId) {
-    console.warn(`No org found for Stripe customer ${subscription.customer}`);
-    return { ok: true };
+    return { ok: false, error: `No org found for Stripe customer ${subscription.customer}` };
   }
 
   const firstItem = subscription.items?.data?.[0];

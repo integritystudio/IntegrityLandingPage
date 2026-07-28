@@ -9,13 +9,13 @@ import { InvoiceSchema } from '../stripe-schemas';
 async function resolveOrgId(
   customerId: string,
   db: SupabaseAdmin,
-): Promise<{ ok: true; orgId: string | null } | { ok: false; error: string }> {
+): Promise<{ ok: true; orgId: string } | { ok: false; error: string }> {
   const findResult = await db.findOrgByStripeCustomerId(customerId);
   if (!findResult.ok) {
     return { ok: false, error: `Failed to find org: ${findResult.error}` };
   }
   if (!findResult.orgId) {
-    console.warn(`No org found for Stripe customer ${customerId}`);
+    return { ok: false, error: `No org found for Stripe customer ${customerId}` };
   }
   return { ok: true, orgId: findResult.orgId };
 }
@@ -57,7 +57,6 @@ export async function handleInvoicePaid(
 
   const resolved = await resolveOrgId(invoice.customer, db);
   if (!resolved.ok) return resolved;
-  if (!resolved.orgId) return { ok: true };
 
   return setBillingStatus(resolved.orgId, 'active', db);
 }
@@ -78,7 +77,6 @@ export async function handleInvoicePaymentFailed(
 
   const resolved = await resolveOrgId(invoice.customer, db);
   if (!resolved.ok) return resolved;
-  if (!resolved.orgId) return { ok: true };
 
   return setBillingStatus(resolved.orgId, 'past_due', db);
 }

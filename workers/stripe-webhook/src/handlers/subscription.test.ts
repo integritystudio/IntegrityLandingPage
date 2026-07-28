@@ -33,12 +33,6 @@ const VALID_SUBSCRIPTION = {
 };
 
 describe('handleSubscriptionUpdated', () => {
-  let consoleSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  });
-
   it('returns { ok: false } when payload fails schema validation', async () => {
     // id is required — omit it
     const event = makeSubEvent({ customer: 'cus_1', status: 'active' });
@@ -64,14 +58,14 @@ describe('handleSubscriptionUpdated', () => {
     if (!result.ok) expect(result.error).toContain('Failed to find org');
   });
 
-  it('returns { ok: true } silently when no org found for customer', async () => {
+  it('returns { ok: false } when no org found for customer (retryable, will dead-letter)', async () => {
     const event = makeSubEvent(VALID_SUBSCRIPTION);
     const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: true, orgId: null }) });
     const result = await handleSubscriptionUpdated(event, db);
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('No org found for Stripe customer cus_1');
     expect(db.upsertSubscription).not.toHaveBeenCalled();
     expect(db.updateOrgBillingStatus).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalled();
   });
 
   it('calls upsertSubscription with price and status when items present', async () => {
@@ -142,12 +136,6 @@ describe('handleSubscriptionUpdated', () => {
 });
 
 describe('handleSubscriptionDeleted', () => {
-  let consoleSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  });
-
   it('returns { ok: false } when payload fails schema validation', async () => {
     const event = makeSubEvent({ customer: 'cus_1', status: 'canceled' });
     const db = makeDb();
@@ -171,14 +159,14 @@ describe('handleSubscriptionDeleted', () => {
     if (!result.ok) expect(result.error).toContain('Failed to find org');
   });
 
-  it('returns { ok: true } silently when no org found for customer', async () => {
+  it('returns { ok: false } when no org found for customer (retryable, will dead-letter)', async () => {
     const event = makeSubEvent(VALID_SUBSCRIPTION);
     const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: true, orgId: null }) });
     const result = await handleSubscriptionDeleted(event, db);
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('No org found for Stripe customer cus_1');
     expect(db.upsertSubscription).not.toHaveBeenCalled();
     expect(db.updateOrgBillingStatus).not.toHaveBeenCalled();
-    expect(consoleSpy).toHaveBeenCalled();
   });
 
   it('calls upsertSubscription with canceled status when items present', async () => {
