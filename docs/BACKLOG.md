@@ -420,9 +420,9 @@ What this unblocks, and what it does not: the signals in step 1 will exist once 
 
 ---
 
-## Code Review 2026-07-26 → 2026-07-27 (CR01–CR16)
+## Code Review 2026-07-26 → 2026-07-27 (CR01–CR23)
 
-Started as the open remainder of the 8-area codebase review; CR11–CR15 were found afterwards while deploying and auditing the workers, and CR16 while reading the deployed `obtool-*` scripts to settle CR13. Fixed work lives in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md); the review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md).
+Started as the open remainder of the 8-area codebase review; CR11–CR15 were found afterwards while deploying and auditing the workers, CR16 while reading the deployed `obtool-*` scripts to settle CR13, and CR22–CR23 as follow-ups to the billing-portal auth change. Fixed work lives in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md); the review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md).
 
 | ID | P | Status | One line |
 |---|---|---|---|
@@ -441,6 +441,8 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR15](#cr15) | P3 | ⚠️ partial | Observability fixed in config; **four** stale prod secrets still bound |
 | [CR21](#cr21) | P3 | 🔴 open | `stripe-webhook` processes synchronously against Stripe's "return 2xx first" guidance |
 | [CR16](#cr16) | P3 | 📋 by design | Internal vs customer-facing OTEL pipelines — deliberate; **do not de-duplicate**. Convergence deferred |
+| [CR22](#cr22) | P3 | 🔴 open | Billing-portal API-key 403 merged + tested; **not deployed** — `api-gateway` deploy blocked on [[CR13]] step 1 |
+| [CR23](#cr23) | P3 | 🔴 open | Revoked/expired keys still 401 from `preVerifyToken`; response depends on key *state*. Needs a decision |
 
 **Two items are now blocked on code** — [[CR20]] and [[CR21]] are defects in `workers/stripe-webhook/src/`, found by reading the implementation against Stripe's webhook documentation. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). Everything else still needs a credential/provisioning decision (CR01, CR11, CR18), an answer about intent (CR13, CR16), or a production deploy (CR14, CR15, CR03).
 
@@ -1011,6 +1013,40 @@ Both underlying faults are now fixed, so the cron can function. The design quest
 Severity is limited by the atomic claim: a timeout followed by a Stripe retry hits `already_processed` and returns 200, so it degrades to noise and failed-delivery records rather than double-processing. `ctx.waitUntil()` is the Workers-native fix, and the pattern is already used elsewhere in this codebase (M40's audit-log write).
 
 **Status:** 🔴 Open — low urgency while volume is zero; revisit before launch.
+
+---
+
+<a id="cr22"></a>
+
+### CR22: The billing-portal API-key 403 is merged but not deployed
+
+**Priority:** P3 | **Source:** session 2026-07-27 late, follow-up to the `handleBillingPortal` auth change
+**Estimated:** 15 minutes
+
+**Context:** `handleBillingPortal` (`workers/api-gateway/src/routes/orgs.ts`) now rejects `int_live_…` bearer tokens with `403 "Billing portal requires a user session; API keys are not accepted"` instead of letting them fall through to `resolveJwt` and return an opaque `401`. Typecheck is clean and the worker suite passes 147/147, including a new case in `orgs.test.ts`.
+
+Nothing is deployed. `api-gateway` deploys are manual (see [[CR02]]) and there are dev/prod variants, so the fix reaches production only when someone runs the deploy — and doing that here trips the hazard already recorded at the head of this section: **`deploy:prd` in `workers/api-gateway` must wait for [[CR13]] step 1**, or its `routes` key captures all of `/v1/*` from `obtool-api`. So this is blocked on CR13, not merely unscheduled.
+
+Note the user-visible effect is currently nil either way: the portal cannot work at all until `STRIPE_SECRET_KEY` is bound ([[CR18]], [[CR12]]), and API-key routes are dead while `API_KEY_HMAC_SECRET` is unbound — meaning **no caller can reach the new 403 in production today**. This is a correctness improvement waiting behind the same credential work.
+
+**Status:** 🔴 Open — code merged, deploy blocked on [[CR13]] step 1.
+
+---
+
+<a id="cr23"></a>
+
+### CR23: Revoked and expired API keys still get a 401 from the billing-portal route
+
+**Priority:** P3 | **Source:** session 2026-07-27 late, reviewing the CR22 change
+**Estimated:** 1 hour, mostly a decision
+
+**Context:** The new 403 only fires for API keys that are *valid*. Every `/v1/orgs/:id/*` request first passes through `preVerifyToken` (`workers/api-gateway/src/lib/helpers.ts`), which HMAC-verifies key-shaped tokens against the database and returns `401` for anything revoked, expired, or unknown. A revoked key therefore never reaches `handleBillingPortal`, so the response to a key-shaped token depends on the key's *state*: valid → `403` "API keys are not accepted", revoked → `401`.
+
+That split is arguably correct — the token genuinely is invalid — but it means a client cannot distinguish "my key is bad" from "keys are the wrong credential for this route" without knowing its own key is good. If a uniform answer is wanted for all key-shaped tokens, the check has to move ahead of the HMAC verification in `preVerifyToken` (or be duplicated there per-route), which is a larger change than the one-route guard in [[CR22]] and touches every org route's auth ordering.
+
+**Scope:** decide whether response shape should key off credential *type* before credential *validity*; if yes, hoist the type check into `preVerifyToken` with a per-route allowlist and re-verify the ordering assumptions in `orgs.test.ts`, `usage.test.ts`, and `ingest.test.ts`.
+
+**Status:** 🔴 Open — needs a decision, not a fix. Low urgency; no caller is affected while API-key auth is broken ([[CR12]]).
 
 ---
 
