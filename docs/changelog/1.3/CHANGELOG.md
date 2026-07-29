@@ -742,3 +742,47 @@ Incidental: Cloudflare rejects `Python-urllib` with error 1010 before the reques
 - **`doppler run` cannot be trusted to report which value a config holds.** One invocation returned a value that `doppler secrets get --plain` and the upstream API both contradicted; `~/.doppler/fallback/` caches snapshots. Compounded by `sh -c 'echo -n "$V"'` printing the literal `-n `. Use `printf '%s'` and compare hashes.
 
 ---
+
+---
+
+## [2026-07-29] - Credential Rotation, JWKS/ES256 Verifier, Auth0 Isolation & Test Infrastructure Repair
+
+### JWT Verification — JWKS/ES256 (`workers/lib/auth.ts`)
+
+- **`verifyJwt` now verifies ES256 and RS256 against the project's published key set**, with HS256 retained as a fallback so tokens minted before the migration verify until they expire. The project had already moved to asymmetric signing keys (HS256 `previously_used`, ES256 `in_use`), so HS256-only verification was living on borrowed time — and it made a dev Supabase project unusable for the JWT path, since new projects default to ES256 with no legacy secret to bind.
+- **No new secret or config.** The JWKS URL derives from `SUPABASE_URL` via `supabaseJwtKey()`, which every route's options object already carried, so each environment verifies against its own project automatically.
+- **Algorithm confusion closed by construction:** the header's `alg` selects which path runs but never which key material is used, so an `HS256` token is only ever checked against a configured HMAC secret and a JWKS public key can never be replayed as a shared secret. `alg: none` and anything outside `{ES256, RS256, HS256}` are rejected before verification.
+- Key sets cache for 10 minutes; an unrecognised `kid` triggers at most one refetch per 30s cooldown so rotation is picked up without letting forged kids drive unbounded upstream fetches. Fetch failures fail closed but preserve a still-valid cached key.
+- **`SUPABASE_JWT_SECRET` is now optional** throughout — schemas, both `Env` interfaces, the five route option types and `PreVerifyTokenOptions`. `SUPABASE_URL` is the field verification actually depends on.
+- Verified with 17 new unit tests using a locally generated P-256 key pair, plus a live check that the real project's published key (`kid b91503ee-…`) imports under exactly these WebCrypto parameters and rejects a token forged with a different key.
+- ⚠️ **Not deployed** — `api-gateway` and `bootstrap-worker` pick this up on their next `deploy:prd`.
+
+### Credential Rotation (CR01)
+
+- Rotated every family that can be rotated by API: Stripe, `AUTH0_CLI_SECRET`, `AUTH0_CLIENT_SECRET` (via Management API `rotate-secret`), HMAC `SHARED_SECRET`, and the `sb_secret_` service keys with the old key revoked and verified dead. Legacy Supabase `anon` + `service_role` JWTs disabled (CR24); a stray auto-created `sb_secret_` key revoked.
+- **`AUTH0_CLI_SECRET` was rotated a second time as a recovery.** A Dashboard session against the *wrong Auth0 account* overwrote all four `AUTH0_CLI_*` slots in both configs, which destroyed the last readable copy of the production secret — the Worker binding is write-only. Restoring was impossible, so rotation was the only route. **Lesson recorded:** a Doppler slot plus a write-only Worker binding is *one* copy, not two.
+- Doppler slot hygiene: six anon slots filled with the live publishable key (`prd SUPABASE_ANON_KEY` had held the disabled legacy **`service_role`** JWT), duplicate `SUPABASE_SERVICE_KEY` deleted, `SUPABASE_ACCESS_TOKEN` emptied because a garbage value *overrides* the CLI keychain, and two `AUTHO_*` slots cleared that held Auth0 tokens **expired 241 and 125 days**, one from a different tenant.
+- **Two findings that look like mis-slots but are not:** `SUPABASE_DB_PASSWORD` genuinely authenticates to Postgres despite holding the same string as a live API key (do not clean it up — decouple it in the Dashboard), and two different live `rk_live_` Stripe keys exist while code reads only `STRIPE_SECRET_KEY`.
+
+### Environment Isolation (CR11) — 10/13 → 3/13
+
+- `dev` got its own HMAC `SHARED_SECRET`, its own Auth0 ROPC + M2M clients, and a separate **`dev-users` connection** so dev credentials cannot authenticate any of the 96 production users — proven with a four-way ROPC matrix rather than by reading configuration. The dev M2M was created with **no Management API grant at all**, so leaked dev credentials are inert rather than narrowly-scoped-but-tenant-wide.
+- 🔴 **Trap:** Auth0 auto-enables newly created clients on existing connections — including the production one — so creating the dev clients silently widened production access (7 → 9 clients) until removed. This is **not** limited to `is_domain_connection: true` connections. Audit every connection's client list after creating any client.
+- **No Auth0 API can create a tenant** (`create:tenants` is not grantable, `/api/v2/tenants` is not a resource), so `AUTH0_DOMAIN` is Dashboard-only. A second tenant already exists and needs only an M2M credential — which would also remove the `password`-grant/`default_directory` blocker, since that setting is per-tenant.
+- Auth0 Cross App Access and the My Account API were both evaluated and **cannot** clear the last row.
+
+### Supabase
+
+- Deleted the unused `atx_movement` project (owner-directed, no backups existed), freeing a free-tier slot for a dev project. Audited an external plan for using it and corrected four of its steps — notably that `db pull` would pollute the ledger repaired under CR17, and that the **custom access-token hook is Auth config, not schema**, so `db push` leaves it created-but-never-firing.
+- Auth `site_url` corrected from **`https://aleph-analytics.app/`** (another product) to `https://integritystudio.dev/`, with `uri_allow_list` updated in the same call — changing `site_url` alone would have left every explicit `redirect_to` rejected.
+
+### Auth0 Production Readiness (CR25, new)
+
+- Audited the tenant against the Dashboard's production checks, which cannot be read programmatically. Disabled the `google-oauth2` connection that ran on Auth0's shared **development keys** across 6 applications (0 users), and enabled TOTP + recovery-code factors so MFA can be enrolled at all. Breached-password detection turned out to be **paid-plan gated**, correcting an earlier claim in this file's own audit that it was a free single PATCH.
+
+### Test Infrastructure
+
+- **`sender-worker` `test:e2e` went from collecting 0 tests to 44/44 passing.** Four stacked problems: the pool was never enabled (v4 applies it as a Vite plugin, `cloudflareTest(...)`, with no `/config` entry point); the config had to become `.mts` because the plugin is ESM-only; `fetchMock` no longer exists in pool 0.18.8, so `src/e2e-fetch-mock.ts` reimplements the slice the suite uses on `vi.stubGlobal`; and the per-IP auth rate limiter capped the whole suite at 10 requests until each request got its own `CF-Connecting-IP`.
+- Fixed the 4 stale assertions. One was genuinely stale (`/signin` asserted `404` though it is Auth0 ROPC — replaced with four cases covering the real contract). One was message drift. One had a false premise. And **one was correct all along** — `SUPABASE_ORG_MEMBERSHIP_FAILED` failed only because the worker's compensating rollback was unmocked, so the rollback's own failures replaced the original error.
+- **`sender-worker` `test:live` re-pointed at `--config prd`** (dev credentials cannot mint a management token by design) — and a destructive trap defused: the suite **deletes** the user at `AUTH0_TEST_EMAIL`, which in `prd` is the real `test@integritystudio.ai` account with two org memberships and a Supabase row keyed to its Auth0 `sub`. `vitest.live.config.ts` now overrides that to a disposable identity.
+- Worker totals: **1,063 tests** via `npm run test:workers`, zero TypeScript errors via `npm run lint:workers` (which *is* the worker linter — there is no ESLint under `workers/`).

@@ -6,7 +6,7 @@
 Enterprise AI Observability Platform landing page built with Flutter Web.
 
 **Production**: https://integritystudio.ai
-**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, ~2,726 Flutter (unit+contract+integration) + ~965 worker tests
+**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, ~3,001 Flutter (unit+contract+integration) + **1,063 worker tests** (verified 2026-07-29 via `npm run test:workers`)
 
 ## Quick Start
 
@@ -112,12 +112,20 @@ flutter test test/services/provisioning_service_live_test.dart \
   --dart-define=LIVE_TESTS=true \
   --dart-define=SENDER_WORKER_URL=https://sender-worker.alyshia-b38.workers.dev
 
-# Workers
-cd workers/contact-form && npm test    # Contact form worker tests (71 passing)
-cd workers/api-gateway && npm test     # API Gateway worker tests (122 passing)
+# Workers — or run every package at once from the repo root:
+#   npm run test:workers   (1,063 tests)   npm run lint:workers   (tsc --noEmit x7; there is no ESLint here)
+cd workers/lib && npm test              # Shared lib tests (477 passing)
+cd workers/contact-form && npm test     # Contact form worker tests (74 passing)
+cd workers/api-gateway && npm test      # API Gateway worker tests (147 passing)
 cd workers/receiver-worker && npm test  # Receiver worker tests (29, local stub)
-cd workers/sender-worker && npm test    # Sender worker tests (211 passing)
-cd workers/stripe-webhook && npm test   # Stripe webhook tests (137)
+cd workers/sender-worker && npm test    # Sender worker tests (174 passing)
+cd workers/stripe-webhook && npm test   # Stripe webhook tests (152 passing)
+cd workers/bootstrap-worker && npm test # Bootstrap worker tests (10 passing)
+
+# Opt-in worker suites, all green as of 2026-07-29 (counts verified that day)
+cd workers/sender-worker && npm run test:e2e    # workerd runtime, outbound mocked, no credentials (44/44)
+cd workers/sender-worker && npm run test:live   # real Auth0 Management API, --config prd (9 passed/3 skipped)
+cd workers/stripe-webhook && npm run test:live  # real Stripe-signed requests (5/5)
 
 # Manual provisioning E2E test (interactive, do NOT use in CI)
 SHARED_SECRET=your-test-secret npm run test:provisioning

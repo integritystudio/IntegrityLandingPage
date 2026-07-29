@@ -21,21 +21,30 @@ npm run deploy                    # → <worker>-dev (wrangler --env dev); canno
 npm run deploy:prd                # → the live worker (top-level config + Doppler prd)
 wrangler dev --port 8787          # Local dev server
 
-# Opt-in suites (excluded from `npm test`; skip cleanly without credentials)
-npm run test:live                 # stripe-webhook: real Stripe-signed requests to the deployed dev Worker
-                                  # sender-worker: real Auth0 Management API calls
-npm run test:e2e                  # sender-worker: workerd runtime with mocked outbound calls
-                                  # ✅ 44/44 passing as of 2026-07-29 (was non-functional; see CR11)
+# Opt-in suites (excluded from `npm test`)
+npm run test:live                 # stripe-webhook: real Stripe-signed requests to the deployed dev Worker (5/5)
+                                  # sender-worker: real Auth0 Management API calls against the PRODUCTION tenant
+                                  #   (--config prd since 2026-07-29; dev creds cannot mint a management token).
+                                  #   vitest.live.config.ts overrides AUTH0_TEST_EMAIL to a disposable identity —
+                                  #   the suite DELETES the user at that address, and prd's value is the real
+                                  #   test@integritystudio.ai account. Do not remove that override.
+npm run test:e2e                  # sender-worker: workerd runtime, all outbound calls mocked — needs no credentials
+                                  # ✅ 44/44 as of 2026-07-29 (previously collected 0 tests; see CR11)
 ```
 
 **Supabase** (migrations are the source of truth for schema)
 ```bash
-export SUPABASE_ACCESS_TOKEN=$(doppler secrets get SUPABASE_ACCESS_TOKEN --project integrity-studio --config prd --plain)
+# ⚠️ SUPABASE_ACCESS_TOKEN is EMPTY in Doppler as of 2026-07-29 — the slot held the
+# revoked old service key, and a garbage value OVERRIDES the CLI's keychain login,
+# so exporting it breaks `supabase` commands that otherwise work. Leave it unset
+# until a real `sbp_` token is minted in the Dashboard (BACKLOG.md CR01 step 3).
 export SUPABASE_DB_PASSWORD=$(doppler secrets get SUPABASE_DB_PASSWORD --project integrity-studio --config prd --plain)
 supabase migration list --linked   # local vs remote; any blank `remote` column is pending
 supabase db push --dry-run         # preview; add --include-all if a file sorts before the last applied version
 supabase db push                   # apply
 ```
+**`SUPABASE_DB_PASSWORD` is a working credential that happens to equal a live API key.** It holds the same string as the `sb_secret_` service key and genuinely authenticates to Postgres — verified 2026-07-29 by `migration list --linked` succeeding with it and failing with a same-shaped control. Do not "clean up" that slot. The hazard is the coupling: one string grants both PostgREST `service_role` **and** direct Postgres access, and the two revoke independently, so deleting the API key would not change the database password. Reset the password in the Dashboard to decouple them.
+
 Two hard-won rules. **`create policy if not exists` is invalid PostgreSQL** — there is no `IF NOT EXISTS` for `CREATE POLICY`; use `drop policy if exists` then `create policy`. And **`migration repair --status applied` writes a ledger row without executing the SQL**, which is how two migrations came to be recorded as applied while their tables did not exist (BACKLOG.md CR17). Treat it as a last resort, never as a way past a failing push.
 
 **RLS is not optional for privacy.** PostgREST exposes every table in the `public` schema, so a table with RLS off is readable with the *publishable* anon key regardless of which key your workers use. Enabling RLS with **zero policies** denies anon and authenticated while `service_role` bypasses it — that is the correct posture for server-only tables. Verify with the catalog, not a status code: RLS denial returns `200 []`, not an error.
@@ -47,14 +56,14 @@ where n.nspname='public' and c.relkind='r' and c.relrowsecurity=false;
 
 ## Current Status
 
-**Phase**: Codebase review remediation + worker deploy/settings audit + database/secret remediation — CR01–CR24 tracked, see the status table in [docs/BACKLOG.md](docs/BACKLOG.md)
+**Phase**: Codebase review remediation + worker deploy/settings audit + database/secret remediation + credential rotation — CR01–CR25 tracked, see the status table in [docs/BACKLOG.md](docs/BACKLOG.md)
 **Last Updated**: 2026-07-29
 **Build Status**: ✅ Web build successful, running on localhost:8080
-**Test Status**: ✅ 3,001 Flutter tests passing (~94% coverage); 1,062 worker tests passing (6 workers + shared lib); zero TypeScript errors; `flutter analyze` clean. Plus 5 opt-in live signature tests — `cd workers/stripe-webhook && npm run test:live` (excluded from `npm test`; skips cleanly without credentials)
+**Test Status**: ✅ 3,001 Flutter tests passing (~94% coverage); **1,063 worker tests passing** (6 workers + shared lib) via `npm run test:workers`; zero TypeScript errors via `npm run lint:workers` — note that **is** the worker "linter" (`tsc --noEmit` × 7 packages; there is no ESLint under `workers/`, and plain `npm run lint` is `flutter analyze`). All three opt-in suites are green as of 2026-07-29: `sender-worker` `test:e2e` **44/44** (was non-functional — see BACKLOG.md CR11), `sender-worker` `test:live` 9 passed / 3 skipped (now `--config prd`), `stripe-webhook` `test:live` 5/5
 **Database**: ✅ Supabase `cfrbahzzklwrnmbtqojl` is `ACTIVE_HEALTHY`; 10 migrations applied and `supabase migration list` reports zero out of sync. The ledger previously claimed migrations that had never run (CR17) — including the one creating `stripe-webhook`'s tables. RLS is now enabled on every table in `public`.
 **Deployed**: production `sender-worker` + `integrity-studio-contact` healthy. **`api-gateway` is healthy** — `200 {"database":"healthy"}` since 2026-07-27, with `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_JWT_SECRET` bound (CR12 partial). **`stripe-webhook` is fully wired as of 2026-07-28** — Supabase pair plus `STRIPE_WEBHOOK_SECRET`, and redeployed from current source. Its production code had been stuck at 2026-03-31 and could not write `webhook_events_log`; a signed probe now returns `{"ok":true,"processed":true}` and a replay returns `already_processed`. Five `*-dev` workers are deliberately secret-less (CR11) except `stripe-webhook-dev`, which holds a sandbox `STRIPE_API_KEY` + `STRIPE_WEBHOOK_SECRET` for live signature testing. No zone route points at any dev worker.
-**Stripe**: production account is **`acct_1SN2e7AwEfePbhfk`**. Two endpoints, both pinned to `api_version=2025-09-30.clover` and subscribed to the five implemented events: test-mode `we_1Ty14zBWbFuvm1I6rvLOD5OW` → `stripe-webhook-dev`, and **live-mode `we_1Ty29dAwEfePbhfkky1OeqQu` → production `stripe-webhook`** (registered 2026-07-28, signature verification proven with a wrong-secret control). `prd`'s `STRIPE_SECRET_KEY` holds an **`rk_live_` restricted key** (least privilege; the `sk_live_` is retained in Doppler history) — bound to `api-gateway` and `sender-worker` on 2026-07-28 (`sender-worker` verified reading it — checkout now reaches validation instead of `"Stripe not configured"`). `api-gateway`'s billing portal is unblocked as of 2026-07-28 — the live Customer Portal now has a configuration (`bpc_1Ty2XDAwEfePbhfk9PndBNgW`), and a real session was created against it to prove the call works. The route itself is still unexercised because it needs a JWT. Doppler `dev` now holds only sandbox Stripe values — `STRIPE_SECRET_KEY` was a `pk_live_` publishable key on the *production* account until 2026-07-28 and is now the sandbox `sk_test_`. **Stripe is the one credential family where `dev` really is isolated from `prd`**: `acct_1SN2eDBWbFuvm1I6` is confirmed as "Integrity Studio sandbox". That is not true of Supabase or Auth0 — see CR11. See CR18.
-**Pending a `deploy:prd`** — committed but not live: CR03's `RATE_LIMIT_KV` binding and observability (CR15 + W04 step 1) on the five workers other than `stripe-webhook`, which was deployed 2026-07-28. CR14's `preview_urls` is already live on `api-gateway` and `stripe-webhook` via the API. CI deploys `sender-worker` on merge to `main`; other workers are manual.
+**Stripe**: production account is **`acct_1SN2e7AwEfePbhfk`**. Two endpoints, both pinned to `api_version=2025-09-30.clover` and subscribed to the five implemented events: test-mode `we_1Ty14zBWbFuvm1I6rvLOD5OW` → `stripe-webhook-dev`, and **live-mode `we_1Ty29dAwEfePbhfkky1OeqQu` → production `stripe-webhook`** (registered 2026-07-28, signature verification proven with a wrong-secret control). `prd`'s `STRIPE_SECRET_KEY` holds an **`rk_live_` restricted key** (least privilege; the `sk_live_` is retained in Doppler history) — bound to `api-gateway` and `sender-worker` on 2026-07-28 (`sender-worker` verified reading it — checkout now reaches validation instead of `"Stripe not configured"`). `api-gateway`'s billing portal is unblocked as of 2026-07-28 — the live Customer Portal now has a configuration (`bpc_1Ty2XDAwEfePbhfk9PndBNgW`), and a real session was created against it to prove the call works. The route itself is still unexercised because it needs a JWT. Doppler `dev` now holds only sandbox Stripe values — `STRIPE_SECRET_KEY` was a `pk_live_` publishable key on the *production* account until 2026-07-28 and is now the sandbox `sk_test_`. **Stripe is the one credential family where `dev` really is isolated from `prd`**: `acct_1SN2eDBWbFuvm1I6` is confirmed as "Integrity Studio sandbox". That is not true of Supabase or Auth0 — see CR11. See CR18. ⚠️ **Two different live `rk_live_` keys exist on the production account** (found 2026-07-29): `STRIPE_SECRET_KEY` ending `aHZC` and `STRIPE_API_KEY` ending `B6I8`, both returning 200 from `GET /v1/account`. Worker code reads **only** `STRIPE_SECRET_KEY`, so `…B6I8` is an unused live credential — revoke it in the Dashboard (Stripe exposes no key-management API), then clear the slot, not before, since the last-4 is how the Dashboard identifies it.
+**Pending a `deploy:prd`** — committed but not live: the **JWKS/ES256 JWT verifier** (`api-gateway` + `bootstrap-worker`, 2026-07-29), CR03's `RATE_LIMIT_KV` binding and observability (CR15 + W04 step 1) on the five workers other than `stripe-webhook`, which was deployed 2026-07-28. CR14's `preview_urls` is already live on `api-gateway` and `stripe-webhook` via the API. CI deploys `sender-worker` on merge to `main`; other workers are manual.
 
 ⚠️ **Deployed code is not this repo's code, and the gap is measured in months.** Check before assuming a Worker behaves like `main`:
 
@@ -71,7 +80,7 @@ None of the ~20 unpushed commits on `fix/review-supabase-writes-and-signup-tiers
 See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recent changes.
 
 ### Known Issues
-Tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr16), now CR01–CR24. **CR17 and CR19 closed 2026-07-28**; CR18 and CR12 went from blocking to mostly-resolved once a live Stripe key was minted. What remains needs a credential decision, an answer about intent, or a production deploy.
+Tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr16), now CR01–CR25. **CR17, CR19, CR21, CR23, CR24 closed**; CR18 and CR12 went from blocking to mostly-resolved once a live Stripe key was minted. **CR11 went from 10/13 isolation failures to 3/13 on 2026-07-29** and CR25 was filed the same day from an Auth0 production-readiness audit. What remains needs a credential decision, a spend decision, an answer about intent, or a production deploy.
 
 **CR13 step 1 is done (2026-07-29)** — the `routes` key has been removed from `workers/api-gateway/wrangler.toml`. `deploy:prd` is now safe to run and will not capture `obtool-api`'s traffic. Four months of undeployed fixes (`d9ba71a` bearer-token auth check, CR22 billing-portal 403) can now ship. The hostname-topology decision (what URL customers should use) is still open — see BACKLOG.md CR13 steps 3–5.
 
@@ -90,6 +99,7 @@ Tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-202
 - **CR04**: JWT still passed to the dashboard in a URL fragment — cross-repo fix needed
 - **CR02**: ✅ mostly closed — `npm run deploy` targets `--env dev`, verified live. Only the dev receiver remains
 - **CR03**: ✅ done — KV namespaces created and bound; live in production on the next `deploy:prd`
+- **CR25**: ⚠️ partial (filed 2026-07-29) — Auth0 tenant production-readiness, before flipping `dev-68gg87ow4mg4kzyo` from Development to Production. **Fixed:** the `google-oauth2` connection ran on Auth0's shared **development keys** while enabled on 6 apps (0 users used it) — now disabled for every app, connection kept so it is one PATCH to restore once real Google credentials exist. **Partial:** TOTP + recovery-code factors enabled, so MFA can be enrolled at all, but no enforcement policy — that would force all 96 users to enrol and needs a decision. **Blocked on spend:** breached-password detection returns `400 "upgrade your subscription"`, joining the custom domain as a paid feature. Also open: `implicit` grant on 4 apps incl. the dashboard SPA (same URL-fragment mechanism as CR04), ROPC on the Management M2M, unbranded Universal Login, no log streams, 24h API tokens
 
 **P3**
 - **CR15**: observability fixed in config (was silently off in production for ~4 months) but **not deployed**; **four** stale secrets still bound to production `sender-worker` — `RECEIVER_WORKER_URL`, `PROVISIONING_RECEIVER_WORKER_URL`, `AUTH0_CLI_AUDIENCE`, `SUPABASE_ANON_KEY`
