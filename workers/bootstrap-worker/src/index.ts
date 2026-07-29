@@ -6,7 +6,8 @@ import { loadOrgContext, buildBootstrapResponse } from './bootstrap';
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
-  SUPABASE_JWT_SECRET: string;
+  /** Optional: ES256-only projects have no shared secret; JWKS is derived from SUPABASE_URL. */
+  SUPABASE_JWT_SECRET?: string;
   ALLOWED_ORIGINS_JSON?: string;
 }
 

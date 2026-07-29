@@ -6,7 +6,7 @@ import { supabaseJwtKey } from '../../../lib/auth';
 import { resolveJwt, writeAuditLog } from '../lib/helpers';
 
 interface ApiKeysHandlerOptions {
-  jwtSecret: string;
+  jwtSecret?: string;
   hmacSecret: string;
   supabaseUrl: string;
   serviceRoleKey: string;

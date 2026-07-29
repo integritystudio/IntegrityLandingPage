@@ -12,7 +12,7 @@ import type { AuthResult } from '../../../lib/types/handler-options';
 type UsageBucket = UsageBucketBase & Record<string, unknown>;
 
 interface UsageHandlerOptions {
-  jwtSecret: string;
+  jwtSecret?: string;
   hmacSecret: string;
   supabaseUrl: string;
   serviceRoleKey: string;

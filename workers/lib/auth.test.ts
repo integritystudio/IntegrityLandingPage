@@ -497,4 +497,12 @@ describe('supabaseJwtKey / jwksUrlFor', () => {
   it('falls back to a bare secret when no project URL is available', () => {
     expect(supabaseJwtKey({ jwtSecret: SECRET })).toBe(SECRET);
   });
+
+  it('yields a JWKS-only key when no secret is configured — the ES256-only project case', () => {
+    const key = supabaseJwtKey({ supabaseUrl: 'https://abc.supabase.co' });
+    expect(key).toEqual({
+      jwksUrl: 'https://abc.supabase.co/auth/v1/.well-known/jwks.json',
+      hmacSecret: undefined,
+    });
+  });
 });

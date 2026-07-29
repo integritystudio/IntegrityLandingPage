@@ -4,7 +4,7 @@ import { supabaseJwtKey } from '../../../lib/auth';
 import { resolveJwt } from '../lib/helpers';
 
 interface MeHandlerOptions {
-  jwtSecret: string;
+  jwtSecret?: string;
   supabaseUrl: string;
   serviceRoleKey: string;
   jwtIssuerUrl?: string;

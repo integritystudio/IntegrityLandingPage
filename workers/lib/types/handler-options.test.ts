@@ -32,9 +32,14 @@ describe('BaseRouteOptionsSchema', () => {
     expect(BaseRouteOptionsSchema.safeParse({ ...valid, jwtIssuerUrl: 'not-a-url' }).success).toBe(false);
   });
 
-  it('rejects missing jwtSecret', () => {
+  it('accepts options with no jwtSecret — ES256 projects verify via JWKS', () => {
     const { jwtSecret: _j, ...noSecret } = valid;
-    expect(BaseRouteOptionsSchema.safeParse(noSecret).success).toBe(false);
+    expect(BaseRouteOptionsSchema.safeParse(noSecret).success).toBe(true);
+  });
+
+  it('still requires supabaseUrl, which is what the JWKS URL derives from', () => {
+    const { supabaseUrl: _u, ...noUrl } = valid;
+    expect(BaseRouteOptionsSchema.safeParse(noUrl).success).toBe(false);
   });
 });
 
@@ -87,9 +92,19 @@ describe('EnvSchema', () => {
     expect(EnvSchema.safeParse({ ...valid, SUPABASE_JWT_ISSUER: 'not-a-url' }).success).toBe(false);
   });
 
-  it('rejects missing required fields', () => {
+  it('accepts env with no SUPABASE_JWT_SECRET — ES256 projects verify via JWKS', () => {
     const { SUPABASE_JWT_SECRET: _s, ...noSecret } = valid;
-    expect(EnvSchema.safeParse(noSecret).success).toBe(false);
+    expect(EnvSchema.safeParse(noSecret).success).toBe(true);
+  });
+
+  it('still rejects missing SUPABASE_URL, the JWKS source', () => {
+    const { SUPABASE_URL: _u, ...noUrl } = valid;
+    expect(EnvSchema.safeParse(noUrl).success).toBe(false);
+  });
+
+  it('still rejects missing SUPABASE_SERVICE_ROLE_KEY', () => {
+    const { SUPABASE_SERVICE_ROLE_KEY: _k, ...noKey } = valid;
+    expect(EnvSchema.safeParse(noKey).success).toBe(false);
   });
 });
 

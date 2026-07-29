@@ -8,7 +8,7 @@ import { supabaseJwtKey } from '../../../lib/auth';
 import { resolveJwt, buildEntitlementMap, writeAuditLog } from '../lib/helpers';
 
 interface OrgsHandlerOptions {
-  jwtSecret: string;
+  jwtSecret?: string;
   supabaseUrl: string;
   serviceRoleKey: string;
   jwtIssuerUrl?: string;

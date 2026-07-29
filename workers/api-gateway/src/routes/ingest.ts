@@ -14,7 +14,7 @@ type IngestAuth =
   | { ok: false; error: Response };
 
 interface IngestHandlerOptions {
-  jwtSecret: string;
+  jwtSecret?: string;
   hmacSecret: string;
   supabaseUrl: string;
   serviceRoleKey: string;

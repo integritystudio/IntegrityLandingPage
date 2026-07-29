@@ -29,7 +29,7 @@ export async function writeAuditLog(sb: SupabaseClient, entry: AuditLogEntry): P
 }
 
 interface PreVerifyTokenOptions {
-  jwtSecret: string;
+  jwtSecret?: string;
   jwtIssuerUrl?: string;
   hmacSecret: string;
   supabaseUrl: string;

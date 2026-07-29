@@ -12,7 +12,8 @@ import { preVerifyToken } from './lib/helpers';
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
-  SUPABASE_JWT_SECRET: string;
+  /** Optional: ES256-only projects have no shared secret; JWKS is derived from SUPABASE_URL. */
+  SUPABASE_JWT_SECRET?: string;
   API_KEY_HMAC_SECRET: string;
   QUOTA_DO: DurableObjectNamespace;
   /** JWT issuer URL for `iss` claim validation (V-02). Set to Supabase auth URL. */
