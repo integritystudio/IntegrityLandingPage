@@ -9,7 +9,7 @@
     "tail": "wrangler tail",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "doppler run --project integrity-studio --config dev -- vitest run --config vitest.e2e.config.ts",
+    "test:e2e": "doppler run --project integrity-studio --config dev -- vitest run --config vitest.e2e.config.mts",
     "test:live": "doppler run --project integrity-studio --config dev -- vitest run --config vitest.live.config.ts"
   },
   "devDependencies": {

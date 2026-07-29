@@ -7,7 +7,14 @@
  */
 
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
-import { SELF, fetchMock } from "cloudflare:test";
+import { SELF as WORKER } from "cloudflare:test";
+// `fetchMock` was removed from `cloudflare:test` in the pool's Vitest v4 line;
+// `./e2e-fetch-mock` reimplements the slice of that API this suite uses.
+import { fetchMock, withUniqueClientIp } from "./e2e-fetch-mock";
+
+// Each request gets its own client IP so the per-IP auth rate limiter does not
+// treat the whole suite as one caller. See withUniqueClientIp.
+const SELF = withUniqueClientIp(WORKER);
 
 const AUTH0_DOMAIN = "e2e.auth0.test";
 const SUPABASE_URL = "https://supabase.e2e.test";
@@ -463,7 +470,8 @@ describe("CORS — POST from disallowed origin", () => {
 
 // ─── POST /create-checkout-session — Stripe checkout ─────────────────────────
 
-const STRIPE_API = "https://api.stripe.test";
+// Must be the host src/stripe.ts actually calls; it hardcodes api.stripe.com.
+const STRIPE_API = "https://api.stripe.com";
 
 describe("POST /create-checkout-session — Stripe checkout", () => {
   it("returns 200 with checkoutUrl on valid request", async () => {
