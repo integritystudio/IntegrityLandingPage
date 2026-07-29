@@ -439,7 +439,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR20](#cr20) | P2 | 🔴 open | `stripe-webhook` returns 200 on failure, discarding Stripe's 3-day retry in favour of a cron |
 | [CR03](#cr03) | P2 | ✅ done | KV namespaces created and bound; reaches prod on next `deploy:prd` |
 | [CR15](#cr15) | P3 | ⚠️ partial | Observability fixed in config; **four** stale prod secrets still bound |
-| [CR21](#cr21) | P3 | 🔴 open | `stripe-webhook` processes synchronously against Stripe's "return 2xx first" guidance |
+| [CR21](#cr21) | P3 | ✅ done | `stripe-webhook` now uses `ctx.waitUntil(processEvent(...))` — 2xx returned before DB writes |
 | [CR16](#cr16) | P3 | 📋 by design | Internal vs customer-facing OTEL pipelines — deliberate; **do not de-duplicate**. Convergence deferred |
 | [CR22](#cr22) | P3 | 🔴 open | Billing-portal API-key 403 merged + tested; **not deployed** — `api-gateway` deploy blocked on [[CR13]] step 1 |
 | [CR23](#cr23) | P3 | 🔴 open | Revoked/expired keys still 401 from `preVerifyToken`; response depends on key *state*. Needs a decision |
@@ -1028,11 +1028,11 @@ Both underlying faults are now fixed, so the cron can function. The design quest
 **Priority:** P3 | **Source:** session 2026-07-27 evening, reading the handlers against Stripe's webhook documentation
 **Estimated:** 1 hour
 
-**Context:** Stripe's guidance is to return `2xx` **before** any complex logic, and it warns specifically about spikes when subscriptions renew at the start of a month. `handleWebhook` does the full Supabase round trip — claim, handler, and possibly a dead-letter write — before responding.
+**Context:** Stripe's guidance is to return `2xx` **before** any complex logic, and it warns specifically about spikes when subscriptions renew at the start of a month. `handleWebhook` was doing the full Supabase round trip — claim, handler, and possibly a dead-letter write — before responding.
 
 Severity is limited by the atomic claim: a timeout followed by a Stripe retry hits `already_processed` and returns 200, so it degrades to noise and failed-delivery records rather than double-processing. `ctx.waitUntil()` is the Workers-native fix, and the pattern is already used elsewhere in this codebase (M40's audit-log write).
 
-**Status:** 🔴 Open — low urgency while volume is zero; revisit before launch.
+**Status:** ✅ Done (2026-07-29, commit 8de2122) — handler logic extracted into `processEvent`; `handleWebhook` now atomically claims the event, returns `200 { ok: true, queued: true }` immediately, then runs `ctx.waitUntil(processEvent(...))`. The dead-letter CRITICAL path no longer returns 500 (the response is already sent by then; manual Stripe replay is the only recovery). 151 tests passing.
 
 ---
 
