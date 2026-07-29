@@ -35,7 +35,66 @@ function parsePriceToPlan(jsonStr: string | undefined): Record<string, ApiKeyTie
   }
 }
 
-async function handleWebhook(request: Request, env: Env): Promise<Response> {
+// processEvent runs inside ctx.waitUntil after the 2xx response has been sent.
+// Stripe does not see any errors thrown here; log and dead-letter as needed.
+async function processEvent(
+  event: StripeEvent,
+  db: ReturnType<typeof createSupabaseAdmin>,
+  priceToPlan: Record<string, ApiKeyTier>,
+): Promise<void> {
+  let result: HandlerResult = { ok: true };
+
+  switch (event.type) {
+    case 'checkout.session.completed':
+      result = await handleCheckoutSessionCompleted(event, db);
+      break;
+
+    case 'invoice.paid':
+      result = await handleInvoicePaid(event, db);
+      break;
+
+    case 'invoice.payment_failed':
+      result = await handleInvoicePaymentFailed(event, db);
+      break;
+
+    case 'customer.subscription.updated':
+      result = await handleSubscriptionUpdated(event, db, priceToPlan);
+      break;
+
+    case 'customer.subscription.deleted':
+      result = await handleSubscriptionDeleted(event, db, priceToPlan);
+      break;
+
+    default:
+      console.log(`Unhandled Stripe event type: ${event.type}`);
+  }
+
+  if (!result.ok) {
+    // Remove the claim so the dead-letter queue can retry processing this event.
+    // Best-effort — if unclaim fails, the dead-letter reconciliation will see
+    // isEventProcessed=true and resolve (not retry) the dead-letter row.
+    const unclaimResult = await db.unclaimEvent(event.id);
+    if (!unclaimResult.ok) {
+      console.error(`Failed to unclaim event ${event.id} after handler failure:`, unclaimResult.error);
+    }
+
+    // Write to dead letter queue for retry via reconciliation cron.
+    // We already returned 2xx so Stripe will not retry; the cron owns the retry schedule.
+    console.error(`Failed to handle Stripe event ${event.type}:`, result.error);
+    const deadLetterResult = await db.addDeadLetter(event.id, event.type, event, result.error);
+    if (!deadLetterResult.ok) {
+      // Dead-letter insert failed and the response is already sent — Stripe cannot be
+      // signalled to retry. Log a critical error; recovery requires a manual replay.
+      console.error(
+        `CRITICAL: Failed to dead-letter event ${event.id} (${event.type}). Manual replay required. Payload:`,
+        JSON.stringify(event),
+        deadLetterResult.error,
+      );
+    }
+  }
+}
+
+async function handleWebhook(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const rawBody = await request.text();
 
   const signatureHeader = request.headers.get('stripe-signature');
@@ -76,62 +135,11 @@ async function handleWebhook(request: Request, env: Env): Promise<Response> {
     return ok({ ok: true, processed: false, skipped: true, reason: 'already_processed' });
   }
 
-  let result: HandlerResult = { ok: true };
-
-  switch (event.type) {
-    case 'checkout.session.completed':
-      result = await handleCheckoutSessionCompleted(event, db);
-      break;
-
-    case 'invoice.paid':
-      result = await handleInvoicePaid(event, db);
-      break;
-
-    case 'invoice.payment_failed':
-      result = await handleInvoicePaymentFailed(event, db);
-      break;
-
-    case 'customer.subscription.updated':
-      result = await handleSubscriptionUpdated(event, db, priceToPlan);
-      break;
-
-    case 'customer.subscription.deleted':
-      result = await handleSubscriptionDeleted(event, db, priceToPlan);
-      break;
-
-    default:
-      console.log(`Unhandled Stripe event type: ${event.type}`);
-  }
-
-  if (!result.ok) {
-    // Remove the claim so the dead-letter queue can retry processing this event.
-    // Best-effort — if unclaim fails, the dead-letter reconciliation will see
-    // isEventProcessed=true and resolve (not retry) the dead-letter row.
-    const unclaimResult = await db.unclaimEvent(event.id);
-    if (!unclaimResult.ok) {
-      console.error(`Failed to unclaim event ${event.id} after handler failure:`, unclaimResult.error);
-    }
-
-    // Write to dead letter queue for retry via reconciliation cron.
-    // Return 200 to suppress Stripe's built-in retry (we own the retry schedule).
-    console.error(`Failed to handle Stripe event ${event.type}:`, result.error);
-    const deadLetterResult = await db.addDeadLetter(event.id, event.type, event, result.error);
-    if (!deadLetterResult.ok) {
-      // Dead letter insert also failed — event cannot be retried by our cron.
-      // Return 5xx so Stripe retries delivery; the handler already failed with no side-effects.
-      console.error(
-        `CRITICAL: Failed to dead-letter event ${event.id} (${event.type}). Returning 500 to allow Stripe retry. Payload:`,
-        JSON.stringify(event),
-        deadLetterResult.error,
-      );
-      return serverError('Failed to process and persist event; please retry');
-    }
-    return ok({ ok: true, processed: false, error: result.error });
-  }
-
-  // Event was successfully processed; the claim (log entry) inserted at the start
-  // is the permanent idempotency record — no second write needed.
-  return ok({ ok: true, processed: true });
+  // Return 2xx to Stripe immediately, per Stripe's guidance to respond before complex logic.
+  // The atomic claim above ensures a Stripe retry sees already_processed rather than
+  // double-processing. ctx.waitUntil keeps the Worker alive until processEvent finishes.
+  ctx.waitUntil(processEvent(event, db, priceToPlan));
+  return ok({ ok: true, queued: true });
 }
 
 /**
@@ -225,7 +233,7 @@ async function runReconciliation(env: Env): Promise<void> {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const { pathname } = new URL(request.url);
 
     if (pathname === '/health' && request.method === 'GET') {
@@ -233,7 +241,7 @@ export default {
     }
 
     if (pathname === '/webhook' && request.method === 'POST') {
-      return handleWebhook(request, env);
+      return handleWebhook(request, env, ctx);
     }
 
     return notFound();

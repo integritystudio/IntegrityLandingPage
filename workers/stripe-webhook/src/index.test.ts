@@ -50,6 +50,21 @@ const MOCK_ENV: Env = {
   SUPABASE_SERVICE_ROLE_KEY: 'test-key',
 };
 
+// Creates a minimal ExecutionContext whose waitUntil promise can be awaited in tests.
+function makeMockCtx() {
+  const pending: Promise<unknown>[] = [];
+  // Cast to avoid providing the readonly `props` field that only exists in the type definition.
+  const ctx = {
+    waitUntil(p: Promise<unknown>) { pending.push(p); },
+    passThroughOnException() {},
+  } as unknown as ExecutionContext;
+  return {
+    ctx,
+    /** Awaits all promises registered with waitUntil so side effects are observable. */
+    async flush() { for (const p of pending) await p; },
+  };
+}
+
 async function computeStripeSignature(timestamp: number, body: string, secret: string): Promise<string> {
   const hex = await hmacSignHex(secret, `${timestamp}.${body}`);
   return `t=${timestamp},v1=${hex}`;
@@ -145,10 +160,12 @@ describe('Stripe webhook verification', () => {
 
 describe('handleWebhook (fetch handler)', () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
+  let mockCtx: ReturnType<typeof makeMockCtx>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockCtx = makeMockCtx();
   });
 
   afterEach(() => {
@@ -172,7 +189,7 @@ describe('handleWebhook (fetch handler)', () => {
       body: '{"type":"checkout.session.completed","id":"evt_abc"}',
     });
 
-    const response = await worker.fetch(request, MOCK_ENV);
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(401);
   });
 
@@ -182,7 +199,7 @@ describe('handleWebhook (fetch handler)', () => {
 
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: false });
 
-    const response = await worker.fetch(request, MOCK_ENV);
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     const json = await response.json<{ ok: boolean; skipped: boolean }>();
 
     expect(response.status).toBe(200);
@@ -190,7 +207,7 @@ describe('handleWebhook (fetch handler)', () => {
     expect(mockHandleCheckout).not.toHaveBeenCalled();
   });
 
-  it('handler failure → addDeadLetter called, 200 returned with error field', async () => {
+  it('handler failure → addDeadLetter called, 200 returned with queued:true', async () => {
     const body = JSON.stringify({ id: 'evt_fail', type: 'checkout.session.completed' });
     const request = await makeWebhookRequest(body);
 
@@ -199,16 +216,17 @@ describe('handleWebhook (fetch handler)', () => {
     mockDb.unclaimEvent.mockResolvedValue({ ok: true });
     mockDb.addDeadLetter.mockResolvedValue({ ok: true });
 
-    const response = await worker.fetch(request, MOCK_ENV);
-    const json = await response.json<{ ok: boolean; processed: boolean; error: string }>();
-
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
+    // Response is sent immediately; background processing runs via waitUntil
     expect(response.status).toBe(200);
-    expect(json.processed).toBe(false);
-    expect(json.error).toBe('DB write failed');
+    const json = await response.json<{ ok: boolean; queued: boolean }>();
+    expect(json.queued).toBe(true);
+
+    await mockCtx.flush();
     expect(mockDb.addDeadLetter).toHaveBeenCalledWith('evt_fail', 'checkout.session.completed', expect.any(Object), 'DB write failed');
   });
 
-  it('addDeadLetter failure → CRITICAL error logged, 500 returned so Stripe retries', async () => {
+  it('addDeadLetter failure → CRITICAL error logged, 200 returned (2xx already sent; manual replay required)', async () => {
     const body = JSON.stringify({ id: 'evt_lost', type: 'checkout.session.completed' });
     const request = await makeWebhookRequest(body);
 
@@ -217,9 +235,11 @@ describe('handleWebhook (fetch handler)', () => {
     mockDb.unclaimEvent.mockResolvedValue({ ok: true });
     mockDb.addDeadLetter.mockResolvedValue({ ok: false, error: 'DB unavailable' });
 
-    const response = await worker.fetch(request, MOCK_ENV);
-    // 500 so Stripe retries — handler already failed with no side-effects
-    expect(response.status).toBe(500);
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
+    // 2xx was already sent; we cannot signal Stripe to retry after the fact
+    expect(response.status).toBe(200);
+
+    await mockCtx.flush();
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('CRITICAL'),
       expect.any(String),
@@ -229,7 +249,7 @@ describe('handleWebhook (fetch handler)', () => {
 
   it('health endpoint → 200 with ok:true', async () => {
     const request = new Request('https://example.com/health', { method: 'GET' });
-    const response = await worker.fetch(request, MOCK_ENV);
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     const json = await response.json<{ ok: boolean }>();
     expect(response.status).toBe(200);
     expect(json.ok).toBe(true);
@@ -237,11 +257,11 @@ describe('handleWebhook (fetch handler)', () => {
 
   it('unknown route → 404', async () => {
     const request = new Request('https://example.com/unknown', { method: 'GET' });
-    const response = await worker.fetch(request, MOCK_ENV);
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(404);
   });
 
-  it('handler failure + unclaimEvent succeeds → unclaimEvent called, dead letter inserted, processed:false returned', async () => {
+  it('handler failure + unclaimEvent succeeds → unclaimEvent called, dead letter inserted, queued:true returned', async () => {
     const body = JSON.stringify({ id: 'evt_abc', type: 'checkout.session.completed' });
     const request = await makeWebhookRequest(body);
 
@@ -250,12 +270,12 @@ describe('handleWebhook (fetch handler)', () => {
     mockDb.unclaimEvent.mockResolvedValue({ ok: true });
     mockDb.addDeadLetter.mockResolvedValue({ ok: true });
 
-    const response = await worker.fetch(request, MOCK_ENV);
-    const json = await response.json<{ ok: boolean; processed: boolean; error: string }>();
-
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(200);
-    expect(json.processed).toBe(false);
-    expect(json.error).toBe('Handler error');
+    const json = await response.json<{ ok: boolean; queued: boolean }>();
+    expect(json.queued).toBe(true);
+
+    await mockCtx.flush();
     expect(mockDb.unclaimEvent).toHaveBeenCalledWith('evt_abc');
     expect(mockDb.addDeadLetter).toHaveBeenCalledWith(
       'evt_abc',
@@ -274,11 +294,12 @@ describe('handleWebhook (fetch handler)', () => {
     mockDb.unclaimEvent.mockResolvedValue({ ok: false, error: 'unclaim failed' });
     mockDb.addDeadLetter.mockResolvedValue({ ok: true });
 
-    const response = await worker.fetch(request, MOCK_ENV);
-    const json = await response.json<{ ok: boolean; processed: boolean }>();
-
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(200);
-    expect(json.processed).toBe(false);
+    const json = await response.json<{ ok: boolean; queued: boolean }>();
+    expect(json.queued).toBe(true);
+
+    await mockCtx.flush();
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('Failed to unclaim event evt_abc2'),
       'unclaim failed',
@@ -295,12 +316,12 @@ describe('handleWebhook (fetch handler)', () => {
     mockDb.unclaimEvent.mockResolvedValue({ ok: true });
     mockDb.addDeadLetter.mockResolvedValue({ ok: true });
 
-    const response = await worker.fetch(request, MOCK_ENV);
-    const json = await response.json<{ ok: boolean; processed: boolean; error: string }>();
-
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(200);
-    expect(json.processed).toBe(false);
-    expect(json.error).toContain('No org found for Stripe customer');
+    const json = await response.json<{ ok: boolean; queued: boolean }>();
+    expect(json.queued).toBe(true);
+
+    await mockCtx.flush();
     expect(mockDb.unclaimEvent).toHaveBeenCalledWith('evt_orphan');
     expect(mockDb.addDeadLetter).toHaveBeenCalledWith(
       'evt_orphan',
@@ -310,7 +331,7 @@ describe('handleWebhook (fetch handler)', () => {
     );
   });
 
-  it('customer.subscription.deleted event → handleSubscriptionDeleted called, processed:true returned', async () => {
+  it('customer.subscription.deleted event → handleSubscriptionDeleted called, queued:true returned', async () => {
     const body = JSON.stringify({ id: 'evt_del', type: 'customer.subscription.deleted', data: { object: {} } });
     const request = await makeWebhookRequest(body);
 
@@ -318,15 +339,16 @@ describe('handleWebhook (fetch handler)', () => {
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
     vi.mocked(handleSubscriptionDeleted).mockResolvedValue({ ok: true });
 
-    const response = await worker.fetch(request, MOCK_ENV);
-    const json = await response.json<{ ok: boolean; processed: boolean }>();
-
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(200);
-    expect(json.processed).toBe(true);
+    const json = await response.json<{ ok: boolean; queued: boolean }>();
+    expect(json.queued).toBe(true);
+
+    await mockCtx.flush();
     expect(handleSubscriptionDeleted).toHaveBeenCalled();
   });
 
-  it('invoice.paid event → handleInvoicePaid called, processed:true returned', async () => {
+  it('invoice.paid event → handleInvoicePaid called, queued:true returned', async () => {
     const body = JSON.stringify({ id: 'evt_invpaid', type: 'invoice.paid', data: { object: {} } });
     const request = await makeWebhookRequest(body);
 
@@ -334,15 +356,16 @@ describe('handleWebhook (fetch handler)', () => {
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
     vi.mocked(handleInvoicePaid).mockResolvedValue({ ok: true });
 
-    const response = await worker.fetch(request, MOCK_ENV);
-    const json = await response.json<{ ok: boolean; processed: boolean }>();
-
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(200);
-    expect(json.processed).toBe(true);
+    const json = await response.json<{ ok: boolean; queued: boolean }>();
+    expect(json.queued).toBe(true);
+
+    await mockCtx.flush();
     expect(handleInvoicePaid).toHaveBeenCalled();
   });
 
-  it('invoice.payment_failed event → handleInvoicePaymentFailed called, processed:true returned', async () => {
+  it('invoice.payment_failed event → handleInvoicePaymentFailed called, queued:true returned', async () => {
     const body = JSON.stringify({ id: 'evt_invfailed', type: 'invoice.payment_failed', data: { object: {} } });
     const request = await makeWebhookRequest(body);
 
@@ -350,21 +373,24 @@ describe('handleWebhook (fetch handler)', () => {
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
     vi.mocked(handleInvoicePaymentFailed).mockResolvedValue({ ok: true });
 
-    const response = await worker.fetch(request, MOCK_ENV);
-    const json = await response.json<{ ok: boolean; processed: boolean }>();
-
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(200);
-    expect(json.processed).toBe(true);
+    const json = await response.json<{ ok: boolean; queued: boolean }>();
+    expect(json.queued).toBe(true);
+
+    await mockCtx.flush();
     expect(handleInvoicePaymentFailed).toHaveBeenCalled();
   });
 });
 
 describe('parsePriceToPlan (via handleWebhook)', () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
+  let mockCtx: ReturnType<typeof makeMockCtx>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockCtx = makeMockCtx();
   });
 
   afterEach(() => {
@@ -387,7 +413,8 @@ describe('parsePriceToPlan (via handleWebhook)', () => {
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
     mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
 
-    await worker.fetch(await makeSubUpdatedRequest(), env);
+    await worker.fetch(await makeSubUpdatedRequest(), env, mockCtx.ctx);
+    await mockCtx.flush();
 
     expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
       expect.any(Object),
@@ -401,7 +428,8 @@ describe('parsePriceToPlan (via handleWebhook)', () => {
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
     mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
 
-    await worker.fetch(await makeSubUpdatedRequest(), env);
+    await worker.fetch(await makeSubUpdatedRequest(), env, mockCtx.ctx);
+    await mockCtx.flush();
 
     expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
       expect.any(Object),
@@ -416,7 +444,8 @@ describe('parsePriceToPlan (via handleWebhook)', () => {
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
     mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
 
-    await worker.fetch(await makeSubUpdatedRequest(), env);
+    await worker.fetch(await makeSubUpdatedRequest(), env, mockCtx.ctx);
+    await mockCtx.flush();
 
     expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
       expect.any(Object),
@@ -430,7 +459,8 @@ describe('parsePriceToPlan (via handleWebhook)', () => {
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
     mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
 
-    await worker.fetch(await makeSubUpdatedRequest(), MOCK_ENV);
+    await worker.fetch(await makeSubUpdatedRequest(), MOCK_ENV, mockCtx.ctx);
+    await mockCtx.flush();
 
     expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
       expect.any(Object),
@@ -801,10 +831,12 @@ describe('runReconciliation', () => {
 
 describe('handleWebhook edge cases', () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
+  let mockCtx: ReturnType<typeof makeMockCtx>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockCtx = makeMockCtx();
   });
 
   afterEach(() => {
@@ -827,7 +859,7 @@ describe('handleWebhook edge cases', () => {
 
     mockDb.claimEvent.mockResolvedValue({ ok: false, error: 'DB down' });
 
-    const response = await worker.fetch(request, MOCK_ENV);
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(500);
   });
 
@@ -835,7 +867,7 @@ describe('handleWebhook edge cases', () => {
     const body = 'not-json{{{';
     const request = await makeWebhookRequest(body);
 
-    const response = await worker.fetch(request, MOCK_ENV);
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(500);
   });
 
@@ -843,20 +875,21 @@ describe('handleWebhook edge cases', () => {
     const body = JSON.stringify({ id: 'evt_notype' });
     const request = await makeWebhookRequest(body);
 
-    const response = await worker.fetch(request, MOCK_ENV);
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(500);
   });
 
-  it('unhandled event type → 200 processed:true returned', async () => {
+  it('unhandled event type → 200 queued:true returned', async () => {
     const body = JSON.stringify({ id: 'evt_unhandled', type: 'payment_intent.created' });
     const request = await makeWebhookRequest(body);
 
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
 
-    const response = await worker.fetch(request, MOCK_ENV);
-    const json = await response.json<{ ok: boolean; processed: boolean }>();
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
+    await mockCtx.flush();
+    const json = await response.json<{ ok: boolean; queued: boolean }>();
 
     expect(response.status).toBe(200);
-    expect(json.processed).toBe(true);
+    expect(json.queued).toBe(true);
   });
 });
