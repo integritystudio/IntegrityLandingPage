@@ -72,29 +72,29 @@ See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recen
 ### Known Issues
 Tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr16), now CR01–CR24. **CR17 and CR19 closed 2026-07-28**; CR18 and CR12 went from blocking to mostly-resolved once a live Stripe key was minted. What remains needs a credential decision, an answer about intent, or a production deploy.
 
-**The single highest-leverage open item is CR13 step 1** — deleting the `routes` key from `workers/api-gateway/wrangler.toml`. It has no live effect, and it is the precondition for deploying `api-gateway` at all. Behind it sit four months of undeployed fixes including `d9ba71a` (verify bearer token before quota enforcement) and CR22's billing-portal 403.
-
-⚠️ **Armed trap — do not run `deploy:prd` in `workers/api-gateway`.** Its `wrangler.toml` declares `api.integritystudio.ai/v1/*` at the top level, which is what `deploy:prd` publishes. That path is served by `obtool-api` via a `/*` wildcard, and Cloudflare resolves overlapping routes by longest match — so a deploy captures **all** `/v1` traffic, including `obtool-api`'s `/v1/traces`, `/v1/sessions`, and `/v1/metrics`, which `api-gateway` does not implement. The risk went **up** on 2026-07-27: that file was edited (for CR14), giving someone a reason to deploy it. CR13 step 1 (delete the `routes` key) has no live effect and defuses it.
+**CR13 step 1 is done (2026-07-29)** — the `routes` key has been removed from `workers/api-gateway/wrangler.toml`. `deploy:prd` is now safe to run and will not capture `obtool-api`'s traffic. Four months of undeployed fixes (`d9ba71a` bearer-token auth check, CR22 billing-portal 403) can now ship. The hostname-topology decision (what URL customers should use) is still open — see BACKLOG.md CR13 steps 3–5.
 
 **P1**
 - **CR18**: **two different Stripe accounts** — `prd` holds a `pk_live_` *publishable* key, `dev` an `sk_test_` secret key. `STRIPE_SECRET_KEY` (what the code reads) is empty everywhere, so **no worker can make a server-side Stripe call**. Stripe has no API to create secret keys; this needs one Dashboard action plus a decision about which account is production
 - **CR01**: `doppler.json` history scrub + full secret rotation still required. **Nothing has been rotated.** The Supabase half is cheaper than assumed — `sb_secret_` keys are individually revocable without rotating the project JWT secret
 - **CR11**: Doppler `dev` holds the same Supabase project and Auth0 tenant as `prd`. `--config dev` is not a safety boundary. Detector: `npm run check:env-isolation` (fails 10/10) — note it **covers no Stripe credential**
-- **CR12**: ⚠️ partial — `api-gateway` restored to healthy. Still missing `API_KEY_HMAC_SECRET` (canonical value lives on the receiver in `observability-toolkit`), `STRIPE_SECRET_KEY`, and `STRIPE_WEBHOOK_SECRET`
+- **CR12**: ⚠️ partial — `api-gateway` and `stripe-webhook` both healthy; `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` bound 2026-07-28. Still missing `API_KEY_HMAC_SECRET` (canonical value lives in `observability-toolkit`; API-key auth routes are broken until it is bound)
 - **CR14**: ⚠️ partial — closed on `api-gateway` + `stripe-webhook`. **Still exposed:** `sender-worker` (13 secrets), `integrity-studio-contact`, and cross-repo `api-provisioning-receiver` (7)
 
 **P2**
-- **CR19**: 🔴 **code bug** — `stripe-webhook` marks out-of-order events as processed and returns 200, so an event arriving before its org link exists is lost with no dead-letter row and no retry
-- **CR20**: 🔴 `stripe-webhook` returns 200 on handler failure, discarding Stripe's 3-day retry in favour of the `*/15` cron. Defensible only if the cron is monitored — it isn't yet
-- **CR17**: ⚠️ partial — migration ledger had recorded migrations that never ran; repaired, but **no drift detection exists** to stop it recurring
-- **CR13**: hostname topology — see the armed-trap note above
+- **CR20**: 🔴 `stripe-webhook` cron is now the **only** retry path (CR21 returns 2xx before processing via `ctx.waitUntil`, foreclosing the 5xx option). The cron is unmonitored — W04 alerting is mandatory
+- **CR17**: ✅ done — migration ledger repaired; `scripts/check-migration-drift.sh` + `migration-drift-check` CI job added
+- **CR13**: ⚠️ partial — step 1 done 2026-07-29 (routes key removed, `deploy:prd` now safe). Topology decision (how to give gateway a real hostname) still open
+- **CR19**: ✅ done — out-of-order events now route to dead-letter (commits eaaa199, 9741594)
 - **CR04**: JWT still passed to the dashboard in a URL fragment — cross-repo fix needed
 - **CR02**: ✅ mostly closed — `npm run deploy` targets `--env dev`, verified live. Only the dev receiver remains
 - **CR03**: ✅ done — KV namespaces created and bound; live in production on the next `deploy:prd`
 
 **P3**
-- **CR15**: observability fixed in config (was silently off in production for ~4 months) but **not deployed**, which now blocks confirming several things this session changed; **four** stale secrets still bound to production `sender-worker` — `RECEIVER_WORKER_URL`, `PROVISIONING_RECEIVER_WORKER_URL`, `AUTH0_CLI_AUDIENCE`, `SUPABASE_ANON_KEY`
-- **CR21**: `stripe-webhook` processes synchronously rather than returning 2xx first; use `ctx.waitUntil()`
+- **CR15**: observability fixed in config (was silently off in production for ~4 months) but **not deployed**; **four** stale secrets still bound to production `sender-worker` — `RECEIVER_WORKER_URL`, `PROVISIONING_RECEIVER_WORKER_URL`, `AUTH0_CLI_AUDIENCE`, `SUPABASE_ANON_KEY`
+- **CR21**: ✅ done — `stripe-webhook` now returns 2xx immediately via `ctx.waitUntil` (commit 8de2122)
+- **CR22**: 🔴 billing-portal API-key 403 merged + tested; `api-gateway` deploy now unblocked (CR13 step 1 done) — needs `deploy:prd`
+- **CR24**: 🔴 legacy Supabase `anon` + `service_role` JWT keys still enabled; one Management API call disables them; blocked on cross-repo check
 - **CR16**: 📋 by design, not a defect. `obtool-ingest` (→ R2+D1) is Integrity Studio's **internal** OTEL pipeline; `api-gateway`'s `/v1/ingest/otel` (→ Supabase) is the **customer-facing** one. **Do not de-duplicate these.** Folding obtool-ingest into api-gateway is an eventual goal, explicitly not current priority
 
 ---

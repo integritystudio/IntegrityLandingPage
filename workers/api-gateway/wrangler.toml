@@ -8,10 +8,13 @@ compatibility_date = "2026-03-19"
 # deploy even after the live setting is turned off. BACKLOG.md CR14.
 preview_urls = false
 
-# Production routes attached on every plain `wrangler deploy` (no --env needed).
-routes = [
-  { pattern = "api.integritystudio.ai/v1/*", zone_name = "integritystudio.ai" }
-]
+# `routes` intentionally absent. A routes key here would capture
+# api.integritystudio.ai/v1/* on every `deploy:prd`, displacing obtool-api's
+# wildcard and swallowing its telemetry paths. The shipped Flutter app calls the
+# workers.dev hostname directly, so no zone route is needed today. Topology
+# decision is tracked in BACKLOG.md CR13; this removal is step 1. See also the
+# [env.dev] comment below, which explains the inheritance hazard that made this
+# block dangerous to leave in place.
 
 [env.staging]
 routes = [

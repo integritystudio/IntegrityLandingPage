@@ -433,7 +433,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR14](#cr14) | P1 | ⚠️ partial | Closed on `api-gateway` + `stripe-webhook`. **Still exposed:** `sender-worker` (13 secrets), `integrity-studio-contact`, `api-provisioning-receiver` |
 | [CR02](#cr02) | P2 | ✅ mostly | Dev/prod split done and verified live; only the dev receiver remains |
 | [CR04](#cr04) | P2 | ⚠️ partial | Comment corrected; JWT still travels in a URL fragment |
-| [CR13](#cr13) | P2 | 🔴 open | Trap **still armed** — and now *blocking*. `api-gateway`'s deployed code is from **2026-03-31**, so [[CR22]] and the `d9ba71a` auth fix cannot ship until the `routes` key goes |
+| [CR13](#cr13) | P2 | ⚠️ partial | Step 1 done: `routes` key removed from `wrangler.toml`, trap defused. Topology decision (how to give `api-gateway` a real hostname) still needed |
 | [CR17](#cr17) | P2 | ✅ done | Migration ledger repaired; drift detector in CI (`scripts/check-migration-drift.sh` + `migration-drift-check` job) |
 | [CR19](#cr19) | P2 | ✅ done | `stripe-webhook` org-not-found now returns `{ ok: false }` → unclaimEvent + dead-letter (commits eaaa199, 9741594) |
 | [CR20](#cr20) | P2 | 🔴 open | [[CR21]] foreclosed the 5xx option — the cron is now the *only* retry path, so monitoring ([[W04]]) is mandatory |
@@ -449,7 +449,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 
 **Two items are only "fixed" in config and are not yet live**, because `deploy:prd` has not run: CR03's KV binding and CR15's observability. CR14's `preview_urls` is now live on two Workers via the API, independent of any deploy. CI deploys `sender-worker` on merge to `main`; the others are manual.
 
-⚠️ **Do not run `deploy:prd` in `workers/api-gateway`** until [[CR13]] step 1 is done — its `routes` key would capture all of `/v1/*` from `obtool-api`.
+✅ **`workers/api-gateway` is now safe to deploy** — [[CR13]] step 1 done 2026-07-29: the `routes` key has been removed from its `wrangler.toml`, so `deploy:prd` will not claim `api.integritystudio.ai/v1/*`.
 
 <a id="cr01"></a>
 
@@ -720,13 +720,9 @@ These are complementary halves of one product API — a telemetry data plane and
 
 **Suggested:** step 1 (delete the `routes` key) immediately and unconditionally — it is safe, reversible, and independent of everything else. Defer the destination until `obtool-api`'s audience is settled, because that answer decides between "gateway takes `api.integritystudio.ai`" and options C/D.
 
-**Status:** 🔴 Open — needs a hostname-topology decision, not an ownership one. The unsafe intermediate state (dev Worker on the production hostname) is resolved, but the production trap in step 1 is still armed.
+**Status:** ⚠️ Partial — step 1 done (2026-07-29): `routes` key removed from `workers/api-gateway/wrangler.toml`. The trap is defused — `deploy:prd` will no longer claim `api.integritystudio.ai/v1/*`. `api-gateway` is now safe to deploy and [[CR22]]'s billing-portal fix can ship. Hostname-topology decision (steps 2–5: which approach to give the gateway a branded endpoint) still needed.
 
-> **⚠️ Escalated 2026-07-27 evening — the trap is now likelier to be tripped.** Two things changed. `workers/api-gateway/wrangler.toml` was edited (adding `preview_urls = false` for [[CR14]]), which gives someone a reason to run `deploy:prd` in that directory where previously there was none. And step 2's argument for waiting — "do not route anything to the gateway until [[CR12]] is fixed" — has partly expired now that the gateway answers healthy, which makes routing to it *look* safe.
->
-> It is not safe. The declared route is `api.integritystudio.ai/v1/*`, which is more specific than `obtool-api`'s `/*` wildcard, so a deploy captures **all** `/v1` traffic — including `obtool-api`'s `/v1/traces`, `/v1/sessions`, `/v1/metrics`, `/v1/logs`, `/v1/cost`, and `/v1/datasets`, none of which `api-gateway` implements. They would start returning 404.
->
-> **Step 1 (delete the `routes` key) has no live effect and should just be done.** Routes only change on deploy, so removing the key from the config changes nothing running today and makes the config safe to deploy. It was left in place only because it is a routing decision rather than cleanup.
+> ✅ **Resolved 2026-07-29 — step 1 done.** The `routes` key has been removed from `workers/api-gateway/wrangler.toml` (52 deploy-environment tests passing). A `deploy:prd` will no longer declare `api.integritystudio.ai/v1/*` and cannot displace `obtool-api`. The topology question (steps 3–5 — how to give the gateway a real branded hostname) remains open and is deferred until `obtool-api`'s audience is settled.
 
 ---
 
