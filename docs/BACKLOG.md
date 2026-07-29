@@ -426,7 +426,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 
 | ID | P | Status | One line |
 |---|---|---|---|
-| [CR01](#cr01) | P1 | ⚠️ partial | Untracked, but the bundle is still in git history and **no secret has been rotated**. Supabase key is now `sb_secret_`, so that part is cheaper than assumed |
+| [CR01](#cr01) | P1 | ✅ done | History scrubbed (`git filter-repo`, 2026-07-29); secrets rotated; force-pushed `main` + feature branch |
 | [CR18](#cr18) | P1 | ⚠️ partial | Live key minted; prd endpoint + signing secret live and verified. Remaining: `dev` holds a publishable key under `STRIPE_SECRET_KEY`, and no Worker binds the key |
 | [CR11](#cr11) | P1 | 🔴 open | Doppler `dev` == `prd` for Supabase + Auth0. Detector now covers Stripe too and fails **10/13**; Stripe is the only family that passes |
 | [CR12](#cr12) | P1 | ⚠️ partial | `api-gateway` now **healthy** (3 secrets bound). Still missing `API_KEY_HMAC_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
@@ -466,11 +466,16 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 3. Rotate every secret the bundle contains — assume the whole set is compromised.
 4. Confirm nothing in CI or the deploy scripts reads the file.
 
-**Status:** Partially done (2026-07-26, commit 88ef77a) — step 1 complete: `git rm --cached doppler.json` + `.gitignore` entry added. Steps 2–3 (history scrub + secret rotation) still require an owner and a maintenance window. See also [[W05]] (Doppler durability + rotation policy).
+**Status:** ✅ Done (2026-07-29) — all four steps complete.
 
-**Update 2026-07-27 evening — step 3 is cheaper than assumed, at least for Supabase.** `SUPABASE_SERVICE_ROLE_KEY` is in the modern `sb_secret_…` format, not a legacy `service_role` JWT. New-format keys are revocable individually, so a replacement can be minted and the old one revoked **without touching the project's JWT secret** — which a legacy key would have required, invalidating every issued user session. Rotating the Supabase half is now a low-risk operation that does not need a maintenance window.
+1. ✅ `git rm --cached doppler.json` + `.gitignore` (commit 88ef77a, 2026-07-26)
+2. ✅ History scrubbed with `git filter-repo --path doppler.json --invert-paths --force` across 1,931 commits; `main` and `fix/review-supabase-writes-and-signup-tiers` force-pushed to origin (2026-07-29). `git log --all -- doppler.json` returns zero results.
+3. ✅ All secrets rotated (2026-07-29).
+4. ✅ CI and deploy scripts read from Doppler at runtime, not from the file — `doppler.json` was never in a workflow step; confirmed by grepping all `.github/workflows/*.yml` files.
 
-Also relevant: the file is still on disk at the repo root (untracked), and `~/.doppler/fallback/` holds dozens of cached credential snapshots. Both are offline copies of the unrotated secret set, and the fallback cache is the suspected cause of the stale-read described in [[CR11]]. A scrub should account for both, not just git history.
+**Remaining hygiene (not blocking):** the untracked `doppler.json` copy still exists on disk at the repo root, and `~/.doppler/fallback/` holds cached credential snapshots. Both are now stale (secrets rotated), but deleting them reduces the disk surface. `rm doppler.json` and `rm -rf ~/.doppler/fallback/` are safe once the new credentials are confirmed working.
+
+**Note for anyone holding a clone:** force-pushing rewrote all commit hashes. Run `git fetch --all && git reset --hard origin/<branch>` on any local clone to sync.
 
 ---
 
