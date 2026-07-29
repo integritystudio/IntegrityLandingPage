@@ -25,6 +25,8 @@ wrangler dev --port 8787          # Local dev server
 npm run test:live                 # stripe-webhook: real Stripe-signed requests to the deployed dev Worker
                                   # sender-worker: real Auth0 Management API calls
 npm run test:e2e                  # sender-worker: workerd runtime with mocked outbound calls
+                                  # ⚠️ currently NON-FUNCTIONAL — vitest.e2e.config.ts never enables the
+                                  #    workers pool, so `cloudflare:test` fails to resolve (BACKLOG.md CR11)
 ```
 
 **Supabase** (migrations are the source of truth for schema)
