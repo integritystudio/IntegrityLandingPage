@@ -444,6 +444,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR22](#cr22) | P3 | ⚠️ unblocked | Billing-portal API-key 403 merged + tested; [[CR13]] step 1 done — `deploy:prd` is now safe to run |
 | [CR23](#cr23) | P3 | ✅ resolved | Design decision: 401 for invalid credentials, 403 for valid-but-wrong-type. HTTP-correct; no code change needed |
 | [CR24](#cr24) | P2 | ✅ done | Legacy `anon` + `service_role` JWT keys disabled 2026-07-29 — **verified by probe**: both now return 401. Reversible via the same endpoint if the receiver turns out to depend on one (its `/health` is 200 post-disable) |
+| [CR25](#cr25) | P2 | 🔴 open | Auth0 tenant A production-readiness audit before flipping its environment tag — 3 blockers (Google connection on Auth0 **dev keys**, zero MFA factors, breached-password detection off) |
 
 **Two items are now blocked on code** — [[CR20]] and [[CR21]] are defects in `workers/stripe-webhook/src/`, found by reading the implementation against Stripe's webhook documentation. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). Everything else still needs a credential/provisioning decision (CR01, CR11, CR18), an answer about intent (CR13, CR16), or a production deploy (CR14, CR15, CR03).
 
@@ -1136,6 +1137,45 @@ That split is arguably correct — the token genuinely is invalid — but it mea
 **Scope:** decide whether response shape should key off credential *type* before credential *validity*; if yes, hoist the type check into `preVerifyToken` with a per-route allowlist and re-verify the ordering assumptions in `orgs.test.ts`, `usage.test.ts`, and `ingest.test.ts`.
 
 **Status:** ✅ Resolved by design decision (2026-07-29) — the two-tier split is correct per HTTP semantics. `401` signals an authentication failure (the presented credentials are invalid, regardless of what type they are); `403` signals an authorization failure (the credentials are valid but insufficient for this operation). Hoisting the type check before the HMAC verification would require a per-route allowlist inside `preVerifyToken`, touching every org route's auth ordering — a non-trivial refactor with no user-visible benefit while API-key auth routes are broken ([[CR12]]). No code change. Re-evaluate if a client that cannot distinguish the two cases is reported as a real issue in production.
+
+---
+
+<a id="cr25"></a>
+
+### CR25: Auth0 tenant production-readiness (before flipping `dev-68gg87ow4mg4kzyo` to Production)
+
+**Priority:** P2 | **Source:** session 2026-07-29, Management API audit of tenant `dev-68gg87ow4mg4kzyo`
+**Estimated:** 3 blockers are minutes each by API; the custom domain is a plan decision
+
+The Dashboard's production-checks page (`manage.auth0.com/dashboard/us/dev-68gg87ow4mg4kzyo/production-checks`) **cannot be read programmatically** — it is behind an interactive login and `WebFetch` gets redirected to `auth0.auth0.com/authorize`. Everything below was therefore checked against the Management API directly, which is the authoritative source anyway.
+
+**🔴 Blockers**
+
+1. **The Google connection runs on Auth0 development keys.** `con_ObPVzoOXoF6DWEtA` (`google-oauth2`) has no `options.client_id` or `options.client_secret`, which means it uses Auth0's shared, Auth0-owned Google application: heavily rate-limited, and the consent screen shows Auth0's name rather than Integrity Studio's. It is **enabled on 6 of the 7 real applications**. The saving grace: **no one uses it** — all 96 identities in the tenant are database (`auth0`) identities, zero `google-oauth2`. So the cheapest correct fix is to **disable or delete the connection** until real Google Cloud OAuth credentials exist, rather than putting a Google Cloud project on the critical path. Leaving it enabled on a Production-tagged tenant means the first user who clicks "Continue with Google" gets Auth0's branding and a shared rate limit.
+2. **No MFA factor is enabled at all.** Both database connections have `options.mfa.active: true`, so MFA is switched *on* at the connection level — but `GET /api/v2/guardian/factors` shows **every factor disabled**, so no second factor can actually be enrolled by anyone. This is a system that mints customer API keys; its administrators have password-only auth.
+3. **Breached-password detection is disabled.** Brute-force protection ✅ (`block`, `user_notification`) and suspicious-IP throttling ✅ (`admin_notification`, `block`) are both on — this is the one Credential Guard feature off, and it is a single `PATCH /api/v2/attack-protection/breached-password-detection`.
+
+**⚠️ Should fix — user-visible or hygiene**
+
+4. **No custom domain.** `GET /api/v2/custom-domains` is empty, so every login happens on `dev-68gg87ow4mg4kzyo.us.auth0.com` — users see a hostname containing "dev-", and the tenant becomes permanent (moving later invalidates sessions and bookmarks). Custom domains are a paid-plan feature, so this is a spend decision, not a config one.
+5. **Universal Login is entirely unbranded** — `GET /api/v2/branding` reports no logo, no colors, no font.
+6. **No log streams.** Auth authentication logs are not exported anywhere and retention is plan-limited. Worth pairing with [[W04]] — the repo already runs an OTEL pipeline that could ingest them.
+7. **`implicit` grant is enabled on 4 applications, including the `integritystudio-dashboard` SPA.** Implicit returns tokens in the URL fragment, which is the same mechanism [[CR04]] already tracks. The SPA should be `authorization_code` + PKCE only. (Refresh-token rotation *is* correctly enabled on that SPA.)
+8. **ROPC (`password`) grant on 4 applications** — including the SPA, where ROPC on a public client is at its worst, and `AUTH0_MANAGER`, the Management API M2M, which can therefore authenticate end users as well as act as a machine client.
+9. **`Default App` is an unused privileged leftover** — `authorization_code` + `implicit` + `client_credentials`, with non-rotating, non-expiring refresh tokens. Delete it or strip its grants.
+10. **24-hour access tokens** on `https://api.integritystudio.dev` (`token_lifetime: 86400`, `token_lifetime_for_web: 7200`). RBAC is enforced ✅, but a day-long bearer token has no revocation path.
+
+**🧹 Cleanup created by this session's own work (see [[CR11]])**
+
+11. `integrity-dev-ropc` and `integrity-dev-m2m` were created via the API without `jwt_configuration` or `oidc_conformant`, so they report `alg: None` and `oidc_conformant: false`, which enables legacy behaviours. `PATCH` both, or retire them once a real dev tenant exists. The `dev-users` connection also has `disable_signup: false`; since its only enabled client is the dev ROPC app and its users are created by the admin API, public signup should be turned off before this tenant is Production-tagged.
+
+**🧹 Stale Doppler slots found while auditing**
+
+12. `prd AUTH0_API_ID = 692aa7e8ac74e0386eefd1b0` → **404**, the resource server no longer exists; zero repo references. Same zero-reference status for `AUTH0_API_GRANT_DI` and `VITE_AUTH0_CLIENT_SECRET` — the latter is a *SPA* client secret, which a public client should not have at all.
+
+**Observation, not a finding:** two applications present earlier in this same session — `My App (Web)` and `My App (SPA)` — no longer exist in the tenant (the total is still 8 because two dev clients were added). No Doppler client ID referenced either, so nothing broke; `VITE_AUTH0_CLIENT_ID` maps to the surviving `integritystudio-dashboard` SPA and `prd AUTH0_CLIENT_ID` to `My App`.
+
+**Already production-appropriate:** the email provider is **Resend and enabled** (not Auth0's test provider — this is the item that most often blocks a production switch, and it is done); `support_email` and `support_url` are set; the single Action runs on **node22** with zero deprecated Rules; both database connections use password policy `good` with brute-force protection on; the custom API enforces RBAC.
 
 ---
 
