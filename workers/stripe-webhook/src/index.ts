@@ -44,29 +44,37 @@ async function processEvent(
 ): Promise<void> {
   let result: HandlerResult = { ok: true };
 
-  switch (event.type) {
-    case 'checkout.session.completed':
-      result = await handleCheckoutSessionCompleted(event, db);
-      break;
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed':
+        result = await handleCheckoutSessionCompleted(event, db);
+        break;
 
-    case 'invoice.paid':
-      result = await handleInvoicePaid(event, db);
-      break;
+      case 'invoice.paid':
+        result = await handleInvoicePaid(event, db);
+        break;
 
-    case 'invoice.payment_failed':
-      result = await handleInvoicePaymentFailed(event, db);
-      break;
+      case 'invoice.payment_failed':
+        result = await handleInvoicePaymentFailed(event, db);
+        break;
 
-    case 'customer.subscription.updated':
-      result = await handleSubscriptionUpdated(event, db, priceToPlan);
-      break;
+      case 'customer.subscription.updated':
+        result = await handleSubscriptionUpdated(event, db, priceToPlan);
+        break;
 
-    case 'customer.subscription.deleted':
-      result = await handleSubscriptionDeleted(event, db, priceToPlan);
-      break;
+      case 'customer.subscription.deleted':
+        result = await handleSubscriptionDeleted(event, db, priceToPlan);
+        break;
 
-    default:
-      console.log(`Unhandled Stripe event type: ${event.type}`);
+      default:
+        console.log(`Unhandled Stripe event type: ${event.type}`);
+    }
+  } catch (err) {
+    // Handler threw unexpectedly. Convert to HandlerResult so the unclaim + dead-letter
+    // path below runs — otherwise the event stays claimed but unprocessed with no retry.
+    const errMessage = err instanceof Error ? err.message : String(err);
+    console.error(`CRITICAL: Unhandled exception in handler for event ${event.id} (${event.type}):`, err);
+    result = { ok: false, error: errMessage };
   }
 
   if (!result.ok) {
@@ -132,7 +140,7 @@ async function handleWebhook(request: Request, env: Env, ctx: ExecutionContext):
   }
   if (!claimResult.claimed) {
     // Another request already claimed this event — skip without processing.
-    return ok({ ok: true, processed: false, skipped: true, reason: 'already_processed' });
+    return ok({ ok: true, queued: false, skipped: true, reason: 'already_processed' });
   }
 
   // Return 2xx to Stripe immediately, per Stripe's guidance to respond before complex logic.

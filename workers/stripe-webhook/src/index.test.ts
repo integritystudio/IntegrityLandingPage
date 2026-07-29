@@ -193,16 +193,17 @@ describe('handleWebhook (fetch handler)', () => {
     expect(response.status).toBe(401);
   });
 
-  it('already processed → skipped: true response, handler not called', async () => {
+  it('already processed → queued:false, skipped:true, handler not called', async () => {
     const body = JSON.stringify({ id: 'evt_dup', type: 'checkout.session.completed' });
     const request = await makeWebhookRequest(body);
 
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: false });
 
     const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
-    const json = await response.json<{ ok: boolean; skipped: boolean }>();
+    const json = await response.json<{ ok: boolean; queued: boolean; skipped: boolean }>();
 
     expect(response.status).toBe(200);
+    expect(json.queued).toBe(false);
     expect(json.skipped).toBe(true);
     expect(mockHandleCheckout).not.toHaveBeenCalled();
   });
@@ -259,6 +260,34 @@ describe('handleWebhook (fetch handler)', () => {
     const request = new Request('https://example.com/unknown', { method: 'GET' });
     const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(404);
+  });
+
+  it('handler throws unhandled exception → CRITICAL logged, unclaim + dead-letter called, 200 queued:true', async () => {
+    const body = JSON.stringify({ id: 'evt_throw', type: 'checkout.session.completed' });
+    const request = await makeWebhookRequest(body);
+
+    mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
+    mockHandleCheckout.mockRejectedValue(new Error('Unexpected crash'));
+    mockDb.unclaimEvent.mockResolvedValue({ ok: true });
+    mockDb.addDeadLetter.mockResolvedValue({ ok: true });
+
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
+    expect(response.status).toBe(200);
+    const json = await response.json<{ ok: boolean; queued: boolean }>();
+    expect(json.queued).toBe(true);
+
+    await mockCtx.flush();
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('CRITICAL: Unhandled exception'),
+      expect.any(Error),
+    );
+    expect(mockDb.unclaimEvent).toHaveBeenCalledWith('evt_throw');
+    expect(mockDb.addDeadLetter).toHaveBeenCalledWith(
+      'evt_throw',
+      'checkout.session.completed',
+      expect.any(Object),
+      'Unexpected crash',
+    );
   });
 
   it('handler failure + unclaimEvent succeeds → unclaimEvent called, dead letter inserted, queued:true returned', async () => {
