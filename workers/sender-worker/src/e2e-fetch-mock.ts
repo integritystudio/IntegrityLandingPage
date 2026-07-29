@@ -39,6 +39,8 @@ interface Interceptor {
   body: ReplyBody;
   headers: Record<string, string>;
   consumed: boolean;
+  /** Excluded from `assertNoPendingInterceptors()` when true. */
+  optional: boolean;
 }
 
 interface ReplyOptions {
@@ -57,6 +59,18 @@ class InterceptorHandle {
     this.interceptor.headers = opts.headers ?? {};
     return this;
   }
+
+  /**
+   * Serve this route if it is called, but do not require it. Use for
+   * best-effort calls whose count is not part of the contract under test —
+   * signup's compensating rollback, for instance, swallows its own failures and
+   * may retry a delete through nested catch layers, so pinning an exact number
+   * of calls would assert an implementation detail.
+   */
+  optional(): InterceptorHandle {
+    this.interceptor.optional = true;
+    return this;
+  }
 }
 
 /** Handle returned by `get(origin)`, scoping interceptors to one origin. */
@@ -72,6 +86,7 @@ class OriginMock {
       body: '',
       headers: {},
       consumed: false,
+      optional: false,
     };
     interceptors.push(interceptor);
     return new InterceptorHandle(interceptor);
@@ -171,7 +186,7 @@ export const fetchMock = {
    * one test's leftovers cannot leak into the next. Call in `afterEach`.
    */
   assertNoPendingInterceptors(): void {
-    const pending = interceptors.filter((i) => !i.consumed);
+    const pending = interceptors.filter((i) => !i.consumed && !i.optional);
     interceptors.length = 0;
     if (pending.length > 0) {
       const described = pending.map((i) => `${i.method} ${i.origin}${i.path}`).join(', ');

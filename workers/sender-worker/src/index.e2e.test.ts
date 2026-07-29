@@ -76,6 +76,38 @@ function mockRopcTokenExchange(accessToken = "test-user-jwt"): void {
     });
 }
 
+/**
+ * Mocks the compensating rollback signup performs when a Supabase step fails:
+ * delete the user row, delete the org row, then delete the Auth0 user — the
+ * last of which fetches a fresh management token first.
+ */
+function mockSignupRollback(auth0Sub: string): void {
+  fetchMock
+    .get(SUPABASE_URL)
+    .intercept({ path: "/rest/v1/users", method: "DELETE" })
+    .reply(204, "")
+    .optional();
+  fetchMock
+    .get(SUPABASE_URL)
+    .intercept({ path: "/rest/v1/organizations", method: "DELETE" })
+    .reply(204, "")
+    .optional();
+  // Each Management API call fetches its own token, so the rollback's delete
+  // needs one beyond the token signup already consumed.
+  fetchMock
+    .get(`https://${AUTH0_DOMAIN}`)
+    .intercept({ path: "/oauth/token", method: "POST" })
+    .reply(200, JSON.stringify({ access_token: "rollback-mgmt-token" }), {
+      headers: { "content-type": "application/json" },
+    })
+    .optional();
+  fetchMock
+    .get(`https://${AUTH0_DOMAIN}`)
+    .intercept({ path: `/api/v2/users/${encodeURIComponent(auth0Sub)}`, method: "DELETE" })
+    .reply(204, "")
+    .optional();
+}
+
 function mockFullSignupFlow(auth0Sub = "auth0|e2e-user", orgId = "org-e2e-uuid"): void {
   mockTokenExchange();       // management API client-credentials grant
   mockAuth0CreateUser(auth0Sub);
@@ -269,19 +301,66 @@ describe("POST /signup — validation", () => {
   });
 });
 
-// ─── POST /signin — not implemented ─────────────────────────────────────────
+// ─── POST /signin — Auth0 ROPC ──────────────────────────────────────────────
 
-describe("POST /signin — not implemented", () => {
-  it("returns 404 — sign-in is handled by Auth0 directly", async () => {
+describe("POST /signin — Auth0 ROPC", () => {
+  it("returns 200 with the Auth0 JWT and the email on valid credentials", async () => {
+    mockRopcTokenExchange("signed-in-jwt");
+
     const res = await SELF.fetch("https://worker.test/signin", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "user@example.com", password: "pass" }),
+      body: JSON.stringify({ email: "user@example.com", password: "S3cur3!pass" }),
     });
 
-    expect(res.status).toBe(404);
-    const body = await res.json() as { error: string };
-    expect(body.error).toContain("Auth0");
+    expect(res.status).toBe(200);
+    const body = await res.json() as { jwt: string; email: string };
+    expect(body.jwt).toBe("signed-in-jwt");
+    expect(body.email).toBe("user@example.com");
+  });
+
+  it("returns 500 with INTERNAL_ERROR when Auth0 rejects the credentials", async () => {
+    fetchMock
+      .get(`https://${AUTH0_DOMAIN}`)
+      .intercept({ path: "/oauth/token", method: "POST" })
+      .reply(403, JSON.stringify({ error: "invalid_grant" }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/signin", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "user@example.com", password: "wrong" }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await res.json() as { error: string; code: string };
+    expect(body.error).toBe("signin failed");
+    expect(body.code).toBe("INTERNAL_ERROR");
+  });
+
+  it("returns 400 when the password is missing", async () => {
+    const res = await SELF.fetch("https://worker.test/signin", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "user@example.com" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json() as { code: string };
+    expect(body.code).toBe("MISSING_FIELDS");
+  });
+
+  it("returns 400 for a malformed email", async () => {
+    const res = await SELF.fetch("https://worker.test/signin", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "not-an-email", password: "S3cur3!pass" }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json() as { code: string };
+    expect(body.code).toBe("INVALID_EMAIL");
   });
 });
 
@@ -623,7 +702,7 @@ describe("POST /create-checkout-session — Stripe API errors", () => {
 
     expect(res.status).toBe(500);
     const body = await res.json() as { error: string };
-    expect(body.error).toContain("checkout");
+    expect(body.error).toContain("session URL");
   });
 });
 
@@ -750,6 +829,11 @@ describe("POST /signup — Error Code Mapping (2026-04-03 Session)", () => {
       }), {
         headers: { "content-type": "application/json" },
       });
+    // A failed membership insert triggers compensating rollback: delete the
+    // Supabase user and org, then the Auth0 user (which needs its own
+    // management token). Without these the rollback's own failures mask the
+    // original error and it degrades to INTERNAL_ERROR.
+    mockSignupRollback("auth0|test-user");
 
     const res = await SELF.fetch("https://worker.test/signup", {
       method: "POST",
@@ -763,7 +847,7 @@ describe("POST /signup — Error Code Mapping (2026-04-03 Session)", () => {
     expect(body.code).toBe("SUPABASE_ORG_MEMBERSHIP_FAILED");
   });
 
-  it("returns INTERNAL_ERROR when error does not match any known pattern", async () => {
+  it("maps a failed token exchange to AUTH0_TOKEN_EXCHANGE_FAILED", async () => {
     fetchMock
       .get(`https://${AUTH0_DOMAIN}`)
       .intercept({ path: "/oauth/token", method: "POST" })
@@ -780,6 +864,8 @@ describe("POST /signup — Error Code Mapping (2026-04-03 Session)", () => {
     expect(res.status).toBe(500);
     const body = await res.json() as { error: string; code: string };
     expect(body.error).toBe("signup failed");
-    expect(body.code).toBe("INTERNAL_ERROR");
+    // The worker classifies this specifically rather than falling back to
+    // INTERNAL_ERROR, so a 500 from /oauth/token is a *known* pattern.
+    expect(body.code).toBe("AUTH0_TOKEN_EXCHANGE_FAILED");
   });
 });

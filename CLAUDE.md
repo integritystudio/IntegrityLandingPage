@@ -25,7 +25,7 @@ wrangler dev --port 8787          # Local dev server
 npm run test:live                 # stripe-webhook: real Stripe-signed requests to the deployed dev Worker
                                   # sender-worker: real Auth0 Management API calls
 npm run test:e2e                  # sender-worker: workerd runtime with mocked outbound calls
-                                  # 37/41 passing; the 4 failures are stale assertions, not setup (CR11)
+                                  # ✅ 44/44 passing as of 2026-07-29 (was non-functional; see CR11)
 ```
 
 **Supabase** (migrations are the source of truth for schema)

@@ -579,14 +579,16 @@ The remaining gap is **accuracy, not absence**. In-memory state is per isolate, 
 
 Two suite bugs were also fixed, both cases of the test contradicting the code rather than a judgement call: the Stripe tests mocked `https://api.stripe.test`, **a host the worker never calls** (`src/stripe.ts` hardcodes `api.stripe.com`), and the config's price map had to cover every tier the suite requests (`growth` was missing).
 
-**The remaining 4 failures are the suite being out of date with the worker, and each needs a decision about which side is right — deliberately not "fixed" by editing expectations to match current behaviour:**
+**✅ All 4 remaining failures fixed 2026-07-29 — the suite is fully green: 44 tests passing, stable across repeated runs.** Fixing them to match the code turned up that only one was a simple stale assertion; the others were more interesting:
 
-| Test | Expected | Actual | Likely verdict |
-|---|---|---|---|
-| `POST /signin — not implemented` | `404` | `500` | **Test stale** — `/signin` is implemented (Auth0 ROPC); it predates that. |
-| Stripe: missing session URL | message contains `checkout` | `Stripe response missing session URL` | **Message drift** — status is right, only the wording assertion fails. |
-| `SUPABASE_ORG_MEMBERSHIP_FAILED` | that code | `INTERNAL_ERROR` | Worker fails *before* the membership insert (its interceptor goes unused), so the test models a path the code no longer takes. |
-| unknown-pattern error | `INTERNAL_ERROR` | `AUTH0_TOKEN_EXCHANGE_FAILED` | Code maps this **more specifically** than the test allows — arguably the code is better and the assertion is too loose. |
+| Test | What was actually wrong |
+|---|---|
+| `POST /signin` | Genuinely stale — asserted `404 "not implemented"` though `/signin` has been Auth0 ROPC for some time. Replaced with four cases covering the real contract: `200` with `{jwt, email}`, `500`/`INTERNAL_ERROR` when Auth0 rejects, `400`/`MISSING_FIELDS`, `400`/`INVALID_EMAIL`. |
+| Stripe missing session URL | Message drift only: asserted `"checkout"`, worker says `Stripe response missing session URL`. |
+| `SUPABASE_ORG_MEMBERSHIP_FAILED` | **Not stale at all** — the worker's compensating **rollback** was unmocked, so the rollback's own failures replaced the original error and it degraded to `INTERNAL_ERROR`. Mocking the rollback made the original assertion pass unchanged. |
+| unknown-pattern error | The test's premise was wrong: a `500` from `/oauth/token` **is** a known pattern, mapped to `AUTH0_TOKEN_EXCHANGE_FAILED`. Renamed and re-pointed at the specific code, since classifying it is the better behaviour. |
+
+Two things worth keeping from that work. Rollback interceptors are registered `.optional()` — a small extension to the shim — because `auth0DeleteUser` swallows its own errors and can be reached more than once through nested catch layers, so pinning an exact call count would assert an implementation detail rather than the response contract. And one of my own edits briefly broke a passing test: the message fix matched **two** assertions, and the other Stripe error case legitimately returns `failed to create checkout session`. Caught by re-running rather than by inspection — worth remembering that a blanket string replace across a 777-line suite needs the second occurrence checked.
 
 **Superseded — the original diagnosis, kept for context:** `vitest.e2e.config.ts` is a plain `defineConfig` with only an `include` glob — it never enables the Cloudflare workers pool, so the `cloudflare:test` import on line 10 of `src/index.e2e.test.ts` fails to resolve and the file collects **0 tests** (`Cannot find package 'cloudflare:test'`). Unrelated to any credential work: `@cloudflare/vitest-pool-workers@0.18.8` is installed and vitest 4.1.4 satisfies its `^4.1.0` peer range, and `git log` shows the config and the test arrived in the same commit (`9d7c484`), so the suite appears never to have executed. Fixing it means `defineWorkersConfig` from `@cloudflare/vitest-pool-workers/config` plus `poolOptions.workers` bindings for the fake hosts the suite mocks (`e2e.auth0.test`, `https://supabase.e2e.test`) — there is no working example elsewhere in the repo to copy, and the binding set has to be reconstructed from the test body, so it is a small piece of real work rather than a one-line change. Until then, treat `test:e2e` as documented-but-nonfunctional wherever `CLAUDE.md` lists it.
 
