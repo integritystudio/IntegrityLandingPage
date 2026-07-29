@@ -1,6 +1,6 @@
 import { ok, unauthorized, serverError, notFound } from '../../lib/http';
 import { requireBearerToken } from '../../lib/http/request';
-import { verifySupabaseJwt } from './auth';
+import { verifySupabaseJwt, supabaseJwtKey } from './auth';
 import { loadOrgContext, buildBootstrapResponse } from './bootstrap';
 
 export interface Env {
@@ -52,7 +52,10 @@ async function handleBootstrap(request: Request, env: Env): Promise<Response> {
   const tokenResult = requireBearerToken(request);
   if (!tokenResult.ok) return tokenResult.error;
 
-  const jwtResult = await verifySupabaseJwt(tokenResult.token, env.SUPABASE_JWT_SECRET);
+  const jwtResult = await verifySupabaseJwt(
+    tokenResult.token,
+    supabaseJwtKey({ supabaseUrl: env.SUPABASE_URL, jwtSecret: env.SUPABASE_JWT_SECRET }),
+  );
   if (!jwtResult.ok) return jwtResult.error;
 
   const { payload } = jwtResult;

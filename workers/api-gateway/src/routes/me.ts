@@ -1,5 +1,6 @@
 import { notFound, ok, serverError } from '../../../lib/http';
 import { createSupabaseClient } from '../../../lib/supabase';
+import { supabaseJwtKey } from '../../../lib/auth';
 import { resolveJwt } from '../lib/helpers';
 
 interface MeHandlerOptions {
@@ -19,7 +20,7 @@ interface UserRow extends Record<string, unknown> {
 }
 
 export async function handleMe(request: Request, opts: MeHandlerOptions): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);

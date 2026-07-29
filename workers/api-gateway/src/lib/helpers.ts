@@ -1,6 +1,7 @@
 import { unauthorized } from '../../../lib/http';
 import { requireBearerToken } from '../../../lib/http/request';
-import { verifyJwt } from '../../../lib/auth';
+import { verifyJwt, supabaseJwtKey } from '../../../lib/auth';
+import type { JwtVerificationKey } from '../../../lib/auth';
 import { parseApiKey, verifyApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient } from '../../../lib/supabase';
 import type { Entitlement } from '../../../lib/types';
@@ -60,19 +61,19 @@ export async function preVerifyToken(
     return { ok: true };
   }
 
-  const jwtResult = await verifyJwt(token, opts.jwtSecret, { issuerUrl: opts.jwtIssuerUrl });
+  const jwtResult = await verifyJwt(token, supabaseJwtKey(opts), { issuerUrl: opts.jwtIssuerUrl });
   if (!jwtResult.ok) return jwtResult;
   return { ok: true };
 }
 
 export async function resolveJwt(
   request: Request,
-  jwtSecret: string,
+  key: JwtVerificationKey,
   jwtIssuerUrl?: string,
 ): Promise<{ ok: true; sub: string } | { ok: false; error: Response }> {
   const tokenResult = requireBearerToken(request);
   if (!tokenResult.ok) return tokenResult;
-  const jwtResult = await verifyJwt(tokenResult.token, jwtSecret, { issuerUrl: jwtIssuerUrl });
+  const jwtResult = await verifyJwt(tokenResult.token, key, { issuerUrl: jwtIssuerUrl });
   if (!jwtResult.ok) return jwtResult;
   if (!jwtResult.payload.sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
   return { ok: true, sub: jwtResult.payload.sub };

@@ -2,6 +2,7 @@ import { ok, created, forbidden, notFound, serverError, badRequest } from '../..
 import { generateApiKey, hashApiKeySecret } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, ApiKey, OrgRole } from '../../../lib/types';
+import { supabaseJwtKey } from '../../../lib/auth';
 import { resolveJwt, writeAuditLog } from '../lib/helpers';
 
 interface ApiKeysHandlerOptions {
@@ -61,7 +62,7 @@ export async function handleCreateApiKey(
   orgId: string,
   opts: ApiKeysHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
@@ -140,7 +141,7 @@ export async function handleRevokeApiKey(
   keyId: string,
   opts: ApiKeysHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);

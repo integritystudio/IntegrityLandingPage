@@ -1,6 +1,6 @@
 import { ok, forbidden, unauthorized, serverError } from '../../../lib/http';
 import { requireBearerToken } from '../../../lib/http/request';
-import { verifyJwt } from '../../../lib/auth';
+import { verifyJwt, supabaseJwtKey } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, Entitlement, UsageBucket as UsageBucketBase } from '../../../lib/types';
@@ -43,7 +43,7 @@ async function resolveAuth(
   }
 
   // Otherwise treat as JWT
-  const jwtResult = await verifyJwt(token, opts.jwtSecret, { issuerUrl: opts.jwtIssuerUrl });
+  const jwtResult = await verifyJwt(token, supabaseJwtKey(opts), { issuerUrl: opts.jwtIssuerUrl });
   if (!jwtResult.ok) return jwtResult;
   if (!jwtResult.payload.sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
   return { ok: true, type: 'jwt', sub: jwtResult.payload.sub };

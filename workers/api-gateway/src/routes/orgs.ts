@@ -4,6 +4,7 @@ import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase
 import { requireBearerToken } from '../../../lib/http/request';
 import { parseApiKey } from '../../../lib/api-keys';
 import type { Organization, OrgRole, OrgMembership, Entitlement } from '../../../lib/types';
+import { supabaseJwtKey } from '../../../lib/auth';
 import { resolveJwt, buildEntitlementMap, writeAuditLog } from '../lib/helpers';
 
 interface OrgsHandlerOptions {
@@ -60,7 +61,7 @@ export async function handleListOrgs(
   request: Request,
   opts: OrgsHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
@@ -79,7 +80,7 @@ export async function handleOrgDashboard(
   orgId: string,
   opts: OrgsHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
@@ -117,7 +118,7 @@ export async function handleOrgBillingStatus(
   orgId: string,
   opts: OrgsHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
@@ -165,7 +166,7 @@ export async function handleBillingPortal(
     return forbidden('Billing portal requires a user session; API keys are not accepted');
   }
 
-  const auth = await resolveJwt(request, opts.jwtSecret, opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
