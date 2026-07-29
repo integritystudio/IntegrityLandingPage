@@ -642,6 +642,10 @@ The general lesson is the same one [[CR18]] taught with a `pk_live_` key: **dist
 
 XAA becomes interesting only as a **product** decision — if enterprise customers' AI agents should call `api-gateway` on their behalf — not as infrastructure for dev/prod isolation.
 
+**Also not applicable: the My Account API** (`https://{domain}/me/`, reviewed 2026-07-29). It is **user-scoped and cannot be reached by Client Credentials at all**, and it manages no tenants, connections, or applications — so it cannot clear `AUTH0_DOMAIN` either. It also cannot narrow the over-privileged `AUTH0_MANAGER` M2M, because the single thing `sender-worker` uses the Management API for is `POST /api/v2/users` during `/signup` (`src/types.ts:107`), i.e. creating a user who does not exist yet and therefore has no token to present. The API **is already enabled in this tenant** (`69c974a13a59f8cdb089c0b9`, 8 scopes, all `me:connected_accounts` / `me:authentication_methods` / `me:factors`), and it is the right tool if the dashboard ever offers self-service passkey, MFA, or linked-account management — its value then is that the frontend needs *no* Management API power to do it. It does not reduce today's surface.
+
+**The structural conclusion, to stop re-litigating this:** no Auth0 API creates tenants. `create:tenants` is not a grantable scope, `GET /api/v2/tenants` is not a resource, and `/api/v2/tenants/settings` only ever addresses the tenant you are already authenticated against. A second tenant is a Dashboard action, and it is the **only** way `AUTH0_DOMAIN` goes green.
+
 **Independent hardening found while probing (not isolation, but real):** the M2M app `AUTH0_MANAGER` — which holds Management API power — also carries the `password`, `password-realm`, and `authorization_code` grants, so it can authenticate end users, not just act as a machine client. The ROPC app `My App` additionally carries `implicit` and `client_credentials`. Both are wider than their roles require and are tightenable with `PATCH /api/v2/clients/{id}` without touching any secret.
 
 ---
