@@ -76,7 +76,7 @@ Tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-202
 
 **P1**
 - **CR18**: **two different Stripe accounts** — `prd` holds a `pk_live_` *publishable* key, `dev` an `sk_test_` secret key. `STRIPE_SECRET_KEY` (what the code reads) is empty everywhere, so **no worker can make a server-side Stripe call**. Stripe has no API to create secret keys; this needs one Dashboard action plus a decision about which account is production
-- **CR01**: ✅ Done 2026-07-29 — `doppler.json` scrubbed from all 1,931 commits via `git filter-repo`; history force-pushed; all secrets rotated
+- **CR01**: ⚠️ partial — `doppler.json` scrubbed from history via `git filter-repo` and force-pushed 2026-07-29, but **no secret has been rotated** (a same-day "rotated" claim was recorded in error and corrected). The Supabase half is cheaper than assumed — `sb_secret_` keys are individually revocable without rotating the project JWT secret
 - **CR11**: Doppler `dev` holds the same Supabase project and Auth0 tenant as `prd`. `--config dev` is not a safety boundary. Detector: `npm run check:env-isolation` (fails 10/10) — note it **covers no Stripe credential**
 - **CR12**: ⚠️ partial — `api-gateway` and `stripe-webhook` both healthy; `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` bound 2026-07-28. Still missing `API_KEY_HMAC_SECRET` (canonical value lives in `observability-toolkit`; API-key auth routes are broken until it is bound)
 - **CR14**: ⚠️ partial — closed on `api-gateway` + `stripe-webhook`. **Still exposed:** `sender-worker` (13 secrets), `integrity-studio-contact`, and cross-repo `api-provisioning-receiver` (7)
@@ -270,7 +270,7 @@ When binding a secret to a Worker, pipe that captured value into `wrangler secre
 - ✅ All workers have `deploy:prd` for emergency hotfixes
 - ❌ **E2E tests use `--config dev`, which is NOT isolated from prod** — all 10 Supabase/Auth0/HMAC credentials are shared between the two configs. Verify with `npm run check:env-isolation` (currently fails 10/10). BACKLOG.md CR11
 - ✅ No hardcoded secrets in package.json or workflows
-- ✅ `doppler.json` scrubbed from git history and secrets rotated (BACKLOG.md CR01, 2026-07-29)
+- ⚠️ `doppler.json` scrubbed from git history (2026-07-29), but its secrets remain **unrotated**; the on-disk `doppler.json` and `~/.doppler/fallback/` still hold the live set (BACKLOG.md CR01)
 
 ### Deployment Checklist
 
