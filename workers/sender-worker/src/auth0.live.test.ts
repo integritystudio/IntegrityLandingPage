@@ -24,7 +24,7 @@ const AUDIENCE = process.env["VITE_AUTH0_AUDIENCE"]!;
 const TEST_EMAIL = process.env["AUTH0_TEST_EMAIL"]!;
 const TEST_PASSWORD = process.env["AUTH0_TEST_PASSWORD"]!;
 const TEST_ORG_ID = process.env["AUTH0_TEST_ORGANIZATION_ID"]!;
-const STORED_MGMT_TOKEN = process.env["AUTHO_ACCESS_TOKEN_API_KEY"]!;
+const STORED_MGMT_TOKEN = process.env["AUTHO_ACCESS_TOKEN_API_KEY"] ?? "";
 
 const MGMT_AUDIENCE = `https://${AUTH0_DOMAIN}/api/v2/`;
 const MGMT_BASE = `https://${AUTH0_DOMAIN}/api/v2`;
@@ -150,7 +150,11 @@ describe("Auth0 client credentials token exchange", () => {
 
 // ─── AUTHO_ACCESS_TOKEN_API_KEY ───────────────────────────────────────────────
 
-describe("AUTHO_ACCESS_TOKEN_API_KEY (stored Doppler management token)", () => {
+// The slot was cleared deliberately — it held a management token expired 241
+// days, issued by a *different* tenant (BACKLOG.md CR01). These assertions
+// only apply if someone repopulates it; the suite gets a fresh token in
+// beforeAll regardless, so nothing here is load-bearing.
+describe.skipIf(!STORED_MGMT_TOKEN)("AUTHO_ACCESS_TOKEN_API_KEY (stored Doppler management token)", () => {
   it("is a well-formed JWT", () => {
     expect(isJwt(STORED_MGMT_TOKEN)).toBe(true);
   });
