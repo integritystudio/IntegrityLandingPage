@@ -174,6 +174,78 @@ sender-worker/wrangler.toml:
 
 ---
 
+## Secret Durability and Rotation
+
+### System of Record
+
+**Doppler (`integrity-studio/prd`) is the authoritative source** for all provisioning secrets. Worker runtime secrets are **not** automatically drawn from Doppler — `wrangler deploy` does not promote Doppler values into Worker secrets; they are set per-worker with `wrangler secret put`. The two sets differ today (see CR15 in `docs/BACKLOG.md`).
+
+| Secret family | Doppler `prd` holds | Bound to Worker via |
+|---|---|---|
+| `SHARED_SECRET` (HMAC signing) | ✅ canonical | `wrangler secret put` at deploy time |
+| Auth0 credentials | ✅ canonical | `wrangler secret put` |
+| Supabase credentials | ✅ canonical | `wrangler secret put` |
+| `STRIPE_WEBHOOK_SECRET` | ✅ canonical (only copy) | `wrangler secret put` on `stripe-webhook` |
+| `STRIPE_SECRET_KEY` | ✅ canonical | `wrangler secret put` on `api-gateway`, `sender-worker` |
+
+To verify what is actually bound to a Worker (names only, never values):
+
+```bash
+npx wrangler secret list --name sender-worker
+npx wrangler secret list --name api-gateway
+npx wrangler secret list --name stripe-webhook
+```
+
+### Doppler as the Recovery Source
+
+Doppler is accepted as sufficient backup — no additional 1Password or Vault backup is required. Two exceptions:
+
+- **`STRIPE_WEBHOOK_SECRET`**: Stripe exposes the signing secret **only** at endpoint-creation time and will not re-display it. The Doppler `prd` copy is the sole recovery path. If both the Doppler copy and the Worker binding are lost, the Stripe endpoint must be deleted and recreated, generating a new secret. Always ensure a new signing secret is stored in Doppler before closing the endpoint-creation call.
+- **Legacy JWT keys**: Supabase's `anon` and `service_role` JWT-format keys are readable in plaintext from the Management API (`GET /v1/projects/{ref}/api-keys`) — treat them as disclosed and track their disabling under CR24 in `docs/BACKLOG.md`.
+
+To fingerprint a Doppler value without exposing secret material:
+
+```bash
+v=$(doppler secrets get NAME --project integrity-studio --config prd --plain | tr -d '\n')
+printf 'len=%s sha=%s\n' "${#v}" "$(printf '%s' "$v" | shasum | cut -c1-12)"
+```
+
+Never use `doppler run` for verification — it can serve a stale value from `~/.doppler/fallback/`. Always use `doppler secrets get --plain`.
+
+### Rotation Procedure
+
+**Current production state: `SHARED_SECRET` single-key.** The multi-key mechanism (`SIGNING_KEYS` / `ACTIVE_KEY_ID`) is implemented in `workers/sender-worker/src/utils.ts` but is not provisioned — both workers still use a single shared secret.
+
+To rotate `SHARED_SECRET`:
+
+1. Generate a new value: `openssl rand -base64 32`
+2. Store in Doppler `prd` as `SHARED_SECRET`.
+3. Bind to both workers simultaneously (a mismatch window will fail `/inbox` requests):
+
+   ```bash
+   NEW=$(doppler secrets get SHARED_SECRET --project integrity-studio --config prd --plain | tr -d '\n')
+   printf '%s' "$NEW" | npx wrangler secret put SHARED_SECRET --name sender-worker
+   # api-provisioning-receiver is in observability-toolkit — coordinate with that repo's owner:
+   printf '%s' "$NEW" | npx wrangler secret put SHARED_SECRET --name api-provisioning-receiver
+   ```
+
+4. Verify with `GET /health` on `sender-worker`, then a test `/send` request.
+
+**Zero-downtime path (when `SIGNING_KEYS` is provisioned):** Bind `SIGNING_KEYS` (JSON array of `{id, secret}`) and `ACTIVE_KEY_ID` to both workers. The receiver uses the `x-key-id` header to select the verification key. Rotation then becomes:
+
+1. Add a new key entry; update `ACTIVE_KEY_ID` to it (sender signs with new key; receiver can still verify old).
+2. Remove the old key entry once all in-flight requests clear.
+
+### Rotation Cadence
+
+No fixed cadence is enforced. Priorities:
+
+1. **Immediate** if: a Doppler token leaks, a Worker version with stale code is found carrying live secrets (CR14), or `doppler.json` history-scrub (CR01) is blocked.
+2. **Opportunistic** when provisioning `SIGNING_KEYS` (zero-downtime path makes this cheaper).
+3. **Quarterly** once CR01's history scrub is complete and `SIGNING_KEYS` is provisioned.
+
+---
+
 ## Implementation Reference
 
 ### CORS (Environment-Aware)

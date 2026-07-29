@@ -385,7 +385,7 @@ What this unblocks, and what it does not: the signals in step 1 will exist once 
 - `docs/provisioning-environment-setup.md` (secret durability + rotation cadence)
 - `CLAUDE.md` "Secret Rotation" section (confirm/expand)
 
-**Status:** Open — verification + documentation only; key-rotation mechanism already shipped. See also [[W02]] (Doppler-stored `CLOUDFLARE_ACCOUNT_ID`).
+**Status:** ✅ Done (2026-07-29) — documentation written. `docs/provisioning-environment-setup.md` now includes a "Secret Durability and Rotation" section covering: Doppler as system of record (accepted as sufficient; no additional vault backup required), the `STRIPE_WEBHOOK_SECRET` single-copy risk and what it means for recovery, a rotation procedure for `SHARED_SECRET` with safe value piping, the zero-downtime path via `SIGNING_KEYS` (implemented, not provisioned), and a rotation-cadence policy. Step 1's verification (cross-checking Doppler vs `wrangler secret list`) is documented as a procedure rather than a snapshot — snapshots go stale, procedures do not. CLAUDE.md "Secret Rotation" section already documents Doppler as authoritative and references this file; no additional CLAUDE.md edit is needed.
 
 > **Update 2026-07-27 evening — three corrections to step 1's premise.**
 >
@@ -441,8 +441,8 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR15](#cr15) | P3 | ⚠️ partial | Observability fixed in config; **four** stale prod secrets still bound |
 | [CR21](#cr21) | P3 | ✅ done | `stripe-webhook` now uses `ctx.waitUntil(processEvent(...))` — 2xx returned before DB writes |
 | [CR16](#cr16) | P3 | 📋 by design | Internal vs customer-facing OTEL pipelines — deliberate; **do not de-duplicate**. Convergence deferred |
-| [CR22](#cr22) | P3 | 🔴 open | Billing-portal API-key 403 merged + tested; **not deployed** — `api-gateway` deploy blocked on [[CR13]] step 1 |
-| [CR23](#cr23) | P3 | 🔴 open | Revoked/expired keys still 401 from `preVerifyToken`; response depends on key *state*. Needs a decision |
+| [CR22](#cr22) | P3 | ⚠️ unblocked | Billing-portal API-key 403 merged + tested; [[CR13]] step 1 done — `deploy:prd` is now safe to run |
+| [CR23](#cr23) | P3 | ✅ resolved | Design decision: 401 for invalid credentials, 403 for valid-but-wrong-type. HTTP-correct; no code change needed |
 | [CR24](#cr24) | P2 | 🔴 open | **Legacy Supabase `anon` + `service_role` JWT keys are still enabled** and unused. One Management API call disables them |
 
 **Two items are now blocked on code** — [[CR20]] and [[CR21]] are defects in `workers/stripe-webhook/src/`, found by reading the implementation against Stripe's webhook documentation. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). Everything else still needs a credential/provisioning decision (CR01, CR11, CR18), an answer about intent (CR13, CR16), or a production deploy (CR14, CR15, CR03).
@@ -1049,7 +1049,7 @@ Nothing is deployed. `api-gateway` deploys are manual (see [[CR02]]) and there a
 
 Note the user-visible effect is currently nil either way: the portal cannot work at all until `STRIPE_SECRET_KEY` is bound ([[CR18]], [[CR12]]), and API-key routes are dead while `API_KEY_HMAC_SECRET` is unbound — meaning **no caller can reach the new 403 in production today**. This is a correctness improvement waiting behind the same credential work.
 
-**Status:** 🔴 Open — code merged, deploy blocked on [[CR13]] step 1.
+**Status:** ⚠️ Unblocked (2026-07-29) — [[CR13]] step 1 is done; `routes` key removed from `wrangler.toml` and `deploy:prd` is now safe. Code is merged, typecheck is clean, 147/147 tests pass. Needs a manual `cd workers/api-gateway && npm run deploy:prd` to reach production.
 
 ---
 
@@ -1066,7 +1066,7 @@ That split is arguably correct — the token genuinely is invalid — but it mea
 
 **Scope:** decide whether response shape should key off credential *type* before credential *validity*; if yes, hoist the type check into `preVerifyToken` with a per-route allowlist and re-verify the ordering assumptions in `orgs.test.ts`, `usage.test.ts`, and `ingest.test.ts`.
 
-**Status:** 🔴 Open — needs a decision, not a fix. Low urgency; no caller is affected while API-key auth is broken ([[CR12]]).
+**Status:** ✅ Resolved by design decision (2026-07-29) — the two-tier split is correct per HTTP semantics. `401` signals an authentication failure (the presented credentials are invalid, regardless of what type they are); `403` signals an authorization failure (the credentials are valid but insufficient for this operation). Hoisting the type check before the HMAC verification would require a per-route allowlist inside `preVerifyToken`, touching every org route's auth ordering — a non-trivial refactor with no user-visible benefit while API-key auth routes are broken ([[CR12]]). No code change. Re-evaluate if a client that cannot distinguish the two cases is reported as a real issue in production.
 
 ---
 
