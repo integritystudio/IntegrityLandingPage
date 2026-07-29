@@ -436,7 +436,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR13](#cr13) | P2 | 🔴 open | Trap **still armed** — and now *blocking*. `api-gateway`'s deployed code is from **2026-03-31**, so [[CR22]] and the `d9ba71a` auth fix cannot ship until the `routes` key goes |
 | [CR17](#cr17) | P2 | ✅ done | Migration ledger repaired; drift detector in CI (`scripts/check-migration-drift.sh` + `migration-drift-check` job) |
 | [CR19](#cr19) | P2 | ✅ done | `stripe-webhook` org-not-found now returns `{ ok: false }` → unclaimEvent + dead-letter (commits eaaa199, 9741594) |
-| [CR20](#cr20) | P2 | 🔴 open | `stripe-webhook` returns 200 on failure, discarding Stripe's 3-day retry in favour of a cron |
+| [CR20](#cr20) | P2 | 🔴 open | [[CR21]] foreclosed the 5xx option — the cron is now the *only* retry path, so monitoring ([[W04]]) is mandatory |
 | [CR03](#cr03) | P2 | ✅ done | KV namespaces created and bound; reaches prod on next `deploy:prd` |
 | [CR15](#cr15) | P3 | ⚠️ partial | Observability fixed in config; **four** stale prod secrets still bound |
 | [CR21](#cr21) | P3 | ✅ done | `stripe-webhook` now uses `ctx.waitUntil(processEvent(...))` — 2xx returned before DB writes |
@@ -1011,13 +1011,17 @@ The trade is only sound if the replacement works, and for four months it did not
 
 Both underlying faults are now fixed, so the cron can function. The design question stands.
 
+> **⚠️ Update 2026-07-29 — [[CR21]]'s implementation (commit 8de2122) forecloses scope item 1.** `handleWebhook` now returns 200 *before* the handler runs (`ctx.waitUntil`), so returning 5xx on handler failure is structurally impossible without reverting CR21. The decision has effectively been made by implementation: the cron is the only retry path, which converts item 2 (alerting, [[W04]]) from an option into the sole remaining mitigation.
+>
+> The same commit also removed the last 5xx anywhere in the failure chain. Previously, if the **dead-letter insert itself** failed after a handler failure, the Worker returned 500 and Stripe retried for three days — the last-resort safety net, and free alerting via Stripe's failing-endpoint emails. Now that path logs `CRITICAL … Manual replay required` and nothing else. This exact failure mode has a precedent: [[CR17]]'s missing `webhook_dead_letters` table made every dead-letter insert fail for four months. A recurrence now loses events behind 200s, observable only in Worker logs. A **full** Supabase outage is still protected — the synchronous `claimEvent` fails first and returns 500 before the 200 is sent. The narrowed window is *partial* DB failure: claim succeeds, handler fails, dead-letter insert fails.
+
 **Scope:**
-1. Decide whether owning the retry schedule is worth it. Returning 5xx and letting Stripe retry for three days is simpler, needs no cron, and no table.
-2. If keeping the cron: alert on dead-letter depth and on cron failure ([[W04]] step 2 already lists this).
+1. ~~Decide whether owning the retry schedule is worth it. Returning 5xx and letting Stripe retry for three days is simpler, needs no cron, and no table.~~ Foreclosed by [[CR21]] — see update above.
+2. Alert on dead-letter depth and on cron failure ([[W04]] step 2 already lists this). **Now mandatory, not optional** — it is the only recovery signal left.
 3. Note sandbox retries are only 3 attempts over a few hours, so testing there understates live behaviour.
 4. Confirm a successful cron run has actually happened since secrets were bound. Nothing has verified this yet.
 
-**Status:** 🔴 Open — design decision, now actually testable for the first time.
+**Status:** 🔴 Open — no longer a design decision. [[CR21]] committed to the cron; remaining work is monitoring ([[W04]]) and verifying the cron actually runs.
 
 ---
 
