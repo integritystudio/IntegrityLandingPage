@@ -584,7 +584,7 @@ Facts established while investigating, several of which correct earlier notes in
 
 **Scope:**
 1. **Decide the Supabase boundary.** Either a new project (may need a paid plan — the org already has 2) or a separate schema in `cfrbahzzklwrnmbtqojl` with its own role. A separate schema is cheaper but shares the service-role key, so it does not isolate credentials — only a separate project makes the checker pass on `SUPABASE_SERVICE_ROLE_KEY`.
-2. **Create an Auth0 dev tenant** and a matching M2M + ROPC application pair. Not scriptable with the current credentials: the `AUTH0_CLI_*` M2M app is scoped to the existing tenant's Management API, so it cannot create tenants. Dashboard action.
+2. **Create an Auth0 dev tenant** and a matching M2M + ROPC application pair. Not scriptable with the current credentials: the `AUTH0_CLI_*` M2M app is scoped to the existing tenant's Management API, so it cannot create tenants. Dashboard action — **confirmed 2026-07-29 by probe**: the token lacks `create:tenants` and no tenant-creation endpoint exists. A partial, API-scriptable alternative (separate `dev-users` connection + dev clients within the one tenant) is detailed in the 2026-07-29 update below.
 3. **Populate Doppler.** Write the new values into `dev` (or into the empty `stg` config, promoting it to the dev target). Re-run `npm run check:env-isolation` until it passes.
 4. **Push the dev secrets to the `*-dev` workers** — only after step 3 passes, never before:
    ```bash
@@ -607,6 +607,27 @@ Two findings from probing what the Management APIs can actually do:
 - **There is a tempting false fix, and the detector now refuses it.** `POST /v1/projects/{ref}/api-keys` mints an `sb_secret_` key carrying `secret_jwt_template {role: service_role}`. Pointing `dev` at a freshly minted key would make `SUPABASE_SERVICE_ROLE_KEY` differ, so the hash table would print `ok (distinct)` — while the key still bypasses RLS on the **production** database. It would also only reach 2 of the 4 Supabase rows: `SUPABASE_URL` derives from the project ref and `SUPABASE_JWT_SECRET` is one-per-project, so neither can differ within a single project. Net effect would be trading a loud accurate failure for a quiet misleading one. `scripts/check-env-isolation.sh` now detects the shared `SUPABASE_URL` and says so explicitly (commit `0bc8f3a`).
 
 The general lesson is the same one [[CR18]] taught with a `pk_live_` key: **distinctness is necessary but never sufficient.** A credential can differ from production's and still authenticate against production.
+
+**Update 2026-07-29 — now 7 of 13 failing, and the API floor is 1.** [[CR01]]'s slot cleanup cleared three rows (`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `AUTH0_CLI_SECRET` all now "ok (distinct)"). `SUPABASE_ANON_KEY` newly reads SHARED and that is fine — both configs hold the same *publishable* key, public by design. The remaining seven, with what each would actually take, verified by probing each provider's API:
+
+| # | Row | Fixable by API? | Honest fix, or cosmetic? |
+|---|---|---|---|
+| 1 | `SUPABASE_URL` | ✅ `POST /v1/projects` | **Honest** — a genuinely separate database |
+| 2 | `SUPABASE_ANON_KEY` | ✅ follows from #1 | Honest (harmless even today) |
+| 3 | `AUTH0_DOMAIN` | ❌ **impossible** | — Dashboard only |
+| 4 | `AUTH0_CLIENT_ID` | ✅ `POST /api/v2/clients` | Honest **only** with a separate connection (see below) |
+| 5 | `AUTH0_CLIENT_SECRET` | ✅ follows from #4 | Same |
+| 6 | `AUTH0_CLI_ID` | ✅ `POST /api/v2/clients` | **Partly cosmetic** — Management scopes are tenant-wide |
+| 7 | `SHARED_SECRET` | ✅ Doppler write alone | **Honest** — dev stops holding the production signing key |
+
+- **Auth0 tenant creation is not available at any price through the API.** The `AUTH0_CLI_*` M2M token carries 251 scopes but **not** `create:tenants`, and no such endpoint exists — `GET /api/v2/tenants` → 401, while `/api/v2/tenants/settings` → 200 for the *current* tenant only. So row #3 is a hard Dashboard action, and it is the one that makes rows #4–#6 real rather than decorative. **API floor: 1 remaining failure.**
+- **What the API *can* do for Auth0 is create a separate user store.** `create:connections`, `create:clients`, `create:client_grants`, and `create:resource_servers` are all granted. The tenant has exactly one database connection, `Username-Password-Authentication` (`con_xy9TgMMEaC9xzdvv`), holding **all 95 users**. Creating a `dev-users` connection plus a dev ROPC app enabled only on it means dev credentials cannot authenticate any production user — that is genuine isolation of the user store even inside a shared tenant, and it is what separates rows #4/#5 from the false fix this section already warns about. Row #6 cannot be made fully honest that way, because Management API scopes are not connection-scoped; grant a dev M2M client the narrowest possible set (ideally no user-write scopes) and treat the row as partial.
+- **Row #7 is one Doppler write with no deploy.** `openssl rand -base64 32` into `dev SHARED_SECRET`. No dev Worker has it bound ([[CR11]] keeps them secret-less), so nothing deployed changes; the only behavioural effect is that a local `wrangler dev` sender would sign with a key the production receiver rejects — precisely the posture this item wants. Cheapest real win available: **7 → 6**.
+- **Supabase remains a spend/quota decision, not a tooling one.** Org `Porter` (`khkebomlarrkcywpaduh`) is on the **free** plan with one `ACTIVE_HEALTHY` project and one `INACTIVE` (`atx_movement`). There is no dry-run for `POST /v1/projects`, so the quota question is only answerable by attempting it — it either creates a real project or returns a quota error. After creation: `supabase link --project-ref <new>` then `supabase db push` replays all 10 migrations, then the `dev` slots get the new URL and keys. Clears #1 and #2: **→ 4**.
+
+**Sequenced target:** #7 alone gets 7→6 with zero decisions. Adding the Auth0 dev connection + dev clients gets 6→3. Adding a dev Supabase project gets 3→1. The last row needs one Dashboard visit to create a second Auth0 tenant, after which the dev client/connection work should be redone inside it.
+
+**Independent hardening found while probing (not isolation, but real):** the M2M app `AUTH0_MANAGER` — which holds Management API power — also carries the `password`, `password-realm`, and `authorization_code` grants, so it can authenticate end users, not just act as a machine client. The ROPC app `My App` additionally carries `implicit` and `client_credentials`. Both are wider than their roles require and are tightenable with `PATCH /api/v2/clients/{id}` without touching any secret.
 
 ---
 
