@@ -2,6 +2,12 @@ name = "bootstrap-worker"
 main = "src/index.ts"
 compatibility_date = "2026-03-19"
 
+# Disable per-version preview URLs. With them enabled, every retained version
+# gets a public `<version-prefix>-bootstrap-worker.<subdomain>.workers.dev` URL
+# with the CURRENT secrets bound (SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET),
+# so superseded code stays callable. BACKLOG.md CR14.
+preview_urls = false
+
 # JWT secret for Supabase JWT verification (set via: wrangler secret put SUPABASE_JWT_SECRET)
 # Environment variables for Supabase credentials
 # SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in wrangler.toml or via env vars
