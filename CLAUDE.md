@@ -76,7 +76,7 @@ Tracked with a status table in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-202
 
 **P1**
 - **CR18**: **two different Stripe accounts** — `prd` holds a `pk_live_` *publishable* key, `dev` an `sk_test_` secret key. `STRIPE_SECRET_KEY` (what the code reads) is empty everywhere, so **no worker can make a server-side Stripe call**. Stripe has no API to create secret keys; this needs one Dashboard action plus a decision about which account is production
-- **CR01**: ⚠️ partial — `doppler.json` scrubbed from history via `git filter-repo` and force-pushed 2026-07-29, but **no secret has been rotated** (a same-day "rotated" claim was recorded in error and corrected). The Supabase half is cheaper than assumed — `sb_secret_` keys are individually revocable without rotating the project JWT secret
+- **CR01**: ⚠️ partial — history scrubbed + force-pushed 2026-07-29. Rotation underway: Stripe `rk_live_` rotated, validated, re-bound to `api-gateway` + `sender-worker` (old key still needs Dashboard revocation). **Supabase values are mis-slotted in Doppler**: `prd SUPABASE_ANON_KEY` holds the legacy `service_role` JWT, `SUPABASE_JWT_SECRET` holds a UUID that verifies nothing (the real JWT secret now lives only in `api-gateway`'s binding — **do not re-bind it from Doppler**), and the legacy `service_role` key is still enabled → [[CR24]] is urgent. Auth0 + HMAC untouched. Full state: BACKLOG.md CR01 step 3
 - **CR11**: Doppler `dev` holds the same Supabase project and Auth0 tenant as `prd`. `--config dev` is not a safety boundary. Detector: `npm run check:env-isolation` (fails 10/10) — note it **covers no Stripe credential**
 - **CR12**: ⚠️ partial — `api-gateway` and `stripe-webhook` both healthy; `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` bound 2026-07-28. Still missing `API_KEY_HMAC_SECRET` (canonical value lives in `observability-toolkit`; API-key auth routes are broken until it is bound)
 - **CR14**: ⚠️ partial — closed on `api-gateway` + `stripe-webhook`. **Still exposed:** `sender-worker` (13 secrets), `integrity-studio-contact`, and cross-repo `api-provisioning-receiver` (7)
@@ -270,7 +270,7 @@ When binding a secret to a Worker, pipe that captured value into `wrangler secre
 - ✅ All workers have `deploy:prd` for emergency hotfixes
 - ❌ **E2E tests use `--config dev`, which is NOT isolated from prod** — all 10 Supabase/Auth0/HMAC credentials are shared between the two configs. Verify with `npm run check:env-isolation` (currently fails 10/10). BACKLOG.md CR11
 - ✅ No hardcoded secrets in package.json or workflows
-- ⚠️ `doppler.json` scrubbed from git history (2026-07-29), but its secrets remain **unrotated**; the on-disk `doppler.json` and `~/.doppler/fallback/` still hold the live set (BACKLOG.md CR01)
+- ⚠️ `doppler.json` scrubbed from git history (2026-07-29); secrets only **partially rotated** (Stripe done; Supabase mis-slotted; Auth0/HMAC pending) — the on-disk `doppler.json` and `~/.doppler/fallback/` still hold pre-rotation material (BACKLOG.md CR01)
 
 ### Deployment Checklist
 
