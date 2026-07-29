@@ -783,9 +783,11 @@ The 8-hex-character version prefix is not a meaningful secret: `wrangler` prints
 4. ~~Decide whether preview URLs are wanted on the `*-dev` workers.~~ Resolved 2026-07-27. **`preview_urls` is an inheritable key** — verified by deploying `sender-worker-dev` and `integrity-studio-contact-dev` after setting it only at the top level, and confirming both flipped to `previews_enabled: false`. So no `[env.dev]` duplicate is needed, and the dev workers are already covered before [[CR11]] step 4 adds secrets. (Contrast with the *non*-inheritable binding keys — the asymmetry is documented in `api-gateway/wrangler.toml`.)
 5. Consider whether any retained version predates a *data-handling* change (schema, consent, retention), not just a security fix.
 
-**Status:** ⚠️ Partial (2026-07-27 evening) — closed on two Workers, still open on three.
+**Status:** ⚠️ Partial (updated 2026-07-29) — closed on two Workers live, config-only on three more, cross-repo one outstanding.
 
-**Closed:** `api-gateway` and `stripe-webhook` now report `previews_enabled: false` live, applied via the step 2 API call **before** [[CR12]]'s secrets were bound, so those secrets were never exposed on a retained version. A second gap was found and fixed while doing it: **neither `wrangler.toml` set `preview_urls` at all**, and the key defaults to `true`, so the next `deploy:prd` would have silently re-enabled previews. Both configs now set it explicitly, matching `sender-worker` and `contact-form`.
+**Closed live:** `api-gateway` and `stripe-webhook` now report `previews_enabled: false` live, applied via the step 2 API call **before** [[CR12]]'s secrets were bound, so those secrets were never exposed on a retained version. A second gap was found and fixed while doing it: **neither `wrangler.toml` set `preview_urls` at all**, and the key defaults to `true`, so the next `deploy:prd` would have silently re-enabled previews. Both configs now set it explicitly, matching `sender-worker` and `contact-form`.
+
+**Gap found and closed in config (2026-07-29):** `bootstrap-worker` was missing `preview_urls = false` despite declaring `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_JWT_SECRET` in its `Env` type — production secrets that would have been callable on superseded versions. Added to `wrangler.toml` and to the `SECRET_BEARING` assertion in `deploy-environments.test.ts` (commit 85e1a11). Takes effect on the next deploy.
 
 **Still exposed — these hold secrets and still answer on per-version URLs:**
 
@@ -793,6 +795,7 @@ The 8-hex-character version prefix is not a meaningful secret: `wrangler` prints
 |---|---|---|
 | `sender-worker` | 13 | Config already correct; one `deploy:prd`, or the step 2 API call for immediate effect |
 | `integrity-studio-contact` | 2 | Same |
+| `bootstrap-worker` | 3 | Config fixed (commit 85e1a11); one `deploy:prd`, or the step 2 API call |
 | `api-provisioning-receiver` | 7 | **Cross-repo** — needs the `observability-toolkit` owner (step 3) |
 
 The step 2 command applies to any of them by name. Note it must include `"enabled":true` alongside `"previews_enabled":false`, or the Worker's `workers.dev` hostname is switched off — which for `api-gateway` is the hostname the shipped Flutter app calls.
