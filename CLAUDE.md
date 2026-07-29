@@ -47,7 +47,7 @@ where n.nspname='public' and c.relkind='r' and c.relrowsecurity=false;
 ## Current Status
 
 **Phase**: Codebase review remediation + worker deploy/settings audit + database/secret remediation — CR01–CR24 tracked, see the status table in [docs/BACKLOG.md](docs/BACKLOG.md)
-**Last Updated**: 2026-07-28
+**Last Updated**: 2026-07-29
 **Build Status**: ✅ Web build successful, running on localhost:8080
 **Test Status**: ✅ 3,001 Flutter tests passing (~94% coverage); 1,039 worker tests passing (6 workers + shared lib); zero TypeScript errors; `flutter analyze` clean. Plus 5 opt-in live signature tests — `cd workers/stripe-webhook && npm run test:live` (excluded from `npm test`; skips cleanly without credentials)
 **Database**: ✅ Supabase `cfrbahzzklwrnmbtqojl` is `ACTIVE_HEALTHY`; 10 migrations applied and `supabase migration list` reports zero out of sync. The ledger previously claimed migrations that had never run (CR17) — including the one creating `stripe-webhook`'s tables. RLS is now enabled on every table in `public`.
