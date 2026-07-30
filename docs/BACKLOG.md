@@ -2,8 +2,14 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, `docs/changelog/1.2/CHANGELOG.md`, and `docs/changelog/1.3/CHANGELOG.md`.
 
-**Last Updated:** 2026-07-27 (evening — database + worker remediation session) | **Phase:** Codebase review remediation + worker deploy/settings audit + **database/secret remediation**. 48 findings fixed and migrated to the 1.3 changelog; **13 items open as CR01–CR21**, summarised in the table under *Code Review 2026-07-26 → 2026-07-27*.
+**Last Updated:** 2026-07-30 (production deploy of all four Workers — see CR03/CR13/CR15/CR21/CR22 and W04 step 1; prior entry 2026-07-27 evening, database + worker remediation) | **Phase:** Codebase review remediation + worker deploy/settings audit + **database/secret remediation**. 48 findings fixed and migrated to the 1.3 changelog; **13 items open as CR01–CR21**, summarised in the table under *Code Review 2026-07-26 → 2026-07-27*.
 
+> **Session 2026-07-30 — the deploy backlog is cleared.** All four production Workers this repo owns were deployed from `fix/review-supabase-writes-and-signup-tiers` with `npm run deploy:prd`: `api-gateway` `9c4e7c61` (previously **2026-03-31** — four months stale), `sender-worker` `ddf2c87f`, `integrity-studio-contact` `55c13446` (also 2026-03-31), and `stripe-webhook` `1e3f2cce`. That single pass shipped the JWKS/ES256 verifier, [[CR03]]'s `RATE_LIMIT_KV` binding, observability on every Worker ([[CR15]] item 1 + [[W04]] step 1), [[CR21]]'s `ctx.waitUntil`, [[CR22]]'s billing-portal fix, CR05/CR06's 5xx-on-DB-error, the quota DO alarm flush, contact-form's fail-closed CSRF and CRLF-sanitised Subject, and the security fix that verifies the bearer token *before* quota enforcement. Preconditions checked first, not after: 1,063 worker tests green, zero TypeScript errors, and a `--dry-run` per Worker. Verified after each: all four healthy, `api-gateway` reporting `durableObjects: healthy` so its DO namespace survived, `preview_urls` still `false` on all four ([[CR14]]), `stripe-webhook`'s `*/15` cron and `sender-worker`'s `RECEIVER` service binding intact, and **the zone routes unchanged — `api.integritystudio.ai/*` still `obtool-api`**, so [[CR13]]'s trap did not fire.
+>
+> **Two Workers were deliberately left alone.** `bootstrap-worker` and `receiver-worker` have no production deployment, so `deploy:prd` would *create* a publicly-callable Worker rather than update one — a new production surface for, respectively, a Worker with no secrets bound and a test double that returns mock responses. Neither is a fix; both need a decision first.
+>
+> **Two claims in this file were wrong about liveness and are corrected in place.** [[CR21]] was marked ✅ on 2026-07-29 while production was still running 2026-07-28 code, and [[CR22]] read as needing a deploy that is now done but *still* cannot be exercised — its 403 needs a valid API key, which `API_KEY_HMAC_SECRET` being unbound makes unreachable ([[CR12]]). The recurring error is treating "merged" as "live"; see the audit note at the head of Phase 4, which now has three instances rather than one.
+>
 > **Session 2026-07-27 evening — what changed on production.** Four things were repaired, and each one uncovered the next. The Supabase **migration ledger was lying**: two migrations were recorded as applied whose objects had never existed ([[CR17]]), including the one creating `stripe-webhook`'s two tables — so that Worker was structurally broken *beneath* its missing secrets. The ledger was repaired and all migrations applied; the schema is now in sync. Three tables were then found **anon-readable** because RLS was omitted on the assumption that service-role-only access made it private; RLS is now on. Secrets were bound to the two Workers that had none, and **`api-gateway` returns `200 {"database":"healthy"}` for the first time since 2026-03-31** — [[CR12]] is now partially closed and the V02 dashboard has a working backend. A test-mode Stripe endpoint was registered against the dev Worker and signature verification proven end to end with a new live test suite.
 >
 > Three claims repeated across this file, `CLAUDE.md`, `CODE_REVIEW.md`, and the 1.3 changelog were **wrong** and are corrected in place: `STRIPE_API_KEY` is not `sk_test_` in both configs ([[CR18]]), the Supabase project is not paused, and `doppler run` cannot be trusted to report which value a config holds. Tests: 3,001 Flutter + 1,021 worker passing, zero TypeScript errors, `flutter analyze` clean. Prior entry: Provisioning Docs Reconciliation & Payment Processor Security Complete; Payment processor security hardening (V-06, V-18, V-22) + Enterprise Stripe checkout + T28 code portion migrated to v1.3 (5 items); W03 (provisioning docs reconciliation), W02 (receiver CI account-id) + W06 (contact-form env-aware CORS) migrated to v1.3 (2026-06-27); merged root `BACKLOG.md` (Auth0 grant-type blocker + "remove detail field" cleanup) into this file (2026-06-27); remaining deferred items: T28 (design decision), W04-W05 (infrastructure/monitoring). 2026-07-12 doc-staleness pass — W01 closed (won't-do; Zod v4 chosen over Valibot), #77 Chrome-hang re-tested on Flutter 3.44.4 (still blocked), V02 dashboard confirmed complete — **superseded twice: on 2026-07-27 morning V02 was found code-complete but non-functional (`api-gateway` had zero secrets since 2026-03-31, CR12); on 2026-07-27 evening the gateway was restored to `200 {"database":"healthy"}` and the backend now works. The habit that produced the error stands, though — several ✅ items meant "merged and unit-tested" rather than "working in production"; see the audit note at the head of Phase 4.**
@@ -258,6 +264,8 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 > **Sequence:** [[CR12]] → [[CR15]]-style observability on the gateway → measure → then decide the durability trade-off. Deciding it now would be picking a number from nothing.
 >
 > **Update 2026-07-27 evening — the first gate has opened.** [[CR12]] is largely resolved: the gateway has database access and answers healthy, so the quota system *can* now run. Two blockers remain before the measurement in step 1 is possible. Observability is configured but **not deployed** ([[W04]] step 1), so the Worker still emits nothing; and there is still no zone route ([[CR13]]), so real customer traffic cannot reach it. The sequence is unchanged, it has simply advanced one step.
+>
+> **Update 2026-07-30 — the observability blocker is gone; the traffic one is not.** `api-gateway` was deployed and now reports `enabled=True logs=True traces=True`, so the Worker emits for the first time and the quota DO's behaviour is finally readable. The same deploy also shipped `76706a1`, which flushes DO state via an alarm — **that partially pre-empts this item**, so re-read step 2 before designing anything: the 10-second loss window may already be narrower than this entry assumes. What still blocks a real measurement is that there is no zone route ([[CR13]]), so production quota traffic is whatever reaches the `workers.dev` hostname rather than a customer-facing endpoint.
 
 **Scope:**
 1. Evaluate risk appetite: Is 10-second data loss acceptable for quota tracking? (likely yes for low-tier plans, needs confirmation)
@@ -329,7 +337,7 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 
 > **⚠️ Audit 2026-07-27 — this item's premise was wrong.** It previously opened "`sender-worker` has `[observability.logs]` with `invocation_logs = true` … **so logs are captured**". They were not. The deployed worker reported `observability: {"enabled": false, logs: {"enabled": true, …}}` — the parent `enabled` flag was never set, which silently disables the whole block regardless of the child tables ([[CR15]]). Worse, the **other five Workers had no `[observability]` block at all**, so the repo had essentially no telemetry anywhere. Step 2 was not "logs exist, add a dashboard"; it was starting from nothing.
 
-**✅ Step 0 done (2026-07-27) — instrumentation now exists in config.** All six Workers declare `[observability]` with the required parent `enabled = true`, plus `logs.enabled`, `invocation_logs`, and `traces.enabled`, at **both** the top level and under `[env.dev]` (a named environment *replaces* the parent block rather than merging into it, so it must be repeated). Guarded by 18 new assertions in `workers/lib/deploy-environments.test.ts`, mutation-verified: removing the parent flag, disabling logs, dropping `invocation_logs`, or deleting the `[env.dev]` block each fails the suite. All 12 configurations validate under `wrangler deploy --dry-run`. **Not yet live** — every Worker needs a `deploy:prd` for this to take effect; CI covers `sender-worker` only.
+**✅ Step 0 done (2026-07-27) — instrumentation now exists in config.** All six Workers declare `[observability]` with the required parent `enabled = true`, plus `logs.enabled`, `invocation_logs`, and `traces.enabled`, at **both** the top level and under `[env.dev]` (a named environment *replaces* the parent block rather than merging into it, so it must be repeated). Guarded by 18 new assertions in `workers/lib/deploy-environments.test.ts`, mutation-verified: removing the parent flag, disabling logs, dropping `invocation_logs`, or deleting the `[env.dev]` block each fails the suite. All 12 configurations validate under `wrangler deploy --dry-run`. **✅ Now live on all four deployed Workers as of 2026-07-30** — `api-gateway`, `sender-worker`, `integrity-studio-contact`, and `stripe-webhook` each report `enabled=True logs=True traces=True`, verified per Worker via `GET .../scripts/{name}/settings` after deploying. `api-gateway` and `integrity-studio-contact` had **never** emitted a log or a trace before this. The two undeployed Workers (`bootstrap-worker`, `receiver-worker`) are unaffected because neither exists in production.
 
 What this unblocks, and what it does not: the signals in step 1 will exist once deployed, so steps 2–4 become real work rather than speculation. It does **not** by itself produce a dashboard or an alert.
 
@@ -353,11 +361,11 @@ What this unblocks, and what it does not: the signals in step 1 will exist once 
 - `docs/api-provisioning.md` (link runbook)
 - `observability-toolkit` (receiver-side spans/metrics)
 
-**Status:** Open — instrumentation landed in config (step 1 ✅) and needs a `deploy:prd` per Worker to go live. Remaining work is signal definition, dashboard, and an alert-channel decision. See also [[T28]] (its DO-metrics dashboard folds into step 3) and [[CR15]].
+**Status:** Open — **step 1 is now fully done: instrumentation is deployed and emitting on all four production Workers (2026-07-30).** The signals in step 2 therefore exist for the first time, which turns steps 2–4 into real work rather than speculation. Remaining: signal definition, the dashboard, and an alert-channel decision. Three things are newly *measurable* and worth checking first — whether `stripe-webhook`'s `*/15` cron actually succeeds ([[CR20]] step 4), whether `api-gateway` serves real dashboard requests ([[V02]]), and the quota numbers [[T28]] needs. See also [[T28]] (its DO-metrics dashboard folds into step 3) and [[CR15]].
 
 > **Update 2026-07-27 evening — this is now the most valuable unblocked item, and one deploy is unsafe.** Several things that just changed can only be confirmed by observability nobody can read yet: whether `stripe-webhook`'s `*/15` cron now succeeds ([[CR20]] step 4), whether `api-gateway` serves real dashboard requests ([[V02]]), and the quota measurements [[T28]] needs. Step 2's signal list should add **dead-letter queue depth** and **cron success/failure**, both newly meaningful now that the table exists ([[CR17]]).
 >
-> **Caveat on deploying:** `api-gateway` is the one Worker whose `deploy:prd` is currently unsafe — see the escalation note on [[CR13]]. Deploy the other five first, or clear CR13 step 1 beforehand.
+> ~~**Caveat on deploying:** `api-gateway` is the one Worker whose `deploy:prd` is currently unsafe.~~ **Resolved.** [[CR13]] step 1 removed the `routes` key, and `api-gateway` was deployed on 2026-07-30 with the zone routes verified unchanged afterwards. All four production Workers are now deployed and emitting.
 
 ---
 
@@ -429,19 +437,19 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR01](#cr01) | P1 | ⚠️ partial | History scrubbed + force-pushed. **Every rotatable family rotated 2026-07-29** — Stripe, both Auth0 secrets (`AUTH0_CLI_SECRET` twice, the second to recover a wrong-account overwrite), HMAC `SHARED_SECRET`, `sb_secret_` service keys (old revoked), legacy Supabase JWTs disabled, stray key revoked, Doppler slots cleaned. Remaining are Dashboard-only: 2 Stripe key revocations, an `sbp_` access token, and revoking the token exposed in a transcript |
 | [CR18](#cr18) | P1 | ⚠️ partial | Live key minted; prd endpoint + signing secret live and verified. Remaining: `dev` holds a publishable key under `STRIPE_SECRET_KEY`, and no Worker binds the key |
 | [CR11](#cr11) | P1 | ⚠️ partial | Doppler `dev` still shares one Supabase **project** and Auth0 **tenant** with `prd`. Detector went **10/13 → 3/13** on 2026-07-29 (own HMAC, own Auth0 dev clients + `dev-users` connection, Supabase service/JWT split). Remaining 3: `SUPABASE_URL` + `SUPABASE_ANON_KEY` (one project — a free slot now exists) and `AUTH0_DOMAIN` (**no API can create a tenant**; a second one already exists and needs only an M2M credential) |
-| [CR12](#cr12) | P1 | ⚠️ partial | `api-gateway` now **healthy** (3 secrets bound). Still missing `API_KEY_HMAC_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
-| [CR14](#cr14) | P1 | ⚠️ partial | Closed live on `api-gateway` + `stripe-webhook`. **Still exposed:** `sender-worker` (13 secrets), `integrity-studio-contact`, cross-repo `api-provisioning-receiver` (7). `bootstrap-worker` config fixed pre-emptively — it has **no production deployment at all** (`wrangler secret list` → "Worker not found"), so it closed no live exposure |
+| [CR12](#cr12) | P1 | ⚠️ partial | `api-gateway` now **healthy** (4 secrets bound); `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` landed 2026-07-28. Only **`API_KEY_HMAC_SECRET`** remains, and it must come from `observability-toolkit`'s owner. The "deployed code may not match this repo" caveat is **gone** — redeployed 2026-07-30 |
+| [CR14](#cr14) | P1 | ⚠️ partial | **Every exposure this repo controls is closed live (2026-07-29 evening)** — `sender-worker` (14 secrets) and `integrity-studio-contact` joined `api-gateway` + `stripe-webhook`, and the **71 superseded versions** that had been serving (63 `sender-worker` back to 2026-03-29, 8 `contact-form` back to 2026-01-17) now all `404`. The re-audit also killed the "past retention" reading: superseded versions do **not** age out — a `404` means the version came from `wrangler secret put`, which gets no preview URL. **Still exposed:** cross-repo `api-provisioning-receiver` (**9** secrets, incl. both values [[CR01]] rotated) and `stripe-webhook-dev` (2 sandbox) |
 | [CR02](#cr02) | P2 | ✅ mostly | Dev/prod split done and verified live; only the dev receiver remains |
 | [CR04](#cr04) | P2 | ⚠️ partial | Comment corrected; JWT still travels in a URL fragment |
-| [CR13](#cr13) | P2 | ⚠️ partial | Step 1 done: `routes` key removed from `wrangler.toml`, trap defused. Topology decision (how to give `api-gateway` a real hostname) still needed |
+| [CR13](#cr13) | P2 | ⚠️ partial | Step 1 done and **proven by a real deploy 2026-07-30** — `api-gateway` shipped and the zone routes were unchanged afterwards (`api.integritystudio.ai/*` still → `obtool-api`). Topology decision (how to give `api-gateway` a real hostname) still needed |
 | [CR17](#cr17) | P2 | ✅ done | Migration ledger repaired; drift detector in CI (`scripts/check-migration-drift.sh` + `migration-drift-check` job) |
 | [CR19](#cr19) | P2 | ✅ done | `stripe-webhook` org-not-found now returns `{ ok: false }` → unclaimEvent + dead-letter (commits eaaa199, 9741594) |
 | [CR20](#cr20) | P2 | 🔴 open | [[CR21]] foreclosed the 5xx option — the cron is now the *only* retry path, so monitoring ([[W04]]) is mandatory |
-| [CR03](#cr03) | P2 | ✅ done | KV namespaces created and bound; reaches prod on next `deploy:prd` |
-| [CR15](#cr15) | P3 | ⚠️ partial | Observability fixed in config; **four** stale prod secrets still bound |
-| [CR21](#cr21) | P3 | ✅ done | `stripe-webhook` now uses `ctx.waitUntil(processEvent(...))` — 2xx returned before DB writes |
+| [CR03](#cr03) | P2 | ✅ done | KV namespaces created and bound; **live in production since the 2026-07-30 deploy** — `RATE_LIMIT_KV` → `766332ec…` confirmed in the deploy's binding list |
+| [CR15](#cr15) | P3 | ⚠️ partial | Item 1 **✅ deployed 2026-07-30** — production `sender-worker` now reports `enabled=True logs=True invocation=True traces=True` after ~4 months unmonitored. Item 2 open: **four** stale prod secrets still bound |
+| [CR21](#cr21) | P3 | ✅ done | `stripe-webhook` uses `ctx.waitUntil(processEvent(...))` — 2xx before DB writes. **Merged 2026-07-29 but only live since 2026-07-30**; verified by grepping the deployed bundle, not inferred |
 | [CR16](#cr16) | P3 | 📋 by design | Internal vs customer-facing OTEL pipelines — deliberate; **do not de-duplicate**. Convergence deferred |
-| [CR22](#cr22) | P3 | ⚠️ unblocked | Billing-portal API-key 403 merged + tested; [[CR13]] step 1 done — `deploy:prd` is now safe to run |
+| [CR22](#cr22) | P3 | ⚠️ deployed, unexercised | Billing-portal API-key 403 **deployed 2026-07-30**. Still unproven end to end: the 403 needs a *valid* API key, and API-key auth is unreachable while `API_KEY_HMAC_SECRET` is unbound ([[CR12]]). An invalid key returns `401` — that is [[CR23]]'s design, not a regression |
 | [CR23](#cr23) | P3 | ✅ resolved | Design decision: 401 for invalid credentials, 403 for valid-but-wrong-type. HTTP-correct; no code change needed |
 | [CR24](#cr24) | P2 | ✅ done | Legacy `anon` + `service_role` JWT keys disabled 2026-07-29 — **verified by probe**: both now return 401. Reversible via the same endpoint if the receiver turns out to depend on one (its `/health` is 200 post-disable) |
 | [CR25](#cr25) | P2 | ⚠️ partial | Auth0 tenant A production-readiness audit. Blocker 1 fixed (Google **dev-keys** connection disabled for all apps); blocker 2 partial (TOTP + recovery-code enabled, enforcement policy still an open decision); blocker 3 **needs a paid plan** — breached-password detection 400s with "upgrade your subscription" |
@@ -541,7 +549,7 @@ The remaining gap is **accuracy, not absence**. In-memory state is per isolate, 
 3. Uncomment the `[[kv_namespaces]]` block in `workers/sender-worker/wrangler.toml` and fill in both IDs.
 4. Deploy and confirm a burst returns 429. **Blocked on [[CR02]]** — `npm run deploy` currently publishes over the worker production uses, so there is no safe way to test this deploy first.
 
-**Status:** ✅ Done (2026-07-27) — namespaces created and bound. Production `sender-worker` binds `AUTH_RATE_LIMIT_KV` (`766332ec…`); `sender-worker-dev` binds its own `dev-RATE_LIMIT_KV` (`46a717cd…`). Titled `AUTH_RATE_LIMIT_KV` rather than `RATE_LIMIT_KV` because contact-form already owned that title — the two workers must not share a namespace. The binding reaches production on the next `deploy:prd`; `sender-worker-dev` is deployed and healthy with it bound.
+**Status:** ✅ Done (2026-07-27) — namespaces created and bound. Production `sender-worker` binds `AUTH_RATE_LIMIT_KV` (`766332ec…`); `sender-worker-dev` binds its own `dev-RATE_LIMIT_KV` (`46a717cd…`). Titled `AUTH_RATE_LIMIT_KV` rather than `RATE_LIMIT_KV` because contact-form already owned that title — the two workers must not share a namespace. `sender-worker-dev` is deployed and healthy with it bound. **✅ Live in production since 2026-07-30** — the `deploy:prd` binding list showed `env.RATE_LIMIT_KV (766332ec6de3462fb29777aa1b6bc9d3)`, so the rate limiter is no longer per-isolate in production. Note the binding *name* the code reads is `RATE_LIMIT_KV`; only the namespace *title* is `AUTH_RATE_LIMIT_KV`.
 
 ---
 
@@ -670,9 +678,9 @@ The general lesson is the same one [[CR18]] taught with a `pk_live_` key: **dist
    - **No new secret or config.** The JWKS URL is derived from `SUPABASE_URL` (`supabaseJwtKey()` → `<url>/auth/v1/.well-known/jwks.json`), which every route's options object already carried. Each environment therefore verifies against its own project automatically — a dev project needs nothing bound beyond the URL it already has.
    - **Algorithm confusion is closed by construction.** The header's `alg` selects which *path* runs but never which key material is used, so an `HS256` token can only ever be checked against a configured HMAC secret — a JWKS public key can never be replayed as a shared secret. `alg: none` and any algorithm outside the `{ES256, RS256, HS256}` allowlist are rejected before verification.
    - **Key rotation and failure modes.** Key sets are cached for 10 minutes, with an unrecognised `kid` triggering at most one refetch per 30-second cooldown, so rotation is picked up promptly without letting forged kids drive unbounded upstream fetches. Fetch failures fail closed, but a still-valid cached key is preserved rather than discarded, so a transient blip does not 401 every request.
-   - **Verified:** 17 new unit tests (locally generated P-256 key pair — no network), plus a live check that the real project's published key (`kid b91503ee-…`, ES256) imports under exactly these WebCrypto parameters and **rejects a token forged with a different key**. Full sweep: **1,059 worker tests passing**, zero TypeScript errors.
+   - **Verified:** 17 new unit tests (locally generated P-256 key pair — no network), plus a live check that the real project's published key (`kid b91503ee-…`, ES256) imports under exactly these WebCrypto parameters and **rejects a token forged with a different key**. Full sweep at the time: **1,059 worker tests passing**, zero TypeScript errors. (The suite is **1,063** as of 2026-07-30; the figure here is the count observed when this work landed, not a contradiction.)
    - ✅ **The JWT secret is now optional throughout (2026-07-29).** `BaseRouteOptionsSchema.jwtSecret` and `EnvSchema.SUPABASE_JWT_SECRET` are `.optional()`, and the same field was loosened in the `Env` interfaces of `api-gateway` and `bootstrap-worker` plus the five route option types and `PreVerifyTokenOptions` — without that chain, TypeScript would still have demanded the field at every call site and nothing would actually have been loosened. **`supabaseUrl` / `SUPABASE_URL` is now the field verification depends on**, since the JWKS URL derives from it; the schema tests were inverted to assert exactly that (missing secret parses, missing URL does not). An ES256-only project therefore needs *no* JWT secret bound at all.
-   - ⚠️ **Not deployed.** `api-gateway` and `bootstrap-worker` pick this up only on their next `deploy:prd`, which would also ship four months of other undeployed changes — see the deploy-gap table in `CLAUDE.md`.
+   - ✅ **Deployed on `api-gateway` (2026-07-30), still pending on `bootstrap-worker`.** The `api-gateway` `deploy:prd` shipped this along with four months of other changes; the deployed bundle contains `jwks.json`, `ES256`, and `RS256`, and `/v1/me` answers `401 Invalid JWT format` to a malformed bearer. `bootstrap-worker` has **no production deployment at all**, so there is nothing there to update — the verifier reaches it only if that Worker is ever stood up ([[CR14]] records the same fact from the preview-URL angle).
 6. 🔴 **Free projects pause after ~7 days of inactivity** — precisely why `atx_movement` was `INACTIVE`. A dev project used by CI will pause between runs and fail them intermittently. Budget a keep-alive or accept unpause latency.
 7. ⚠️ **Re-verify RLS on the new project with the catalog query, not a status code** — PostgREST exposes every `public` table, and RLS denial returns `200 []`, not an error. The query is at the top of `CLAUDE.md`.
 8. ⚠️ **This gets the detector to 1, not 0**, and does not make dev a real environment on its own: `/signup` creates the **Auth0** user before the Supabase rows, and `AUTH0_DOMAIN` remains shared. Seeding is also on you — a fresh project has zero orgs and users, so `scripts/full-reconciliation.ts` and any data-dependent test needs seeds.
@@ -783,9 +791,9 @@ So every authenticated route that touches Supabase — usage, entitlements, orgs
 | `stripe-webhook` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_WEBHOOK_SECRET` | signed probe → `processed:true`; replay → `already_processed` |
 | `sender-worker` | 13 existing + `STRIPE_SECRET_KEY` | `/health` 200 |
 
-**A caveat that only surfaced when the secret finally worked.** Binding `STRIPE_WEBHOOK_SECRET` let a signed request reach the handler for the first time, and it returned `"Failed to log processed event"` — a string absent from current source. Production `stripe-webhook` had been running 2026-03-31 code that could not write `webhook_events_log`. Supabase was not at fault; the prd key inserts and deletes against that table cleanly. Redeploying fixed it. **The same check has not been done for `api-gateway`, whose deployed code is also from 2026-03-31 and cannot be redeployed until [[CR13]] step 1.** Assume its behaviour does not match this repo.
+**A caveat that only surfaced when the secret finally worked.** Binding `STRIPE_WEBHOOK_SECRET` let a signed request reach the handler for the first time, and it returned `"Failed to log processed event"` — a string absent from current source. Production `stripe-webhook` had been running 2026-03-31 code that could not write `webhook_events_log`. Supabase was not at fault; the prd key inserts and deletes against that table cleanly. Redeploying fixed it. ~~**The same check has not been done for `api-gateway`, whose deployed code is also from 2026-03-31 and cannot be redeployed until [[CR13]] step 1.** Assume its behaviour does not match this repo.~~ **Resolved 2026-07-30** — `api-gateway` was redeployed from current source (version `9c4e7c61`) and answers `200 {"database":"healthy","durableObjects":"healthy"}`, so its behaviour now does match this repo. Four months of fixes shipped in that one deploy, including the bearer-token-before-quota security fix and CR05/CR06's 5xx-on-DB-error.
 
-One side effect worth watching: `stripe-webhook`'s `*/15` dead-letter cron now has database access, a table to read, and current code. Nothing has confirmed a successful cron run yet — worth checking now that observability is deployed on that Worker.
+One side effect worth watching: `stripe-webhook`'s `*/15` dead-letter cron now has database access, a table to read, and current code — and since 2026-07-30 the Worker also has **observability deployed**, so a cron run is finally readable. Nothing has confirmed a successful run yet; that check is [[CR20]] step 4 and is now actually possible.
 
 ---
 
@@ -837,7 +845,9 @@ These are complementary halves of one product API — a telemetry data plane and
 
 **Suggested:** step 1 (delete the `routes` key) immediately and unconditionally — it is safe, reversible, and independent of everything else. Defer the destination until `obtool-api`'s audience is settled, because that answer decides between "gateway takes `api.integritystudio.ai`" and options C/D.
 
-**Status:** ⚠️ Partial — step 1 done (2026-07-29): `routes` key removed from `workers/api-gateway/wrangler.toml`. The trap is defused — `deploy:prd` will no longer claim `api.integritystudio.ai/v1/*`. `api-gateway` is now safe to deploy and [[CR22]]'s billing-portal fix can ship. Hostname-topology decision (steps 2–5: which approach to give the gateway a branded endpoint) still needed.
+**Status:** ⚠️ Partial — step 1 done (2026-07-29) and **proven in practice (2026-07-30)**. The `routes` key is gone from `workers/api-gateway/wrangler.toml`, and rather than trusting that, a real `npm run deploy:prd` was run and the zone's route list re-read immediately after: still exactly `api.integritystudio.ai/*` → `obtool-api` and `ingest.integritystudio.ai/*` → `obtool-ingest`, with nothing pointing at `api-gateway`. The trap is defused in fact, not just in config, and [[CR22]]'s fix has shipped. Hostname-topology decision (steps 2–5: which approach to give the gateway a branded endpoint) still needed.
+
+**One live footgun remains in that file, and it is not step 1's.** `[env.staging]` still declares `routes = [staging-api.integritystudio.ai/v1/*]`. It is inert today because nothing passes `--env staging`, and `deploy:prd` deliberately passes no `--env` at all — but it is the same shape of latent route claim, in the same file, and it does not repeat `durable_objects` or `observability`, so a staging deploy would come up without either. Delete it or complete it as part of the topology decision.
 
 > ✅ **Resolved 2026-07-29 — step 1 done.** The `routes` key has been removed from `workers/api-gateway/wrangler.toml` (52 deploy-environment tests passing). A `deploy:prd` will no longer declare `api.integritystudio.ai/v1/*` and cannot displace `obtool-api`. The topology question (steps 3–5 — how to give the gateway a real branded hostname) remains open and is deferred until `obtool-api`'s audience is settled.
 
@@ -856,38 +866,49 @@ Verified, not theoretical:
 
 | URL | Version date | Result |
 |---|---|---|
-| `6a5b6edf-sender-worker.…workers.dev/health` | 2026-07-26 (current) | `200` |
+| `6a5b6edf-sender-worker.…workers.dev/health` | 2026-07-26 (current *then*; superseded since) | `200` |
 | `b2c2b878-sender-worker.…workers.dev/health` | **2026-04-20** | **`200` — live** |
-| `15f2bcf0-sender-worker.…workers.dev/health` | 2026-04-10 | `404` (past retention) |
+| ~~`15f2bcf0-sender-worker.…workers.dev/health`~~ | ~~2026-04-10~~ | ~~`404` (past retention)~~ — **misread; see the 2026-07-29 enumeration** |
 
-The `b2c2b878` version predates this branch's security work: the per-IP auth rate limit (`38b2878`), the signup compensating rollback (`c75592c`), the CORS origin-reflection fix (`66f1825`), and the JWT-in-URL removal (`c55dcff`). It answers requests today with all 13 production secrets bound. **So merging and deploying this branch does not fully retire the vulnerabilities it fixes** — the un-fixed code remains reachable at a parallel URL.
+The `b2c2b878` version predates this branch's security work: the per-IP auth rate limit (`38b2878`), the signup compensating rollback (`c75592c`), the CORS origin-reflection fix (`66f1825`), and the JWT-in-URL removal (`c55dcff`). It answers requests today with all 14 production secrets bound. **So merging and deploying this branch does not fully retire the vulnerabilities it fixes** — the un-fixed code remains reachable at a parallel URL.
 
-Workers with both secrets and preview URLs enabled:
+Workers with both secrets and preview URLs enabled (counts re-read live 2026-07-29):
 
 | Worker | Secrets | Notes |
 |---|---|---|
-| `sender-worker` | 13 | Auth0 ROPC + M2M, Supabase service-role, HMAC `SHARED_SECRET` |
-| `api-provisioning-receiver` | 7 | **Different repo** (`observability-toolkit`) — needs that owner |
+| `sender-worker` | **14** | Auth0 ROPC + M2M, Supabase service-role, HMAC `SHARED_SECRET`, `STRIPE_SECRET_KEY` |
+| `api-provisioning-receiver` | **9** | **Different repo** (`observability-toolkit`) — needs that owner |
 | `integrity-studio-contact` | 2 | `CSRF_SECRET`, `RESEND_API_KEY` |
+
+Both counts were understated when this entry was written — `sender-worker` was 13 before `STRIPE_SECRET_KEY` was bound on 2026-07-28 ([[CR18]]), and the receiver holds 9, not 7: `AE_SQL_API_TOKEN`, `AUTH0_DOMAIN`, `CF_ACCOUNT_ID`, `KEY_ROTATION_DATES`, `SENTRY_DSN`, `SHARED_SECRET`, `SUPABASE_ANON_KEY`, `SUPABASE_PROVISIONING_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
 
 The 8-hex-character version prefix is not a meaningful secret: `wrangler` prints the full version ID on every deploy, so it lands in terminal scrollback and CI logs. This session printed one.
 
 **Scope:**
-1. ~~Set `preview_urls = false`~~ — done 2026-07-27 in `sender-worker` and `contact-form` `wrangler.toml`. **Takes effect on their next deploy**, so it is not yet mitigated in production.
-2. **Immediate mitigation without a deploy**, per worker:
+1. ~~Set `preview_urls = false`~~ — done 2026-07-27 in `sender-worker` and `contact-form` `wrangler.toml`. It takes effect only on their next deploy, so config alone left production exposed for two more days; **both were closed via step 2 on 2026-07-29 instead of waiting.** The config still matters — it is what keeps them closed after the next deploy, and **that is now confirmed rather than assumed: all four production Workers were deployed on 2026-07-30 and every one still reports `previews_enabled: false` afterwards.** A deploy neither re-opened previews nor undid the API-level fix.
+2. **Immediate mitigation without a deploy**, per worker. **`"enabled":true` must be sent alongside** — the two fields are written together, and omitting it switches off the Worker's `workers.dev` hostname, which for `api-gateway` is the hostname the shipped Flutter app calls:
    ```bash
    doppler run --project integrity-studio --config prd -- sh -c \
      'curl -X POST -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-       -H "Content-Type: application/json" -d "{\"previews_enabled\":false}" \
+       -H "Content-Type: application/json" -d "{\"enabled\":true,\"previews_enabled\":false}" \
        "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/sender-worker/subdomain"'
    ```
-3. Ask the `observability-toolkit` owner to do the same for `api-provisioning-receiver` (7 secrets, not deployable from here).
-4. ~~Decide whether preview URLs are wanted on the `*-dev` workers.~~ Resolved 2026-07-27. **`preview_urls` is an inheritable key** — verified by deploying `sender-worker-dev` and `integrity-studio-contact-dev` after setting it only at the top level, and confirming both flipped to `previews_enabled: false`. So no `[env.dev]` duplicate is needed, and the dev workers are already covered before [[CR11]] step 4 adds secrets. (Contrast with the *non*-inheritable binding keys — the asymmetry is documented in `api-gateway/wrangler.toml`.)
-5. Consider whether any retained version predates a *data-handling* change (schema, consent, retention), not just a security fix.
+   (This is the sanctioned use of `doppler run` — injecting `CLOUDFLARE_API_TOKEN` into a process. The prohibition in [[CR11]] is on *reading a value back* with it.)
+3. Ask the `observability-toolkit` owner to do the same for `api-provisioning-receiver` (**9** secrets, not deployable from here).
+4. ~~Decide whether preview URLs are wanted on the `*-dev` workers.~~ Resolved 2026-07-27 as a *mechanism*, **but only two of five dev Workers have actually picked it up.** `preview_urls` is an inheritable key — verified by deploying `sender-worker-dev` and `integrity-studio-contact-dev` after setting it only at the top level, and confirming both flipped to `previews_enabled: false`, so no `[env.dev]` duplicate is needed. (Contrast with the *non*-inheritable binding keys — the asymmetry is documented in `api-gateway/wrangler.toml`.) **Inheritance still only takes effect on deploy**, and the three dev Workers not redeployed since their configs were pinned — `api-gateway-dev`, `stripe-webhook-dev`, `bootstrap-worker-dev` — all still report `previews_enabled: true` live. Two of those hold no secrets; `stripe-webhook-dev` holds two (sandbox `STRIPE_API_KEY` + `STRIPE_WEBHOOK_SECRET`), so it is a real, if sandbox-only, instance of this exposure today. The earlier "the dev workers are already covered" was a config reading, not a live one.
+5. Consider whether any retained version predates a *data-handling* change (schema, consent, retention), not just a security fix. The 2026-07-29 enumeration gives this a concrete scope: **63 superseded `sender-worker` versions back to 2026-03-29 and 8 superseded `integrity-studio-contact` versions back to 2026-01-17**, all currently serving.
+6. **Add `api-gateway` and `stripe-webhook` to `SECRET_BEARING` in `workers/lib/deploy-environments.test.ts`.** The list is `['sender-worker', 'contact-form', 'bootstrap-worker']` (line 156), so the two Workers where this was closed *live* are the two whose `preview_urls = false` no test defends. Both bind secrets (4 and 3 respectively). Deleting the key from either config would restore previews on the next deploy and the suite would stay green — the same silent-default regression the note below records catching by hand on those two configs, which is exactly the kind of thing a test should be holding.
 
-**Status:** ⚠️ Partial (updated 2026-07-29) — closed live on two Workers, config-correct awaiting deploy on two, pre-emptive on the undeployed `bootstrap-worker`, cross-repo one outstanding.
+**Status:** ⚠️ Partial — **every exposure this repo controls is closed live as of 2026-07-29 evening.** `api-gateway`, `stripe-webhook`, `sender-worker`, and `integrity-studio-contact` all report `previews_enabled: false`, and the 71 superseded versions enumerated below now return `404`. Pre-emptive on the undeployed `bootstrap-worker`. **What remains is not ours to fix:** cross-repo `api-provisioning-receiver` (9 secrets, step 3) and `stripe-webhook-dev` (2 sandbox secrets, closes on its next dev deploy). Step 5's data-handling audit and step 6's test gap are also open.
 
-**Closed live:** `api-gateway` and `stripe-webhook` now report `previews_enabled: false` live, applied via the step 2 API call **before** [[CR12]]'s secrets were bound, so those secrets were never exposed on a retained version. A second gap was found and fixed while doing it: **neither `wrangler.toml` set `preview_urls` at all**, and the key defaults to `true`, so the next `deploy:prd` would have silently re-enabled previews. Both configs now set it explicitly, matching `sender-worker` and `contact-form`.
+**Closed live:** `api-gateway` and `stripe-webhook` first, applied via the step 2 API call **before** [[CR12]]'s secrets were bound, so those secrets were never exposed on a retained version. A second gap was found and fixed while doing it: **neither `wrangler.toml` set `preview_urls` at all**, and the key defaults to `true`, so the next `deploy:prd` would have silently re-enabled previews. Both configs now set it explicitly, matching `sender-worker` and `contact-form`.
+
+**Then `sender-worker` and `integrity-studio-contact` (2026-07-29 evening).** Both were still `previews_enabled: true` with 14 and 2 secrets bound; both are now `false`, applied with the step 2 call rather than waiting on a deploy. Verified rather than assumed, in the order that matters:
+
+- **Baseline first**, so "it still works" could mean something: both `enabled: true, previews_enabled: true`; `sender-worker/health` `200`; `contact-form` `GET /` `403` (POST-only and origin-checked).
+- **`enabled: true` was sent in the same payload.** This is not optional here — neither Worker declares a zone route, and the shipped Flutter app reaches both *only* at `workers.dev` (`contact_service.dart:15`, `provisioning_service.dart:15`). Omitting the field would have taken the live contact form and the signup/signin path offline.
+- **All 71 superseded versions now `404`** — plus the one active `contact-form` version that had also been reachable, so 72 URLs in total across both Workers. Convergence was not instant: the first sweep found 42 of 63 `sender-worker` versions already `404` and 21 still serving, matching the ~seconds propagation noted in [[CR18]]; a second pass returned zero still reachable. **Sampling once would have produced either a false "done" or a false "failed" depending on timing.**
+- **Production unaffected, checked past `/health`:** `sender-worker/health` `200` on five consecutive samples and `POST /signin` with an empty body returns its real app-level `400 {"error":"missing email or password","code":"MISSING_FIELDS"}`, proving routes and bindings still serve rather than merely that the hostname resolves. `contact-form` `GET /` still `403` (identical to baseline) and its CORS preflight `OPTIONS /` returns `200`.
 
 **Gap found and closed in config (2026-07-29):** `bootstrap-worker` was missing `preview_urls = false` despite declaring `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_JWT_SECRET` in its `Env` type. Added to `wrangler.toml` and to the `SECRET_BEARING` assertion in `deploy-environments.test.ts` (commit 85e1a11). **Verified same day: this closes no live exposure, because no production `bootstrap-worker` exists** — `wrangler secret list --name bootstrap-worker` returns "Worker not found"; only `bootstrap-worker-dev` is deployed, with zero secrets bound. The fix is pre-emptive: the first production deploy will ship with previews disabled instead of defaulting them on.
 
@@ -895,13 +916,55 @@ The 8-hex-character version prefix is not a meaningful secret: `wrangler` prints
 
 | Worker | Secrets | Fix |
 |---|---|---|
-| `sender-worker` | 13 | Config already correct; one `deploy:prd`, or the step 2 API call for immediate effect |
-| `integrity-studio-contact` | 2 | Same |
-| `api-provisioning-receiver` | 7 | **Cross-repo** — needs the `observability-toolkit` owner (step 3) |
+| `api-provisioning-receiver` | **9** | **Cross-repo** — needs the `observability-toolkit` owner (step 3) |
+| `stripe-webhook-dev` | 2 (sandbox) | Config already correct; closes on its next dev deploy, or the step 2 API call |
 
-The step 2 command applies to any of them by name. Note it must include `"enabled":true` alongside `"previews_enabled":false`, or the Worker's `workers.dev` hostname is switched off — which for `api-gateway` is the hostname the shipped Flutter app calls.
+The step 2 command applies to either by name. `sender-worker` and `integrity-studio-contact` were on this list until 2026-07-29 evening and are now closed live.
 
-Step 5 (auditing whether any retained version predates a *data-handling* change) is still not done.
+The receiver is the one that matters. It binds both credentials [[CR01]] rotated on 2026-07-29 — `SHARED_SECRET` and the new `sb_secret_` service key — so its retained versions expose the current production values, not stale ones, and no amount of rotating on this side changes that.
+
+---
+
+**Re-audit 2026-07-29 evening — the config is unchanged, and three of this entry's factual claims were wrong. Nothing has been deployed, so nothing is newly closed; the exposure is larger and older than described.**
+
+No commit has touched a `wrangler.toml` since `606c3e1`/`85e1a11`, and all five deployed Workers' configs still carry `preview_urls = false` (`deploy-environments.test.ts`, 53 tests, green). Live state, read from `GET /accounts/{id}/workers/scripts/{name}/subdomain` and `/secrets`:
+
+| Worker | `previews_enabled` | Secrets | Verdict |
+|---|---|---|---|
+| `api-gateway` | `false` | 4 | ✅ closed live |
+| `stripe-webhook` | `false` | 3 | ✅ closed live |
+| `sender-worker` | ~~`true`~~ → **`false`** | **14** | ✅ **closed live later the same evening** |
+| `integrity-studio-contact` | ~~`true`~~ → **`false`** | 2 | ✅ **closed live later the same evening** |
+| `sender-worker-dev` | `false` | 0 | ✅ config inherited on redeploy |
+| `integrity-studio-contact-dev` | `false` | 0 | ✅ same |
+| `api-provisioning-receiver` | **`true`** | **9** | 🔴 exposed, cross-repo |
+| `stripe-webhook-dev` | **`true`** | 2 (sandbox) | 🔴 exposed, sandbox blast radius |
+| `api-gateway-dev` | **`true`** | 0 | ⚠️ no secrets to leak |
+| `bootstrap-worker-dev` | **`true`** | 0 | ⚠️ same |
+| `bootstrap-worker` | — | — | does not exist (confirms the pre-emptive note above) |
+
+The two rows struck through above were read `true` during this audit and closed within the hour — the numbers in the enumeration below describe the exposure **as found**, which is what makes the count meaningful.
+
+**1. "Past retention" was a misreading, and it mattered.** `15f2bcf0`'s `404` was attributed to Cloudflare having aged the version out, which implied the exposure shrinks on its own. It does not. The real discriminator is **how the version was created**: versions created by `wrangler secret put` never get a preview URL, versions created by a code upload always do. Enumerating every retained version and probing each one:
+
+| Worker | Retained | By code upload | By secret binding | Code versions reachable | Of those, superseded | Oldest reachable |
+|---|---|---|---|---|---|---|
+| `sender-worker` | 100 | 63 | 37 | **63 of 63** (`200` on `/health`) | **63** | **2026-03-29** |
+| `integrity-studio-contact` | 12 | 9 | 3 | **9 of 9** | **8** | **2026-01-17** |
+
+All 37 + 3 binding-only versions return `404`, which is where `15f2bcf0` (a `wrangler secret` version) came from. So the mitigation window is not closing with time — **four months of `sender-worker` and six months of `contact-form` are simultaneously live**, and every future `deploy:prd` adds one more rather than retiring the old ones.
+
+The superseded column is not the same as the reachable one, and the difference is instructive. `sender-worker`'s **active** version is `693d865d`, created 2026-07-29 21:20 by a `wrangler secret put` — so it has no preview URL of its own, and **all 63 reachable versions there are old code**. `contact-form`'s active version is `6c3455cf` (2026-03-31), which does answer on its preview URL, so 8 of its 9 are superseded. **71 superseded versions are reachable across the two.**
+
+**2. This partly undoes [[CR01]]'s rotation work, which is the strongest argument for doing it now.** Preview URLs bind the script's **current** secrets, not the secrets that were current when that version shipped. Every credential rotated on 2026-07-29 — the HMAC `SHARED_SECRET`, both Auth0 secrets, the new `sb_secret_` service key, `STRIPE_SECRET_KEY` — is therefore live on all 63 old `sender-worker` versions. The same applies to `api-provisioning-receiver`, which has previews on and binds both the rotated `SHARED_SECRET` and the new `sb_secret_` service key — its retained versions were not enumerated here, since it is deployed from another repo. Rotation does not reduce this exposure at all; it only changes which values are exposed. A pre-rate-limit build from March is a usable oracle for the *current* production credential set.
+
+**What a closed preview URL looks like**, so this is checkable later without re-deriving it: `HTTP/2 404` with the body `error code: 1042`. An *open* preview URL on a retained code version returns the Worker's own response; a version created by `wrangler secret put` returns a plain `404` with no 1042 body, because it never had a preview URL to disable. Confirmed on all four Workers after the 2026-07-30 deploys, including the four brand-new versions — `preview_urls = false` means a deploy adds no new reachable surface.
+
+**3. Three verification traps, all of which understated the exposure.** Recording them because a security item that fails in the reassuring direction is the dangerous kind. Probing these URLs with Python `urllib` returns a blanket **`403` for every version, including ones `curl` reports as `200`** — workers.dev rejects the default `Python-urllib` user agent, so an all-403 sweep reads as "nothing is reachable" when everything is. And counting only `200` undercounts: `contact-form`'s old versions answer `403`/`405`/`500` on `/` rather than `200`, since it is a POST-only, origin-checked endpoint — but every one of those means **the Worker ran**. Reachability is "anything but `404`", not "`200`". The third: a fast `curl` loop over dozens of these hostnames intermittently reports `%{http_code}` as **`000`**, which looks like "host does not exist" but is a client-side artefact — the same URL fetched singly returns a clean `HTTP/2 404`. Re-probe anything reading `000` one at a time before drawing a conclusion from it.
+
+**Remaining work, in order of value.** ~~Step 2's API call on `sender-worker` and `integrity-studio-contact`~~ — **done 2026-07-29 evening; see the Status block.** What is left: step 3's cross-repo request to the `observability-toolkit` owner, which is now the only exposure carrying live production credentials and the only one nobody here can close; step 6's two-string test fix, which stops the closed Workers from silently regressing on a future deploy; `stripe-webhook-dev`, sandbox-only and closing on its next dev deploy; and step 5's data-handling audit, still not done but now bounded to the 71 superseded versions above.
+
+**One thing this exercise settled about sequencing.** The [[CR01]] rotation was carried out while these preview URLs were still open, which means the rotated values were published on 63 old `sender-worker` versions from the moment they were bound. That is the wrong order — **previews should have been closed first, then the credentials rotated** — and it is worth carrying into any future rotation: close every parallel surface that binds the secret before minting the replacement, or the new value inherits the old one's exposure. The receiver still sits in exactly this state today.
 
 ---
 
@@ -948,7 +1011,7 @@ npx wrangler secret delete AUTH0_CLI_AUDIENCE --name sender-worker
 npx wrangler secret delete SUPABASE_ANON_KEY --name sender-worker
 ```
 
-**Status:** Open — item 1 is a one-line config change deferred to the next production deploy; item 2 deletes production secrets and was not done unasked.
+**Status:** ⚠️ Partial — **item 1 is done and live (2026-07-30).** Production `sender-worker` now reports `observability.enabled=True, logs.enabled=True, invocation_logs=True, traces.enabled=True`, ending roughly four months of running unmonitored; the same deploy turned observability on for `api-gateway`, `integrity-studio-contact`, and `stripe-webhook`, and the first two had **never** emitted logs or traces. Item 2 remains open: the four stale secrets are still bound, because deleting production secrets was not done unasked.
 
 ---
 
@@ -1134,9 +1197,9 @@ Both underlying faults are now fixed, so the cron can function. The design quest
 1. ~~Decide whether owning the retry schedule is worth it. Returning 5xx and letting Stripe retry for three days is simpler, needs no cron, and no table.~~ Foreclosed by [[CR21]] — see update above.
 2. Alert on dead-letter depth and on cron failure ([[W04]] step 2 already lists this). **Now mandatory, not optional** — it is the only recovery signal left.
 3. Note sandbox retries are only 3 attempts over a few hours, so testing there understates live behaviour.
-4. Confirm a successful cron run has actually happened since secrets were bound. Nothing has verified this yet.
+4. Confirm a successful cron run has actually happened since secrets were bound. Nothing has verified this yet — but **as of 2026-07-30 it is finally checkable**: `stripe-webhook` has observability deployed (`enabled=True logs=True traces=True`), so cron invocations now produce readable logs. This is the cheapest remaining item on this entry and should be done first.
 
-**Status:** 🔴 Open — no longer a design decision. [[CR21]] committed to the cron; remaining work is monitoring ([[W04]]) and verifying the cron actually runs.
+**Status:** 🔴 Open — no longer a design decision. [[CR21]] committed to the cron, and as of 2026-07-30 that commitment is *live in production* rather than merely merged. Remaining work is monitoring ([[W04]]) and verifying the cron actually runs — both now unblocked, since the Worker finally emits logs.
 
 ---
 
@@ -1151,13 +1214,15 @@ Both underlying faults are now fixed, so the cron can function. The design quest
 
 Severity is limited by the atomic claim: a timeout followed by a Stripe retry hits `already_processed` and returns 200, so it degrades to noise and failed-delivery records rather than double-processing. `ctx.waitUntil()` is the Workers-native fix, and the pattern is already used elsewhere in this codebase (M40's audit-log write).
 
-**Status:** ✅ Done (2026-07-29, commit 8de2122) — handler logic extracted into `processEvent`; `handleWebhook` now atomically claims the event, returns `200 { ok: true, queued: true }` immediately, then runs `ctx.waitUntil(processEvent(...))`. The dead-letter CRITICAL path no longer returns 500 (the response is already sent by then; manual Stripe replay is the only recovery). 151 tests passing.
+**Status:** ✅ Done (2026-07-29, commit 8de2122) — handler logic extracted into `processEvent`; `handleWebhook` now atomically claims the event, returns `200 { ok: true, queued: true }` immediately, then runs `ctx.waitUntil(processEvent(...))`. The dead-letter CRITICAL path no longer returns 500 (the response is already sent by then; manual Stripe replay is the only recovery). 152 tests passing.
+
+**✅ Actually live since 2026-07-30, and it was not before.** This entry was marked done on 2026-07-29, but production `stripe-webhook` had last shipped code on 2026-07-28 — so the fix sat undeployed for a day while the backlog read as complete. Confirmed after deploying by fetching the live bundle (`GET .../scripts/stripe-webhook/content/v2`) and finding `waitUntil`, `queued`, and `Manual replay required` present, with the stale `Failed to log processed event` string from the 2026-03-31 build absent. **Worth generalising: "commit merged" and "behaviour live" are different claims, and this file has now conflated them twice** (see the audit note at the head of Phase 4).
 
 ---
 
 <a id="cr22"></a>
 
-### CR22: The billing-portal API-key 403 is merged but not deployed
+### CR22: The billing-portal API-key 403 — deployed 2026-07-30, but still not exercisable
 
 **Priority:** P3 | **Source:** session 2026-07-27 late, follow-up to the `handleBillingPortal` auth change
 **Estimated:** 15 minutes
@@ -1168,7 +1233,7 @@ Nothing is deployed. `api-gateway` deploys are manual (see [[CR02]]) and there a
 
 Note the user-visible effect is currently nil either way: the portal cannot work at all until `STRIPE_SECRET_KEY` is bound ([[CR18]], [[CR12]]), and API-key routes are dead while `API_KEY_HMAC_SECRET` is unbound — meaning **no caller can reach the new 403 in production today**. This is a correctness improvement waiting behind the same credential work.
 
-**Status:** ⚠️ Unblocked (2026-07-29) — [[CR13]] step 1 is done; `routes` key removed from `wrangler.toml` and `deploy:prd` is now safe. Code is merged, typecheck is clean, 147/147 tests pass. Needs a manual `cd workers/api-gateway && npm run deploy:prd` to reach production.
+**Status:** ⚠️ Deployed but still unexercised (2026-07-30) — the manual `npm run deploy:prd` has been run; `api-gateway` is version `9c4e7c61` and the deployed bundle contains the billing-portal code. **What is still unproven is the 403 itself**, and the reason is worth recording rather than retrying: the 403 fires only for a credential that *authenticates* as an API key and then fails the type check, so it requires a valid HMAC-verified key. API-key auth is unreachable while `API_KEY_HMAC_SECRET` is unbound ([[CR12]]), so the path cannot be reached at all today. A probe with a fabricated key returns `401 {"error":{"message":"Invalid JWT format"}}`, which is [[CR23]]'s deliberate two-tier split working correctly — **do not read that 401 as this fix having failed.**
 
 ---
 
