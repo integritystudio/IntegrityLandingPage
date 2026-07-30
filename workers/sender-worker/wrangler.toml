@@ -94,7 +94,23 @@ id = "766332ec6de3462fb29777aa1b6bc9d3"        # AUTH_RATE_LIMIT_KV
 preview_id = "46a717cd692a4cc2969bff9504bcc87b" # dev-RATE_LIMIT_KV
 
 # Secrets (set via wrangler secret put or doppler):
-#   SHARED_SECRET              — HMAC key; must match provisioning receiver
+#   SHARED_SECRET              — HMAC key; must match provisioning receiver. Still the
+#                                fallback: used whenever ACTIVE_KEY_ID/SIGNING_KEYS are
+#                                unset or the key ID is not found (resolveOutboundSigningKey).
+#   SIGNING_KEYS               — JSON Record<keyId, secret> enabling x-key-id rotation.
+#                                Must match the receiver's SIGNING_KEYS exactly, or every
+#                                signed request 401s with INVALID_SIGNATURE.
+#                                Provisioned in prd 2026-07-29 as key id "v2".
+#   ACTIVE_KEY_ID              — which SIGNING_KEYS entry to sign with. Omit to use
+#                                SHARED_SECRET and send no x-key-id header.
+#                                Set to "v2" in prd 2026-07-29. Deliberately UNSET in the
+#                                dev config: sender-worker-dev binds RECEIVER to the
+#                                PRODUCTION receiver (see [env.dev] below), so it must keep
+#                                taking the SHARED_SECRET fallback path.
+#     Rotation order is load-bearing — add the new key to the RECEIVER's SIGNING_KEYS and
+#     deploy it FIRST, then set ACTIVE_KEY_ID here; see the deployment sequence comment
+#     above forwardToReceiver() in src/index.ts. Also update KEY_ROTATION_DATES on the
+#     receiver, or the new key ages without triggering the 90-day rotation alert.
 #   SUPABASE_URL               — Supabase project URL
 #   SUPABASE_SERVICE_ROLE_KEY  — Supabase service role key
 #   AUTH0_DOMAIN               — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)
