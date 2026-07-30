@@ -173,6 +173,14 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
         ),
       ),
       GoRoute(
+        path: Routes.forgotPassword,
+        builder: (context, state) => AuthPage(
+          mode: AuthMode.signIn,
+          onBack: _goHome(context),
+          initialForgotPassword: true,
+        ),
+      ),
+      GoRoute(
         path: '/provision',
         redirect: (context, state) {
           // JWT must arrive via state.extra from an in-app auth flow.

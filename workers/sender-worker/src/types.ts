@@ -4,6 +4,7 @@ export const ROUTES = {
   HEALTH: "/health",
   SIGNUP: "/signup",
   SIGNIN: "/signin",
+  FORGOT_PASSWORD: "/forgot-password",
   SEND: "/send",
   CREATE_CHECKOUT_SESSION: "/create-checkout-session",
 } as const;
@@ -44,6 +45,7 @@ export const ERROR_CODE = {
   SUPABASE_ORG_CREATION_FAILED: "SUPABASE_ORG_CREATION_FAILED",
   SUPABASE_USER_INSERT_FAILED: "SUPABASE_USER_INSERT_FAILED",
   SUPABASE_ORG_MEMBERSHIP_FAILED: "SUPABASE_ORG_MEMBERSHIP_FAILED",
+  AUTH0_FORGOT_PASSWORD_FAILED: "AUTH0_FORGOT_PASSWORD_FAILED",
   RATE_LIMITED: "RATE_LIMITED",
   // Receiver-specific codes — proxied verbatim in error responses
   RECEIVER_QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
@@ -70,13 +72,15 @@ export const ERROR_DESCRIPTIONS: Partial<Record<ErrorCode, string>> = {
   [ERROR_CODE.FORBIDDEN]:
     "Request origin is not in the allowed origins list. Configure ALLOWED_ORIGINS_JSON on the worker if this origin should be permitted.",
   [ERROR_CODE.NOT_FOUND]:
-    "No route matches the request method and path. Supported routes: GET /health, POST /signup, POST /signin, POST /send, POST /create-checkout-session.",
+    "No route matches the request method and path. Supported routes: GET /health, POST /signup, POST /signin, POST /forgot-password, POST /send, POST /create-checkout-session.",
   [ERROR_CODE.INTERNAL_ERROR]:
     "Unclassified server error. Check worker logs for the underlying cause (missing env var, upstream timeout, or unhandled exception).",
   [ERROR_CODE.INVALID_CREDENTIALS]:
     "Email or password is incorrect, or no account exists for that email. Deliberately does not distinguish between those cases, to avoid user enumeration.",
   [ERROR_CODE.AUTH0_UNCONFIGURED]:
     "Auth0 environment variables are missing on the worker. Required: AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, AUTH0_AUDIENCE, AUTH0_CLI_ID, AUTH0_CLI_SECRET.",
+  [ERROR_CODE.AUTH0_FORGOT_PASSWORD_FAILED]:
+    "Auth0 /dbconnections/change_password call failed. Likely causes: AUTH0_DOMAIN or AUTH0_CLIENT_ID misconfiguration, or a transient Auth0 5xx.",
   [ERROR_CODE.AUTH0_TOKEN_EXCHANGE_FAILED]:
     "Auth0 /oauth/token rejected the credentials. Likely causes: invalid email/password, disabled user, or ROPC grant not enabled on the Auth0 application.",
   [ERROR_CODE.AUTH0_USER_CREATION_FAILED]:
@@ -108,6 +112,7 @@ export const CORS_HEADERS = {
 export const AUTH0_PATHS = {
   TOKEN: "/oauth/token",
   USERS: "/api/v2/users",
+  CHANGE_PASSWORD: "/dbconnections/change_password",
 } as const;
 
 export const RECEIVER_PATHS = {

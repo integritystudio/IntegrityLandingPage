@@ -47,10 +47,15 @@ class AuthPage extends StatefulWidget {
   final AuthMode mode;
   final VoidCallback? onBack;
 
+  /// When true, opens directly in forgot-password mode instead of the
+  /// sign-in form. Used by the `/forgot-password` deep-link route.
+  final bool initialForgotPassword;
+
   const AuthPage({
     super.key,
     required this.mode,
     this.onBack,
+    this.initialForgotPassword = false,
   });
 
   @override
@@ -66,12 +71,16 @@ class _AuthPageState extends State<AuthPage> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  bool _isForgotPasswordMode = false;
+  bool _forgotPasswordSent = false;
+
   bool _pageViewTracked = false;
 
   @override
   void initState() {
     super.initState();
     _mode = widget.mode;
+    _isForgotPasswordMode = widget.initialForgotPassword;
     _toggleModeRecognizer = TapGestureRecognizer()..onTap = _toggleMode;
   }
 
@@ -115,12 +124,55 @@ class _AuthPageState extends State<AuthPage> {
   void _toggleMode() {
     setState(() {
       _mode = _mode == AuthMode.signUp ? AuthMode.signIn : AuthMode.signUp;
+      _isForgotPasswordMode = false;
+      _forgotPasswordSent = false;
       _errorMessage = null;
       _password = '';
       _confirmPassword = '';
       // _email is intentionally preserved so the user does not have to re-type
       // it after switching between sign-up and sign-in modes.
     });
+  }
+
+  void _enterForgotPasswordMode() {
+    setState(() {
+      _isForgotPasswordMode = true;
+      _forgotPasswordSent = false;
+      _errorMessage = null;
+    });
+  }
+
+  void _exitForgotPasswordMode() {
+    setState(() {
+      _isForgotPasswordMode = false;
+      _forgotPasswordSent = false;
+      _errorMessage = null;
+    });
+  }
+
+  Future<void> _submitForgotPassword() async {
+    if (_email.isEmpty || !ContactService.isValidEmail(_email)) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final response = await ProvisioningService.forgotPassword(_email);
+    if (!mounted) return;
+
+    switch (response) {
+      case ForgotPasswordSuccess():
+        setState(() {
+          _isLoading = false;
+          _forgotPasswordSent = true;
+        });
+      case ForgotPasswordError():
+        setState(() {
+          _errorMessage = SecurityUtils.sanitizeServerError(response.error);
+          _isLoading = false;
+        });
+    }
   }
 
   Future<void> _submit() async {
@@ -158,8 +210,6 @@ class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
-    final spacingAfterSubtitle = _mode == AuthMode.signUp ? AppSpacing.lg : AppSpacing.md;
-    final spacingBetweenFields = _mode == AuthMode.signUp ? AppSpacing.md : AppSpacing.lg;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
@@ -178,103 +228,205 @@ class _AuthPageState extends State<AuthPage> {
           child: ResponsiveContainer(
             maxWidth: 500,
             additionalPadding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title
-                Text(
-                  _pageTitle,
-                  style: AppTypography.headingLG.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-
-                // Subtitle
-                Text(
-                  _pageSubtitle,
-                  style: AppTypography.bodyMD.copyWith(
-                    color: AppColors.gray300,
-                  ),
-                ),
-                SizedBox(height: spacingAfterSubtitle),
-
-                // Error message
-                if (_errorMessage != null)
-                  Alert.error(message: _errorMessage!),
-
-                // Email field
-                FormTextField(
-                  label: 'Email Address',
-                  value: _email,
-                  onChanged: (value) => setState(() {
-                    _email = value;
-                    _errorMessage = null;
-                  }),
-                  type: FormTextFieldType.email,
-                  placeholder: 'you@example.com',
-                  enabled: !_isLoading,
-                ),
-                SizedBox(height: spacingBetweenFields),
-
-                // Password field \u2014 keyed on mode so Flutter discards the widget
-                // (and its internal TextEditingController) when mode toggles, preventing
-                // the displayed text from persisting after _toggleMode() clears the state.
-                FormTextField(
-                  key: ValueKey('password_${_mode.name}'),
-                  label: 'Password',
-                  value: _password,
-                  onChanged: (value) => setState(() {
-                    _password = value;
-                    _errorMessage = null;
-                  }),
-                  placeholder: '${PasswordPolicy.minLength}\u2013${PasswordPolicy.maxLength} characters',
-                  enabled: !_isLoading,
-                ),
-                SizedBox(height: spacingBetweenFields),
-
-                // Confirm password field (signup only)
-                if (_mode == AuthMode.signUp) ...[
-                  FormTextField(
-                    key: const ValueKey('confirm_password'),
-                    label: 'Confirm Password',
-                    value: _confirmPassword,
-                    onChanged: (value) => setState(() {
-                      _confirmPassword = value;
-                      _errorMessage = null;
-                    }),
-                    placeholder: 'Re-enter your password',
-                    enabled: !_isLoading,
-                  ),
-                  SizedBox(height: AppSpacing.lg),
-                ],
-
-                // Submit button
-                GradientButton(
-                  onPressed: _isFormValid && !_isLoading ? _submit : null,
-                  isLoading: _isLoading,
-                  text: _submitButtonText,
-                ),
-                const SizedBox(height: AppSpacing.md),
-
-                // Toggle mode link
-                Center(
-                  child: RichText(
-                    text: TextSpan(
-                      text: _toggleModeText,
-                      style: AppTypography.bodySM.copyWith(
-                        color: AppColors.gray300,
-                      ),
-                      recognizer: _toggleModeRecognizer,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            child: _isForgotPasswordMode
+                ? _buildForgotPasswordView()
+                : _buildAuthForm(),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildForgotPasswordView() {
+    final title = _forgotPasswordSent ? 'Check Your Email' : 'Reset Password';
+    final subtitle = _forgotPasswordSent
+        ? 'A password reset link has been sent to $_email. Check your inbox and follow the link to set a new password.'
+        : 'Enter your email address and we\u2019ll send you a reset link.';
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: AppTypography.headingLG.copyWith(
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+
+        if (_forgotPasswordSent) ...[
+          Alert.success(message: subtitle),
+        ] else ...[
+          Text(
+            subtitle,
+            style: AppTypography.bodyMD.copyWith(
+              color: AppColors.gray300,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+
+          if (_errorMessage != null)
+            Alert.error(message: _errorMessage!),
+
+          FormTextField(
+            label: 'Email Address',
+            value: _email,
+            onChanged: (value) => setState(() {
+              _email = value;
+              _errorMessage = null;
+            }),
+            type: FormTextFieldType.email,
+            placeholder: 'you@example.com',
+            enabled: !_isLoading,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+
+          GradientButton(
+            onPressed: _email.isNotEmpty &&
+                    ContactService.isValidEmail(_email) &&
+                    !_isLoading
+                ? _submitForgotPassword
+                : null,
+            isLoading: _isLoading,
+            text: 'Send Reset Link',
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+
+        Center(
+          child: GestureDetector(
+            onTap: _exitForgotPasswordMode,
+            child: Text(
+              'Back to sign in',
+              style: AppTypography.bodySM.copyWith(
+                color: AppColors.gray300,
+                decoration: TextDecoration.underline,
+                decorationColor: AppColors.gray300,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAuthForm() {
+    final spacingAfterSubtitle = _mode == AuthMode.signUp ? AppSpacing.lg : AppSpacing.md;
+    final spacingBetweenFields = _mode == AuthMode.signUp ? AppSpacing.md : AppSpacing.lg;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Title
+        Text(
+          _pageTitle,
+          style: AppTypography.headingLG.copyWith(
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+
+        // Subtitle
+        Text(
+          _pageSubtitle,
+          style: AppTypography.bodyMD.copyWith(
+            color: AppColors.gray300,
+          ),
+        ),
+        SizedBox(height: spacingAfterSubtitle),
+
+        // Error message
+        if (_errorMessage != null)
+          Alert.error(message: _errorMessage!),
+
+        // Email field
+        FormTextField(
+          label: 'Email Address',
+          value: _email,
+          onChanged: (value) => setState(() {
+            _email = value;
+            _errorMessage = null;
+          }),
+          type: FormTextFieldType.email,
+          placeholder: 'you@example.com',
+          enabled: !_isLoading,
+        ),
+        SizedBox(height: spacingBetweenFields),
+
+        // Password field \u2014 keyed on mode so Flutter discards the widget
+        // (and its internal TextEditingController) when mode toggles, preventing
+        // the displayed text from persisting after _toggleMode() clears the state.
+        FormTextField(
+          key: ValueKey('password_${_mode.name}'),
+          label: 'Password',
+          value: _password,
+          onChanged: (value) => setState(() {
+            _password = value;
+            _errorMessage = null;
+          }),
+          placeholder: '${PasswordPolicy.minLength}\u2013${PasswordPolicy.maxLength} characters',
+          enabled: !_isLoading,
+        ),
+        SizedBox(height: spacingBetweenFields),
+
+        // Confirm password field (signup only)
+        if (_mode == AuthMode.signUp) ...[
+          FormTextField(
+            key: const ValueKey('confirm_password'),
+            label: 'Confirm Password',
+            value: _confirmPassword,
+            onChanged: (value) => setState(() {
+              _confirmPassword = value;
+              _errorMessage = null;
+            }),
+            placeholder: 'Re-enter your password',
+            enabled: !_isLoading,
+          ),
+          SizedBox(height: AppSpacing.lg),
+        ],
+
+        // Forgot password link (sign-in only, appears above submit button)
+        if (_mode == AuthMode.signIn) ...[
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: _enterForgotPasswordMode,
+              child: Text(
+                'Forgot password?',
+                style: AppTypography.bodySM.copyWith(
+                  color: AppColors.gray300,
+                  decoration: TextDecoration.underline,
+                  decorationColor: AppColors.gray300,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+
+        // Submit button
+        GradientButton(
+          onPressed: _isFormValid && !_isLoading ? _submit : null,
+          isLoading: _isLoading,
+          text: _submitButtonText,
+        ),
+        const SizedBox(height: AppSpacing.md),
+
+        // Toggle mode link
+        Center(
+          child: RichText(
+            text: TextSpan(
+              text: _toggleModeText,
+              style: AppTypography.bodySM.copyWith(
+                color: AppColors.gray300,
+              ),
+              recognizer: _toggleModeRecognizer,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

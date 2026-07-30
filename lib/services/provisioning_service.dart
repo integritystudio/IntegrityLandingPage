@@ -97,6 +97,23 @@ class BootstrapError extends BootstrapResponse {
 }
 
 
+/// Forgot-password API response.
+sealed class ForgotPasswordResponse {
+  const ForgotPasswordResponse();
+}
+
+/// Successful forgot-password response — reset email dispatched.
+class ForgotPasswordSuccess extends ForgotPasswordResponse {
+  const ForgotPasswordSuccess();
+}
+
+/// Forgot-password error response.
+class ForgotPasswordError extends ForgotPasswordResponse {
+  final String error;
+
+  const ForgotPasswordError({required this.error});
+}
+
 /// Checkout API response.
 sealed class CheckoutResponse {
   const CheckoutResponse();
@@ -251,6 +268,40 @@ class ProvisioningService {
       await ErrorTrackingService.captureException(e,
           stackTrace: stackTrace);
       return const AuthError(error: _errorUnexpected);
+    }
+  }
+
+  /// Send a self-service password reset email via Auth0.
+  ///
+  /// Always returns [ForgotPasswordSuccess] on HTTP 200. Auth0's
+  /// `/dbconnections/change_password` endpoint returns 200 even for
+  /// unregistered addresses, so success here means "the request was accepted",
+  /// not "an account exists for that email" — callers must not reveal the
+  /// distinction to the end user.
+  static Future<ForgotPasswordResponse> forgotPassword(String email) async {
+    try {
+      final response = await _dio.post(
+        '$_senderWorkerUrl/forgot-password',
+        data: jsonEncode({'email': email}),
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+          validateStatus: (status) => status != null,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return const ForgotPasswordSuccess();
+      }
+
+      final data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : const <String, dynamic>{};
+      return ForgotPasswordError(
+        error: data['error'] as String? ?? _errorUnexpected,
+      );
+    } catch (e, stackTrace) {
+      await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+      return const ForgotPasswordError(error: _errorUnexpected);
     }
   }
 

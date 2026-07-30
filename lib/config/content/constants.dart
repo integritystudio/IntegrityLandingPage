@@ -131,6 +131,7 @@ abstract final class Routes {
   static const String signup = '/signup';
   static const String signupGrowth = '$signup?tier=${SignupTiers.growth}';
   static const String login = '/login';
+  static const String forgotPassword = '/forgot-password';
   static const String provision = '/provision';
   static const String checkout = '/checkout';
   static const String checkoutSuccess = '/checkout-success';

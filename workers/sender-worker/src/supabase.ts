@@ -284,6 +284,35 @@ export async function supabaseDeleteUser(
 }
 
 /**
+ * Trigger a self-service password reset email via Auth0's DB connection endpoint.
+ *
+ * Auth0's `/dbconnections/change_password` always returns 200 regardless of
+ * whether the email is registered — the caller must mirror that behaviour to
+ * avoid account enumeration.
+ *
+ * No Management API token is required; `client_id` is a public identifier.
+ */
+export async function auth0ForgotPassword(
+  domain: string,
+  clientId: string,
+  email: string,
+): Promise<void> {
+  const res = await fetch(`https://${domain}${AUTH0_PATHS.CHANGE_PASSWORD}`, {
+    method: "POST",
+    headers: { [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON },
+    body: JSON.stringify({
+      client_id: clientId,
+      email,
+      connection: AUTH0_CONNECTION,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Auth0 forgot password failed: ${res.status} ${err}`);
+  }
+}
+
+/**
  * Create a user via the Auth0 Management API.
  * Performs the client credentials token exchange internally before the user create call.
  * Returns the Auth0 `sub` (user_id), which must be stored as `auth0_id` in Supabase.

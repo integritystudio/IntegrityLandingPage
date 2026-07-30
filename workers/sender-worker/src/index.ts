@@ -25,6 +25,7 @@ import { signMessage } from "./crypto.js";
 import {
   auth0CreateUser,
   auth0DeleteUser,
+  auth0ForgotPassword,
   auth0UserSignIn,
   supabaseCreatePersonalOrg,
   supabaseDeleteOrg,
@@ -290,6 +291,28 @@ async function handleSignIn(env: Env, req: Record<string, unknown>): Promise<Res
   }
 }
 
+async function handleForgotPassword(env: Env, req: Record<string, unknown>): Promise<Response> {
+  if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID) {
+    return errorResponse("Auth0 not configured", ERROR_CODE.AUTH0_UNCONFIGURED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
+  if (typeof req.email !== 'string') {
+    return errorResponse("missing email", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
+  }
+  if (!EMAIL_REGEX.test(req.email)) {
+    return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
+  }
+  try {
+    await auth0ForgotPassword(env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, req.email);
+    // Mirror Auth0's enumeration-safe behaviour: always return 200 so callers
+    // cannot determine whether an account exists for the given email address.
+    return json({ message: "If that email is registered, a password reset link has been sent." });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[forgot-password]", msg);
+    return errorResponse("password reset failed", ERROR_CODE.AUTH0_FORGOT_PASSWORD_FAILED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
+}
+
 async function handleSend(env: Env, req: Record<string, unknown>, clientIp?: string): Promise<Response> {
   if (!env.RECEIVER) {
     return errorResponse("RECEIVER service binding not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
@@ -440,6 +463,26 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
     const body = await parseJsonBody(request);
     if (body instanceof Response) return body;
     return handleSignIn(env, body);
+  }
+
+  if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.FORGOT_PASSWORD) {
+    const ip = getClientIp(request) ?? 'unknown';
+    const rl = await checkAuthRateLimit(ip, env);
+    if (!rl.allowed) {
+      return new Response(
+        JSON.stringify({ error: 'rate limit exceeded', code: ERROR_CODE.RATE_LIMITED }),
+        {
+          status: HTTP_STATUS.TOO_MANY_REQUESTS,
+          headers: {
+            [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
+            'Retry-After': String(rl.retryAfterSeconds),
+          },
+        },
+      );
+    }
+    const body = await parseJsonBody(request);
+    if (body instanceof Response) return body;
+    return handleForgotPassword(env, body);
   }
 
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SEND) {

@@ -2219,4 +2219,168 @@ describe('Sender Worker', () => {
       });
     });
   });
+
+  describe('POST /forgot-password — Auth0 password reset', () => {
+    it('returns 200 with message on successful Auth0 call', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response("We've just sent you an email to reset your password.", { status: 200 }),
+      );
+
+      const request = new Request('https://worker.test/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(200);
+      const data = await response.json() as { message: string };
+      expect(data.message).toContain('reset');
+      fetchSpy.mockRestore();
+    });
+
+    it('calls Auth0 dbconnections/change_password with client_id, email, and connection', async () => {
+      let capturedUrl = '';
+      let capturedBody = '';
+
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+        capturedUrl = String(url);
+        capturedBody = init?.body as string;
+        return new Response('', { status: 200 });
+      });
+
+      const request = new Request('https://worker.test/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com' }),
+      });
+
+      await worker.fetch(request, mockEnv);
+
+      expect(capturedUrl).toBe(`https://${mockEnv.AUTH0_DOMAIN}/dbconnections/change_password`);
+      const body = JSON.parse(capturedBody) as { client_id: string; email: string; connection: string };
+      expect(body.client_id).toBe(mockEnv.AUTH0_CLIENT_ID);
+      expect(body.email).toBe('user@example.com');
+      expect(body.connection).toBe('Username-Password-Authentication');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 400 MISSING_FIELDS when email is missing', async () => {
+      const request = new Request('https://worker.test/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as { code: string };
+      expect(data.code).toBe('MISSING_FIELDS');
+    });
+
+    it('returns 400 INVALID_EMAIL for malformed email', async () => {
+      const request = new Request('https://worker.test/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'not-an-email' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as { code: string };
+      expect(data.code).toBe('INVALID_EMAIL');
+    });
+
+    it('returns 400 when email is a non-string (e.g. a number)', async () => {
+      const request = new Request('https://worker.test/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 42 }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as { code: string };
+      expect(data.code).toBe('MISSING_FIELDS');
+    });
+
+    it('returns 500 AUTH0_FORGOT_PASSWORD_FAILED when Auth0 call fails', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'server_error' }), { status: 500 }),
+      );
+
+      const request = new Request('https://worker.test/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(500);
+      const data = await response.json() as { code: string };
+      expect(data.code).toBe('AUTH0_FORGOT_PASSWORD_FAILED');
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 AUTH0_UNCONFIGURED when AUTH0_DOMAIN is absent', async () => {
+      const noAuth0Env: Env = { ...mockEnv, AUTH0_DOMAIN: '' };
+      const request = new Request('https://worker.test/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com' }),
+      });
+
+      const response = await worker.fetch(request, noAuth0Env);
+
+      expect(response.status).toBe(500);
+      const data = await response.json() as { code: string };
+      expect(data.code).toBe('AUTH0_UNCONFIGURED');
+    });
+
+    it('returns 400 with invalid json error when body is not valid JSON', async () => {
+      const request = new Request('https://worker.test/forgot-password', {
+        method: 'POST',
+        body: 'not valid json {',
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(400);
+      const data = await response.json() as ErrorResponse;
+      expect(data.error).toBe('invalid json');
+    });
+
+    it('returns 429 when rate limit is exceeded', async () => {
+      // Exhaust the in-memory rate limit for this IP
+      const AUTH_RATE_LIMIT_MAX = 10;
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(
+        new Response('', { status: 200 }),
+      );
+      const ip = '1.2.3.4';
+
+      for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
+        await worker.fetch(new Request('https://worker.test/forgot-password', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'CF-Connecting-IP': ip },
+          body: JSON.stringify({ email: 'user@example.com' }),
+        }), mockEnv);
+      }
+
+      const response = await worker.fetch(new Request('https://worker.test/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'CF-Connecting-IP': ip },
+        body: JSON.stringify({ email: 'user@example.com' }),
+      }), mockEnv);
+
+      expect(response.status).toBe(429);
+      const data = await response.json() as { code: string };
+      expect(data.code).toBe('RATE_LIMITED');
+      fetchSpy.mockRestore();
+    });
+  });
 });
