@@ -511,9 +511,11 @@ class ProvisioningService {
             usageSnapshot: data['usage_snapshot'] is Map<String, dynamic>
                 ? BootstrapUsageSnapshot.fromJson(
                     data['usage_snapshot'] as Map<String, dynamic>)
+                // No usage_snapshot in the payload at all — treat it as unknown rather than
+                // as zero usage, the same distinction the server draws with `unavailable`.
                 : const BootstrapUsageSnapshot(
                     monthToDateUnits: 0,
-                    currentMinuteRemaining: 0,
+                    unavailable: true,
                   ),
           );
         }

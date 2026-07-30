@@ -484,18 +484,24 @@ describe('POST /bootstrap', () => {
     }
   });
 
-  it('returns current_minute_remaining as null in the usage snapshot', async () => {
-    const token = await jwt.sign({ sub: 'auth0|u1', email: 'user@example.com' });
+  // The per-minute figure is not reported at all. It lives in the quota Durable Object, which
+  // this handler cannot reach, so it was always null — and the Flutter model decoded that null
+  // to 0, reporting "none remaining" for "unknown". Callers use /v1/orgs/:id/quota/status.
+  it('omits any per-minute figure from the usage snapshot', async () => {
+    const token = await jwt.sign({ sub: 'auth0|u1' });
     stubSupabase({
       'GET users': okRows([makeUserRow()]),
       'GET organization_memberships': okRows([makeMembershipRow()]),
       'GET organizations': okRows([makeOrgRow()]),
       'GET entitlements': okRows([]),
-      'GET usage_buckets_daily': okRows([]),
+      'GET usage_buckets_daily': okRows([makeUsageBucketRow()]),
     });
+
     const res = await handleBootstrap(makeRequest(token), opts);
-    const body = (await res.json()) as { usage_snapshot: { current_minute_remaining: unknown } };
-    expect(body.usage_snapshot.current_minute_remaining).toBeNull();
+
+    const body = (await res.json()) as { usage_snapshot: Record<string, unknown> };
+    expect(body.usage_snapshot).not.toHaveProperty('current_minute_remaining');
+    expect(Object.keys(body.usage_snapshot)).toEqual(['month_to_date_units']);
   });
 
   it('returns 500 when entitlements query fails', async () => {

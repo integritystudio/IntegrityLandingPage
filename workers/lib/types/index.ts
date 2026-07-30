@@ -44,7 +44,6 @@ export interface BootstrapResponse {
   entitlements: Record<string, boolean | number | null>;
   usage_snapshot: {
     month_to_date_units: number;
-    current_minute_remaining: number | null;
     /**
      * Set when the usage aggregate could not be read, so a consumer can tell "no usage yet"
      * from "we do not know". Absent on success. The numeric fields still carry safe defaults

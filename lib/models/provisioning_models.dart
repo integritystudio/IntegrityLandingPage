@@ -56,13 +56,22 @@ abstract class BootstrapEntitlements with _$BootstrapEntitlements {
 }
 
 /// Current-period usage snapshot from bootstrap response.
+///
+/// Deliberately does not carry a per-minute figure. `current_minute_remaining` used to be
+/// declared here as a non-nullable `int` defaulting to `0`, while the server always sent
+/// `null` — the value lives in the quota Durable Object and bootstrap cannot see it. The
+/// generated decoder turned that `null` into `0`, so the field reported "none remaining"
+/// for "unknown", and nothing ever displayed it. The authoritative source is
+/// `GET /v1/orgs/:id/quota/status` via [QuotaStatusData], which carries real
+/// minuteLimit/minuteUsed values.
+///
+/// [unavailable] is set by the server when the usage aggregate could not be read, so a
+/// failed query is distinguishable from a genuinely new account rather than both showing 0.
 @Freezed(toJson: false)
 abstract class BootstrapUsageSnapshot with _$BootstrapUsageSnapshot {
   const factory BootstrapUsageSnapshot({
     @JsonKey(name: 'month_to_date_units') @Default(0) int monthToDateUnits,
-    @JsonKey(name: 'current_minute_remaining')
-    @Default(0)
-    int currentMinuteRemaining,
+    @JsonKey(name: 'unavailable') @Default(false) bool unavailable,
   }) = _BootstrapUsageSnapshot;
 
   factory BootstrapUsageSnapshot.fromJson(Map<String, dynamic> json) =>

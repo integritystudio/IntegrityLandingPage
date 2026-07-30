@@ -176,7 +176,7 @@ describe('BootstrapResponseSchema', () => {
     organizations: [{ id: 'org-1', slug: 'o', name: 'O', billing_status: 'active', current_plan: 'starter', quota_version: 1, role: 'owner' }],
     active_org_id: 'org-1',
     entitlements: { feature_x: true },
-    usage_snapshot: { month_to_date_units: 0, current_minute_remaining: null },
+    usage_snapshot: { month_to_date_units: 0 },
   };
 
   it('accepts a valid bootstrap response', () => {

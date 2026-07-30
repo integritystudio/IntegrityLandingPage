@@ -441,7 +441,6 @@ void main() {
       },
       'usage_snapshot': {
         'month_to_date_units': 182044,
-        'current_minute_remaining': 412,
       },
     };
 
@@ -460,7 +459,59 @@ void main() {
       expect(success.entitlements.monthlyUnits, 500000);
       expect(success.entitlements.usageDashboard, true);
       expect(success.usageSnapshot.monthToDateUnits, 182044);
-      expect(success.usageSnapshot.currentMinuteRemaining, 412);
+      expect(success.usageSnapshot.unavailable, false);
+    });
+
+    // The server sets this when the usage aggregate could not be read, so a database problem is
+    // distinguishable from a genuinely new account instead of both rendering as 0.
+    test('surfaces unavailable when the server flags the aggregate as unread',
+        () async {
+      mockDio.mockPostResponse({
+        ...bootstrapPayload,
+        'usage_snapshot': {'month_to_date_units': 0, 'unavailable': true},
+      });
+
+      final result = await ProvisioningService.bootstrap(jwt: 'test-jwt');
+
+      final success = result as BootstrapSuccess;
+      expect(success.usageSnapshot.unavailable, true);
+      expect(success.usageSnapshot.monthToDateUnits, 0);
+    });
+
+    // A missing usage_snapshot is unknown, not zero usage — the same distinction the server
+    // draws, applied to the fallback the client builds when the key is absent entirely.
+    test('treats a missing usage_snapshot as unavailable rather than zero',
+        () async {
+      final payload = Map<String, dynamic>.from(bootstrapPayload);
+      payload.remove('usage_snapshot');
+      mockDio.mockPostResponse(payload);
+
+      final result = await ProvisioningService.bootstrap(jwt: 'test-jwt');
+
+      final success = result as BootstrapSuccess;
+      expect(success.usageSnapshot.unavailable, true);
+    });
+
+    // Regression guard. `current_minute_remaining` was declared as a non-nullable int with a
+    // default of 0 while the server always sent null, so the generated decoder turned "unknown"
+    // into "none remaining". The field is gone; a server still sending it must be ignored, not
+    // silently decoded back into a zero that reads as real data.
+    test('ignores a legacy current_minute_remaining key in the payload',
+        () async {
+      mockDio.mockPostResponse({
+        ...bootstrapPayload,
+        'usage_snapshot': {
+          'month_to_date_units': 500,
+          'current_minute_remaining': null,
+        },
+      });
+
+      final result = await ProvisioningService.bootstrap(jwt: 'test-jwt');
+
+      final success = result as BootstrapSuccess;
+      expect(success.usageSnapshot.monthToDateUnits, 500);
+      expect(success.usageSnapshot.unavailable, false);
+      expect(success.usageSnapshot.toString(), isNot(contains('MinuteRemaining')));
     });
 
     test('falls back to first org when active_org_id has no match', () async {

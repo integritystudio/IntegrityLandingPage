@@ -18,7 +18,6 @@ type UsageSnapshot = BootstrapResponse['usage_snapshot'];
  */
 const USAGE_UNAVAILABLE: UsageSnapshot = {
   month_to_date_units: 0,
-  current_minute_remaining: null,
   unavailable: true,
 };
 
@@ -115,8 +114,11 @@ async function loadUsageSnapshot(orgId: string, sb: SupabaseClient): Promise<Usa
 
   // usage_buckets_daily holds pre-aggregated daily totals per metric_key.
   // Summing total_quantity across all rows for the current month gives MTD units.
-  // current_minute_remaining is owned by the Quota Durable Object and is not
-  // accessible here; callers should fetch it separately from /v1/orgs/:id/quota/status.
+  //
+  // No per-minute figure is reported. It is owned by the quota Durable Object, which this
+  // handler cannot reach, so the field was always null — and the Flutter model decoded that
+  // null to 0, reporting "none remaining" for "unknown". Callers read the real values from
+  // GET /v1/orgs/:id/quota/status instead.
   const result = await sb.query<UsageBucketRow>('usage_buckets_daily', {
     select: 'total_quantity',
     filters: [
@@ -135,7 +137,7 @@ async function loadUsageSnapshot(orgId: string, sb: SupabaseClient): Promise<Usa
     0,
   );
 
-  return { month_to_date_units, current_minute_remaining: null };
+  return { month_to_date_units };
 }
 
 async function buildBootstrapPayload(

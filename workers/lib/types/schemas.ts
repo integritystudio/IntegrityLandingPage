@@ -43,7 +43,10 @@ export const BootstrapResponseSchema = z.object({
   entitlements: z.record(z.string(), z.union([z.boolean(), z.number(), z.null()])),
   usage_snapshot: z.object({
     month_to_date_units: z.number(),
-    current_minute_remaining: z.number().nullable(),
+    // Set when the aggregate could not be read, so a failed query is distinguishable from a
+    // genuinely new account. No per-minute figure: it lives in the quota Durable Object, which
+    // bootstrap cannot reach — see GET /v1/orgs/:id/quota/status.
+    unavailable: z.literal(true).optional(),
   }),
 });
 
