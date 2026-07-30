@@ -2,11 +2,13 @@
 
 Open and deferred items only. Completed items are migrated to `docs/changelog/1.0/CHANGELOG.md`, `docs/changelog/1.1/CHANGELOG.md`, `docs/changelog/1.2/CHANGELOG.md`, and `docs/changelog/1.3/CHANGELOG.md`.
 
-**Last Updated:** 2026-07-30 (production deploy of all four Workers — see CR03/CR13/CR15/CR21/CR22 and W04 step 1; prior entry 2026-07-27 evening, database + worker remediation) | **Phase:** Codebase review remediation + worker deploy/settings audit + **database/secret remediation**. 48 findings fixed and migrated to the 1.3 changelog; **13 items open as CR01–CR21**, summarised in the table under *Code Review 2026-07-26 → 2026-07-27*.
+**Last Updated:** 2026-07-30 (dashboard CORS + Auth0 issuer fix deployed, see [[CR26]]; earlier the same day, production deploy of all four Workers — see CR03/CR13/CR15/CR21/CR22 and W04 step 1) | **Phase:** Codebase review remediation + worker deploy/settings audit + **database/secret remediation**. 48 findings fixed and migrated to the 1.3 changelog; open items are summarised in the table under *Code Review 2026-07-26 → 2026-07-27* (CR01–CR26).
+
+> **Session 2026-07-30 (later) — the dashboard works end to end for the first time.** A reported CORS error on `/v1/orgs` turned out to be the outermost of three stacked `api-gateway` defects: no CORS handling at all, verification against **Supabase** JWKS for a token issued by **Auth0**, and an Auth0 `sub` passed into `organization_memberships.user_id` (a uuid column). The third is the one to remember — it fails *silently*, returning an empty org list rather than an error, so fixing the first two alone would have shipped a blank dashboard that looked like success. All three are fixed and live (`524274de`); all seven dashboard endpoints return 200 with a real login token. The same session found that signup's `POST /bootstrap` **404s** because its handler lives in a Worker that was never deployed — see [[CR26]], which is open.
 
 > **Session 2026-07-30 — the deploy backlog is cleared.** All four production Workers this repo owns were deployed from `fix/review-supabase-writes-and-signup-tiers` with `npm run deploy:prd`: `api-gateway` `9c4e7c61` (previously **2026-03-31** — four months stale), `sender-worker` `ddf2c87f`, `integrity-studio-contact` `55c13446` (also 2026-03-31), and `stripe-webhook` `1e3f2cce`. That single pass shipped the JWKS/ES256 verifier, [[CR03]]'s `RATE_LIMIT_KV` binding, observability on every Worker ([[CR15]] item 1 + [[W04]] step 1), [[CR21]]'s `ctx.waitUntil`, [[CR22]]'s billing-portal fix, CR05/CR06's 5xx-on-DB-error, the quota DO alarm flush, contact-form's fail-closed CSRF and CRLF-sanitised Subject, and the security fix that verifies the bearer token *before* quota enforcement. Preconditions checked first, not after: 1,063 worker tests green, zero TypeScript errors, and a `--dry-run` per Worker. Verified after each: all four healthy, `api-gateway` reporting `durableObjects: healthy` so its DO namespace survived, `preview_urls` still `false` on all four ([[CR14]]), `stripe-webhook`'s `*/15` cron and `sender-worker`'s `RECEIVER` service binding intact, and **the zone routes unchanged — `api.integritystudio.ai/*` still `obtool-api`**, so [[CR13]]'s trap did not fire.
 >
-> **Two Workers were deliberately left alone.** `bootstrap-worker` and `receiver-worker` have no production deployment, so `deploy:prd` would *create* a publicly-callable Worker rather than update one — a new production surface for, respectively, a Worker with no secrets bound and a test double that returns mock responses. Neither is a fix; both need a decision first.
+> **Two Workers were deliberately left alone.** `bootstrap-worker` and `receiver-worker` have no production deployment, so `deploy:prd` would *create* a publicly-callable Worker rather than update one — a new production surface for, respectively, a Worker with no secrets bound and a test double that returns mock responses. Neither is a fix; both need a decision first. **Update 2026-07-30 (later):** `bootstrap-worker`'s absence is not cost-free, as this note implied. The shipped Flutter app calls `POST {api-gateway}/bootstrap`, a route `api-gateway` does not serve, so the screen shown immediately after signup has never been able to load — see [[CR26]].
 >
 > **Two claims in this file were wrong about liveness and are corrected in place.** [[CR21]] was marked ✅ on 2026-07-29 while production was still running 2026-07-28 code, and [[CR22]] read as needing a deploy that is now done but *still* cannot be exercised — its 403 needs a valid API key, which `API_KEY_HMAC_SECRET` being unbound makes unreachable ([[CR12]]). The recurring error is treating "merged" as "live"; see the audit note at the head of Phase 4, which now has three instances rather than one.
 >
@@ -428,9 +430,9 @@ What this unblocks, and what it does not: the signals in step 1 will exist once 
 
 ---
 
-## Code Review 2026-07-26 → 2026-07-27 (CR01–CR23)
+## Code Review 2026-07-26 → 2026-07-27 (CR01–CR26)
 
-Started as the open remainder of the 8-area codebase review; CR11–CR15 were found afterwards while deploying and auditing the workers, CR16 while reading the deployed `obtool-*` scripts to settle CR13, and CR22–CR23 as follow-ups to the billing-portal auth change. Fixed work lives in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md); the review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md).
+Started as the open remainder of the 8-area codebase review; CR11–CR15 were found afterwards while deploying and auditing the workers, CR16 while reading the deployed `obtool-*` scripts to settle CR13, CR22–CR23 as follow-ups to the billing-portal auth change, and CR26 while fixing the reported dashboard CORS failure — which turned out to sit on top of two deeper auth defects. Fixed work lives in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md); the review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md).
 
 | ID | P | Status | One line |
 |---|---|---|---|
@@ -453,6 +455,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR23](#cr23) | P3 | ✅ resolved | Design decision: 401 for invalid credentials, 403 for valid-but-wrong-type. HTTP-correct; no code change needed |
 | [CR24](#cr24) | P2 | ✅ done | Legacy `anon` + `service_role` JWT keys disabled 2026-07-29 — **verified by probe**: both now return 401. Reversible via the same endpoint if the receiver turns out to depend on one (its `/health` is 200 post-disable) |
 | [CR25](#cr25) | P2 | ⚠️ partial | Auth0 tenant A production-readiness audit. Blocker 1 fixed (Google **dev-keys** connection disabled for all apps); blocker 2 partial (TOTP + recovery-code enabled, enforcement policy still an open decision); blocker 3 **needs a paid plan** — breached-password detection 400s with "upgrade your subscription" |
+| [CR26](#cr26) | P1 | ✅ done | `POST /bootstrap` mounted in `api-gateway` — matches the Flutter app contract with no client release. Handler ported from `bootstrap-worker` (fixed `in` filter on org query; uses shared `resolveUserId`/`buildEntitlementMap`). 14 tests added to `api-gateway/src/routes/bootstrap.test.ts`. `bootstrap-worker` directory deleted; removed from `WORKERS` / `SECRET_BEARING` in deploy-environments test and from root `package.json` scripts. Needs `deploy:prd` on `api-gateway` to go live. |
 
 **Two items are now blocked on code** — [[CR20]] and [[CR21]] are defects in `workers/stripe-webhook/src/`, found by reading the implementation against Stripe's webhook documentation. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). Everything else still needs a credential/provisioning decision (CR01, CR11, CR18), an answer about intent (CR13, CR16), or a production deploy (CR14, CR15, CR03).
 
@@ -794,6 +797,11 @@ So every authenticated route that touches Supabase — usage, entitlements, orgs
 **A caveat that only surfaced when the secret finally worked.** Binding `STRIPE_WEBHOOK_SECRET` let a signed request reach the handler for the first time, and it returned `"Failed to log processed event"` — a string absent from current source. Production `stripe-webhook` had been running 2026-03-31 code that could not write `webhook_events_log`. Supabase was not at fault; the prd key inserts and deletes against that table cleanly. Redeploying fixed it. ~~**The same check has not been done for `api-gateway`, whose deployed code is also from 2026-03-31 and cannot be redeployed until [[CR13]] step 1.** Assume its behaviour does not match this repo.~~ **Resolved 2026-07-30** — `api-gateway` was redeployed from current source (version `9c4e7c61`) and answers `200 {"database":"healthy","durableObjects":"healthy"}`, so its behaviour now does match this repo. Four months of fixes shipped in that one deploy, including the bearer-token-before-quota security fix and CR05/CR06's 5xx-on-DB-error.
 
 One side effect worth watching: `stripe-webhook`'s `*/15` dead-letter cron now has database access, a table to read, and current code — and since 2026-07-30 the Worker also has **observability deployed**, so a cron run is finally readable. Nothing has confirmed a successful run yet; that check is [[CR20]] step 4 and is now actually possible.
+
+**Re-verified 2026-07-30 (dashboard CORS/auth session, see [[CR26]]).** `wrangler secret list` against production `api-gateway` returns exactly four: `STRIPE_SECRET_KEY`, `SUPABASE_JWT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`. Two corrections to the state above:
+
+- **Item 1 still stands unchanged** — `API_KEY_HMAC_SECRET` is not bound, so `/v1/ingest/*` and the API-key management routes remain dead. The reasoning for *not* generating one locally is unchanged and still the blocker: the canonical value lives with `api-provisioning-receiver` in `observability-toolkit`, and inventing one here would silently fail to verify every key that Worker has already minted. **Note the type declaration disagrees with reality** — `API_KEY_HMAC_SECRET` is non-optional (`string`) in `api-gateway`'s `Env`, so TypeScript asserts a binding that production does not have.
+- **`SUPABASE_JWT_SECRET` is now dead weight on this Worker.** As of the [[CR26]] session, `api-gateway` verifies browser tokens against the Auth0 tenant's JWKS, not Supabase's — nothing reads `SUPABASE_JWT_SECRET` any more. It is retained in `Env` only so the binding can be deleted in a separate change; it should be unbound, not left as a credential with no reader.
 
 ---
 
@@ -1296,6 +1304,56 @@ The Dashboard's production-checks page (`manage.auth0.com/dashboard/us/dev-68gg8
 **Observation, not a finding:** two applications present earlier in this same session — `My App (Web)` and `My App (SPA)` — no longer exist in the tenant (the total is still 8 because two dev clients were added). No Doppler client ID referenced either, so nothing broke; `VITE_AUTH0_CLIENT_ID` maps to the surviving `integritystudio-dashboard` SPA and `prd AUTH0_CLIENT_ID` to `My App`.
 
 **Already production-appropriate:** the email provider is **Resend and enabled** (not Auth0's test provider — this is the item that most often blocks a production switch, and it is done); `support_email` and `support_url` are set; the single Action runs on **node22** with zero deprecated Rules; both database connections use password policy `good` with brute-force protection on; the custom API enforces RBAC.
+
+---
+
+<a id="cr26"></a>
+
+### CR26: The signup `bootstrap` call has no server-side route — `bootstrap-worker` was never deployed
+
+**Priority:** P1 | **Source:** session 2026-07-30, found while fixing the dashboard CORS/auth failure
+**Estimated:** 30 minutes for the route mount; the topology choice is the real work
+
+**Context:** `ProvisioningService.bootstrap` (`lib/services/provisioning_service.dart:461`) posts to **`$_apiGatewayUrl/bootstrap`** — that is, to `api-gateway`, the same host as every `/v1/*` call. `api-gateway` has no `/bootstrap` route, so the request falls through to the terminal `notFound` handler. Verified against production with a real login token:
+
+```
+POST https://api-gateway.alyshia-b38.workers.dev/bootstrap  ->  404 {"error":{"message":"Not found"}}
+```
+
+The implementation exists, but in a **different Worker that has never been deployed**: `wrangler secret list` for `bootstrap-worker` returns `Worker "bootstrap-worker" not found`, and `bootstrap-worker.alyshia-b38.workers.dev/health` answers 404 (no Worker on that hostname). So `provision_page.dart`'s org-context card — the screen a user lands on immediately after signing up — cannot ever have loaded. This is pre-launch breakage, not a regression; nothing was lost.
+
+**Two defects were fixed in `bootstrap-worker`'s source in the same session, so whenever it does deploy it is correct:**
+
+1. It verified tokens with `supabaseJwtKey(...)` while the client sends an **Auth0** RS256 token — the identical mismatch fixed in `api-gateway` (see below). Now uses `auth0JwtKey` + `auth0IssuerFor`, and validates `iss`/`aud`, which it did not do at all before (it passed no options to `verifyJwt`).
+2. It passed the JWT `sub` straight into `loadOrgContext`, which filters `organization_memberships.user_id` — a uuid column. Now resolves through `users.auth0_id` first via a new `resolveUserId`.
+
+`AUTH0_DOMAIN`/`AUTH0_AUDIENCE` were added to its `wrangler.toml` as plain `vars` (both appear in every JWT, so neither is confidential), repeated under `[env.dev.vars]` because `vars` is not inherited by a named environment.
+
+**The decision, not just the fix.** There are two ways to close this and they are not equivalent:
+
+- **Mount the handler in `api-gateway` at `/bootstrap`** — matches the contract the shipped Flutter app already assumes, needs no client release, and adds no Worker to operate. Costs: `api-gateway` grows a non-`/v1` route, and `bootstrap-worker` becomes dead code to delete.
+- **Deploy `bootstrap-worker` and repoint the client** — keeps the separation, but requires a Flutter release plus a new hostname to configure, and the shipped app in users' browsers keeps calling the gateway until they reload.
+
+The first is almost certainly right, but it is a production topology change adjacent to [[CR13]]'s unresolved question about what serves `api.integritystudio.ai/v1/*`, so it was deliberately **not** done unilaterally.
+
+**Scope:**
+1. Pick one of the two options above.
+2. If mounting: move `loadOrgContext`/`buildBootstrapResponse`/`resolveUserId` into `api-gateway`, add `POST /bootstrap` ahead of the terminal 404, and delete `bootstrap-worker`. Its 10 tests should move with it.
+3. Either way, confirm the signup → provision flow end to end with a real Auth0 token, which nothing has ever done.
+
+**Related dashboard fix, deployed 2026-07-30 (context for the above).** The login → dashboard path was broken by three stacked defects in `api-gateway`, all now fixed and live (version `524274de`):
+
+| # | Defect | Symptom |
+|---|---|---|
+| 1 | No CORS handling whatsoever — no `OPTIONS` branch, no `Access-Control-Allow-Origin` on any response | Browser blocked every `/v1/*` call from `integritystudio.ai`; preflight 404'd |
+| 2 | Verified **Supabase** JWKS against an **Auth0** RS256 token | `401 Invalid JWT signature` |
+| 3 | `auth.sub` (an Auth0 subject) passed into `organization_memberships.user_id` (uuid) filters | PostgREST 400, swallowed by `loadUserMemberships` into `[]` → an **empty dashboard**, not an error |
+
+Defect 3 is the one worth remembering: fixing 2 without it would have looked like success and shipped a blank dashboard. `users.auth0_id` and `users.id` are two different keys and the codebase used `sub` for both — `me.ts`/`api-keys.ts` correctly filtered `auth0_id`, while `orgs.ts`/`usage.ts`/`ingest.ts` filtered `user_id`. All now resolve through `resolveUserId`, and `AuthResult`'s jwt branch carries both `sub` and `userId` so the two cannot be confused again. CORS is applied at a single outer boundary in `fetch` so a route added later cannot ship without it. Verified: all seven dashboard endpoints return 200 with a real login token; a forged token 401s; 926 tests pass across all six Workers with clean typechecks.
+
+*Two operational notes from that session.* Each deploy produced ~60s of mixed old/new responses (a stale preflight 404, then intermittent 401s) before settling — **deploy propagation, not a bug**; confirmed by 20/20 clean probes afterwards with nothing in `wrangler tail`. And the route tests previously minted HS256 tokens against a shared secret, which Auth0 verification cannot accept; they now use `workers/lib/test-helpers/auth0-jwt-stub.ts`, which generates a throwaway RSA keypair and serves the matching JWKS through the fetch stub, so the suite drives the real path (kid lookup → JWKS fetch → RS256 verify → `iss`/`aud`) instead of mocking past it.
+
+**Status:** ✅ Done (2026-07-30) — `POST /bootstrap` handler mounted in `api-gateway` at `/bootstrap`. `bootstrap-worker` deleted. Needs `deploy:prd` on `api-gateway` to go live.
 
 ---
 
