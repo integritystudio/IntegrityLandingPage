@@ -1,6 +1,6 @@
 # API Provisioning Environment Setup Guide
 
-**Last Updated:** 2026-06-27
+**Last Updated:** 2026-07-29
 **Version:** 2.0
 
 This guide covers `SHARED_SECRET` generation, Flutter app configuration, the implementation/security reference, and troubleshooting for the API provisioning **sender worker**.
@@ -183,6 +183,7 @@ sender-worker/wrangler.toml:
 | Secret family | Doppler `prd` holds | Bound to Worker via |
 |---|---|---|
 | `SHARED_SECRET` (HMAC signing) | ✅ canonical | `wrangler secret put` at deploy time |
+| `KEY_ROTATION_DATES` (rotation alerting) | ✅ canonical | `wrangler secret put` on `api-provisioning-receiver` |
 | Auth0 credentials | ✅ canonical | `wrangler secret put` |
 | Supabase credentials | ✅ canonical | `wrangler secret put` |
 | `STRIPE_WEBHOOK_SECRET` | ✅ canonical (only copy) | `wrangler secret put` on `stripe-webhook` |
@@ -229,7 +230,25 @@ To rotate `SHARED_SECRET`:
    printf '%s' "$NEW" | npx wrangler secret put SHARED_SECRET --name api-provisioning-receiver
    ```
 
-4. Verify with `GET /health` on `sender-worker`, then a test `/send` request.
+4. Update `KEY_ROTATION_DATES` on `api-provisioning-receiver` (receiver side only — the sender does not use this). The receiver's scheduled cron alerts via Sentry when any tracked key exceeds 90 days; a stale date will keep re-alerting until updated:
+
+   ```bash
+   # Replace 2026-07-29T00:00:00.000Z with today's ISO date
+   NEW_DATE=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+   doppler secrets set "KEY_ROTATION_DATES={\"SHARED_SECRET\":\"$NEW_DATE\"}" \
+     --project integrity-studio --config prd
+   doppler run --project integrity-studio --config prd -- sh -c \
+     'echo "$KEY_ROTATION_DATES" | npx wrangler secret put KEY_ROTATION_DATES --name api-provisioning-receiver'
+   ```
+
+   If `SIGNING_KEYS` is later provisioned, add an entry per key ID (use the key's `id` field, not `SHARED_SECRET`):
+
+   ```bash
+   # Example when multiple keys are tracked:
+   # KEY_ROTATION_DATES = {"SHARED_SECRET":"<date>","key-id-2":"<date>"}
+   ```
+
+5. Verify with `GET /health` on `sender-worker`, then a test `/send` request.
 
 **Zero-downtime path (when `SIGNING_KEYS` is provisioned):** Bind `SIGNING_KEYS` (JSON array of `{id, secret}`) and `ACTIVE_KEY_ID` to both workers. The receiver uses the `x-key-id` header to select the verification key. Rotation then becomes:
 
