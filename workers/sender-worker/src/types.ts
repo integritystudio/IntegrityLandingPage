@@ -37,6 +37,7 @@ export const ERROR_CODE = {
   FORBIDDEN: "FORBIDDEN",
   NOT_FOUND: "NOT_FOUND",
   INTERNAL_ERROR: "INTERNAL_ERROR",
+  INVALID_CREDENTIALS: "INVALID_CREDENTIALS",
   AUTH0_UNCONFIGURED: "AUTH0_UNCONFIGURED",
   AUTH0_TOKEN_EXCHANGE_FAILED: "AUTH0_TOKEN_EXCHANGE_FAILED",
   AUTH0_USER_CREATION_FAILED: "AUTH0_USER_CREATION_FAILED",
@@ -72,6 +73,8 @@ export const ERROR_DESCRIPTIONS: Partial<Record<ErrorCode, string>> = {
     "No route matches the request method and path. Supported routes: GET /health, POST /signup, POST /signin, POST /send, POST /create-checkout-session.",
   [ERROR_CODE.INTERNAL_ERROR]:
     "Unclassified server error. Check worker logs for the underlying cause (missing env var, upstream timeout, or unhandled exception).",
+  [ERROR_CODE.INVALID_CREDENTIALS]:
+    "Email or password is incorrect, or no account exists for that email. Deliberately does not distinguish between those cases, to avoid user enumeration.",
   [ERROR_CODE.AUTH0_UNCONFIGURED]:
     "Auth0 environment variables are missing on the worker. Required: AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, AUTH0_AUDIENCE, AUTH0_CLI_ID, AUTH0_CLI_SECRET.",
   [ERROR_CODE.AUTH0_TOKEN_EXCHANGE_FAILED]:

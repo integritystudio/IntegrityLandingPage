@@ -319,7 +319,7 @@ describe("POST /signin — Auth0 ROPC", () => {
     expect(body.email).toBe("user@example.com");
   });
 
-  it("returns 500 with INTERNAL_ERROR when Auth0 rejects the credentials", async () => {
+  it("returns 401 with INVALID_CREDENTIALS when Auth0 rejects the credentials", async () => {
     fetchMock
       .get(`https://${AUTH0_DOMAIN}`)
       .intercept({ path: "/oauth/token", method: "POST" })
@@ -333,9 +333,70 @@ describe("POST /signin — Auth0 ROPC", () => {
       body: JSON.stringify({ email: "user@example.com", password: "wrong" }),
     });
 
+    expect(res.status).toBe(401);
+    const body = await res.json() as { error: string; code: string };
+    expect(body.error).toBe("invalid email or password");
+    expect(body.code).toBe("INVALID_CREDENTIALS");
+  });
+
+  it("returns the same neutral 401 for an unknown user as for a wrong password (no enumeration)", async () => {
+    // Auth0 answers invalid_grant for both cases; the two responses must be byte-identical.
+    const responses: Array<{ status: number; body: string }> = [];
+    for (const password of ["wrong-password", "any-password"]) {
+      fetchMock
+        .get(`https://${AUTH0_DOMAIN}`)
+        .intercept({ path: "/oauth/token", method: "POST" })
+        .reply(403, JSON.stringify({ error: "invalid_grant", error_description: "Wrong email or password." }), {
+          headers: { "content-type": "application/json" },
+        });
+      const res = await SELF.fetch("https://worker.test/signin", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: "no-such-user@example.com", password }),
+      });
+      responses.push({ status: res.status, body: await res.text() });
+    }
+
+    expect(responses[0].status).toBe(401);
+    expect(responses[1]).toEqual(responses[0]);
+    // Auth0's error_description must not leak through to the caller.
+    expect(responses[0].body).not.toContain("Wrong email or password");
+  });
+
+  it("still returns 500 with INTERNAL_ERROR when Auth0 fails for a non-credential reason", async () => {
+    // e.g. ROPC grant disabled on the application — a server misconfiguration, not a bad password.
+    fetchMock
+      .get(`https://${AUTH0_DOMAIN}`)
+      .intercept({ path: "/oauth/token", method: "POST" })
+      .reply(403, JSON.stringify({ error: "unauthorized_client" }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/signin", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "user@example.com", password: "S3cur3!pass" }),
+    });
+
     expect(res.status).toBe(500);
     const body = await res.json() as { error: string; code: string };
-    expect(body.error).toBe("signin failed");
+    expect(body.code).toBe("INTERNAL_ERROR");
+  });
+
+  it("returns 500 when Auth0 returns a non-JSON error body", async () => {
+    fetchMock
+      .get(`https://${AUTH0_DOMAIN}`)
+      .intercept({ path: "/oauth/token", method: "POST" })
+      .reply(502, "<html>bad gateway</html>", { headers: { "content-type": "text/html" } });
+
+    const res = await SELF.fetch("https://worker.test/signin", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "user@example.com", password: "S3cur3!pass" }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await res.json() as { code: string };
     expect(body.code).toBe("INTERNAL_ERROR");
   });
 

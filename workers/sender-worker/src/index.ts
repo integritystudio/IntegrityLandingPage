@@ -31,6 +31,8 @@ import {
   supabaseInsertUser,
   supabaseDeleteUser,
   supabaseAddOrgOwner,
+  Auth0TokenError,
+  AUTH0_INVALID_GRANT,
 } from "./supabase.js";
 import { createStripeCheckoutSession } from "./stripe.js";
 import { VERSION } from "./version.js";
@@ -270,6 +272,13 @@ async function handleSignIn(env: Env, req: Record<string, unknown>): Promise<Res
     return json({ jwt, email: req.email });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    // A rejected credential is a client error, not a server fault. Auth0 returns `invalid_grant`
+    // both for a wrong password and for an unknown user; both map to the same neutral 401 so the
+    // response cannot be used to enumerate accounts. Anything else (Auth0 5xx, network failure,
+    // ROPC grant disabled on the application) stays a 500 and is logged.
+    if (err instanceof Auth0TokenError && err.auth0Error === AUTH0_INVALID_GRANT) {
+      return errorResponse("invalid email or password", ERROR_CODE.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
+    }
     console.error("[signin]", msg);
     return errorResponse("signin failed", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }

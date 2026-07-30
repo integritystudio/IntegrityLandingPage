@@ -131,6 +131,27 @@ export async function supabaseAddOrgOwner(
   }
 }
 
+/**
+ * Thrown when Auth0 `/oauth/token` returns a non-2xx response. Carries the HTTP status and
+ * Auth0's machine-readable `error` field so callers can classify without parsing `message`
+ * — notably to tell a rejected credential (`invalid_grant`) apart from a server-side fault.
+ * The `message` format is unchanged from the previous plain `Error` because the signup
+ * handler still classifies on it via `msg.includes(...)`.
+ */
+export class Auth0TokenError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly auth0Error?: string,
+  ) {
+    super(message);
+    this.name = "Auth0TokenError";
+  }
+}
+
+/** Auth0's `error` value when a username/password pair is rejected or the user does not exist. */
+export const AUTH0_INVALID_GRANT = "invalid_grant";
+
 async function auth0FetchToken(domain: string, body: Record<string, string>, errorLabel: string): Promise<string> {
   const res = await fetch(`https://${domain}${AUTH0_PATHS.TOKEN}`, {
     method: "POST",
@@ -139,7 +160,14 @@ async function auth0FetchToken(domain: string, body: Record<string, string>, err
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`${errorLabel}: ${res.status} ${err}`);
+    let auth0Error: string | undefined;
+    try {
+      const parsed = JSON.parse(err) as { error?: unknown };
+      if (typeof parsed.error === "string") auth0Error = parsed.error;
+    } catch {
+      // Non-JSON error body — leave auth0Error undefined so the caller falls back to a 500.
+    }
+    throw new Auth0TokenError(`${errorLabel}: ${res.status} ${err}`, res.status, auth0Error);
   }
   const data = await res.json() as { access_token?: string };
   if (!data.access_token) throw new Error(`${errorLabel} returned no access_token`);

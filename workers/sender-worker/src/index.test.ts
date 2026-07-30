@@ -1187,9 +1187,29 @@ describe('Sender Worker', () => {
       expect(data.error).toContain('email');
     });
 
-    it('returns 500 when Auth0 ROPC fails', async () => {
+    it('returns 401 when Auth0 ROPC rejects the credentials', async () => {
       const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
         new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 403 }),
+      );
+
+      const request = new Request('https://worker.test/signin', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', password: 'wrong' }),
+      });
+
+      const response = await worker.fetch(request, mockEnv);
+
+      expect(response.status).toBe(401);
+      const data = await response.json() as { code: string };
+      expect(data.code).toBe('INVALID_CREDENTIALS');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('returns 500 when Auth0 ROPC fails for a non-credential reason', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'unauthorized_client' }), { status: 403 }),
       );
 
       const request = new Request('https://worker.test/signin', {
