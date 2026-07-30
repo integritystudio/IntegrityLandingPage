@@ -11,10 +11,17 @@ export interface BootstrapHandlerOptions extends UserTokenOptions {
 }
 
 type UsageBucketRow = UsageBucket & Record<string, unknown>;
+type UsageSnapshot = BootstrapResponse['usage_snapshot'];
 
-const EMPTY_USAGE: { month_to_date_units: number; current_minute_remaining: number | null } = {
+/**
+ * Returned when the usage aggregate cannot be read. `unavailable` is what distinguishes it
+ * from a genuine zero — without it a failed query and a brand-new account are byte-identical
+ * in the response, which is how a database problem reads as "no usage".
+ */
+const USAGE_UNAVAILABLE: UsageSnapshot = {
   month_to_date_units: 0,
   current_minute_remaining: null,
+  unavailable: true,
 };
 
 async function loadOrgContext(
@@ -63,10 +70,33 @@ async function loadOrgContext(
     return { ok: false, error: notFound('No organization data found') };
   }
 
-  const orgs: (Organization & { role: OrgRole })[] = orgsResult.data.map((org) => ({
-    ...org,
-    role: roleByOrgId.get(org.id) as OrgRole,
-  }));
+  // A partial resolution is also a referential-integrity problem, and it used to pass silently
+  // because only the zero case was logged: a user with three memberships and two surviving org
+  // rows would just see two organizations. Serving the rest is still the right behaviour — one
+  // dangling membership should not lock the account out — but it must not be invisible.
+  if (orgsResult.data.length !== orgIds.size) {
+    const missing = [...orgIds].filter((id) => !orgsResult.data.some((org) => org.id === id));
+    console.error(
+      `[bootstrap] user ${userId} has ${orgIds.size} membership(s) but ${orgsResult.data.length} org row(s); missing: ${missing.join(', ')}`,
+    );
+  }
+
+  // No `as OrgRole` cast here. Every org came back from an `in` filter over the membership
+  // org IDs, so a missing role is unreachable — but a cast would fabricate one if that ever
+  // stopped holding, and an undefined role silently serialises to an absent field rather than
+  // failing. Dropping the entry instead keeps the invariant "every org listed has a role".
+  const orgs: (Organization & { role: OrgRole })[] = orgsResult.data.flatMap((org) => {
+    const role = roleByOrgId.get(org.id);
+    if (!role) {
+      console.error(`[bootstrap] org ${org.id} returned for user ${userId} with no matching membership role`);
+      return [];
+    }
+    return [{ ...org, role }];
+  });
+
+  if (orgs.length === 0) {
+    return { ok: false, error: notFound('No organization data found') };
+  }
 
   const requested = orgIdHeader ? orgs.find((o) => o.id === orgIdHeader) : undefined;
   const activeOrgId = requested?.id ?? orgs[0].id;
@@ -74,15 +104,16 @@ async function loadOrgContext(
   return { ok: true, orgs, activeOrgId };
 }
 
-async function loadUsageSnapshot(
-  orgId: string,
-  sb: SupabaseClient,
-): Promise<{ month_to_date_units: number; current_minute_remaining: number | null }> {
+async function loadUsageSnapshot(orgId: string, sb: SupabaseClient): Promise<UsageSnapshot> {
   const now = new Date();
-  // YYYY-MM-DD of the first day of the current calendar month.
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .split('T')[0];
+  // YYYY-MM-DD of the first day of the current calendar month, in UTC.
+  // Built by formatting the UTC parts rather than via `new Date(y, m, 1).toISOString()`:
+  // that constructor reads its arguments as *local* time, so in any zone ahead of UTC local
+  // midnight on the 1st is still the previous month in UTC — it renders as the 30th/31st and
+  // this filter then sweeps that day's buckets into the month-to-date total. Workers run in
+  // UTC, so the old form happened to be correct in production while being wrong on any
+  // developer machine east of UTC. Pinned by a test that runs under Asia/Tokyo.
+  const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
 
   // usage_buckets_daily holds pre-aggregated daily totals per metric_key.
   // Summing total_quantity across all rows for the current month gives MTD units.
@@ -98,7 +129,7 @@ async function loadUsageSnapshot(
 
   if (!result.ok) {
     console.error('[bootstrap] Failed to fetch usage snapshot:', result.error);
-    return EMPTY_USAGE;
+    return USAGE_UNAVAILABLE;
   }
 
   const month_to_date_units = result.data.reduce(

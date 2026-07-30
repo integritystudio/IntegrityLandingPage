@@ -306,6 +306,135 @@ describe('POST /bootstrap', () => {
     expect(body.usage_snapshot.month_to_date_units).toBe(35);
   });
 
+  // Three memberships resolving to two org rows is a referential-integrity problem. Serving
+  // the survivors is right — one dangling membership should not lock the account out — but it
+  // used to pass in complete silence because only the zero case was logged.
+  it('serves the resolvable orgs and logs when memberships outnumber org rows', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const token = await jwt.sign({ sub: 'auth0|u1' });
+    stubSupabase({
+      'GET users': okRows([makeUserRow()]),
+      'GET organization_memberships': okRows([
+        makeMembershipRow({ organization_id: 'org-1' }),
+        makeMembershipRow({ organization_id: 'org-2' }),
+        makeMembershipRow({ organization_id: 'org-gone' }),
+      ]),
+      // org-gone has no row.
+      'GET organizations': okRows([makeOrgRow({ id: 'org-1' }), makeOrgRow({ id: 'org-2' })]),
+      'GET entitlements': okRows([]),
+      'GET usage_buckets_daily': okRows([]),
+    });
+
+    const res = await handleBootstrap(makeRequest(token), opts);
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { organizations: { id: string }[] };
+    expect(body.organizations.map((o) => o.id)).toEqual(['org-1', 'org-2']);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('org-gone'));
+    consoleError.mockRestore();
+  });
+
+  // Unreachable given the `in` filter, but the previous `as OrgRole` cast would have invented
+  // a role rather than surfacing the inconsistency. Every org listed must have a real role.
+  it('drops an org that comes back with no matching membership role', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const token = await jwt.sign({ sub: 'auth0|u1' });
+    stubSupabase({
+      'GET users': okRows([makeUserRow()]),
+      'GET organization_memberships': okRows([makeMembershipRow({ organization_id: 'org-1' })]),
+      // A row the membership set never asked for.
+      'GET organizations': okRows([makeOrgRow({ id: 'org-1' }), makeOrgRow({ id: 'org-unasked' })]),
+      'GET entitlements': okRows([]),
+      'GET usage_buckets_daily': okRows([]),
+    });
+
+    const res = await handleBootstrap(makeRequest(token), opts);
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { organizations: { id: string; role: string }[] };
+    expect(body.organizations.map((o) => o.id)).toEqual(['org-1']);
+    expect(body.organizations.every((o) => typeof o.role === 'string' && o.role.length > 0)).toBe(true);
+    consoleError.mockRestore();
+  });
+
+  // A failed aggregate and a brand-new account must not be byte-identical in the response.
+  it('marks the usage snapshot unavailable when the aggregate query fails', async () => {
+    const token = await jwt.sign({ sub: 'auth0|u1' });
+    stubSupabase({
+      'GET users': okRows([makeUserRow()]),
+      'GET organization_memberships': okRows([makeMembershipRow()]),
+      'GET organizations': okRows([makeOrgRow()]),
+      'GET entitlements': okRows([]),
+      'GET usage_buckets_daily': httpError(500, 'aggregate exploded'),
+    });
+
+    const res = await handleBootstrap(makeRequest(token), opts);
+
+    // Still 200: usage is decoration on the post-signup screen, so the rest of the payload
+    // is worth serving. The flag is what tells the caller the number is not trustworthy.
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      usage_snapshot: { month_to_date_units: number; unavailable?: true };
+    };
+    expect(body.usage_snapshot.unavailable).toBe(true);
+    expect(body.usage_snapshot.month_to_date_units).toBe(0);
+  });
+
+  it('omits the unavailable flag when the aggregate genuinely returns no rows', async () => {
+    const token = await jwt.sign({ sub: 'auth0|u1' });
+    stubSupabase({
+      'GET users': okRows([makeUserRow()]),
+      'GET organization_memberships': okRows([makeMembershipRow()]),
+      'GET organizations': okRows([makeOrgRow()]),
+      'GET entitlements': okRows([]),
+      'GET usage_buckets_daily': okRows([]),
+    });
+
+    const res = await handleBootstrap(makeRequest(token), opts);
+
+    const body = (await res.json()) as {
+      usage_snapshot: { month_to_date_units: number; unavailable?: true };
+    };
+    expect(body.usage_snapshot.month_to_date_units).toBe(0);
+    expect(body.usage_snapshot.unavailable).toBeUndefined();
+  });
+
+  // The month boundary must be derived from UTC parts. `new Date(y, m, 1).toISOString()` reads
+  // its arguments as local time, so in a zone *ahead* of UTC local midnight on the 1st is still
+  // the previous month in UTC — it renders as the 30th/31st and sweeps that day's buckets into
+  // the month-to-date total.
+  //
+  // The timezone must be east of UTC for this to reproduce: verified that under
+  // America/Los_Angeles both forms agree, so a negative-offset zone cannot catch the bug. Under
+  // Asia/Tokyo the local-time form yields the prior month's last day and this test fails, which
+  // is what makes it worth having.
+  it('filters usage from the first of the month in UTC, not local time', async () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'Asia/Tokyo';
+    try {
+      const token = await jwt.sign({ sub: 'auth0|u1' });
+      const stub = stubSupabase({
+        'GET users': okRows([makeUserRow()]),
+        'GET organization_memberships': okRows([makeMembershipRow()]),
+        'GET organizations': okRows([makeOrgRow()]),
+        'GET entitlements': okRows([]),
+        'GET usage_buckets_daily': okRows([]),
+      });
+
+      await handleBootstrap(makeRequest(token), opts);
+
+      const now = new Date();
+      const expected = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
+      const filter = stub.find('GET', 'usage_buckets_daily')!.url.searchParams.get('bucket_date');
+      expect(filter).toBe(`gte.${expected}`);
+      // Day 01 specifically: a local-time constructor would produce 28-31 of the prior month.
+      expect(filter).toMatch(/^gte\.\d{4}-\d{2}-01$/);
+    } finally {
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    }
+  });
+
   it('returns current_minute_remaining as null in the usage snapshot', async () => {
     const token = await jwt.sign({ sub: 'auth0|u1', email: 'user@example.com' });
     stubSupabase({

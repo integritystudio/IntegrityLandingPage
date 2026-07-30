@@ -45,6 +45,13 @@ export interface BootstrapResponse {
   usage_snapshot: {
     month_to_date_units: number;
     current_minute_remaining: number | null;
+    /**
+     * Set when the usage aggregate could not be read, so a consumer can tell "no usage yet"
+     * from "we do not know". Absent on success. The numeric fields still carry safe defaults
+     * rather than null, because the field is decoration on the post-signup screen and failing
+     * the whole bootstrap over it would be worse than serving the rest of the payload.
+     */
+    unavailable?: true;
   };
 }
 
