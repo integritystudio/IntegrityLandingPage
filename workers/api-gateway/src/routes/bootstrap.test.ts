@@ -38,6 +38,7 @@ function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub
 
 const makeUserRow = (overrides: Record<string, unknown> = {}) => ({
   id: 'user-uuid-1',
+  email: 'user@example.com',
   ...overrides,
 });
 
@@ -154,8 +155,13 @@ describe('POST /bootstrap', () => {
     expect(body).toHaveProperty('usage_snapshot');
   });
 
-  it('sets user.id to the Auth0 sub and user.email from the JWT', async () => {
-    const token = await jwt.sign({ sub: 'auth0|u1', email: 'user@example.com' });
+  // Both fields come from the users row, not the token. A real Auth0 access token for a
+  // custom audience carries no `email` claim even with `email` in scope, so sourcing it from
+  // the JWT shipped a permanently blank address; and `id` must mean the same thing here as
+  // it does in GET /v1/me, which returns users.id. Note the token below deliberately carries
+  // no email claim — signing one that does would only re-test a token Auth0 never issues.
+  it('sets user.id and user.email from the users row, not the JWT', async () => {
+    const token = await jwt.sign({ sub: 'auth0|u1' });
     stubSupabase({
       'GET users': okRows([makeUserRow()]),
       'GET organization_memberships': okRows([makeMembershipRow()]),
@@ -166,8 +172,23 @@ describe('POST /bootstrap', () => {
     const res = await handleBootstrap(makeRequest(token), opts);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { user: { id: string; email: string } };
-    expect(body.user.id).toBe('auth0|u1');
+    expect(body.user.id).toBe('user-uuid-1');
+    expect(body.user.id).not.toBe('auth0|u1');
     expect(body.user.email).toBe('user@example.com');
+  });
+
+  it('reports the users-row email even when the token does carry an email claim', async () => {
+    const token = await jwt.sign({ sub: 'auth0|u1', email: 'stale-token-email@example.com' });
+    stubSupabase({
+      'GET users': okRows([makeUserRow({ email: 'canonical@example.com' })]),
+      'GET organization_memberships': okRows([makeMembershipRow()]),
+      'GET organizations': okRows([makeOrgRow()]),
+      'GET entitlements': okRows([]),
+      'GET usage_buckets_daily': okRows([]),
+    });
+    const res = await handleBootstrap(makeRequest(token), opts);
+    const body = (await res.json()) as { user: { email: string } };
+    expect(body.user.email).toBe('canonical@example.com');
   });
 
   it('resolves userId via auth0_id, not using sub directly for membership lookup', async () => {
@@ -201,6 +222,55 @@ describe('POST /bootstrap', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { active_org_id: string };
     expect(body.active_org_id).toBe('org-2');
+  });
+
+  // x-org-id is caller-controlled, so this is an access-control boundary, not a preference.
+  // The header is only honoured if it names an org the caller is actually a member of;
+  // anything else silently falls back rather than being trusted. Without this test a
+  // refactor that "fixed" the fallback by taking the header at face value would still pass.
+  it('ignores an x-org-id naming an org the caller is not a member of', async () => {
+    const token = await jwt.sign({ sub: 'auth0|u1' });
+    const stub = stubSupabase({
+      'GET users': okRows([makeUserRow()]),
+      'GET organization_memberships': okRows([makeMembershipRow({ organization_id: 'org-1' })]),
+      'GET organizations': okRows([makeOrgRow({ id: 'org-1' })]),
+      'GET entitlements': okRows([]),
+      'GET usage_buckets_daily': okRows([]),
+    });
+
+    const res = await handleBootstrap(makeRequest(token, 'org-someone-else'), opts);
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      active_org_id: string;
+      organizations: { id: string }[];
+    };
+    // Falls back to the caller's own org; the foreign id is neither active nor listed.
+    expect(body.active_org_id).toBe('org-1');
+    expect(body.organizations.map((o) => o.id)).toEqual(['org-1']);
+
+    // The foreign id must never reach the database as a filter value.
+    const orgQuery = stub.find('GET', 'organizations')!;
+    expect(orgQuery.url.searchParams.get('id')).toBe('in.(org-1)');
+    expect(orgQuery.url.toString()).not.toContain('org-someone-else');
+  });
+
+  // Entitlements and usage are loaded for the *active* org, so an ignored x-org-id must not
+  // leak another org's data into those two payload fields either.
+  it('scopes entitlements and usage to the fallback org when x-org-id is foreign', async () => {
+    const token = await jwt.sign({ sub: 'auth0|u1' });
+    const stub = stubSupabase({
+      'GET users': okRows([makeUserRow()]),
+      'GET organization_memberships': okRows([makeMembershipRow({ organization_id: 'org-1' })]),
+      'GET organizations': okRows([makeOrgRow({ id: 'org-1' })]),
+      'GET entitlements': okRows([]),
+      'GET usage_buckets_daily': okRows([]),
+    });
+
+    await handleBootstrap(makeRequest(token, 'org-someone-else'), opts);
+
+    expect(stub.find('GET', 'entitlements')!.url.searchParams.get('organization_id')).toBe('eq.org-1');
+    expect(stub.find('GET', 'usage_buckets_daily')!.url.searchParams.get('organization_id')).toBe('eq.org-1');
   });
 
   it('falls back to the first org when x-org-id is absent', async () => {

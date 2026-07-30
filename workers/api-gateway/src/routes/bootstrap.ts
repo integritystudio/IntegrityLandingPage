@@ -110,7 +110,7 @@ async function loadUsageSnapshot(
 }
 
 async function buildBootstrapPayload(
-  authSub: string,
+  userId: string,
   userEmail: string,
   orgs: (Organization & { role: OrgRole })[],
   activeOrgId: string,
@@ -129,7 +129,11 @@ async function buildBootstrapPayload(
   }
 
   return {
-    user: { id: authSub, email: userEmail },
+    // `id` is the internal users.id, matching what GET /v1/me returns for the same user.
+    // It deliberately is not the Auth0 sub: two endpoints describing one user must not
+    // disagree about which key `id` means — conflating those two is what made an Auth0
+    // subject reach a uuid column and silently return an empty account.
+    user: { id: userId, email: userEmail },
     organizations: orgs,
     active_org_id: activeOrgId,
     entitlements: buildEntitlementMap(entitlementResult.data),
@@ -148,11 +152,15 @@ export async function handleBootstrap(
   const jwtResult = await verifyJwt(tokenResult.token, key, { issuerUrl, audience });
   if (!jwtResult.ok) return jwtResult.error;
 
-  const { sub, email } = jwtResult.payload;
+  const { sub } = jwtResult.payload;
   if (!sub) return unauthorized('JWT missing sub claim');
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
+  // Both the internal id and the email come from the users row. The email is not read from
+  // the JWT: an Auth0 access token for a custom audience carries no `email` claim even when
+  // `email` is in the requested scope, so `payload.email` is always undefined here and the
+  // previous `?? ''` fallback meant this field shipped permanently blank.
   const userResult = await resolveUserId(sub, sb);
   if (!userResult.ok) return userResult.error;
 
@@ -164,8 +172,8 @@ export async function handleBootstrap(
   if (!contextResult.ok) return contextResult.error;
 
   const payload = await buildBootstrapPayload(
-    sub,
-    email ?? '',
+    userResult.userId,
+    userResult.email,
     contextResult.orgs,
     contextResult.activeOrgId,
     sb,

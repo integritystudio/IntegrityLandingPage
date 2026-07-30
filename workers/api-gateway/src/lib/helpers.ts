@@ -127,9 +127,12 @@ export async function resolveJwt(
 export async function resolveUserId(
   auth0Sub: string,
   sb: SupabaseClient,
-): Promise<{ ok: true; userId: string } | { ok: false; error: Response }> {
-  const result = await sb.query<{ id: string }>('users', {
-    select: 'id',
+): Promise<{ ok: true; userId: string; email: string } | { ok: false; error: Response }> {
+  const result = await sb.query<{ id: string; email: string }>('users', {
+    // `email` comes along because this row is the only authoritative source for it: an Auth0
+    // *access* token carries no `email` claim (OIDC claims go to the ID token / userinfo), so a
+    // handler that needs the address must read it here rather than from the JWT payload.
+    select: 'id, email',
     filters: [{ column: 'auth0_id', operator: 'eq', value: auth0Sub }],
     limit: 1,
   });
@@ -141,7 +144,7 @@ export async function resolveUserId(
     // Authentic token, but no provisioned row — a signup that half-completed.
     return { ok: false, error: unauthorized('No user record for this identity') };
   }
-  return { ok: true, userId: result.data[0].id };
+  return { ok: true, userId: result.data[0].id, email: result.data[0].email };
 }
 
 export function buildEntitlementMap(rows: Entitlement[]): Record<string, boolean | number | null> {
