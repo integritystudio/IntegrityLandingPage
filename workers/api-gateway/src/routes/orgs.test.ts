@@ -12,6 +12,7 @@ import {
   type SupabaseFetchStub,
 } from '../../../lib/test-helpers/supabase-fetch-stub';
 import { createAuth0JwtFixture, TEST_AUTH0_OPTS, type Auth0JwtFixture } from '../../../lib/test-helpers/auth0-jwt-stub';
+import { resetIdentityRateLimit } from '../lib/rate-limit';
 
 const ORG_ID = 'org-id-1';
 const OTHER_ORG_ID = 'org-id-2';
@@ -72,6 +73,7 @@ beforeAll(async () => {
 });
 
 afterEach(() => {
+  resetIdentityRateLimit();
   vi.unstubAllGlobals();
 });
 

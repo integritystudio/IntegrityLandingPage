@@ -1,4 +1,5 @@
-import { unauthorized } from '../../../lib/http';
+import { unauthorized, tooManyRequests } from '../../../lib/http';
+import { checkIdentityRateLimit } from './rate-limit';
 import { requireBearerToken } from '../../../lib/http/request';
 import { verifyJwt, auth0JwtKey, auth0IssuerFor } from '../../../lib/auth';
 import type { JwtVerificationKey } from '../../../lib/auth';
@@ -40,6 +41,12 @@ export interface UserTokenOptions {
   auth0Domain: string;
   /** Auth0 API identifier the token must be scoped to. Omit to skip `aud` validation. */
   auth0Audience?: string;
+  /**
+   * KV namespace backing the per-identity throttle on the routes that carry no org quota.
+   * Optional: when absent the throttle still counts per isolate (see checkIdentityRateLimit),
+   * so an unbound namespace weakens the limit rather than disabling it.
+   */
+  rateLimitKv?: KVNamespace;
 }
 
 /**
@@ -95,6 +102,33 @@ export async function preVerifyToken(
   const jwtResult = await verifyJwt(token, key, { issuerUrl, audience });
   if (!jwtResult.ok) return jwtResult;
   return { ok: true };
+}
+
+/**
+ * Verify the caller's token and count the request against their per-identity throttle.
+ *
+ * For the identity-scoped routes (`/v1/me`, `/v1/orgs`, `/bootstrap`), which have no org to meter
+ * against and so never reach `enforceOrgQuota`. The throttle runs *after* verification, so the
+ * subject it keys on is authentic — limiting on an unverified claim would let a caller mint a new
+ * subject per request and bypass it — and *before* the handler's database work, so a rejected
+ * caller costs nothing beyond one cached signature check.
+ */
+export async function resolveJwtRateLimited(
+  request: Request,
+  opts: UserTokenOptions,
+): Promise<{ ok: true; sub: string } | { ok: false; error: Response }> {
+  const auth = await resolveJwt(request, auth0VerifyParams(opts));
+  if (!auth.ok) return auth;
+
+  const limit = await checkIdentityRateLimit(auth.sub, { RATE_LIMIT_KV: opts.rateLimitKv });
+  if (!limit.allowed) {
+    return {
+      ok: false,
+      error: tooManyRequests('Too many requests', { retry_after_seconds: limit.retryAfterSeconds }),
+    };
+  }
+
+  return auth;
 }
 
 export async function resolveJwt(

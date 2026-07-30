@@ -10,6 +10,7 @@ import {
   type SupabaseFetchStub,
 } from '../../../lib/test-helpers/supabase-fetch-stub';
 import { createAuth0JwtFixture, TEST_AUTH0_OPTS, type Auth0JwtFixture } from '../../../lib/test-helpers/auth0-jwt-stub';
+import { resetIdentityRateLimit, IDENTITY_RATE_LIMIT_MAX } from '../lib/rate-limit';
 
 const opts = {
   ...TEST_AUTH0_OPTS,
@@ -73,6 +74,7 @@ const makeUsageBucketRow = (overrides: Record<string, unknown> = {}) => ({
 });
 
 afterEach(() => {
+  resetIdentityRateLimit();
   vi.unstubAllGlobals();
 });
 
@@ -103,6 +105,53 @@ describe('POST /bootstrap', () => {
     const res = await handleBootstrap(makeRequest(token), opts);
     expect(res.status).toBe(401);
     expect(stub.find('GET', 'users')?.url.searchParams.get('auth0_id')).toBe('eq.auth0|ghost');
+  });
+
+  // /bootstrap carries no org quota — it is the call that tells the client which orgs exist, so
+  // there is nothing to meter against and gating it on billing state would block onboarding.
+  // The per-identity throttle is what bounds it instead. Asserted through the handler, not just
+  // against the limiter, so the wiring is covered too.
+  it('returns 429 once the identity exceeds its request throttle', async () => {
+    const token = await jwt.sign({ sub: 'auth0|u1' });
+    const routes = {
+      'GET users': okRows([makeUserRow()]),
+      'GET organization_memberships': okRows([makeMembershipRow()]),
+      'GET organizations': okRows([makeOrgRow()]),
+      'GET entitlements': okRows([]),
+      'GET usage_buckets_daily': okRows([]),
+    };
+
+    let last: Response | undefined;
+    for (let i = 0; i <= IDENTITY_RATE_LIMIT_MAX; i++) {
+      stubSupabase(routes);
+      last = await handleBootstrap(makeRequest(token), opts);
+    }
+
+    expect(last!.status).toBe(429);
+  });
+
+  // The throttle must not cost a rejected caller any database work — that is the point of
+  // running it after verification but before the handler's queries.
+  it('makes no database calls once throttled', async () => {
+    const token = await jwt.sign({ sub: 'auth0|u1' });
+    const routes = {
+      'GET users': okRows([makeUserRow()]),
+      'GET organization_memberships': okRows([makeMembershipRow()]),
+      'GET organizations': okRows([makeOrgRow()]),
+      'GET entitlements': okRows([]),
+      'GET usage_buckets_daily': okRows([]),
+    };
+    for (let i = 0; i <= IDENTITY_RATE_LIMIT_MAX; i++) {
+      stubSupabase(routes);
+      await handleBootstrap(makeRequest(token), opts);
+    }
+
+    // Fresh stub so only the throttled request's traffic is recorded.
+    const stub = stubSupabase(routes);
+    const res = await handleBootstrap(makeRequest(token), opts);
+
+    expect(res.status).toBe(429);
+    expect(stub.requests).toHaveLength(0);
   });
 
   it('returns 404 when user has no active memberships', async () => {

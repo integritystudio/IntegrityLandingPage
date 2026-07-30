@@ -31,6 +31,15 @@ routes = [
 AUTH0_DOMAIN = "dev-68gg87ow4mg4kzyo.us.auth0.com"
 AUTH0_AUDIENCE = "https://api.integritystudio.dev"
 
+# Per-identity throttle for the routes that carry no org quota (/v1/me, /v1/orgs, /bootstrap).
+# Quota is org-scoped billing metering and only guards /v1/orgs/:id/*; these routes have no org
+# to meter against, so they were authenticated but otherwise unlimited. Shared namespace with
+# sender-worker; keys are prefixed `gw_id_rl:` so the two cannot collide. `kv_namespaces` is NOT
+# inherited by a named environment, so [env.dev] repeats it below.
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "766332ec6de3462fb29777aa1b6bc9d3"        # AUTH_RATE_LIMIT_KV
+
 # Durable Objects
 [[durable_objects.bindings]]
 name = "QUOTA_DO"
@@ -82,6 +91,10 @@ routes = []
 AUTH0_DOMAIN = "dev-68gg87ow4mg4kzyo.us.auth0.com"
 AUTH0_AUDIENCE = "https://api.integritystudio.dev"
 
+[[env.dev.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "46a717cd692a4cc2969bff9504bcc87b"        # dev-RATE_LIMIT_KV
+
 [[env.dev.durable_objects.bindings]]
 name = "QUOTA_DO"
 class_name = "QuotaDurableObject"
@@ -99,7 +112,8 @@ enabled = true
 # Secrets (set via: wrangler secret put <NAME>)
 # SUPABASE_URL
 # SUPABASE_SERVICE_ROLE_KEY
-# SUPABASE_JWT_SECRET
+# SUPABASE_JWT_SECRET — REMOVED: browser tokens are Auth0-issued and verified against
+#   AUTH0_DOMAIN's JWKS, so nothing reads this. Unbound from the Worker 2026-07-30.
 # API_KEY_HMAC_SECRET
 # STRIPE_SECRET_KEY
 # APP_URL (optional; defaults to https://app.integritystudio.ai)

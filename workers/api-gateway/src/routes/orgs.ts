@@ -4,7 +4,7 @@ import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase
 import { requireBearerToken } from '../../../lib/http/request';
 import { parseApiKey } from '../../../lib/api-keys';
 import type { Organization, OrgRole, OrgMembership, Entitlement } from '../../../lib/types';
-import { resolveJwt, buildEntitlementMap, writeAuditLog, auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
+import { resolveJwt, resolveJwtRateLimited, buildEntitlementMap, writeAuditLog, auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
 
 interface OrgsHandlerOptions extends UserTokenOptions {
   supabaseUrl: string;
@@ -58,7 +58,7 @@ export async function handleListOrgs(
   request: Request,
   opts: OrgsHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, auth0VerifyParams(opts));
+  const auth = await resolveJwtRateLimited(request, opts);
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);

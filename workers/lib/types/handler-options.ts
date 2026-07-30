@@ -25,16 +25,21 @@ export const MachineRouteOptionsSchema = BaseRouteOptionsSchema.extend({
 
 export type MachineRouteOptions = z.infer<typeof MachineRouteOptionsSchema>;
 
-// Environment variables for Cloudflare Worker
+// Environment variables for Cloudflare Worker.
+//
+// Kept in step with api-gateway's `Env` by hand — nothing imports this schema, so a drift here
+// is silent. It previously still described `SUPABASE_JWT_SECRET` and `SUPABASE_JWT_ISSUER`
+// long after browser tokens moved to Auth0, i.e. it documented a contract that no longer
+// existed. If it drifts again it should be deleted rather than left to mislead.
 export const EnvSchema = z.object({
-  /** Also the source of the JWKS URL used to verify ES256-signed tokens. */
+  /** Database access only; the service role key bypasses RLS. Not a token issuer. */
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string(),
-  /** Optional — see `BaseRouteOptionsSchema.jwtSecret`. Absent on ES256-only projects. */
-  SUPABASE_JWT_SECRET: z.string().optional(),
   API_KEY_HMAC_SECRET: z.string(),
-  /** JWT issuer URL for `iss` claim validation. Set to Supabase project auth URL. */
-  SUPABASE_JWT_ISSUER: z.string().url().optional(),
+  /** Auth0 tenant issuing browser tokens; the JWKS URL and expected `iss` derive from it. */
+  AUTH0_DOMAIN: z.string(),
+  /** Auth0 API identifier the token must be scoped to. Absent means `aud` is not validated. */
+  AUTH0_AUDIENCE: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

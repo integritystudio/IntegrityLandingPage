@@ -14,12 +14,6 @@ import { preVerifyToken } from './lib/helpers';
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
-  /**
-   * Legacy Supabase HS256 secret. No longer used for request auth — browser tokens are
-   * issued by Auth0 and verified against AUTH0_DOMAIN's JWKS. Retained only so the
-   * binding can be removed from the Worker in a separate change.
-   */
-  SUPABASE_JWT_SECRET?: string;
   API_KEY_HMAC_SECRET: string;
   QUOTA_DO: DurableObjectNamespace;
   /**
@@ -46,6 +40,12 @@ export interface Env {
    * production defaults in ../../http-helpers when unset or malformed.
    */
   ALLOWED_ORIGINS_JSON?: string;
+  /**
+   * Shared KV namespace backing the per-identity throttle on the routes that carry no org
+   * quota (/v1/me, /v1/orgs, /bootstrap). Optional: when unbound the throttle degrades to a
+   * per-isolate count rather than switching off.
+   */
+  RATE_LIMIT_KV?: KVNamespace;
 }
 
 const APP_URL_FALLBACK = 'https://app.integritystudio.ai';
@@ -152,6 +152,7 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
     serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
     auth0Domain: env.AUTH0_DOMAIN,
     auth0Audience: env.AUTH0_AUDIENCE,
+    rateLimitKv: env.RATE_LIMIT_KV,
   };
 
   const machineRouteOpts = {

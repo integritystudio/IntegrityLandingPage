@@ -69,42 +69,45 @@ describe('EnvSchema', () => {
   const valid = {
     SUPABASE_URL: 'https://project.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY: 'service-key-abc',
-    SUPABASE_JWT_SECRET: 'jwt-secret-xyz',
     API_KEY_HMAC_SECRET: 'hmac-secret-abc',
+    AUTH0_DOMAIN: 'tenant.us.auth0.com',
   };
 
   it('accepts valid env vars', () => {
     expect(EnvSchema.safeParse(valid).success).toBe(true);
   });
 
-  it('accepts optional SUPABASE_JWT_ISSUER', () => {
-    expect(EnvSchema.safeParse({
-      ...valid,
-      SUPABASE_JWT_ISSUER: 'https://project.supabase.co/auth/v1',
-    }).success).toBe(true);
+  it('accepts an optional AUTH0_AUDIENCE', () => {
+    expect(EnvSchema.safeParse({ ...valid, AUTH0_AUDIENCE: 'https://api.example.com' }).success).toBe(true);
   });
 
   it('rejects invalid SUPABASE_URL', () => {
     expect(EnvSchema.safeParse({ ...valid, SUPABASE_URL: 'not-a-url' }).success).toBe(false);
   });
 
-  it('rejects invalid SUPABASE_JWT_ISSUER', () => {
-    expect(EnvSchema.safeParse({ ...valid, SUPABASE_JWT_ISSUER: 'not-a-url' }).success).toBe(false);
+  // Without a tenant there is no JWKS URL and no expected issuer, so every JWT-authenticated
+  // route 401s. It is required, not optional.
+  it('rejects env with no AUTH0_DOMAIN', () => {
+    const { AUTH0_DOMAIN: _d, ...noDomain } = valid;
+    expect(EnvSchema.safeParse(noDomain).success).toBe(false);
   });
 
-  it('accepts env with no SUPABASE_JWT_SECRET — ES256 projects verify via JWKS', () => {
-    const { SUPABASE_JWT_SECRET: _s, ...noSecret } = valid;
-    expect(EnvSchema.safeParse(noSecret).success).toBe(true);
+  // The two Supabase JWT fields were removed when browser tokens moved to Auth0. Supabase is
+  // reached with the service role key and issues no token here, so a config still carrying
+  // them is stale rather than invalid — extra keys are ignored, not rejected.
+  it('ignores the retired SUPABASE_JWT_SECRET and SUPABASE_JWT_ISSUER keys', () => {
+    const result = EnvSchema.safeParse({
+      ...valid,
+      SUPABASE_JWT_SECRET: 'jwt-secret-xyz',
+      SUPABASE_JWT_ISSUER: 'https://project.supabase.co/auth/v1',
+    });
+    expect(result.success).toBe(true);
+    expect(result.success && 'SUPABASE_JWT_SECRET' in result.data).toBe(false);
   });
 
-  it('still rejects missing SUPABASE_URL, the JWKS source', () => {
+  it('still rejects missing SUPABASE_URL, the database endpoint', () => {
     const { SUPABASE_URL: _u, ...noUrl } = valid;
     expect(EnvSchema.safeParse(noUrl).success).toBe(false);
-  });
-
-  it('still rejects missing SUPABASE_SERVICE_ROLE_KEY', () => {
-    const { SUPABASE_SERVICE_ROLE_KEY: _k, ...noKey } = valid;
-    expect(EnvSchema.safeParse(noKey).success).toBe(false);
   });
 });
 

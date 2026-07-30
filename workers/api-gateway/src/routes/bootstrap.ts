@@ -1,9 +1,7 @@
-import { ok, unauthorized, notFound, serverError } from '../../../lib/http';
-import { requireBearerToken } from '../../../lib/http/request';
-import { verifyJwt } from '../../../lib/auth';
+import { ok, notFound, serverError } from '../../../lib/http';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { Organization, OrgRole, OrgMembership, Entitlement, UsageBucket, BootstrapResponse } from '../../../lib/types';
-import { auth0VerifyParams, resolveUserId, buildEntitlementMap, type UserTokenOptions } from '../lib/helpers';
+import { resolveJwtRateLimited, resolveUserId, buildEntitlementMap, type UserTokenOptions } from '../lib/helpers';
 
 export interface BootstrapHandlerOptions extends UserTokenOptions {
   supabaseUrl: string;
@@ -176,15 +174,11 @@ export async function handleBootstrap(
   request: Request,
   opts: BootstrapHandlerOptions,
 ): Promise<Response> {
-  const tokenResult = requireBearerToken(request);
-  if (!tokenResult.ok) return tokenResult.error;
-
-  const { key, issuerUrl, audience } = auth0VerifyParams(opts);
-  const jwtResult = await verifyJwt(tokenResult.token, key, { issuerUrl, audience });
-  if (!jwtResult.ok) return jwtResult.error;
-
-  const { sub } = jwtResult.payload;
-  if (!sub) return unauthorized('JWT missing sub claim');
+  // This used to call verifyJwt directly, purely to keep hold of the payload's `email`. That
+  // field is no longer read (see below), so the route can use the shared path, which also
+  // applies the per-identity throttle these unmetered routes previously lacked.
+  const auth = await resolveJwtRateLimited(request, opts);
+  if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
@@ -192,7 +186,7 @@ export async function handleBootstrap(
   // the JWT: an Auth0 access token for a custom audience carries no `email` claim even when
   // `email` is in the requested scope, so `payload.email` is always undefined here and the
   // previous `?? ''` fallback meant this field shipped permanently blank.
-  const userResult = await resolveUserId(sub, sb);
+  const userResult = await resolveUserId(auth.sub, sb);
   if (!userResult.ok) return userResult.error;
 
   const contextResult = await loadOrgContext(

@@ -54,7 +54,14 @@ type AsymmetricAlg = keyof typeof ASYMMETRIC_ALGS;
  */
 export type JwtVerificationKey = string | { jwksUrl: string; hmacSecret?: string };
 
-/** Build the JWKS URL for a Supabase project from its base URL. */
+/**
+ * Build the JWKS URL for a Supabase project from its base URL.
+ *
+ * @deprecated No production caller remains. Supabase issues no token in this system — it is
+ * reached with the service role key, and browser tokens come from Auth0. Use
+ * {@link auth0JwtKey} / {@link auth0IssuerFor}. Kept so a future Supabase-Auth project has a
+ * starting point; do not wire it into a verification path without confirming the issuer.
+ */
 export function jwksUrlFor(supabaseUrl: string): string {
   return `${supabaseUrl.replace(/\/+$/, '')}${JWKS_PATH}`;
 }
@@ -64,6 +71,12 @@ export function jwksUrlFor(supabaseUrl: string): string {
  * secret accepted as a fallback when one is configured. Derived from
  * `supabaseUrl` so each environment automatically verifies against its own
  * project — no extra secret to bind, and nothing to keep in sync.
+ *
+ * @deprecated No production caller remains, and pointing it at a token Supabase did not issue
+ * is how api-gateway came to answer `401 Invalid JWT signature` to every dashboard request.
+ * Browser tokens are Auth0-issued: use {@link auth0JwtKey} with {@link auth0IssuerFor}. Note
+ * this helper also accepts a symmetric `jwtSecret` fallback, which `auth0JwtKey` deliberately
+ * does not — reintroducing it would widen the algorithm-confusion surface for no gain.
  */
 export function supabaseJwtKey(opts: { supabaseUrl?: string; jwtSecret?: string }): JwtVerificationKey {
   if (opts.supabaseUrl) {

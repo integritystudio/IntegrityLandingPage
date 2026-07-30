@@ -10,6 +10,7 @@ import {
   type SupabaseFetchStub,
 } from '../../../lib/test-helpers/supabase-fetch-stub';
 import { createAuth0JwtFixture, TEST_AUTH0_OPTS, type Auth0JwtFixture } from '../../../lib/test-helpers/auth0-jwt-stub';
+import { resetIdentityRateLimit } from '../lib/rate-limit';
 
 const opts = {
   ...TEST_AUTH0_OPTS,
@@ -56,6 +57,7 @@ interface MeBody {
 }
 
 afterEach(() => {
+  resetIdentityRateLimit();
   vi.unstubAllGlobals();
 });
 
