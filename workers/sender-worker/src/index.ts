@@ -33,6 +33,7 @@ import {
   supabaseAddOrgOwner,
   Auth0TokenError,
   AUTH0_INVALID_GRANT,
+  AUTH0_TOO_MANY_ATTEMPTS,
 } from "./supabase.js";
 import { createStripeCheckoutSession } from "./stripe.js";
 import { VERSION } from "./version.js";
@@ -278,6 +279,11 @@ async function handleSignIn(env: Env, req: Record<string, unknown>): Promise<Res
     // ROPC grant disabled on the application) stays a 500 and is logged.
     if (err instanceof Auth0TokenError && err.auth0Error === AUTH0_INVALID_GRANT) {
       return errorResponse("invalid email or password", ERROR_CODE.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
+    }
+    // Auth0 brute-force protection blocked the attempt; the credentials may be correct, so
+    // reporting a server fault would be wrong and would hide the real reason from the user.
+    if (err instanceof Auth0TokenError && err.auth0Error === AUTH0_TOO_MANY_ATTEMPTS) {
+      return errorResponse("too many sign-in attempts", ERROR_CODE.RATE_LIMITED, HTTP_STATUS.TOO_MANY_REQUESTS);
     }
     console.error("[signin]", msg);
     return errorResponse("signin failed", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);

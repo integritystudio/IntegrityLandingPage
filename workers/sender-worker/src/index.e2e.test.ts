@@ -383,6 +383,26 @@ describe("POST /signin — Auth0 ROPC", () => {
     expect(body.code).toBe("INTERNAL_ERROR");
   });
 
+  it("returns 429 RATE_LIMITED when Auth0 brute-force protection blocks the attempt", async () => {
+    // The password may be correct here, so neither 401 nor 500 is right.
+    fetchMock
+      .get(`https://${AUTH0_DOMAIN}`)
+      .intercept({ path: "/oauth/token", method: "POST" })
+      .reply(429, JSON.stringify({ error: "too_many_attempts" }), {
+        headers: { "content-type": "application/json" },
+      });
+
+    const res = await SELF.fetch("https://worker.test/signin", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "user@example.com", password: "S3cur3!pass" }),
+    });
+
+    expect(res.status).toBe(429);
+    const body = await res.json() as { code: string };
+    expect(body.code).toBe("RATE_LIMITED");
+  });
+
   it("returns 500 when Auth0 returns a non-JSON error body", async () => {
     fetchMock
       .get(`https://${AUTH0_DOMAIN}`)

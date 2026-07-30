@@ -152,6 +152,13 @@ export class Auth0TokenError extends Error {
 /** Auth0's `error` value when a username/password pair is rejected or the user does not exist. */
 export const AUTH0_INVALID_GRANT = "invalid_grant";
 
+/**
+ * Auth0's `error` value when brute-force / anomaly detection has temporarily blocked further
+ * attempts for an account or IP. The credentials may well be correct, so this is neither a
+ * credential rejection nor a server fault — it maps to 429.
+ */
+export const AUTH0_TOO_MANY_ATTEMPTS = "too_many_attempts";
+
 async function auth0FetchToken(domain: string, body: Record<string, string>, errorLabel: string): Promise<string> {
   const res = await fetch(`https://${domain}${AUTH0_PATHS.TOKEN}`, {
     method: "POST",
