@@ -1,22 +1,20 @@
 import { ok, forbidden, unauthorized, serverError } from '../../../lib/http';
 import { requireBearerToken } from '../../../lib/http/request';
-import { verifyJwt, supabaseJwtKey } from '../../../lib/auth';
+import { verifyJwt } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, Entitlement, UsageBucket as UsageBucketBase } from '../../../lib/types';
-import { buildEntitlementMap } from '../lib/helpers';
+import { buildEntitlementMap, auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
 import { getQuotaStatus } from '../lib/quota';
 import type { AuthResult } from '../../../lib/types/handler-options';
 
 // SupabaseRow requires an index signature; UsageBucketBase does not include one.
 type UsageBucket = UsageBucketBase & Record<string, unknown>;
 
-interface UsageHandlerOptions {
-  jwtSecret?: string;
+interface UsageHandlerOptions extends UserTokenOptions {
   hmacSecret: string;
   supabaseUrl: string;
   serviceRoleKey: string;
-  jwtIssuerUrl?: string;
 }
 
 interface QuotaStatusHandlerOptions extends UsageHandlerOptions {
@@ -43,10 +41,15 @@ async function resolveAuth(
   }
 
   // Otherwise treat as JWT
-  const jwtResult = await verifyJwt(token, supabaseJwtKey(opts), { issuerUrl: opts.jwtIssuerUrl });
+  const { key, issuerUrl, audience } = auth0VerifyParams(opts);
+  const jwtResult = await verifyJwt(token, key, { issuerUrl, audience });
   if (!jwtResult.ok) return jwtResult;
   if (!jwtResult.payload.sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
-  return { ok: true, type: 'jwt', sub: jwtResult.payload.sub };
+  // Resolve to the internal users.id here so both auth branches expose a UUID and the
+  // membership filters below cannot be handed an Auth0 sub by mistake.
+  const user = await resolveUserId(jwtResult.payload.sub, sb);
+  if (!user.ok) return user;
+  return { ok: true, type: 'jwt', sub: jwtResult.payload.sub, userId: user.userId };
 }
 
 async function assertOrgAccess(
@@ -65,7 +68,7 @@ async function assertOrgAccess(
   const result = await sb.query<OrgMembership>('organization_memberships', {
     select: 'organization_id, user_id, role, status',
     filters: [
-      { column: 'user_id', operator: 'eq', value: auth.sub },
+      { column: 'user_id', operator: 'eq', value: auth.userId },
       { column: 'organization_id', operator: 'eq', value: orgId },
       { column: 'status', operator: 'eq', value: 'active' },
     ],

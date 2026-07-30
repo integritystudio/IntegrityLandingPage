@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { handleIngestEvent, handleIngestOtel } from './ingest';
 import { hashApiKeySecret } from '../../../lib/api-keys';
 import { MS_PER_DAY } from '../../../lib/constants';
@@ -12,33 +12,18 @@ import {
   type RouteResponder,
   type SupabaseFetchStub,
 } from '../../../lib/test-helpers/supabase-fetch-stub';
+import { createAuth0JwtFixture, TEST_AUTH0_OPTS, type Auth0JwtFixture } from '../../../lib/test-helpers/auth0-jwt-stub';
 
-const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
 const HMAC_SECRET = 'test-hmac-secret-at-least-32-chars!';
 
-async function makeJwt(payload: Record<string, unknown>): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const body = btoa(JSON.stringify({ exp: 9999999999, ...payload }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const msg = `${header}.${body}`;
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(JWT_SECRET),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `${msg}.${sigB64}`;
-}
-
 const ORG_ID = '00000000-0000-4000-8000-000000000001';
+const AUTH0_SUB = 'auth0|test-subject';
 const USER_ID = '00000000-0000-4000-8000-000000000002';
 const API_KEY_SECRET = 'testsecret32charsminimumvalue000';
 const API_KEY_TOKEN = `int_live_abc12345_${API_KEY_SECRET}`;
 
 const opts = {
-  jwtSecret: JWT_SECRET,
+  ...TEST_AUTH0_OPTS,
   hmacSecret: HMAC_SECRET,
   supabaseUrl: TEST_SUPABASE_URL,
   serviceRoleKey: TEST_SERVICE_ROLE_KEY,
@@ -75,8 +60,10 @@ const writeRoutes = (): Record<string, RouteResponder> => ({
 
 /** Installs the stub as global fetch and returns it for assertions. */
 function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub {
-  const stub = createSupabaseFetchStub(routes);
-  vi.stubGlobal('fetch', stub.fetch);
+  // Every authenticated route now translates the JWT sub to users.id, so stub that
+  // lookup by default; a test overrides it to exercise the resolution failures.
+  const stub = createSupabaseFetchStub({ 'GET users': okRows([{ id: USER_ID }]), ...routes });
+  vi.stubGlobal('fetch', jwt.wrap(stub.fetch));
   return stub;
 }
 
@@ -106,6 +93,12 @@ const makeRequest = (body: unknown, token: string) =>
     body: JSON.stringify(body),
   });
 
+let jwt: Auth0JwtFixture;
+
+beforeAll(async () => {
+  jwt = await createAuth0JwtFixture();
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -119,7 +112,7 @@ describe('POST /v1/ingest/events', () => {
   });
 
   it('returns 422 when body is missing required fields', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(jwtRoutes());
     const req = makeRequest({ org_id: ORG_ID }, token); // missing metric_key
     const res = await handleIngestEvent(req, opts);
@@ -127,7 +120,7 @@ describe('POST /v1/ingest/events', () => {
   });
 
   it('returns 403 when JWT user is not a member', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(jwtRoutes([]));
     const req = makeRequest(validBody(), token);
     const res = await handleIngestEvent(req, opts);
@@ -135,7 +128,7 @@ describe('POST /v1/ingest/events', () => {
   });
 
   it('returns 202 and request_id for valid JWT ingest', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(jwtRoutes());
     const req = makeRequest(validBody(), token);
     const res = await handleIngestEvent(req, opts);
@@ -146,7 +139,7 @@ describe('POST /v1/ingest/events', () => {
   });
 
   it('scopes the membership lookup to the user, org, and active status', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(jwtRoutes());
     await handleIngestEvent(makeRequest(validBody(), token), opts);
 
@@ -157,7 +150,7 @@ describe('POST /v1/ingest/events', () => {
   });
 
   it('inserts event with correct fields', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(jwtRoutes());
     const payload = { ...validBody(), latency_ms: 120, status_code: 200 };
     await handleIngestEvent(makeRequest(payload, token), opts);
@@ -190,14 +183,14 @@ describe('POST /v1/ingest/events', () => {
   });
 
   it('returns 500 when insert fails', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase({ ...jwtRoutes(), 'POST usage_events': httpError(500, 'DB error') });
     const res = await handleIngestEvent(makeRequest(validBody(), token), opts);
     expect(res.status).toBe(500);
   });
 
   it('calls waitUntil with rollup promise when provided', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(jwtRoutes());
     const waitUntil = vi.fn();
     await handleIngestEvent(makeRequest(validBody(), token), opts, waitUntil);
@@ -232,7 +225,7 @@ describe('POST /v1/ingest/otel', () => {
   });
 
   it('returns 401 when JWT is used instead of API key', async () => {
-    const token = await makeJwt({ sub: USER_ID });
+    const token = await jwt.sign({ sub: AUTH0_SUB });
     stubSupabase(jwtRoutes());
     const res = await handleIngestOtel(makeOtelRequest({ spans: [validSpan()] }, token), opts);
     expect(res.status).toBe(401);

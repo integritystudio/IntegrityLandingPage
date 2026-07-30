@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { handleMe } from './me';
 import {
   createSupabaseFetchStub,
@@ -9,30 +9,19 @@ import {
   type RouteResponder,
   type SupabaseFetchStub,
 } from '../../../lib/test-helpers/supabase-fetch-stub';
-
-const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
+import { createAuth0JwtFixture, TEST_AUTH0_OPTS, type Auth0JwtFixture } from '../../../lib/test-helpers/auth0-jwt-stub';
 
 const opts = {
-  jwtSecret: JWT_SECRET,
+  ...TEST_AUTH0_OPTS,
   supabaseUrl: TEST_SUPABASE_URL,
   serviceRoleKey: TEST_SERVICE_ROLE_KEY,
 };
 
-async function makeJwt(payload: Record<string, unknown>, secret: string): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const body = btoa(JSON.stringify({ exp: 9999999999, ...payload }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const msg = `${header}.${body}`;
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `${msg}.${sigB64}`;
-}
+let jwt: Auth0JwtFixture;
+
+beforeAll(async () => {
+  jwt = await createAuth0JwtFixture();
+});
 
 function makeRequest(token?: string): Request {
   return new Request('https://api.integritystudio.ai/v1/me', {
@@ -44,7 +33,7 @@ function makeRequest(token?: string): Request {
 /** Installs the stub as global fetch and returns it for assertions. */
 function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub {
   const stub = createSupabaseFetchStub(routes);
-  vi.stubGlobal('fetch', stub.fetch);
+  vi.stubGlobal('fetch', jwt.wrap(stub.fetch));
   return stub;
 }
 
@@ -79,7 +68,7 @@ describe('GET /v1/me', () => {
   });
 
   it('returns 401 for expired jwt', async () => {
-    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+    const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const body = btoa(JSON.stringify({ sub: 'user-1', email: 'a@b.com', exp: 1000000 }))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -91,7 +80,7 @@ describe('GET /v1/me', () => {
   });
 
   it('returns 200 with user profile when jwt is valid and user exists', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'user@example.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: 'user-id-1', email: 'user@example.com' });
     const stub = stubSupabase({ 'GET users': okRows([makeUserRow()]) });
 
     const res = await handleMe(makeRequest(token), opts);
@@ -105,7 +94,7 @@ describe('GET /v1/me', () => {
   });
 
   it('looks the user up by auth0_id, selecting the profile columns, limit 1', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'user@example.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: 'user-id-1', email: 'user@example.com' });
     const stub = stubSupabase({ 'GET users': okRows([makeUserRow()]) });
 
     await handleMe(makeRequest(token), opts);
@@ -119,7 +108,7 @@ describe('GET /v1/me', () => {
   });
 
   it('returns 404 when user not found in db', async () => {
-    const token = await makeJwt({ sub: 'ghost-user', email: 'ghost@example.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: 'ghost-user', email: 'ghost@example.com' });
     const stub = stubSupabase({ 'GET users': okRows([]) });
 
     const res = await handleMe(makeRequest(token), opts);
@@ -129,7 +118,7 @@ describe('GET /v1/me', () => {
   });
 
   it('returns 500 when the user lookup fails', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'user@example.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: 'user-id-1', email: 'user@example.com' });
     stubSupabase({ 'GET users': httpError(500, 'DB error') });
 
     const res = await handleMe(makeRequest(token), opts);
@@ -138,7 +127,7 @@ describe('GET /v1/me', () => {
   });
 
   it('omits db-only columns from the response body', async () => {
-    const token = await makeJwt({ sub: 'user-id-1', email: 'user@example.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: 'user-id-1', email: 'user@example.com' });
     stubSupabase({ 'GET users': okRows([makeUserRow({ name: null })]) });
 
     const res = await handleMe(makeRequest(token), opts);

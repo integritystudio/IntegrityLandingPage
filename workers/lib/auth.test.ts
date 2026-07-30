@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
-import { verifyJwt, parseJwtPayload, resetJwksCache, supabaseJwtKey, jwksUrlFor } from './auth';
+import { verifyJwt, parseJwtPayload, resetJwksCache, supabaseJwtKey, jwksUrlFor, auth0JwtKey, auth0IssuerFor } from './auth';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -504,5 +504,44 @@ describe('supabaseJwtKey / jwksUrlFor', () => {
       jwksUrl: 'https://abc.supabase.co/auth/v1/.well-known/jwks.json',
       hmacSecret: undefined,
     });
+  });
+});
+
+describe('auth0JwtKey', () => {
+  it('builds the tenant JWKS URL from a bare host', () => {
+    expect(auth0JwtKey({ auth0Domain: 'tenant.us.auth0.com' })).toEqual({
+      jwksUrl: 'https://tenant.us.auth0.com/.well-known/jwks.json',
+    });
+  });
+
+  // AUTH0_DOMAIN is spelled as a host in some places and a full origin in others; a doubled
+  // scheme would produce a URL that 404s and surface as an opaque "Invalid JWT signature".
+  it('normalises a full origin and a trailing slash to the same URL', () => {
+    const expected = { jwksUrl: 'https://tenant.us.auth0.com/.well-known/jwks.json' };
+    expect(auth0JwtKey({ auth0Domain: 'https://tenant.us.auth0.com' })).toEqual(expected);
+    expect(auth0JwtKey({ auth0Domain: 'https://tenant.us.auth0.com/' })).toEqual(expected);
+  });
+
+  // No hmacSecret: Auth0 signs with RS256 only, so a symmetric fallback would add an
+  // unreachable path while widening the algorithm-confusion surface.
+  it('never offers an HMAC fallback', () => {
+    expect(auth0JwtKey({ auth0Domain: 'tenant.us.auth0.com' })).not.toHaveProperty('hmacSecret');
+  });
+
+  it('fails closed rather than throwing when the domain is unset', () => {
+    // An unbound AUTH0_DOMAIN must not turn every request into a 500.
+    expect(() => auth0JwtKey({ auth0Domain: '' })).not.toThrow();
+  });
+});
+
+describe('auth0IssuerFor', () => {
+  // verifyJwt compares `iss` by exact string equality and Auth0 emits the trailing slash,
+  // so dropping it would reject every otherwise-valid token.
+  it('includes the trailing slash Auth0 emits', () => {
+    expect(auth0IssuerFor('tenant.us.auth0.com')).toBe('https://tenant.us.auth0.com/');
+  });
+
+  it('does not double the scheme when given an origin', () => {
+    expect(auth0IssuerFor('https://tenant.us.auth0.com')).toBe('https://tenant.us.auth0.com/');
   });
 });

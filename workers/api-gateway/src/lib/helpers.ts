@@ -1,6 +1,6 @@
 import { unauthorized } from '../../../lib/http';
 import { requireBearerToken } from '../../../lib/http/request';
-import { verifyJwt, supabaseJwtKey } from '../../../lib/auth';
+import { verifyJwt, auth0JwtKey, auth0IssuerFor } from '../../../lib/auth';
 import type { JwtVerificationKey } from '../../../lib/auth';
 import { parseApiKey, verifyApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient } from '../../../lib/supabase';
@@ -28,9 +28,39 @@ export async function writeAuditLog(sb: SupabaseClient, entry: AuditLogEntry): P
   }
 }
 
-interface PreVerifyTokenOptions {
-  jwtSecret?: string;
-  jwtIssuerUrl?: string;
+/**
+ * The Auth0 tenant that issues the browser tokens this Worker accepts.
+ *
+ * Every route resolves the caller by treating the JWT `sub` as `users.auth0_id`
+ * (see routes/me.ts, routes/api-keys.ts, loadUserMemberships), so Auth0 — not
+ * Supabase — is the issuer these tokens must be verified against. Supabase is
+ * reached with the service role key and issues no token in this flow.
+ */
+export interface UserTokenOptions {
+  auth0Domain: string;
+  /** Auth0 API identifier the token must be scoped to. Omit to skip `aud` validation. */
+  auth0Audience?: string;
+}
+
+/**
+ * Verification parameters for a browser token, all derived from the tenant domain.
+ *
+ * Centralised so key, issuer and audience cannot drift apart per route. Deriving
+ * the issuer here rather than reading a separate env var also means it cannot be
+ * silently unset: an absent issuer var disables `iss` validation without failing,
+ * which is exactly how this Worker shipped with iss checking off in production.
+ */
+export function auth0VerifyParams(
+  opts: UserTokenOptions,
+): { key: JwtVerificationKey; issuerUrl: string; audience?: string } {
+  return {
+    key: auth0JwtKey({ auth0Domain: opts.auth0Domain }),
+    issuerUrl: auth0IssuerFor(opts.auth0Domain),
+    audience: opts.auth0Audience,
+  };
+}
+
+interface PreVerifyTokenOptions extends UserTokenOptions {
   hmacSecret: string;
   supabaseUrl: string;
   serviceRoleKey: string;
@@ -61,22 +91,57 @@ export async function preVerifyToken(
     return { ok: true };
   }
 
-  const jwtResult = await verifyJwt(token, supabaseJwtKey(opts), { issuerUrl: opts.jwtIssuerUrl });
+  const { key, issuerUrl, audience } = auth0VerifyParams(opts);
+  const jwtResult = await verifyJwt(token, key, { issuerUrl, audience });
   if (!jwtResult.ok) return jwtResult;
   return { ok: true };
 }
 
 export async function resolveJwt(
   request: Request,
-  key: JwtVerificationKey,
-  jwtIssuerUrl?: string,
+  params: { key: JwtVerificationKey; issuerUrl?: string; audience?: string },
 ): Promise<{ ok: true; sub: string } | { ok: false; error: Response }> {
   const tokenResult = requireBearerToken(request);
   if (!tokenResult.ok) return tokenResult;
-  const jwtResult = await verifyJwt(tokenResult.token, key, { issuerUrl: jwtIssuerUrl });
+  const jwtResult = await verifyJwt(tokenResult.token, params.key, {
+    issuerUrl: params.issuerUrl,
+    audience: params.audience,
+  });
   if (!jwtResult.ok) return jwtResult;
   if (!jwtResult.payload.sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
   return { ok: true, sub: jwtResult.payload.sub };
+}
+
+/**
+ * Translate a JWT `sub` (an Auth0 subject, e.g. `auth0|abc123`) into the internal
+ * `users.id` UUID.
+ *
+ * These two identifiers are NOT interchangeable, and confusing them fails quietly.
+ * `users.auth0_id` holds the sub; every foreign key — `organization_memberships.user_id`,
+ * `usage_events.user_id` — holds the UUID. Passing a sub into one of those filters makes
+ * PostgREST reject the comparison against a uuid column with a 400, and because the
+ * query helpers treat a failed query as "no rows", the caller sees an empty membership
+ * list and returns an empty dashboard instead of an error. Resolve here, once, and pass
+ * the UUID downstream.
+ */
+export async function resolveUserId(
+  auth0Sub: string,
+  sb: SupabaseClient,
+): Promise<{ ok: true; userId: string } | { ok: false; error: Response }> {
+  const result = await sb.query<{ id: string }>('users', {
+    select: 'id',
+    filters: [{ column: 'auth0_id', operator: 'eq', value: auth0Sub }],
+    limit: 1,
+  });
+  if (!result.ok) {
+    console.error('[auth] users lookup failed for sub', auth0Sub, result.error);
+    return { ok: false, error: unauthorized('Could not resolve user') };
+  }
+  if (result.data.length === 0) {
+    // Authentic token, but no provisioned row — a signup that half-completed.
+    return { ok: false, error: unauthorized('No user record for this identity') };
+  }
+  return { ok: true, userId: result.data[0].id };
 }
 
 export function buildEntitlementMap(rows: Entitlement[]): Record<string, boolean | number | null> {

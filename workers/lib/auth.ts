@@ -6,6 +6,11 @@ const NBF_CLOCK_SKEW_SECONDS = 30;
 
 /** Path of a Supabase project's published JSON Web Key Set, relative to SUPABASE_URL. */
 const JWKS_PATH = '/auth/v1/.well-known/jwks.json';
+/**
+ * Path of an Auth0 tenant's published JSON Web Key Set. Note this is the bare
+ * well-known path — Auth0 does not nest it under a prefix the way Supabase does.
+ */
+const AUTH0_JWKS_PATH = '/.well-known/jwks.json';
 /** How long a fetched key set is reused before being refreshed. */
 const JWKS_CACHE_TTL_MS = 10 * 60 * 1000;
 /**
@@ -65,6 +70,40 @@ export function supabaseJwtKey(opts: { supabaseUrl?: string; jwtSecret?: string 
     return { jwksUrl: jwksUrlFor(opts.supabaseUrl), hmacSecret: opts.jwtSecret };
   }
   return opts.jwtSecret ?? '';
+}
+
+/**
+ * Normalise an Auth0 tenant domain to a bare host. Accepts the plain host
+ * (`tenant.us.auth0.com`) as well as a full origin, because AUTH0_DOMAIN is
+ * spelled both ways across our Workers and a doubled scheme yields a JWKS URL
+ * that 404s — which surfaces as an opaque "Invalid JWT signature".
+ */
+function auth0Host(domain: string): string {
+  // An unbound AUTH0_DOMAIN must fail closed, not throw. Returning '' yields a JWKS URL
+  // whose fetch fails and an issuer no token can match, so verification rejects the token
+  // — a 401 rather than an unhandled TypeError surfacing as a 500 on every request.
+  if (!domain) return '';
+  return domain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+}
+
+/**
+ * Canonical `iss` value for an Auth0 tenant. Auth0 always emits the issuer with
+ * a trailing slash, and verifyJwt compares `iss` by exact string equality, so
+ * omitting it rejects every otherwise-valid token.
+ */
+export function auth0IssuerFor(domain: string): string {
+  return `https://${auth0Host(domain)}/`;
+}
+
+/**
+ * Verification key for an Auth0 tenant: RS256 against the tenant's published key set.
+ *
+ * Deliberately no `hmacSecret` fallback. Auth0 signs these tokens with RS256 only,
+ * so a symmetric fallback would add no reachable verification path while widening
+ * the algorithm-confusion surface that verifySignature otherwise closes.
+ */
+export function auth0JwtKey(opts: { auth0Domain: string }): JwtVerificationKey {
+  return { jwksUrl: `https://${auth0Host(opts.auth0Domain)}${AUTH0_JWKS_PATH}` };
 }
 
 interface JwksCacheEntry {

@@ -1,35 +1,26 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from 'vitest';
 import worker from './index';
 import type { Env } from './index';
 import * as quotaLib from './lib/quota';
+import { createAuth0JwtFixture, TEST_AUTH0_OPTS, TEST_AUTH0_DOMAIN, type Auth0JwtFixture } from '../../lib/test-helpers/auth0-jwt-stub';
 
-const JWT_SECRET = 'jwt-secret-at-least-32-chars-long!!';
 
 const makeEnv = (overrides: Partial<Env> = {}): Env => ({
   SUPABASE_URL: 'https://test.supabase.co',
   SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
-  SUPABASE_JWT_SECRET: JWT_SECRET,
+  AUTH0_DOMAIN: TEST_AUTH0_DOMAIN,
+  AUTH0_AUDIENCE: TEST_AUTH0_OPTS.auth0Audience,
   API_KEY_HMAC_SECRET: 'hmac-secret-at-least-32-chars-long!',
   QUOTA_DO: {} as DurableObjectNamespace,
   STRIPE_SECRET_KEY: 'sk_test_placeholder',
   ...overrides,
 });
 
-async function makeJwt(payload: Record<string, unknown>, secret: string): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const body = btoa(JSON.stringify({ exp: 9999999999, ...payload }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const msg = `${header}.${body}`;
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `${msg}.${sigB64}`;
-}
+let jwt: Auth0JwtFixture;
+
+beforeAll(async () => {
+  jwt = await createAuth0JwtFixture();
+});
 
 function makeRequest(method: string, path: string, init: RequestInit = {}): Request {
   return new Request(`https://api.integritystudio.ai${path}`, { method, ...init });
@@ -57,9 +48,95 @@ describe('api-gateway', () => {
     });
   });
 
+  describe('CORS', () => {
+    const ALLOWED_ORIGIN = 'https://integritystudio.ai';
+
+    it('answers a preflight with 204 and the requested origin', async () => {
+      const res = await worker.fetch(
+        makeRequest('OPTIONS', '/v1/orgs', {
+          headers: {
+            Origin: ALLOWED_ORIGIN,
+            'Access-Control-Request-Method': 'GET',
+            'Access-Control-Request-Headers': 'authorization',
+          },
+        }),
+        makeEnv(),
+      );
+      expect(res.status).toBe(204);
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ALLOWED_ORIGIN);
+      expect(res.headers.get('Access-Control-Allow-Headers')).toContain('Authorization');
+      expect(res.headers.get('Access-Control-Allow-Methods')).toContain('GET');
+    });
+
+    // The browser drops a response without this header regardless of status, so the 401 the
+    // Flutter app sees on an expired token must still be readable by its error handler.
+    it('sets Access-Control-Allow-Origin on a 401', async () => {
+      const res = await worker.fetch(
+        makeRequest('GET', '/v1/orgs', { headers: { Origin: ALLOWED_ORIGIN } }),
+        makeEnv(),
+      );
+      expect(res.status).toBe(401);
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ALLOWED_ORIGIN);
+    });
+
+    it('sets Access-Control-Allow-Origin on the terminal 404', async () => {
+      const res = await worker.fetch(
+        makeRequest('GET', '/unknown', { headers: { Origin: ALLOWED_ORIGIN } }),
+        makeEnv(),
+      );
+      expect(res.status).toBe(404);
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ALLOWED_ORIGIN);
+    });
+
+    it('does not echo an origin outside the allowlist', async () => {
+      const res = await worker.fetch(
+        makeRequest('OPTIONS', '/v1/orgs', { headers: { Origin: 'https://evil.example' } }),
+        makeEnv(),
+      );
+      expect(res.headers.get('Access-Control-Allow-Origin')).not.toBe('https://evil.example');
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ALLOWED_ORIGIN);
+    });
+
+    it('honours ALLOWED_ORIGINS_JSON', async () => {
+      const custom = 'https://staging.integritystudio.ai';
+      const res = await worker.fetch(
+        makeRequest('OPTIONS', '/v1/orgs', { headers: { Origin: custom } }),
+        makeEnv({ ALLOWED_ORIGINS_JSON: JSON.stringify([custom]) }),
+      );
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe(custom);
+    });
+
+    // An empty allowlist must not emit the literal string "undefined" as the header value.
+    it('falls back to a real origin when the allowlist is empty', async () => {
+      const res = await worker.fetch(
+        makeRequest('OPTIONS', '/v1/orgs', { headers: { Origin: ALLOWED_ORIGIN } }),
+        makeEnv({ ALLOWED_ORIGINS_JSON: '[]' }),
+      );
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ALLOWED_ORIGIN);
+    });
+
+    it('preserves security headers alongside CORS on routed responses', async () => {
+      const res = await worker.fetch(
+        makeRequest('GET', '/v1/orgs', { headers: { Origin: ALLOWED_ORIGIN } }),
+        makeEnv(),
+      );
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('Cache-Control')).toBe('no-store');
+      expect(res.headers.get('Vary')).toBe('Origin');
+    });
+  });
+
   describe('quota enforcement on org routes', () => {
     beforeEach(() => {
       vi.restoreAllMocks();
+      // A signed token only verifies if the tenant's key set is reachable, so serve JWKS
+      // locally. Everything else answers 503, standing in for unreachable Supabase — these
+      // tests assert on quota behaviour, not on what the route handler ultimately returns.
+      vi.stubGlobal('fetch', jwt.wrap((async () => new Response('unavailable', { status: 503 })) as unknown as typeof fetch));
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
     });
 
     it('returns 401 for unauthenticated request even when quota is exceeded', async () => {
@@ -118,7 +195,7 @@ describe('api-gateway', () => {
         ),
       });
 
-      const token = await makeJwt({ sub: 'user-123', email: 'user@example.com' }, JWT_SECRET);
+      const token = await jwt.sign({ sub: 'auth0|user-123', email: 'user@example.com' });
       const res = await worker.fetch(
         makeRequest('GET', '/v1/orgs/org-123/dashboard', {
           headers: { Authorization: `Bearer ${token}` },
@@ -135,7 +212,7 @@ describe('api-gateway', () => {
     it('allows through to route handler when jwt and quota both pass', async () => {
       vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true, rateLimitHeaders: {} });
 
-      const token = await makeJwt({ sub: 'user-123', email: 'user@example.com' }, JWT_SECRET);
+      const token = await jwt.sign({ sub: 'auth0|user-123', email: 'user@example.com' });
       const res = await worker.fetch(
         makeRequest('GET', '/v1/orgs/org-123/dashboard', {
           headers: { Authorization: `Bearer ${token}` },
@@ -151,7 +228,7 @@ describe('api-gateway', () => {
     it('allows through (fail-open) when quota DO is unavailable', async () => {
       vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true, rateLimitHeaders: {} });
 
-      const token = await makeJwt({ sub: 'user-123', email: 'user@example.com' }, JWT_SECRET);
+      const token = await jwt.sign({ sub: 'auth0|user-123', email: 'user@example.com' });
       const res = await worker.fetch(
         makeRequest('GET', '/v1/orgs/org-123/entitlements', {
           headers: { Authorization: `Bearer ${token}` },
@@ -172,7 +249,7 @@ describe('api-gateway', () => {
         },
       });
 
-      const token = await makeJwt({ sub: 'user-123', email: 'user@example.com' }, JWT_SECRET);
+      const token = await jwt.sign({ sub: 'auth0|user-123', email: 'user@example.com' });
       const res = await worker.fetch(
         makeRequest('GET', '/v1/orgs/org-123/billing-status', {
           headers: { Authorization: `Bearer ${token}` },

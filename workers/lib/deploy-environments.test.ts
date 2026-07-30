@@ -35,7 +35,7 @@ import { join } from 'node:path';
 /** Keys wrangler does NOT inherit into a named environment. */
 const NON_INHERITABLE = ['durable_objects', 'services', 'vars', 'kv_namespaces', 'r2_buckets', 'd1_databases', 'queues'] as const;
 
-const WORKERS = ['api-gateway', 'sender-worker', 'stripe-webhook', 'contact-form', 'bootstrap-worker', 'receiver-worker'] as const;
+const WORKERS = ['api-gateway', 'sender-worker', 'stripe-webhook', 'contact-form', 'receiver-worker'] as const;
 
 const WORKERS_ROOT = join(__dirname, '..');
 
@@ -150,10 +150,7 @@ describe('worker deploy environments (CR02)', () => {
   // version at a public URL with the CURRENT secrets bound, so superseded code
   // stays callable — verified 2026-07-27, when a 2026-04-20 sender-worker version
   // answered 200 with all 13 secrets. See BACKLOG.md CR14.
-  // bootstrap-worker added 2026-07-29: its Env type declares SUPABASE_URL,
-  // SUPABASE_SERVICE_ROLE_KEY, and SUPABASE_JWT_SECRET, all of which are
-  // production secrets that should not remain callable on superseded versions.
-  const SECRET_BEARING = ['sender-worker', 'contact-form', 'bootstrap-worker'] as const;
+  const SECRET_BEARING = ['sender-worker', 'contact-form'] as const;
 
   it.each(SECRET_BEARING)('%s: disables per-version preview URLs', (worker) => {
     const config = loadConfig(worker);

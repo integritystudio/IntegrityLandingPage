@@ -21,6 +21,16 @@ routes = [
   { pattern = "staging-api.integritystudio.ai/v1/*", zone_name = "integritystudio.ai" }
 ]
 
+# Auth0 tenant that issues the dashboard's browser tokens. Plain `vars`, not secrets:
+# both values appear in every JWT the Flutter app holds, so they are not confidential, and
+# a checked-in var cannot be silently missing on a fresh deploy the way an unbound secret
+# can — which is precisely how this Worker ended up in production with no
+# API_KEY_HMAC_SECRET bound. `vars` is NOT inherited by named environments, so [env.dev]
+# repeats the block below (same rule as durable_objects, opposite of routes).
+[vars]
+AUTH0_DOMAIN = "dev-68gg87ow4mg4kzyo.us.auth0.com"
+AUTH0_AUDIENCE = "https://api.integritystudio.dev"
+
 # Durable Objects
 [[durable_objects.bindings]]
 name = "QUOTA_DO"
@@ -67,6 +77,10 @@ enabled = true
 [env.dev]
 name = "api-gateway-dev"
 routes = []
+
+[env.dev.vars]
+AUTH0_DOMAIN = "dev-68gg87ow4mg4kzyo.us.auth0.com"
+AUTH0_AUDIENCE = "https://api.integritystudio.dev"
 
 [[env.dev.durable_objects.bindings]]
 name = "QUOTA_DO"

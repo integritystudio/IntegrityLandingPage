@@ -110,7 +110,19 @@ describe('EnvSchema', () => {
 
 describe('AuthResultSchema', () => {
   it('accepts JWT success result', () => {
-    expect(AuthResultSchema.safeParse({ ok: true, type: 'jwt', sub: 'user-123' }).success).toBe(true);
+    expect(AuthResultSchema.safeParse({
+      ok: true,
+      type: 'jwt',
+      sub: 'auth0|user-123',
+      userId: '550e8400-e29b-41d4-a716-446655440001',
+    }).success).toBe(true);
+  });
+
+  // The JWT sub identifies the caller to Auth0; userId is the internal users.id that
+  // foreign keys reference. A jwt result carrying only the sub is what produced the
+  // empty-dashboard bug, so the schema now requires both.
+  it('rejects a JWT success result missing the internal userId', () => {
+    expect(AuthResultSchema.safeParse({ ok: true, type: 'jwt', sub: 'auth0|user-123' }).success).toBe(false);
   });
 
   it('accepts API key success result', () => {

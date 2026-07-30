@@ -4,14 +4,11 @@ import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase
 import { requireBearerToken } from '../../../lib/http/request';
 import { parseApiKey } from '../../../lib/api-keys';
 import type { Organization, OrgRole, OrgMembership, Entitlement } from '../../../lib/types';
-import { supabaseJwtKey } from '../../../lib/auth';
-import { resolveJwt, buildEntitlementMap, writeAuditLog } from '../lib/helpers';
+import { resolveJwt, buildEntitlementMap, writeAuditLog, auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
 
-interface OrgsHandlerOptions {
-  jwtSecret?: string;
+interface OrgsHandlerOptions extends UserTokenOptions {
   supabaseUrl: string;
   serviceRoleKey: string;
-  jwtIssuerUrl?: string;
 }
 
 interface BillingPortalHandlerOptions extends OrgsHandlerOptions {
@@ -61,11 +58,13 @@ export async function handleListOrgs(
   request: Request,
   opts: OrgsHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, auth0VerifyParams(opts));
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
-  const memberships = await loadUserMemberships(auth.sub, sb);
+  const user = await resolveUserId(auth.sub, sb);
+  if (!user.ok) return user.error;
+  const memberships = await loadUserMemberships(user.userId, sb);
 
   if (memberships.length === 0) {
     return ok({ organizations: [] });
@@ -80,11 +79,13 @@ export async function handleOrgDashboard(
   orgId: string,
   opts: OrgsHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, auth0VerifyParams(opts));
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
-  const memberships = await loadUserMemberships(auth.sub, sb);
+  const user = await resolveUserId(auth.sub, sb);
+  if (!user.ok) return user.error;
+  const memberships = await loadUserMemberships(user.userId, sb);
   const membership = memberships.find((m) => m.organization_id === orgId);
   if (!membership) return forbidden('Not a member of this organization');
 
@@ -118,11 +119,13 @@ export async function handleOrgBillingStatus(
   orgId: string,
   opts: OrgsHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, auth0VerifyParams(opts));
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
-  const memberships = await loadUserMemberships(auth.sub, sb);
+  const user = await resolveUserId(auth.sub, sb);
+  if (!user.ok) return user.error;
+  const memberships = await loadUserMemberships(user.userId, sb);
   const membership = memberships.find((m) => m.organization_id === orgId);
   if (!membership) return forbidden('Not a member of this organization');
 
@@ -166,11 +169,13 @@ export async function handleBillingPortal(
     return forbidden('Billing portal requires a user session; API keys are not accepted');
   }
 
-  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, auth0VerifyParams(opts));
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
-  const memberships = await loadUserMemberships(auth.sub, sb);
+  const user = await resolveUserId(auth.sub, sb);
+  if (!user.ok) return user.error;
+  const memberships = await loadUserMemberships(user.userId, sb);
   const membership = memberships.find((m) => m.organization_id === orgId);
   if (!membership) return forbidden('Not a member of this organization');
 

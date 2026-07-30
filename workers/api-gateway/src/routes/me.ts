@@ -1,13 +1,10 @@
 import { notFound, ok, serverError } from '../../../lib/http';
 import { createSupabaseClient } from '../../../lib/supabase';
-import { supabaseJwtKey } from '../../../lib/auth';
-import { resolveJwt } from '../lib/helpers';
+import { resolveJwt, auth0VerifyParams, type UserTokenOptions } from '../lib/helpers';
 
-interface MeHandlerOptions {
-  jwtSecret?: string;
+interface MeHandlerOptions extends UserTokenOptions {
   supabaseUrl: string;
   serviceRoleKey: string;
-  jwtIssuerUrl?: string;
 }
 
 interface UserRow extends Record<string, unknown> {
@@ -20,7 +17,7 @@ interface UserRow extends Record<string, unknown> {
 }
 
 export async function handleMe(request: Request, opts: MeHandlerOptions): Promise<Response> {
-  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, auth0VerifyParams(opts));
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);

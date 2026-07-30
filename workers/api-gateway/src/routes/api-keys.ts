@@ -2,15 +2,12 @@ import { ok, created, forbidden, notFound, serverError, badRequest } from '../..
 import { generateApiKey, hashApiKeySecret } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, ApiKey, OrgRole } from '../../../lib/types';
-import { supabaseJwtKey } from '../../../lib/auth';
-import { resolveJwt, writeAuditLog } from '../lib/helpers';
+import { resolveJwt, writeAuditLog, auth0VerifyParams, type UserTokenOptions } from '../lib/helpers';
 
-interface ApiKeysHandlerOptions {
-  jwtSecret?: string;
+interface ApiKeysHandlerOptions extends UserTokenOptions {
   hmacSecret: string;
   supabaseUrl: string;
   serviceRoleKey: string;
-  jwtIssuerUrl?: string;
 }
 
 /** Roles that may create or revoke org API keys (viewers and billing-only roles excluded). */
@@ -62,20 +59,22 @@ export async function handleCreateApiKey(
   orgId: string,
   opts: ApiKeysHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, auth0VerifyParams(opts));
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
-  const membershipResult = await assertOrgMembership(auth.sub, orgId, sb);
+  // organization_memberships.user_id is the internal uuid, not the Auth0 sub, so the
+  // user row has to be resolved before membership can be checked.
+  const user = await lookupUserByAuth0Id(auth.sub, sb);
+  if (!user) return notFound('User not found');
+
+  const membershipResult = await assertOrgMembership(user.id, orgId, sb);
   if (!membershipResult.ok) return membershipResult.error;
 
   if (!API_KEY_ROLES.includes(membershipResult.membership.role)) {
     return forbidden('Insufficient role to manage API keys');
   }
-
-  const user = await lookupUserByAuth0Id(auth.sub, sb);
-  if (!user) return notFound('User not found');
 
   let body: CreateApiKeyBody = {};
   if (request.headers.get('content-type')?.includes('application/json')) {
@@ -141,12 +140,15 @@ export async function handleRevokeApiKey(
   keyId: string,
   opts: ApiKeysHandlerOptions,
 ): Promise<Response> {
-  const auth = await resolveJwt(request, supabaseJwtKey(opts), opts.jwtIssuerUrl);
+  const auth = await resolveJwt(request, auth0VerifyParams(opts));
   if (!auth.ok) return auth.error;
 
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
-  const membershipResult = await assertOrgMembership(auth.sub, orgId, sb);
+  const user = await lookupUserByAuth0Id(auth.sub, sb);
+  if (!user) return notFound('User not found');
+
+  const membershipResult = await assertOrgMembership(user.id, orgId, sb);
   if (!membershipResult.ok) return membershipResult.error;
 
   if (!API_KEY_ROLES.includes(membershipResult.membership.role)) {

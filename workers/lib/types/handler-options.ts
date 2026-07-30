@@ -41,12 +41,12 @@ export type Env = z.infer<typeof EnvSchema>;
 
 // Auth resolution result for dual JWT/API key auth
 export type AuthResult =
-  | { ok: true; type: 'jwt'; sub: string }
+  | { ok: true; type: 'jwt'; sub: string; userId: string }
   | { ok: true; type: 'api_key'; userId: string; organizationId: string }
   | { ok: false; error: Response };
 
 export const AuthResultSchema = z.union([
-  z.object({ ok: z.literal(true), type: z.literal('jwt'), sub: z.string() }),
+  z.object({ ok: z.literal(true), type: z.literal('jwt'), sub: z.string(), userId: z.string().uuid() }),
   z.object({
     ok: z.literal(true),
     type: z.literal('api_key'),

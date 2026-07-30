@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { handleCreateApiKey, handleRevokeApiKey } from './api-keys';
 import { hashApiKeySecret, parseApiKey, API_KEY_REGEX } from '../../../lib/api-keys';
 import {
@@ -13,33 +13,18 @@ import {
   type RouteResponder,
   type SupabaseFetchStub,
 } from '../../../lib/test-helpers/supabase-fetch-stub';
+import { createAuth0JwtFixture, TEST_AUTH0_OPTS, type Auth0JwtFixture } from '../../../lib/test-helpers/auth0-jwt-stub';
 
-const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
 const HMAC_SECRET = 'test-hmac-secret-at-least-32-chars!';
 
 const ORG_ID = 'org-id-1';
+const AUTH0_SUB = 'auth0|test-subject';
 const USER_ID = 'user-id-1';
 const KEY_ID = 'key-id';
 const REVOKED_AT = '2026-03-20T00:00:00Z';
 
-async function makeJwt(payload: Record<string, unknown>): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const body = btoa(JSON.stringify({ exp: 9999999999, ...payload }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const msg = `${header}.${body}`;
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(JWT_SECRET),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `${msg}.${sigB64}`;
-}
-
 const opts = {
-  jwtSecret: JWT_SECRET,
+  ...TEST_AUTH0_OPTS,
   hmacSecret: HMAC_SECRET,
   supabaseUrl: TEST_SUPABASE_URL,
   serviceRoleKey: TEST_SERVICE_ROLE_KEY,
@@ -48,7 +33,7 @@ const opts = {
 /** Installs the stub as global fetch and returns it for assertions. */
 function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub {
   const stub = createSupabaseFetchStub(routes);
-  vi.stubGlobal('fetch', stub.fetch);
+  vi.stubGlobal('fetch', jwt.wrap(stub.fetch));
   return stub;
 }
 
@@ -114,6 +99,7 @@ const revokeRoutes = (
   overrides: Record<string, RouteResponder> = {},
 ): Record<string, RouteResponder> => ({
   'GET organization_memberships': okRows([makeMembership()]),
+  'GET users': okRows([makeUser()]),
   'GET api_keys': okRows([makeExistingKey()]),
   'PATCH api_keys': updatedRows([{ ...makeExistingKey(), status: 'revoked', revoked_at: REVOKED_AT }]),
   'POST audit_log': createdRows([{ id: 'audit-1' }]),
@@ -151,6 +137,12 @@ interface RevokeApiKeyResponse {
   revoked_at: string;
 }
 
+let jwt: Auth0JwtFixture;
+
+beforeAll(async () => {
+  jwt = await createAuth0JwtFixture();
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -166,7 +158,7 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
   });
 
   it('returns 403 when user is not a member', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes({ 'GET organization_memberships': okRows([]) }));
     const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
     expect(res.status).toBe(403);
@@ -175,7 +167,7 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
   });
 
   it('returns 403 when user role is viewer', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes({
       'GET organization_memberships': okRows([makeMembership(ORG_ID, 'viewer')]),
     }));
@@ -185,7 +177,7 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
   });
 
   it('returns 403 when user role is billing_admin', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes({
       'GET organization_memberships': okRows([makeMembership(ORG_ID, 'billing_admin')]),
     }));
@@ -195,7 +187,7 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
   });
 
   it('scopes the membership lookup to the user, org, and active status', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes());
     await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
 
@@ -207,16 +199,16 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
   });
 
   it('returns 404 when the JWT subject has no users row', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes({ 'GET users': okRows([]) }));
     const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
     expect(res.status).toBe(404);
-    expect(stub.find('GET', 'users')!.url.searchParams.get('auth0_id')).toBe(`eq.${USER_ID}`);
+    expect(stub.find('GET', 'users')!.url.searchParams.get('auth0_id')).toBe(`eq.${AUTH0_SUB}`);
     expect(stub.find('POST', 'api_keys')).toBeUndefined();
   });
 
   it('creates an API key for an org member and returns the token once', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes());
 
     const res = await handleCreateApiKey(
@@ -256,7 +248,7 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
   });
 
   it('asks PostgREST for the inserted row via the Prefer header, not a query param', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes());
 
     const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
@@ -271,7 +263,7 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
   });
 
   it('returns 500 when the insert succeeds but returns no representation', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes({ 'POST api_keys': noContent() }));
 
     const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
@@ -282,14 +274,14 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
   });
 
   it('returns 500 when the key insert fails', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(createRoutes({ 'POST api_keys': httpError(500, 'DB error') }));
     const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
     expect(res.status).toBe(500);
   });
 
   it('stores an HMAC hash of the secret, never the secret itself', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes());
 
     const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
@@ -305,7 +297,7 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
   });
 
   it('writes audit log even when audit insert fails, and still returns 201', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes({ 'POST audit_log': httpError(500, 'db error') }));
 
     const res = await handleCreateApiKey(
@@ -317,7 +309,7 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
   });
 
   it('accepts optional expires_at for key creation', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes());
     const res = await handleCreateApiKey(
       makeCreateRequest(token, { name: 'Expiring Key', expires_at: '2027-01-01T00:00:00Z' }),
@@ -346,7 +338,7 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
   });
 
   it('returns 403 when user is not a member', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(revokeRoutes({ 'GET organization_memberships': okRows([]) }));
     const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
     expect(res.status).toBe(403);
@@ -354,7 +346,7 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
   });
 
   it('returns 403 when user role is viewer', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(revokeRoutes({
       'GET organization_memberships': okRows([makeMembership(ORG_ID, 'viewer')]),
     }));
@@ -364,7 +356,7 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
   });
 
   it('returns 403 when user role is billing_admin', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(revokeRoutes({
       'GET organization_memberships': okRows([makeMembership(ORG_ID, 'billing_admin')]),
     }));
@@ -374,7 +366,7 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
   });
 
   it('returns 404 when key does not belong to the org', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(revokeRoutes({ 'GET api_keys': okRows([]) }));
     const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
     expect(res.status).toBe(404);
@@ -386,7 +378,7 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
   });
 
   it('revokes the key and returns 200', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(revokeRoutes());
 
     const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
@@ -411,7 +403,7 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
   });
 
   it('asks PostgREST for the updated row via the Prefer header, not a query param', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(revokeRoutes());
 
     const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
@@ -423,7 +415,7 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
   });
 
   it('returns 500 when the revoke update fails', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' });
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(revokeRoutes({ 'PATCH api_keys': httpError(500, 'DB error') }));
     const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
     expect(res.status).toBe(500);

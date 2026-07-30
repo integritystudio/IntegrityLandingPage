@@ -1,24 +1,23 @@
 import { forbidden, unauthorized, unprocessableEntity, serverError, json } from '../../../lib/http';
 import { requireBearerToken, safeParseJson } from '../../../lib/http/request';
-import { verifyJwt, supabaseJwtKey } from '../../../lib/auth';
+import { verifyJwt } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership } from '../../../lib/types';
 import { IngestEventRequestSchema, IngestOtelRequestSchema, type IngestEventRequest } from '../../../lib/types/usage';
+import { auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
 import { enforceOrgQuota } from '../lib/quota';
 import { rollupDailyBucket } from '../aggregation';
 
 type IngestAuth =
-  | { ok: true; type: 'jwt'; sub: string; keyId: null }
+  | { ok: true; type: 'jwt'; sub: string; userId: string; keyId: null }
   | { ok: true; type: 'api_key'; userId: string; organizationId: string; keyId: string }
   | { ok: false; error: Response };
 
-interface IngestHandlerOptions {
-  jwtSecret?: string;
+interface IngestHandlerOptions extends UserTokenOptions {
   hmacSecret: string;
   supabaseUrl: string;
   serviceRoleKey: string;
-  jwtIssuerUrl?: string;
   /** Durable Object namespace for quota enforcement. Required for /v1/ingest/otel. */
   doNamespace?: DurableObjectNamespace;
 }
@@ -40,10 +39,14 @@ async function resolveAuth(
     return { ok: true, type: 'api_key', userId: keyResult.userId, organizationId: keyResult.organizationId, keyId: keyResult.apiKey.id };
   }
 
-  const jwtResult = await verifyJwt(token, supabaseJwtKey(opts), { issuerUrl: opts.jwtIssuerUrl });
+  const { key, issuerUrl, audience } = auth0VerifyParams(opts);
+  const jwtResult = await verifyJwt(token, key, { issuerUrl, audience });
   if (!jwtResult.ok) return jwtResult;
   if (!jwtResult.payload.sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
-  return { ok: true, type: 'jwt', sub: jwtResult.payload.sub, keyId: null };
+  // usage_events.user_id is a uuid FK, so the sub must be translated before it is written.
+  const user = await resolveUserId(jwtResult.payload.sub, sb);
+  if (!user.ok) return user;
+  return { ok: true, type: 'jwt', sub: jwtResult.payload.sub, userId: user.userId, keyId: null };
 }
 
 async function assertOrgAccess(
@@ -60,7 +63,7 @@ async function assertOrgAccess(
   const result = await sb.query<OrgMembership>('organization_memberships', {
     select: 'organization_id, user_id, role, status',
     filters: [
-      { column: 'user_id', operator: 'eq', value: auth.sub },
+      { column: 'user_id', operator: 'eq', value: auth.userId },
       { column: 'organization_id', operator: 'eq', value: orgId },
       { column: 'status', operator: 'eq', value: 'active' },
     ],
@@ -105,7 +108,7 @@ export async function handleIngestEvent(
 
   const insertResult = await sb.insert('usage_events', {
     organization_id: body.org_id,
-    user_id: auth.type === 'jwt' ? auth.sub : null,
+    user_id: auth.type === 'jwt' ? auth.userId : null,
     api_key_id: auth.keyId,
     metric_key: body.metric_key,
     quantity: body.quantity,

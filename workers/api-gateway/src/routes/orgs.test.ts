@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll, type Mock } from 'vitest';
 import type Stripe from 'stripe';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal } from './orgs';
 import type { Entitlement, Organization, OrgMembership, OrgRole } from '../../../lib/types';
@@ -11,29 +11,14 @@ import {
   type RouteResponder,
   type SupabaseFetchStub,
 } from '../../../lib/test-helpers/supabase-fetch-stub';
+import { createAuth0JwtFixture, TEST_AUTH0_OPTS, type Auth0JwtFixture } from '../../../lib/test-helpers/auth0-jwt-stub';
 
-const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
 const ORG_ID = 'org-id-1';
 const OTHER_ORG_ID = 'org-id-2';
+const AUTH0_SUB = 'auth0|test-subject';
 const USER_ID = 'user-id-1';
 const RETURN_URL = 'https://app.integritystudio.ai/#/billing';
 const API_KEY_TOKEN = 'int_live_abc12345_0123456789abcdef';
-
-async function makeJwt(payload: Record<string, unknown>, secret: string): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const body = btoa(JSON.stringify({ exp: 9999999999, ...payload }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const msg = `${header}.${body}`;
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `${msg}.${sigB64}`;
-}
 
 const makeOrg = (overrides: Partial<Organization> = {}): Organization => ({
   id: ORG_ID,
@@ -53,15 +38,17 @@ const makeMembership = (orgId = ORG_ID, role: OrgRole = 'owner'): OrgMembership 
 });
 
 const opts = {
-  jwtSecret: JWT_SECRET,
+  ...TEST_AUTH0_OPTS,
   supabaseUrl: TEST_SUPABASE_URL,
   serviceRoleKey: TEST_SERVICE_ROLE_KEY,
 };
 
 /** Installs the stub as global fetch and returns it for assertions. */
 function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub {
-  const stub = createSupabaseFetchStub(routes);
-  vi.stubGlobal('fetch', stub.fetch);
+  // Every authenticated route now translates the JWT sub to users.id, so stub that
+  // lookup by default; a test overrides it to exercise the resolution failures.
+  const stub = createSupabaseFetchStub({ 'GET users': okRows([{ id: USER_ID }]), ...routes });
+  vi.stubGlobal('fetch', jwt.wrap(stub.fetch));
   return stub;
 }
 
@@ -78,6 +65,12 @@ const authedRequest = (path: string, token: string, method = 'GET') =>
     headers: { authorization: `Bearer ${token}` },
   });
 
+let jwt: Auth0JwtFixture;
+
+beforeAll(async () => {
+  jwt = await createAuth0JwtFixture();
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -91,7 +84,7 @@ describe('GET /v1/orgs', () => {
   });
 
   it('returns list of orgs the user belongs to', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase({
       ...membershipRoutes(),
       'GET organizations': okRows([makeOrg()]),
@@ -112,7 +105,7 @@ describe('GET /v1/orgs', () => {
   });
 
   it('passes org IDs as in-filter to DB query (H3)', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase({
       ...membershipRoutes([makeMembership(), makeMembership(OTHER_ORG_ID, 'admin')]),
       'GET organizations': okRows([makeOrg(), makeOrg({ id: OTHER_ORG_ID, slug: 'other-org' })]),
@@ -129,7 +122,7 @@ describe('GET /v1/orgs', () => {
   });
 
   it('returns empty list when user has no memberships', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(membershipRoutes([]));
     const res = await handleListOrgs(authedRequest('/v1/orgs', token), opts);
     expect(res.status).toBe(200);
@@ -149,7 +142,7 @@ describe('GET /v1/orgs/:orgId/dashboard', () => {
   });
 
   it('returns 403 when user is not a member of the org', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(membershipRoutes([]));
     const req = authedRequest(`/v1/orgs/${ORG_ID}/dashboard`, token);
     const res = await handleOrgDashboard(req, ORG_ID, opts);
@@ -157,7 +150,7 @@ describe('GET /v1/orgs/:orgId/dashboard', () => {
   });
 
   it('returns dashboard summary when user is a member', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const entitlements: Entitlement[] = [
       { organization_id: ORG_ID, feature_key: 'api_keys_max', enabled: true, hard_limit: 10, soft_limit: null },
     ];
@@ -189,7 +182,7 @@ describe('GET /v1/orgs/:orgId/dashboard', () => {
 
 describe('GET /v1/orgs/:orgId/billing-status', () => {
   it('returns 403 when user is not a member', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(membershipRoutes([]));
     const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-status`, token);
     const res = await handleOrgBillingStatus(req, ORG_ID, opts);
@@ -197,7 +190,7 @@ describe('GET /v1/orgs/:orgId/billing-status', () => {
   });
 
   it('returns billing status for owner', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase({
       ...membershipRoutes(),
       'GET organizations': okRows([makeOrg({ billing_status: 'active', current_plan: 'growth' })]),
@@ -261,7 +254,7 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
   });
 
   it('returns 403 when user is not a member', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(membershipRoutes([]));
     const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
     const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
@@ -269,7 +262,7 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
   });
 
   it('returns 403 when user role is not owner or billing_admin', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(membershipRoutes([makeMembership(ORG_ID, 'member')]));
     const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
     const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
@@ -277,7 +270,7 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
   });
 
   it('returns 404 when org has no stripe_customer_id', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(portalRoutes(null));
     const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
     const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
@@ -285,7 +278,7 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
   });
 
   it('returns 500 when stripe_customer_id has invalid format (H4)', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(portalRoutes('invalid-id'));
     const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
     const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
@@ -293,7 +286,7 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
   });
 
   it('returns portal URL for owner with stripe customer', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(portalRoutes('cus_123'));
     const create = vi.fn().mockResolvedValue({ url: 'https://billing.stripe.com/session/xxx' });
 
@@ -317,13 +310,13 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
         action: 'billing_portal.accessed',
         target_type: 'org',
         target_id: ORG_ID,
-        metadata: { actor_auth0_id: USER_ID },
+        metadata: { actor_auth0_id: AUTH0_SUB },
       }),
     ]);
   });
 
   it('returns portal URL for billing_admin role', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(portalRoutes('cus_456', [makeMembership(ORG_ID, 'billing_admin')]));
     const create = vi.fn().mockResolvedValue({ url: 'https://billing.stripe.com/session/yyy' });
 
@@ -350,7 +343,7 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
   });
 
   it('returns 500 when Stripe throws', async () => {
-    const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(portalRoutes('cus_123'));
     const create = vi.fn().mockRejectedValue(new Error('Stripe API error'));
 

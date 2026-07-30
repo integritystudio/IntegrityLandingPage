@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './usage';
 import { hashApiKeySecret } from '../../../lib/api-keys';
 import {
@@ -10,34 +10,19 @@ import {
   type RouteResponder,
   type SupabaseFetchStub,
 } from '../../../lib/test-helpers/supabase-fetch-stub';
+import { createAuth0JwtFixture, TEST_AUTH0_OPTS, type Auth0JwtFixture } from '../../../lib/test-helpers/auth0-jwt-stub';
 
-const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
 const HMAC_SECRET = 'test-hmac-secret-at-least-32-chars!';
 
 const ORG_ID = 'org-id-1';
+const AUTH0_SUB = 'auth0|test-subject';
 const USER_ID = 'user-id-1';
 const API_KEY_PREFIX = 'abc12345';
 const API_KEY_SECRET = 'testsecret32charsminimumvalue000';
 const API_KEY_TOKEN = `int_live_${API_KEY_PREFIX}_${API_KEY_SECRET}`;
 
-async function makeJwt(payload: Record<string, unknown>, secret: string): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const body = btoa(JSON.stringify({ exp: 9999999999, ...payload }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const msg = `${header}.${body}`;
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `${msg}.${sigB64}`;
-}
-
 const opts = {
-  jwtSecret: JWT_SECRET,
+  ...TEST_AUTH0_OPTS,
   hmacSecret: HMAC_SECRET,
   supabaseUrl: TEST_SUPABASE_URL,
   serviceRoleKey: TEST_SERVICE_ROLE_KEY,
@@ -67,8 +52,10 @@ const makeApiKeyRow = async (orgId = ORG_ID, prefix = API_KEY_PREFIX, secret = A
 
 /** Installs the stub as global fetch and returns it for assertions. */
 function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub {
-  const stub = createSupabaseFetchStub(routes);
-  vi.stubGlobal('fetch', stub.fetch);
+  // Every authenticated route now translates the JWT sub to users.id, so stub that
+  // lookup by default; a test overrides it to exercise the resolution failures.
+  const stub = createSupabaseFetchStub({ 'GET users': okRows([{ id: USER_ID }]), ...routes });
+  vi.stubGlobal('fetch', jwt.wrap(stub.fetch));
   return stub;
 }
 
@@ -81,7 +68,7 @@ const apiKeyRoute = async (row?: Record<string, unknown>): Promise<Record<string
 });
 
 const makeJwtRequest = async (path: string) => {
-  const token = await makeJwt({ sub: USER_ID, email: 'u@test.com' }, JWT_SECRET);
+  const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
   return new Request(`https://api.test${path}`, {
     method: 'GET',
     headers: { authorization: `Bearer ${token}` },
@@ -93,6 +80,12 @@ const makeApiKeyRequest = (path: string) =>
     method: 'GET',
     headers: { authorization: `Bearer ${API_KEY_TOKEN}` },
   });
+
+let jwt: Auth0JwtFixture;
+
+beforeAll(async () => {
+  jwt = await createAuth0JwtFixture();
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -299,8 +292,9 @@ describe('GET /v1/orgs/:orgId/quota/status', () => {
     expect(body.monthlyLimit).toBe(500000);
     expect(body.monthlyUsed).toBe(12345);
     expect(body.minuteWindowExpiresIn).toBe(45000);
-    // Quota lives in the DO: membership is the only database round-trip.
-    expect(stub.requests).toHaveLength(1);
+    // Quota lives in the DO, so the only database round-trips are resolving the JWT
+    // subject to users.id and the membership check.
+    expect(stub.requests).toHaveLength(2);
   });
 
   it('returns uninitialized status when DO is unavailable', async () => {
