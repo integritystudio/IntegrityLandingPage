@@ -152,12 +152,34 @@ Named so they are not mistaken for covered:
 The check found two live failures on its first execution, which is the argument
 for it existing.
 
-**🔴 `integrity-studio-contact` — 3 `scriptThrewException` on 2026-07-30**, out of
+**🟠 `integrity-studio-contact` — 3 `scriptThrewException` on 2026-07-30**, out of
 34 invocations (~9%). The contact form is the site's only lead-capture path, so
-these plausibly cost three submissions. **Unexplained**: the exceptions predate
-observability being enabled on that Worker, so no log line survives, and this is
-recorded as unresolved rather than guessed at. If it recurs the logs will now
-capture it.
+these plausibly cost three submissions.
+
+**The root cause is still unidentified, and is recorded that way rather than
+guessed at.** The exceptions predate observability being enabled on that Worker,
+so no log line survives them, and reading every unguarded path in the handler
+against the *deployed* configuration did not produce a candidate that throws:
+`checkRateLimit` catches its own KV faults, `validateCsrfToken` validates every
+input before reaching crypto, and `getAllowedOrigins` falls back to defaults on
+bad JSON. `ALLOWED_ORIGINS_JSON` is not bound in production at all, so the
+empty-allowlist path below could not have fired there either.
+
+**What was fixed is the reason they were undiagnosable.** The `fetch` handler had
+no outer try/catch: the body parse onward was covered, but the prologue — CORS
+resolution, CSRF generation and validation, rate limiting — was not, and neither
+was the `Response` construction inside the body handler's own `catch`. Anything
+thrown there escaped as a Cloudflare `1101`: no CORS headers, so a browser
+reports it as a CORS failure rather than a server error, and no log line. Now
+every path returns a 500 that carries CORS headers and the request ID, and logs
+`worker_uncaught_exception` with the error, stack, method and origin. A
+recurrence will be diagnosable; this one cannot be.
+
+Fixed alongside it: `buildCorsHeaders` put `allowedOrigins[0]` straight into the
+`access-control-allow-origin` header, which is `undefined` when
+`ALLOWED_ORIGINS_JSON` is `"[]"` — valid JSON, and an array, so it passes every
+existing guard. The header is now omitted instead, which is what an empty
+allowlist means. Not the production cause, but the same failure class.
 
 **🔴 `obtool-ingest` — ~90% of invocations failing `exceededResources`**, ongoing,
 and it is *not* deployed from this repo (`observability-toolkit`). Its `*/5` cron

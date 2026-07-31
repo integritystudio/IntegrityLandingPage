@@ -312,9 +312,61 @@ export function _resetRateLimitState(): void {
 }
 
 export default {
+  /**
+   * Outermost guard. `handleRequest` covers the request body in its own
+   * try/catch, but everything before that — CORS resolution, CSRF generation
+   * and validation, rate limiting — ran unguarded, and so did the Response
+   * construction inside that catch. Anything thrown there escaped the handler
+   * and became a Cloudflare 1101: no CORS headers, so a browser reports it as a
+   * CORS failure rather than a server error, and no log line, so it cannot be
+   * diagnosed after the fact.
+   *
+   * Production threw 3 of these on 2026-07-30 (~9% of that day's requests) and
+   * they are unexplained precisely because nothing recorded them — see
+   * docs/observability-signals.md. This does not identify that throw; it makes
+   * the failure mode survivable and the next occurrence diagnosable.
+   */
   async fetch(request: Request, env: Env): Promise<Response> {
-    // Extract or generate request ID for distributed tracing (#29)
     const requestId = request.headers.get('X-Request-ID') || crypto.randomUUID();
+    try {
+      return await handleRequest(request, env, requestId);
+    } catch (err) {
+      console.error(JSON.stringify({
+        level: 'error',
+        event: 'worker_uncaught_exception',
+        requestId,
+        error: String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        method: request.method,
+        // The origin is the one request attribute most likely to explain a
+        // throw in the prologue, and it is not secret.
+        origin: request.headers.get('Origin'),
+        timestamp: new Date().toISOString(),
+        message: 'Uncaught exception escaped the request handler',
+      }));
+
+      // Rebuild CORS headers independently: the throw may have come from the
+      // code that produced them, so they cannot be reused here.
+      let corsHeaders: Record<string, string> = {};
+      try {
+        corsHeaders = getCorsHeaders(request, env) ?? {};
+      } catch {
+        // Fall through with no CORS headers rather than throwing again.
+      }
+
+      return new Response(
+        JSON.stringify({ error: 'An unexpected error occurred. Please try again.' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Request-ID': requestId },
+        }
+      );
+    }
+  },
+};
+
+async function handleRequest(request: Request, env: Env, requestId: string): Promise<Response> {
+  {
 
     // Handle CORS preflight (always allowed to respond)
     if (request.method === 'OPTIONS') {
@@ -613,8 +665,8 @@ Sent from IntegrityStudio.ai contact form at ${new Date().toISOString()}
         { status: 500, headers: responseHeaders }
       );
     }
-  },
-};
+  }
+}
 
 /**
  * Wrap a promise with a timeout.

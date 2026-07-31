@@ -545,6 +545,148 @@ describe('Contact Form Worker', () => {
 
       expect(response.status).toBe(500);
     });
+
+    // Production threw 3 unhandled exceptions on 2026-07-30 that escaped the
+    // handler entirely, becoming Cloudflare 1101s with no CORS headers and no
+    // log line — which is why they are still unexplained. These pin the outer
+    // guard that makes that outcome impossible. The throw is forced from the
+    // *prologue* (rate limiting, before the body try/catch) because that is the
+    // region the real exceptions must have come from: everything from the body
+    // parse onward was already covered.
+    describe('uncaught exceptions in the prologue', () => {
+      const throwingKv = {
+        get: () => { throw new Error('boom from the prologue'); },
+        put: () => { throw new Error('boom from the prologue'); },
+      };
+
+      it('returns 500 rather than letting the exception escape', async () => {
+        // getClientIP runs before any try/catch; make it throw via a header
+        // accessor the prologue touches.
+        const request = createRequest('POST', {
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message for testing.',
+        });
+        const hostileEnv = {
+          ...mockEnv,
+          // A getter that throws when the prologue reads RATE_LIMIT_MAX.
+          get RATE_LIMIT_MAX(): string { throw new Error('boom from the prologue'); },
+        };
+
+        const response = await worker.fetch(request, hostileEnv as unknown as typeof mockEnv);
+
+        expect(response.status).toBe(500);
+        const data = await response.json() as ErrorResponse;
+        expect(data.error).toContain('unexpected error');
+      });
+
+      it('still returns CORS headers, so a browser sees a server error not a CORS failure', async () => {
+        const request = createRequest('POST', {
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message for testing.',
+        });
+        const hostileEnv = {
+          ...mockEnv,
+          get RATE_LIMIT_MAX(): string { throw new Error('boom from the prologue'); },
+        };
+
+        const response = await worker.fetch(request, hostileEnv as unknown as typeof mockEnv);
+
+        expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://integritystudio.ai');
+        expect(response.headers.get('X-Request-ID')).toBeTruthy();
+      });
+
+      it('logs the exception so a recurrence is diagnosable', async () => {
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const request = createRequest('POST', {
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message for testing.',
+        });
+        const hostileEnv = {
+          ...mockEnv,
+          get RATE_LIMIT_MAX(): string { throw new Error('boom from the prologue'); },
+        };
+
+        await worker.fetch(request, hostileEnv as unknown as typeof mockEnv);
+
+        const logged = errorSpy.mock.calls
+          .map((call) => String(call[0]))
+          .find((line) => line.includes('worker_uncaught_exception'));
+        expect(logged, 'no worker_uncaught_exception log line was emitted').toBeTruthy();
+        const parsed = JSON.parse(logged!);
+        expect(parsed.error).toContain('boom from the prologue');
+        expect(parsed.origin).toBe('https://integritystudio.ai');
+        expect(parsed.method).toBe('POST');
+        errorSpy.mockRestore();
+      });
+
+      it('preserves a caller-supplied X-Request-ID through the failure', async () => {
+        const request = createRequest('POST', {
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message for testing.',
+        }, { 'X-Request-ID': 'trace-me-123' });
+        const hostileEnv = {
+          ...mockEnv,
+          get RATE_LIMIT_MAX(): string { throw new Error('boom from the prologue'); },
+        };
+
+        const response = await worker.fetch(request, hostileEnv as unknown as typeof mockEnv);
+
+        expect(response.headers.get('X-Request-ID')).toBe('trace-me-123');
+      });
+
+      it('KV that throws on read is still handled without escaping', async () => {
+        const request = createRequest('POST', {
+          name: 'John Doe',
+          email: 'john@example.com',
+          message: 'This is a valid message for testing.',
+        });
+
+        const response = await worker.fetch(
+          request,
+          { ...mockEnv, RATE_LIMIT_KV: throwingKv } as unknown as typeof mockEnv,
+        );
+
+        // checkRateLimit catches KV faults itself, so this must NOT 500 — it
+        // proves the outer guard did not mask an already-handled path.
+        expect(response.status).not.toBe(500);
+      });
+    });
+  });
+
+  // An explicitly empty allowlist is valid JSON and an array, so it survives
+  // getAllowedOrigins' parse guards and reaches buildCorsHeaders, where `[0]`
+  // is undefined. Reaching a Response constructor, that undefined is at best a
+  // literal "undefined" origin and at worst a throw — the failure class the
+  // outer guard now catches, fixed here at the source instead.
+  describe('empty ALLOWED_ORIGINS_JSON', () => {
+    const emptyAllowlistEnv = { ...mockEnv, ALLOWED_ORIGINS_JSON: '[]' };
+
+    it('does not throw on preflight, and advertises no origin', async () => {
+      const request = createRequest('OPTIONS');
+
+      const response = await worker.fetch(request, emptyAllowlistEnv);
+
+      expect(response.status).toBe(200);
+      // No origin is allowed, so none may be advertised. Omitted, not "undefined".
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
+      expect(response.headers.get('Access-Control-Allow-Credentials')).toBeNull();
+    });
+
+    it('rejects a POST outright rather than emitting a broken header', async () => {
+      const request = createRequest('POST', {
+        name: 'John Doe',
+        email: 'john@example.com',
+        message: 'This is a valid message for testing.',
+      });
+
+      const response = await worker.fetch(request, emptyAllowlistEnv);
+
+      expect(response.status).toBe(403);
+    });
   });
 
   describe('CORS Headers', () => {
