@@ -8,7 +8,6 @@ import {
 
 describe('BaseRouteOptionsSchema', () => {
   const valid = {
-    jwtSecret: 'supersecret',
     supabaseUrl: 'https://project.supabase.co',
     serviceRoleKey: 'service-role-key-123',
   };
@@ -32,9 +31,14 @@ describe('BaseRouteOptionsSchema', () => {
     expect(BaseRouteOptionsSchema.safeParse({ ...valid, jwtIssuerUrl: 'not-a-url' }).success).toBe(false);
   });
 
-  it('accepts options with no jwtSecret — ES256 projects verify via JWKS', () => {
-    const { jwtSecret: _j, ...noSecret } = valid;
-    expect(BaseRouteOptionsSchema.safeParse(noSecret).success).toBe(true);
+  // Ported from 'accepts options with no jwtSecret', which documented the field as
+  // optional. The field is gone entirely as of 2026-07-31; this asserts a supplied
+  // one is dropped rather than silently carried into a route's options, so nothing
+  // can start depending on it again without failing here first.
+  it('drops a supplied jwtSecret — the HS256 path it fed was removed', () => {
+    const parsed = BaseRouteOptionsSchema.safeParse({ ...valid, jwtSecret: 'legacy-secret' });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data).not.toHaveProperty('jwtSecret');
   });
 
   it('still requires supabaseUrl, which is what the JWKS URL derives from', () => {
@@ -45,7 +49,6 @@ describe('BaseRouteOptionsSchema', () => {
 
 describe('MachineRouteOptionsSchema', () => {
   const valid = {
-    jwtSecret: 'supersecret',
     supabaseUrl: 'https://project.supabase.co',
     serviceRoleKey: 'service-role-key-123',
     hmacSecret: 'hmac-secret-value',

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
-import { verifyJwt, parseJwtPayload, resetJwksCache, supabaseJwtKey, jwksUrlFor, auth0JwtKey, auth0IssuerFor } from './auth';
+import { verifyJwt, parseJwtPayload, resetJwksCache, auth0JwtKey, auth0IssuerFor } from './auth';
+import type { JwtVerificationKey } from './auth';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -10,7 +11,11 @@ function b64url(s: string): string {
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-/** Build a compact JWT (header.payload.signature) signed with HS256. */
+/**
+ * Build a compact JWT signed with HS256. The library no longer verifies HS256 at all
+ * (removed 2026-07-31), so this exists to forge tokens the verifier must *reject* —
+ * plus the parse-only tests, which never reach signature checking.
+ */
 async function buildJwt(
   claims: Record<string, unknown>,
   secret: string,
@@ -37,8 +42,30 @@ async function buildJwt(
   return `${header}.${payload}.${sigB64}`;
 }
 
-const SECRET = 'test-jwt-secret-32-bytes-minimum!!';
 const NOW = Math.floor(Date.now() / 1000);
+
+// A single ES256 key pair shared by the claim suites below. Verification is
+// asymmetric-only since the HS256 path was removed (2026-07-31), so tests whose
+// subject is a *claim* — exp, iss, nbf, aud — still need a real signature to get
+// past the signature check before the claim under test is reached.
+/** Only ever used to *sign tokens that must be rejected*, plus parse-only tests. */
+const FORGED_SECRET = 'test-jwt-secret-32-bytes-minimum!!';
+
+let esKey: CryptoKey;
+let esJwk: TestJwk;
+
+beforeAll(async () => {
+  const pair = await generateEs256KeyPair();
+  esKey = pair.privateKey;
+  esJwk = { ...pair.jwk, kid: TEST_KID, alg: 'ES256', use: 'sig' };
+});
+
+/** Reset the cache and serve the shared key set. Suites that assert on JWKS
+ *  mechanics (caching, rotation, fetch failure) stub fetch themselves instead. */
+function useSharedJwks(): void {
+  resetJwksCache();
+  vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ keys: [esJwk] }), { status: 200 }));
+}
 
 // ---------------------------------------------------------------------------
 // parseJwtPayload
@@ -56,7 +83,7 @@ describe('parseJwtPayload', () => {
   });
 
   it('returns ok:true and exposes parts for a well-formed JWT', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, SECRET);
+    const token = await buildJwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, FORGED_SECRET);
     const result = parseJwtPayload(token);
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -71,23 +98,27 @@ describe('parseJwtPayload', () => {
 // ---------------------------------------------------------------------------
 
 describe('verifyJwt — signature', () => {
+  beforeEach(useSharedJwks);
+  afterEach(() => vi.unstubAllGlobals());
+
   it('rejects a tampered payload', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, SECRET);
+    const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, esKey);
     const [h, , s] = token.split('.');
     const tampered = `${h}.${b64url(JSON.stringify({ sub: 'attacker', exp: NOW + 60, iat: NOW }))}.${s}`;
-    const result = await verifyJwt(tampered, SECRET);
+    const result = await verifyJwt(tampered, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(false);
   });
 
-  it('rejects a token signed with a different secret', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, 'wrong-secret');
-    const result = await verifyJwt(token, SECRET);
+  it('rejects a token signed by a key outside the published set', async () => {
+    const attacker = await generateEs256KeyPair();
+    const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, attacker.privateKey);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(false);
   });
 
   it('accepts a validly signed token', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, SECRET);
-    const result = await verifyJwt(token, SECRET);
+    const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, esKey);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(true);
   });
 });
@@ -97,15 +128,18 @@ describe('verifyJwt — signature', () => {
 // ---------------------------------------------------------------------------
 
 describe('verifyJwt — exp claim', () => {
+  beforeEach(useSharedJwks);
+  afterEach(() => vi.unstubAllGlobals());
+
   it('rejects an expired token', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: NOW - 1, iat: NOW - 120 }, SECRET);
-    const result = await verifyJwt(token, SECRET);
+    const token = await buildEs256Jwt({ sub: 'u1', exp: NOW - 1, iat: NOW - 120 }, esKey);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(false);
   });
 
   it('accepts a non-expired token', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: NOW + 300, iat: NOW }, SECRET);
-    const result = await verifyJwt(token, SECRET);
+    const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 300, iat: NOW }, esKey);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(true);
   });
 });
@@ -115,22 +149,34 @@ describe('verifyJwt — exp claim', () => {
 // ---------------------------------------------------------------------------
 
 describe('verifyJwt — missing or non-numeric exp', () => {
+  beforeEach(useSharedJwks);
+  afterEach(() => vi.unstubAllGlobals());
+
+  // Positive control. Every other assertion here is a rejection, so without this
+  // the suite would still pass if the JWKS stub broke — the tokens would fail
+  // signature verification and each `ok === false` would hold for the wrong
+  // reason. This proves the rejections below are attributable to `exp`.
+  it('accepts an otherwise identical token with a valid numeric exp', async () => {
+    const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, esKey);
+    expect((await verifyJwt(token, { jwksUrl: JWKS_URL })).ok).toBe(true);
+  });
+
   it('rejects a token with no exp claim', async () => {
     // Build a token without exp; JwtPayload type has exp: number but JS allows omission.
-    const token = await buildJwt({ sub: 'u1', iat: NOW } as Record<string, unknown>, SECRET);
-    const result = await verifyJwt(token, SECRET);
+    const token = await buildEs256Jwt({ sub: 'u1', iat: NOW } as Record<string, unknown>, esKey);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(false);
   });
 
   it('rejects a token with a string exp claim', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: 'never', iat: NOW }, SECRET);
-    const result = await verifyJwt(token, SECRET);
+    const token = await buildEs256Jwt({ sub: 'u1', exp: 'never', iat: NOW }, esKey);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(false);
   });
 
   it('rejects a token with null exp claim', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: null, iat: NOW }, SECRET);
-    const result = await verifyJwt(token, SECRET);
+    const token = await buildEs256Jwt({ sub: 'u1', exp: null, iat: NOW }, esKey);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(false);
   });
 });
@@ -140,27 +186,30 @@ describe('verifyJwt — missing or non-numeric exp', () => {
 // ---------------------------------------------------------------------------
 
 describe('verifyJwt — iss claim', () => {
+  beforeEach(useSharedJwks);
+  afterEach(() => vi.unstubAllGlobals());
+
   it('rejects a token whose iss does not match issuerUrl', async () => {
-    const token = await buildJwt(
+    const token = await buildEs256Jwt(
       { sub: 'u1', exp: NOW + 60, iat: NOW, iss: 'https://attacker.example' },
-      SECRET,
+      esKey,
     );
-    const result = await verifyJwt(token, SECRET, { issuerUrl: 'https://trusted.example' });
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL }, { issuerUrl: 'https://trusted.example' });
     expect(result.ok).toBe(false);
   });
 
   it('accepts a token with matching iss', async () => {
-    const token = await buildJwt(
+    const token = await buildEs256Jwt(
       { sub: 'u1', exp: NOW + 60, iat: NOW, iss: 'https://trusted.example' },
-      SECRET,
+      esKey,
     );
-    const result = await verifyJwt(token, SECRET, { issuerUrl: 'https://trusted.example' });
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL }, { issuerUrl: 'https://trusted.example' });
     expect(result.ok).toBe(true);
   });
 
   it('accepts a token when issuerUrl is not provided', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, SECRET);
-    const result = await verifyJwt(token, SECRET);
+    const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, esKey);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(true);
   });
 });
@@ -170,45 +219,48 @@ describe('verifyJwt — iss claim', () => {
 // ---------------------------------------------------------------------------
 
 describe('verifyJwt — nbf claim (V-06)', () => {
+  beforeEach(useSharedJwks);
+  afterEach(() => vi.unstubAllGlobals());
+
   it('rejects a token with nbf more than 30s in the future', async () => {
-    const token = await buildJwt(
+    const token = await buildEs256Jwt(
       { sub: 'u1', exp: NOW + 600, iat: NOW, nbf: NOW + 60 },
-      SECRET,
+      esKey,
     );
-    const result = await verifyJwt(token, SECRET);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(false);
   });
 
   it('accepts a token with nbf within the 30s clock-skew window', async () => {
-    const token = await buildJwt(
+    const token = await buildEs256Jwt(
       { sub: 'u1', exp: NOW + 600, iat: NOW, nbf: NOW + 25 },
-      SECRET,
+      esKey,
     );
-    const result = await verifyJwt(token, SECRET);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(true);
   });
 
   it('accepts a token with nbf in the past', async () => {
-    const token = await buildJwt(
+    const token = await buildEs256Jwt(
       { sub: 'u1', exp: NOW + 600, iat: NOW, nbf: NOW - 60 },
-      SECRET,
+      esKey,
     );
-    const result = await verifyJwt(token, SECRET);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(true);
   });
 
   it('accepts a token with no nbf claim', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, SECRET);
-    const result = await verifyJwt(token, SECRET);
+    const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, esKey);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(true);
   });
 
   it('accepts a token with nbf exactly at the 30s boundary', async () => {
-    const token = await buildJwt(
+    const token = await buildEs256Jwt(
       { sub: 'u1', exp: NOW + 600, iat: NOW, nbf: NOW + 30 },
-      SECRET,
+      esKey,
     );
-    const result = await verifyJwt(token, SECRET);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     // nbf == now + 30 means nbf > now + 30 is false → should accept
     expect(result.ok).toBe(true);
   });
@@ -219,64 +271,67 @@ describe('verifyJwt — nbf claim (V-06)', () => {
 // ---------------------------------------------------------------------------
 
 describe('verifyJwt — aud claim (V-18)', () => {
+  beforeEach(useSharedJwks);
+  afterEach(() => vi.unstubAllGlobals());
+
   it('rejects a token whose aud does not include the expected audience', async () => {
-    const token = await buildJwt(
+    const token = await buildEs256Jwt(
       { sub: 'u1', exp: NOW + 60, iat: NOW, aud: 'https://other.api' },
-      SECRET,
+      esKey,
     );
-    const result = await verifyJwt(token, SECRET, {
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL }, {
       audience: 'https://api.integritystudio.dev',
     });
     expect(result.ok).toBe(false);
   });
 
   it('rejects a token with an aud array that does not include the expected audience', async () => {
-    const token = await buildJwt(
+    const token = await buildEs256Jwt(
       { sub: 'u1', exp: NOW + 60, iat: NOW, aud: ['https://other.api', 'https://another.api'] },
-      SECRET,
+      esKey,
     );
-    const result = await verifyJwt(token, SECRET, {
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL }, {
       audience: 'https://api.integritystudio.dev',
     });
     expect(result.ok).toBe(false);
   });
 
   it('accepts a token with matching aud string', async () => {
-    const token = await buildJwt(
+    const token = await buildEs256Jwt(
       { sub: 'u1', exp: NOW + 60, iat: NOW, aud: 'https://api.integritystudio.dev' },
-      SECRET,
+      esKey,
     );
-    const result = await verifyJwt(token, SECRET, {
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL }, {
       audience: 'https://api.integritystudio.dev',
     });
     expect(result.ok).toBe(true);
   });
 
   it('accepts a token with aud array containing the expected audience', async () => {
-    const token = await buildJwt(
+    const token = await buildEs256Jwt(
       {
         sub: 'u1',
         exp: NOW + 60,
         iat: NOW,
         aud: ['https://api.integritystudio.dev', 'https://other.api'],
       },
-      SECRET,
+      esKey,
     );
-    const result = await verifyJwt(token, SECRET, {
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL }, {
       audience: 'https://api.integritystudio.dev',
     });
     expect(result.ok).toBe(true);
   });
 
   it('accepts a token with no aud claim when audience option is not provided', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, SECRET);
-    const result = await verifyJwt(token, SECRET);
+    const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, esKey);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(true);
   });
 
   it('rejects a token with no aud claim when audience option is provided', async () => {
-    const token = await buildJwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, SECRET);
-    const result = await verifyJwt(token, SECRET, {
+    const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, esKey);
+    const result = await verifyJwt(token, { jwksUrl: JWKS_URL }, {
       audience: 'https://api.integritystudio.dev',
     });
     expect(result.ok).toBe(false);
@@ -455,10 +510,11 @@ describe('verifyJwt — algorithm confusion defences', () => {
     vi.unstubAllGlobals();
   });
 
-  it('refuses an HS256 token when only a JWKS source is configured', async () => {
-    // The classic attack: sign with the public key as if it were a shared
-    // secret. No HMAC secret is configured, so there is nothing to verify
-    // against and the token must be rejected rather than falling back.
+  it('refuses an HS256 token outright — the algorithm is not in the allowlist', async () => {
+    // The classic attack: sign with the public key as if it were a shared secret.
+    // Since 2026-07-31 there is no symmetric path at all, so this is rejected by
+    // the allowlist rather than by "no secret happens to be configured" — the
+    // property no longer depends on how the caller built its key.
     const token = await buildJwt(futureClaims(), JSON.stringify(jwk));
     expect((await verifyJwt(token, { jwksUrl: JWKS_URL })).ok).toBe(false);
   });
@@ -473,37 +529,46 @@ describe('verifyJwt — algorithm confusion defences', () => {
     const token = await buildEs256Jwt(futureClaims(), privateKey, { alg: 'ES384', typ: 'JWT', kid: TEST_KID });
     expect((await verifyJwt(token, { jwksUrl: JWKS_URL })).ok).toBe(false);
   });
-
-  it('rejects an ES256 token when only an HMAC secret is configured', async () => {
-    const token = await buildEs256Jwt(futureClaims(), privateKey);
-    expect((await verifyJwt(token, SECRET)).ok).toBe(false);
-  });
 });
 
-describe('supabaseJwtKey / jwksUrlFor', () => {
-  it('derives the JWKS URL from the project URL', () => {
-    expect(jwksUrlFor('https://abc.supabase.co')).toBe('https://abc.supabase.co/auth/v1/.well-known/jwks.json');
+
+// ---------------------------------------------------------------------------
+// The removed symmetric path stays removed
+//
+// Ported from the suites that used to document the HS256 fallback
+// (`supabaseJwtKey`'s "carries the legacy secret as a fallback" / "falls back to
+// a bare secret", and "rejects an ES256 token when only an HMAC secret is
+// configured"). Those asserted the fallback existed; these assert it cannot come
+// back unnoticed, which is the property worth keeping.
+//
+// Written deliberately against shapes TypeScript now forbids, hence the casts: a
+// type cannot fail at runtime. If someone widens JwtVerificationKey again or
+// re-adds an hmacSecret read, the compiler goes quiet and only these notice.
+// ---------------------------------------------------------------------------
+
+describe('verifyJwt — the symmetric path stays removed', () => {
+  beforeEach(useSharedJwks);
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('does not treat a bare-string key as an HMAC secret', async () => {
+    const token = await buildJwt(futureClaims(), FORGED_SECRET);
+    const key = FORGED_SECRET as unknown as JwtVerificationKey;
+    expect((await verifyJwt(token, key)).ok).toBe(false);
   });
 
-  it('tolerates a trailing slash on the project URL', () => {
-    expect(jwksUrlFor('https://abc.supabase.co/')).toBe('https://abc.supabase.co/auth/v1/.well-known/jwks.json');
+  it('does not verify an HS256 token against an hmacSecret smuggled onto the key', async () => {
+    const token = await buildJwt(futureClaims(), FORGED_SECRET);
+    const key = { jwksUrl: JWKS_URL, hmacSecret: FORGED_SECRET } as unknown as JwtVerificationKey;
+    expect((await verifyJwt(token, key)).ok).toBe(false);
   });
 
-  it('prefers JWKS and carries the legacy secret as a fallback', () => {
-    const key = supabaseJwtKey({ supabaseUrl: 'https://abc.supabase.co', jwtSecret: SECRET });
-    expect(key).toEqual({ jwksUrl: 'https://abc.supabase.co/auth/v1/.well-known/jwks.json', hmacSecret: SECRET });
-  });
-
-  it('falls back to a bare secret when no project URL is available', () => {
-    expect(supabaseJwtKey({ jwtSecret: SECRET })).toBe(SECRET);
-  });
-
-  it('yields a JWKS-only key when no secret is configured — the ES256-only project case', () => {
-    const key = supabaseJwtKey({ supabaseUrl: 'https://abc.supabase.co' });
-    expect(key).toEqual({
-      jwksUrl: 'https://abc.supabase.co/auth/v1/.well-known/jwks.json',
-      hmacSecret: undefined,
-    });
+  it('rejects rather than throws when handed a bare-string key with an ES256 token', async () => {
+    // The direct port of "rejects an ES256 token when only an HMAC secret is
+    // configured": there is no jwksUrl to resolve, so it must fail closed as a
+    // 401 rather than surface as an unhandled error.
+    const token = await buildEs256Jwt(futureClaims(), esKey);
+    const key = FORGED_SECRET as unknown as JwtVerificationKey;
+    await expect(verifyJwt(token, key)).resolves.toMatchObject({ ok: false });
   });
 });
 

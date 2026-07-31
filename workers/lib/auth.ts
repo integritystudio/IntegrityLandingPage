@@ -1,11 +1,8 @@
-import { hmacVerify } from './crypto';
 import { unauthorized } from './http';
 
 /** Seconds of clock-skew tolerance applied to the `nbf` (Not Before) check. */
 const NBF_CLOCK_SKEW_SECONDS = 30;
 
-/** Path of a Supabase project's published JSON Web Key Set, relative to SUPABASE_URL. */
-const JWKS_PATH = '/auth/v1/.well-known/jwks.json';
 /**
  * Path of an Auth0 tenant's published JSON Web Key Set. Note this is the bare
  * well-known path — Auth0 does not nest it under a prefix the way Supabase does.
@@ -21,7 +18,6 @@ const JWKS_UNKNOWN_KID_REFETCH_COOLDOWN_MS = 30 * 1000;
 /** Upper bound on the JWKS request; verification fails closed if exceeded. */
 const JWKS_FETCH_TIMEOUT_MS = 3000;
 
-const ALG_HS256 = 'HS256';
 const ALG_ES256 = 'ES256';
 const ALG_RS256 = 'RS256';
 
@@ -44,46 +40,17 @@ const ASYMMETRIC_ALGS = {
 type AsymmetricAlg = keyof typeof ASYMMETRIC_ALGS;
 
 /**
- * How to verify a token's signature.
+ * How to verify a token's signature: always asymmetric, against the key set
+ * published at `jwksUrl`.
  *
- * - A bare string is a legacy HS256 shared secret (Supabase's "JWT secret").
- * - `{ jwksUrl }` verifies asymmetric signatures against the project's
- *   published key set, which is what Supabase issues once a project has
- *   migrated to ES256 signing keys. `hmacSecret` may be supplied alongside it
- *   so tokens minted before the migration still verify until they expire.
+ * There is deliberately no symmetric option. A shared-secret (HS256) branch was
+ * removed on 2026-07-31 once nothing reached it — browser tokens are Auth0-issued
+ * and verified against Auth0's JWKS, and `SUPABASE_JWT_SECRET` had already been
+ * unbound in production, so the path could not have verified anything. Keeping it
+ * would leave an unreachable branch that only widens the algorithm-confusion
+ * surface. Do not reintroduce one without a token that actually needs it.
  */
-export type JwtVerificationKey = string | { jwksUrl: string; hmacSecret?: string };
-
-/**
- * Build the JWKS URL for a Supabase project from its base URL.
- *
- * @deprecated No production caller remains. Supabase issues no token in this system — it is
- * reached with the service role key, and browser tokens come from Auth0. Use
- * {@link auth0JwtKey} / {@link auth0IssuerFor}. Kept so a future Supabase-Auth project has a
- * starting point; do not wire it into a verification path without confirming the issuer.
- */
-export function jwksUrlFor(supabaseUrl: string): string {
-  return `${supabaseUrl.replace(/\/+$/, '')}${JWKS_PATH}`;
-}
-
-/**
- * Verification key for a Supabase project: JWKS-first, with the legacy HS256
- * secret accepted as a fallback when one is configured. Derived from
- * `supabaseUrl` so each environment automatically verifies against its own
- * project — no extra secret to bind, and nothing to keep in sync.
- *
- * @deprecated No production caller remains, and pointing it at a token Supabase did not issue
- * is how api-gateway came to answer `401 Invalid JWT signature` to every dashboard request.
- * Browser tokens are Auth0-issued: use {@link auth0JwtKey} with {@link auth0IssuerFor}. Note
- * this helper also accepts a symmetric `jwtSecret` fallback, which `auth0JwtKey` deliberately
- * does not — reintroducing it would widen the algorithm-confusion surface for no gain.
- */
-export function supabaseJwtKey(opts: { supabaseUrl?: string; jwtSecret?: string }): JwtVerificationKey {
-  if (opts.supabaseUrl) {
-    return { jwksUrl: jwksUrlFor(opts.supabaseUrl), hmacSecret: opts.jwtSecret };
-  }
-  return opts.jwtSecret ?? '';
-}
+export type JwtVerificationKey = { jwksUrl: string };
 
 /**
  * Normalise an Auth0 tenant domain to a bare host. Accepts the plain host
@@ -111,9 +78,8 @@ export function auth0IssuerFor(domain: string): string {
 /**
  * Verification key for an Auth0 tenant: RS256 against the tenant's published key set.
  *
- * Deliberately no `hmacSecret` fallback. Auth0 signs these tokens with RS256 only,
- * so a symmetric fallback would add no reachable verification path while widening
- * the algorithm-confusion surface that verifySignature otherwise closes.
+ * Auth0 signs these tokens with RS256 only. The symmetric fallback this comment
+ * once argued against no longer exists anywhere — see {@link JwtVerificationKey}.
  */
 export function auth0JwtKey(opts: { auth0Domain: string }): JwtVerificationKey {
   return { jwksUrl: `https://${auth0Host(opts.auth0Domain)}${AUTH0_JWKS_PATH}` };
@@ -220,10 +186,10 @@ function parseJwtHeader(encodedHeader: string): JwtHeader | null {
 /**
  * Check a token's signature against `key`.
  *
- * The header's `alg` chooses *which* verification path runs, but never which
- * key material is used, which is what defeats algorithm confusion: an `HS256`
- * token is only ever checked against a configured HMAC secret, so a JWKS
- * public key can never be replayed as a shared secret.
+ * Membership in {@link ASYMMETRIC_ALGS} is the whole allowlist, so `none`,
+ * `HS256`, and any unexpected `alg` are rejected before any key material is
+ * touched. That is what closes algorithm confusion: there is no symmetric path
+ * a JWKS public key could be replayed into as a shared secret.
  */
 async function verifySignature(
   key: JwtVerificationKey,
@@ -234,16 +200,15 @@ async function verifySignature(
   const alg = header.alg;
   if (!alg) return false;
 
-  const hmacSecret = typeof key === 'string' ? key : key.hmacSecret;
-
-  if (alg === ALG_HS256) {
-    if (!hmacSecret) return false;
-    return hmacVerify(hmacSecret, sigBytes, signingInput);
-  }
-
   if (!(alg in ASYMMETRIC_ALGS)) return false;
-  if (typeof key === 'string') return false;
   if (!header.kid) return false;
+  // Defence in depth. The type guarantees `jwksUrl`, but a miscast or a widened
+  // type would otherwise reach `fetch(undefined)` and depend on that failing to
+  // reject the token — fail-closed by accident rather than by construction.
+  if (typeof key !== 'object' || key === null || !key.jwksUrl) return false;
+  // Defence in depth. The type guarantees `jwksUrl`, but a miscast or a widened
+  // type would otherwise reach `fetch(undefined)` and depend on that failing to
+  // reject the token — fail-closed by accident rather than by construction.
 
   const asymmetricAlg = alg as AsymmetricAlg;
   const signingKey = await resolveSigningKey(key.jwksUrl, header.kid, asymmetricAlg);
@@ -316,11 +281,8 @@ export interface VerifyJwtOptions {
 /**
  * Verify a JWT's signature, expiration, and optional issuer/audience claims.
  *
- * `key` accepts either a legacy HS256 shared secret or a JWKS source (see
- * {@link JwtVerificationKey} and {@link supabaseJwtKey}). Supabase projects
- * issue ES256-signed tokens once migrated to asymmetric signing keys, so the
- * JWKS form is the forward-looking one; passing a bare secret remains valid
- * for projects still on a symmetric key.
+ * `key` is a JWKS source (see {@link JwtVerificationKey}); build one with
+ * {@link auth0JwtKey}. Verification is asymmetric only.
  */
 export async function verifyJwt(
   token: string,

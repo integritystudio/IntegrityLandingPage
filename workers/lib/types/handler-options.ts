@@ -3,13 +3,10 @@ import { z } from 'zod';
 // Base route options shared across handlers
 export const BaseRouteOptionsSchema = z.object({
   /**
-   * Legacy HS256 shared secret, optional since 2026-07-29. Supabase projects
-   * migrated to ES256 signing keys have no such secret, and `verifyJwt` derives
-   * the project's JWKS URL from `supabaseUrl` instead — so `supabaseUrl` is the
-   * field verification actually depends on. Supply this only to keep verifying
-   * tokens minted before a project's migration, until they expire.
+   * Database access only — the service role key reaches Supabase; Supabase issues
+   * no token here. A `jwtSecret` field lived alongside this until 2026-07-31, when
+   * the HS256 verification path it fed was removed as unreachable.
    */
-  jwtSecret: z.string().optional(),
   supabaseUrl: z.string().url(),
   serviceRoleKey: z.string(),
   /** Expected JWT issuer URL. When set, tokens from other issuers are rejected (V-02). */
