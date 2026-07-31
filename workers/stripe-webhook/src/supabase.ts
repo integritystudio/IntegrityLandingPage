@@ -46,15 +46,22 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
   /**
    * Create or update subscription row for an org.
    *
-   * Conflict key: (organization_id, stripe_subscription_id)
+   * Conflict key: (organization_id)
    * - Handles duplicate customer.subscription.updated events via last-write-wins.
-   * - Design assumption: one active subscription per org (Stripe enforces this by default).
+   * - Design assumption: one subscription row per org, enforced by the
+   *   subscriptions_organization_id_key UNIQUE constraint (migration 20260731000000).
    * - Plan upgrades/downgrades reuse the same stripe_subscription_id and only change
    *   stripe_price_id. The upsert correctly overwrites the price on conflict — no special
    *   handling is needed for rapid price changes; the final event's price wins.
-   * - Free→paid upgrades may issue a new stripe_subscription_id. Any prior subscription
-   *   for this org with a different subscription ID is soft-deleted (status='canceled')
-   *   before upsert to prevent multi-row state in the subscriptions table.
+   * - Free→paid upgrades may issue a new stripe_subscription_id. The prior row is
+   *   soft-deleted (status='canceled') below and then overwritten by the upsert, since
+   *   the org already owns the conflicting row.
+   *
+   * This was previously (organization_id, stripe_subscription_id), for which no unique
+   * index existed. Postgres requires an index matching the conflict target exactly, so
+   * every customer.subscription.updated event failed with 42P10 and was dead-lettered
+   * until 2026-07-31 — a latent bug, since this account saw no real subscription traffic
+   * before then. Conflicting on organization_id alone matches the constraint that exists.
    */
   async function upsertSubscription(
     orgId: string,
@@ -86,7 +93,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
         created_at: now,
         updated_at: now,
       },
-      'organization_id,stripe_subscription_id',
+      'organization_id',
     );
     return toVoidResult(result);
   }
