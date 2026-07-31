@@ -5,7 +5,7 @@ import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership } from '../../../lib/types';
 import { IngestEventRequestSchema, IngestOtelRequestSchema, type IngestEventRequest } from '../../../lib/types/usage';
-import { auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
+import { auth0VerifyParams, resolveUserId, requireHmacSecret, type UserTokenOptions } from '../lib/helpers';
 import { enforceOrgQuota } from '../lib/quota';
 import { rollupDailyBucket } from '../aggregation';
 
@@ -15,7 +15,7 @@ type IngestAuth =
   | { ok: false; error: Response };
 
 interface IngestHandlerOptions extends UserTokenOptions {
-  hmacSecret: string;
+  hmacSecret?: string;
   supabaseUrl: string;
   serviceRoleKey: string;
   /** Durable Object namespace for quota enforcement. Required for /v1/ingest/otel. */
@@ -34,7 +34,9 @@ async function resolveAuth(
 
   const parsedKey = parseApiKey(token);
   if (parsedKey.ok) {
-    const keyResult = await verifyApiKey(token, opts.hmacSecret, sb);
+    const secret = requireHmacSecret(opts.hmacSecret);
+    if (!secret.ok) return secret;
+    const keyResult = await verifyApiKey(token, secret.hmacSecret, sb);
     if (!keyResult.ok) return keyResult;
     return { ok: true, type: 'api_key', userId: keyResult.userId, organizationId: keyResult.organizationId, keyId: keyResult.apiKey.id };
   }
@@ -157,8 +159,11 @@ export async function handleIngestOtel(
   const parsedKey = parseApiKey(tokenResult.token);
   if (!parsedKey.ok) return unauthorized('OTEL ingest requires API key authentication');
 
+  const secret = requireHmacSecret(opts.hmacSecret);
+  if (!secret.ok) return secret.error;
+
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
-  const keyResult = await verifyApiKey(tokenResult.token, opts.hmacSecret, sb);
+  const keyResult = await verifyApiKey(tokenResult.token, secret.hmacSecret, sb);
   if (!keyResult.ok) return keyResult.error;
 
   const bodyResult = await safeParseJson(request);

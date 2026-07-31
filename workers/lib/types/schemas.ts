@@ -2,7 +2,20 @@ import { z } from 'zod';
 
 export const OrgRoleSchema = z.enum(['owner', 'admin', 'member', 'billing_admin', 'viewer']);
 
-export const BillingStatusSchema = z.enum(['inactive', 'active', 'past_due', 'canceled']);
+// Stripe's eight subscription statuses verbatim, plus `inactive` for "no subscription
+// exists" — see the BillingStatus doc comment in ./index.ts. Keep the two in sync.
+// https://docs.stripe.com/api/subscriptions/object#subscription_object-status
+export const BillingStatusSchema = z.enum([
+  'inactive',
+  'incomplete',
+  'incomplete_expired',
+  'trialing',
+  'active',
+  'past_due',
+  'canceled',
+  'unpaid',
+  'paused',
+]);
 
 export const OrgMembershipStatusSchema = z.enum(['active', 'invited', 'suspended']);
 

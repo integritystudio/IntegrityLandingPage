@@ -1,6 +1,6 @@
 import type { SupabaseAdmin } from '../supabase';
 import type { BillingStatus, HandlerResult, StripeEvent } from '../../../lib/types';
-import { InvoiceSchema } from '../stripe-schemas';
+import { InvoiceSchema, getInvoiceSubscriptionId } from '../stripe-schemas';
 
 /**
  * Resolves the org ID for a given Stripe customer ID.
@@ -53,7 +53,7 @@ export async function handleInvoicePaid(
   }
   const invoice = parseResult.data;
 
-  if (!invoice.subscription) {
+  if (!getInvoiceSubscriptionId(invoice)) {
     return { ok: false, error: 'Invoice missing subscription' };
   }
 

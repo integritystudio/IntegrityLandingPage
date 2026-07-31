@@ -1,6 +1,10 @@
 // Re-export crypto primitives
 export { hmacSign, hmacSignHex, hmacVerify, arrayBufferToBase64Url } from './crypto';
 
+// Re-export billing status helpers
+export { isEntitled, toBillingStatus, STRIPE_SUBSCRIPTION_STATUSES } from './billing';
+export type { StripeSubscriptionStatus } from './billing';
+
 // Re-export all types
 export * from './types/index';
 export * from './types/handler-options';

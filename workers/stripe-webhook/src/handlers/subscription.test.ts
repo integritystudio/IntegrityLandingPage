@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleSubscriptionUpdated, handleSubscriptionDeleted } from './subscription';
 import type { StripeEvent } from '../../../lib/types';
 import type { SupabaseAdmin } from '../supabase';
+import { STRIPE_SUBSCRIPTION_STATUSES } from '../../../lib/billing';
 
 function makeDb(overrides: Partial<SupabaseAdmin> = {}): SupabaseAdmin {
   return {
@@ -105,18 +106,40 @@ describe('handleSubscriptionUpdated', () => {
     expect(db.updateOrgBillingStatus).toHaveBeenCalledWith('org-1', 'active', undefined, true);
   });
 
-  it('maps past_due status correctly via resolveBillingStatus', async () => {
-    const event = makeSubEvent({ ...VALID_SUBSCRIPTION, status: 'past_due' });
+  // billing_status now mirrors Stripe's vocabulary, so every status is stored verbatim.
+  //
+  // This replaces a test that asserted `trialing` -> 'inactive' as intended behaviour.
+  // It passed for four months because no real subscription had ever reached the Worker,
+  // so the test documented the defect rather than catching it. The exhaustive list is
+  // kept here — not just in billing.test.ts — because this is where a regression would
+  // actually surface: what the handler writes to the org row (CR27).
+  it.each(STRIPE_SUBSCRIPTION_STATUSES)('stores Stripe status %s verbatim', async (status) => {
+    const event = makeSubEvent({ ...VALID_SUBSCRIPTION, status });
     const db = makeDb();
     await handleSubscriptionUpdated(event, db, {});
-    expect(db.updateOrgBillingStatus).toHaveBeenCalledWith('org-1', 'past_due', undefined, true);
+    expect(db.updateOrgBillingStatus).toHaveBeenCalledWith('org-1', status, undefined, true);
   });
 
-  it('maps any non-active/past_due status to inactive', async () => {
+  it('falls back to inactive and warns on a status Stripe has not defined yet', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const event = makeSubEvent({ ...VALID_SUBSCRIPTION, status: 'some_future_status' });
+    const db = makeDb();
+    await handleSubscriptionUpdated(event, db, {});
+    // Safe by default — an unknown state must not grant entitlement...
+    expect(db.updateOrgBillingStatus).toHaveBeenCalledWith('org-1', 'inactive', undefined, true);
+    // ...but visible, which the old silent fallthrough was not.
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('some_future_status'));
+    warn.mockRestore();
+  });
+
+  // The row written to `subscriptions` and the org's billing_status must agree; they are
+  // written by two different calls from the same handler and could drift apart.
+  it('writes the same status to the subscriptions row and the org', async () => {
     const event = makeSubEvent({ ...VALID_SUBSCRIPTION, status: 'trialing' });
     const db = makeDb();
     await handleSubscriptionUpdated(event, db, {});
-    expect(db.updateOrgBillingStatus).toHaveBeenCalledWith('org-1', 'inactive', undefined, true);
+    expect(db.upsertSubscription).toHaveBeenCalledWith('org-1', 'sub_1', 'price_abc', 'trialing');
+    expect(db.updateOrgBillingStatus).toHaveBeenCalledWith('org-1', 'trialing', undefined, true);
   });
 
   it('returns { ok: false } when updateOrgBillingStatus fails', async () => {

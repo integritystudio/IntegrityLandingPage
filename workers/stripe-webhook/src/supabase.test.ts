@@ -270,7 +270,12 @@ describe('upsertSubscription', () => {
 
     expect(result).toEqual({ ok: true });
     const post = stub.find('POST', SUBSCRIPTIONS_TABLE)!;
-    expect(post.url.searchParams.get('on_conflict')).toBe('organization_id,stripe_subscription_id');
+    // Must name a column set that a unique index actually covers. This was
+    // 'organization_id,stripe_subscription_id', for which no index exists — Postgres
+    // requires one matching the conflict target exactly, so every real
+    // customer.subscription.updated event failed with 42P10 and dead-lettered.
+    // subscriptions_organization_id_key (migration 20260731000000) covers this target.
+    expect(post.url.searchParams.get('on_conflict')).toBe('organization_id');
     expect(post.headers['prefer']).toBe(MERGE_DUPLICATES);
     expect(rowsBody(post)).toEqual([
       expect.objectContaining({

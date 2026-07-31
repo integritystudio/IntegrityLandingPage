@@ -53,6 +53,10 @@ export function serverError(message = 'Internal Server Error', details?: JsonVal
   return errorResponse(500, message, details);
 }
 
+export function serviceUnavailable(message = 'Service Unavailable', details?: JsonValue): Response {
+  return errorResponse(503, message, details);
+}
+
 export function withErrorHandling(
   handler: (request: Request) => Promise<Response> | Response,
   onError?: (error: unknown) => Response,

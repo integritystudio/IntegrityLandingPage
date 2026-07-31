@@ -1,13 +1,12 @@
 import type { SupabaseAdmin } from '../supabase';
-import type { BillingStatus, HandlerResult, ApiKeyTier, StripeEvent } from '../../../lib/types';
+import type { HandlerResult, ApiKeyTier, StripeEvent } from '../../../lib/types';
+import { toBillingStatus } from '../../../lib/billing';
 import { SubscriptionSchema } from '../stripe-schemas';
 
 
-function resolveBillingStatus(stripeStatus: string): BillingStatus {
-  if (stripeStatus === 'active') return 'active';
-  if (stripeStatus === 'past_due') return 'past_due';
-  return 'inactive';
-}
+// Status handling lives in `workers/lib/billing.ts`. `BillingStatus` mirrors Stripe's
+// vocabulary, so storing a status needs no mapping here — `toBillingStatus` is a
+// validated pass-through, and `isEntitled` holds the only policy decision.
 
 /**
  * Handle customer.subscription.updated event.
@@ -48,7 +47,7 @@ export async function handleSubscriptionUpdated(
   }
 
   const planKey = firstItem ? priceToPlan[firstItem.price.id] : undefined;
-  const billingStatus = resolveBillingStatus(subscription.status);
+  const billingStatus = toBillingStatus(subscription.status);
 
   const updateResult = await db.updateOrgBillingStatus(
     findResult.orgId,

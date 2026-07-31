@@ -1236,14 +1236,48 @@ describe('Sender Worker', () => {
       APP_BASE_URL: 'https://integritystudio.ai',
     };
 
+    const TEST_ORG_ID = '1649a1c1-6377-4c4b-9fc2-4d7534372915';
+
+    /**
+     * The handler now makes a Supabase org lookup BEFORE the Stripe call, so
+     * sequential mocks (mockResolvedValueOnce) bind to the wrong request. Route
+     * by URL instead, and return `stripeBody` so assertions can read the exact
+     * form-encoded payload sent to Stripe.
+     */
+    function mockCheckoutFetch(opts: {
+      /** Rows returned by the users lookup; [] simulates an unknown email. */
+      users?: Array<{ id: string; default_organization_id: string | null }>;
+      /** Rows returned by the membership fallback lookup. */
+      memberships?: Array<{ organization_id: string }>;
+      /** Force a non-2xx from the users lookup. */
+      userLookupStatus?: number;
+      checkoutUrl?: string;
+    }) {
+      const state = { stripeBody: '' };
+      const json = (body: unknown, status = 200) =>
+        new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+      const spy = vi.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        if (url.includes('/rest/v1/users')) {
+          if (opts.userLookupStatus) return json({ message: 'boom' }, opts.userLookupStatus);
+          return json(opts.users ?? []);
+        }
+        if (url.includes('/rest/v1/organization_memberships')) {
+          return json(opts.memberships ?? []);
+        }
+        state.stripeBody = init?.body as string;
+        return json({ url: opts.checkoutUrl ?? 'https://checkout.stripe.com/pay/test' });
+      });
+      return { spy, state };
+    }
+
     it('returns 200 with checkoutUrl on success', async () => {
       const checkoutUrl = 'https://checkout.stripe.com/pay/cs_test_abc123';
-      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
-        new Response(JSON.stringify({ url: checkoutUrl }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-      );
+      const { spy } = mockCheckoutFetch({
+        users: [{ id: 'user-1', default_organization_id: TEST_ORG_ID }],
+        checkoutUrl,
+      });
 
       const request = new Request('https://worker.test/create-checkout-session', {
         method: 'POST',
@@ -1256,17 +1290,12 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(200);
       const data = await response.json() as { checkoutUrl: string };
       expect(data.checkoutUrl).toBe(checkoutUrl);
-      fetchSpy.mockRestore();
+      spy.mockRestore();
     });
 
     it('calls Stripe API with correct price and mode', async () => {
-      let capturedBody = '';
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (_url, init) => {
-        capturedBody = init?.body as string;
-        return new Response(JSON.stringify({ url: 'https://checkout.stripe.com/pay/test' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
+      const { spy, state } = mockCheckoutFetch({
+        users: [{ id: 'user-1', default_organization_id: TEST_ORG_ID }],
       });
 
       const request = new Request('https://worker.test/create-checkout-session', {
@@ -1277,14 +1306,90 @@ describe('Sender Worker', () => {
 
       await worker.fetch(request, stripeEnv);
 
-      const params = new URLSearchParams(capturedBody);
+      const params = new URLSearchParams(state.stripeBody);
       expect(params.get('mode')).toBe('subscription');
       expect(params.get('line_items[0][price]')).toBe('price_growth_monthly');
       expect(params.get('line_items[0][quantity]')).toBe('1');
       expect(params.get('customer_email')).toBe('user@example.com');
       expect(params.get('success_url')).toContain('/checkout-success');
       expect(params.get('cancel_url')).toContain('/signup?tier=growth');
-      fetchSpy.mockRestore();
+      spy.mockRestore();
+    });
+
+    // stripe-webhook's checkout.session.completed handler reads
+    // `session.metadata.org_id || session.client_reference_id` to link the Stripe
+    // customer to an org. Without it, linkStripeCustomer never runs.
+    it('sets metadata[org_id] from the buyer default organization', async () => {
+      const { spy, state } = mockCheckoutFetch({
+        users: [{ id: 'user-1', default_organization_id: TEST_ORG_ID }],
+      });
+
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+
+      const response = await worker.fetch(request, stripeEnv);
+
+      expect(response.status).toBe(200);
+      const params = new URLSearchParams(state.stripeBody);
+      expect(params.get('metadata[org_id]')).toBe(TEST_ORG_ID);
+      expect(params.get('subscription_data[metadata][org_id]')).toBe(TEST_ORG_ID);
+      spy.mockRestore();
+    });
+
+    it('falls back to the oldest active membership when no default org is set', async () => {
+      const { spy, state } = mockCheckoutFetch({
+        users: [{ id: 'user-1', default_organization_id: null }],
+        memberships: [{ organization_id: TEST_ORG_ID }],
+      });
+
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+
+      await worker.fetch(request, stripeEnv);
+
+      expect(new URLSearchParams(state.stripeBody).get('metadata[org_id]')).toBe(TEST_ORG_ID);
+      spy.mockRestore();
+    });
+
+    // A checkout that cannot be attributed is still a sale — never block payment.
+    it('still returns 200 without metadata when the email has no org', async () => {
+      const { spy, state } = mockCheckoutFetch({ users: [] });
+
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'nobody@example.com', tier: 'growth' }),
+      });
+
+      const response = await worker.fetch(request, stripeEnv);
+
+      expect(response.status).toBe(200);
+      const params = new URLSearchParams(state.stripeBody);
+      expect(params.get('metadata[org_id]')).toBeNull();
+      expect(params.get('subscription_data[metadata][org_id]')).toBeNull();
+      spy.mockRestore();
+    });
+
+    it('still returns 200 when the org lookup itself fails', async () => {
+      const { spy, state } = mockCheckoutFetch({ userLookupStatus: 500 });
+
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'growth' }),
+      });
+
+      const response = await worker.fetch(request, stripeEnv);
+
+      expect(response.status).toBe(200);
+      expect(new URLSearchParams(state.stripeBody).get('metadata[org_id]')).toBeNull();
+      spy.mockRestore();
     });
 
     it('returns 500 when STRIPE_SECRET_KEY is not configured', async () => {
@@ -1639,13 +1744,21 @@ describe('Sender Worker', () => {
       expect(data.error).toContain('growth');
     });
 
+    // These two route by URL rather than using mockResolvedValueOnce: the handler
+    // makes a Supabase org lookup before the Stripe call, so a single-shot mock
+    // binds to the lookup and the Stripe branch under test never runs. The lookup
+    // returns [] (no org) so only the Stripe behaviour is exercised.
     it('returns 500 when Stripe response is missing the session URL', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
-        new Response(JSON.stringify({ id: 'cs_test_abc' }), {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        if (url.includes('/rest/v1/')) {
+          return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        return new Response(JSON.stringify({ id: 'cs_test_abc' }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
-        }),
-      );
+        });
+      });
       const request = new Request('https://worker.test/create-checkout-session', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1659,9 +1772,13 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when Stripe fetch throws a network error', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockRejectedValueOnce(
-        new TypeError('Failed to fetch'),
-      );
+      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        if (url.includes('/rest/v1/')) {
+          return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        throw new TypeError('Failed to fetch');
+      });
       const request = new Request('https://worker.test/create-checkout-session', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

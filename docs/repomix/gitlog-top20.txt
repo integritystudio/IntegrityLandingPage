@@ -1,165 +1,165 @@
 # Top 20 most-changed files (last 200 commits)
 # commits  file
-  31 workers/sender-worker/src/index.ts
-  24 workers/sender-worker/src/types.ts
-  19 workers/sender-worker/src/supabase.ts
-  19 workers/sender-worker/src/index.test.ts
-  13 CLAUDE.md
-  13 .github/workflows/ci.yml
-  11 workers/sender-worker/wrangler.toml
-   9 README.md
-   9 lib/pages/signup_page.dart
-   8 workers/sender-worker/src/index.e2e.test.ts
-   8 workers/receiver-worker/src/index.test.ts
-   8 lib/services/provisioning_service.dart
-   7 workers/api-gateway/src/routes/ingest.ts
-   7 workers/api-gateway/src/routes/ingest.test.ts
-   7 test/services/provisioning_service_test.dart
-   7 test/integration/signup_flow_test.dart
-   6 workers/sender-worker/package.json
-   6 workers/lib/types/usage.ts
-   6 test/pages/signup_page_test.dart
-   6 package.json
+  47 CLAUDE.md
+  22 CODE_REVIEW.md
+  16 workers/sender-worker/src/index.ts
+  12 workers/sender-worker/src/index.test.ts
+   9 workers/sender-worker/wrangler.toml
+   8 workers/api-gateway/wrangler.toml
+   7 workers/stripe-webhook/src/index.test.ts
+   7 workers/sender-worker/src/types.ts
+   7 workers/lib/deploy-environments.test.ts
+   7 workers/api-gateway/src/routes/orgs.ts
+   7 workers/api-gateway/src/routes/api-keys.ts
+   6 workers/sender-worker/src/supabase.ts
+   6 workers/receiver-worker/src/index.test.ts
+   6 workers/bootstrap-worker/package.json
+   6 workers/api-gateway/src/routes/usage.ts
+   6 workers/api-gateway/src/routes/me.ts
+   6 workers/api-gateway/src/lib/helpers.ts
+   5 workers/stripe-webhook/src/index.ts
+   5 workers/stripe-webhook/package.json
+   5 workers/sender-worker/src/index.e2e.test.ts
 
 # Recent commits touching these files
 
+## CLAUDE.md
+  a2a94c9 2026-07-30 ci: skip the migration drift check when no access token is set
+  23f9f47 2026-07-30 docs: correct api-gateway's secret set, versions, and the reason JWT secret went
+  8805614 2026-07-29 docs: correct secret counts and reverse W05's unprovisioned-rotation claim
+  80abe48 2026-07-29 docs: close CR14's live exposure, deploy all four Workers, reconcile state
+  a20f2a3 2026-07-29 docs: reconcile all documentation with this session's work
+
+## CODE_REVIEW.md
+  85b3526 2026-07-27 docs: reconcile to 2026-07-28 state and record the session's findings
+  68c8fdb 2026-07-27 docs: reconcile to post-remediation state and retract three claims
+  46a8912 2026-07-27 docs(docs): update claude, code_review, backlog
+  603a2d7 2026-07-27 docs: reconcile all status documents to current state
+  b66220f 2026-07-26 fix(rate-limit): make the degraded no-KV mode observable; correct CR03
+
 ## workers/sender-worker/src/index.ts
-  6af4c77 2026-07-14 feat(sender): forward client IP to receiver as X-Forwarded-For
-  1c3deb6 2026-06-27 refactor(workers): refactor index.e2e.test, index
-  c8cff30 2026-06-26 feat(sender-worker): allow Cloudflare Pages preview-deploy CORS origins
-  ec77bfa 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
-  a2fbea5 2026-04-14 refactor(sender): replace receiver-forwarded sign_in with direct Auth0 ROPC
-
-## workers/sender-worker/src/types.ts
-  6af4c77 2026-07-14 feat(sender): forward client IP to receiver as X-Forwarded-For
-  ec77bfa 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
-  a2fbea5 2026-04-14 refactor(sender): replace receiver-forwarded sign_in with direct Auth0 ROPC
-  0865782 2026-04-09 fix(sender): split AUTH0_CLIENT_* into ROPC and M2M credential pairs
-  bca10fa 2026-04-07 fix(sender-worker): omit org_name default so receiver handles domain normalization
-
-## workers/sender-worker/src/supabase.ts
-  6907474 2026-04-07 fix(sender): use M2M credentials for Auth0 mgmt API and fix org membership FK race
-  b0cde8b 2026-04-06 refactor(sender-worker): replace magic org type and role strings with named constants
-  7bf5e50 2026-04-06 refactor(sender-worker): extract constants and deduplicate auth0 fetch logic
-  d406b10 2026-03-31 refactor(supabase): use deterministic username+domain slugs for all tiers
-  d04cbd9 2026-03-31 test(supabase): add comprehensive unit tests for dedupSlug function
+  b22afe1 2026-07-30 feat(auth): add self-service password reset via Auth0 dbconnections/change_password
+  c586dee 2026-07-29 fix(sender): map Auth0 too_many_attempts on /signin to 429, not 500
+  2b08841 2026-07-29 fix(sender): return 401 INVALID_CREDENTIALS on /signin instead of 500
+  670b1cd 2026-07-26 fix(sender): apply typeof email/password guard to handleSignIn too
+  067ae96 2026-07-26 fix(sender): guard email type in handleSignup; wrap checkout Stripe call
 
 ## workers/sender-worker/src/index.test.ts
-  6af4c77 2026-07-14 feat(sender): forward client IP to receiver as X-Forwarded-For
-  c8cff30 2026-06-26 feat(sender-worker): allow Cloudflare Pages preview-deploy CORS origins
-  ec77bfa 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
-  a2fbea5 2026-04-14 refactor(sender): replace receiver-forwarded sign_in with direct Auth0 ROPC
-  0865782 2026-04-09 fix(sender): split AUTH0_CLIENT_* into ROPC and M2M credential pairs
-
-## CLAUDE.md
-  449a0ad 2026-06-27 docs(docs): update 4 files in docs
-  cddd556 2026-06-27 docs(docs): update claude, readme, 1
-  9ca1747 2026-06-27 docs(docs): update 4 files in docs
-  bb78f0b 2026-06-26 docs(workers): correct receiver-worker references to api-provisioning-receiver
-  d3f001d 2026-06-26 docs(claude): document worker deployment strategy and Doppler config
-
-## .github/workflows/ci.yml
-  67a1d90 2026-07-01 ci: bump Flutter to 3.44.4 (Dart 3.12) for freezed v4 compatibility
-  b93d594 2026-06-27 chore(.github): update ci, content, pubspec
-  5dfea57 2026-04-07 fix(ci): add build_runner step before analyze and build
-  77f2ec3 2026-04-01 ci: force Node.js 24 for all GitHub Actions jobs
-  13812cc 2026-04-01 ci: upgrade GitHub Actions to Node.js 24 compatible versions
+  b22afe1 2026-07-30 feat(auth): add self-service password reset via Auth0 dbconnections/change_password
+  2b08841 2026-07-29 fix(sender): return 401 INVALID_CREDENTIALS on /signin instead of 500
+  670b1cd 2026-07-26 fix(sender): apply typeof email/password guard to handleSignIn too
+  067ae96 2026-07-26 fix(sender): guard email type in handleSignup; wrap checkout Stripe call
+  0bc516c 2026-07-26 fix(sender): validate ALLOWED_ORIGINS_JSON shape and fix dedupSlug collisions
 
 ## workers/sender-worker/wrangler.toml
-  471641c 2026-04-09 chore(sender): update wrangler.toml comments for split Auth0 credentials
-  330b73a 2026-04-03 refactor(workers): consolidate to single AUTH0_CLIENT_* credentials for both auth flows
-  b629302 2026-04-03 chore(sender-worker): enable observability logs and fix AUTH0_CLI secret comments
-  faf0ccc 2026-04-02 chore(sender-worker): clarify env var purposes in wrangler.toml and add doppler.json
-  9f7b99f 2026-04-02 chore(sender-worker): document AUTHO_CLI_* env var overrides in wrangler.toml
+  8805614 2026-07-29 docs: correct secret counts and reverse W05's unprovisioned-rotation claim
+  e50240d 2026-07-27 feat(observability): enable logs and traces on sender-worker (CR15)
+  4408a3f 2026-07-27 fix(workers): disable preview URLs on secret-bearing workers (CR14)
+  cdd2c09 2026-07-27 feat(deploy): create KV namespaces and deploy the dev environments
+  41e2c21 2026-07-27 fix(deploy): separate dev and production worker targets (CR02)
 
-## README.md
-  d72baab 2026-06-27 docs(docs): update 12 files in docs
-  91e7f29 2026-06-27 docs(docs): update 4 files in docs
-  cddd556 2026-06-27 docs(docs): update claude, readme, 1
-  6e211b8 2026-04-07 docs: update status, test counts, and recent improvements for 2026-04-07
-  5b02d94 2026-04-02 docs(docs): update claude, readme, reviews
+## workers/api-gateway/wrangler.toml
+  d51ad49 2026-07-30 fix(api-gateway): throttle the unmetered identity routes; unbind dead JWT secret
+  407db84 2026-07-30 fix(workers): make the dashboard and signup reachable (CR26)
+  ac22461 2026-07-29 fix(api-gateway): remove routes key from wrangler.toml (CR13 step 1)
+  aaba686 2026-07-27 fix(workers): pin preview_urls off on api-gateway and stripe-webhook
+  0b12812 2026-07-27 fix(workers): enable observability on all six Workers (W04 step 1)
 
-## lib/pages/signup_page.dart
-  890f794 2026-07-01 refactor: refactor 110 files
-  0e7b463 2026-04-07 refactor(ui): apply GradientPageShell to signup_page
-  70c6a7a 2026-04-02 refactor(auth): rename /signin route to /login and extract AuthModeX extension
-  b6f167e 2026-03-31 feat(request_failure): detect existing user errors and auto-redirect to signin
-  828b7c8 2026-03-29 refactor(signup): simplify content_loader signup methods and remove scale tier routing
+## workers/stripe-webhook/src/index.test.ts
+  44db33c 2026-07-29 fix(stripe-webhook): apply post-review improvements to CR21 (CR21 follow-up)
+  5c3af48 2026-07-29 fix(stripe-webhook): return 2xx before processing via ctx.waitUntil (CR21)
+  5ce3a9c 2026-07-27 fix(stripe-webhook): dead-letter out-of-order events instead of silently claiming them (CR19)
+  7aa9d21 2026-07-26 fix(stripe-webhook): replace check-then-act idempotency with atomic claimEvent
+  9f00597 2026-07-26 fix(stripe): sort dead-letter retries by Stripe event creation time
 
-## workers/sender-worker/src/index.e2e.test.ts
-  1c3deb6 2026-06-27 refactor(workers): refactor index.e2e.test, index
-  6d2ff74 2026-04-03 test(workers): add comprehensive integration test coverage for error scenarios
-  330b73a 2026-04-03 refactor(workers): consolidate to single AUTH0_CLIENT_* credentials for both auth flows
-  fc192ee 2026-03-30 fix(sender-worker): require RECEIVER service binding, drop URL fallback
-  97aea07 2026-03-27 fix(e2e): add ROPC token exchange mock to mockFullSignupFlow
+## workers/sender-worker/src/types.ts
+  b22afe1 2026-07-30 feat(auth): add self-service password reset via Auth0 dbconnections/change_password
+  2b08841 2026-07-29 fix(sender): return 401 INVALID_CREDENTIALS on /signin instead of 500
+  9e9234e 2026-07-26 feat(rate-limit): add per-IP auth rate limit to /signup and /signin
+  1b5ed0c 2026-07-14 feat(sender): forward client IP to receiver as X-Forwarded-For
+  6ed36c1 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
+
+## workers/lib/deploy-environments.test.ts
+  407db84 2026-07-30 fix(workers): make the dashboard and signup reachable (CR26)
+  85e1a11 2026-07-29 fix(bootstrap-worker): disable preview URLs and enforce it in tests (CR14)
+  0b12812 2026-07-27 fix(workers): enable observability on all six Workers (W04 step 1)
+  4408a3f 2026-07-27 fix(workers): disable preview URLs on secret-bearing workers (CR14)
+  6afe2e1 2026-07-27 fix(deploy): dev deploy inherited and stole a production route — restored
+
+## workers/api-gateway/src/routes/orgs.ts
+  d51ad49 2026-07-30 fix(api-gateway): throttle the unmetered identity routes; unbind dead JWT secret
+  407db84 2026-07-30 fix(workers): make the dashboard and signup reachable (CR26)
+  459ed72 2026-07-29 refactor(auth): make the JWT secret optional now that JWKS covers verification
+  063efe1 2026-07-29 feat(auth): verify Supabase JWTs via JWKS/ES256, keeping HS256 as fallback
+  0a20fa2 2026-07-27 fix(api-gateway): reject API keys on billing-portal with 403, not an opaque 401
+
+## workers/api-gateway/src/routes/api-keys.ts
+  407db84 2026-07-30 fix(workers): make the dashboard and signup reachable (CR26)
+  459ed72 2026-07-29 refactor(auth): make the JWT secret optional now that JWKS covers verification
+  063efe1 2026-07-29 feat(auth): verify Supabase JWTs via JWKS/ES256, keeping HS256 as fallback
+  43ac97d 2026-07-26 refactor(workers): remove redundant Array.isArray narrowing at ~18 call sites (CR08)
+  2b0f553 2026-07-26 test(api-gateway): drive a real Supabase client over a stubbed transport
+
+## workers/sender-worker/src/supabase.ts
+  b22afe1 2026-07-30 feat(auth): add self-service password reset via Auth0 dbconnections/change_password
+  c586dee 2026-07-29 fix(sender): map Auth0 too_many_attempts on /signin to 429, not 500
+  2b08841 2026-07-29 fix(sender): return 401 INVALID_CREDENTIALS on /signin instead of 500
+  0bc516c 2026-07-26 fix(sender): validate ALLOWED_ORIGINS_JSON shape and fix dedupSlug collisions
+  0f3a711 2026-07-26 fix(signup): sequential steps with compensating rollback — no orphaned Auth0 users or Supabase rows
 
 ## workers/receiver-worker/src/index.test.ts
-  ec77bfa 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
-  6482a47 2026-04-19 test(receiver): assert apiKey uniqueness across two calls (RCV-5)
-  ce081f8 2026-04-19 test(receiver): remove 4 redundant content-type assertions (RCV-3)
-  3400189 2026-04-19 refactor(receiver): rename mockEnv to testEnv (RCV-2)
-  578a32d 2026-04-19 test(receiver): add replay-window boundary tests with fake timers (RCV-4)
+  6ed36c1 2026-06-26 feat(workers): add sign_in action to receiver and sender workers
+  c575bc8 2026-04-19 test(receiver): assert apiKey uniqueness across two calls (RCV-5)
+  da43e4e 2026-04-19 test(receiver): remove 4 redundant content-type assertions (RCV-3)
+  ba9dea8 2026-04-19 refactor(receiver): rename mockEnv to testEnv (RCV-2)
+  48889a7 2026-04-19 test(receiver): add replay-window boundary tests with fake timers (RCV-4)
 
-## lib/services/provisioning_service.dart
-  ca37b5d 2026-04-06 refactor(models): extract data models from services into dedicated model files
-  71be4c1 2026-03-31 fix(provisioning): correct apiKey field name in sendEvent response parsing
-  dc8366b 2026-03-31 fix: update GitHub Actions to Node.js 24 and resolve security vulnerabilities
-  cb66d37 2026-03-30 fix(provisioning): replace Authorization header with x-session-data
-  8a2fbb4 2026-03-30 refactor(provisioning): align ProvisioningEvent schema with sender-worker SendRequestSchema
+## workers/bootstrap-worker/package.json
+  407db84 2026-07-30 fix(workers): make the dashboard and signup reachable (CR26)
+  55f9ff1 2026-07-27 chore(deploy): wrap all dev deploys in doppler; audit dev worker settings
+  41e2c21 2026-07-27 fix(deploy): separate dev and production worker targets (CR02)
+  9af9995 2026-06-26 chore(workers): add deploy:prd script to remaining workers
+  ed5fb75 2026-04-10 chore(workers): bump wrangler to v4.81.1 in bootstrap and contact-form
 
-## workers/api-gateway/src/routes/ingest.ts
-  0cd5dbf 2026-03-23 docs: update project status, workers documentation, and code precondition
-  993058b 2026-03-23 refactor(workers): extract MS_PER_DAY constant, fix applyRateLimitHeaders, export ingest schemas
-  5e5d2c4 2026-03-21 fix(otel): extract applyRateLimitHeaders helper; add boundary tests
-  2aa30eb 2026-03-21 fix(L25): export OTEL_INGEST_ROUTE and import in index.ts
-  e743c68 2026-03-21 fix(L23): forward rate-limit headers on OTEL ingest success response
+## workers/api-gateway/src/routes/usage.ts
+  407db84 2026-07-30 fix(workers): make the dashboard and signup reachable (CR26)
+  459ed72 2026-07-29 refactor(auth): make the JWT secret optional now that JWKS covers verification
+  063efe1 2026-07-29 feat(auth): verify Supabase JWTs via JWKS/ES256, keeping HS256 as fallback
+  43ac97d 2026-07-26 refactor(workers): remove redundant Array.isArray narrowing at ~18 call sites (CR08)
+  9309809 2026-07-26 fix(api-gateway): return 5xx on DB errors instead of masking as empty data (CR05, CR06)
 
-## workers/api-gateway/src/routes/ingest.test.ts
-  6aa782f 2026-04-06 test(api-gateway): use valid UUIDv4 format in test fixtures
-  4abee36 2026-03-27 refactor(billing): rename free/PlanKey tier to starter/ApiKeyTier across workers
-  993058b 2026-03-23 refactor(workers): extract MS_PER_DAY constant, fix applyRateLimitHeaders, export ingest schemas
-  5e5d2c4 2026-03-21 fix(otel): extract applyRateLimitHeaders helper; add boundary tests
-  ce4c563 2026-03-21 fix(L22): type makeOpts helper as SupabaseClient | undefined
+## workers/api-gateway/src/routes/me.ts
+  d51ad49 2026-07-30 fix(api-gateway): throttle the unmetered identity routes; unbind dead JWT secret
+  407db84 2026-07-30 fix(workers): make the dashboard and signup reachable (CR26)
+  459ed72 2026-07-29 refactor(auth): make the JWT secret optional now that JWKS covers verification
+  063efe1 2026-07-29 feat(auth): verify Supabase JWTs via JWKS/ES256, keeping HS256 as fallback
+  9309809 2026-07-26 fix(api-gateway): return 5xx on DB errors instead of masking as empty data (CR05, CR06)
 
-## test/services/provisioning_service_test.dart
-  1320ac6 2026-03-31 fix(tests): remove unused dart:convert import
-  54ed3d7 2026-03-31 fix(provisioning-service): ensure mock response type preservation in tests
-  71be4c1 2026-03-31 fix(provisioning): correct apiKey field name in sendEvent response parsing
-  cb66d37 2026-03-30 fix(provisioning): replace Authorization header with x-session-data
-  8a2fbb4 2026-03-30 refactor(provisioning): align ProvisioningEvent schema with sender-worker SendRequestSchema
+## workers/api-gateway/src/lib/helpers.ts
+  d51ad49 2026-07-30 fix(api-gateway): throttle the unmetered identity routes; unbind dead JWT secret
+  81875f9 2026-07-30 fix(api-gateway): source bootstrap's user id and email from the users row
+  407db84 2026-07-30 fix(workers): make the dashboard and signup reachable (CR26)
+  459ed72 2026-07-29 refactor(auth): make the JWT secret optional now that JWKS covers verification
+  063efe1 2026-07-29 feat(auth): verify Supabase JWTs via JWKS/ES256, keeping HS256 as fallback
 
-## test/integration/signup_flow_test.dart
-  f2cbff5 2026-04-07 fix(test): ensure submit button visible before tap in signup flow tests
-  0952373 2026-03-31 refactor(test): align signup tier URLs with content.yaml definitions
-  0eff44e 2026-03-29 test(signup): update flow test to use growth tier and assert content description
-  fc5d7f1 2026-03-29 test(signup): replace hardcoded tier strings with ContentLoader calls
-  7f221f6 2026-03-29 fix(test): update signup integration test to match content.yaml descriptions
+## workers/stripe-webhook/src/index.ts
+  44db33c 2026-07-29 fix(stripe-webhook): apply post-review improvements to CR21 (CR21 follow-up)
+  5c3af48 2026-07-29 fix(stripe-webhook): return 2xx before processing via ctx.waitUntil (CR21)
+  7aa9d21 2026-07-26 fix(stripe-webhook): replace check-then-act idempotency with atomic claimEvent
+  9f00597 2026-07-26 fix(stripe): sort dead-letter retries by Stripe event creation time
+  cbe7b34 2026-07-26 fix(workers): role check for API keys, CORS for bootstrap, 500 on lost Stripe events
 
-## workers/sender-worker/package.json
-  7945ea1 2026-04-03 chore(workers): bump zod to v4, add coverage-v8, update pool-workers
-  ee617d9 2026-04-03 chore(workers): add @vitest/coverage-v8 dev dependency to all workers
-  dc8366b 2026-03-31 fix: update GitHub Actions to Node.js 24 and resolve security vulnerabilities
-  ca6bfdb 2026-03-27 ci(sender-worker): add production deploy job with Doppler secret injection
-  0e069d2 2026-03-27 refactor(sender-worker): migrate validation to Zod schema with JWT format check
+## workers/stripe-webhook/package.json
+  2961c83 2026-07-27 test(stripe-webhook): live signature verification against deployed Worker
+  55f9ff1 2026-07-27 chore(deploy): wrap all dev deploys in doppler; audit dev worker settings
+  41e2c21 2026-07-27 fix(deploy): separate dev and production worker targets (CR02)
+  9af9995 2026-06-26 chore(workers): add deploy:prd script to remaining workers
+  8227919 2026-04-07 chore(workers): add ESM type and bump vitest to v4
 
-## workers/lib/types/usage.ts
-  9fe05f4 2026-04-03 fix(workers/lib): update Zod schemas for v4 API compatibility
-  993058b 2026-03-23 refactor(workers): extract MS_PER_DAY constant, fix applyRateLimitHeaders, export ingest schemas
-  df798ec 2026-03-21 feat(types): add IngestOtelResponseSchema and IngestOtelMetadataSchema
-  32658b9 2026-03-21 fix(L24): add upper bound refine to OtelSpan start_time_ms
-  c40a1c8 2026-03-21 fix(otel): add quota enforcement and bound attribute payload size
-
-## test/pages/signup_page_test.dart
-  f8993a0 2026-07-12 refactor(test): refactor 8 files in test
-  0e7b463 2026-04-07 refactor(ui): apply GradientPageShell to signup_page
-  0952373 2026-03-31 refactor(test): align signup tier URLs with content.yaml definitions
-  f14ba4a 2026-03-27 feat(enterprise): wire enterprise tier through Auth0 signup and Stripe checkout
-  4e5dd1b 2026-03-27 fix(signup): complete name/tier wiring and AuthError redirect to /request_failure
-
-## package.json
-  6d803fe 2026-04-06 chore(workers): add lint:workers and test:workers scripts, add sender-worker tsconfig
-  d39b867 2026-04-06 chore(deps): add freezed, json_serializable, and lint script
-  7e93324 2026-03-27 chore(deps): bump deps to latest and update Stripe API version
-  a9f122d 2026-03-26 feat(sender-worker): auto-provision personal org on signup
-  6342c20 2026-03-23 refactor(scripts): delegate e2e scripts to e2e/package.json using npm --prefix
+## workers/sender-worker/src/index.e2e.test.ts
+  c586dee 2026-07-29 fix(sender): map Auth0 too_many_attempts on /signin to 429, not 500
+  2b08841 2026-07-29 fix(sender): return 401 INVALID_CREDENTIALS on /signin instead of 500
+  9d4961f 2026-07-29 test(sender-worker): fix the 4 stale e2e assertions — suite now 44/44 green
+  e37907a 2026-07-29 fix(sender-worker): make test:e2e actually run — 0 tests discovered -> 41, 37 passing
+  c8fa76a 2026-06-27 refactor(workers): refactor index.e2e.test, index
 

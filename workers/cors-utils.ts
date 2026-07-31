@@ -20,10 +20,9 @@ export function buildCorsHeaders(
   // Only reflect the caller's origin if it is in the allowlist; otherwise fall
   // back to the first allowed origin. This prevents unknown origins from
   // receiving an Access-Control-Allow-Origin that echoes their own value.
-  const safeOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  const safeOrigin: string | undefined = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
 
   const result: Record<string, string> = {
-    'access-control-allow-origin': safeOrigin,
     'access-control-allow-methods': methods,
     'access-control-allow-headers': headers,
     'access-control-max-age': '86400',
@@ -31,9 +30,18 @@ export function buildCorsHeaders(
     Vary: 'Origin',
   };
 
-  // Credentials are allowed only for origins that matched the allowlist.
-  if (safeOrigin === origin) {
-    result['access-control-allow-credentials'] = 'true';
+  // An explicitly empty allowlist (`ALLOWED_ORIGINS_JSON = "[]"`) leaves nothing
+  // to advertise: it is a valid JSON array, so it survives getAllowedOrigins'
+  // parse guards, and `[0]` is then undefined. Omit the header rather than let
+  // `undefined` reach a Response constructor as a header value. Omitting it
+  // denies CORS, which is what an empty allowlist means.
+  if (safeOrigin !== undefined) {
+    result['access-control-allow-origin'] = safeOrigin;
+
+    // Credentials are allowed only for origins that matched the allowlist.
+    if (safeOrigin === origin) {
+      result['access-control-allow-credentials'] = 'true';
+    }
   }
 
   return result;

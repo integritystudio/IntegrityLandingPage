@@ -32,6 +32,7 @@ import {
   supabaseInsertUser,
   supabaseDeleteUser,
   supabaseAddOrgOwner,
+  supabaseFindOrgIdByEmail,
   Auth0TokenError,
   AUTH0_INVALID_GRANT,
   AUTH0_TOO_MANY_ATTEMPTS,
@@ -372,6 +373,20 @@ async function handleCreateCheckoutSession(env: Env, req: Record<string, unknown
   const planToPriceJson = env.STRIPE_PLAN_TO_PRICE_JSON ?? "{}";
   const appBaseUrl = env.APP_BASE_URL ?? DEFAULT_APP_BASE_URL;
 
+  // Attribute the checkout to an org so stripe-webhook can link the Stripe
+  // customer on checkout.session.completed. Best-effort by design: a lookup
+  // failure or an unknown email must not block a sale, so we log and continue
+  // with an unattributed session rather than returning an error.
+  let orgId: string | null = null;
+  try {
+    orgId = await supabaseFindOrgIdByEmail(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, email);
+    if (!orgId) {
+      console.warn("[checkout] no org resolved for", email, "— subscription will not be linked to an organization");
+    }
+  } catch (err) {
+    console.error("[checkout] org lookup failed:", err instanceof Error ? err.message : err);
+  }
+
   let result: Awaited<ReturnType<typeof createStripeCheckoutSession>>;
   try {
     result = await createStripeCheckoutSession(
@@ -380,6 +395,7 @@ async function handleCreateCheckoutSession(env: Env, req: Record<string, unknown
       appBaseUrl,
       email,
       tier,
+      orgId,
     );
   } catch (err) {
     console.error("[checkout] Stripe network error:", err instanceof Error ? err.message : err);

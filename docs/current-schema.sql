@@ -129,6 +129,10 @@ CREATE TABLE public.plans (
   concurrent_jobs integer,
   features jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  -- Recurring Stripe price backing this plan; NULL when there is no self-serve price
+  -- (enterprise). Only recurring prices are eligible — a one-time price cannot back a
+  -- subscription. Migration 20260731020000.
+  stripe_price_id text,
   CONSTRAINT plans_pkey PRIMARY KEY (key)
 );
 
@@ -197,6 +201,12 @@ CREATE TABLE public.subscriptions (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT subscriptions_pkey PRIMARY KEY (id),
+  -- One subscription row per org. Required by stripe-webhook's ON CONFLICT
+  -- (organization_id) upsert — Postgres needs an index matching the conflict target
+  -- exactly, and its absence dead-lettered every customer.subscription.updated event
+  -- with 42P10 (CR27). Note the tradeoff: replacing a subscription overwrites the prior
+  -- record rather than retaining history. Migration 20260731000000.
+  CONSTRAINT subscriptions_organization_id_key UNIQUE (organization_id),
   CONSTRAINT subscriptions_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
 );
 

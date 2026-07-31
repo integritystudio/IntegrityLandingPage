@@ -51,6 +51,46 @@ describe('handleInvoicePaid', () => {
     expect(result.ok).toBe(false);
   });
 
+  // Stripe API 2025-04-30 removed the top-level `subscription` field. Reading only the
+  // legacy location dead-lettered every subscription invoice on API 2025-09-30.clover
+  // with "Invoice missing subscription".
+  it('accepts the subscription from parent.subscription_details (API 2025-04-30+)', async () => {
+    const event = makeEvent({
+      customer: 'cus_1',
+      parent: {
+        type: 'subscription_details',
+        subscription_details: { subscription: 'sub_1', metadata: {} },
+      },
+    });
+    const db = makeDb();
+    const result = await handleInvoicePaid(event, db);
+    expect(result.ok).toBe(true);
+    expect(db.updateOrgBillingStatus).toHaveBeenCalledWith('org-1', 'active', undefined, true);
+  });
+
+  it('prefers parent.subscription_details over the legacy field when both are present', async () => {
+    const event = makeEvent({
+      customer: 'cus_1',
+      subscription: 'sub_legacy',
+      parent: { subscription_details: { subscription: 'sub_new' } },
+    });
+    const db = makeDb();
+    const result = await handleInvoicePaid(event, db);
+    expect(result.ok).toBe(true);
+  });
+
+  it('returns { ok: false } when parent carries no subscription (one-time invoice)', async () => {
+    const event = makeEvent({
+      customer: 'cus_1',
+      parent: { type: 'invoice_item_details', subscription_details: null },
+    });
+    const db = makeDb();
+    const result = await handleInvoicePaid(event, db);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('Invoice missing subscription');
+    expect(db.updateOrgBillingStatus).not.toHaveBeenCalled();
+  });
+
   it('returns { ok: false } when findOrgByStripeCustomerId fails', async () => {
     const event = makeEvent({ customer: 'cus_1', subscription: 'sub_1' });
     const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: false, error: 'HTTP 500: Connection timeout' }) });
