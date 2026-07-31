@@ -19,6 +19,13 @@ Cloudflare credentials it prints `SKIPPED` and exits 0, matching
 `check-migration-drift.sh` — a check that fails for a known, non-actionable reason
 is one nobody reads.
 
+**It reports a window, not a live state.** The default window is one day, so a
+breach that has already been fixed keeps failing until it ages out — the
+contact-form exceptions below are dated 2026-07-30 and continued to fail the
+check after the fix shipped on 07-31. That is deliberate (a fault that happened
+yesterday is still worth knowing about), but before treating a failure as ongoing,
+break it down by day rather than assuming it is current.
+
 > **Note the Doppler slot name.** The service-role key lives in
 > `SUPABASE_PROVISIONING_KEY`, not `SUPABASE_SERVICE_ROLE_KEY`. The latter is the
 > *Worker binding* name and does not exist as a Doppler slot in `prd`.
@@ -180,6 +187,11 @@ Fixed alongside it: `buildCorsHeaders` put `allowedOrigins[0]` straight into the
 `ALLOWED_ORIGINS_JSON` is `"[]"` — valid JSON, and an array, so it passes every
 existing guard. The header is now omitted instead, which is what an empty
 allowlist means. Not the production cause, but the same failure class.
+
+**Live since 2026-07-31**, version `d40e7988`, confirmed by finding
+`worker_uncaught_exception` in the deployed bundle rather than by inferring it
+from a clean deploy. Until the next occurrence there is nothing further to learn
+from this finding — the diagnostic path now exists, and that is the deliverable.
 
 **🔴 `obtool-ingest` — ~90% of invocations failing `exceededResources`**, ongoing,
 and it is *not* deployed from this repo (`observability-toolkit`). Its `*/5` cron
