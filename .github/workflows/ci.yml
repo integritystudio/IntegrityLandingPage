@@ -305,8 +305,11 @@ jobs:
         env:
           DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
         run: |
+          # `|| true` so an absent slot or a Doppler outage leaves the value empty
+          # and lets the script decide to skip, rather than failing this step
+          # before it ever runs.
           SUPABASE_ACCESS_TOKEN=$(doppler secrets get SUPABASE_ACCESS_TOKEN \
-            --project integrity-studio --config prd --plain)
+            --project integrity-studio --config prd --plain 2>/dev/null || true)
           export SUPABASE_ACCESS_TOKEN
           bash scripts/check-migration-drift.sh
 
