@@ -1402,6 +1402,34 @@ Two properties make this worth closing rather than leaving:
 
 ---
 
+<a id="cr27"></a>
+
+### CR27: `stripe-webhook` dead-lettered every real event — two independent defects, both latent for four months
+
+**Priority:** P1 | **Source:** session 2026-07-31, found by inspecting `webhook_dead_letters` while auditing an unrelated organization
+**Estimated:** done
+
+**Context:** the first genuine Stripe subscription traffic this account has ever seen (a `$0/mo` starter subscription created 2026-07-31) produced **three events, all three dead-lettered**. Neither defect was a regression — `webhook_events_log` held exactly one row before this, a synthetic `evt_prod_postdeploy_probe_001` from 2026-07-28, so no real event had ever exercised these paths. This is the same class of gap recorded at the head of Phase 4: the code was merged, unit-tested and deployed, and still could not process a single real event.
+
+**1. `invoice.paid` — read a field Stripe had removed.** `handleInvoicePaid` guarded on `invoice.subscription`. Stripe API **2025-04-30** deleted that top-level field and moved the reference to `parent.subscription_details.subscription`; the endpoint delivers on `2025-09-30.clover`, so the guard read `undefined` on every subscription invoice and returned `Invoice missing subscription`. `InvoiceSchema` now accepts both shapes and `getInvoiceSubscriptionId()` prefers the current location with a legacy fallback — both can legitimately be in flight across a version bump, event replays, and older dead-letter retries.
+
+**2. `customer.subscription.updated` — an `ON CONFLICT` target no index covered.** `upsertSubscription` used `ON CONFLICT (organization_id, stripe_subscription_id)`. Postgres requires a unique index matching the target **exactly**, and only `stripe_subscription_id` was UNIQUE, so every event failed with `42P10` and dead-lettered. Fixed by adding `subscriptions_organization_id_key UNIQUE (organization_id)` (migration `20260731000000`) and pointing the upsert at it.
+
+> **⚠️ A misdiagnosis is recorded here deliberately, because the wrong fix shipped first.** Defect 2's conflict target was inferred by probing `organization_id` and `stripe_subscription_id` *separately* through PostgREST and finding the former unconstrained — rather than by reading `upsertSubscription`, which names the pair. The constraint was applied to production on that reasoning, the event was reset to retry, and **it failed again and re-abandoned**, because a unique index on `(a)` does not satisfy `ON CONFLICT (a, b)`. Only then was the source read. The constraint is now load-bearing, so it stands — but it was applied for a reason that was not true, and it commits the schema to **one subscription row per organization** permanently: replacing a subscription overwrites the prior record rather than retaining history. Reverting that would mean dropping the constraint and conflicting on `stripe_subscription_id` instead. **Generalisable: probing a symptom column-by-column is not equivalent to reading the statement that produced it.**
+
+**Scope, all complete:**
+1. ~~`invoice.paid` reads the current field location~~ — commit `205f53e`, deployed `87225064`.
+2. ~~Conflict target matches an index that exists~~ — commit `0398fa9`, deployed `247ce90e`, migration `20260731000000` applied to production.
+3. ~~Replay the dead letters~~ — abandoned rows reset (`status='pending'`, `retry_count=0`); both `invoice.paid` events resolved at 05:00:59 and 05:01:00 on the `*/15` cron, and `webhook_events_log` went 1 → 3.
+
+**Verified rather than assumed:** both fixes were replayed against the **real** dead-lettered payloads pulled from `webhook_dead_letters`, not hand-written fixtures — the `invoice.paid` pair returns `{ ok: true }`, and the `ON CONFLICT` probe was re-run through PostgREST inside a transaction that was rolled back. A test in `supabase.test.ts` had pinned the old conflict target and was updated *with the reason inline*, since a bare edit would read as a test bent to fit the code.
+
+**Related, and now closed as a side effect:** `plans` had no `stripe_price_id` column, so the catalogue mapped Stripe → plan key (via the `metadata.plan_key` tags on each product and price) but never the reverse. Migration `20260731020000` adds it, backfilled for `starter` and `growth`; `enterprise` stays NULL — no Stripe product, custom pricing.
+
+**Status:** ✅ Done (2026-07-31) — 155 tests passing, `tsc` clean, both Workers deployed and verified against live production data. Note this entry closes the *handling* bug only; [[CR20]] item 2 (alerting on dead-letter depth) is unaffected and remains the reason this went unnoticed for four months — **nothing alerted, and nothing would have.**
+
+---
+
 *Last updated: 2026-03-21 — backlog-implementer + backlog-migrate + auto-error-resolver session: L6/L7/L10/L11/L12/L13 marked done (38c339c); M36 fixed (7d86372); L5 env binding added (5c7a443, 8cdaa09, 306ccfc); 27 items migrated to v1.2; CSP test failure diagnosed and fixed (47b4dc3); L16 + M37 migrated to v1.2 changelog (2 completed items). Test Status: ✅ ALL 2631 TESTS PASSING. Remaining: T25, T28, V02-Remaining, M34, M38, M39 (6 deferred/design-decision items). Score: 9/10.*
 
 *Backlog-implementer continuation (2026-03-21): L16 refactored (AppDecorations.card() 5786939, PASS); M34 fixed with soft-delete + active-only filter (33aa1a2, cf5059c, PASS); M37 verified done (no new commits). Test Status: ✅ 61 stripe-webhook tests passing. Remaining open items: 4 (T25, T28, M38, M39 require design decisions). Items completed: 2 (L16, M34). Score: 9/10.*
