@@ -256,6 +256,49 @@ These issues require **server-side HTTP response header configuration** and cann
 
 ## Open Items
 
+### CHK01: Checkout sessions carried no `org_id`, so no subscription ever linked to an organization
+
+**Priority:** P1 (revenue-adjacent: paid subscriptions were not attributable to an org) | **Source:** session 2026-07-31, while generating a live checkout link for `team-inventoryai-io`
+**Status:** ✅ code complete + tested, ❌ **not committed, not deployed**
+
+`workers/sender-worker/src/stripe.ts` built its Checkout params with **neither `metadata[org_id]` nor `client_reference_id`** — grep the pre-fix file for either and it returns nothing. But `workers/stripe-webhook/src/handlers/checkout.ts:24` reads exactly those two on `checkout.session.completed`:
+
+```ts
+const orgId = session.metadata?.org_id || session.client_reference_id;
+if (!orgId) {
+  console.warn('Checkout session missing org_id in metadata or client_reference_id');
+  return { ok: true };            // warn-and-bail: linkStripeCustomer never runs
+}
+```
+
+So every checkout the production sender created hit the warn-and-bail path: `organizations.stripe_customer_id` was never written and no subscription row was attached to an org. Consistent with live data at the time — **1 subscription row and exactly 1 org with a `stripe_customer_id`, system-wide.**
+
+This is a one-shot bootstrap value. It is needed **only** in `checkout.session.completed`, to run `linkStripeCustomer(orgId, session.customer)`. Every other handler resolves the org from the customer id instead (`subscription.ts` ×2 and `invoice.ts` ×2 all call `findOrgByStripeCustomerId`), so once `stripe_customer_id` is written the session metadata stops mattering.
+
+**Fix (implemented):**
+- `src/supabase.ts` — new `supabaseFindOrgIdByEmail()`. Resolution mirrors `custom_access_token_hook`: prefer the user's `default_organization_id`, else oldest active membership. Returns `null` for an unknown email rather than throwing.
+- `src/stripe.ts` — `createStripeCheckoutSession` takes an optional trailing `orgId` and sets both `metadata[org_id]` and `subscription_data[metadata][org_id]`. Optional and trailing so no caller signature breaks.
+- `src/index.ts` — `handleCreateCheckoutSession` resolves the org before calling Stripe.
+
+**Two decisions worth not re-litigating:**
+
+1. **The org is derived server-side from the email — `orgId` was deliberately NOT added to `CreateCheckoutSessionSchema`.** `/create-checkout-session` is origin-gated but **unauthenticated**, so a client-supplied org id would let any caller who can reach the endpoint attach a subscription to an org they do not own. Deriving it server-side also needs no change from the landing page or the Flutter client. Note the origin gate is not a real boundary here: `isOriginAllowed` is browser-surface only, and origin-less callers (Flutter native, curl) bypass it by design — which is precisely why the org id must not be caller-supplied.
+2. **Resolution is best-effort and never blocks a sale.** A lookup failure or an unknown email logs and proceeds with an unattributed session rather than erroring. Failing checkout to protect a metadata field trades a linking bug for a revenue bug. The cost is that the unresolvable case silently reverts to the old behaviour, so both branches log loudly (`console.warn` for no-org, `console.error` for lookup failure). Two tests pin it: unknown email → 200 without metadata, lookup 500 → 200 without metadata.
+
+**Tests:** that describe block went 7 → 11. Four new: metadata from default org, membership fallback, unknown email, lookup failure. **Three existing tests had to be reworked, and the reason generalises:** they used `mockResolvedValueOnce`/`mockRejectedValueOnce`, which bind to call *order*, so the newly-added Supabase lookup consumed the mock and the Stripe branch under test never ran. Two of those were in a sibling `describe` and only surfaced on a full-suite run, not a `-t`-filtered one. All now route by URL (`url.includes('/rest/v1/')`), which is order-independent — **prefer URL routing over sequential mocks in this file.** Suite: 188/188, `tsc --noEmit` clean.
+
+**Remaining:**
+1. Commit (the repo had substantial uncommitted work from a concurrent session at the time, so staging was left to the operator).
+2. Deploy — **the live sender still has the bug until then.** Note `sender-worker` is CI-deployed on merge to `main`; see the deployment caveat in CLAUDE.md about `HEAD` being ahead of `origin/main`.
+3. Optional: backfill. Any already-paid subscription created before this ships has no `org_id` on its session and is unlinked; re-deriving it means matching the Stripe customer email back to a user. Unknown volume — the single existing `stripe_customer_id` row suggests it is small.
+
+**Not affected:** the live checkout link generated for `team-inventoryai-io` in the same session already carries `metadata[org_id]`, `client_reference_id` and `subscription_data[metadata][org_id]` — they were set directly on that session, independently of this fix.
+
+**Files:**
+- `workers/sender-worker/src/stripe.ts`, `src/supabase.ts`, `src/index.ts`, `src/index.test.ts`
+
+---
+
 ### T28: Handle Persistent Storage Data Loss Risk in Quota DO
 
 **Priority:** P3 | **Source:** session 2026-03-20, quota commit review (523518f)
