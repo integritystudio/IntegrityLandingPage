@@ -418,7 +418,7 @@ Shipped:
 Remaining:
 
 - Nonce store if replay protection must be stricter than timestamp-only — tracked as W06 in `docs/BACKLOG.md`
-- Monitoring/alerting + dashboards for the provisioning path — tracked as W04 in `docs/BACKLOG.md`
+- Monitoring/alerting + dashboards for the provisioning path — tracked as W04 in `docs/BACKLOG.md`. The **signals** are defined and executable ([Worker health signals](observability-signals.md), `npm run check:worker-signals`); the dashboard and alert channel are not. Note that `/send` error rate is among the signals *not* yet covered — `RECEIVER_ERROR` vs `INTERNAL_ERROR` vs the 502 "receiver-worker unreachable" path is distinguishable only in the response body, which Cloudflare's telemetry does not record, so it needs a counter emitted from the Worker.
 
 ## CORS and Origin Headers
 
@@ -435,6 +435,7 @@ The Sender Worker validates the request `Origin` against `ALLOWED_ORIGINS_JSON` 
 ## References
 
 - [Provisioning Environment Setup & Workflow](provisioning-environment-setup.md)
+- [Worker Health Signals](observability-signals.md)
 - [Client & Inter-Worker Contracts](inter-worker-contract-validation.md)
 - [Provisioning Manual E2E Test Guide](PROVISIONING_MANUAL_TEST.md)
 - [Cloudflare Workers Fetch API](https://developers.cloudflare.com/workers/runtime-apis/fetch/)

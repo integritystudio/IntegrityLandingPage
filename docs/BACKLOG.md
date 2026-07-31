@@ -351,10 +351,28 @@ What this unblocks, and what it does not: the signals in step 1 will exist once 
 
 **Scope:**
 1. ✅ **Done** — enable observability on every Worker so there is something to observe (see Step 0 above). Deploy to make it live.
-2. Define the signals that matter: `/send` error rate (esp. 502 "receiver-worker unreachable", 500 `INTERNAL_ERROR`), receiver 401s (signature/replay failures — possible attack or key-rotation drift), provisioning latency, Auth0/Supabase call failures. Add `stripe-webhook`'s dead-letter cron to this list: it fires every 15 minutes and did nothing at all from 2026-03-31 to 2026-07-28 ([[CR12]]) precisely because nothing was watching.
+2. ✅ **Done 2026-07-31 — signals defined in [`docs/observability-signals.md`](observability-signals.md) and made executable as `npm run check:worker-signals`** (`scripts/check-worker-signals.sh`, following the `check:env-isolation` / `check:migration-drift` pattern: exit 0 within threshold, 1 on breach, 2 on prerequisite failure, `SKIPPED` + exit 0 without credentials).
 
-   > **⚠️ Do not build this on error rate alone — measured 2026-07-31, [[CR20]] step 4.** Throughout those four months the cron reported `status: success` with `errors: 0` on every one of ~96 daily invocations, because the Supabase client threw on unbound secrets and `fetchPendingDeadLetters` swallowed it into `[]`. The only telemetry that distinguished broken from working was **`subrequests`**, which sat at exactly 0 until secrets were bound and then rose to 1.00 per invocation. Any alert designed around errors or invocation count would have stayed green for the entire outage. Alert on **subrequest count** and **dead-letter queue depth**; treat "succeeded while making no outbound calls" as the failure signature to watch for, here and on any other cron.
+   Defining these in prose alone is how they go stale, so each is computed rather than described. Five are implemented — unhandled exceptions, the cron no-op detector, resource exhaustion, cross-repo receiver health (reported, never failing the build, since this repo cannot fix it), and dead-letter queue depth. Five are named as **not** implemented so they are not mistaken for covered: the `/send` error-code split, receiver 401 spikes, provisioning latency, Auth0/Supabase call failures, and the auth 429 rate. The first needs a counter emitted from the Worker — `ERROR_CODE.RECEIVER_ERROR` vs `INTERNAL_ERROR` vs the 502 path is distinguishable only in the response body, which neither Cloudflare telemetry source records.
+
+   > **⚠️ Do not build this on error rate alone — measured 2026-07-31, [[CR20]] step 4.** Throughout those four months the cron reported `status: success` with `errors: 0` on every one of ~96 daily invocations, because the Supabase client threw on unbound secrets and `fetchPendingDeadLetters` swallowed it into `[]`. The only telemetry that distinguished broken from working was **`subrequests`**, which sat at exactly 0 until secrets were bound and then rose to 1.00 per invocation. Any alert designed around errors or invocation count would have stayed green for the entire outage. The signature to watch for, here and on any future cron, is **"succeeded while making no outbound calls"**.
+
+   **One caveat that will otherwise produce a wrong dashboard in step 3.** The two Cloudflare sources disagree. For `integrity-studio-contact`, GraphQL reported 34 invocations and 3 `scriptThrewException`, while a Workers Logs query over **72 hours** returned 10 events and no exception at all. Workers Logs only captures from the moment `observability` was enabled — the 2026-07-30 deploy for `api-gateway` and `integrity-studio-contact` — and its retention is shorter than the analytics rollup's. **Build rate panels on GraphQL; use Logs for drill-down only, and never read an empty log query as "no errors".**
+
+   **The check found two live failures on its first run**, which is the argument for it existing. Both are recorded below.
 3. Stand up a dashboard (Cloudflare Workers Analytics, or route through the existing internal OTEL pipeline) covering sender + receiver.
+
+   > **🔴 Blocker found 2026-07-31: the internal OTEL pipeline this step proposes routing through is itself broken.** `obtool-ingest` is failing **~90% of its invocations** with `exceededResources`, and its `*/5` cron fails essentially every run. Successful ingest collapsed from tens of thousands per day to ~30 around 2026-07-28 while resource kills became the dominant outcome:
+   >
+   > | Date | success | exceededResources |
+   > |---|---|---|
+   > | 2026-07-26 | 26,613 | 185 |
+   > | 2026-07-27 | 4,045 | 154 |
+   > | 2026-07-28 | 70 | 241 |
+   > | 2026-07-29 | 31 | 257 |
+   > | 2026-07-30 | 29 | 273 |
+   >
+   > It is deployed from `observability-toolkit`, so this repo cannot fix it — but `ingest.integritystudio.ai` cannot be this step's destination until it is. Note the irony worth recording: the pipeline intended to monitor everything else has been failing silently for days, with nothing watching it. Do **not** substitute `api-gateway`'s `/v1/ingest/otel`, which is the customer-facing path — see [[CR16]].
 4. Add alerting on error-rate and 401-spike thresholds (channel/owner TBD).
 5. Document the dashboard + alert runbook; cross-link from `docs/api-provisioning.md`.
 
@@ -369,7 +387,13 @@ What this unblocks, and what it does not: the signals in step 1 will exist once 
 - `docs/api-provisioning.md` (link runbook)
 - `observability-toolkit` (receiver-side spans/metrics)
 
-**Status:** Open — **step 1 is now fully done: instrumentation is deployed and emitting on all four production Workers (2026-07-30).** The signals in step 2 therefore exist for the first time, which turns steps 2–4 into real work rather than speculation. Remaining: signal definition, the dashboard, and an alert-channel decision. Three things are newly *measurable* and worth checking first — whether `stripe-webhook`'s `*/15` cron actually succeeds ([[CR20]] step 4), whether `api-gateway` serves real dashboard requests ([[V02]]), and the quota numbers [[T28]] needs. See also [[T28]] (its DO-metrics dashboard folds into step 3) and [[CR15]].
+> **🔴 New finding 2026-07-31 — `integrity-studio-contact` threw 3 unhandled exceptions.** Surfaced by the first run of `npm run check:worker-signals`: 3 `scriptThrewException` on 2026-07-30 out of 34 invocations (~9%). The contact form is the site's only lead-capture path, so these plausibly cost three submissions. **Deliberately left unexplained rather than guessed at** — the exceptions predate observability being enabled on that Worker, so no log line survives them. Logging now captures that Worker, so a recurrence will be diagnosable. Worth a look at `workers/contact-form/src/index.ts` for unguarded paths regardless.
+
+**Status:** Open — **steps 1 and 2 are done.** Step 1: instrumentation deployed and emitting on all four production Workers (2026-07-30). Step 2: signals defined and executable (2026-07-31, see above). Remaining: step 3 (dashboard — **blocked on `obtool-ingest` being repaired**, see the note there), step 4 (alert channel and owner, still an open decision), step 5 (runbook).
+
+The original status note follows.
+
+**Status (superseded):** Open — **step 1 is now fully done: instrumentation is deployed and emitting on all four production Workers (2026-07-30).** The signals in step 2 therefore exist for the first time, which turns steps 2–4 into real work rather than speculation. Remaining: signal definition, the dashboard, and an alert-channel decision. Three things are newly *measurable* and worth checking first — whether `stripe-webhook`'s `*/15` cron actually succeeds ([[CR20]] step 4), whether `api-gateway` serves real dashboard requests ([[V02]]), and the quota numbers [[T28]] needs. See also [[T28]] (its DO-metrics dashboard folds into step 3) and [[CR15]].
 
 > **Update 2026-07-27 evening — this is now the most valuable unblocked item, and one deploy is unsafe.** Several things that just changed can only be confirmed by observability nobody can read yet: whether `stripe-webhook`'s `*/15` cron now succeeds ([[CR20]] step 4), whether `api-gateway` serves real dashboard requests ([[V02]]), and the quota measurements [[T28]] needs. Step 2's signal list should add **dead-letter queue depth** and **cron success/failure**, both newly meaningful now that the table exists ([[CR17]]).
 >
