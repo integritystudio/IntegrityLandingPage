@@ -216,6 +216,40 @@ const makeOtelRequest = (body: unknown, token: string) =>
     body: JSON.stringify(body),
   });
 
+// API_KEY_HMAC_SECRET has never been bound in production (BACKLOG.md CR12), and the Env type
+// now says so. These pin the consequences: API-key auth degrades to a clean 503 instead of
+// throwing on an undefined HMAC key, and — the part that matters — JWT auth keeps working.
+describe('unbound API_KEY_HMAC_SECRET', () => {
+  const noSecretOpts = { ...opts, hmacSecret: undefined };
+
+  it('answers 503, not 401, when an API key is presented to /v1/ingest/events', async () => {
+    stubSupabase(await apiKeyRoutes());
+    const res = await handleIngestEvent(makeRequest(validBody(), API_KEY_TOKEN), noSecretOpts);
+    expect(res.status).toBe(503);
+    expect((await res.json() as { error: { message: string } }).error.message)
+      .toBe('API key authentication is unavailable');
+  });
+
+  it('does not query the database when the secret is missing', async () => {
+    const stub = stubSupabase(await apiKeyRoutes());
+    await handleIngestEvent(makeRequest(validBody(), API_KEY_TOKEN), noSecretOpts);
+    expect(stub.requests).toHaveLength(0);
+  });
+
+  it('answers 503 on /v1/ingest/otel, which is API-key only', async () => {
+    stubSupabase(await apiKeyRoutes());
+    const res = await handleIngestOtel(makeOtelRequest({ spans: [validSpan()] }, API_KEY_TOKEN), noSecretOpts);
+    expect(res.status).toBe(503);
+  });
+
+  it('still accepts a JWT — the missing secret must not break user auth', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(jwtRoutes());
+    const res = await handleIngestEvent(makeRequest(validBody(), token), noSecretOpts);
+    expect(res.status).toBe(202);
+  });
+});
+
 describe('POST /v1/ingest/otel', () => {
   it('returns 401 when no auth header', async () => {
     stubSupabase({});

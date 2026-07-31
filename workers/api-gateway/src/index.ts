@@ -14,7 +14,13 @@ import { preVerifyToken } from './lib/helpers';
 export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
-  API_KEY_HMAC_SECRET: string;
+  /**
+   * HMAC key that API-key hashes are verified against. Optional because production has
+   * never had it bound: the canonical value belongs to `api-provisioning-receiver`, which
+   * mints the keys, and inventing one here would fail to verify every key already issued
+   * (BACKLOG.md CR12). While unset, API-key auth answers 503 and JWT routes are unaffected.
+   */
+  API_KEY_HMAC_SECRET?: string;
   QUOTA_DO: DurableObjectNamespace;
   /**
    * Auth0 tenant that issues the dashboard's tokens, e.g. `tenant.us.auth0.com`.

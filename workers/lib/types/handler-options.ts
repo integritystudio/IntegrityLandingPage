@@ -32,7 +32,8 @@ export const EnvSchema = z.object({
   /** Database access only; the service role key bypasses RLS. Not a token issuer. */
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string(),
-  API_KEY_HMAC_SECRET: z.string(),
+  /** Optional: never bound in production, so a required schema would assert a false contract. */
+  API_KEY_HMAC_SECRET: z.string().optional(),
   /** Auth0 tenant issuing browser tokens; the JWKS URL and expected `iss` derive from it. */
   AUTH0_DOMAIN: z.string(),
   /** Auth0 API identifier the token must be scoped to. Absent means `aud` is not validated. */

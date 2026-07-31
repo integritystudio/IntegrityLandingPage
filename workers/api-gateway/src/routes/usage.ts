@@ -4,7 +4,7 @@ import { verifyJwt } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, Entitlement, UsageBucket as UsageBucketBase } from '../../../lib/types';
-import { buildEntitlementMap, auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
+import { buildEntitlementMap, auth0VerifyParams, resolveUserId, requireHmacSecret, type UserTokenOptions } from '../lib/helpers';
 import { getQuotaStatus } from '../lib/quota';
 import type { AuthResult } from '../../../lib/types/handler-options';
 
@@ -12,7 +12,7 @@ import type { AuthResult } from '../../../lib/types/handler-options';
 type UsageBucket = UsageBucketBase & Record<string, unknown>;
 
 interface UsageHandlerOptions extends UserTokenOptions {
-  hmacSecret: string;
+  hmacSecret?: string;
   supabaseUrl: string;
   serviceRoleKey: string;
 }
@@ -35,7 +35,9 @@ async function resolveAuth(
   // If the token looks like an API key, try that path first
   const parsedKey = parseApiKey(token);
   if (parsedKey.ok) {
-    const keyResult = await verifyApiKey(token, opts.hmacSecret, sb);
+    const secret = requireHmacSecret(opts.hmacSecret);
+    if (!secret.ok) return secret;
+    const keyResult = await verifyApiKey(token, secret.hmacSecret, sb);
     if (!keyResult.ok) return keyResult;
     return { ok: true, type: 'api_key', userId: keyResult.userId, organizationId: keyResult.organizationId };
   }

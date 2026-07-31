@@ -28,6 +28,13 @@
  * easy: repeat bindings, but explicitly empty routes and triggers.
  */
 
+// This suite reads wrangler.toml off disk, so it needs Node's types — and must say so
+// itself. tsconfig.json here sets `types: ["@cloudflare/workers-types"]`, deliberately
+// keeping Node's globals away from worker source, which cannot use them at runtime. A
+// whole-project compile happens to pass anyway because Node types leak in transitively
+// from elsewhere in the package; compile this file on its own (as an editor or a scoped
+// typecheck does) and `node:fs`, `node:path` and `__dirname` all fail to resolve.
+/// <reference types="node" />
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -146,16 +153,32 @@ describe('worker deploy environments (CR02)', () => {
     if (dev.routes !== undefined) expect(dev.routes).toBe('[]');
   });
 
-  // Workers that hold secrets in production. Preview URLs publish every retained
-  // version at a public URL with the CURRENT secrets bound, so superseded code
-  // stays callable — verified 2026-07-27, when a 2026-04-20 sender-worker version
-  // answered 200 with all 13 secrets. See BACKLOG.md CR14.
-  const SECRET_BEARING = ['sender-worker', 'contact-form'] as const;
+  // Every worker that holds secrets in production. Preview URLs publish each retained
+  // version at a public URL with the CURRENT secrets bound, so superseded code stays
+  // callable — verified 2026-07-27, when a 2026-04-20 sender-worker version answered 200
+  // with all 13 secrets, and again 2026-07-29 when 71 superseded versions across
+  // sender-worker and contact-form were found reachable. See BACKLOG.md CR14.
+  //
+  // All four are listed deliberately. The list previously held only two, so api-gateway
+  // and stripe-webhook were pinned in config but unguarded by any test — a future edit
+  // could have re-opened them silently, which is the exact regression CR14 step 6 closes.
+  // receiver-worker is excluded because it is a local stub with no production deployment.
+  const SECRET_BEARING = ['api-gateway', 'sender-worker', 'stripe-webhook', 'contact-form'] as const;
 
   it.each(SECRET_BEARING)('%s: disables per-version preview URLs', (worker) => {
     const config = loadConfig(worker);
 
     expect(config.preview_urls, `${worker} binds secrets; preview URLs would keep superseded versions callable with them`).toBe(false);
+  });
+
+  it.each(SECRET_BEARING)('%s: [env.dev] does not re-enable preview URLs', (worker) => {
+    // preview_urls IS inherited by a named environment, unlike bindings — so dev needs no
+    // repeat. What it must not do is override the parent back to true.
+    const dev = loadConfig(worker).env?.dev ?? {};
+
+    if ('preview_urls' in dev) {
+      expect(dev.preview_urls, `${worker} [env.dev] overrides preview_urls back on`).toBe(false);
+    }
   });
 
   it('inheritable-key trap is documented where it bites', () => {

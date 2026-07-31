@@ -166,6 +166,16 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
     expect(stub.find('POST', 'api_keys')).toBeUndefined();
   });
 
+  // API_KEY_HMAC_SECRET is unbound in production (BACKLOG.md CR12). Minting here would store a
+  // hash keyed on nothing, producing a token that can never authenticate — refuse instead.
+  it('returns 503 without minting a key when API_KEY_HMAC_SECRET is unbound', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes());
+    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, { ...opts, hmacSecret: undefined });
+    expect(res.status).toBe(503);
+    expect(stub.find('POST', 'api_keys')).toBeUndefined();
+  });
+
   it('returns 403 when user role is viewer', async () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes({

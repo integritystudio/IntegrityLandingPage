@@ -1,4 +1,4 @@
-import { unauthorized, tooManyRequests } from '../../../lib/http';
+import { unauthorized, tooManyRequests, serviceUnavailable } from '../../../lib/http';
 import { checkIdentityRateLimit } from './rate-limit';
 import { requireBearerToken } from '../../../lib/http/request';
 import { verifyJwt, auth0JwtKey, auth0IssuerFor } from '../../../lib/auth';
@@ -68,9 +68,28 @@ export function auth0VerifyParams(
 }
 
 interface PreVerifyTokenOptions extends UserTokenOptions {
-  hmacSecret: string;
+  hmacSecret?: string;
   supabaseUrl: string;
   serviceRoleKey: string;
+}
+
+/**
+ * Resolve the HMAC key that API-key hashes are verified against.
+ *
+ * `API_KEY_HMAC_SECRET` has never been bound in production (BACKLOG.md CR12): the canonical
+ * value belongs to `api-provisioning-receiver`, which mints the keys. Absence is therefore a
+ * server-configuration fault, not a credential failure — hence 503 rather than 401, which
+ * would tell the caller their key is bad when the server simply cannot check it. Callers must
+ * invoke this only once a token is known to be key-shaped, so JWT auth stays unaffected.
+ */
+export function requireHmacSecret(
+  hmacSecret: string | undefined,
+): { ok: true; hmacSecret: string } | { ok: false; error: Response } {
+  if (!hmacSecret) {
+    console.error('API_KEY_HMAC_SECRET is not bound; API-key authentication is unavailable');
+    return { ok: false, error: serviceUnavailable('API key authentication is unavailable') };
+  }
+  return { ok: true, hmacSecret };
 }
 
 /**
@@ -92,8 +111,10 @@ export async function preVerifyToken(
   const { token } = tokenResult;
 
   if (parseApiKey(token).ok) {
+    const secret = requireHmacSecret(opts.hmacSecret);
+    if (!secret.ok) return secret;
     const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
-    const result = await verifyApiKey(token, opts.hmacSecret, sb);
+    const result = await verifyApiKey(token, secret.hmacSecret, sb);
     if (!result.ok) return result;
     return { ok: true };
   }

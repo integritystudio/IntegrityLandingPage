@@ -2,10 +2,10 @@ import { ok, created, forbidden, notFound, serverError, badRequest } from '../..
 import { generateApiKey, hashApiKeySecret } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, ApiKey, OrgRole } from '../../../lib/types';
-import { resolveJwt, writeAuditLog, auth0VerifyParams, type UserTokenOptions } from '../lib/helpers';
+import { resolveJwt, writeAuditLog, auth0VerifyParams, requireHmacSecret, type UserTokenOptions } from '../lib/helpers';
 
 interface ApiKeysHandlerOptions extends UserTokenOptions {
-  hmacSecret: string;
+  hmacSecret?: string;
   supabaseUrl: string;
   serviceRoleKey: string;
 }
@@ -85,8 +85,13 @@ export async function handleCreateApiKey(
     }
   }
 
+  // Minting a key whose hash cannot be reproduced would create an unusable credential,
+  // so refuse before generating rather than storing a hash keyed on nothing.
+  const hmac = requireHmacSecret(opts.hmacSecret);
+  if (!hmac.ok) return hmac.error;
+
   const { token, prefix, secret } = generateApiKey();
-  const hash = await hashApiKeySecret(secret, opts.hmacSecret);
+  const hash = await hashApiKeySecret(secret, hmac.hmacSecret);
 
   const keyName = body.name ?? 'Default';
 
