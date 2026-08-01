@@ -254,12 +254,19 @@ describe('upsertSubscription', () => {
     db = makeAdmin();
   });
 
-  /** Soft-delete step succeeds by default; callers override the POST route. */
+  /**
+   * Soft-delete step succeeds by default; callers override the POST route.
+   *
+   * The `PATCH organizations` route is required, not incidental: upsertSubscription
+   * writes back `organizations.active_subscription_id` after the upsert, so omitting it
+   * makes every case fail on the write-back rather than on what it means to test.
+   */
   const subscriptionRoutes = (
     overrides: Record<string, RouteResponder> = {},
   ): Record<string, RouteResponder> => ({
     [`PATCH ${SUBSCRIPTIONS_TABLE}`]: updatedRows([]),
     [`POST ${SUBSCRIPTIONS_TABLE}`]: createdRows([{ id: 'sub-row-1' }]),
+    [`PATCH ${ORGANIZATIONS_TABLE}`]: updatedRows([{ id: 'org-1' }]),
     ...overrides,
   });
 
@@ -285,6 +292,64 @@ describe('upsertSubscription', () => {
         status: 'active',
       }),
     ]);
+  });
+
+  // Nothing wrote organizations.active_subscription_id before 2026-08-01 — not this
+  // Worker, not api-gateway, not any DB trigger — so the FK sat null even for paying
+  // orgs. team-inventoryai-io was observed with a live subscription row and a null
+  // pointer, which is what surfaced it.
+  it('points the org at the upserted subscription row', async () => {
+    const stub = stubSupabase(subscriptionRoutes());
+
+    const result = await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', 'active');
+
+    expect(result).toEqual({ ok: true });
+    const patch = stub.find('PATCH', ORGANIZATIONS_TABLE)!;
+    expect(objectBody(patch)).toEqual(
+      expect.objectContaining({ active_subscription_id: 'sub-row-1' }),
+    );
+    expect(patch.url.searchParams.get('id')).toBe('eq.org-1');
+  });
+
+  // Deliberately not `!isEntitled(status)`: past_due is unentitled but still describes a
+  // live subscription the org owns, so the pointer must survive a failed payment.
+  it.each(['past_due', 'unpaid', 'paused', 'incomplete', 'trialing'])(
+    'keeps the pointer set for non-terminal status %s',
+    async (status) => {
+      const stub = stubSupabase(subscriptionRoutes());
+
+      await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', status);
+
+      const patch = stub.find('PATCH', ORGANIZATIONS_TABLE)!;
+      expect(objectBody(patch)).toEqual(
+        expect.objectContaining({ active_subscription_id: 'sub-row-1' }),
+      );
+    },
+  );
+
+  it.each(['canceled', 'incomplete_expired'])(
+    'clears the pointer for terminal status %s',
+    async (status) => {
+      const stub = stubSupabase(subscriptionRoutes());
+
+      await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', status);
+
+      const patch = stub.find('PATCH', ORGANIZATIONS_TABLE)!;
+      expect(objectBody(patch)).toEqual(
+        expect.objectContaining({ active_subscription_id: null }),
+      );
+    },
+  );
+
+  it('reports failure when the org write-back fails', async () => {
+    const stub = stubSupabase(
+      subscriptionRoutes({ [`PATCH ${ORGANIZATIONS_TABLE}`]: () => new Response('boom', { status: 500 }) }),
+    );
+
+    const result = await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', 'active');
+
+    expect(result.ok).toBe(false);
+    expect(stub.find('POST', SUBSCRIPTIONS_TABLE)).toBeDefined();
   });
 
   it('stamps created_at and updated_at with the same timestamp as the soft-delete', async () => {

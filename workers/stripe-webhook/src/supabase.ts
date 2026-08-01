@@ -1,6 +1,23 @@
 import { createSupabaseClient } from '../../lib/supabase';
+import { isTerminalSubscriptionStatus } from '../../lib/billing';
 import type { BillingStatus, ApiKeyTier } from '../../lib/types';
 import { DEAD_LETTER_INITIAL_RETRY_DELAY_MS, DEAD_LETTER_MAX_RETRIES } from '../../constants';
+
+/**
+ * Shape passed to and returned from the `subscriptions` upsert. `id` is absent on insert
+ * (Postgres generates it) and present in the response, since the client requests
+ * `return=representation` — that returned id is what populates
+ * `organizations.active_subscription_id`.
+ */
+interface SubscriptionUpsertRow extends Record<string, unknown> {
+  id?: string;
+  organization_id: string;
+  stripe_subscription_id: string;
+  stripe_price_id: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
 
 /**
  * Projection of the `webhook_dead_letters` row used by fetchPendingDeadLetters.
@@ -83,7 +100,9 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     if (!cancelResult.ok) {
       return { ok: false, error: cancelResult.error };
     }
-    const result = await sb.upsert(
+    // `id` is optional on the way in (Postgres generates it) but present on the way back,
+    // because the client upserts with `return=representation`.
+    const result = await sb.upsert<SubscriptionUpsertRow>(
       'subscriptions',
       {
         organization_id: orgId,
@@ -95,7 +114,32 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
       },
       'organization_id',
     );
-    return toVoidResult(result);
+    if (!result.ok) {
+      return toVoidResult(result);
+    }
+
+    // Point the org at its current subscription row. Nothing wrote
+    // `organizations.active_subscription_id` before 2026-08-01 — not this Worker, not
+    // api-gateway, not any DB trigger — so the FK sat permanently null even for paying
+    // orgs, and `team-inventoryai-io` was observed with a live subscription row and a
+    // null pointer. Doing it here rather than per-handler covers all three writers
+    // (checkout.session.completed, customer.subscription.updated, .deleted), which all
+    // funnel through this function.
+    //
+    // The upsert returns representation, so the row id is already in hand — no extra
+    // round-trip. Terminal statuses clear the pointer instead of setting it; see
+    // isTerminalSubscriptionStatus for why that is not simply `!isEntitled`.
+    const subscriptionRowId = result.data?.[0]?.id;
+    const linkResult = await sb.update(
+      'organizations',
+      {
+        active_subscription_id: isTerminalSubscriptionStatus(status)
+          ? null
+          : (subscriptionRowId ?? null),
+      },
+      [{ column: 'id', operator: 'eq', value: orgId }],
+    );
+    return toVoidResult(linkResult);
   }
 
   /**

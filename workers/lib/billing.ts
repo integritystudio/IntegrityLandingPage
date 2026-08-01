@@ -63,3 +63,20 @@ export function toBillingStatus(stripeStatus: string): BillingStatus {
 export function isEntitled(status: BillingStatus): boolean {
   return status === 'active' || status === 'trialing';
 }
+
+/**
+ * Whether a subscription has reached a state it can never leave.
+ *
+ * Used to decide when `organizations.active_subscription_id` should be cleared. Note this
+ * is deliberately *not* the inverse of `isEntitled`: `past_due`, `unpaid`, `paused` and
+ * `incomplete` are all unentitled but still describe a live subscription the org owns, so
+ * the org should keep pointing at it. Only `canceled` and `incomplete_expired` are
+ * terminal — Stripe never transitions out of either.
+ *
+ * Keeping this beside `isEntitled` for the same reason that one exists: the tempting
+ * shorthand (`!isEntitled(status)`) reads as obviously correct and would orphan the
+ * pointer the moment a payment failed.
+ */
+export function isTerminalSubscriptionStatus(status: string): boolean {
+  return status === 'canceled' || status === 'incomplete_expired';
+}
