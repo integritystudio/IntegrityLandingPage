@@ -100,13 +100,27 @@ preview_id = "46a717cd692a4cc2969bff9504bcc87b" # dev-RATE_LIMIT_KV
 #   SIGNING_KEYS               — JSON Record<keyId, secret> enabling x-key-id rotation.
 #                                Must match the receiver's SIGNING_KEYS exactly, or every
 #                                signed request 401s with INVALID_SIGNATURE.
-#                                Provisioned in prd 2026-07-29 as key id "v2".
+#                                Provisioned in prd 2026-07-30T01:28:47Z as key id "v2"
+#                                (was recorded here as 2026-07-29 — that is the local PDT
+#                                date, and it contradicted every other doc; dates in this
+#                                file are UTC, matching the Workers API. Corrected and
+#                                measured 2026-07-31: version 693d865d at 2026-07-29T21:20Z
+#                                binds SHARED_SECRET only, 707a42ae at 01:28:53Z has both.)
 #   ACTIVE_KEY_ID              — which SIGNING_KEYS entry to sign with. Omit to use
 #                                SHARED_SECRET and send no x-key-id header.
-#                                Set to "v2" in prd 2026-07-29. Deliberately UNSET in the
-#                                dev config: sender-worker-dev binds RECEIVER to the
-#                                PRODUCTION receiver (see [env.dev] below), so it must keep
-#                                taking the SHARED_SECRET fallback path.
+#                                Set to "v2" in prd 2026-07-30T01:28:53Z. UNSET in the dev config:
+#                                sender-worker-dev binds RECEIVER to the PRODUCTION receiver
+#                                (see [env.dev] below), so it would take the SHARED_SECRET
+#                                fallback path.
+#     ⚠️ That last sentence is NOT a requirement to preserve — do not read it as a reason the
+#     fallback must stay. sender-worker-dev has ZERO secrets bound (verified 2026-07-31), so it
+#     can neither sign with v2 nor fall back; the dependency is inert. And giving it the dev
+#     Doppler secrets is explicitly forbidden — that yields a second production-capable Worker,
+#     not a dev environment (CLAUDE.md, BACKLOG.md CR11). The no-x-key-id path is a rotation
+#     defect, not a dev affordance: the receiver maps an ABSENT x-key-id to SHARED_SECRET, so
+#     that credential has no key id and no rotation handle, and removing a key from
+#     SIGNING_KEYS revokes nothing. BACKLOG.md CR29 removes it; delete these ACTIVE_KEY_ID
+#     lines in the same change. Dev's real fix is a dev receiver (CR02 item 5).
 #     Rotation order is load-bearing — add the new key to the RECEIVER's SIGNING_KEYS and
 #     deploy it FIRST, then set ACTIVE_KEY_ID here; see the deployment sequence comment
 #     above forwardToReceiver() in src/index.ts. Also update KEY_ROTATION_DATES on the
