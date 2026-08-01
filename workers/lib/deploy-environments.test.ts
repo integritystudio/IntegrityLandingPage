@@ -153,6 +153,19 @@ describe('worker deploy environments (CR02)', () => {
     if (dev.routes !== undefined) expect(dev.routes).toBe('[]');
   });
 
+  it.each(WORKERS)('%s: declares no named environment other than [env.dev]', (worker) => {
+    // `dev` is the only named environment with a deploy path (`npm run deploy`);
+    // production is the top-level block. Any other named environment is a config
+    // nobody deploys, and in this repo that is not merely dead weight:
+    // api-gateway carried an [env.staging] declaring staging-api.integritystudio.ai/v1/*
+    // until 2026-07-31 — a latent route claim in the one file where a stray route
+    // claim has already caused an outage, and one that repeated neither
+    // `durable_objects` nor `observability`, so deploying it would have produced a
+    // Worker with no DO namespace and no telemetry. Adding a real staging target
+    // means updating this list AND repeating every NON_INHERITABLE key below.
+    expect(Object.keys(loadConfig(worker).env ?? {})).toEqual(['dev']);
+  });
+
   // Every worker that holds secrets in production. Preview URLs publish each retained
   // version at a public URL with the CURRENT secrets bound, so superseded code stays
   // callable — verified 2026-07-27, when a 2026-04-20 sender-worker version answered 200

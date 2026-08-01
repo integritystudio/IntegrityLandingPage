@@ -15,11 +15,14 @@ preview_urls = false
 # decision is tracked in BACKLOG.md CR13; this removal is step 1. See also the
 # [env.dev] comment below, which explains the inheritance hazard that made this
 # block dangerous to leave in place.
-
-[env.staging]
-routes = [
-  { pattern = "staging-api.integritystudio.ai/v1/*", zone_name = "integritystudio.ai" }
-]
+#
+# An `[env.staging]` block declaring staging-api.integritystudio.ai/v1/* was
+# removed for the same reason. Nothing ever passed `--env staging` — no script,
+# no workflow — so it was an unreachable route claim in the one file where a
+# stray route claim has already caused an outage, and it repeated neither
+# `durable_objects` nor `observability`, so deploying it would have produced a
+# Worker with no DO namespace and no telemetry. Reinstate it only alongside a
+# deploy path and the full binding set (BACKLOG.md CR13).
 
 # Auth0 tenant that issues the dashboard's browser tokens. Plain `vars`, not secrets:
 # both values appear in every JWT the Flutter app holds, so they are not confidential, and
