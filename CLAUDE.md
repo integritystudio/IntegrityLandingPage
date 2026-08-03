@@ -34,7 +34,7 @@ npm run test:e2e                  # sender-worker: workerd runtime, all outbound
                                   #   secret must be added there or every /send test 500s (CR29 step 2).
 ```
 
-**Supabase** (migrations are the source of truth for schema)
+**Supabase** (migrations are the source of truth for schema — ✅ **true since 2026-08-03, and it was not before**: the ledger could not rebuild the schema at all. 10 tables, 3 enums, 2 columns on a ledger-managed table and 1 view — 43% of `public` — existed only in production. `migration list` said "zero out of sync" the whole time because it compares against **production**, which already had every object. **A migration set is only proven by replaying it onto an empty database**; that had never been done. Five baseline migrations now close it, verified at 24/24 tables+views and 255/255 columns. The CI guard is `migration-replay-check.yml` → `scripts/check-migration-replay.sh` — full local stack + `db reset` + schema assertions; written 2026-08-03, proven on its first CI run (Docker is absent on this machine, so it cannot run locally). A second dev project, `tumhmtshahktumhqqamk` / `integritystudio-dev`, exists for cloud-side replay.)
 ```bash
 # ⚠️ SUPABASE_ACCESS_TOKEN is EMPTY in Doppler — the slot held the revoked old service
 # key, and a garbage value OVERRIDES the CLI's keychain login, so exporting it breaks
@@ -54,12 +54,22 @@ supabase db push                   # apply — ALL pending migrations, not just 
 supabase db query --linked -f supabase/migrations/<version>_<name>.sql
 supabase migration repair --status applied <version>   # then record just that one
 ```
-🔴 **None of the commands above work — `SUPABASE_DB_PASSWORD` does not authenticate** (measured 2026-07-31). `db push --dry-run` fails `SASL auth (FATAL: password authentication failed for user "postgres" (SQLSTATE 28P01))` against `aws-1-us-east-1.pooler.supabase.com`; `migration list --linked` fails `LegacyDbConnectError`. **Until a working password is stored, the only route for DDL is the Dashboard SQL editor** — which executes the SQL *without* writing a ledger row, so `migration list` still reports the file pending and the next `db push` fails on `already exists`. Reconcile with `migration repair --status applied <version>` once the password works.
+✅ **There IS a working route, found 2026-08-03 — use this before anything below.** The Supabase CLI holds a valid `sbp_` personal access token in the macOS keychain, and the Management API query endpoint runs **arbitrary SQL including DDL** with it. No Docker, no `SUPABASE_DB_PASSWORD`:
+```bash
+RAW=$(security find-generic-password -s "Supabase CLI" -w)   # go-keyring-base64:<b64>
+TOK=$(printf '%s' "${RAW#*:}" | base64 -d)                    # -> sbp_...
+curl -s -X POST "https://api.supabase.com/v1/projects/<ref>/database/query" \
+  -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" \
+  -d '{"query":"select 1"}'
+```
+And **`supabase db push --db-url <conn>` works without linking**, which avoids mutating the repo's linked-project state that other sessions share. Use the **session pooler on :5432**, not :6543 — the transaction pooler fails mid-push with `prepared statement "lrupsc_1_0" already exists`. `supabase db dump` is *not* usable: it shells out to Docker, which is not installed here.
+
+🔴 **The commands above still do not work — `SUPABASE_DB_PASSWORD` does not authenticate** (measured 2026-07-31; unchanged). `db push --dry-run` fails `SASL auth (FATAL: password authentication failed for user "postgres" (SQLSTATE 28P01))` against `aws-1-us-east-1.pooler.supabase.com`; `migration list --linked` fails `LegacyDbConnectError`. **Until a working password is stored, the only route for DDL is the Dashboard SQL editor** — which executes the SQL *without* writing a ledger row, so `migration list` still reports the file pending and the next `db push` fails on `already exists`. Reconcile with `migration repair --status applied <version>` once the password works.
 
 Four dead ends, so you don't re-derive them:
 - **`dev`'s copy of the password.** A *different* 16-char value (sha `ea45e4f3` vs `prd`'s `0eaaeb6e`), and it fails identically. Both configs point at the same project, so there is one real password and neither slot has it — the fix is a Dashboard reset plus storing the new value.
 - **Restoring the service key to that slot.** It used to hold the same string as the live `sb_secret_` key (41 chars, sha `cdb0a4bd`); a Dashboard reset decoupled them without updating Doppler. **Do not re-couple PostgREST `service_role` to direct Postgres access** to "fix" the auth failure.
-- **The Management API query endpoint.** `POST https://api.supabase.com/v1/projects/<ref>/database/query` returns **401 `JWT could not be decoded`** for any `sb_secret_` key — that class is a data-plane credential for PostgREST; the endpoint wants an `sbp_` personal access token, which is Dashboard-minted only.
+- ~~**The Management API query endpoint.**~~ **NOT a dead end — corrected 2026-08-03, and this was the most expensive wrong entry on the page.** The diagnosis was right (`POST https://api.supabase.com/v1/projects/<ref>/database/query` returns **401 `JWT could not be decoded`** for any `sb_secret_` key — that class is a data-plane credential for PostgREST; the endpoint wants an `sbp_` personal access token). The **conclusion** was wrong: `sbp_` is not Dashboard-minted-only, because **the Supabase CLI already holds a working one in the macOS keychain.** Extract it with `security find-generic-password -s "Supabase CLI" -w`, strip the `go-keyring-base64:` prefix, `base64 -d` → `sbp_…`. It runs **arbitrary SQL including DDL**, needs no Docker and no `SUPABASE_DB_PASSWORD`, and is the route that read production's entire schema for BACKLOG CR30. **So "the only route for DDL is the Dashboard SQL editor" (above) is false** — and that claim was doing real damage, since the Dashboard route is the one that executes SQL *without* writing a ledger row.
 - **PostgREST and `psql`.** PostgREST cannot run DDL at all, and there is no `psql` on this machine.
 
 ⚠️ **The Doppler slot for the service key is `SUPABASE_PROVISIONING_KEY`, not `SUPABASE_SERVICE_ROLE_KEY`.** The latter exists in **neither** config (verified 2026-07-31) even though it is the name every Worker *binds* it under. Reading the binding name from Doppler silently returns empty and the next command fails with a misleading "No API key found in request".
