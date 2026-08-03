@@ -1,0 +1,51 @@
+# CR30 guard: the migration ledger must rebuild the schema from an empty
+# database. The drift check (ci.yml migration-drift-check) compares against
+# PRODUCTION and cannot catch a ledger that fails on empty — that was this
+# repo's state until 2026-08-03. See scripts/check-migration-replay.sh.
+#
+# Separate workflow rather than a ci.yml job so it path-filters: replaying
+# spins up the whole Supabase local stack, which is only worth doing when the
+# migrations (or this guard) change. Needs no secrets — PR-safe, including
+# from forks.
+name: Migration Replay Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/config.toml'
+      - 'scripts/check-migration-replay.sh'
+      - '.github/workflows/migration-replay-check.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/config.toml'
+      - 'scripts/check-migration-replay.sh'
+      - '.github/workflows/migration-replay-check.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "migration-replay-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: Replay ledger onto empty database
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Replay and assert
+        run: bash scripts/check-migration-replay.sh

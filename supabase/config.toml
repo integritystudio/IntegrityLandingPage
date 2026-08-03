@@ -27,7 +27,11 @@ port = 54322
 shadow_port = 54320
 # The database major version to use. This has to be the same as your remote database's. Run `SHOW
 # server_version;` on the remote database to check.
-major_version = 15
+# 15 -> 17 (2026-08-03): production is Postgres 17.6 (Management API,
+# cfrbahzzklwrnmbtqojl), so 15 here was stale — and the CR30 replay guard
+# (scripts/check-migration-replay.sh) boots this version, so leaving it would
+# have tested the ledger on a different major than production runs.
+major_version = 17
 
 [db.pooler]
 enabled = false
