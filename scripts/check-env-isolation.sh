@@ -126,13 +126,29 @@ key_prefix() {
 printf '%-30s %-10s %-10s %s\n' "SECRET" "$BASE_CONFIG" "$PROD_CONFIG" "VERDICT"
 printf '%s\n' "----------------------------------------------------------------------"
 
+# Slots kept in the list for the record but no longer read by any code in
+# EITHER repo (landing + observability-toolkit), so "set in prd, empty in dev"
+# is not an isolation gap — nothing in dev could use the credential and nothing
+# reaches for it. Verified 2026-08-03: 0 non-test references anywhere.
+#   SUPABASE_JWT_SECRET — removed from the code 2026-07-31 (workers verify Auth0
+#   tokens via Auth0 JWKS; EnvSchema.SUPABASE_JWT_SECRET went .optional()). The
+#   prd slot still holds the old value; it authenticates nothing.
+is_dead_slot() { case "$1" in SUPABASE_JWT_SECRET) return 0;; *) return 1;; esac; }
+
 failures=0
 unmeasured=0
+dead=0
 for secret in "${SECRETS[@]}"; do
   base_hash="$(digest "$secret" "$BASE_CONFIG")"
   prod_hash="$(digest "$secret" "$PROD_CONFIG")"
 
-  if [[ "$base_hash" == "$EMPTY_HASH" && "$prod_hash" == "$EMPTY_HASH" ]]; then
+  if is_dead_slot "$secret" && [[ "$base_hash" != "$prod_hash" ]]; then
+    # Distinct or absent-in-dev on a slot nothing reads. Not counted — a dead
+    # credential cannot be an isolation gap. (If it were SHARED it would still
+    # fail below, because a dead-but-shared prod credential in dev is a leak
+    # surface even when unused.)
+    verdict="dead slot — read by nothing (not counted)"; ((dead++))
+  elif [[ "$base_hash" == "$EMPTY_HASH" && "$prod_hash" == "$EMPTY_HASH" ]]; then
     # Set in neither config. This is NOT an isolation failure — there is no
     # credential here to share — but it is not a pass either: the detector is
     # watching a name that nobody sets, so this row measures nothing. Counted
@@ -188,6 +204,16 @@ for secret in "${STRIPE_MODED_KEYS[@]}"; do
 done
 
 echo
+if (( dead > 0 )); then
+  cat <<EOF
+NOTE: $dead row(s) are DEAD slots — read by no code in either repo (verified
+2026-08-03) — and are excluded from the failure count when not shared. A
+credential nothing reads cannot be an isolation gap. Re-verify the reference
+count before trusting this if you resurrect one of these names.
+
+EOF
+fi
+
 if (( unmeasured > 0 )); then
   cat <<EOF
 NOTE: $unmeasured row(s) are ABSENT in both configs and measure nothing. They are
