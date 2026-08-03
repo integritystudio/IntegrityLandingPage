@@ -554,13 +554,14 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR22](#cr22) | P3 | ⚠️ deployed, unexercised | Billing-portal API-key 403 **deployed 2026-07-30**. Still unproven end to end: the 403 needs a *valid* API key, and API-key auth is unreachable while `API_KEY_HMAC_SECRET` is unbound ([[CR12]]). An invalid key returns `401` — that is [[CR23]]'s design, not a regression |
 | [CR23](#cr23) | P3 | ✅ resolved | Design decision: 401 for invalid credentials, 403 for valid-but-wrong-type. HTTP-correct; no code change needed |
 | [CR24](#cr24) | P2 | ✅ done | Legacy `anon` + `service_role` JWT keys disabled 2026-07-29 — **verified by probe**: both now return 401. Reversible via the same endpoint if the receiver turns out to depend on one (its `/health` is 200 post-disable) |
-| [CR25](#cr25) | P2 | ⚠️ partial | Auth0 tenant A production-readiness audit. Blocker 1 fixed (Google **dev-keys** connection disabled for all apps); blocker 2 partial (TOTP + recovery-code enabled, enforcement policy still an open decision); blocker 3 **needs a paid plan** — breached-password detection 400s with "upgrade your subscription". **Items 9–12 closed 2026-07-31**: `Default App` grants stripped, token lifetime 24h → 8h, dev clients made OIDC-conformant, `dev-users` signup disabled, 3 dead Doppler slots deleted. Open: 4 (custom domain, spend), 5 (branding), 6 (log streams), 7 (`implicit` on the SPA), 8 (ROPC), 2 (MFA enforcement), 3 (spend) |
+| [CR25](#cr25) | P2 | ⚠️ partial | Auth0 tenant A production-readiness audit. Blocker 1 fixed (Google **dev-keys** connection disabled for all apps); blocker 2 partial (TOTP + recovery-code enabled, enforcement policy still an open decision); blocker 3 **needs a paid plan** — breached-password detection 400s with "upgrade your subscription". **Items 9–12 closed 2026-07-31**; the 🔴 `integrity-dev-m2m` finding (a dev credential that could delete production users) **closed 2026-08-03** in CR11's Auth0 cutover — **no active security finding remains.** Open, all re-verified live 2026-08-03 (7 of 13 done): 3 + 4 are **spend** (breached-password, custom domain — both plan-gated), 5/6/7/8 are **config-minutes** (branding, log streams, `implicit` on the SPA, ROPC on `AUTH0_MANAGER`+SPA), 2 is an **owner decision** (MFA enforcement) |
 | [CR26](#cr26) | P1 | ✅ done | `POST /bootstrap` mounted in `api-gateway` — matches the Flutter app contract with no client release. Handler ported from `bootstrap-worker` (fixed `in` filter on org query; uses shared `resolveUserId`/`buildEntitlementMap`). 14 tests added to `api-gateway/src/routes/bootstrap.test.ts`. `bootstrap-worker` directory deleted; removed from `WORKERS` / `SECRET_BEARING` in deploy-environments test and from root `package.json` scripts. ~~Needs `deploy:prd` on `api-gateway` to go live.~~ **Deployed and verified live** (version `846f8c21`) — see the CR26 body. Re-confirmed 2026-07-31: production `POST /bootstrap` answers **401**, not 404, so the route is mounted and auth-gated. |
 | [CR30](#cr30) | P1 | ✅ **resolved 2026-08-03** (CI guard still open) | **The migration ledger could not rebuild the schema — now it can, proven by replay onto an empty database.** Final parity: 24/24 tables+views, 255/255 columns, 3/3 enums. Five new migrations; three separate ordering defects in the *existing* ledger were only findable by replaying. Gap was 10 tables, 3 enums, 2 columns on a ledger-managed table, 1 view — 43% of the schema was unversioned. Production untouched (read-only queries; all new files idempotent). **CI guard written 2026-08-03** (`migration-replay-check.yml` → `check-migration-replay.sh`: full local stack, `db reset`, schema assertions incl. the view; mutation-tested assertion SQL) — proven on its first CI run, since Docker is absent locally. The drift check compares against production and cannot catch this class |
 | ~~[CR30](#cr30)~~ | P1 | *superseded row* | **The migration ledger cannot rebuild the schema.** `db push` onto a genuinely fresh project fails at `relation "public.users" does not exist`: the 14 migrations create 13 tables but reference `public.users` and `public.api_keys` by foreign key and create neither. `migration list` has always said "zero out of sync" because it compares against **production**, which has both tables from before the ledger existed — so the drift guard cannot catch this class by construction. Two consequences: [[CR11]] step 1 is blocked (and behind it [[CR02]] item 5 and the toolkit e2e suite), and **the repo cannot reconstruct its own database from source** — a disaster-recovery gap that is live today. Needs a baseline migration + a CI job that replays the ledger onto an empty DB |
 | [CR29](#cr29) | P1 | 🔴 code done, **not live** | **The HMAC key rotation is a no-op.** `SIGNING_KEYS`/`v2` is provisioned and works, but the receiver resolves an **absent** `x-key-id` to the legacy `SHARED_SECRET` — a credential with no key id and therefore no rotation handle. Proven against production `/inbox` with controls: `v2` + key id → 200, `SHARED_SECRET` + no key id → **200**, garbage → 401. So removing a key from `SIGNING_KEYS` revokes nothing, [[CR01]]'s HMAC rotation is incomplete, and anything holding `SHARED_SECRET` (incl. Doppler `dev`) can forge provisioning events. The sender had the mirror hazard — a typo'd `ACTIVE_KEY_ID` silently downgraded — closed by step 1. **Step 0's caller audit is done (2026-07-31) and its blocker is cleared:** it found `observability-toolkit`'s CI e2e suite signing `/inbox` with `SHARED_SECRET` and no key id against the **production** receiver on every publish, and since it could not just add the header (`SIGNING_KEYS`/`ACTIVE_KEY_ID` unset in Doppler `dev`, and provisioning them there re-creates [[CR11]]) **that job has been removed**. `sender-worker` (signs `v2`) is now the sole automated caller, so steps 1–3 are unblocked and the dev receiver is off the critical path. **Step 0b's instrumentation is done 2026-08-01** (`observability-toolkit` `8fcae0b`, committed **not pushed** — the receiver **auto-deploys on merge to `main`**): the resolved key id and source are now recorded, with `auth.verified_legacy_key` as the metric that gates step 3. **Steps 1 and 2 are done 2026-08-02, and neither is pushed.** The sender returns 500 `SIGNING_KEY_UNRESOLVED` and forwards nothing whenever `ACTIVE_KEY_ID` is unset or unresolvable, instead of signing with `SHARED_SECRET`; the receiver now treats an absent `x-key-id` exactly as `""` — a 401 byte-identical to a forged signature — so **the forgery path is closed in code and still open in production**, because neither change is deployed. `SHARED_SECRET` is read by neither side. Next: **step 3**, unbinding it, now gated on `auth.key_unresolved{miss:"missing_key_id"}` staying absent in deployed traffic — the old gate `auth.verified_legacy_key` no longer exists, since step 2 deleted the path it counted |
 | [CR27](#cr27) | P1 | ✅ done | `stripe-webhook` dead-lettered **every** real event for four months — two independent defects. `invoice.paid` read `invoice.subscription`, which Stripe deleted in API 2025-04-30 (schema now accepts both shapes); `customer.subscription.updated` used `ON CONFLICT (organization_id, stripe_subscription_id)` with no matching unique index, failing `42P10` (migration `20260731000000`). Both latent because no real event had ever reached these paths. **Read the misdiagnosis note in the body** — the wrong fix shipped first |
 | [CR28](#cr28) | P3 | ✅ done | `resolveBillingStatus` knew 2 of Stripe's 8 subscription statuses and collapsed the rest to `inactive`, so a **trialing** customer read as never having subscribed. Found in the state [[CR27]]'s replay left behind |
+| [CR31](#cr31) | P2 | 🔴 open — doc written, 3 docs bugs unfixed, sync guard unbuilt | **The published API docs advertise three endpoints that do not exist, and the product's own API has no hostname.** Routing inventory captured in [`api-routing.md`](api-routing.md) (measured 2026-08-03). `api.integritystudio.ai/*` → `obtool-api` (observability read API); `api-gateway` — account, billing, ingest — is workers.dev-only, and the Flutter client's `API_GATEWAY_URL` default ships that way. Customer-visible right now: `/v1/health` 401s (health is at `/health`; the `/v1/*` middleware catches it first), `POST /v1/alerts` exists on **neither** worker, and the advertised `sandbox-api.integritystudio.ai` is **NXDOMAIN**. The two route tables are **disjoint** (only `/health` overlaps), so the fix is a 4-pattern path-split, not a repoint — repointing the wildcard would 404 all 13 `obtool-api` routes. Supplies the measurement [[CR13]] was waiting on; the ownership decision stays there. Needs: fix the 3 docs sites, decide the split, build a sync guard so this document cannot silently rot |
 
 ~~**Two items are now blocked on code** — [[CR20]] and [[CR21]]…~~ **Superseded 2026-07-31.** [[CR21]] is done and live, and [[CR20]] is not blocked on code at all — its remaining work is monitoring ([[W04]]), since [[CR21]] foreclosed the 5xx option. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). What still needs a decision rather than an implementation: a credential/provisioning call (CR01, CR11, CR12's cross-repo HMAC secret), or an answer about intent (CR13, CR16).
 
@@ -1573,7 +1574,20 @@ That split is arguably correct — the token genuinely is invalid — but it mea
 ### CR25: Auth0 tenant production-readiness (before flipping `dev-68gg87ow4mg4kzyo` to Production)
 
 **Priority:** P2 | **Source:** session 2026-07-29, Management API audit of tenant `dev-68gg87ow4mg4kzyo`
-**Estimated:** 3 blockers are minutes each by API; the custom domain is a plan decision
+**Estimated:** the two remaining hard blockers are **spend decisions** (breached-password, custom domain); three are **config, minutes by API** (branding, log streams, implicit/ROPC grants); one is an **owner decision** (MFA enforcement).
+
+**Status (audited live 2026-08-03):** ⚠️ **Open — 7 of 13 items done, 6 open; no active security finding remains.** Done: item 1 (Google dev-keys disabled), 9 (`Default App` grants stripped), 10 (token 24h→8h), 11 (dev clients OIDC-conformant), 12 (3 stale Doppler slots deleted), and the former 🔴 `integrity-dev-m2m` finding (deleted in CR11's Auth0 cutover — the last credential able to delete production users; confirmed 404). **Open, each re-verified against the tenant today:**
+| # | Item | Kind | Live check |
+|---|---|---|---|
+| 3 | breached-password detection | 🔴 **spend** (paid plan) | `enabled:false`, PATCH 400 "upgrade your subscription" |
+| 4 | custom domain | 🔴 **spend** (paid plan) | `GET /custom-domains` → 0 |
+| 5 | Universal Login branding | config, minutes | `GET /branding` → no logo |
+| 6 | log streams (pair with [[W04]]) | config, minutes | `GET /log-streams` → 0 |
+| 7 | `implicit` grant on the SPA | config, minutes | still on `integritystudio-dashboard`, `My App` |
+| 8 | ROPC on SPA + `AUTH0_MANAGER` | config, minutes | still on `AUTH0_MANAGER`, `integritystudio-dashboard`, `My App` |
+| 2 | MFA enforcement | owner **decision** | factors available; `GET /guardian/policies` → `[]` (not required) |
+
+Not counted as a CR25 blocker but adjacent: **item 10's real end state (1h token) is blocked on client refresh-token work**, which is application code, not Auth0 config.
 
 The Dashboard's production-checks page (`manage.auth0.com/dashboard/us/dev-68gg87ow4mg4kzyo/production-checks`) **cannot be read programmatically** — it is behind an interactive login and `WebFetch` gets redirected to `auth0.auth0.com/authorize`. Everything below was therefore checked against the Management API directly, which is the authoritative source anyway.
 
@@ -1888,6 +1902,61 @@ Doing 2 before 1 also works, but leaves a window where a sender fallback answers
 > ⚠️ **Unrelated defect found during the audit — `prd`'s `PROVISIONING_RECEIVER_WORKER_URL` has no scheme.** `dev` holds `https://api-provisioning-receiver.alyshia-b38.workers.dev` (57 chars); `prd` holds the same host **without `https://`** (49 chars), which `fetch()` cannot use. Nothing reads it today — the slot was deleted from `sender-worker`'s bindings as part of [[CR15]] item 2, and the e2e job runs `--config dev` — so this is latent, not live. Fix the value or delete the slot; do not "fix" it by pointing the e2e suite at `prd`.
 
 > ⚠️ **Method note for anyone re-running the probe.** A green `/send` does **not** test this — production prefers `v2`, so the happy path exercises the rotated key and never touches `SHARED_SECRET`. Sign `/inbox` directly. And probe `workers.dev` with `curl`, not Python `urllib`: the first attempt got `403 Cloudflare 1010` on all three probes including the positive control, making the result look inconclusive rather than negative ([[CR14]] records the same trap). Always include a positive control — without one, that blanket 403 is indistinguishable from a signature failure.
+
+### CR31: the published API docs advertise three endpoints that do not exist, and `api-gateway` has no hostname
+
+**Priority:** P2 — the docs half is customer-visible today and needs no decision; the routing half is [[CR13]]'s decision with the measurement now supplied
+**Source:** session 2026-08-03, while answering "should `api.integritystudio.ai/*` point at `api-gateway`?"
+**Estimated:** 30 min for the docs fixes; 30 min for the route split once [[CR13]] is answered; ~1h for the sync guard
+
+📄 **The inventory lives in [`docs/api-routing.md`](api-routing.md)** — live zone routes, both workers' complete route tables, the disjointness result, what the docs advertise, and the re-measurement commands. This item exists to fix what that document found and to stop it rotting.
+
+**What was measured (2026-08-03, live + source):**
+
+`api.integritystudio.ai/*` → `obtool-api`. There are exactly three worker routes in the account (`api.integritystudio.ai/*` → `obtool-api`, `ingest.integritystudio.ai/*` → `obtool-ingest`, `api.alephatx.info/*` → `tcad-api`). `api-gateway` has none, and the Flutter client's `API_GATEWAY_URL` defaults to `https://api-gateway.alyshia-b38.workers.dev` (`lib/services/provisioning_service.dart:21`, `lib/services/dashboard_service.dart:15`), which `ci.yml` ships unchanged. So the account/billing/ingest API reaches customers on a workers.dev hostname while the branded one serves the observability read API.
+
+**The three docs defects — customer-visible on the live site, no decision required:**
+
+| Site | Advertised | Reality |
+|---|---|---|
+| `lib/pages/docs_quickstart_page.dart:515` | `curl https://api.integritystudio.ai/v1/health` | **401.** `obtool-api` serves health at `/health`; its `authMiddleware` is mounted on `/v1/*` and catches `/v1/health` first. The quickstart's first command fails for every reader |
+| `lib/pages/docs_alerts_page.dart:217` | `POST .../v1/alerts` | **No such route on either worker.** 401 from the middleware, 404 behind it even with a valid key — a documented endpoint with no server-side implementation |
+| `lib/pages/docs_api_page.dart:119` | Sandbox base `https://sandbox-api.integritystudio.ai/v1` | **NXDOMAIN.** No DNS record, no route in either zone; connection fails outright |
+
+`docs_api_page.dart:117` (production base) and `:250` (`GET /v1/traces`) are correct.
+
+**Why the answer to "repoint it?" is no.** The two route tables are **disjoint — `/health` is the only overlap**. Repointing the wildcard to `api-gateway` would 404 all thirteen `obtool-api` routes, including `/v1/traces`, the one documented endpoint that currently works. The fix is four narrower patterns with the wildcard left as fallback (Cloudflare matches most-specific-first), needing no code change on either worker:
+
+```
+api.integritystudio.ai/v1/me         -> api-gateway
+api.integritystudio.ai/v1/orgs*      -> api-gateway     # covers the nested api-keys routes
+api.integritystudio.ai/v1/ingest/*   -> api-gateway
+api.integritystudio.ai/bootstrap     -> api-gateway
+api.integritystudio.ai/*             -> obtool-api      # unchanged
+```
+
+⚠️ **This re-opens [[CR13]]'s trap.** It means putting a `routes` key back into `workers/api-gateway/wrangler.toml`. Top level **only**, with an explicit `routes = []` under `[env.dev]` — `routes` is inherited into named environments, and omitting it there is what handed `api.integritystudio.ai/v1/*` to the secret-less `api-gateway-dev` on 2026-07-27. `workers/lib/deploy-environments.test.ts` asserts the rule; run it before deploying. Prefer creating the routes via Dashboard/API first and codifying them afterwards, so the route exists before any deploy can move it.
+
+**Steps:**
+
+1. 🔴 Fix `docs_quickstart_page.dart:515` — `/v1/health` → `/health`.
+2. 🔴 Fix `docs_alerts_page.dart:217` — either remove the block or implement `POST /v1/alerts`. It is currently a promise with nothing behind it.
+3. 🔴 Fix `docs_api_page.dart:119` — remove the Sandbox row, or stand up `sandbox-api.integritystudio.ai`. Do not leave an NXDOMAIN in customer docs.
+4. 🔴 Answer [[CR13]]'s ownership question, then apply the four-pattern split above. Blocked only on that decision, not on measurement.
+5. 🔴 **Build the sync guard** (below). Without it this document is a snapshot that will read as current long after it stops being true.
+6. 📋 Optional: repoint `API_GATEWAY_URL`'s default at the branded hostname *after* step 4 lands. Not before — the default is what shipped builds use, so it must follow the route, never lead it.
+
+**The sync guard — what "kept in sync" has to mean here.** Three cheap assertions, runnable in CI without Cloudflare credentials:
+
+- Parse `api-gateway`'s dispatch table out of `workers/api-gateway/src/index.ts` and assert it matches the inventory table in `api-routing.md`. Catches a route added or renamed without a doc update.
+- Grep `lib/**/*.dart` for every `api.integritystudio.ai` path and assert each appears in the document's *advertised* table. **This is the assertion that would have caught all three defects above** — each was a documented URL that no route table contained.
+- Assert `workers/api-gateway/wrangler.toml` either has no `routes` key or has one at top level with `routes = []` under `[env.dev]`. Overlaps `deploy-environments.test.ts` deliberately; this one fires when the doc and the config disagree.
+
+A live route probe needs zone-read credentials, which the dev workers token deliberately lacks (403 — that denial is [[CR13]]'s protection working). Keep the probe manual and in the document, not in CI.
+
+⚠️ **Two probing traps, both of which produced wrong readings while this was being investigated, and both recorded in the document:** `curl` defaults to **GET**, so probing a POST-only route (`/v1/ingest/otel`, `/v1/ingest/events`, `/bootstrap`) returns 404 and reads as "route missing"; and a **401 proves the middleware ran, not that the route exists** — `obtool-api` auth-gates all of `/v1/*`, so every path under it returns 401 whether real or invented. That is the same class as [[CR14]]'s blanket-403 and [[CR29]]'s positive-control note: read the source for a route table, and use probes only for what is live.
+
+Related: [[CR13]] (the ownership decision this measures), [[CR16]] (why folding `obtool-api` into `api-gateway` is explicitly not the answer), [[CR12]] (`API_KEY_HMAC_SECRET` still unbound, so `api-gateway`'s API-key routes 503 regardless of hostname).
 
 ---
 
