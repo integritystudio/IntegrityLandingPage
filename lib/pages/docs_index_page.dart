@@ -492,11 +492,6 @@ class _QuickLinksSection extends StatelessWidget {
                 label: 'Changelog',
                 url: '/blog',
               ),
-              _QuickLink(
-                icon: LucideIcons.radio,
-                label: 'Status',
-                url: 'https://status.integritystudio.ai',
-              ),
             ],
           ),
         ],

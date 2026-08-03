@@ -207,31 +207,6 @@ class _DocsContent extends StatelessWidget {
                 'Set the alert severity and schedule',
                 'Save and activate the alert',
               ]),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'API',
-                style: AppTypography.headingSM.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const DocCodeBlock(
-                code: '''curl -X POST "https://api.integritystudio.ai/v1/alerts" \\
-  -H "Authorization: Bearer \$API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "name": "Daily Budget Alert",
-    "type": "budget",
-    "condition": {
-      "metric": "gen_ai.client.cost",
-      "operator": "gt",
-      "threshold": 100,
-      "window": "24h"
-    },
-    "channels": [
-      {"type": "slack", "webhook": "https://hooks.slack.com/..."}
-    ],
-    "severity": "warning"
-  }''',
-              ),
             ],
           ),
         ),

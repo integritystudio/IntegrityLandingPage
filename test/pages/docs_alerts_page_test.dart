@@ -255,16 +255,6 @@ void main() {
           );
         });
 
-        testWidgets('renders API heading', (tester) async {
-          await pumpSharedDesktop(tester);
-
-          final section = find.byKey(const Key('creating-alerts-section'));
-          expect(
-            find.descendant(of: section, matching: find.text('API')),
-            findsOneWidget,
-          );
-        });
-
         testWidgets('renders numbered list items', (tester) async {
           await pumpSharedDesktop(tester);
 
@@ -629,16 +619,6 @@ void main() {
       });
 
       group('code samples', () {
-        testWidgets('renders API code block with curl command', (tester) async {
-          await pumpSharedDesktop(tester);
-
-          final section = find.byKey(const Key('creating-alerts-section'));
-          expect(
-            find.descendant(of: section, matching: find.textContaining('curl -X POST')),
-            findsOneWidget,
-          );
-        });
-
         testWidgets('renders selectable code text', (tester) async {
           await pumpSharedDesktop(tester);
 

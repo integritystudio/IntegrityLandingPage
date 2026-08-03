@@ -116,7 +116,6 @@ X-API-Key: <your-api-key>''',
                 rows: [
                   ['Production', 'https://api.integritystudio.ai/v1'],
                   ['OTLP Endpoint', 'https://ingest.integritystudio.ai'],
-                  ['Sandbox', 'https://sandbox-api.integritystudio.ai/v1'],
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
