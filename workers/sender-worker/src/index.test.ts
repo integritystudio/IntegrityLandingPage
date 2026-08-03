@@ -728,7 +728,7 @@ describe('Sender Worker', () => {
       const generatedUserId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
       const orgId = 'org-uuid-1234';
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
@@ -779,7 +779,7 @@ describe('Sender Worker', () => {
       let capturedTokenUrl = '';
       let capturedUsersUrl = '';
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           capturedTokenUrl = urlStr;
@@ -823,7 +823,7 @@ describe('Sender Worker', () => {
       const orgId = 'org-uuid-9999';
       let capturedUsersBody: Record<string, unknown> | null = null;
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
@@ -921,7 +921,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when Auth0 createUser fails', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
@@ -957,7 +957,7 @@ describe('Sender Worker', () => {
       const orgId = 'org-uuid-name-test';
       let capturedOrgBody: Record<string, unknown> | null = null;
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
@@ -996,7 +996,7 @@ describe('Sender Worker', () => {
       const orgId = 'org-uuid-no-name';
       let capturedOrgBody: Record<string, unknown> | null = null;
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
@@ -1035,7 +1035,7 @@ describe('Sender Worker', () => {
       const orgId = 'org-uuid-tier-test';
       let capturedOrgBody: Record<string, unknown> | null = null;
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
@@ -1074,7 +1074,7 @@ describe('Sender Worker', () => {
       const orgId = 'org-uuid-default-tier';
       let capturedOrgBody: Record<string, unknown> | null = null;
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
@@ -1113,7 +1113,7 @@ describe('Sender Worker', () => {
       const orgId = 'org-uuid-invalid-tier';
       let capturedOrgBody: Record<string, unknown> | null = null;
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'test-mgmt-token' }), {
@@ -1153,7 +1153,7 @@ describe('Sender Worker', () => {
     it('returns jwt in 201 response from ROPC token exchange', async () => {
       let oauthCallCount = 0;
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           oauthCallCount++;
@@ -1198,7 +1198,7 @@ describe('Sender Worker', () => {
     it('calls /oauth/token twice — once for mgmt token then once for ROPC', async () => {
       const oauthCalls: string[] = [];
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           const body = JSON.parse((init?.body as string) ?? '{}') as { grant_type?: string };
@@ -1241,7 +1241,7 @@ describe('Sender Worker', () => {
 
   describe('POST /signin — Auth0 ROPC sign-in', () => {
     it('returns jwt on successful Auth0 sign-in', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response(JSON.stringify({ access_token: 'jwt-from-auth0' }), { status: 200 }),
       );
 
@@ -1304,7 +1304,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 401 when Auth0 ROPC rejects the credentials', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 403 }),
       );
 
@@ -1324,7 +1324,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when Auth0 ROPC fails for a non-credential reason', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response(JSON.stringify({ error: 'unauthorized_client' }), { status: 403 }),
       );
 
@@ -1373,7 +1373,7 @@ describe('Sender Worker', () => {
       const json = (body: unknown, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-      const spy = vi.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
+      const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
         const url = typeof input === 'string' ? input : (input as Request).url;
         if (url.includes('/rest/v1/users')) {
           if (opts.userLookupStatus) return json({ message: 'boom' }, opts.userLookupStatus);
@@ -1567,7 +1567,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when Stripe API fails', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response(JSON.stringify({ error: { message: 'Invalid API key' } }), {
           status: 401,
           headers: { 'content-type': 'application/json' },
@@ -1865,7 +1865,7 @@ describe('Sender Worker', () => {
     // binds to the lookup and the Stripe branch under test never runs. The lookup
     // returns [] (no org) so only the Stripe behaviour is exercised.
     it('returns 500 when Stripe response is missing the session URL', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
         const url = typeof input === 'string' ? input : (input as Request).url;
         if (url.includes('/rest/v1/')) {
           return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
@@ -1888,7 +1888,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when Stripe fetch throws a network error', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
         const url = typeof input === 'string' ? input : (input as Request).url;
         if (url.includes('/rest/v1/')) {
           return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
@@ -1910,7 +1910,7 @@ describe('Sender Worker', () => {
 
   describe('POST /signup — Supabase error branches', () => {
     it('returns 500 when Supabase org creation fails with HTTP error', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
@@ -1941,7 +1941,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when Supabase org creation returns no id', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
@@ -1974,7 +1974,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when Supabase user insert fails', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
@@ -2010,7 +2010,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when Supabase org membership insert fails', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
@@ -2049,7 +2049,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when signup throws a non-Error value', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockRejectedValueOnce('unexpected string throw');
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce('unexpected string throw');
 
       const request = new Request('https://worker.test/signup', {
         method: 'POST',
@@ -2064,7 +2064,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when Auth0 mgmt token exchange fails (HTTP error)', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response('unauthorized', { status: 401 });
@@ -2085,7 +2085,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when Auth0 mgmt token exchange returns no access_token', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({}), {
@@ -2109,7 +2109,7 @@ describe('Sender Worker', () => {
 
     it('returns 500 when ROPC token exchange (user signin) fails after successful user creation', async () => {
       let oauthCallCount = 0;
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           oauthCallCount++;
@@ -2148,7 +2148,7 @@ describe('Sender Worker', () => {
 
     it('returns 500 when ROPC token exchange returns no access_token', async () => {
       let oauthCallCount = 0;
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           oauthCallCount++;
@@ -2328,7 +2328,7 @@ describe('Sender Worker', () => {
       const auth0Sub = 'auth0|rollback-step2';
       const deletedUrls: string[] = [];
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
@@ -2366,7 +2366,7 @@ describe('Sender Worker', () => {
       const orgId = 'org-step3';
       const deletedUrls: string[] = [];
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
@@ -2465,7 +2465,7 @@ describe('Sender Worker', () => {
 
   describe('POST /forgot-password — Auth0 password reset', () => {
     it('returns 200 with message on successful Auth0 call', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response("We've just sent you an email to reset your password.", { status: 200 }),
       );
 
@@ -2487,7 +2487,7 @@ describe('Sender Worker', () => {
       let capturedUrl = '';
       let capturedBody = '';
 
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
         capturedUrl = String(url);
         capturedBody = init?.body as string;
         return new Response('', { status: 200 });
@@ -2552,7 +2552,7 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 AUTH0_FORGOT_PASSWORD_FAILED when Auth0 call fails', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response(JSON.stringify({ error: 'server_error' }), { status: 500 }),
       );
 
@@ -2601,7 +2601,7 @@ describe('Sender Worker', () => {
     it('returns 429 when rate limit is exceeded', async () => {
       // Exhaust the in-memory rate limit for this IP
       const AUTH_RATE_LIMIT_MAX = 10;
-      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
         new Response('', { status: 200 }),
       );
       const ip = '1.2.3.4';

@@ -12,11 +12,11 @@ export interface FetchHandler {
 export class FetchMock {
   private handlers: Array<[pattern: RegExp | string, handler: FetchHandler]> = [];
   private calls: Array<{ url: string; init?: RequestInit }> = [];
-  private originalFetch: typeof global.fetch;
+  private originalFetch: typeof globalThis.fetch;
   private spy: ReturnType<typeof vi.spyOn> | null = null;
 
   constructor() {
-    this.originalFetch = global.fetch;
+    this.originalFetch = globalThis.fetch;
   }
 
   /**
@@ -98,12 +98,12 @@ export class FetchMock {
   }
 
   /**
-   * Activate the mock by replacing global.fetch.
+   * Activate the mock by replacing globalThis.fetch.
    * Must call `restore()` to clean up.
    */
   activate(): this {
     const self = this;
-    this.spy = vi.spyOn(global, 'fetch').mockImplementation(async (url, init) => {
+    this.spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
       const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
       self.calls.push({ url: urlStr, init });
 
@@ -159,14 +159,14 @@ export class FetchMock {
   }
 
   /**
-   * Restore original global.fetch.
+   * Restore original globalThis.fetch.
    */
   restore(): void {
     if (this.spy) {
       this.spy.mockRestore();
       this.spy = null;
     }
-    global.fetch = this.originalFetch;
+    globalThis.fetch = this.originalFetch;
   }
 }
 

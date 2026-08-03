@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { errorResponse, corsPreflightResponse, resolveOutboundSigningKey } from './utils';
-import { HTTP_STATUS, CONTENT_TYPES } from './types';
+import { HTTP_STATUS, CONTENT_TYPES, type Env } from './types';
 
 describe('errorResponse()', () => {
   it('returns a JSON response with error and code fields', async () => {
@@ -221,7 +221,11 @@ describe('checkAuthRateLimit()', () => {
   });
 
   it('returns 429 and Retry-After header for rate-limited signup requests', async () => {
-    const env: Record<string, unknown> = {
+    // Annotated `Env`, not `Record<string, unknown>`: the latter is not assignable to the
+    // parameter of `worker.fetch` below, and widening it hid the fact that this literal
+    // really does satisfy every required field. RATE_LIMIT_KV is deliberately absent so
+    // checkAuthRateLimit falls back to its in-memory counter.
+    const env: Env = {
       SHARED_SECRET: 'test-shared-secret-key',
       RECEIVER: { fetch: vi.fn() } as unknown as Fetcher,
       AUTH0_DOMAIN: 'test.auth0.com',
@@ -236,7 +240,7 @@ describe('checkAuthRateLimit()', () => {
 
     // Exhaust the limit
     for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
-      await checkAuthRateLimit('10.0.0.1', env as Pick<import('./types').Env, 'RATE_LIMIT_KV'>);
+      await checkAuthRateLimit('10.0.0.1', env);
     }
 
     // Import worker via dynamic import to avoid circular reference at module load time

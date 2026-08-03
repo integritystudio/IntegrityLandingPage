@@ -13,8 +13,16 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// This suite reads source files off disk, so it is genuinely a Node test rather than a Worker
+// one. `__dirname` is a CommonJS global that an ES module does not get, and the package's
+// tsconfig deliberately loads only @cloudflare/workers-types — so nothing supplies it
+// ambiently either. Derive it from the module URL instead of widening `types`, which would
+// make `process` and friends ambiently available to the Worker source in src/.
+const moduleDir = dirname(fileURLToPath(import.meta.url));
 
 // Environment variables defined in wrangler.toml comments (expected secrets)
 const EXPECTED_DOPPLER_SECRETS = [
@@ -55,7 +63,7 @@ const OPTIONAL_SECRETS = new Set([
 
 describe('Environment Variable Validation', () => {
   it('types.ts Env interface declares every doppler secret with the right optionality', () => {
-    const typesPath = resolve(__dirname, './types.ts');
+    const typesPath = resolve(moduleDir, './types.ts');
     const typesContent = readFileSync(typesPath, 'utf-8');
 
     // Checked in both directions: an optional secret has to appear as `name?: string`, so
@@ -72,7 +80,7 @@ describe('Environment Variable Validation', () => {
   });
 
   it('types.ts Env interface defines both Regular Web App (ROPC) and M2M (CLI) credentials', () => {
-    const typesPath = resolve(__dirname, './types.ts');
+    const typesPath = resolve(moduleDir, './types.ts');
     const typesContent = readFileSync(typesPath, 'utf-8');
 
     expect(typesContent).toContain('AUTH0_CLIENT_ID');
@@ -88,7 +96,7 @@ describe('Environment Variable Validation', () => {
   });
 
   it('index.ts uses AUTH0_CLI_ID/SECRET for auth0CreateUser and AUTH0_CLIENT_ID/SECRET for ROPC', () => {
-    const indexPath = resolve(__dirname, './index.ts');
+    const indexPath = resolve(moduleDir, './index.ts');
     const indexContent = readFileSync(indexPath, 'utf-8');
 
     expect(indexContent).toContain('env.AUTH0_CLI_ID');
@@ -104,7 +112,7 @@ describe('Environment Variable Validation', () => {
   });
 
   it('wrangler.toml comments document all required secrets with correct names', () => {
-    const wranglerPath = resolve(__dirname, '../wrangler.toml');
+    const wranglerPath = resolve(moduleDir, '../wrangler.toml');
     const wranglerContent = readFileSync(wranglerPath, 'utf-8');
 
     // Simply verify each expected secret name appears in the wrangler.toml comments
@@ -123,7 +131,7 @@ describe('Environment Variable Validation', () => {
   });
 
   it('wrangler.toml documents both ROPC and M2M auth flows', () => {
-    const wranglerPath = resolve(__dirname, '../wrangler.toml');
+    const wranglerPath = resolve(moduleDir, '../wrangler.toml');
     const wranglerContent = readFileSync(wranglerPath, 'utf-8');
 
     expect(wranglerContent).toContain('AUTH0_CLIENT_ID');
@@ -137,9 +145,9 @@ describe('Environment Variable Validation', () => {
   });
 
   it('no deprecated AUTHO_CLI_* variable names appear anywhere in codebase', () => {
-    const typesPath = resolve(__dirname, './types.ts');
-    const indexPath = resolve(__dirname, './index.ts');
-    const wranglerPath = resolve(__dirname, '../wrangler.toml');
+    const typesPath = resolve(moduleDir, './types.ts');
+    const indexPath = resolve(moduleDir, './index.ts');
+    const wranglerPath = resolve(moduleDir, '../wrangler.toml');
 
     const files = [
       { path: typesPath, name: 'types.ts' },

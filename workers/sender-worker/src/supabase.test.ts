@@ -246,7 +246,7 @@ describe('dedupSlug', () => {
 
 describe('auth0CreateUser()', () => {
   it('throws when the Management API response contains no user_id', async () => {
-    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
       const urlStr = String(url);
       if (urlStr.includes('/oauth/token')) {
         return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
@@ -273,7 +273,7 @@ describe('auth0CreateUser()', () => {
 
 describe('supabaseCreatePersonalOrg()', () => {
   it('throws when the HTTP response is not ok', async () => {
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response('conflict', { status: 409 }),
     );
 
@@ -285,7 +285,7 @@ describe('supabaseCreatePersonalOrg()', () => {
   });
 
   it('throws when the response returns no id', async () => {
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify([{}]), {
         status: 201,
         headers: { 'content-type': 'application/json' },
@@ -302,7 +302,7 @@ describe('supabaseCreatePersonalOrg()', () => {
 
 describe('supabaseInsertUser()', () => {
   it('throws when the HTTP response is not ok', async () => {
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response('forbidden', { status: 403 }),
     );
 
@@ -316,7 +316,7 @@ describe('supabaseInsertUser()', () => {
 
 describe('supabaseAddOrgOwner()', () => {
   it('throws when the HTTP response is not ok', async () => {
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response('forbidden', { status: 403 }),
     );
 
@@ -330,7 +330,7 @@ describe('supabaseAddOrgOwner()', () => {
 
 describe('auth0UserSignIn()', () => {
   it('throws when the ROPC token endpoint returns an error', async () => {
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response('unauthorized', { status: 401 }),
     );
 
@@ -342,7 +342,7 @@ describe('auth0UserSignIn()', () => {
   });
 
   it('throws when the ROPC response contains no access_token', async () => {
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify({}), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -364,7 +364,7 @@ describe('signup rollback helpers', () => {
     it('calls Management API DELETE with correct URL and swallows errors', async () => {
       const auth0Sub = 'auth0|rollback-test';
       let deletedUrl = '';
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         const urlStr = String(url);
         if (urlStr.includes('/oauth/token')) {
           return new Response(JSON.stringify({ access_token: 'mgmt-token' }), {
@@ -383,7 +383,7 @@ describe('signup rollback helpers', () => {
     });
 
     it('swallows errors so they do not mask the original failure', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockRejectedValue(new Error('network error'));
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network error'));
       await expect(
         auth0DeleteUser('domain.auth0.com', 'cli-id', 'cli-secret', 'auth0|x'),
       ).resolves.toBeUndefined();
@@ -395,7 +395,7 @@ describe('signup rollback helpers', () => {
     it('calls DELETE with id filter', async () => {
       const orgId = 'org-uuid-to-delete';
       let deletedUrl = '';
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         deletedUrl = String(url);
         return new Response('', { status: 204 });
       });
@@ -409,7 +409,7 @@ describe('signup rollback helpers', () => {
     });
 
     it('swallows errors so they do not mask the original failure', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockRejectedValue(new Error('db down'));
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('db down'));
       await expect(
         supabaseDeleteOrg('https://supabase.test', 'service-key', 'org-id'),
       ).resolves.toBeUndefined();
@@ -421,7 +421,7 @@ describe('signup rollback helpers', () => {
     it('calls DELETE with id filter', async () => {
       const userId = 'user-uuid-to-delete';
       let deletedUrl = '';
-      const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
         deletedUrl = String(url);
         return new Response('', { status: 204 });
       });
@@ -435,7 +435,7 @@ describe('signup rollback helpers', () => {
     });
 
     it('swallows errors so they do not mask the original failure', async () => {
-      const fetchSpy = vi.spyOn(global, 'fetch').mockRejectedValue(new Error('db down'));
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('db down'));
       await expect(
         supabaseDeleteUser('https://supabase.test', 'service-key', 'user-id'),
       ).resolves.toBeUndefined();

@@ -4,11 +4,23 @@
     "module": "ES2022",
     "moduleResolution": "bundler",
     "lib": ["ES2022"],
-    "types": ["@cloudflare/workers-types"],
+    // "node" is here for the test files only — env-validation.test.ts reads source off disk and
+    // auth0.live.test.ts reads process.env. Explicit `import ... from "node:fs"` is NOT enough:
+    // the `node:*` module declarations live in @types/node, which only enters the program via
+    // this array, so dropping "node" reports them as missing modules (measured, not assumed).
+    // The cost is that `process`/`Buffer` are also ambiently visible to the Worker source in
+    // src/, where they do not exist at runtime without nodejs_compat — don't use them there.
+    // "@cloudflare/vitest-pool-workers/types" supplies `declare module "cloudflare:test"`.
+    "types": ["@cloudflare/workers-types", "node", "@cloudflare/vitest-pool-workers/types"],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true
   },
+  // No `exclude` for tests. It used to list src/**/*.test.ts, *.e2e.test.ts, *.live.test.ts and
+  // src/test-helpers, which hid 111 type errors from `npm run lint:workers` — that runs a bare
+  // `tsc --noEmit`, so this file is the whole of what it checks. Making a field non-optional in
+  // Env silently invalidated every partial Env literal in those files and neither tsc nor vitest
+  // said a word; that is how CR29 step 2 broke three fixtures. Do not re-add it.
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "src/**/*.test.ts", "src/**/*.e2e.test.ts", "src/**/*.live.test.ts", "src/test-helpers"]
+  "exclude": ["node_modules"]
 }

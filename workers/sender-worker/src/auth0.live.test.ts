@@ -14,6 +14,10 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+// Imported explicitly rather than relied on as a global: the package's tsconfig loads only
+// @cloudflare/workers-types, so `process` is deliberately absent from the Worker source in
+// src/. This suite runs under Node (npm run test:live), so it can import it by name.
+import process from "node:process";
 
 // ─── Env ─────────────────────────────────────────────────────────────────────
 
