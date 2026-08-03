@@ -146,12 +146,19 @@ export const SITE_NAME = process.env['SITE_NAME'] ?? 'Integrity Studio';
 /**
  * Contact form Cloudflare Worker URL.
  *
- * Override via CONTACT_WORKER_URL env var in CI or local runs that target
- * a staging worker instead of the production endpoint.
+ * Defaults to the DEV worker (CR11 step 7, 2026-08-03): these specs are
+ * contract tests (CORS, 405s, CSRF-token issuance) and every run consumes the
+ * target's per-IP rate-limit budget — which is why the 403-or-429 assertions
+ * exist. Pointing them at production burned live rate-limit and idempotency
+ * KV on each CI run. The dev worker is armed with dev-safe recipients and its
+ * own KV namespace, and serves the identical contract.
+ *
+ * Override via CONTACT_WORKER_URL env var to run against production
+ * deliberately (e.g. a post-deploy smoke check).
  */
 export const CONTACT_WORKER_URL =
   process.env['CONTACT_WORKER_URL'] ??
-  'https://integrity-studio-contact.alyshia-b38.workers.dev';
+  'https://integrity-studio-contact-dev.alyshia-b38.workers.dev';
 
 // ---------------------------------------------------------------------------
 // Environment detection

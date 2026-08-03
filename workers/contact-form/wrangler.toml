@@ -62,9 +62,15 @@ binding = "RATE_LIMIT_KV"
 id = "5719e56903b94ca5bf55cb8175d2e2a9"        # CONTACT_RATE_LIMIT_KV_DEV
 preview_id = "5719e56903b94ca5bf55cb8175d2e2a9"
 
+# Dev recipients must never be the production addresses (CR11 step 5): the
+# moment dev holds a RESEND_API_KEY, test submissions would land in the real
+# business inbox. Recipient is the developer; sender stays on the one
+# Resend-verified domain (Resend verifies domains, not localparts) with a
+# distinct localpart so dev traffic is identifiable in the inbox and in
+# Resend's logs. Dev's key is sending-scoped and separate from production's.
 [env.dev.vars]
-RECIPIENT_EMAIL = "hello@integritystudio.ai"
-SENDER_EMAIL = "contact@integritystudio.ai"
+RECIPIENT_EMAIL = "alyshialedlie@gmail.com"
+SENDER_EMAIL = "contact-dev@integritystudio.ai"
 ENVIRONMENT = "development"
 RATE_LIMIT_MAX = "5"
 RATE_LIMIT_WINDOW_SECONDS = "60"
