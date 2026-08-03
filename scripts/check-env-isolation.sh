@@ -29,9 +29,19 @@ PROD_CONFIG="${PROD_CONFIG:-prd}"
 # Credentials that must differ for the environments to be meaningfully separate.
 # Each one, if shared, means a dev-config process reads or writes production
 # state: the database, the identity tenant, or the inter-worker trust boundary.
+#
+# SUPABASE_SERVICE_ROLE_KEY is deliberately RETAINED even though the slot exists
+# in neither config (measured 2026-08-02). It is a tripwire, not a live row: if
+# anyone re-creates that name it must be compared again. It no longer counts as
+# an isolation failure — see the ABSENT verdict below, which exists because a
+# name nobody sets is "not measured", not "not isolated". Reading those as the
+# same thing inflated this detector's count by one from 2026-07-29 to 2026-08-02
+# and masked the two rows underneath it.
 SECRETS=(
   SUPABASE_URL
   SUPABASE_SERVICE_ROLE_KEY
+  SUPABASE_PROVISIONING_KEY
+  SUPABASE_INTEGRITY_MEMERSHIP_KEY
   SUPABASE_ANON_KEY
   SUPABASE_JWT_SECRET
   AUTH0_DOMAIN
@@ -80,8 +90,11 @@ TEST_KEY_RE='^(sk|rk|pk)_test_'
 # Real isolation requires a second Supabase project (`POST /v1/projects`).
 SUPABASE_PROJECT_SCOPED=(
   SUPABASE_SERVICE_ROLE_KEY
+  SUPABASE_PROVISIONING_KEY
+  SUPABASE_INTEGRITY_MEMERSHIP_KEY
   SUPABASE_ANON_KEY
   SUPABASE_JWT_SECRET
+  SUPABASE_DB_PASSWORD
 )
 
 command -v doppler >/dev/null 2>&1 || { echo "doppler CLI not installed"; exit 2; }
@@ -90,8 +103,18 @@ doppler me >/dev/null 2>&1 || { echo "doppler not authenticated — run 'doppler
 # SHA-1 of the empty string: distinguishes "unset in both" from "same value".
 EMPTY_HASH="da39a3ee5e6b4b0d3255bfef95601890afd80709"
 
+# `tr -d '\n'` is load-bearing, not tidiness. `doppler secrets get --plain` emits
+# a trailing newline for a slot that EXISTS AND IS EMPTY, but nothing at all for
+# a slot that is ABSENT — so without stripping it the two hash differently
+# (sha1("\n")=adc83b19… vs sha1("")=da39a3ee…) and only the absent case matched
+# EMPTY_HASH. Consequence, measured 2026-08-02: SUPABASE_JWT_SECRET exists-but-
+# empty in dev and is set in prd, so it hashed adc83b19… against 17e06a04… and
+# scored **"ok (distinct)"** — a false PASS on a slot holding no credential at
+# all. That is the dangerous direction of this bug: it manufactures isolation
+# rather than an alarm. Stripping the newline reclassifies it as "missing in dev".
 digest() {
-  doppler secrets get "$1" --project "$PROJECT" --config "$2" --plain 2>/dev/null | shasum | cut -d' ' -f1
+  doppler secrets get "$1" --project "$PROJECT" --config "$2" --plain 2>/dev/null \
+    | tr -d '\n' | shasum | cut -d' ' -f1
 }
 
 # Emits only the key-type prefix (e.g. `sk_live_`), never the key body.
@@ -104,12 +127,20 @@ printf '%-30s %-10s %-10s %s\n' "SECRET" "$BASE_CONFIG" "$PROD_CONFIG" "VERDICT"
 printf '%s\n' "----------------------------------------------------------------------"
 
 failures=0
+unmeasured=0
 for secret in "${SECRETS[@]}"; do
   base_hash="$(digest "$secret" "$BASE_CONFIG")"
   prod_hash="$(digest "$secret" "$PROD_CONFIG")"
 
   if [[ "$base_hash" == "$EMPTY_HASH" && "$prod_hash" == "$EMPTY_HASH" ]]; then
-    verdict="UNSET in both"; ((failures++))
+    # Set in neither config. This is NOT an isolation failure — there is no
+    # credential here to share — but it is not a pass either: the detector is
+    # watching a name that nobody sets, so this row measures nothing. Counted
+    # separately so it can never be mistaken for either verdict. A credential
+    # that MOVES SLOTS is exactly what this hides: SUPABASE_SERVICE_ROLE_KEY
+    # read "UNSET in both" while the live service key sat, shared, in
+    # SUPABASE_PROVISIONING_KEY, which nothing compared.
+    verdict="ABSENT in both (measures nothing)"; ((unmeasured++))
   elif [[ "$base_hash" == "$EMPTY_HASH" ]]; then
     verdict="missing in $BASE_CONFIG"; ((failures++))
   elif [[ "$base_hash" == "$prod_hash" ]]; then
@@ -157,6 +188,19 @@ for secret in "${STRIPE_MODED_KEYS[@]}"; do
 done
 
 echo
+if (( unmeasured > 0 )); then
+  cat <<EOF
+NOTE: $unmeasured row(s) are ABSENT in both configs and measure nothing. They are
+excluded from the failure count on purpose — "nobody sets this name" is not
+evidence of isolation. Before trusting a low count, confirm that no LIVE
+credential has moved to a slot this list does not name: that is exactly how
+SUPABASE_PROVISIONING_KEY (shared, and a working service_role key against the
+production database) went uncompared while SUPABASE_SERVICE_ROLE_KEY scored a
+phantom failure in its place.
+
+EOF
+fi
+
 if (( failures > 0 )); then
   cat <<EOF
 FAIL: $failures check(s) failed across ${#SECRETS[@]} credentials and
