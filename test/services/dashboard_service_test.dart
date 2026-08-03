@@ -14,9 +14,14 @@ void main() {
 
   setUp(() async {
     serverHandler = _FakeServerHandler();
+    // Bind and connect via the IPv4 literal, never 'localhost': under
+    // `flutter test --coverage` every concurrent tester runs a VM service on
+    // a random 127.0.0.1 port, and a hostname lets the client's
+    // address-family fallback land on one of those (it answers 403 to
+    // everything), which flakes the error-mapping tests.
     fakeServer = await shelf_io.serve(
       (request) => serverHandler.handle(request),
-      'localhost',
+      InternetAddress.loopbackIPv4,
       0, // Use any available port
     );
 
@@ -30,7 +35,7 @@ void main() {
 
     // Add interceptor to handle network errors and redirect requests to the fake server
     testDio.interceptors.add(
-      _TestInterceptor(serverHandler, 'http://localhost:${fakeServer.port}'),
+      _TestInterceptor(serverHandler, 'http://127.0.0.1:${fakeServer.port}'),
     );
 
     DashboardService.setDioForTesting(testDio);
