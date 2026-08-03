@@ -47,6 +47,7 @@ export const ERROR_CODE = {
   SUPABASE_ORG_MEMBERSHIP_FAILED: "SUPABASE_ORG_MEMBERSHIP_FAILED",
   AUTH0_FORGOT_PASSWORD_FAILED: "AUTH0_FORGOT_PASSWORD_FAILED",
   RATE_LIMITED: "RATE_LIMITED",
+  SIGNING_KEY_UNRESOLVED: "SIGNING_KEY_UNRESOLVED",
   // Receiver-specific codes — proxied verbatim in error responses
   RECEIVER_QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
   RECEIVER_RATE_LIMITED: "RATE_LIMITED",
@@ -91,6 +92,8 @@ export const ERROR_DESCRIPTIONS: Partial<Record<ErrorCode, string>> = {
     "Supabase rejected the users row insert. Likely causes: auth0_id unique conflict, FK constraint violation, or RLS/service role key misconfiguration.",
   [ERROR_CODE.SUPABASE_ORG_MEMBERSHIP_FAILED]:
     "Supabase rejected the organization_memberships insert. Likely causes: missing org or user row (partial-failure upstream), or duplicate (user_id, org_id) pair.",
+  [ERROR_CODE.SIGNING_KEY_UNRESOLVED]:
+    "ACTIVE_KEY_ID is set but no usable key exists for it in SIGNING_KEYS, so the request was not signed and not sent. Deliberately fails closed rather than downgrading to SHARED_SECRET — see BACKLOG.md CR29. Check the worker logs for which of the three causes fired (SIGNING_KEYS unbound, malformed, or missing that key id), then correct the binding.",
   [ERROR_CODE.RECEIVER_QUOTA_EXCEEDED]:
     "Tier quota reached for API key provisioning. Starter=3, Growth=10, Enterprise=unlimited. Upgrade tier or revoke unused keys to proceed.",
   [ERROR_CODE.RECEIVER_RATE_LIMITED]:

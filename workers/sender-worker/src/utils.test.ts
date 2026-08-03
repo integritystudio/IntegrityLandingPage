@@ -42,24 +42,53 @@ describe('resolveOutboundSigningKey()', () => {
     expect(keyId).toBe('v2');
   });
 
-  it('falls back to SHARED_SECRET and logs a warning when ACTIVE_KEY_ID is not in SIGNING_KEYS', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const env = { ...BASE_ENV, ACTIVE_KEY_ID: 'v99', SIGNING_KEYS: JSON.stringify({ v2: 'other-secret' }) };
+  // SIGNING_KEYS staged without ACTIVE_KEY_ID is step 1 of the receiver-first rotation runbook,
+  // so it stays on the legacy path rather than erroring.
+  it('returns SHARED_SECRET when SIGNING_KEYS is staged but ACTIVE_KEY_ID is not set', () => {
+    const env = { ...BASE_ENV, SIGNING_KEYS: JSON.stringify({ v2: 'rotated-secret' }) };
     const { secret, keyId } = resolveOutboundSigningKey(env);
     expect(secret).toBe('base-secret');
     expect(keyId).toBeUndefined();
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('v99'));
-    warn.mockRestore();
   });
 
-  it('falls back to SHARED_SECRET and logs an error when SIGNING_KEYS is invalid JSON', () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const env = { ...BASE_ENV, ACTIVE_KEY_ID: 'v2', SIGNING_KEYS: 'not-valid-json' };
-    const { secret, keyId } = resolveOutboundSigningKey(env);
-    expect(secret).toBe('base-secret');
-    expect(keyId).toBeUndefined();
-    expect(error).toHaveBeenCalledWith(expect.stringContaining('SIGNING_KEYS'));
-    error.mockRestore();
+  // The rest of this block is CR29 step 1: an unusable ACTIVE_KEY_ID must NOT downgrade to
+  // SHARED_SECRET. Each case asserts `secret === null` — the receiver accepts a request carrying
+  // no x-key-id as legacy-signed, so a fallback here would succeed on the wire and hide the
+  // misconfiguration completely. `keyId: undefined` alone is not enough to catch that.
+  describe('fails closed when ACTIVE_KEY_ID cannot be resolved', () => {
+    const cases: Array<[string, Record<string, unknown>, string]> = [
+      ['SIGNING_KEYS is not bound', {}, 'signing_keys_unset'],
+      ['SIGNING_KEYS is invalid JSON', { SIGNING_KEYS: 'not-valid-json' }, 'signing_keys_malformed'],
+      ['SIGNING_KEYS is a JSON array', { SIGNING_KEYS: '["v2"]' }, 'signing_keys_malformed'],
+      ['SIGNING_KEYS is JSON null', { SIGNING_KEYS: 'null' }, 'signing_keys_malformed'],
+      ['SIGNING_KEYS is a JSON string', { SIGNING_KEYS: '"v2"' }, 'signing_keys_malformed'],
+      ['the key id is absent from the map', { SIGNING_KEYS: JSON.stringify({ v1: 'other-secret' }) }, 'unknown_active_key_id'],
+      // A truthiness check would have returned these as `secret`, typed string.
+      ['the entry is a number', { SIGNING_KEYS: JSON.stringify({ v2: 123 }) }, 'signing_keys_malformed'],
+      ['the entry is null', { SIGNING_KEYS: JSON.stringify({ v2: null }) }, 'signing_keys_malformed'],
+      ['the entry is an empty string', { SIGNING_KEYS: JSON.stringify({ v2: '' }) }, 'signing_keys_malformed'],
+    ];
+
+    for (const [label, overrides, miss] of cases) {
+      it(`returns miss "${miss}" when ${label}`, () => {
+        const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const result = resolveOutboundSigningKey({ ...BASE_ENV, ACTIVE_KEY_ID: 'v2', ...overrides });
+        expect(result.secret).toBeNull();
+        expect(result.keyId).toBeUndefined();
+        expect(result.miss).toBe(miss);
+        expect(error).toHaveBeenCalledTimes(1);
+        error.mockRestore();
+      });
+    }
+
+    it('does not leak the secret material of a non-active key', () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const env = { ...BASE_ENV, ACTIVE_KEY_ID: 'v99', SIGNING_KEYS: JSON.stringify({ v2: 'other-secret' }) };
+      expect(resolveOutboundSigningKey(env).secret).toBeNull();
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('v99'));
+      expect(error).not.toHaveBeenCalledWith(expect.stringContaining('other-secret'));
+      error.mockRestore();
+    });
   });
 });
 

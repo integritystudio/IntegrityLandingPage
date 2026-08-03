@@ -21,25 +21,64 @@ export function getClientIp(request: Request): string | undefined {
   );
 }
 
+/** Why `ACTIVE_KEY_ID` was set but no key could be resolved for it. */
+export type OutboundKeyMiss =
+  | "signing_keys_unset"
+  | "signing_keys_malformed"
+  | "unknown_active_key_id";
+
+export type OutboundSigningKey =
+  | { secret: string; keyId: string | undefined; miss?: undefined }
+  | { secret: null; keyId: undefined; miss: OutboundKeyMiss };
+
 /**
  * Resolve the outbound signing key and key ID.
- * - ACTIVE_KEY_ID set + SIGNING_KEYS contains it → use rotated key, send x-key-id
- * - Otherwise → fall back to SHARED_SECRET, no x-key-id header
+ * - `ACTIVE_KEY_ID` unset → `SHARED_SECRET`, no `x-key-id` header. Still a supported
+ *   configuration, and the documented way to stage `SIGNING_KEYS` before activating it
+ *   (see the rotation sequence above `forwardToReceiver`), so it is not a miss.
+ * - `ACTIVE_KEY_ID` set + resolvable in `SIGNING_KEYS` → rotated key, send `x-key-id`.
+ * - `ACTIVE_KEY_ID` set + not resolvable → **miss, and the caller must not send the
+ *   request.**
+ *
+ * That last case used to fall back to `SHARED_SECRET` and send no `x-key-id`, marked
+ * only by a `console.warn`. The receiver resolves an absent `x-key-id` to `SHARED_SECRET`,
+ * so the request still succeeded — a typo in `ACTIVE_KEY_ID` silently downgraded every
+ * signature to the un-rotatable legacy credential and nothing failed. Failing closed makes
+ * a broken rotation loud at the sender instead of invisible; the request is rejected with
+ * a 500 rather than signed with a key the operator did not choose. BACKLOG.md CR29 step 1.
  */
-export function resolveOutboundSigningKey(env: Env): { secret: string; keyId: string | undefined } {
-  if (env.ACTIVE_KEY_ID && env.SIGNING_KEYS) {
-    let keys: Record<string, string>;
-    try {
-      keys = JSON.parse(env.SIGNING_KEYS) as Record<string, string>;
-    } catch {
-      console.error('[resolveOutboundSigningKey] SIGNING_KEYS is not valid JSON; falling back to SHARED_SECRET');
-      return { secret: env.SHARED_SECRET, keyId: undefined };
-    }
-    const secret = keys[env.ACTIVE_KEY_ID];
-    if (secret) return { secret, keyId: env.ACTIVE_KEY_ID };
-    console.warn(`[resolveOutboundSigningKey] ACTIVE_KEY_ID "${env.ACTIVE_KEY_ID}" not found in SIGNING_KEYS; falling back to SHARED_SECRET`);
+export function resolveOutboundSigningKey(env: Env): OutboundSigningKey {
+  if (!env.ACTIVE_KEY_ID) return { secret: env.SHARED_SECRET, keyId: undefined };
+
+  if (!env.SIGNING_KEYS) {
+    console.error(`[resolveOutboundSigningKey] ACTIVE_KEY_ID "${env.ACTIVE_KEY_ID}" is set but SIGNING_KEYS is not bound`);
+    return { secret: null, keyId: undefined, miss: "signing_keys_unset" };
   }
-  return { secret: env.SHARED_SECRET, keyId: undefined };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(env.SIGNING_KEYS);
+  } catch {
+    console.error('[resolveOutboundSigningKey] SIGNING_KEYS is not valid JSON');
+    return { secret: null, keyId: undefined, miss: "signing_keys_malformed" };
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    console.error('[resolveOutboundSigningKey] SIGNING_KEYS is not a JSON object of keyId → secret');
+    return { secret: null, keyId: undefined, miss: "signing_keys_malformed" };
+  }
+
+  const secret = (parsed as Record<string, unknown>)[env.ACTIVE_KEY_ID];
+  if (secret === undefined) {
+    console.error(`[resolveOutboundSigningKey] ACTIVE_KEY_ID "${env.ACTIVE_KEY_ID}" not found in SIGNING_KEYS`);
+    return { secret: null, keyId: undefined, miss: "unknown_active_key_id" };
+  }
+  // Present but unusable (`{"v2": 123}`, `{"v2": null}`, `{"v2": ""}`) is a malformed map,
+  // not an unknown id. The old truthiness check let a number through as `secret: string`.
+  if (typeof secret !== "string" || secret === "") {
+    console.error(`[resolveOutboundSigningKey] SIGNING_KEYS entry for "${env.ACTIVE_KEY_ID}" is not a non-empty string`);
+    return { secret: null, keyId: undefined, miss: "signing_keys_malformed" };
+  }
+  return { secret, keyId: env.ACTIVE_KEY_ID };
 }
 
 // ---------------------------------------------------------------------------

@@ -17,12 +17,15 @@ interface SuccessResponse {
 
 interface ErrorResponse {
   error: string;
+  code: string;
 }
 
 type ApiResponse = SuccessResponse | ErrorResponse;
 
 interface Env {
   SHARED_SECRET: string;
+  SIGNING_KEYS?: string;
+  ACTIVE_KEY_ID?: string;
   RECEIVER: Fetcher;
   AUTH0_DOMAIN: string;
   AUTH0_CLIENT_ID: string;
@@ -415,6 +418,16 @@ describe('Sender Worker', () => {
   });
 
   describe('POST /send — missing configuration', () => {
+    // The fail-closed tests below assert the receiver was never called, so the mock has to start
+    // clean regardless of which describe block ran before this one.
+    beforeEach(() => {
+      mockReceiverFetch.mockReset();
+    });
+
+    afterEach(() => {
+      mockReceiverFetch.mockReset();
+    });
+
     it('returns 500 when RECEIVER service binding is missing', async () => {
       const envMissingReceiver = { ...mockEnv, RECEIVER: undefined } as unknown as Env;
       const request = makeSendRequest(validSendPayload);
@@ -429,6 +442,63 @@ describe('Sender Worker', () => {
       const response = await worker.fetch(request, envMissingSecret);
       expect(response.status).toBe(500);
       expect((await response.json() as ErrorResponse).error).toContain('not configured');
+    });
+
+    // CR29 step 3 unbinds SHARED_SECRET once the legacy path is proven dead. A guard that
+    // required it unconditionally would turn that step into a /send outage.
+    it('signs with the rotated key when ACTIVE_KEY_ID is set and SHARED_SECRET is absent', async () => {
+      let capturedKeyId: string | undefined;
+      mockReceiverFetch.mockImplementation(async (_url, init) => {
+        capturedKeyId = ((init as RequestInit)?.headers as Record<string, string>)['x-key-id'];
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json; charset=utf-8' },
+        });
+      });
+
+      const env = {
+        ...mockEnv,
+        SHARED_SECRET: '',
+        ACTIVE_KEY_ID: 'v2',
+        SIGNING_KEYS: JSON.stringify({ v2: 'rotated-secret' }),
+      } as unknown as Env;
+      const response = await worker.fetch(makeSendRequest(validSendPayload), env);
+
+      expect(response.status).toBe(200);
+      expect(capturedKeyId).toBe('v2');
+    });
+
+    // The point of failing closed is that nothing reaches the receiver. A request signed with
+    // SHARED_SECRET and no x-key-id is accepted by the receiver as legacy-signed, so a fallback
+    // here would return 200 and leave the broken ACTIVE_KEY_ID invisible — hence the assertion
+    // on the receiver never being called, not just on the status code.
+    it('returns 500 and forwards nothing when ACTIVE_KEY_ID is not in SIGNING_KEYS', async () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const env = {
+        ...mockEnv,
+        ACTIVE_KEY_ID: 'v99',
+        SIGNING_KEYS: JSON.stringify({ v2: 'rotated-secret' }),
+      } as unknown as Env;
+      const response = await worker.fetch(makeSendRequest(validSendPayload), env);
+
+      expect(response.status).toBe(500);
+      const body = await response.json() as ErrorResponse;
+      expect(body.code).toBe('SIGNING_KEY_UNRESOLVED');
+      // No key id, and no hint of which one was expected.
+      expect(body.error).not.toContain('v99');
+      expect(mockReceiverFetch).not.toHaveBeenCalled();
+      error.mockRestore();
+    });
+
+    it('returns 500 and forwards nothing when SIGNING_KEYS is malformed', async () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const env = { ...mockEnv, ACTIVE_KEY_ID: 'v2', SIGNING_KEYS: '{oops' } as unknown as Env;
+      const response = await worker.fetch(makeSendRequest(validSendPayload), env);
+
+      expect(response.status).toBe(500);
+      expect((await response.json() as ErrorResponse).code).toBe('SIGNING_KEY_UNRESOLVED');
+      expect(mockReceiverFetch).not.toHaveBeenCalled();
+      error.mockRestore();
     });
   });
 

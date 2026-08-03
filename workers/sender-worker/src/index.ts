@@ -197,19 +197,32 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
 // 2. Add same key to sender's SIGNING_KEYS and set ACTIVE_KEY_ID="v2", then deploy sender
 // 3. Once rotation is verified, remove the old key from both workers' SIGNING_KEYS
 //
-// If sender is deployed before receiver, the receiver gets an x-key-id it doesn't recognise.
-// resolveSigningKey() returns null in three cases (all cause 401 INVALID_SIGNATURE):
-//   a) x-key-id present but SIGNING_KEYS env is absent on receiver
-//   b) x-key-id present but SIGNING_KEYS JSON is malformed
-//   c) x-key-id present but key ID not found in the SIGNING_KEYS map
+// If sender is deployed before receiver, the receiver gets an x-key-id it doesn't recognise and
+// rejects it with 401 INVALID_SIGNATURE — from `auth.key_unresolved` in the receiver's audit log,
+// which is the event that distinguishes a rejected key id from a genuine signature mismatch (the
+// two 401s are byte-identical by design, so key ids cannot be enumerated by diffing responses).
+//
+// This sender never signs with a key the operator did not choose: if ACTIVE_KEY_ID is set and
+// cannot be resolved, the request fails with 500 instead of quietly downgrading to SHARED_SECRET.
+// See resolveOutboundSigningKey and BACKLOG.md CR29.
 async function forwardToReceiver(
   env: Env,
   payload: Record<string, unknown>,
   clientIp?: string,
 ): Promise<Response> {
+  const key = resolveOutboundSigningKey(env);
+  if (key.secret === null) {
+    // The miss reason is logged by the resolver, not returned: a caller learns only that the
+    // worker is misconfigured, never which key id the operator meant to use.
+    return errorResponse(
+      "Signing key unavailable",
+      ERROR_CODE.SIGNING_KEY_UNRESOLVED,
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+    );
+  }
+  const { secret, keyId } = key;
   const ts = Date.now().toString();
   const bodyStr = JSON.stringify(payload);
-  const { secret, keyId } = resolveOutboundSigningKey(env);
   const signature = await signMessage(secret, `${ts}.${bodyStr}`);
   const headers: Record<string, string> = {
     [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
@@ -318,7 +331,12 @@ async function handleSend(env: Env, req: Record<string, unknown>, clientIp?: str
   if (!env.RECEIVER) {
     return errorResponse("RECEIVER service binding not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
-  if (!env.SHARED_SECRET) {
+  // Only a pre-flight for "no signing credential at all". Deliberately not `!env.SHARED_SECRET`:
+  // with ACTIVE_KEY_ID set, SHARED_SECRET is unused, so requiring it would reject a request the
+  // worker can sign perfectly well — and would turn BACKLOG.md CR29 step 3 (unbinding
+  // SHARED_SECRET once the legacy path is proven dead) into an outage. Whether the key resolves is
+  // forwardToReceiver's call, which fails closed on a miss.
+  if (!env.SHARED_SECRET && !env.ACTIVE_KEY_ID) {
     return errorResponse("SHARED_SECRET not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
 
