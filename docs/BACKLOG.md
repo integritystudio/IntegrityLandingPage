@@ -258,10 +258,10 @@ These issues require **server-side HTTP response header configuration** and cann
 
 ## Open Items
 
-### CHK01: Checkout sessions carried no `org_id`, so no subscription ever linked to an organization
+### ~~CHK01: Checkout sessions carried no `org_id`, so no subscription ever linked to an organization~~
 
 **Priority:** P1 (revenue-adjacent: paid subscriptions were not attributable to an org) | **Source:** session 2026-07-31, while generating a live checkout link for `team-inventoryai-io`
-**Status:** ✅ **done and live** (corrected 2026-07-31 — the line below said "not committed, not deployed" and was stale by one merge). Committed as `a2f3ff6` *fix(sender-worker): set metadata[org_id] on Stripe checkout sessions*, merged to `main` via PR #20 (`35e9c09`), and shipped by CI run **30612619138** ("Deploy Sender Worker: success"). **Verified in the deployed artefact, not inferred from a green deploy** — the live `sender-worker` bundle contains `metadata[org_id]`, `subscription_data[metadata][org_id]`, and three `default_organization_id` references, none of which exist in the pre-fix build. Only step 3 (optional backfill) remains.
+**Status:** ✅ **done and live** (corrected 2026-07-31 — the line below said "not committed, not deployed" and was stale by one merge). Committed as `a2f3ff6` *fix(sender-worker): set metadata[org_id] on Stripe checkout sessions*, merged to `main` via PR #20 (`35e9c09`), and shipped by CI run **30612619138** ("Deploy Sender Worker: success"). **Verified in the deployed artefact, not inferred from a green deploy** — the live `sender-worker` bundle contains `metadata[org_id]`, `subscription_data[metadata][org_id]`, and three `default_organization_id` references, none of which exist in the pre-fix build. **Closed 2026-08-02** — step 3 (the optional backfill) was investigated and found to have an empty target; see step 3 below.
 
 `workers/sender-worker/src/stripe.ts` built its Checkout params with **neither `metadata[org_id]` nor `client_reference_id`** — grep the pre-fix file for either and it returns nothing. But `workers/stripe-webhook/src/handlers/checkout.ts:24` reads exactly those two on `checkout.session.completed`:
 
@@ -292,7 +292,22 @@ This is a one-shot bootstrap value. It is needed **only** in `checkout.session.c
 **Remaining:**
 1. ~~Commit~~ — ✅ `a2f3ff6`.
 2. ~~Deploy~~ — ✅ live. CI deployed it on the PR #20 merge (run 30612619138); the `HEAD`-ahead-of-`origin/main` caveat that made this step risky no longer applies to *this* fix, because the merge is what shipped it. The caveat itself still stands for future work.
-3. Optional: backfill. Any already-paid subscription created before this ships has no `org_id` on its session and is unlinked; re-deriving it means matching the Stripe customer email back to a user. Unknown volume — the single existing `stripe_customer_id` row suggests it is small.
+3. ~~Optional: backfill. Any already-paid subscription created before this ships has no `org_id` on its session and is unlinked; re-deriving it means matching the Stripe customer email back to a user. Unknown volume — the single existing `stripe_customer_id` row suggests it is small.~~ — ✅ **Not needed; the target set is empty** (verified 2026-08-02 against live `acct_1SN2e7AwEfePbhfk` and Supabase). **The premise never materialised: there is no paid-but-unlinked subscription, and there never was one.**
+
+   Live Stripe holds **2 customers, 2 subscriptions, 6 checkout sessions**, and every paid artefact is already linked in *both* `organizations.stripe_customer_id` and the `subscriptions` table:
+
+   | Customer | Email | Subscription | Org |
+   |---|---|---|---|
+   | `cus_Uz8KgGh0peiaif` | alyshia@inventoryai.io | `sub_1TzA40…` active | `1649a1c1` team-inventoryai-io |
+   | `cus_UxxzTfUmEWrvd0` | alyshialedlie@gmail.com | `sub_1Tz7Gh…` trialing | `20e71316` alyshia-ledlie |
+
+   Of the 6 checkout sessions, five are `expired`/`unpaid` and one is `complete`/`paid` — and that paid one already carries `metadata[org_id]`. The **only** session lacking an org id (`cs_live_a1WcjL32…`) is expired and unpaid, so it produced no customer and no subscription. The five orgs with no `stripe_customer_id` are all `billing_status: inactive` except the internal `Integrity Studio AI` parent-organization, which has no Stripe customer at all.
+
+   Two findings worth keeping, because they explain *why* the backfill was empty rather than merely recording that it was:
+   - **The one paid session postdates the fix**, so it was never exposed to the warn-and-bail path. The pre-fix window produced expired sessions only.
+   - **`sub_1Tz7Gh…` has no `metadata.org_id` and that is correct, not a gap.** It has no checkout session at all — it was created directly — so it was linked by customer id. That is the path this entry already identifies as the reason session metadata stops mattering once `stripe_customer_id` is written (`subscription.ts` ×2 and `invoice.ts` ×2 all use `findOrgByStripeCustomerId`). Do not "fix" the missing metadata; nothing reads it.
+
+   **Not checked:** the sandbox account from [[CR18]]. Test-mode data is not backfillable revenue, so it is out of scope unless that account turns out to hold live charges. Also note this closes CHK01 while [[CR18]]'s premise has moved on independently — a live restricted key (`rk_live_…`) now exists in Doppler `prd` as `STRIPE_SECRET_KEY`/`STRIPE_API_KEY`, which is what made this verification possible.
 
 **Not affected:** the live checkout link generated for `team-inventoryai-io` in the same session already carries `metadata[org_id]`, `client_reference_id` and `subscription_data[metadata][org_id]` — they were set directly on that session, independently of this fix.
 
