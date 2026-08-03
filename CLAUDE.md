@@ -75,7 +75,7 @@ where n.nspname='public' and c.relkind='r' and c.relrowsecurity=false;
 ## Current Status
 
 **Phase**: Codebase review remediation + worker deploy/settings audit + database/secret remediation + credential rotation — CR01–CR29 tracked, see the status table in [docs/BACKLOG.md](docs/BACKLOG.md)
-**Last Updated**: 2026-07-31
+**Last Updated**: 2026-08-01
 **Build Status**: ✅ Web build successful, running on localhost:8080
 **Test Status**: ✅ **3,017 Flutter and 1,179 worker tests passing**, measured 2026-07-31 on the working tree (`lib` 510, contact-form 81, api-gateway 208, sender-worker 188, receiver-worker 29, stripe-webhook 163). The previous figure of 1,063 worker tests was stale by roughly a hundred; if you are reconciling a count, run the suite rather than trusting this line. Coverage ~94%; zero TypeScript errors via `npm run lint:workers` — note that **is** the worker "linter" (`tsc --noEmit` × 7 packages; there is no ESLint under `workers/`, and plain `npm run lint` is `flutter analyze`). All three opt-in suites are green as of 2026-07-29: `sender-worker` `test:e2e` **44/44** (was non-functional — see BACKLOG.md CR11), `sender-worker` `test:live` 9 passed / 3 skipped (now `--config prd`), `stripe-webhook` `test:live` 5/5
 **Database**: ✅ Supabase `cfrbahzzklwrnmbtqojl` is `ACTIVE_HEALTHY`; 10 migrations applied and `supabase migration list` reports zero out of sync. The ledger previously claimed migrations that had never run (CR17) — including the one creating `stripe-webhook`'s tables. RLS is now enabled on every table in `public`.
