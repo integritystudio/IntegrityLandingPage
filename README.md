@@ -6,14 +6,14 @@
 Enterprise AI Observability Platform landing page built with Flutter Web.
 
 **Production**: https://integritystudio.ai
-**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, ~3,001 Flutter (unit+contract+integration) + **1,063 worker tests** (verified 2026-07-29 via `npm run test:workers`)
+**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, ~3,017 Flutter (unit+contract+integration, 2026-07-31) + **1,212 worker tests** (verified 2026-08-02 via `npm run test:workers`)
 
 ## Quick Start
 
 ```bash
 flutter pub get          # Install dependencies
 flutter run -d chrome    # Development server (localhost:8080)
-flutter test             # Run tests (~2,726 passing, ~94% coverage)
+flutter test             # Run tests (~3,017 passing, ~94% coverage)
 flutter build web        # Production build
 ```
 
@@ -33,7 +33,7 @@ cd workers/lib && npm install && npm test
 - Email submissions via Resend
 - KV-based rate limiting
 - CSRF protection, idempotency keys
-- Tests: 71 passing, ~94% coverage
+- Tests: 81 passing, ~94% coverage
 
 ```bash
 cd workers/contact-form
@@ -45,7 +45,7 @@ npx vitest run                    # Tests
 - Usage event ingest, aggregation, and rollup (daily → monthly)
 - OpenTelemetry span ingestion with quota enforcement
 - Org quota tracking via Durable Objects
-- Tests: 122 passing, ~94% coverage
+- Tests: 208 passing, ~94% coverage
 
 ```bash
 cd workers/api-gateway
@@ -78,7 +78,7 @@ npm run test:provisioning         # Interactive test guide
 - Subscription lifecycle (create, update, cancel) and checkout session handling
 - Dead-letter queue for failed events with reconciliation
 - Supabase sync: subscriptions, plan mapping via `STRIPE_PRICE_TO_PLAN_JSON`
-- Tests: 137 passing
+- Tests: 172 passing
 
 ```bash
 cd workers/stripe-webhook
@@ -100,7 +100,7 @@ npx vitest run                    # Tests
 ## Testing
 
 ```bash
-# Flutter: Unit + Contract + Widget tests (~2,726, ~94% coverage)
+# Flutter: Unit + Contract + Widget tests (~3,017, ~94% coverage)
 flutter test                           # All tests
 flutter test --coverage                # With coverage report
 flutter test test/pages/               # Page tests only
@@ -113,22 +113,24 @@ flutter test test/services/provisioning_service_live_test.dart \
   --dart-define=SENDER_WORKER_URL=https://sender-worker.alyshia-b38.workers.dev
 
 # Workers — or run every package at once from the repo root:
-#   npm run test:workers   (1,063 tests)   npm run lint:workers   (tsc --noEmit x7; there is no ESLint here)
-cd workers/lib && npm test              # Shared lib tests (477 passing)
-cd workers/contact-form && npm test     # Contact form worker tests (74 passing)
-cd workers/api-gateway && npm test      # API Gateway worker tests (147 passing)
-cd workers/receiver-worker && npm test  # Receiver worker tests (29, local stub)
-cd workers/sender-worker && npm test    # Sender worker tests (174 passing)
-cd workers/stripe-webhook && npm test   # Stripe webhook tests (152 passing)
-cd workers/bootstrap-worker && npm test # Bootstrap worker tests (10 passing)
+#   npm run test:workers   (1,212 tests)   npm run lint:workers   (tsc --noEmit x6; there is no ESLint here)
+# Per-package counts measured 2026-08-02:
+cd workers/lib && npm test              # Shared lib tests (515 passing)
+cd workers/contact-form && npm test     # Contact form worker tests (81 passing)
+cd workers/api-gateway && npm test      # API Gateway worker tests (208 passing)
+cd workers/receiver-worker && npm test  # Receiver worker tests (33, local stub)
+cd workers/sender-worker && npm test    # Sender worker tests (203 passing)
+cd workers/stripe-webhook && npm test   # Stripe webhook tests (172 passing)
+# (bootstrap-worker was deleted 2026-07-31 — POST /bootstrap is now a route on api-gateway)
 
-# Opt-in worker suites, all green as of 2026-07-29 (counts verified that day)
-cd workers/sender-worker && npm run test:e2e    # workerd runtime, outbound mocked, no credentials (44/44)
+# Opt-in worker suites, all green (e2e 2026-08-02; the two live suites 2026-07-29)
+cd workers/sender-worker && npm run test:e2e    # workerd runtime, outbound mocked, no credentials (49/49)
 cd workers/sender-worker && npm run test:live   # real Auth0 Management API, --config prd (9 passed/3 skipped)
 cd workers/stripe-webhook && npm run test:live  # real Stripe-signed requests (5/5)
 
 # Manual provisioning E2E test (interactive, do NOT use in CI)
-SHARED_SECRET=your-test-secret npm run test:provisioning
+# Writes a temporary .dev.vars with SIGNING_KEYS + ACTIVE_KEY_ID if none exists
+npm run test:provisioning
 ```
 
 **[Coverage Report](https://aledlie.github.io/IntegrityLandingPage/)**

@@ -2,7 +2,10 @@ name = "receiver-worker"
 main = "src/index.ts"
 compatibility_date = "2026-03-19"
 
-# HMAC signing key (set via: wrangler secret put SHARED_SECRET)
+# HMAC signing keys, keyId → secret (set via: wrangler secret put SIGNING_KEYS)
+# The only credential /inbox authenticates against; a request with no x-key-id is
+# rejected regardless of its signature (BACKLOG.md CR29 step 2). SHARED_SECRET is no
+# longer read for auth.
 # Generate a secure random secret: openssl rand -base64 32
 
 # Observability. Carried here for consistency with the other Workers and so the

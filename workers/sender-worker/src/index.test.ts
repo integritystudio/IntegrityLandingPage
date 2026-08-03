@@ -23,7 +23,8 @@ interface ErrorResponse {
 type ApiResponse = SuccessResponse | ErrorResponse;
 
 interface Env {
-  SHARED_SECRET: string;
+  /** Optional, mirroring the real Env: nothing reads it, and CR29 step 3 unbinds it. */
+  SHARED_SECRET?: string;
   SIGNING_KEYS?: string;
   ACTIVE_KEY_ID?: string;
   RECEIVER: Fetcher;
@@ -48,9 +49,20 @@ import { clearAuthRateLimitStore } from './utils';
 const mockReceiverFetch = vi.fn<(...args: unknown[]) => Promise<Response>>();
 const mockReceiver = { fetch: mockReceiverFetch } as unknown as Fetcher;
 
-// Mock environment
+/** The active key id and its secret, mirroring production's `v2`. */
+const TEST_KEY_ID = 'v2';
+const TEST_SECRET_V2 = 'rotated-secret-v2';
+
+// Mock environment. ACTIVE_KEY_ID + SIGNING_KEYS are part of the baseline because they are the
+// only credential /send can sign with (CR29 step 2) — a fixture without them describes a worker
+// that forwards nothing, which is what the "missing configuration" block below asserts.
+// TEST_SECRET_V2 is deliberately different from SHARED_SECRET: if a fallback to the legacy
+// credential were ever restored, an identical value would let every signature assertion still
+// pass. SHARED_SECRET stays bound because nothing reading it must be proven with it present.
 const mockEnv: Env = {
   SHARED_SECRET: 'test-shared-secret-key',
+  ACTIVE_KEY_ID: TEST_KEY_ID,
+  SIGNING_KEYS: JSON.stringify({ [TEST_KEY_ID]: TEST_SECRET_V2 }),
   RECEIVER: mockReceiver,
   AUTH0_DOMAIN: 'test.auth0.com',
   AUTH0_CLIENT_ID: 'test-spa-client-id',
@@ -152,6 +164,8 @@ describe('Sender Worker', () => {
       const fetchRequest = callArgs[1] as RequestInit;
       expect(fetchRequest.headers).toHaveProperty('x-timestamp');
       expect(fetchRequest.headers).toHaveProperty('x-signature');
+      // x-key-id is mandatory since CR29 step 2 — the receiver 401s a request without it.
+      expect((fetchRequest.headers as Record<string, string>)['x-key-id']).toBe(TEST_KEY_ID);
     });
 
     it('forwards the client IP to the receiver as X-Forwarded-For', async () => {
@@ -208,8 +222,13 @@ describe('Sender Worker', () => {
       const request = makeSendRequest(validSendPayload);
       await worker.fetch(request, mockEnv);
 
-      const expectedSig = await computeSignature(capturedBody, mockEnv.SHARED_SECRET, capturedTimestamp);
+      // Signed with the key ACTIVE_KEY_ID names, not SHARED_SECRET. The two fixtures hold
+      // different values on purpose, so this assertion fails if the legacy fallback returns.
+      const expectedSig = await computeSignature(capturedBody, TEST_SECRET_V2, capturedTimestamp);
       expect(capturedSignature).toBe(expectedSig);
+      expect(capturedSignature).not.toBe(
+        await computeSignature(capturedBody, mockEnv.SHARED_SECRET!, capturedTimestamp),
+      );
     });
 
     it('defaults tier to starter when absent', async () => {
@@ -436,12 +455,39 @@ describe('Sender Worker', () => {
       expect((await response.json() as ErrorResponse).error).toContain('not configured');
     });
 
-    it('returns 500 when SHARED_SECRET is not configured', async () => {
-      const envMissingSecret = { SHARED_SECRET: '', RECEIVER: mockReceiver } as unknown as Env;
+    // CR29 step 2. Previously this asserted a 500 "SHARED_SECRET not configured" — a worker with
+    // no signing credential at all. The credential that matters is now ACTIVE_KEY_ID +
+    // SIGNING_KEYS, so the same env is still a 500, but for the right reason and with a code that
+    // names it. `not.toHaveBeenCalled()` is the load-bearing assertion, not the status: a
+    // downgraded keyless request used to be *accepted* by the receiver, so a restored fallback
+    // returns 200 here and a status-only test would pass while testing nothing.
+    it('returns 500 and forwards nothing when no signing credential is configured', async () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const envMissingSecret = { RECEIVER: mockReceiver } as unknown as Env;
       const request = makeSendRequest(validSendPayload);
       const response = await worker.fetch(request, envMissingSecret);
       expect(response.status).toBe(500);
-      expect((await response.json() as ErrorResponse).error).toContain('not configured');
+      expect((await response.json() as ErrorResponse).code).toBe('SIGNING_KEY_UNRESOLVED');
+      expect(mockReceiverFetch).not.toHaveBeenCalled();
+      error.mockRestore();
+    });
+
+    // The legacy path itself: SHARED_SECRET bound, ACTIVE_KEY_ID unset. This used to be a valid
+    // configuration that signed keylessly, and the receiver accepted it — which is precisely why
+    // no key could ever be retired. Nothing may reach the receiver now.
+    it('returns 500 and forwards nothing when ACTIVE_KEY_ID is unset but SHARED_SECRET is bound', async () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const env = {
+        ...mockEnv,
+        ACTIVE_KEY_ID: undefined,
+        SIGNING_KEYS: undefined,
+      } as unknown as Env;
+      const response = await worker.fetch(makeSendRequest(validSendPayload), env);
+
+      expect(response.status).toBe(500);
+      expect((await response.json() as ErrorResponse).code).toBe('SIGNING_KEY_UNRESOLVED');
+      expect(mockReceiverFetch).not.toHaveBeenCalled();
+      error.mockRestore();
     });
 
     // CR29 step 3 unbinds SHARED_SECRET once the legacy path is proven dead. A guard that
@@ -2387,9 +2433,19 @@ describe('Sender Worker', () => {
       expect(env).not.toHaveProperty('AUTH0_CLI_AUDIENCE');
     });
 
+    // SHARED_SECRET is deliberately absent from this list. It is still bound in production and
+    // still in mockEnv (the signature tests need it present to prove it is not what /send signs
+    // with), but nothing reads it since CR29 step 2, and step 3 unbinds it — listing it as
+    // required would make that step fail a test instead of passing one.
+    it('the outbound signing credential is present in mockEnv and SHARED_SECRET is not it', () => {
+      expect(mockEnv.ACTIVE_KEY_ID).toBe(TEST_KEY_ID);
+      expect(JSON.parse(mockEnv.SIGNING_KEYS!) as Record<string, string>).toHaveProperty(TEST_KEY_ID);
+      expect(mockEnv).toHaveProperty('SHARED_SECRET');
+      expect(mockEnv.SHARED_SECRET).not.toBe(TEST_SECRET_V2);
+    });
+
     it('all required environment variables are present in mockEnv', () => {
       const requiredVars = [
-        'SHARED_SECRET',
         'RECEIVER',
         'AUTH0_DOMAIN',
         'AUTH0_CLIENT_ID',

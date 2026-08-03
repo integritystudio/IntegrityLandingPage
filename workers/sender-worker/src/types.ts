@@ -93,7 +93,7 @@ export const ERROR_DESCRIPTIONS: Partial<Record<ErrorCode, string>> = {
   [ERROR_CODE.SUPABASE_ORG_MEMBERSHIP_FAILED]:
     "Supabase rejected the organization_memberships insert. Likely causes: missing org or user row (partial-failure upstream), or duplicate (user_id, org_id) pair.",
   [ERROR_CODE.SIGNING_KEY_UNRESOLVED]:
-    "ACTIVE_KEY_ID is set but no usable key exists for it in SIGNING_KEYS, so the request was not signed and not sent. Deliberately fails closed rather than downgrading to SHARED_SECRET — see BACKLOG.md CR29. Check the worker logs for which of the three causes fired (SIGNING_KEYS unbound, malformed, or missing that key id), then correct the binding.",
+    "No usable signing key could be resolved from ACTIVE_KEY_ID + SIGNING_KEYS, so the request was not signed and not sent. Deliberately fails closed rather than downgrading to SHARED_SECRET — see BACKLOG.md CR29. Check the worker logs for which of the four causes fired (ACTIVE_KEY_ID unset, or SIGNING_KEYS unbound, malformed, or missing that key id), then correct the binding.",
   [ERROR_CODE.RECEIVER_QUOTA_EXCEEDED]:
     "Tier quota reached for API key provisioning. Starter=3, Growth=10, Enterprise=unlimited. Upgrade tier or revoke unused keys to proceed.",
   [ERROR_CODE.RECEIVER_RATE_LIMITED]:
@@ -200,10 +200,19 @@ export const AUTH_RATE_LIMIT_MAX = 10;
 export const AUTH_RATE_LIMIT_WINDOW_SECONDS = 600;
 
 export interface Env {
-  SHARED_SECRET: string;
-  /** JSON-encoded Record<string, string> mapping keyId → secret; enables x-key-id rotation. */
+  /**
+   * No longer read anywhere — SIGNING_KEYS + ACTIVE_KEY_ID are the only outbound credential
+   * (CR29 step 2). Still bound in production and still declared, so the tests can prove that
+   * signing does not fall back to it while it is present. Optional because step 3 unbinds it,
+   * which must be a `wrangler secret delete` and not a code change.
+   */
+  SHARED_SECRET?: string;
+  /** JSON-encoded Record<string, string> mapping keyId → secret. Required to sign anything. */
   SIGNING_KEYS?: string;
-  /** The key ID to use from SIGNING_KEYS when sending signed requests. Omit to use SHARED_SECRET. */
+  /**
+   * The key ID to use from SIGNING_KEYS, sent as x-key-id. Required: with this unset the worker
+   * cannot sign, because the receiver rejects a request that carries no key id.
+   */
   ACTIVE_KEY_ID?: string;
   /** Service binding to api-provisioning-receiver. */
   RECEIVER: Fetcher;

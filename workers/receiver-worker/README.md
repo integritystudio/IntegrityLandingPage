@@ -49,6 +49,8 @@ Receive and verify signed requests from the Sender Worker.
 **Request Headers (Required):**
 - `x-timestamp` — Milliseconds since epoch when sender created signature
 - `x-signature` — HMAC-SHA256 signature (hex string)
+- `x-key-id` — Which `SIGNING_KEYS` entry the signature was made with. Required: a
+  request without it is rejected, whatever its signature (BACKLOG.md CR29 step 2)
 - `Content-Type` — application/json
 
 **Request Body:**
@@ -76,22 +78,31 @@ Receive and verify signed requests from the Sender Worker.
 - `400 invalid json` — Request body is not valid JSON
 - `401 missing auth headers` — x-timestamp or x-signature header missing
 - `401 stale or invalid timestamp` — Timestamp outside ±5 minute window or non-numeric
-- `401 invalid signature` — Signature verification failed (secret mismatch or tampering)
+- `401 invalid signature` — Signature verification failed, **or** `x-key-id` was absent,
+  empty, or unknown. Deliberately one response for all of them, so valid key ids cannot be
+  enumerated by diffing responses; the production receiver distinguishes them in telemetry
 - `404 not found` — Unknown route
 
 ## Configuration
 
 ### Environment Variables
 
-None required for basic operation (only SHARED_SECRET secret below).
+None required for basic operation (only the secrets below).
 
 ### Secrets
 
 ```bash
-wrangler secret put SHARED_SECRET
+wrangler secret put SIGNING_KEYS     # {"v2":"<secret>"} — keyId → secret
 ```
 
-**CRITICAL:** Must match the `SHARED_SECRET` in the Sender Worker exactly. If they differ, all requests will fail with 401 "invalid signature".
+**CRITICAL:** the `SIGNING_KEYS` entry named by the sender's `ACTIVE_KEY_ID` must match the
+sender's secret for that key id exactly. If they differ, all requests fail 401 "invalid
+signature".
+
+`SHARED_SECRET` is **no longer read for authentication** — CR29 step 2 made `SIGNING_KEYS`
+the sole authority. It stays declared in `Env` only so the tests can prove a keyless request
+is rejected with the credential still present, which is production's state until CR29 step 3
+unbinds it.
 
 ## Security Model
 
@@ -171,16 +182,17 @@ wrangler tail
 ## Common Issues
 
 ### 401 "invalid signature"
-**Cause:** SHARED_SECRET differs from Sender Worker
-**Fix:** Regenerate both secrets with identical value
+**Causes:** `x-key-id` absent, empty, or not a key in `SIGNING_KEYS`; or the secret for that
+key id differs between the two workers. All four return the same response, so check the
+header before suspecting the secret.
+**Fix:** confirm the sender sends `x-key-id`, then align the secret for that id
 ```bash
 # Generate new secret
 openssl rand -base64 32
 
-# Update both workers
-wrangler secret put SHARED_SECRET  # Run on receiver-worker
-# Then on sender-worker:
-wrangler secret put SHARED_SECRET
+# Update both workers, same keyId → same secret
+wrangler secret put SIGNING_KEYS   # receiver: {"v2":"<secret>"}
+# Then on sender-worker: SIGNING_KEYS with the same entry, and ACTIVE_KEY_ID=v2
 ```
 
 ### 401 "stale or invalid timestamp"

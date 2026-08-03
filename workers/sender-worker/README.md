@@ -37,7 +37,7 @@ curl -X POST https://sender-worker.example.workers.dev/send \
 
 **Error Responses:**
 - `400` - Invalid JSON body
-- `500` - Receiver Worker URL or shared secret not configured
+- `500` - RECEIVER service binding not configured, or `SIGNING_KEY_UNRESOLVED` (see Secrets)
 - `502` - Receiver Worker unreachable
 
 ## Configuration
@@ -52,16 +52,30 @@ RECEIVER_WORKER_URL = "https://receiver-worker.example.workers.dev"
 ### Secrets
 
 ```bash
-wrangler secret put SHARED_SECRET
+wrangler secret put SIGNING_KEYS    # {"v2":"<secret>"} — must match the receiver's map exactly
+wrangler secret put ACTIVE_KEY_ID   # which entry to sign with, e.g. v2
 ```
 
-Must match the `SHARED_SECRET` in the Receiver Worker for signature verification to succeed.
+Both are required. `ACTIVE_KEY_ID` is sent as `x-key-id` and the receiver rejects a request
+without it, so an unset or unresolvable pair is a hard failure: `/send` returns 500
+`SIGNING_KEY_UNRESOLVED` and forwards nothing rather than downgrading to another credential.
+The cause is in the worker logs, never in the response — a caller must not learn which key id
+the operator meant to use.
+
+`SHARED_SECRET` is the legacy pre-rotation key. **Nothing reads it** (CR29 step 2); it stays
+bound only until the receiver's `auth.key_unresolved` telemetry confirms no caller still signs
+keylessly. Do not add a fallback to it.
+
+Rotation order is load-bearing: add the new key to the **receiver's** `SIGNING_KEYS` and deploy
+that first, then set `ACTIVE_KEY_ID` here. The reverse order sends a key id the receiver does not
+recognise, which it rejects with a 401 indistinguishable from a forged signature.
 
 ## Security Model
 
 | Concern | Implementation |
 |---------|-----------------|
-| Inter-service auth | HMAC-SHA256 signature over `timestamp.body` |
+| Inter-service auth | HMAC-SHA256 signature over `timestamp.body`, keyed by `x-key-id` |
+| Key rotation | `SIGNING_KEYS` map + `ACTIVE_KEY_ID`; every request carries its key id, so removing an entry revokes it |
 | Replay protection | Receiver validates 5-minute timestamp window |
 | Secret storage | Wrangler secrets (never in Flutter) |
 | CORS | Not needed (Worker-to-Worker, no browser) |
@@ -90,8 +104,9 @@ wrangler deploy
 For staging and production setup, see [Environment Setup Guide](../../docs/provisioning-environment-setup.md).
 
 **Key Steps:**
-1. Generate SHARED_SECRET: `openssl rand -base64 32`
-2. Set same SHARED_SECRET on both sender and receiver workers
+1. Generate a signing key: `openssl rand -base64 32`
+2. Add it to the **receiver's** `SIGNING_KEYS` under a new key id and deploy the receiver first,
+   then set the same `SIGNING_KEYS` entry plus `ACTIVE_KEY_ID` here
 3. Update RECEIVER_WORKER_URL in wrangler.toml
 4. Deploy: `wrangler deploy`
 5. Verify: `curl https://receiver-worker.integritystudio.ai/health`

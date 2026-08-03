@@ -4,9 +4,15 @@ import { hexToBytes } from '../../lib/hex-utils';
 import { json } from '../../lib/http/responses';
 
 export interface Env {
+  // No longer read for authentication — SIGNING_KEYS is the sole authority (CR29 step 2).
+  // Kept declared so the tests can prove a keyless request is rejected with the credential
+  // still bound, which is production's state until step 3 unbinds it.
   SHARED_SECRET: string;
-  // JSON-encoded Record<string, string> mapping keyId → secret; enables x-key-id rotation.
-  SIGNING_KEYS?: string;
+  // JSON-encoded Record<string, string> mapping keyId → secret. Required, mirroring the
+  // production receiver: it is the only credential /inbox authenticates against, so an
+  // unbound map 401s every request. Optional here would let a test pass against a config
+  // production rejects — the shape parity is the point of a test double.
+  SIGNING_KEYS: string;
 }
 
 export interface HealthResponse {
@@ -39,14 +45,19 @@ type KnownAction = (typeof ACTIONS)[keyof typeof ACTIONS];
 const KNOWN_ACTIONS: readonly string[] = [ACTIONS.PROVISION_API_KEY, ACTIONS.SIGN_IN];
 
 /**
- * Resolve the signing secret for a request.
- * - No x-key-id → use SHARED_SECRET (backward compat)
- * - x-key-id present → look up in SIGNING_KEYS JSON map; returns null if unknown or map absent
+ * Resolve the signing secret for a request. Every miss returns null, and `handleInbox`
+ * turns that into the same 401 an invalid signature gets.
+ * - No x-key-id → miss. It used to resolve to SHARED_SECRET, a credential with no key id
+ *   and therefore no rotation handle: production measurably answered 200 to a keyless
+ *   request, so removing a key from SIGNING_KEYS revoked nothing. Mirrors the production
+ *   receiver as of CR29 step 2 — a stub that still accepted keyless requests would let a
+ *   test pass on traffic production rejects.
+ * - x-key-id present → look up in SIGNING_KEYS JSON map; null if unknown or map absent
  */
 export function resolveSigningKey(env: Env, keyId: string | undefined): string | null {
-  if (keyId === undefined) return env.SHARED_SECRET;
-  // Treat empty/whitespace keyId as an explicit lookup miss, not a fallback to
-  // SHARED_SECRET — otherwise `x-key-id: ""` bypasses rotation.
+  if (keyId === undefined) return null;
+  // Empty/whitespace keyId is a miss for the same reason, and was already one before
+  // step 2 — otherwise `x-key-id: ""` bypassed rotation.
   if (keyId.trim() === '') return null;
   if (!env.SIGNING_KEYS) return null;
   let keys: Record<string, string>;

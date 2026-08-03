@@ -19,6 +19,8 @@ import { resolve } from 'path';
 // Environment variables defined in wrangler.toml comments (expected secrets)
 const EXPECTED_DOPPLER_SECRETS = [
   'SHARED_SECRET',
+  'SIGNING_KEYS',
+  'ACTIVE_KEY_ID',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
   'AUTH0_DOMAIN',
@@ -33,8 +35,18 @@ const EXPECTED_DOPPLER_SECRETS = [
   'APP_BASE_URL',
 ];
 
-// Variables that are optional (should not fail if missing from env interface)
+/**
+ * Secrets declared `name?: string` in the Env interface. This is about the TYPE, not about
+ * whether a deploy needs the value — SIGNING_KEYS and ACTIVE_KEY_ID are mandatory in practice
+ * (without them /send returns 500 SIGNING_KEY_UNRESOLVED and forwards nothing), but they are
+ * genuinely absent from some deploys, so `resolveOutboundSigningKey` enforces them at runtime
+ * rather than the type lying about what is bound. SHARED_SECRET is optional for the opposite
+ * reason: nothing reads it since CR29 step 2, and step 3 unbinds it.
+ */
 const OPTIONAL_SECRETS = new Set([
+  'SHARED_SECRET',
+  'SIGNING_KEYS',
+  'ACTIVE_KEY_ID',
   'ALLOWED_ORIGINS_JSON',
   'STRIPE_SECRET_KEY',
   'STRIPE_PLAN_TO_PRICE_JSON',
@@ -42,19 +54,19 @@ const OPTIONAL_SECRETS = new Set([
 ]);
 
 describe('Environment Variable Validation', () => {
-  it('types.ts Env interface includes all required doppler secrets', () => {
+  it('types.ts Env interface declares every doppler secret with the right optionality', () => {
     const typesPath = resolve(__dirname, './types.ts');
     const typesContent = readFileSync(typesPath, 'utf-8');
 
-    const requiredSecrets = EXPECTED_DOPPLER_SECRETS.filter(
-      (secret) => !OPTIONAL_SECRETS.has(secret)
-    );
-
-    requiredSecrets.forEach((secret) => {
-      const regex = new RegExp(`\\b${secret}:\\s*string`, 'g');
+    // Checked in both directions: an optional secret has to appear as `name?: string`, so
+    // dropping the `?` from a required one (or adding it to an optional one) fails here rather
+    // than being skipped. The old version only asserted the required set and ignored the rest.
+    EXPECTED_DOPPLER_SECRETS.forEach((secret) => {
+      const optional = OPTIONAL_SECRETS.has(secret);
+      const regex = new RegExp(`\\b${secret}${optional ? '\\?' : ''}:\\s*string`);
       expect(
         regex.test(typesContent),
-        `Missing or incorrectly typed '${secret}' in types.ts Env interface`
+        `'${secret}' should be declared ${optional ? 'optional' : 'required'} in the types.ts Env interface`
       ).toBe(true);
     });
   });

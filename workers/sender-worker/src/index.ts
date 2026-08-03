@@ -202,9 +202,9 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
 // which is the event that distinguishes a rejected key id from a genuine signature mismatch (the
 // two 401s are byte-identical by design, so key ids cannot be enumerated by diffing responses).
 //
-// This sender never signs with a key the operator did not choose: if ACTIVE_KEY_ID is set and
-// cannot be resolved, the request fails with 500 instead of quietly downgrading to SHARED_SECRET.
-// See resolveOutboundSigningKey and BACKLOG.md CR29.
+// This sender never signs with a key the operator did not choose, and never signs keylessly:
+// any ACTIVE_KEY_ID/SIGNING_KEYS configuration that does not resolve fails with a 500 instead of
+// downgrading to SHARED_SECRET. See resolveOutboundSigningKey and BACKLOG.md CR29.
 async function forwardToReceiver(
   env: Env,
   payload: Record<string, unknown>,
@@ -229,7 +229,9 @@ async function forwardToReceiver(
     [HEADER_NAMES.TIMESTAMP]: ts,
     [HEADER_NAMES.SIGNATURE]: signature,
   };
-  if (keyId) headers[HEADER_NAMES.KEY_ID] = keyId;
+  // Unconditional: a resolved key always has an id, and the receiver rejects a request without
+  // one (CR29 step 2). The old `if (keyId)` guard was the sender half of the keyless path.
+  headers[HEADER_NAMES.KEY_ID] = keyId;
   // Service-binding subrequests don't inherit the client's CF-Connecting-IP;
   // forward it so the receiver's per-IP metrics see the real caller, not "unknown".
   if (clientIp) headers[HEADER_NAMES.X_FORWARDED_FOR] = clientIp;
@@ -331,15 +333,12 @@ async function handleSend(env: Env, req: Record<string, unknown>, clientIp?: str
   if (!env.RECEIVER) {
     return errorResponse("RECEIVER service binding not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
-  // Only a pre-flight for "no signing credential at all". Deliberately not `!env.SHARED_SECRET`:
-  // with ACTIVE_KEY_ID set, SHARED_SECRET is unused, so requiring it would reject a request the
-  // worker can sign perfectly well — and would turn BACKLOG.md CR29 step 3 (unbinding
-  // SHARED_SECRET once the legacy path is proven dead) into an outage. Whether the key resolves is
-  // forwardToReceiver's call, which fails closed on a miss.
-  if (!env.SHARED_SECRET && !env.ACTIVE_KEY_ID) {
-    return errorResponse("SHARED_SECRET not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
-
+  // No signing-credential pre-flight here on purpose. It used to check
+  // `!env.SHARED_SECRET && !env.ACTIVE_KEY_ID`, which after CR29 step 2 is the wrong question
+  // twice over: SHARED_SECRET is no longer read at all, and ACTIVE_KEY_ID being *present* says
+  // nothing about whether it resolves. forwardToReceiver is the single authority — it fails
+  // closed with SIGNING_KEY_UNRESOLVED, a code that names the actual fault, where this returned
+  // a misleading "SHARED_SECRET not configured". Two 500s for one condition is worse than one.
   const parsed = SendRequestSchema.safeParse(req);
   if (!parsed.success) {
     const field = parsed.error.issues[0].path[0];

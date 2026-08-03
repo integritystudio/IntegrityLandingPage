@@ -187,7 +187,8 @@ Future<Map<String, dynamic>> signup(String email, String password) async {
 | 400 | UNKNOWN_ACTION | action not recognized |
 | 400 | JSON_PARSE_ERROR | request body is not valid JSON |
 | 401 | INVALID_AUTH | jwt missing, malformed, or expired |
-| 500 | INTERNAL_ERROR | RECEIVER binding or SHARED_SECRET not configured, or unexpected error in sender worker |
+| 500 | INTERNAL_ERROR | RECEIVER binding not configured, or unexpected error in sender worker |
+| 500 | SIGNING_KEY_UNRESOLVED | `ACTIVE_KEY_ID` unset, `SIGNING_KEYS` unset or malformed, or the active id is absent from the map. The request is **not** forwarded — the sender fails closed rather than signing with a fallback credential (CR29 step 1) |
 | 502 | INTERNAL_ERROR | receiver-worker unreachable (fetch failure) |
 
 Note: on success the sender simply forwards the receiver's response as-is, so a non-2xx from the receiver (e.g. `RECEIVER_ERROR`, `QUOTA_EXCEEDED`, `RATE_LIMITED`) is passed through with the receiver's own status and code rather than being remapped by the sender.
@@ -317,8 +318,9 @@ curl -X POST https://sender-worker.alyshia-b38.workers.dev/send \
 > ℹ️ **What this report validates (read first).** This is a historical 2026-03-20 report validating the contract between `sender-worker` and the **local stub** `workers/receiver-worker/` (a test double). Two things have since changed:
 > - **Transport:** the sender reaches the receiver via a Cloudflare **service binding** (`binding = "RECEIVER"`, `service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`) — `env.RECEIVER.fetch(".../inbox")` — **not** a public `RECEIVER_WORKER_URL` fetch. The `RECEIVER_WORKER_URL` env var and `receiver-worker.example.workers.dev` hostname below are obsolete.
 > - **Production receiver:** the deployed receiver is **`api-provisioning-receiver`** (separate `observability-toolkit` repo, `services/api-provisioning-receiver/`), which persists to Supabase and returns `{ service: "api-provisioning-receiver" }` from `/health`. `workers/receiver-worker/` is **not deployed** and nothing binds to it. For production contract validation, see the integration tests in `observability-toolkit`.
+> - **Signing credential:** every `SHARED_SECRET` below should read `SIGNING_KEYS[ACTIVE_KEY_ID]`, and the request carries a third header, `x-key-id`. The receiver resolves that id against its own `SIGNING_KEYS` and **rejects a request without it** — there is no keyless fallback ([BACKLOG.md CR29](BACKLOG.md#cr29) step 2, 2026-08-02, unshipped). On the sender side an unresolvable key is `500 SIGNING_KEY_UNRESOLVED` with nothing forwarded, not a downgrade to `SHARED_SECRET` as this report describes.
 >
-> The HMAC/timestamp/error-shape findings below still hold — the stub mirrors the production receiver's wire contract — but ignore the deployment, URL-wiring, and config-matrix sections as a production guide.
+> The timestamp and error-shape findings below still hold — the stub mirrors the production receiver's wire contract — but ignore the deployment, URL-wiring, and config-matrix sections as a production guide, and read every HMAC-key reference through the third bullet.
 
 ---
 
@@ -722,8 +724,8 @@ Sender Worker
 10. CORS handling (appropriate for sender role)
 
 ### ⚠️ Future Enhancements (Not Required)
-1. **Key Rotation** — Add x-key-id header for secret version management
-2. **Nonce Store** — Stricter replay protection than timestamp window
+1. ~~**Key Rotation** — Add x-key-id header for secret version management~~ ✅ **Done** — `SIGNING_KEYS` + `ACTIVE_KEY_ID` on both sides, `x-key-id` on the wire (provisioned 2026-07-30, key id `v2`). Since CR29 step 2 the header is **required**, which is what makes removing an id from `SIGNING_KEYS` an actual revocation
+2. ~~**Nonce Store** — Stricter replay protection than timestamp window~~ ✅ **Done** — the production receiver dedups on `nonce:{signature}` in `RATE_LIMIT_KV` for the replay window (300s)
 3. ~~**Service Bindings** — Use Cloudflare service bindings instead of public fetch~~ ✅ **Done** — production now uses a `RECEIVER` service binding to `api-provisioning-receiver` (no public fetch)
 4. **Monitoring** — Add metrics for signature validation success/failure rates
 

@@ -60,14 +60,17 @@ verify_http() {
   fi
 }
 
-# Local dev secrets. SHARED_SECRET lets /send reach schema validation (handleSend
-# checks RECEIVER binding + SHARED_SECRET before validating the body). The binding
-# itself comes from wrangler.toml; the target receiver need not be running because
-# these tests are rejected before any forward occurs.
+# Local dev secrets. No signing credential is strictly required by the assertions below:
+# handleSend's only pre-flight is the RECEIVER binding (from wrangler.toml), and every case
+# here is rejected by schema validation before any forward, so the key is never resolved.
+# They are set anyway to mirror a working config -- since CR29 step 2 the sender signs with
+# SIGNING_KEYS[ACTIVE_KEY_ID] and fails closed (500 SIGNING_KEY_UNRESOLVED, forwarding
+# nothing) rather than falling back, so a suite that did reach a forward would need them.
 if [ ! -f "$DEV_VARS" ]; then
   echo "${YELLOW}Creating temporary ${DEV_VARS} for local dev...${NC}"
   cat > "$DEV_VARS" << 'EOF'
-SHARED_SECRET=test-secret-key-12345
+SIGNING_KEYS={"v2":"test-secret-key-12345"}
+ACTIVE_KEY_ID=v2
 EOF
   DEV_VARS_CREATED=1
 fi

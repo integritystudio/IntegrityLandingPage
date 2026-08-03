@@ -22,21 +22,26 @@ npm install -g wrangler
 
 ## Test Environment Setup
 
-### 1. Generate a Shared Secret
+### 1. Generate a Signing Key
 
 ```bash
 # Create a test secret (in production, use: openssl rand -base64 32)
-SHARED_SECRET="&lt;your-test-secret&gt;"
+SECRET="&lt;your-test-secret&gt;"
 ```
+
+Both workers need it under the **same key id** in `SIGNING_KEYS`, and the sender needs
+`ACTIVE_KEY_ID` naming that id. Since CR29 step 2 there is no keyless path: the stub rejects a
+request with no `x-key-id` (401), and the sender returns `500 SIGNING_KEY_UNRESOLVED` without
+forwarding if it cannot resolve one. `SHARED_SECRET` is read by neither.
 
 ### 2. Start Receiver Worker
 
 ```bash
 cd workers/receiver-worker
 
-# Create .env.local with the shared secret
+# Create .env.local with the signing key map
 cat > .env.local << EOF
-SHARED_SECRET=&lt;your-test-secret&gt;
+SIGNING_KEYS={"v2":"&lt;your-test-secret&gt;"}
 EOF
 
 # Start the worker on port 8788
@@ -55,9 +60,10 @@ Your Worker is ready at http://localhost:8788
 ```bash
 cd workers/sender-worker
 
-# Create .env.local with configuration
+# Create .env.local with configuration -- the SIGNING_KEYS entry must match the receiver's
 cat > .env.local << EOF
-SHARED_SECRET=your-test-secret
+SIGNING_KEYS={"v2":"your-test-secret"}
+ACTIVE_KEY_ID=v2
 RECEIVER_WORKER_URL=http://localhost:8788
 EOF
 
@@ -270,8 +276,15 @@ curl -s -X POST http://localhost:8788/inbox \
   -H "Content-Type: application/json" \
   -H "x-timestamp: ${OLD_TIMESTAMP}" \
   -H "x-signature: ${SIGNATURE}" \
+  -H "x-key-id: v2" \
   -d '{"userId":"user999","action":"replay_test"}' | jq .
 ```
+
+> ℹ️ Tests 4–6 still return exactly the responses documented here, but for a reason worth
+> knowing: the header order is missing-headers → timestamp → key resolution → signature, so
+> tests 4 and 5 never reach the key lookup, and a request with no `x-key-id` gets the same
+> `invalid signature` a forged one does — deliberately byte-identical, so key ids cannot be
+> enumerated. Any test that expects a **successful** `/inbox` call must send `x-key-id`.
 
 **Expected Response (401 Unauthorized):**
 ```json
@@ -321,7 +334,8 @@ wrangler deploy
 
 # Deploy sender-worker
 cd workers/sender-worker
-wrangler secret put SHARED_SECRET  # Paste production secret
+wrangler secret put SIGNING_KEYS   # JSON {"v2":"<secret>"}, matching the receiver's
+wrangler secret put ACTIVE_KEY_ID  # the id to sign with, e.g. v2
 wrangler deploy
 ```
 

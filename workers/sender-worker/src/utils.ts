@@ -21,34 +21,44 @@ export function getClientIp(request: Request): string | undefined {
   );
 }
 
-/** Why `ACTIVE_KEY_ID` was set but no key could be resolved for it. */
+/** Why no usable outbound signing key could be resolved. */
 export type OutboundKeyMiss =
+  | "active_key_id_unset"
   | "signing_keys_unset"
   | "signing_keys_malformed"
   | "unknown_active_key_id";
 
 export type OutboundSigningKey =
-  | { secret: string; keyId: string | undefined; miss?: undefined }
+  | { secret: string; keyId: string; miss?: undefined }
   | { secret: null; keyId: undefined; miss: OutboundKeyMiss };
 
 /**
- * Resolve the outbound signing key and key ID.
- * - `ACTIVE_KEY_ID` unset → `SHARED_SECRET`, no `x-key-id` header. Still a supported
- *   configuration, and the documented way to stage `SIGNING_KEYS` before activating it
- *   (see the rotation sequence above `forwardToReceiver`), so it is not a miss.
- * - `ACTIVE_KEY_ID` set + resolvable in `SIGNING_KEYS` → rotated key, send `x-key-id`.
- * - `ACTIVE_KEY_ID` set + not resolvable → **miss, and the caller must not send the
- *   request.**
+ * Resolve the outbound signing key and key ID. `SIGNING_KEYS` + `ACTIVE_KEY_ID` are the only
+ * way to sign anything: a resolvable pair returns that secret and its key id, and **every**
+ * other configuration is a miss whose request must not be sent.
  *
- * That last case used to fall back to `SHARED_SECRET` and send no `x-key-id`, marked
- * only by a `console.warn`. The receiver resolves an absent `x-key-id` to `SHARED_SECRET`,
- * so the request still succeeded — a typo in `ACTIVE_KEY_ID` silently downgraded every
- * signature to the un-rotatable legacy credential and nothing failed. Failing closed makes
- * a broken rotation loud at the sender instead of invisible; the request is rejected with
- * a 500 rather than signed with a key the operator did not choose. BACKLOG.md CR29 step 1.
+ * Two fail-closed decisions, both BACKLOG.md CR29, both about one trap — the sender used to
+ * sign with `SHARED_SECRET` and send no `x-key-id`, which the receiver accepted as
+ * legacy-signed. A downgrade therefore succeeded on the wire and nothing failed anywhere.
+ * - Step 1: `ACTIVE_KEY_ID` set but unresolvable stopped falling back. A typo in the key id
+ *   had been silently signing every request with the un-rotatable legacy credential, marked
+ *   only by a `console.warn`.
+ * - Step 2: `ACTIVE_KEY_ID` **unset** is now a miss too. It used to be a supported staging
+ *   configuration — bind `SIGNING_KEYS`, deploy, activate later — but the receiver now
+ *   rejects a request carrying no `x-key-id`, so that config emits requests guaranteed to
+ *   401. Staging is unaffected because it belongs on the *receiver*: add the key to its
+ *   `SIGNING_KEYS` first (the sequence above `forwardToReceiver`), then set both vars here.
+ *
+ * Failing closed is deliberately louder than the 401 it prevents. The receiver's rejection is
+ * byte-identical to a forged signature — that indistinguishability is intentional, so key ids
+ * cannot be enumerated — which means a keyless deploy would surface as an apparent attack on
+ * production rather than as the misconfiguration it is.
  */
 export function resolveOutboundSigningKey(env: Env): OutboundSigningKey {
-  if (!env.ACTIVE_KEY_ID) return { secret: env.SHARED_SECRET, keyId: undefined };
+  if (!env.ACTIVE_KEY_ID) {
+    console.error('[resolveOutboundSigningKey] ACTIVE_KEY_ID is not set, so no key id can be sent; the receiver rejects keyless requests');
+    return { secret: null, keyId: undefined, miss: "active_key_id_unset" };
+  }
 
   if (!env.SIGNING_KEYS) {
     console.error(`[resolveOutboundSigningKey] ACTIVE_KEY_ID "${env.ACTIVE_KEY_ID}" is set but SIGNING_KEYS is not bound`);

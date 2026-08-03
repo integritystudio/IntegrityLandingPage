@@ -263,7 +263,9 @@ The sender normalizes the payload (applies `tier` default, strips unknown fields
 
 ### HMAC signing
 
-`x-signature = HMAC-SHA256(SHARED_SECRET, "{x-timestamp}.{normalizedBody}")` as hex.
+`x-signature = HMAC-SHA256(SIGNING_KEYS[ACTIVE_KEY_ID], "{x-timestamp}.{normalizedBody}")` as hex,
+sent alongside `x-key-id: {ACTIVE_KEY_ID}`. The receiver resolves the id against its own
+`SIGNING_KEYS` and rejects a request that omits the header — there is no keyless fallback.
 
 ---
 
@@ -376,7 +378,7 @@ Response: `{ token: /^obtk_[0-9a-f]{64}$/, keyId, prefix, tier }`
 | Condition | Response |
 |-----------|----------|
 | `RECEIVER` service binding missing | 500 `INTERNAL_ERROR` ("RECEIVER service binding not configured") |
-| `SHARED_SECRET` missing | 500 `INTERNAL_ERROR` |
+| Signing key unresolvable (`ACTIVE_KEY_ID` unset, `SIGNING_KEYS` unset/malformed, or unknown id) | 500 `SIGNING_KEY_UNRESOLVED`, request **not** forwarded |
 | `SendRequestSchema` fails | 400/401 field-specific |
 | `env.RECEIVER.fetch` `TypeError` (binding unreachable) | 502 "receiver-worker unreachable" |
 | Other thrown error | 500 "send failed" |

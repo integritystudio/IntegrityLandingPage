@@ -500,6 +500,21 @@ describe("POST /send — valid provision_api_key", () => {
     });
     expect(res.status).toBe(200);
   });
+
+  // CR29 step 2: the real receiver 401s a request with no x-key-id, and its rejection is
+  // byte-identical to a forged signature — so a header that silently went missing would look
+  // like an attack, not a bug. Asserted here rather than only in the unit tests because this
+  // runs in workerd: it proves the header survives the actual service-binding subrequest.
+  it("sends x-key-id on the forwarded request", async () => {
+    const res = await SELF.fetch("https://worker.test/send", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(validSendPayload),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json() as { keyId: string | null };
+    expect(body.keyId).toBe("v2");
+  });
 });
 
 describe("POST /send — validation", () => {

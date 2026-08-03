@@ -71,7 +71,8 @@ Flutter never holds the inter-service shared secret. The browser/mobile client c
                │
                ▼ (api-provisioning-receiver)
 ┌─────────────────────────────────────────────────────────────────┐
-│ 1. Validate signature using SHARED_SECRET (constant-time)        │
+│ 1. Resolve x-key-id -> SIGNING_KEYS entry (required; no fallback)│
+│    then validate signature with it (constant-time)               │
 │ 2. Validate timestamp (prevent replay attacks)                   │
 │ 3. Validate JWT via Auth0 /userinfo                              │
 │ 4. Dispatch to handler (provision-api-key)                       │
@@ -367,9 +368,9 @@ flutter build web
 
 | Concern | Approach |
 |---------|----------|
-| Inter-service auth | HMAC-SHA256 signature (Workers only); rotation via `SIGNING_KEYS`/`ACTIVE_KEY_ID`/`x-key-id` |
+| Inter-service auth | HMAC-SHA256 signature (Workers only); keyed by `SIGNING_KEYS`/`ACTIVE_KEY_ID`/`x-key-id`, which is required — no keyless fallback |
 | Replay protection | `x-timestamp` header, 5-minute window |
-| Secret storage | Wrangler secrets / Doppler (`SHARED_SECRET`), never in Flutter |
+| Secret storage | Wrangler secrets / Doppler (`SIGNING_KEYS` + `ACTIVE_KEY_ID`), never in Flutter |
 | Client auth | None required (Sender Worker is the trust boundary) |
 | CORS | Sender Worker validates `Origin` against `ALLOWED_ORIGINS_JSON` |
 

@@ -30,17 +30,25 @@ const COMPATIBILITY_FLAGS = ["nodejs_compat"];
 
 const RECEIVER_STUB_NAME = "receiver-stub";
 
+/** The active key id and its secret. `/send` cannot sign without both (CR29 step 2). */
+const E2E_KEY_ID = "v2";
+const E2E_SIGNING_KEYS = JSON.stringify({ [E2E_KEY_ID]: "e2e-rotated-secret-v2" });
+
 /**
  * `fetchMock` intercepts global fetch, not service bindings, so `/send`'s
  * RECEIVER hop needs a real worker to talk to. This stub echoes the request
  * body back as `{ ok: true, received: body }`, which is the contract the
  * suite's `/send` cases assert against.
+ *
+ * It also echoes `x-key-id`, so the suite can assert the header reaches the wire in the real
+ * workerd runtime — the unit tests only see the object handed to a mocked `fetch`. The stub
+ * verifies no signature (it has no key), so a missing header would otherwise pass here.
  */
 const RECEIVER_STUB_SCRIPT = `
 export default {
   async fetch(request) {
     const received = await request.json().catch(() => ({}));
-    return Response.json({ ok: true, received });
+    return Response.json({ ok: true, received, keyId: request.headers.get("x-key-id") });
   },
 };
 `;
@@ -53,7 +61,12 @@ export default defineConfig({
         compatibilityDate: COMPATIBILITY_DATE,
         compatibilityFlags: COMPATIBILITY_FLAGS,
         bindings: {
+          // Bound but never read — nothing falls back to it since CR29 step 2. Kept, and kept
+          // different from the SIGNING_KEYS entry, so the suite runs against production's actual
+          // configuration rather than one where the legacy credential is simply absent.
           SHARED_SECRET: "e2e-shared-secret",
+          SIGNING_KEYS: E2E_SIGNING_KEYS,
+          ACTIVE_KEY_ID: E2E_KEY_ID,
           AUTH0_DOMAIN: E2E_AUTH0_DOMAIN,
           AUTH0_CLIENT_ID: "e2e-auth0-client-id",
           AUTH0_CLIENT_SECRET: "e2e-auth0-client-secret",

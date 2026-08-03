@@ -3,7 +3,7 @@
 **Last Updated:** 2026-07-31 (rotation procedure rewritten — correct `SIGNING_KEYS` wire format, receiver-first ordering, split into Procedure A/B; see [CR29](BACKLOG.md#cr29))
 **Version:** 2.1
 
-This guide covers `SHARED_SECRET` generation, Flutter app configuration, the implementation/security reference, and troubleshooting for the API provisioning **sender worker**.
+This guide covers HMAC signing-key generation (`SIGNING_KEYS` + `ACTIVE_KEY_ID`, and the legacy `SHARED_SECRET`), Flutter app configuration, the implementation/security reference, and troubleshooting for the API provisioning **sender worker**.
 
 > ℹ️ **Scope note.** The production receiver is **`api-provisioning-receiver`**, which lives in the separate `observability-toolkit` repo and is reached by `sender-worker` via a **service binding** (`service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`), not a URL. The live sender is `sender-worker.alyshia-b38.workers.dev` (no custom worker domains exist). Earlier sections describing a deployable in-repo `receiver-worker`, `RECEIVER_WORKER_URL`, `*.integritystudio.ai` worker hostnames, and `--env staging` deploys described a retired HTTP-based wiring and were removed (consolidated 2026-06-27, `docs/BACKLOG.md` W03). This guide predates the Auth0 ROPC + Supabase flow, so it does **not** cover the required `AUTH0_*` / `SUPABASE_*` sender secrets — see `workers/sender-worker/wrangler.toml` for the current secret list, and the `observability-toolkit` repo for receiver setup.
 
@@ -28,10 +28,11 @@ This guide covers `SHARED_SECRET` generation, Flutter app configuration, the imp
 
 ## Step 1: Generate Secrets
 
-Generate a cryptographically secure shared secret for HMAC signing:
+Generate a cryptographically secure signing key for HMAC:
 
 ```bash
-# Generate a new SHARED_SECRET (use the same value for both workers in same environment)
+# Generate a new signing key -- the same value goes in BOTH workers' SIGNING_KEYS
+# under the same key id, e.g. {"v3": "<value>"}
 openssl rand -base64 32
 # Output: AbCdEfGhIjKlMnOpQrStUvWxYz1234567890+/=
 
@@ -40,7 +41,9 @@ openssl rand -base64 32
 # - Production: Doppler (integrity-studio/prd)
 ```
 
-**Important:** The same `SHARED_SECRET` must be set on both `sender-worker` and `api-provisioning-receiver` for a given environment. Key rotation is also supported via `SIGNING_KEYS` + `ACTIVE_KEY_ID` with an `x-key-id` header — see `workers/sender-worker/src/utils.ts` and the receiver's `resolveSigningKey`. Rotation cadence/policy is tracked as W05 in `docs/BACKLOG.md`.
+**Important — provision `SIGNING_KEYS` + `ACTIVE_KEY_ID`, not `SHARED_SECRET`, for anything new.** The keyed path is the production path: the sender signs with `SIGNING_KEYS[ACTIVE_KEY_ID]` and sends `x-key-id`, and the receiver resolves the matching entry (`workers/sender-worker/src/utils.ts` `resolveOutboundSigningKey`, receiver `resolveSigningKey`). Both sides need the same id → secret pair; `SIGNING_KEYS` is a JSON object, format detailed under Rotation Procedure below.
+
+`SHARED_SECRET` still has to match on both workers **for the deployed receiver only**. CR29 step 2 (2026-08-02, unshipped) removed the keyless fallback, so once it ships the receiver reads `SIGNING_KEYS` alone and this secret authenticates nothing. Rotation cadence/policy is tracked as W05 in `docs/BACKLOG.md`.
 
 ---
 
@@ -90,8 +93,10 @@ SignupPage (/signup?tier=starter)
         └─ ProvisionPage: AuthStorage.saveJwt(jwt)
         └─ POST /send (sender-worker)
               ├─ validates SendRequestSchema {action, jwt, name, email, tier}
-              ├─ HMAC-SHA256 signs {x-timestamp}.{body} with SHARED_SECRET
-              └─ POST api-provisioning-receiver /inbox (via service binding)
+              ├─ HMAC-SHA256 signs {x-timestamp}.{body} with SIGNING_KEYS[ACTIVE_KEY_ID]
+              │    (500 SIGNING_KEY_UNRESOLVED, forwarding nothing, if that does not resolve)
+              └─ POST api-provisioning-receiver /inbox (via service binding), sending x-key-id
+                    ├─ resolves x-key-id → SIGNING_KEYS entry; no key id = 401, no fallback
                     ├─ verifies x-timestamp (±5 min) + x-signature constant-time
                     ├─ Auth0 /userinfo (validates JWT live)
                     ├─ Supabase GET /rest/v1/users?auth0_id=eq.{sub} → Supabase UUID
@@ -154,9 +159,14 @@ SignupPage (/signup?tier=enterprise)
 
 ### Development (Local)
 ```
-.env.local (git-ignored)
-└── SHARED_SECRET: test-secret-key-12345
+.env.local (git-ignored) -- template at workers/sender-worker/.env.example
+├── SIGNING_KEYS: {"v2":"test-secret-key-12345"}
+├── ACTIVE_KEY_ID: v2
+└── SHARED_SECRET: test-secret-key-12345   # not read; present only to mirror production
 
+# Both signing vars are required: ACTIVE_KEY_ID is sent as x-key-id and the receiver
+# rejects a request without it, so an unset pair means /send returns 500 and forwards
+# nothing (CR29 steps 1-2).
 # For local stub testing, run workers/receiver-worker/ separately (see its README).
 # The production sender reaches the receiver via the RECEIVER service binding.
 ```
@@ -164,8 +174,13 @@ SignupPage (/signup?tier=enterprise)
 ### Production
 ```
 Cloudflare Secrets (via Doppler integrity-studio/prd):
-├── sender-worker (this repo):                                 SHARED_SECRET
-└── api-provisioning-receiver (observability-toolkit repo):    SHARED_SECRET (MUST match)
+├── sender-worker (this repo):                                 SIGNING_KEYS + ACTIVE_KEY_ID (v2), SHARED_SECRET
+└── api-provisioning-receiver (observability-toolkit repo):    SIGNING_KEYS (MUST contain the same id → secret),
+                                                              KEY_ROTATION_DATES, SHARED_SECRET
+
+# SHARED_SECRET is listed last on purpose: it is the legacy credential. The deployed
+# receiver still accepts it (keyless), so it must still match; CR29 step 2 removes that
+# and step 3 unbinds it. Nothing new should be wired to it.
 
 sender-worker/wrangler.toml:
 ├── [[services]] binding = "RECEIVER", service = "api-provisioning-receiver"
@@ -182,7 +197,8 @@ sender-worker/wrangler.toml:
 
 | Secret family | Doppler `prd` holds | Bound to Worker via |
 |---|---|---|
-| `SHARED_SECRET` (HMAC signing) | ✅ canonical | `wrangler secret put` at deploy time |
+| `SIGNING_KEYS` + `ACTIVE_KEY_ID` (HMAC signing) | ✅ canonical | `wrangler secret put` at deploy time; `ACTIVE_KEY_ID` on the sender only |
+| `SHARED_SECRET` (legacy HMAC) | ✅ canonical | `wrangler secret put`; accepted by the **deployed** receiver only — CR29 step 3 unbinds it |
 | `KEY_ROTATION_DATES` (rotation alerting) | ✅ canonical | `wrangler secret put` on `api-provisioning-receiver` |
 | Auth0 credentials | ✅ canonical | `wrangler secret put` |
 | Supabase credentials | ✅ canonical | `wrangler secret put` |
@@ -217,7 +233,9 @@ Never use `doppler run` for verification — it can serve a stale value from `~/
 
 **Current production state: multi-key, provisioned 2026-07-30 — and the legacy key is still live alongside it.** `sender-worker` binds `SIGNING_KEYS` + `ACTIVE_KEY_ID` (key id `v2`) and `api-provisioning-receiver` binds a matching `SIGNING_KEYS`; `resolveOutboundSigningKey` (`workers/sender-worker/src/utils.ts`) prefers the rotated key and sends `x-key-id: v2`. Verified by a live signed round-trip, not from the binding list.
 
-> 🔴 **`SHARED_SECRET` is still accepted, and no rotation below retires it.** The receiver resolves an **absent** `x-key-id` to `SHARED_SECRET` (`if (keyId === undefined) return env.SHARED_SECRET`), so it is a second valid credential that sits outside the key-id mechanism — measured against production `POST /inbox` with controls: `v2` + key id → 200, `SHARED_SECRET` + **no** key id → **200**, garbage → 401. Consequences for everything in this section: rotating `SHARED_SECRET` (steps 1–5) leaves `v2` untouched and vice versa, and **removing a key entry from `SIGNING_KEYS` cannot revoke `SHARED_SECRET`, because that key has no id to remove.** Retiring it requires a receiver change plus an unbind, tracked as [BACKLOG.md CR29](BACKLOG.md#cr29). Until that lands, treat every rotation here as adding a key, never as retiring one.
+> 🔴 **`SHARED_SECRET` is still accepted *in production*, and no rotation below retires it.** The deployed receiver resolves an **absent** `x-key-id` to `SHARED_SECRET`, so it is a second valid credential sitting outside the key-id mechanism — measured against production `POST /inbox` with controls: `v2` + key id → 200, `SHARED_SECRET` + **no** key id → **200**, garbage → 401. Consequences while that is live: rotating `SHARED_SECRET` (Procedure B) leaves `v2` untouched and vice versa, and **removing a key entry from `SIGNING_KEYS` cannot revoke `SHARED_SECRET`, because that key has no id to remove.**
+>
+> ✅ **Fixed in code, not yet deployed** ([BACKLOG.md CR29](BACKLOG.md#cr29) step 2, 2026-08-02). `resolveSigningKey` now returns no secret for an absent header (`miss: "missing_key_id"`) and `/inbox` answers `401`, so `SIGNING_KEYS` is the sole authority and dropping an id from it really revokes. Two caveats: **the measurements above still describe the live receiver** until it ships, and even after it ships `SHARED_SECRET` is only *unread*, not revoked — unbinding it is step 3, gated on `auth.key_unresolved{miss:"missing_key_id"}` staying at zero in deployed traffic. Deploy the **sender** first: it is the side that fails loudly (`500 SIGNING_KEY_UNRESOLVED`, forwarding nothing) where a receiver-first order turns any keyless caller into an ambiguous 401.
 
 #### `SIGNING_KEYS` wire format — get this right first
 
@@ -228,7 +246,9 @@ Never use `doppler run` for verification — it can serve a stale value from `~/
 [{"id": "v2", "secret": "..."}]                       // ❌ parses, resolves to nothing
 ```
 
-> ⚠️ **This document described the wrong format until 2026-07-31** ("JSON array of `{id, secret}`"). Anyone who provisioned from the old text should re-check the live value, because **the array form fails silently in the worst possible direction**: it is valid JSON, so `keys[ACTIVE_KEY_ID]` is simply `undefined`, and the sender then **falls back to `SHARED_SECRET` with no `x-key-id`** behind nothing but a `console.warn` — a green `/send` throughout. On the receiver the same value 401s any key-id'd request. This is the concrete mechanism behind [CR29](BACKLOG.md#cr29).
+> ⚠️ **This document described the wrong format until 2026-07-31** ("JSON array of `{id, secret}`"). Anyone who provisioned from the old text should re-check the live value: the array form is valid JSON, so `keys[ACTIVE_KEY_ID]` is simply `undefined`, and on the receiver the same value 401s any key-id'd request.
+>
+> ✅ **The silent-downgrade half of this is fixed** ([CR29](BACKLOG.md#cr29) step 1, 2026-08-02, unshipped). It used to fail in the worst possible direction — the sender fell back to `SHARED_SECRET` with no `x-key-id` behind nothing but a `console.warn`, so `/send` stayed green while signing with the credential the rotation was meant to replace. `resolveOutboundSigningKey` now returns no secret on all four misses (`active_key_id_unset`, `signing_keys_unset`, `signing_keys_malformed`, `unknown_active_key_id`) and `/send` returns `500 SIGNING_KEY_UNRESOLVED` **without forwarding**. A malformed `SIGNING_KEYS` is therefore now an outage rather than a downgrade — still worth catching with the pre-flight below.
 
 #### Procedure A — rotate a key-id'd key (the standard path)
 
@@ -255,13 +275,13 @@ Use this for scheduled rotation. **Deploy the receiver first**; the sequence is 
    });' "$AK"
    ```
 
-   Exits non-zero on every failure mode, so it is safe to chain with `&&` before a deploy. `resolves=false` means the sender will sign with `SHARED_SECRET` and omit `x-key-id` — fix before deploying, because nothing downstream will complain.
+   Exits non-zero on every failure mode, so it is safe to chain with `&&` before a deploy. `resolves=false` means **`/send` will return `500 SIGNING_KEY_UNRESOLVED` and forward nothing** — fix before deploying. (Before CR29 step 1 the same state silently signed with `SHARED_SECRET` and omitted `x-key-id`, which is why this pre-flight exists: nothing downstream complained.)
 5. Verify, then remove the old id from both `SIGNING_KEYS` — receiver last this time, so no in-flight request loses its key.
 6. Update `KEY_ROTATION_DATES` (see below).
 
-#### Procedure B — rotate `SHARED_SECRET` (legacy path, still live)
+#### Procedure B — rotate `SHARED_SECRET` (legacy path, live in production only)
 
-Needed only because the credential remains accepted; see the CR29 warning above. Prefer Procedure A for routine rotation.
+⚠️ **This procedure describes a path that no longer exists in code.** CR29 step 2 made `SIGNING_KEYS` the sole authority, so once the receiver ships, rotating `SHARED_SECRET` changes nothing that any request touches — and the step-5 verification below (sign `/inbox` with **no** `x-key-id`, expect success) will correctly return `401`. It is kept only because the *deployed* receiver still accepts the credential, which makes this the emergency path until the fix ships: if `SHARED_SECRET` is disclosed before then, rotating it is the mitigation. After the deploy the correct response is CR29 step 3 — unbind it — not a rotation. Prefer Procedure A in every other case.
 
 1. Generate a new value: `openssl rand -base64 32`
 2. Store in Doppler `prd` as `SHARED_SECRET`.
@@ -292,15 +312,17 @@ KRD=$(doppler secrets get KEY_ROTATION_DATES --project integrity-studio --config
 printf '%s' "$KRD" | npx wrangler secret put KEY_ROTATION_DATES --name api-provisioning-receiver
 ```
 
-Track **every** live key, one entry per id plus `SHARED_SECRET` while it exists. Set only the date of the key you actually rotated; carry the others forward unchanged.
+Track **every** live key, one entry per id. Set only the date of the key you actually rotated; carry the others forward unchanged.
+
+⚠️ **Drop the `"SHARED_SECRET"` entry when the CR29 step-2 receiver ships.** The key is unread from that point, so the entry alerts on the age of a credential no code path can use — and once step 3 unbinds it, on one that is not even bound. The example above keeps it because it matches what is live today.
 
 > ⚠️ **The previous version of this step used `doppler run … -- sh -c 'echo "$KEY_ROTATION_DATES" | wrangler secret put …'`, which contradicts the rule four paragraphs above** — `doppler run` can inject a stale value from `~/.doppler/fallback/`, so the value written to the Worker need not be the value just set. Replaced with `secrets get --plain` piped through `printf`. (The `echo` was harmless *here* — `JSON.parse` tolerates a trailing newline — but it is the wrong habit for any secret that is not JSON.)
 
 > ⚠️ **Whether a `v2` entry was ever added is still unverified — but narrowed.** The old text only said to add per-key-id entries "if `SIGNING_KEYS` is later provisioned", and it has been since 2026-07-30. **The variable itself is bound** on `api-provisioning-receiver` (confirmed 2026-07-31 by reading the version's binding names — see the CLAUDE.md deployment-history note for the method), so the cron can read it and the alert is not simply dead. What cannot be read from here is the *contents*: secret values are write-only, so a missing `v2` entry is indistinguishable from a present one without receiver-side code or a log line. Check there rather than assuming — a missing entry exempts the **active** key from the 90-day alert while still alerting on the legacy one, which is the failure mode that looks most like success.
 
-> ⚠️ **A green Sentry state means "a date was updated", not "old keys are dead".** The alert measures the age of a string in this JSON blob. Per the CR29 warning, a `SHARED_SECRET` rotation does not retire its predecessor and a `SIGNING_KEYS` rotation does not touch `SHARED_SECRET` at all, so refreshing a date can silence the alert without changing the risk.
+> ⚠️ **A green Sentry state means "a date was updated", not "old keys are dead".** The alert measures the age of a string in this JSON blob, so refreshing a date silences it whether or not the superseded credential was retired. Only Procedure A step 5 — removing the id from `SIGNING_KEYS` on both sides — revokes anything.
 
-**Procedure A step 5 is the only revocation these mechanisms offer, and it does not reach `SHARED_SECRET`.** Until [CR29](BACKLOG.md#cr29) closes, a completed rotation means "the previous *key-id'd* credential is dead", not "the previous credential is dead".
+**Procedure A step 5 is the only revocation these mechanisms offer, and against the deployed receiver it does not reach `SHARED_SECRET`.** With CR29 step 2 shipped it becomes a real revocation, because every accepted credential then has an id to remove; until then, a completed rotation means "the previous *key-id'd* credential is dead", not "the previous credential is dead". `SHARED_SECRET` itself is retired by an unbind ([CR29](BACKLOG.md#cr29) step 3), never by a rotation.
 
 ### Rotation Cadence
 
@@ -308,7 +330,7 @@ No fixed cadence is enforced. Priorities:
 
 1. **Immediate** if: a Doppler token leaks, a Worker version with stale code is found carrying live secrets (CR14), or `doppler.json` history-scrub (CR01) is blocked.
 2. ~~**Opportunistic** when provisioning `SIGNING_KEYS`~~ — done 2026-07-30; the zero-downtime path is available now.
-3. **Quarterly.** CR01's history scrub is complete and `SIGNING_KEYS` is provisioned, so both preconditions are met. ⚠️ **A quarterly rotation is not yet a quarterly revocation** — while [CR29](BACKLOG.md#cr29) is open, each cycle adds a key and retires only the previous key-id'd one, leaving `SHARED_SECRET` valid indefinitely. Close CR29 before treating the cadence as a control.
+3. **Quarterly.** CR01's history scrub is complete and `SIGNING_KEYS` is provisioned, so both preconditions are met. ⚠️ **A quarterly rotation is not yet a quarterly revocation** — against the deployed receiver each cycle adds a key and retires only the previous key-id'd one, leaving `SHARED_SECRET` valid indefinitely. [CR29](BACKLOG.md#cr29) step 2 fixes that in code but is unshipped; the cadence becomes a real control once the receiver ships and step 3 unbinds the legacy secret.
 
 ---
 
@@ -348,6 +370,7 @@ No fixed cadence is enforced. Priorities:
 - ✅ HTTPS-only (enforced by Cloudflare)
 - ✅ Content-Type validation (`application/json`)
 - ✅ Secret rotation mechanism shipped (`SIGNING_KEYS`/`ACTIVE_KEY_ID`/`x-key-id`); cadence/policy tracked as W05
+- ⚠️ **Rotation is not yet a revocation in production** — the deployed receiver accepts a keyless signature, so `SHARED_SECRET` has no rotation handle. Fixed in code, unshipped ([CR29](BACKLOG.md#cr29) steps 1–2); the sender now also fails closed rather than downgrading
 - ⚠️ Monitoring and alerting — tracked as W04 in `docs/BACKLOG.md`
 
 ---
@@ -356,11 +379,14 @@ No fixed cadence is enforced. Priorities:
 
 **1. Signature Mismatch (401 invalid signature)**
 ```
-Cause: SHARED_SECRET differs between sender and receiver
-Fix: Verify secrets are identical on both workers
+Cause: the sender's SIGNING_KEYS[ACTIVE_KEY_ID] does not match the receiver's
+       SIGNING_KEYS entry for that same id -- or the receiver has no entry for it
+Fix: Verify both sides hold the same id -> secret pair
   wrangler secret list (shows secret names, not values)
-  Regenerate and re-set both with same value
+  Run the Procedure A step-4 pre-flight to confirm ACTIVE_KEY_ID resolves
+  Receiver first when adding a key, receiver last when removing one
 ```
+⚠️ **The same 401 covers an absent, empty, or unknown `x-key-id`** — deliberately byte-identical so key ids cannot be enumerated. Removing the header is not a workaround; there is no fallback credential. Sentry's `auth.key_unresolved` + `miss` is the only thing that distinguishes the cause. (Against the **deployed** receiver a keyless request still succeeds instead — CR29 step 2 is unshipped.)
 
 **2. Stale Timestamp (401 stale or invalid timestamp)**
 ```
