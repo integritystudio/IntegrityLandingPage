@@ -139,57 +139,9 @@ alter table public.plans enable row level security;
 alter table public.subscriptions enable row level security;
 alter table public.entitlements enable row level security;
 
--- RLS Policy: Users can view their organization memberships
-create policy "users_view_own_memberships"
-  on public.organization_memberships for select
-  using (
-    user_id in (
-      select app_user_id from public.auth_user_links
-      where auth_user_id = auth.uid()
-    )
-  );
 
--- RLS Policy: Users can view organizations they belong to
-create policy "users_view_member_orgs"
-  on public.organizations for select
-  using (
-    exists (
-      select 1
-      from public.organization_memberships m
-      join public.auth_user_links ual on m.user_id = ual.app_user_id
-      where m.organization_id = public.organizations.id
-        and ual.auth_user_id = auth.uid()
-        and m.status = 'active'
-    )
-  );
 
--- RLS Policy: Users can view entitlements for their orgs
-create policy "users_view_org_entitlements"
-  on public.entitlements for select
-  using (
-    exists (
-      select 1
-      from public.organization_memberships m
-      join public.auth_user_links ual on m.user_id = ual.app_user_id
-      where m.organization_id = public.entitlements.organization_id
-        and ual.auth_user_id = auth.uid()
-        and m.status = 'active'
-    )
-  );
 
--- RLS Policy: Users can view subscriptions for their orgs
-create policy "users_view_org_subscriptions"
-  on public.subscriptions for select
-  using (
-    exists (
-      select 1
-      from public.organization_memberships m
-      join public.auth_user_links ual on m.user_id = ual.app_user_id
-      where m.organization_id = public.subscriptions.organization_id
-        and ual.auth_user_id = auth.uid()
-        and m.status = 'active'
-    )
-  );
 
 -- RLS Policy: Plans are publicly readable (reference data)
 create policy "plans_public_read"
@@ -202,11 +154,12 @@ update public.roles
   where name = 'executive'
     and not (permissions @> '["dashboard.read"]'::jsonb);
 
--- Integration: Verify auth_user_links structure
-alter table public.auth_user_links enable row level security;
 
--- RLS Policy: Users can view their own auth_user_link
-drop policy if exists "users_view_own_auth_link" on public.auth_user_links;
-create policy "users_view_own_auth_link"
-  on public.auth_user_links for select
-  using (auth.uid() = auth_user_id);
+
+-- NOTE (CR30, 2026-08-03): five RLS policies and the `enable row level
+-- security` on public.auth_user_links were moved OUT of this file to
+-- 20260803010000_phase1_policies_requiring_auth_user_links.sql. Every one of
+-- them reads public.auth_user_links, which 20260320005000 creates AFTER this
+-- migration -- so replaying the ledger onto an empty database died here. They
+-- sort last now because they also touch entitlements and subscriptions.
+-- Production is unaffected: this migration is already applied and never re-runs.
