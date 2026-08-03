@@ -13,11 +13,11 @@
     "test:live": "doppler run --project integrity-studio --config dev -- vitest run --config vitest.live.config.ts"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241205.0",
-    "@vitest/coverage-v8": "^4.1.2",
-    "typescript": "^5.3.3",
-    "vitest": "^4.1.2",
-    "wrangler": "^4.79.0"
+    "@cloudflare/workers-types": "^5.20260801.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.118.0"
   },
   "optionalDependencies": {
     "@rollup/rollup-darwin-arm64": "^4.55.1"
