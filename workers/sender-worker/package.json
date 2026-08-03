@@ -27,5 +27,10 @@
   "dependencies": {
     "jose": "^6.2.7",
     "zod": "^4.4.3"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "fsevents": true,
+    "workerd": true
   }
 }

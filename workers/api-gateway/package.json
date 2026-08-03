@@ -23,5 +23,10 @@
   },
   "dependencies": {
     "stripe": "^20.4.1"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "fsevents": true,
+    "workerd": true
   }
 }

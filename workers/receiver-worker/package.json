@@ -19,5 +19,10 @@
   },
   "optionalDependencies": {
     "@rollup/rollup-darwin-arm64": "^4.55.1"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "fsevents": true,
+    "workerd": true
   }
 }
