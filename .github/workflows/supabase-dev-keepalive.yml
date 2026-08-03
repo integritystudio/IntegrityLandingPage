@@ -1,0 +1,48 @@
+# Keep the dev Supabase project (tumhmtshahktumhqqamk / integritystudio-dev)
+# from free-tier pausing. Free projects pause after ~7 days without activity —
+# exactly why the org's previous second project (atx_movement) sat INACTIVE —
+# and a paused project fails CI and the CR30 replay work that targets it.
+# Pinging twice a week keeps a >3-day margin inside the ~7-day window.
+#
+# The query hits PostgREST (`plans`, readable by anon via plans_public_read and
+# seeded by the migrations), so it executes real SQL against the database —
+# not just an edge cache hit.
+#
+# The hardcoded key is the project's PUBLISHABLE (anon-class) key. That class
+# is public by design — it is what browsers ship — and RLS is enabled on every
+# table, so it grants nothing beyond public-read policies on an empty dev
+# database. Hardcoding it removes any dependency on Doppler token scopes and
+# keeps this workflow secret-free. Do NOT "upgrade" it to a secret-class key.
+#
+# Two ways this silently stops working, both visible as red runs or absence:
+#   * Scheduled workflows run from the DEFAULT branch only — this is inert
+#     until it lands on main.
+#   * GitHub suspends cron workflows after ~60 days without repo activity.
+# A paused project makes the curl fail -> red run is the alarm, by design.
+name: Supabase Dev Keep-Alive
+
+on:
+  schedule:
+    - cron: '17 9 * * 1,4' # Mon + Thu 09:17 UTC
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  ping:
+    name: Ping dev project
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Query dev PostgREST
+        run: |
+          set -euo pipefail
+          URL="https://tumhmtshahktumhqqamk.supabase.co/rest/v1/plans?select=key&limit=1"
+          KEY="sb_publishable_hOzUhtL7Bmc5ynpLQh700Q_juZlJdPl"
+          code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 30 "$URL" -H "apikey: $KEY")
+          echo "HTTP $code: $(cat /tmp/body)"
+          if [ "$code" != "200" ]; then
+            echo "FAIL: dev project did not answer 200 — it may have paused (unpause in the Dashboard) or the key rotated."
+            exit 1
+          fi
