@@ -167,10 +167,18 @@ describe('worker deploy environments (CR02)', () => {
   });
 
   // Every worker that holds secrets in production. Preview URLs publish each retained
-  // version at a public URL with the CURRENT secrets bound, so superseded code stays
-  // callable — verified 2026-07-27, when a 2026-04-20 sender-worker version answered 200
-  // with all 13 secrets, and again 2026-07-29 when 71 superseded versions across
-  // sender-worker and contact-form were found reachable. See BACKLOG.md CR14.
+  // version at a public URL serving the bindings THAT VERSION was uploaded with — a
+  // version is an immutable snapshot of code and bindings, which is why
+  // `wrangler secret put` creates a new one. So superseded code stays callable, and a
+  // later rotation does not reach it. Verified 2026-07-27, when a 2026-04-20
+  // sender-worker version answered 200, and again 2026-07-29 when 71 superseded versions
+  // across sender-worker and contact-form were found reachable. See BACKLOG.md CR14.
+  //
+  // Corrected 2026-08-03: this comment said "with the CURRENT secrets bound" and that the
+  // 2026-04-20 version answered "with all 13 secrets". Both came from the inverted model —
+  // the 13 was the script's live count, never measured on that version, and the current
+  // model says it would have served its own (fewer, older) set. The inversion mattered
+  // because it made rotation look like a remedy; it is not, in either direction.
   //
   // All four are listed deliberately. The list previously held only two, so api-gateway
   // and stripe-webhook were pinned in config but unguarded by any test — a future edit
@@ -181,7 +189,7 @@ describe('worker deploy environments (CR02)', () => {
   it.each(SECRET_BEARING)('%s: disables per-version preview URLs', (worker) => {
     const config = loadConfig(worker);
 
-    expect(config.preview_urls, `${worker} binds secrets; preview URLs would keep superseded versions callable with them`).toBe(false);
+    expect(config.preview_urls, `${worker} binds secrets; preview URLs would keep superseded versions callable with the values they were uploaded with`).toBe(false);
   });
 
   it.each(SECRET_BEARING)('%s: [env.dev] does not re-enable preview URLs', (worker) => {

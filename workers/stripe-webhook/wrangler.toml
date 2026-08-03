@@ -2,10 +2,24 @@ name = "stripe-webhook"
 main = "src/index.ts"
 compatibility_date = "2026-03-19"
 
-# Retained versions are otherwise published at per-version workers.dev URLs with
-# the script's CURRENT secrets bound, so superseded code stays callable. Left
-# unset this defaults to true, which would re-expose the worker on the next
-# deploy even after the live setting is turned off. BACKLOG.md CR14.
+# Retained versions are otherwise published at per-version workers.dev URLs
+# serving the bindings THAT VERSION was uploaded with — a version is an immutable
+# snapshot of code and bindings, which is why `wrangler secret put` creates a new
+# one. So superseded code stays callable, and a later rotation does not reach it:
+# each version keeps serving the credential it was uploaded with. Corrected
+# 2026-08-03 — this read "with the script's CURRENT secrets bound", which
+# inverted the model and made rotation look like a remedy. Left unset the key
+# defaults to true, which would re-expose the worker on the next deploy even
+# after the live setting is turned off.
+#
+# `preview_urls` IS inheritable (unlike bindings), so this one line covers
+# [env.dev] too — no repetition needed below. But a config value only lands on
+# deploy, and `wrangler secret put` applies no wrangler.toml: this line was added
+# 2026-07-29 while stripe-webhook-dev's last CODE deploy was 2026-07-27, so the
+# dev Worker still read `previews_enabled: true` and had one live version holding
+# four secrets. Closed 2026-08-03 by an API flip (with `"enabled":true` preserved,
+# or the workers.dev hostname Stripe's test-mode endpoint delivers to goes down);
+# the next `npm run deploy` makes it stick. BACKLOG.md CR14.
 preview_urls = false
 
 # Stripe webhook secret (set via: wrangler secret put STRIPE_WEBHOOK_SECRET)

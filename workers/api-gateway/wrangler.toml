@@ -2,10 +2,16 @@ name = "api-gateway"
 main = "src/index.ts"
 compatibility_date = "2026-03-19"
 
-# Retained versions are otherwise published at per-version workers.dev URLs with
-# the script's CURRENT secrets bound, so superseded code stays callable. Left
-# unset this defaults to true, which would re-expose the worker on the next
-# deploy even after the live setting is turned off. BACKLOG.md CR14.
+# Retained versions are otherwise published at per-version workers.dev URLs
+# serving the bindings THAT VERSION was uploaded with — a version is an immutable
+# snapshot of code and bindings, which is why `wrangler secret put` creates a new
+# one. So superseded code stays callable, and a later rotation does not reach it:
+# each version keeps serving the credential it was uploaded with. Corrected
+# 2026-08-03 — this read "with the script's CURRENT secrets bound", which
+# inverted the model and made rotation look like a remedy. Left unset the key
+# defaults to true, which would re-expose the worker on the next deploy even
+# after the live setting is turned off; it is inheritable, so this one line also
+# covers [env.dev]. BACKLOG.md CR14.
 preview_urls = false
 
 # `routes` intentionally absent. A routes key here would capture

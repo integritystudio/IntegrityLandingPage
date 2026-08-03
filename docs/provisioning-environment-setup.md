@@ -328,7 +328,8 @@ Track **every** live key, one entry per id. Set only the date of the key you act
 
 No fixed cadence is enforced. Priorities:
 
-1. **Immediate** if: a Doppler token leaks, a Worker version with stale code is found carrying live secrets (CR14), or `doppler.json` history-scrub (CR01) is blocked.
+1. **Immediate** if: a Doppler token leaks, or `doppler.json` history-scrub (CR01) is blocked.
+   - 🔴 **"a Worker version with stale code is found carrying live secrets (CR14)" was listed here and is NOT a rotation trigger — removed 2026-08-03.** Rotating cannot fix it. A Worker version is an immutable snapshot of code **and** bindings, so the stale version keeps serving the credential *it* was uploaded with; the new value never reaches it and the old one stays live at that preview URL. The remedy is to disable preview URLs on the script (`preview_urls = false`, plus the no-deploy API flip — which must pass `"enabled":true` or the `workers.dev` hostname goes down). Prescribing rotation here would have burned a rotation cycle and left the exposure exactly where it was. See [CR14](BACKLOG.md#cr14).
 2. ~~**Opportunistic** when provisioning `SIGNING_KEYS`~~ — done 2026-07-30; the zero-downtime path is available now.
 3. **Quarterly.** CR01's history scrub is complete and `SIGNING_KEYS` is provisioned, so both preconditions are met. ⚠️ **A quarterly rotation is not yet a quarterly revocation** — against the deployed receiver each cycle adds a key and retires only the previous key-id'd one, leaving `SHARED_SECRET` valid indefinitely. [CR29](BACKLOG.md#cr29) step 2 fixes that in code but is unshipped; the cadence becomes a real control once the receiver ships and step 3 unbinds the legacy secret.
 

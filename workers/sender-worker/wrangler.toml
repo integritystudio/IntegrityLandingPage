@@ -4,13 +4,18 @@ compatibility_date = "2026-03-19"
 compatibility_flags = ["nodejs_compat"]
 
 # Disable per-version preview URLs. With them enabled, every retained version
-# gets a public `<version-prefix>-sender-worker.<subdomain>.workers.dev` URL with
-# the CURRENT secrets bound — so superseded code stays callable. Verified
-# 2026-07-27: the 2026-04-20 version answered 200, predating the per-IP auth
-# rate limit (38b2878), the signup compensating rollback (c75592c), and the CORS
-# origin-reflection fix (66f1825). Version IDs leak readily (wrangler prints one
-# on every deploy, and CI logs retain them), so this is not obscurity worth
-# relying on. BACKLOG.md CR14.
+# gets a public `<version-prefix>-sender-worker.<subdomain>.workers.dev` URL
+# serving THAT VERSION'S bindings — a version is an immutable snapshot of code
+# AND bindings, which is why `wrangler secret put` creates a new one. Two
+# consequences: superseded code stays callable, and a later rotation does not
+# reach it, because each version keeps serving the credential it was uploaded
+# with. Corrected 2026-08-03 — this comment read "with the CURRENT secrets
+# bound", which inverted the model and made rotation look like a remedy.
+# Verified 2026-07-27: the 2026-04-20 version answered 200, predating the per-IP
+# auth rate limit (38b2878), the signup compensating rollback (c75592c), and the
+# CORS origin-reflection fix (66f1825). Version IDs leak readily (wrangler prints
+# one on every deploy, and CI logs retain them), so this is not obscurity worth
+# relying on. Inheritable, so this covers [env.dev] too. BACKLOG.md CR14.
 preview_urls = false
 
 [[services]]

@@ -3,8 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
 # No per-version preview URLs: this worker binds CSRF_SECRET and RESEND_API_KEY,
-# and preview URLs would keep superseded versions publicly callable with them.
-# See BACKLOG.md CR14.
+# and preview URLs would keep superseded versions publicly callable with the
+# values those versions were uploaded with — a version snapshots code AND
+# bindings, so rotating either key does not retire it from an already-published
+# version. Inheritable, so this covers [env.dev]. See BACKLOG.md CR14.
 preview_urls = false
 
 [vars]
