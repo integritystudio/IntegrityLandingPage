@@ -145,7 +145,15 @@ class DashboardService {
   static const String _errorBillingAuth = 'Authentication required. Please log in again.';
   static const String _errorBillingForbidden =
       "You don't have permission to manage billing for this organization.";
-  static const String _errorBillingNotFound = 'Organization not found.';
+  // The billing-portal route returns 404 for three distinct conditions, and by far the
+  // most common is "this org has no Stripe customer" — 20 of 22 orgs on 2026-07-31. The
+  // previous copy, 'Organization not found.', told an owner looking at their own
+  // organization that it did not exist. The CTA is now gated on `hasBillingAccount`, so
+  // reaching this at all means the state changed underneath an open page.
+  static const String _errorBillingNotFound =
+      'No billing account found for this organization.';
+  static const String _errorCheckoutAlreadyBilled =
+      'This organization already has a billing account. Refresh to manage it.';
   // Max retry attempts (2 retries = 3 total attempts: initial + 2 retries)
   static const int _maxRetries = 2;
 
@@ -561,10 +569,103 @@ class DashboardService {
     return const BillingPortalError(error: _errorUnexpected);
   }
 
+  /// Calls POST /v1/orgs/:orgId/checkout-session to start a Stripe Checkout
+  /// session for [plan]. Requires owner or billing_admin role.
+  ///
+  /// Deliberately routed through api-gateway rather than the sender-worker's
+  /// `/create-checkout-session`, which takes only an email and resolves the
+  /// organization itself — for a user in more than one org that resolves to their
+  /// default org, not the one whose billing page they are on. Passing [orgId] is
+  /// what keeps the resulting subscription attached to the org being upgraded.
+  static Future<BillingPortalResponse> createCheckoutSession({
+    required String orgId,
+    required String jwt,
+    required String plan,
+  }) async {
+    if (orgId.isEmpty || orgId.contains(RegExp(r'[/?#%]'))) {
+      return const BillingPortalError(error: _errorUnexpected);
+    }
+    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
+      try {
+        final response = await _dio.post(
+          '$_apiGatewayUrl/v1/orgs/$orgId/checkout-session',
+          data: {'plan': plan},
+          options: Options(
+            headers: {'Authorization': 'Bearer $jwt'},
+            validateStatus: (status) => status != null,
+          ),
+        );
+
+        final data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : const <String, dynamic>{};
+
+        if (response.statusCode == HttpStatus.internalServerError.code ||
+            response.statusCode == HttpStatus.serviceUnavailable.code ||
+            response.statusCode == HttpStatus.gatewayTimeout.code) {
+          if (attempt < _maxRetries) {
+            await retryDelay(Duration(seconds: 1 << attempt));
+            continue;
+          }
+          return const BillingPortalError(error: _errorServer);
+        }
+
+        if (response.statusCode == HttpStatus.ok.code) {
+          final url = data['url'] as String?;
+          if (url == null || url.isEmpty) {
+            return const BillingPortalError(error: _errorUnexpected);
+          }
+          return BillingPortalSuccess(url: url);
+        }
+
+        return BillingPortalError(
+          error: _checkoutSessionErrorMessage(response.statusCode),
+        );
+      } on DioException catch (e) {
+        final isRetryable =
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+
+        if (isRetryable && attempt < _maxRetries) {
+          await retryDelay(Duration(seconds: 1 << attempt));
+          continue;
+        }
+
+        await ErrorTrackingService.captureException(
+          e,
+          stackTrace: e.stackTrace,
+          context: 'DashboardService.createCheckoutSession',
+          extra: {'orgId': orgId, 'plan': plan, 'attempt': attempt + 1},
+        );
+
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          return const BillingPortalError(error: _errorTimeout);
+        }
+        return const BillingPortalError(error: _errorNetwork);
+      } catch (e, stackTrace) {
+        await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+        return const BillingPortalError(error: _errorUnexpected);
+      }
+    }
+
+    return const BillingPortalError(error: _errorUnexpected);
+  }
+
   static String _billingPortalErrorMessage(int? statusCode) {
     if (statusCode == HttpStatus.unauthorized.code) return _errorBillingAuth;
     if (statusCode == HttpStatus.forbidden.code) return _errorBillingForbidden;
     if (statusCode == HttpStatus.notFound.code) return _errorBillingNotFound;
+    return _errorUnexpected;
+  }
+
+  static String _checkoutSessionErrorMessage(int? statusCode) {
+    if (statusCode == HttpStatus.unauthorized.code) return _errorBillingAuth;
+    if (statusCode == HttpStatus.forbidden.code) return _errorBillingForbidden;
+    // 409 means a Stripe customer appeared since the page loaded — the org now has a
+    // billing account, so the portal is the right destination rather than checkout.
+    if (statusCode == HttpStatus.conflict.code) return _errorCheckoutAlreadyBilled;
     return _errorUnexpected;
   }
 

@@ -15,6 +15,11 @@ abstract class BillingStatusData with _$BillingStatusData {
     @Default('inactive') String billingStatus,
     @Default(false) bool cancelAtPeriodEnd,
     DateTime? nextRenewalDate,
+
+    /// Whether a Stripe customer exists for this org, from `has_billing_account`.
+    /// Gates the billing CTA: without a customer there is no portal session to
+    /// create, and `POST /billing-portal` answers 404.
+    @Default(false) bool hasBillingAccount,
   }) = _BillingStatusData;
 
   factory BillingStatusData.fromJson(Map<String, dynamic> json) {
@@ -32,11 +37,16 @@ abstract class BillingStatusData with _$BillingStatusData {
       }
     }
     return BillingStatusData(
-      planKey: json['plan_key'] as String? ?? '',
+      // `current_plan` is the field GET /v1/orgs/:id/billing-status actually returns.
+      // This read `plan_key`, which the endpoint has never sent, so the plan row on the
+      // billing page rendered '—' for every org regardless of plan. `plan_key` is kept
+      // as a fallback so the model still parses a payload shaped the older way.
+      planKey: json['current_plan'] as String? ?? json['plan_key'] as String? ?? '',
       planDisplayName: json['plan_display_name'] as String? ?? '',
       billingStatus: json['billing_status'] as String? ?? 'inactive',
       cancelAtPeriodEnd: json['cancel_at_period_end'] as bool? ?? false,
       nextRenewalDate: parsedDate,
+      hasBillingAccount: json['has_billing_account'] as bool? ?? false,
     );
   }
 }

@@ -1418,7 +1418,10 @@ void main() {
       expect(result, isA<BillingPortalError>());
       final err = (result as BillingPortalError).error;
       expect(err, isNot('org_id not in stripe'));
-      expect(err, contains('not found'));
+      // Copy changed from 'Organization not found.' — that told an owner looking at
+      // their own org that it did not exist, when the actual and far more common
+      // cause of this 404 is the org having no Stripe customer.
+      expect(err, contains('No billing account'));
     });
 
     test('returns generic unexpected error on unrecognized 4xx — does not surface raw API string (L20)', () async {
@@ -1501,6 +1504,186 @@ void main() {
       );
 
       expect(result, isA<BillingPortalError>());
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // BillingStatusData — plan key source and billing-account flag
+  // ---------------------------------------------------------------------------
+
+  group('BillingStatusData.fromJson — plan and billing account', () {
+    // The endpoint returns `current_plan`; the model read `plan_key`, which it has
+    // never sent, so the plan row rendered '—' for every org regardless of plan.
+    test('reads planKey from current_plan, the field the API actually returns', () {
+      final data = BillingStatusData.fromJson({
+        'current_plan': 'growth',
+        'billing_status': 'active',
+      });
+
+      expect(data.planKey, 'growth');
+    });
+
+    test('falls back to plan_key when current_plan is absent', () {
+      expect(BillingStatusData.fromJson({'plan_key': 'starter'}).planKey, 'starter');
+    });
+
+    test('reads has_billing_account', () {
+      expect(
+        BillingStatusData.fromJson({'has_billing_account': true}).hasBillingAccount,
+        isTrue,
+      );
+      expect(
+        BillingStatusData.fromJson({'has_billing_account': false}).hasBillingAccount,
+        isFalse,
+      );
+    });
+
+    // An older gateway build omits the field. Defaulting to false shows "Choose a
+    // plan", which is recoverable; defaulting to true would show "Manage Billing"
+    // and reproduce the 404 this change exists to remove.
+    test('defaults hasBillingAccount to false when the field is absent', () {
+      expect(BillingStatusData.fromJson({}).hasBillingAccount, isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // createCheckoutSession
+  // ---------------------------------------------------------------------------
+
+  group('createCheckoutSession', () {
+    test('returns BillingPortalSuccess with url on 200', () async {
+      serverHandler.mockPostResponse(
+        {'url': 'https://checkout.stripe.com/c/pay/abc'},
+        statusCode: 200,
+      );
+
+      final result = await DashboardService.createCheckoutSession(
+        orgId: 'org-1',
+        jwt: 'jwt',
+        plan: 'growth',
+      );
+
+      expect(result, isA<BillingPortalSuccess>());
+      expect(
+        (result as BillingPortalSuccess).url,
+        'https://checkout.stripe.com/c/pay/abc',
+      );
+    });
+
+    test('sends the requested plan in the request body', () async {
+      serverHandler.mockPostResponse(
+        {'url': 'https://checkout.stripe.com/c/pay/abc'},
+        statusCode: 200,
+      );
+
+      await DashboardService.createCheckoutSession(
+        orgId: 'org-1',
+        jwt: 'jwt',
+        plan: 'growth',
+      );
+
+      expect(serverHandler.lastPostBody, {'plan': 'growth'});
+    });
+
+    test('returns error when url is missing from 200 response', () async {
+      serverHandler.mockPostResponse({}, statusCode: 200);
+
+      final result = await DashboardService.createCheckoutSession(
+        orgId: 'org-1',
+        jwt: 'jwt',
+        plan: 'growth',
+      );
+
+      expect(result, isA<BillingPortalError>());
+    });
+
+    test('rejects an orgId that could alter the URL path', () async {
+      serverHandler.mockPostResponse({'url': 'https://x'}, statusCode: 200);
+
+      final result = await DashboardService.createCheckoutSession(
+        orgId: 'org-1/../other',
+        jwt: 'jwt',
+        plan: 'growth',
+      );
+
+      expect(result, isA<BillingPortalError>());
+      expect(serverHandler.postCallCount, 0);
+    });
+
+    test('returns sanitized auth message on 401', () async {
+      serverHandler.mockPostResponse({'error': 'Unauthorized'}, statusCode: 401);
+
+      final result = await DashboardService.createCheckoutSession(
+        orgId: 'org-1',
+        jwt: 'expired-jwt',
+        plan: 'growth',
+      );
+
+      final err = (result as BillingPortalError).error;
+      expect(err, isNot('Unauthorized'));
+      expect(err, contains('log in'));
+    });
+
+    test('returns sanitized permission message on 403', () async {
+      serverHandler.mockPostResponse(
+        {'error': 'Checkout requires owner or billing_admin role'},
+        statusCode: 403,
+      );
+
+      final result = await DashboardService.createCheckoutSession(
+        orgId: 'org-1',
+        jwt: 'jwt',
+        plan: 'growth',
+      );
+
+      expect((result as BillingPortalError).error, contains('permission'));
+    });
+
+    // 409 means a Stripe customer appeared since the page loaded, so the portal —
+    // not a second checkout — is the right destination. A second Checkout run would
+    // mint a duplicate customer and orphan the original subscription.
+    test('returns a refresh-to-manage message on 409', () async {
+      serverHandler.mockPostResponse(
+        {'error': 'Organization already has a billing account'},
+        statusCode: 409,
+      );
+
+      final result = await DashboardService.createCheckoutSession(
+        orgId: 'org-1',
+        jwt: 'jwt',
+        plan: 'growth',
+      );
+
+      final err = (result as BillingPortalError).error;
+      expect(err, contains('already has a billing account'));
+    });
+
+    test('does not surface the raw API string on an unrecognized 4xx', () async {
+      serverHandler.mockPostResponse(
+        {'error': 'Stripe internal: price_xyz invalid'},
+        statusCode: 400,
+      );
+
+      final result = await DashboardService.createCheckoutSession(
+        orgId: 'org-1',
+        jwt: 'jwt',
+        plan: 'growth',
+      );
+
+      expect((result as BillingPortalError).error, isNot(contains('price_xyz')));
+    });
+
+    test('returns server error after exhausting retries on 500', () async {
+      serverHandler.mockPostResponse({'error': 'boom'}, statusCode: 500);
+
+      final result = await DashboardService.createCheckoutSession(
+        orgId: 'org-1',
+        jwt: 'jwt',
+        plan: 'growth',
+      );
+
+      expect(result, isA<BillingPortalError>());
+      expect(serverHandler.postCallCount, 3);
     });
   });
 }
@@ -1639,11 +1822,18 @@ class _FakeServerHandler {
     postCallCount = 0;
   }
 
-  shelf.Response handle(shelf.Request request) {
+  /// Decoded JSON body of the most recent POST, for asserting what was sent.
+  Map<String, dynamic>? lastPostBody;
+
+  Future<shelf.Response> handle(shelf.Request request) async {
     final isPost = request.method == 'POST';
 
     if (isPost) {
       postCallCount++;
+      final raw = await request.readAsString();
+      lastPostBody = raw.isEmpty
+          ? null
+          : jsonDecode(raw) as Map<String, dynamic>;
       // Note: errors are handled by _TestInterceptor; this only returns valid HTTP responses
       return shelf.Response(
         _postStatusCode,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../config/content/constants.dart';
 import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
@@ -83,13 +84,38 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
     }
   }
 
-  Future<void> _openBillingPortal() async {
+  Future<void> _openBillingPortal() =>
+      _openStripeUrl(() => DashboardService.fetchBillingPortalUrl(
+            orgId: widget.args.orgId,
+            jwt: widget.args.jwt,
+          ));
+
+  /// Starts Stripe Checkout for the org's current plan, giving an org with no
+  /// Stripe customer one. The plan comes from the loaded billing status rather
+  /// than a hardcoded tier, and the org id from the route — the sender-worker's
+  /// email-based checkout resolves a *different* org for anyone in more than one.
+  ///
+  /// There is no plan picker here on purpose. Once a subscription exists, Stripe's
+  /// own portal handles upgrades and downgrades (`subscription_update` is enabled
+  /// on the live portal configuration), so this only has to get the org over the
+  /// line from "no billing account" to "has one".
+  Future<void> _startCheckout() {
+    final plan = _billingStatus?.planKey ?? '';
+    return _openStripeUrl(() => DashboardService.createCheckoutSession(
+          orgId: widget.args.orgId,
+          jwt: widget.args.jwt,
+          plan: plan,
+        ));
+  }
+
+  /// Both billing CTAs resolve to a Stripe-hosted https URL and open it, sharing
+  /// the loading flag, the scheme check, and the error surface.
+  Future<void> _openStripeUrl(
+    Future<BillingPortalResponse> Function() request,
+  ) async {
     setState(() => _isPortalLoading = true);
 
-    final response = await DashboardService.fetchBillingPortalUrl(
-      orgId: widget.args.orgId,
-      jwt: widget.args.jwt,
-    );
+    final response = await request();
 
     if (!mounted) return;
     setState(() => _isPortalLoading = false);
@@ -130,6 +156,7 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
             isPortalLoading: _isPortalLoading,
             onRefresh: _fetchBillingStatus,
             onManageBilling: _openBillingPortal,
+            onStartCheckout: _startCheckout,
             renewalDateLabel: _billingStatus?.nextRenewalDate != null
                 ? _formatDate(_billingStatus!.nextRenewalDate!)
                 : null,
@@ -169,6 +196,7 @@ class _BillingCard extends StatelessWidget {
   final bool isPortalLoading;
   final VoidCallback onRefresh;
   final VoidCallback onManageBilling;
+  final VoidCallback onStartCheckout;
   final String? renewalDateLabel;
 
   const _BillingCard({
@@ -177,8 +205,15 @@ class _BillingCard extends StatelessWidget {
     required this.isPortalLoading,
     required this.onRefresh,
     required this.onManageBilling,
+    required this.onStartCheckout,
     this.renewalDateLabel,
   });
+
+  /// Enterprise is billed by contract and has no Stripe price, so self-serve
+  /// checkout would fail server-side. Such an org legitimately has no Stripe
+  /// customer and should be offered neither CTA.
+  bool get _isContractBilled =>
+      billingStatus?.planKey == SignupTiers.enterprise;
 
   @override
   Widget build(BuildContext context) {
@@ -235,6 +270,15 @@ class _BillingCard extends StatelessWidget {
               value: renewalDateLabel ?? '—',
             ),
           ],
+          if (billingStatus != null && !billingStatus!.hasBillingAccount) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              _isContractBilled
+                  ? 'This organization is billed by contract. Contact support to make changes.'
+                  : 'No billing account yet. Choose a plan to set one up.',
+              style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
@@ -246,12 +290,24 @@ class _BillingCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
+              // Until an org has a Stripe customer there is no portal session to
+              // create and POST /billing-portal answers 404, so the CTA switches to
+              // checkout rather than offering a button that cannot work. Contract-
+              // billed orgs get neither.
               Expanded(
-                child: GradientButton(
-                  onPressed: (isLoading || isPortalLoading) ? null : onManageBilling,
-                  isLoading: isPortalLoading,
-                  text: 'Manage Billing',
-                ),
+                child: _isContractBilled
+                    ? const SizedBox.shrink()
+                    : GradientButton(
+                        onPressed: (isLoading || isPortalLoading)
+                            ? null
+                            : (billingStatus?.hasBillingAccount ?? false)
+                                ? onManageBilling
+                                : onStartCheckout,
+                        isLoading: isPortalLoading,
+                        text: (billingStatus?.hasBillingAccount ?? false)
+                            ? 'Manage Billing'
+                            : 'Choose a plan',
+                      ),
               ),
             ],
           ),

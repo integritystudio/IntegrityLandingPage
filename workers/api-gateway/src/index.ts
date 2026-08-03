@@ -1,7 +1,7 @@
 import { ok, notFound, noContent } from '../../lib/http';
 import { getAllowedOrigins, ALLOWED_ORIGINS } from '../../http-helpers';
 import { handleMe } from './routes/me';
-import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal } from './routes/orgs';
+import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal, handleCreateCheckoutSession } from './routes/orgs';
 import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './routes/usage';
 import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
 import { handleHealthCheck } from './routes/health';
@@ -242,6 +242,14 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
         ...routeOpts,
         stripeSecretKey: env.STRIPE_SECRET_KEY,
         returnUrl: `${env.APP_URL ?? APP_URL_FALLBACK}/#/billing`,
+        waitUntil: ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
+      }));
+    }
+    if (subPath === '/checkout-session' && request.method === 'POST') {
+      return withRateLimitHeaders(await handleCreateCheckoutSession(request, orgId, {
+        ...routeOpts,
+        stripeSecretKey: env.STRIPE_SECRET_KEY,
+        appBaseUrl: env.APP_URL ?? APP_URL_FALLBACK,
         waitUntil: ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
       }));
     }

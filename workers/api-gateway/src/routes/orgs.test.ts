@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeAll, type Mock } from 'vitest';
 import type Stripe from 'stripe';
-import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal } from './orgs';
+import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal, handleCreateCheckoutSession } from './orgs';
 import type { Entitlement, Organization, OrgMembership, OrgRole } from '../../../lib/types';
 import {
   createSupabaseFetchStub,
@@ -195,7 +195,9 @@ describe('GET /v1/orgs/:orgId/billing-status', () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase({
       ...membershipRoutes(),
-      'GET organizations': okRows([makeOrg({ billing_status: 'active', current_plan: 'growth' })]),
+      'GET organizations': okRows([
+        { ...makeOrg({ billing_status: 'active', current_plan: 'growth' }), stripe_customer_id: 'cus_123' },
+      ]),
     });
 
     const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-status`, token);
@@ -213,8 +215,40 @@ describe('GET /v1/orgs/:orgId/billing-status', () => {
     expect(body.role).toBe('owner');
 
     const params = stub.find('GET', 'organizations')!.url.searchParams;
-    expect(params.get('select')).toBe('id, billing_status, current_plan, quota_version');
+    expect(params.get('select')).toBe('id, billing_status, current_plan, quota_version, stripe_customer_id');
     expect(params.get('id')).toBe(`eq.${ORG_ID}`);
+  });
+
+  // The client gates its "Manage Billing" / "Choose a plan" CTA on this flag. Before it
+  // existed the button was rendered unconditionally and 404'd for the 20 of 22 orgs that
+  // had never been through checkout.
+  it.each([
+    ['cus_123', true],
+    [null, false],
+  ])('reports has_billing_account for stripe_customer_id %s', async (customerId, expected) => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase({
+      ...membershipRoutes(),
+      'GET organizations': okRows([{ ...makeOrg(), stripe_customer_id: customerId }]),
+    });
+
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-status`, token);
+    const res = await handleOrgBillingStatus(req, ORG_ID, opts);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { has_billing_account: boolean };
+    expect(body.has_billing_account).toBe(expected);
+  });
+
+  it('never leaks the Stripe customer id to the client', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase({
+      ...membershipRoutes(),
+      'GET organizations': okRows([{ ...makeOrg(), stripe_customer_id: 'cus_secret' }]),
+    });
+
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-status`, token);
+    const res = await handleOrgBillingStatus(req, ORG_ID, opts);
+    expect(await res.text()).not.toContain('cus_secret');
   });
 });
 
@@ -353,5 +387,227 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
     const res = await handleBillingPortal(req, ORG_ID, makePortalOpts(stripeWith(create)));
     expect(res.status).toBe(500);
     expect(stub.findAll('POST', 'audit_log')).toHaveLength(0);
+  });
+});
+
+const APP_BASE_URL = 'https://app.integritystudio.ai';
+
+const makeCheckoutOpts = (stripeOverride?: Stripe) => ({
+  ...opts,
+  stripeSecretKey: 'sk_test_xxx',
+  appBaseUrl: APP_BASE_URL,
+  _stripeOverride: stripeOverride,
+});
+
+/** Minimal Stripe stand-in exposing only the checkout call the route uses. */
+const checkoutStripeWith = (create: Mock): Stripe =>
+  ({ checkout: { sessions: { create } } }) as unknown as Stripe;
+
+const checkoutRoutes = (
+  stripeCustomerId: string | null,
+  plans: Array<{ key: string; stripe_price_id: string | null }> = [
+    { key: 'growth', stripe_price_id: 'price_growth_1' },
+  ],
+  memberships: OrgMembership[] = [makeMembership()],
+): Record<string, RouteResponder> => ({
+  ...membershipRoutes(memberships),
+  'GET organizations': okRows([{ id: ORG_ID, stripe_customer_id: stripeCustomerId }]),
+  'GET plans': okRows(plans),
+  'POST audit_log': createdRows([]),
+});
+
+const checkoutRequest = (token: string, body: unknown = { plan: 'growth' }) =>
+  new Request(`https://api.test/v1/orgs/${ORG_ID}/checkout-session`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+describe('POST /v1/orgs/:id/checkout-session', () => {
+  it('returns 401 when no bearer token', async () => {
+    stubSupabase({});
+    const req = new Request(`https://api.test/v1/orgs/${ORG_ID}/checkout-session`, {
+      method: 'POST',
+      body: JSON.stringify({ plan: 'growth' }),
+    });
+    const res = await handleCreateCheckoutSession(req, ORG_ID, makeCheckoutOpts());
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 403 for an API key token rather than an opaque 401', async () => {
+    stubSupabase({});
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(API_KEY_TOKEN),
+      ORG_ID,
+      makeCheckoutOpts(),
+    );
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: { message: string } };
+    expect(body.error.message).toContain('API keys are not accepted');
+  });
+
+  it('returns 403 when user is not a member', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(membershipRoutes([]));
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token),
+      ORG_ID,
+      makeCheckoutOpts(),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 403 when user role is not owner or billing_admin', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(membershipRoutes([makeMembership(ORG_ID, 'member')]));
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token),
+      ORG_ID,
+      makeCheckoutOpts(),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 400 when plan is missing', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(checkoutRoutes(null));
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token, {}),
+      ORG_ID,
+      makeCheckoutOpts(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for an unknown plan', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(checkoutRoutes(null, []));
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token, { plan: 'nope' }),
+      ORG_ID,
+      makeCheckoutOpts(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  // 'enterprise' is represented in the catalogue by a null stripe_price_id, so this is
+  // the branch that keeps a contract-billed tier out of self-serve checkout.
+  it('returns 400 for a plan with no Stripe price', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(checkoutRoutes(null, [{ key: 'enterprise', stripe_price_id: null }]));
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token, { plan: 'enterprise' }),
+      ORG_ID,
+      makeCheckoutOpts(),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: { message: string } };
+    expect(body.error.message).toContain('not available for self-serve checkout');
+  });
+
+  // A second Checkout run would mint a second Stripe customer, and linkStripeCustomer
+  // would overwrite stripe_customer_id — orphaning the original subscription while it
+  // kept billing.
+  it('returns 409 when the org already has a billing account', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    const create = vi.fn();
+    stubSupabase(checkoutRoutes('cus_existing'));
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token),
+      ORG_ID,
+      makeCheckoutOpts(checkoutStripeWith(create)),
+    );
+    expect(res.status).toBe(409);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the org does not exist', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase({ ...membershipRoutes(), 'GET organizations': okRows([]) });
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token),
+      ORG_ID,
+      makeCheckoutOpts(),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('creates a session carrying the route org id, not one derived from the user', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    const stub = stubSupabase(checkoutRoutes(null));
+    const create = vi.fn().mockResolvedValue({ url: 'https://checkout.stripe.com/c/pay/xxx' });
+
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token),
+      ORG_ID,
+      makeCheckoutOpts(checkoutStripeWith(create)),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json() as { url: string };
+    expect(body.url).toBe('https://checkout.stripe.com/c/pay/xxx');
+
+    // stripe-webhook reads metadata.org_id || client_reference_id to link the customer.
+    // Both must be the org whose route was called, or payment attaches to the wrong org.
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'subscription',
+        line_items: [{ price: 'price_growth_1', quantity: 1 }],
+        client_reference_id: ORG_ID,
+        metadata: { org_id: ORG_ID },
+        subscription_data: { metadata: { org_id: ORG_ID } },
+      }),
+    );
+
+    const audits = stub.findAll('POST', 'audit_log');
+    expect(audits).toHaveLength(1);
+    expect(audits[0].body).toEqual([
+      expect.objectContaining({
+        organization_id: ORG_ID,
+        action: 'checkout_session.created',
+        target_type: 'org',
+        target_id: ORG_ID,
+        metadata: { actor_auth0_id: AUTH0_SUB, plan: 'growth' },
+      }),
+    ]);
+  });
+
+  it('allows billing_admin as well as owner', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(checkoutRoutes(null, undefined, [makeMembership(ORG_ID, 'billing_admin')]));
+    const create = vi.fn().mockResolvedValue({ url: 'https://checkout.stripe.com/c/pay/yyy' });
+
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token),
+      ORG_ID,
+      makeCheckoutOpts(checkoutStripeWith(create)),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('returns 500 when Stripe throws, without writing an audit row', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    const stub = stubSupabase(checkoutRoutes(null));
+    const create = vi.fn().mockRejectedValue(new Error('Stripe API error'));
+
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token),
+      ORG_ID,
+      makeCheckoutOpts(checkoutStripeWith(create)),
+    );
+    expect(res.status).toBe(500);
+    expect(stub.findAll('POST', 'audit_log')).toHaveLength(0);
+  });
+
+  it('returns 500 when Stripe returns a session with no URL', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(checkoutRoutes(null));
+    const create = vi.fn().mockResolvedValue({ url: null });
+
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token),
+      ORG_ID,
+      makeCheckoutOpts(checkoutStripeWith(create)),
+    );
+    expect(res.status).toBe(500);
   });
 });
