@@ -31,6 +31,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Require dig for DNS checks (install dnsutils / bind-tools if missing)
+if ! command -v dig &>/dev/null; then
+  echo "SKIP (check 1): dig not found — install dnsutils or bind-tools to enable DNS resolution checks"
+  DIG_AVAILABLE=false
+else
+  DIG_AVAILABLE=true
+fi
+
 DOC="$REPO_ROOT/docs/api-routing.md"
 TOML="$REPO_ROOT/workers/api-gateway/wrangler.toml"
 
@@ -69,14 +77,18 @@ API_HOSTS=$(echo "$API_URLS" | grep -oE "https?://[a-z0-9.-]+" | sed -E 's|https
 # Check 1: DNS resolution
 # ---------------------------------------------------------------------------
 echo "=== Check 1: DNS resolution ==="
-while IFS= read -r host; do
-  result=$(dig +short "$host" A 2>/dev/null | grep -v '^;' | head -1 || true)
-  if [ -z "$result" ]; then
-    fail "$host does not resolve — NXDOMAIN or no A record; add DNS or remove from docs"
-  else
-    pass "$host -> $result"
-  fi
-done <<< "$API_HOSTS"
+if [ "$DIG_AVAILABLE" = false ]; then
+  echo "  SKIP: dig not available — skipping DNS checks"
+else
+  while IFS= read -r host; do
+    result=$(dig +short "$host" A 2>/dev/null | grep -v '^;' | head -1 || true)
+    if [ -z "$result" ]; then
+      fail "$host does not resolve — NXDOMAIN or no A record; add DNS or remove from docs"
+    else
+      pass "$host -> $result"
+    fi
+  done <<< "$API_HOSTS"
+fi
 
 # ---------------------------------------------------------------------------
 # Check 2: Every API-subdomain URL appears in api-routing.md
@@ -89,16 +101,15 @@ if [ ! -f "$DOC" ]; then
 else
   while IFS= read -r url; do
     # Check if the doc mentions the URL in any form:
-    #   - full bare URL without scheme: api.integritystudio.ai/v1/traces
-    #   - path only:                    /v1/traces
+    #   - bare URL without scheme: api.integritystudio.ai/v1/traces
+    #   - path only (after .ai):   /v1/traces
     # The table may use either form depending on context.
     bare="${url#https://}"
     bare="${bare#http://}"
-    path="/${bare#*/}"    # everything after the first slash, including leading /
-    # If URL has no path component (bare host only), path == the full bare
-    if [ "$path" = "/$bare" ]; then path=""; fi
+    # Path is everything after ".integritystudio.ai" — empty for bare-host URLs.
+    path_part="${bare#*.integritystudio.ai}"
 
-    if grep -qF "$bare" "$DOC" || { [ -n "$path" ] && grep -qF "$path" "$DOC"; }; then
+    if grep -qF "$bare" "$DOC" || { [ -n "$path_part" ] && grep -qF "$path_part" "$DOC"; }; then
       pass "$url found in api-routing.md"
     else
       fail "$url is in lib/**/*.dart but not in $DOC"
@@ -124,7 +135,7 @@ else
     # Look for `routes = []` in the [env.dev] block (stops at next unrelated section).
     has_dev_empty_routes=$(awk '
       /^\[env\.dev\]/{in_dev=1; next}
-      in_dev && /^\[[^e]/{exit}
+      in_dev && /^\[/{exit}
       in_dev && /^routes[[:space:]]*=[[:space:]]*\[\]/{print "yes"; exit}
     ' "$TOML")
     if [ "$has_dev_empty_routes" = "yes" ]; then

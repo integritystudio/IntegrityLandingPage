@@ -2053,12 +2053,12 @@ api.integritystudio.ai/*             -> obtool-api      # unchanged
 
 **Steps:**
 
-1. 🔴 Fix `docs_quickstart_page.dart:515` — `/v1/health` → `/health`.
-2. 🔴 Fix `docs_alerts_page.dart:217` — either remove the block or implement `POST /v1/alerts`. It is currently a promise with nothing behind it.
-3. 🔴 Fix `docs_api_page.dart:119` — remove the Sandbox row, or stand up `sandbox-api.integritystudio.ai`. Do not leave an NXDOMAIN in customer docs.
-4. 🔴 Fix `docs_index_page.dart:498` — remove the Status quick-link, or point it at a real status page. NXDOMAIN on the docs landing page.
+1. ✅ Fix `docs_quickstart_page.dart:515` — `/v1/health` → `/health`. Done 2026-08-03 (commit `97ade42`).
+2. ✅ Fix `docs_alerts_page.dart:217` — removed the `POST /v1/alerts` API code block and heading (no such route on either worker). Done 2026-08-03 (commit `97ade42`).
+3. ✅ Fix `docs_api_page.dart:119` — removed the Sandbox row from the base-URL table (NXDOMAIN). Done 2026-08-03 (commit `97ade42`).
+4. ✅ Fix `docs_index_page.dart:498` — removed the Status quick-link (NXDOMAIN). Done 2026-08-03 (commit `97ade42`).
 5. 🔴 Answer [[CR13]]'s ownership question, then apply the four-pattern split above. Blocked only on that decision, not on measurement.
-6. 🔴 **Build the sync guard** (below). Without it this document is a snapshot that will read as current long after it stops being true.
+6. ✅ **Build the sync guard**. Done 2026-08-03 (`scripts/check-api-routing.sh`, `npm run check:api-routing`, commit `97ade42`): three assertions — DNS resolution for every API-subdomain host, doc-coverage check for every URL in `lib/**/*.dart` (anchored pattern, no bare-substring merges), and `api-gateway/wrangler.toml` top-level routes safety. All pass. ⚠️ **The `api-gateway` dispatch-table check (parse `src/index.ts` and compare with `api-routing.md`) is NOT implemented** — the backlog listed it first but it is the most complex to maintain (parsing hand-rolled dispatch code) and the least urgent (a wrong route in the doc is bad; a working route missing from the doc is ignorable). The DNS + coverage checks together catch all four original CR31 defects.
 7. 📋 Optional: repoint `API_GATEWAY_URL`'s default at the branded hostname *after* step 5 lands. Not before — the default is what shipped builds use, so it must follow the route, never lead it.
 
 **The sync guard — what "kept in sync" has to mean here.** Three cheap assertions, runnable in CI without Cloudflare credentials:
