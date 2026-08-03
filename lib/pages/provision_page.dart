@@ -84,14 +84,11 @@ class _ProvisionPageState extends State<ProvisionPage> {
   }
 
   Future<void> _goToDashboard() async {
-    // Use hash fragment so the token is not sent to the server and not
-    // included in Referer headers. Note: the fragment IS stored in browser
-    // history and is readable by any script on the dashboard origin via
-    // location.hash. Full fix (postMessage / single-use exchange code) requires
-    // a coordinated change in the dashboard app — see BACKLOG.md CR04.
-    final encoded = Uri.encodeComponent(widget.auth.jwt);
-    final uri = Uri.parse('${ExternalUrls.dashboardApp}#access_token=$encoded');
-    await launchUrl(uri);
+    // No token is handed over: the dashboard runs its own Auth0 SPA login and
+    // never reads location.hash. Passing the JWT in a fragment only put it in
+    // that origin's address bar and history — and it is GitHub Pages, which
+    // sets no headers, so no CSP or Referrer-Policy can contain it. CR04.
+    await launchUrl(Uri.parse(ExternalUrls.dashboardApp));
   }
 
   Future<void> _loadBootstrap() async {
