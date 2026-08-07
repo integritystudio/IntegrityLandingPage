@@ -234,6 +234,30 @@ describe('worker deploy environments (CR02)', () => {
     }
   });
 
+  it.each(WORKERS)('%s: dev never binds a production service (CR02 item 5)', (worker) => {
+    // A service binding is a direct call into another Worker, so a dev Worker
+    // bound to a production service reaches production with no network hop and
+    // no credential to withhold. `sender-worker-dev` bound RECEIVER to the
+    // production `api-provisioning-receiver` until 2026-08-07; the only thing
+    // stopping a dev `/send` from provisioning against production was that the
+    // dev Worker had no signing keys — an absence nothing enforced, which is
+    // exactly the "residual safety is credential absence rather than design"
+    // hazard CR02 item 5 called out. This converts it into an enforced property.
+    //
+    // The rule is name-shaped on purpose: a dev env may only bind a service
+    // whose name is itself a dev Worker. That is checkable from config alone,
+    // needs no account access, and fails closed for a service that does not
+    // exist yet.
+    const devServices = (loadConfig(worker).env?.dev?.services ?? []) as Record<string, string>[];
+
+    for (const service of devServices) {
+      expect(
+        service.service.endsWith('-dev'),
+        `${worker} [env.dev] binds ${service.binding} to "${service.service}", which is not a dev Worker`
+      ).toBe(true);
+    }
+  });
+
   // Observability (BACKLOG.md CR15 / W04). The parent `enabled` is required:
   // wrangler deploys `observability.enabled: false` when only the child tables
   // are set, so a config that *looks* instrumented emits nothing. Production
