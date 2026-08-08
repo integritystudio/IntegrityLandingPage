@@ -419,7 +419,7 @@ Shipped:
 Remaining:
 
 - Nonce store if replay protection must be stricter than timestamp-only — tracked as W06 in `docs/BACKLOG.md`
-- ~~Monitoring/alerting + dashboards for the provisioning path — tracked as W04 in `docs/BACKLOG.md`.~~ Signals and alerting are implemented (see Monitoring Runbook below); the dashboard (W04 step 3) remains blocked on `obtool-ingest` being repaired. Note that `/send` error rate is among the signals *not* yet covered — `RECEIVER_ERROR` vs `INTERNAL_ERROR` vs the 502 "receiver-worker unreachable" path is distinguishable only in the response body, which Cloudflare's telemetry does not record, so it needs a counter emitted from the Worker.
+- ~~Monitoring/alerting + dashboards for the provisioning path — tracked as W04 in `docs/BACKLOG.md`.~~ Signals, alerting **and the dashboard** are implemented (see Monitoring Runbook below). The dashboard was recorded as blocked on `obtool-ingest` being repaired until 2026-08-08; that blocker only ever applied to routing through the internal OTEL pipeline, which was one of two options W04 step 3 offered — the Cloudflare Workers Analytics option needed nothing repaired. Note that `/send` error rate is among the signals *not* yet covered — `RECEIVER_ERROR` vs `INTERNAL_ERROR` vs the 502 "receiver-worker unreachable" path is distinguishable only in the response body, which Cloudflare's telemetry does not record, so it needs a counter emitted from the Worker.
 
 ## Monitoring Runbook
 
@@ -452,6 +452,56 @@ CLOUDFLARE_ACCOUNT_ID=$(doppler secrets get CLOUDFLARE_ACCOUNT_ID \
 ```
 
 Exit 0 = all within threshold (or SKIPPED if credentials absent), 1 = breach, 2 = check itself failed. The CI workflow calls `bash scripts/check-worker-signals.sh` directly; both forms are equivalent.
+
+### The dashboard
+
+`npm run dashboard:workers` (`scripts/worker-dashboard.sh`, W04 step 3) renders
+the observation surface to read **when the gate above fires**, or when asking
+whether the provisioning path is healthy. Same credentials as the check, same
+`SKIPPED` behaviour without them:
+
+```bash
+CLOUDFLARE_API_TOKEN=$(doppler secrets get CLOUDFLARE_API_TOKEN \
+  --project integrity-studio --config prd --plain) \
+CLOUDFLARE_ACCOUNT_ID=$(doppler secrets get CLOUDFLARE_ACCOUNT_ID \
+  --project integrity-studio --config prd --plain) \
+  npm run dashboard:workers
+
+# Default window is 7 days:
+DASHBOARD_WINDOW_DAYS=30 npm run dashboard:workers
+```
+
+**It is not a gate and never exits non-zero on an unhealthy reading** — exit 0
+rendered or skipped, 2 only if the API call itself failed. Keeping the two
+separate is deliberate: a gate that also tries to be a dashboard accumulates
+thresholds for things nobody wants to fail a build on.
+
+Four panels:
+
+| Panel | What it answers |
+|---|---|
+| Provisioning path | Is `sender-worker` → `api-provisioning-receiver` healthy end to end? Both on one panel because a receiver failure is indistinguishable from a sender failure otherwise. |
+| Other production workers | Invocations, failure %, subrequest ratio, and the non-`success` status split per Worker. |
+| Daily trend | Sparklines of successes and failures. **Each row is scaled to its own peak**, so heights compare within a row and never between rows. |
+| Resource headroom | cpuTime p50/p99 against each Worker's *configured* `cpu_ms`, and memory p99 against the 128 MiB platform ceiling. |
+
+The resource panel is the point of the dashboard. It is CR20's lesson applied to
+the other failure mode: a Worker killed for exceeding CPU never runs handler
+code, so it throws no exception and writes no log — error rate is blind to it in
+exactly the way it was blind to `stripe-webhook`'s four-month outage. Watching
+p99 against the limit predicts the kill before data starts being dropped.
+
+Both the CPU limit and the observability setting are read live from each
+script's settings endpoint rather than parsed from a `wrangler.toml`, so they
+cannot drift from what is deployed and they work for the two Workers that deploy
+out of `observability-toolkit`. The observability read is what lets the dashboard
+distinguish "no invocations because idle" from "no invocations recorded because
+the Worker is dark" — otherwise the same empty row.
+
+Source is Cloudflare Workers Analytics (GraphQL) only, never Workers Logs. See
+[`docs/observability-signals.md`](observability-signals.md) § Data sources for
+why the two disagree and why an empty log query must never be read as "no
+errors".
 
 ### What each breach means
 

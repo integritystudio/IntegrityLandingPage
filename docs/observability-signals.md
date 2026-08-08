@@ -19,6 +19,12 @@ Cloudflare credentials it prints `SKIPPED` and exits 0, matching
 `check-migration-drift.sh` — a check that fails for a known, non-actionable reason
 is one nobody reads.
 
+The companion surface is `npm run dashboard:workers`
+([`scripts/worker-dashboard.sh`](../scripts/worker-dashboard.sh), W04 step 3):
+the same GraphQL source rendered for reading rather than gating, over a 7-day
+default window, with a resource-headroom panel that turns SIGNAL 3 from lagging
+into leading. Read it when this check fails. It never fails a build.
+
 **It reports a window, not a live state.** The default window is one day, so a
 breach that has already been fixed keeps failing until it ages out — the
 contact-form exceptions below are dated 2026-07-30 and continued to fail the
@@ -122,6 +128,18 @@ looks. Applies to any future cron, not just this one.
 The isolate was killed for exceeding CPU or memory. No handler code ran, so
 neither application logs nor response codes exist for these — they are only
 visible in the invocation rollup.
+
+**This signal is lagging: it counts kills that already happened.** The leading
+form of it is on the dashboard (`npm run dashboard:workers`), which compares
+cpuTime **p99 against each Worker's configured `cpu_ms`**. A Worker whose p99 has
+climbed to 90% of its limit is not yet breaching this signal and is already about
+to. Measured 2026-08-08, `obtool-ingest` sat at **p99 744 ms against a 500 ms
+limit — 149%** — so its top percentile of invocations had been killed daily since
+2026-07-26, which is precisely the shape this threshold reports only after the
+fact.
+
+The limit is read from the deployed script's settings endpoint, not from a
+`wrangler.toml`, so the comparison cannot drift from what is actually running.
 
 ### SIGNAL 4 — cross-repo receiver health
 
