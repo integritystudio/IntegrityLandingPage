@@ -95,8 +95,21 @@ test.describe('Accessibility', () => {
       expect(html).toContain('og:image:alt');
     });
 
-    test('noscript img has display:none style', async () => {
-      expect(html).toMatch(/<img[^>]*style="display:none"/);
+    // This asserted the OPPOSITE until 2026-08-08, and had been wrong since
+    // f439651 (2026-07-26) — "fix(gdpr): gate Meta Pixel on marketing consent".
+    // The <noscript> block used to carry the Facebook Pixel's tracking <img>
+    // with display:none; that commit removed it, because a noscript pixel
+    // fires for every visitor and there is no way to gate it on consent —
+    // which is the entire point of the fix. The old assertion therefore
+    // required the privacy fix to be absent. Asserting the ABSENCE instead
+    // turns it into a regression test that stops the pixel being reintroduced.
+    test('noscript block contains no tracking pixel img', async () => {
+      const noscript = html.match(/<noscript>[\s\S]*?<\/noscript>/i)?.[0] ?? '';
+      // Positive control: without this, a regex that stopped matching would
+      // leave an empty string and the <img> assertion below would pass
+      // vacuously — the failure mode this test exists to catch.
+      expect(noscript).not.toBe('');
+      expect(noscript).not.toMatch(/<img/i);
     });
   });
 });
