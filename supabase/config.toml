@@ -259,6 +259,46 @@ inspector_port = 8083
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 # entrypoint = "./functions/MY_FUNCTION_NAME/index.ts"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# verify_jwt pinned per function, 2026-08-07.
+#
+# 🔴 These were unpinned, so `supabase functions deploy` applied the CLI DEFAULT
+# (true) rather than what production runs — and that silently diverged dev from
+# production the first time these were deployed to the dev project:
+# api-keys-create was verify_jwt=true in dev and false in production.
+#
+# It did not fail, which is the dangerous part. The receiver calls
+# api-keys-create with the service key as the bearer, and the DEV project's
+# service key is still legacy JWT-format (`eyJ…`), which satisfies platform JWT
+# verification. Production's is `sb_secret_…`, which does not — so production
+# MUST be verify_jwt=false, and dev only appeared to work because of a key
+# format difference that is itself scheduled to change. Rotating the dev key to
+# the modern format would have started 401ing dev provisioning with no code
+# change and no obvious cause.
+#
+# Pin them here so both environments deploy identically. Values below are what
+# production runs, read from the Management API rather than assumed.
+[functions.api-keys-create]
+# Server-to-server only: the provisioning receiver authenticates with the
+# service key, which is not a JWT. Platform verification must stay off; the
+# function's own trust boundary is that key.
+verify_jwt = false
+
+[functions.api-keys-list]
+# End-user facing, called with the caller's own JWT. Platform verification is
+# load-bearing: the handler reads `sub` from the token WITHOUT verifying the
+# signature (it base64-decodes the payload), so deploying this with
+# `verify_jwt = false` or `--no-verify-jwt` would let any caller forge a `sub`
+# and list another user's API keys. Do not change this without changing the
+# handler to verify the signature itself.
+verify_jwt = true
+
+[functions.api-keys-revoke]
+verify_jwt = true
+
+[functions.api-keys-rotate]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

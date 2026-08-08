@@ -512,7 +512,7 @@ export OTEL_RESOURCE_ATTRIBUTES="deployment.environment=production"''',
               const DocCodeBlock(
                 title: 'Health Check Endpoint',
                 code: '''# Check pipeline health
-curl https://api.integritystudio.ai/v1/health \\
+curl https://api.integritystudio.ai/health \\
   -H "Authorization: Bearer \$INTEGRITY_API_KEY"
 
 # Response includes:

@@ -88,10 +88,11 @@ Every `integritystudio.ai` URL in `lib/**/*.dart`, checked against the inventori
 | `https://api.integritystudio.ai/v1` | `docs_api_page.dart:117` — "Production" base | ✅ correct as a base for the observability API |
 | `GET /v1/traces` | `docs_api_page.dart:250` | ✅ exists on `obtool-api` |
 | `https://ingest.integritystudio.ai` | various | ✅ resolves; route → `obtool-ingest` |
-| `GET /v1/health` | `docs_quickstart_page.dart:515` | 🔴 **401.** Health lives at `/health`; the `/v1/*` middleware catches `/v1/health` first. The quickstart's first command fails for every reader |
-| `POST /v1/alerts` | `docs_alerts_page.dart:217` | 🔴 **No such route on either worker.** 401 from the middleware, 404 behind it even with a valid key. A documented endpoint with no server-side implementation |
-| `https://sandbox-api.integritystudio.ai/v1` | `docs_api_page.dart:119` — "Sandbox" base | 🔴 **NXDOMAIN.** No DNS record, no route in either zone. Connection fails outright |
-| `https://status.integritystudio.ai` | `docs_index_page.dart:498` — "Status" quick-link | 🔴 **NXDOMAIN.** A dead link in the quick-links row on the docs landing page |
+| `https://api.integritystudio.ai/health` | `docs_quickstart_page.dart` — health check example | ✅ exists on `obtool-api` (public — outside the `/v1/*` auth middleware) |
+| ~~`GET /v1/health`~~ | ~~`docs_quickstart_page.dart:515`~~ | ✅ **Fixed 2026-08-03 (CR31)** — was 🔴 401; path corrected to `/health` |
+| ~~`POST /v1/alerts`~~ | ~~`docs_alerts_page.dart:217`~~ | ✅ **Fixed 2026-08-03 (CR31)** — was 🔴 no such route; API code block removed from docs |
+| ~~`https://sandbox-api.integritystudio.ai/v1`~~ | ~~`docs_api_page.dart:119`~~ | ✅ **Fixed 2026-08-03 (CR31)** — was 🔴 NXDOMAIN; Sandbox row removed from docs |
+| ~~`https://status.integritystudio.ai`~~ | ~~`docs_index_page.dart:498`~~ | ✅ **Fixed 2026-08-03 (CR31)** — was 🔴 NXDOMAIN; Status quick-link removed from docs |
 
 Measured live:
 

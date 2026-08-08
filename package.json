@@ -25,6 +25,7 @@
     "test:workers": "for w in workers/lib workers/contact-form workers/api-gateway workers/sender-worker workers/receiver-worker workers/stripe-webhook; do npm --prefix $w test || exit 1; done",
     "check:env-isolation": "bash scripts/check-env-isolation.sh",
     "check:migration-drift": "bash scripts/check-migration-drift.sh",
-    "check:worker-signals": "bash scripts/check-worker-signals.sh"
+    "check:worker-signals": "bash scripts/check-worker-signals.sh",
+    "check:api-routing": "bash scripts/check-api-routing.sh"
   }
 }

@@ -379,7 +379,7 @@ void main() {
         expect(find.text('Base URL'), findsOneWidget);
         expect(find.text('Production'), findsOneWidget);
         expect(find.text('OTLP Endpoint'), findsOneWidget);
-        expect(find.text('Sandbox'), findsOneWidget);
+        expect(find.text('Sandbox'), findsNothing);
       });
 
       testWidgets('renders Response Code table', (tester) async {

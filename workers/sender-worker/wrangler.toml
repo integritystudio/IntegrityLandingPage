@@ -57,9 +57,16 @@ enabled = true
 [env.dev]
 name = "sender-worker-dev"
 
+# Points at the DEV receiver. `services` is non-inheritable, so this block is
+# repeated rather than merged — and until 2026-08-07 it named the *production*
+# receiver, which meant a dev `/send` would have provisioned against production
+# the moment `sender-worker-dev` was given signing keys. The dev receiver now
+# exists (`observability-toolkit`, `services/api-provisioning-receiver`
+# `[env.dev]`), so the binding has a correct target. Guarded by the "dev never
+# binds a production service" assertion in ../lib/deploy-environments.test.ts.
 [[env.dev.services]]
 binding = "RECEIVER"
-service = "api-provisioning-receiver"
+service = "api-provisioning-receiver-dev"
 
 # Own namespace, so dev rate-limit counters cannot evict production ones.
 # `kv_namespaces` is non-inheritable and must be repeated here.

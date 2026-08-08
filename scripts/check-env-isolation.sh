@@ -69,9 +69,15 @@ SECRETS=(
 # STRIPE_WEBHOOK_SECRET is deliberately absent here — `whsec_` carries no mode
 # marker, so it can only be checked for distinctness. Its isolation rests on the
 # two endpoints living on different accounts.
+#
+# STRIPE_API_KEY is deliberately absent here too, as of 2026-08-07 (CR18 item 2):
+# the prd slot was deleted outright — it held an already-expired rk_live_ key,
+# was read by no code in either repo, and was bound to no worker. A mode check
+# on a credential that no longer exists in prd would misreport dev's still-live
+# sk_test_ value as "unset or unrecognised prefix" — a manufactured failure, not
+# a real isolation gap. See is_dead_slot below.
 STRIPE_MODED_KEYS=(
   STRIPE_SECRET_KEY
-  STRIPE_API_KEY
 )
 LIVE_KEY_RE='^(sk|rk|pk)_live_'
 TEST_KEY_RE='^(sk|rk|pk)_test_'
@@ -133,7 +139,11 @@ printf '%s\n' "-----------------------------------------------------------------
 #   SUPABASE_JWT_SECRET — removed from the code 2026-07-31 (workers verify Auth0
 #   tokens via Auth0 JWKS; EnvSchema.SUPABASE_JWT_SECRET went .optional()). The
 #   prd slot still holds the old value; it authenticates nothing.
-is_dead_slot() { case "$1" in SUPABASE_JWT_SECRET) return 0;; *) return 1;; esac; }
+#   STRIPE_API_KEY — deleted from prd 2026-08-07 (CR18 item 2): dead, expired
+#   (verified 401 api_key_expired), unbound from every worker, and read by no
+#   code — `STRIPE_SECRET_KEY` is the name the code actually reads. dev's
+#   sk_test_ value is likewise unread; left as-is, out of scope for that fix.
+is_dead_slot() { case "$1" in SUPABASE_JWT_SECRET|STRIPE_API_KEY) return 0;; *) return 1;; esac; }
 
 failures=0
 unmeasured=0
