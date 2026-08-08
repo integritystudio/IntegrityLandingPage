@@ -590,6 +590,43 @@ So production `integrity-studio-contact` and the provisioning receiver now share
 
 ---
 
+## W09: `check:env-isolation` passes while four cross-environment values sit outside its list
+
+**Priority:** P2 | **Source:** session 2026-08-07, pointing the toolkit e2e suite at dev ([[CR11]] step 7)
+
+[[CR11]] is closed on the strength of `npm run check:env-isolation` exiting 0. That result is true and much narrower than it reads: `SECRETS` in `scripts/check-env-isolation.sh` names **15** credentials, and standing up the dev e2e path found **four** cross-environment values in Doppler `dev` that it does not look at. The item's own caveat already said "a green run proves only what the list names" — this is that caveat with four concrete instances, which is the difference between a warning and a finding.
+
+| Value | What it was | State |
+|---|---|---|
+| `PROVISION_WORKER_URL` | the **production** sender — so `sender-receiver` and `provision-key` e2e created real users and API keys in production on every local run | ✅ fixed → `sender-worker-dev` |
+| `KV_NAMESPACE_ID` | production's `AUTH` namespace — a dev `api-keys-create` would have minted keys into the namespace production authenticates against | ✅ fixed → `AUTH_DEV` (`0b323a37…`) |
+| `VITE_AUTH0_CLIENT_ID` | production's SPA client (`CNfd6…`), byte-identical in both configs and **nonexistent in the dev tenant**, so every dev ROPC mint returned `access_denied` | 🔴 **open** — worked around in the test; the dev tenant has no SPA client to point it at, so this needs one provisioned or the name retired from `dev` |
+| `CLOUDFLARE_D1_TOKEN` | **byte-identical in `dev` and `prd`** (`cfat_tMXH…`), and on no isolation list | 🔴 **open** — scope a dev D1 token or accept and document it |
+
+**The generalisable half, and the reason this is P2 rather than a footnote: endpoint URLs are as load-bearing as credentials.** Three of the four are not secrets at all — two URLs and a public client id — and `PROVISION_WORKER_URL` did the most damage of any of them. A perfectly-scoped dev credential aimed at a production endpoint is the same defect as a shared credential, and the detector is built to catch only the second. Extend it to compare **every** name present in both configs and classify rather than hash-compare a fixed list, or at minimum add the `*_URL` / `*_NAMESPACE_ID` / `VITE_*` / `CLOUDFLARE_*` families.
+
+⚠️ Two things to know before editing that script. The slot really is spelled **`SUPABASE_INTEGRITY_MEMERSHIP_KEY`** ("MEMERSHIP") in Doppler — verified present in both configs at 41 chars; the correctly-spelled name exists in neither, so "fixing" the typo in `SECRETS` would silently create the phantom row this file already documents. And a name absent from both configs reads as "UNSET in both", which is not evidence of isolation — it is the failure mode that hid `SUPABASE_PROVISIONING_KEY` for a week.
+
+**Status:** Open — two of four fixed in passing; the detector's coverage gap itself is untouched.
+
+---
+
+## W10: eight Supabase Edge Functions were untracked; four are now committed but unreviewed
+
+**Priority:** P3 | **Source:** session 2026-08-07, recovering `api-keys-list` for the toolkit e2e suite
+
+`.gitignore`'s blanket `*.ts` (present because Flutter web output generates TS/JS) swallowed `supabase/functions/**`, so `git ls-files supabase/functions/` returned **nothing** while eight functions ran in production. Every other source tree — `functions/`, `workers/`, `scripts/` — has an explicit allow; this one was never added, so the repo *could not* have tracked them. ✅ **Fixed 2026-08-07** (`336cfd2`): allow-line added, all eight recovered with `supabase functions download <slug> --project-ref cfrbahzzklwrnmbtqojl` and committed, each scanned first (all take config from `Deno.env`; none embeds a credential).
+
+**What remains is that four of them have never been read by anyone here.** `provision-api-key` (v22) and the three `ga4-*` (v18) were recovered as deployed artifacts, not as reviewed source, and nothing in any test suite exercises them — which is exactly why their absence went unnoticed. Two specific questions:
+- **Is `provision-api-key` still live traffic or a superseded ancestor of the receiver?** It reads the same `CLOUDFLARE_*` + `KV_NAMESPACE_ID` + service-role env as `api-keys-create` and looks like the pre-receiver provisioning path. If it is dead, it is a deployed, publicly-addressable function with production credentials and no owner — delete it rather than leave it.
+- **The three `ga4-*` functions read `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`**, an integration nothing else in this repo references. Confirm it is intentional and in use.
+
+🔴 **Related divergence found while pinning `verify_jwt`, and it has a deadline: the dev project's service key is legacy JWT format (`eyJ…`) while production's is `sb_secret_…`.** That difference is load-bearing — `api-keys-create` must run `verify_jwt = false` because a `sb_secret_` bearer is not a JWT, and dev only tolerated `verify_jwt = true` because its legacy key *is* one. When the dev key moves to the modern format (or legacy keys are disabled, which [[CR24]] already started), dev provisioning starts 401ing with no code change and no obvious cause. The `verify_jwt` values are now pinned per function in `supabase/config.toml` so deploys stop inheriting CLI defaults, but the key-format gap is unfixed.
+
+**Status:** Open — tracking fixed; review, the `provision-api-key` liveness question, and the dev key-format divergence are not.
+
+---
+
 ## Code Review 2026-07-26 → 2026-07-27 (CR01–CR35)
 
 Started as the open remainder of the 8-area codebase review; CR11–CR15 were found afterwards while deploying and auditing the workers, CR16 while reading the deployed `obtool-*` scripts to settle CR13, CR22–CR23 as follow-ups to the billing-portal auth change, CR26 while fixing the reported dashboard CORS failure — which turned out to sit on top of two deeper auth defects — CR29 while diagnosing CR11 row #7, where the shared secret was the symptom and the unrotatable legacy key path was the actual defect, CR30 while executing CR11 step 1 against a genuinely empty project, and CR31 while answering the plain question "should `api.integritystudio.ai/*` point at `api-gateway`?" — where the answer was no and the three broken URLs found on the way there were the larger finding. Fixed work lives in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md); the review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md).
