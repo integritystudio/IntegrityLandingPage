@@ -19,7 +19,7 @@ const _senderWorkerUrl = String.fromEnvironment(
 /// Configurable via --dart-define for staging/development.
 const _apiGatewayUrl = String.fromEnvironment(
   'API_GATEWAY_URL',
-  defaultValue: 'https://api-gateway.alyshia-b38.workers.dev',
+  defaultValue: 'https://api.integritystudio.dev',
 );
 
 /// Authentication API response.

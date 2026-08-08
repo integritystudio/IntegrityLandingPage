@@ -1,16 +1,25 @@
-# API routing — what serves `api.integritystudio.ai`
+# API routing — which worker serves which hostname
 
-**Measured 2026-08-03.** Every table below is live state or source, not intent. Re-measure with the commands in [Keeping this in sync](#keeping-this-in-sync) before relying on it; tracked by [BACKLOG.md CR31](BACKLOG.md#cr31).
+**Measured 2026-08-08** (previously 2026-08-03). Every table below is live state or source, not intent. Re-measure with the commands in [Keeping this in sync](#keeping-this-in-sync) before relying on it; tracked by [BACKLOG.md CR31](BACKLOG.md#cr31) and [CR13](BACKLOG.md#cr13).
 
 ## The one-line answer
 
-`api.integritystudio.ai/*` routes to **`obtool-api`**, the observability read API. `api-gateway` — which serves the account, billing, and ingest endpoints the product actually depends on — has **no hostname at all** and is reachable only at `https://api-gateway.alyshia-b38.workers.dev`.
+Two hostnames, two workers, no overlap:
 
-That is backwards from what the names imply, and **four** published URLs across four documentation pages resolve to nothing.
+| Hostname | Worker | Surface |
+|---|---|---|
+| `api.integritystudio.ai` | `obtool-api` | observability read API — traces, metrics, logs, sessions |
+| `api.integritystudio.dev` | `api-gateway` | account, billing, ingest — what the product depends on |
 
-## Live zone routes
+**This changed on 2026-08-08.** Until then `api-gateway` had no hostname at all and was reachable only at `https://api-gateway.alyshia-b38.workers.dev` — a workers.dev URL that the shipped Flutter app called directly and that customers could not sensibly be handed as an integration target. CR13 resolved that with **option C, a separate branded hostname**, rather than the path-split this document previously recommended; see [Resolved — separate hostname](#resolved--separate-hostname-not-a-path-split).
 
-All worker routes in the account, both zones. Read via `GET /zones/<id>/workers/routes`.
+⚠️ **The old workers.dev hostname still answers 200** and is deliberately left alive — nothing forces a client off it, so an unmigrated caller does not break. Do not read its continued existence as the app still using it; the Flutter default was repointed in the same change.
+
+## Live zone routes and custom domains
+
+🔴 **These are two different mechanisms and a worker can be reached by either. Querying only `workers/routes` — as the first version of this document did — reports `api-gateway` as having no hostname, which is now false.** A **route** claims a URL pattern on a zone and can capture paths another worker serves; a **custom domain** binds one hostname to one worker and creates its own DNS record. Check both endpoints or the answer is wrong.
+
+**Routes** — `GET /zones/<id>/workers/routes`, all three zones:
 
 | Pattern | Script | Zone |
 |---|---|---|
@@ -18,9 +27,17 @@ All worker routes in the account, both zones. Read via `GET /zones/<id>/workers/
 | `ingest.integritystudio.ai/*` | `obtool-ingest` | `integritystudio.ai` |
 | `api.alephatx.info/*` | `tcad-api` | `alephatx.info` |
 
-There are no others. `api-gateway`, `sender-worker`, `stripe-webhook`, and `integrity-studio-contact` are all workers.dev-only.
+**Custom domains** — `GET /accounts/<id>/workers/domains`:
 
-This confirms CR13 step 1 held: `workers/api-gateway/wrangler.toml` carries no `routes` key, so its `deploy:prd` has never captured `api.integritystudio.ai`.
+| Hostname | Script | Environment |
+|---|---|---|
+| `api.integritystudio.dev` | `api-gateway` | production |
+
+There are no others. `sender-worker`, `stripe-webhook`, and `integrity-studio-contact` remain workers.dev-only.
+
+**Zones**: `integritystudio.ai` (`822492ca…`), `integritystudio.dev` (`838f8d6b…`, added 2026-08-08), `alephatx.info` (`4b49af46…`) — all active.
+
+`workers/api-gateway/wrangler.toml` now carries a `routes` key again, but as `[{ pattern = "api.integritystudio.dev", custom_domain = true }]` — a hostname binding on a zone these workers solely occupy, **not** the `api.integritystudio.ai/v1/*` pattern CR13 step 1 removed. The distinction is load-bearing: see [the hazard](#the-hazard-a-routes-key-re-opens).
 
 ## Route inventories
 
@@ -77,7 +94,7 @@ Note API keys are nested under `/v1/orgs/:id/`; there is no top-level `/v1/api-k
 | `obtool-api` | `/v1/traces*` `/v1/metrics*` `/v1/logs` `/v1/sessions*` `/v1/cost` `/v1/datasets*` `/v1/evaluations` |
 | `api-gateway` | `/v1/me` `/v1/orgs*` `/v1/ingest/*` `/bootstrap` |
 
-This is what makes a path-split viable with no code change on either side.
+Disjointness is why a path-split *would* have worked with no code change on either side. It is also why **repointing the wildcard never could** — see below. The chosen answer uses neither: separate hostnames make the question moot, and this table is now the evidence that the two surfaces never needed to share one host in the first place.
 
 ## What the documentation advertises
 
@@ -110,36 +127,39 @@ dig +short ingest.integritystudio.ai          -> 104.21.1.162  172.67.129.159
 
 | Client | Constant | Default |
 |---|---|---|
-| Flutter | `API_GATEWAY_URL` | `https://api-gateway.alyshia-b38.workers.dev` — `lib/services/provisioning_service.dart:21`, `lib/services/dashboard_service.dart:15` |
+| Flutter | `API_GATEWAY_URL` | `https://api.integritystudio.dev` — `lib/services/provisioning_service.dart:22`, `lib/services/dashboard_service.dart:16` |
+| Flutter | `SENDER_WORKER_URL` | `https://sender-worker.alyshia-b38.workers.dev` — `lib/services/provisioning_service.dart:15` |
 
-`ci.yml` builds with no `--dart-define`, so shipped builds use that default. The product's account and billing API is served to customers from a workers.dev hostname.
+`ci.yml:212` runs `flutter build web --release` with **no `--dart-define`**, so the compile-time default is exactly what ships. That cuts both ways: it is why the workers.dev default was a live-user-path fact rather than a dev convenience, and it is why repointing the constant is sufficient to move the shipped app — no config, no env, no deploy flag.
 
-## Recommendation — split by path, do not repoint the wildcard
+⚠️ **`SENDER_WORKER_URL` is still workers.dev and was left that way deliberately.** CR13 step 5 named only the two `API_GATEWAY_URL` sites, and `sender-worker` has no branded hostname to move to. It needs its own decision, not a tag-along.
 
-Repointing `api.integritystudio.ai/*` to `api-gateway` would `404` all thirteen `obtool-api` routes, including `/v1/traces` — the one documented endpoint that currently works. That is a straight regression.
+**CORS is unaffected by the hostname change, measured rather than assumed.** `api-gateway` keys its allowlist on the *requesting* `Origin`, not on its own host: a preflight from `Origin: https://integritystudio.ai` returns `204` with `access-control-allow-origin: https://integritystudio.ai` on **both** the new and old hostnames, with identical allow-headers and methods.
 
-Cloudflare matches the **most specific** route, so adding narrower patterns leaves the wildcard as the fallback:
+## Resolved — separate hostname, not a path-split
 
-```
-api.integritystudio.ai/v1/me         -> api-gateway
-api.integritystudio.ai/v1/orgs*      -> api-gateway
-api.integritystudio.ai/v1/ingest/*   -> api-gateway
-api.integritystudio.ai/bootstrap     -> api-gateway
-api.integritystudio.ai/*             -> obtool-api      (unchanged)
-```
+**Decided and executed 2026-08-08 (CR13, option C).** `api-gateway` is bound to `api.integritystudio.dev` as a Workers **custom domain**. Live: `GET /health` → `200 {"database":"healthy","durableObjects":"healthy"}`, `/v1/me` → `401` (auth-gated, so the route is mounted).
 
-Four new patterns. `/v1/orgs*` covers the nested api-keys routes. No code change on either worker — both already serve these paths.
+> ⚠️ **This section previously recommended a 4-pattern path-split on `api.integritystudio.ai`** — `/v1/me`, `/v1/orgs*`, `/v1/ingest/*`, `/bootstrap`, leaving the wildcard as fallback. That analysis was sound and is **not** what was built. It is recorded here rather than deleted because the reason it lost is the useful part: a split would have made this repo's route list a hand-maintained mirror of a dispatch table living in another repo, so every new `api-gateway` route would silently 404 until someone remembered to add a pattern here. A separate hostname has no such coupling.
 
-`/health` stays with `obtool-api` via the wildcard, leaving `api-gateway`'s health check workers.dev-only. Acceptable for an internal check.
+Why a hostname was available at all: `integritystudio.dev` was migrated from Porkbun to Cloudflare on 2026-08-08, which is what made a custom domain possible. Before that, the zone was not on Cloudflare and **no** Workers route or custom domain could attach to it — a registrar-level constraint no config change could satisfy.
 
-### The hazard this re-opens
+### Repointing the wildcard stays ruled out
 
-Adding these means putting a `routes` key back into `workers/api-gateway/wrangler.toml` — exactly what CR13 step 1 removed.
+Not superseded — still true, and the reason is worth keeping: pointing `api.integritystudio.ai/*` at `api-gateway` would `404` all thirteen `obtool-api` routes including `/v1/traces`, the endpoint `docs_api_page.dart:250` publishes and which works today. That is a straight regression regardless of who `obtool-api` serves. The audience question only decides whether the observability API should eventually move to an internal name.
 
-- Put it at the **top level only**, and add an explicit `routes = []` under `[env.dev]`.
-- `routes` **is inherited** into named environments. Omitting it there hands production traffic to the secret-less `api-gateway-dev` — the 2026-07-27 incident.
-- `workers/lib/deploy-environments.test.ts` asserts the empty-dev-routes rule. Run it before deploying.
-- Prefer creating the routes via Dashboard/API first and codifying them in `wrangler.toml` afterwards, so the route exists before any deploy can move it.
+`/health` exists on both workers and is the sole path overlap; each now answers on its own hostname, so the ambiguity that made it worth noting is gone.
+
+### The hazard a `routes` key re-opens
+
+`workers/api-gateway/wrangler.toml` carries a `routes` key again. It is a custom domain rather than a path pattern, but the **inheritance** hazard is identical and unchanged:
+
+- Keep it at the **top level only**, with an explicit `routes = []` under `[env.dev]`.
+- `routes` **is inherited** into named environments. Omitting it there hands the production hostname to the secret-less `api-gateway-dev` — the 2026-07-27 incident, which ran for ~14 hours.
+- `workers/lib/deploy-environments.test.ts` asserts the empty-dev-routes rule and is **mutation-verified**: deleting the explicit `routes = []` fails exactly that assertion.
+- ⚠️ **That guard was dormant for this worker until 2026-08-08.** It only fires when production declares routes, and `api-gateway` declared none between CR13 step 1 (2026-07-29) and the custom domain. Declaring a hostname is what armed it — so its passing today means something, where its passing last week did not.
+- The custom domain was created via the API **before** being codified in `wrangler.toml`, so the binding existed before any deploy could move it. Prefer that order.
+- ⚠️ Cloudflare represents a custom domain as an `AAAA` record to the discard prefix **`100::`**. Do not "correct" that record or set it to DNS-only — graying it unbinds the worker while leaving the hostname resolving, which surfaces as a `522` rather than an obvious failure.
 
 ### Not recommended
 
@@ -151,11 +171,28 @@ Adding these means putting a `routes` key back into `workers/api-gateway/wrangle
 Every table above is measured. Re-run these before trusting it.
 
 ```bash
-# Zone routes (needs a token with zone read — the dev workers token is 403 here by design)
+# Zone routes. NOTE the `--config dev` is load-bearing and not interchangeable:
+# dev's CLOUDFLARE_GLOBAL_API_KEY is a LEGACY GLOBAL KEY (works with the
+# email+key headers below), while prd's secret OF THE SAME NAME is a `cfat_`
+# account token that fails BOTH this form (400) and Bearer. Same name, different
+# credential class, per config — verified 2026-08-08.
 GK=$(doppler secrets get CLOUDFLARE_GLOBAL_API_KEY --project integrity-studio --config dev --plain)
 curl -s -H "X-Auth-Email: alyshia@integritystudio.ai" -H "X-Auth-Key: $GK" \
   "https://api.cloudflare.com/client/v4/zones/822492ca06069b369c2a75d3789fb7fa/workers/routes" \
   | python3 -c 'import json,sys; [print(r["pattern"],"->",r["script"]) for r in json.load(sys.stdin)["result"]]'
+
+# Simpler alternative that also works: prd's CLOUDFLARE_API_TOKEN as a Bearer token.
+doppler run --project integrity-studio --config prd -- sh -c 'curl -s \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/zones/822492ca06069b369c2a75d3789fb7fa/workers/routes"' \
+  | python3 -c 'import json,sys; [print(r["pattern"],"->",r["script"]) for r in json.load(sys.stdin)["result"]]'
+
+# CUSTOM DOMAINS — a separate endpoint. Querying only workers/routes reports
+# api-gateway as having no hostname, which is wrong. Check both.
+doppler run --project integrity-studio --config prd -- sh -c 'curl -s \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/b3868dd0fd5c0faa7d98aa325a9c2377/workers/domains"' \
+  | python3 -c 'import json,sys; [print(d["hostname"],"->",d["service"]) for d in json.load(sys.stdin)["result"]]'
 
 # api-gateway route table
 grep -nE "pathname === '|subPath === '|pathname\.match\(" workers/api-gateway/src/index.ts
@@ -176,3 +213,7 @@ Three traps, all of which produced wrong readings while this document was being 
 - **`curl` defaults to GET.** Probing a POST-only route returns `404` and reads as "route missing". `/v1/ingest/otel`, `/v1/ingest/events`, and `/bootstrap` are all POST.
 - **A `401` proves auth ran, not that the route exists.** `obtool-api` auth-gates all of `/v1/*`, so every path under it — real or invented — returns `401`. Read the source for the route table; use probes only for what is live.
 - **A substring pattern merges subdomains.** `api.integritystudio.ai` is a substring of `sandbox-api.integritystudio.ai`, so the un-anchored grep printed one host for two and hid a dead link. Anchor on `https?://`.
+- **Querying one endpoint answers a different question than you asked.** `workers/routes` alone reports `api-gateway` as hostname-less; it is bound by a *custom domain*, a separate endpoint. "No route" and "not reachable" are not the same claim.
+- **A secret name is not a credential type.** `CLOUDFLARE_GLOBAL_API_KEY` is a legacy global key in `dev` and a `cfat_` account token in `prd`, so the correct auth *header form* differs by config under one name. An auth failure here means "wrong form for this value", not "bad credential" — the same class of error as reading a `401` as "route missing".
+
+⚠️ **A fourth trap, added 2026-08-08 and the reason this document needed a coherent pass rather than a line edit:** it recommended a path-split for five days after that split had been rejected in favour of a separate hostname, and its client table pointed at a workers.dev default that no longer shipped. **A measurement document rots at exactly the moment the thing it measured is acted on** — the decision that makes it stale is the same event that makes it worth re-reading. Re-measure this file whenever a hostname, route, or client default changes, not on a schedule.
