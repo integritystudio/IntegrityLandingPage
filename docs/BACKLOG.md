@@ -582,10 +582,10 @@ So production `integrity-studio-contact` and the provisioning receiver now share
 1. ~~Add a per-request nonce…~~ ✅ done in code (`nonce.ts`, signature dedup).
 2. ~~Reject `/inbox` requests whose nonce has already been seen~~ ✅ done (401 `REPLAY_DETECTED`).
 3. ~~Confirm TTL ≥ replay window~~ ✅ done, derived rather than hardcoded.
-4. **Provision a dedicated KV namespace for the receiver** and repoint its `RATE_LIMIT_KV` binding, leaving `cf9d7d72…` to contact-form alone. Receiver-side change, `observability-toolkit` repo.
-5. **Decide the fail-open question above** — fail closed, or emit an audit event, or accept it explicitly and write down why.
+4. ~~Provision a dedicated KV namespace for the receiver~~ ✅ **done 2026-08-08**: namespace `7ab3fb981d5b4ea186c348acd1e03590` provisioned; `wrangler.toml` updated. `cf9d7d72…` is now contact-form's namespace only.
+5. ~~Decide the fail-open question above~~ ✅ **done 2026-08-08**: fail closed. The three `if (env.RATE_LIMIT_KV)` guards are replaced by a single early-return 503 + `alert.check_failed` audit event. An absent binding is now detectable in Sentry rather than a silent degradation.
 
-**Status:** Open, but **much smaller and differently shaped than this entry described** — the replay protection itself has shipped; what remains is namespace hygiene (step 4) and a fail-open decision (step 5), both receiver-side in `observability-toolkit`. ~~Open — design decision (KV vs Durable Object; nonce vs signature dedup)~~ — that decision is made and implemented. See also [[W04]] (provisioning observability). The 2026-07-26 review raised the same gap against `workers/receiver-worker/src/index.ts:72`; that file is the local stub / test double and is not deployed, so this item remains the only real work — no separate entry was created for it.
+**Status:** ✅ **Complete 2026-08-08.** All five scope items are done. Receiver-side changes are in `observability-toolkit` repo (commit `bb2228b` on `main`; Worker deployed to production, version `1564a7e7`).
 
 ---
 
