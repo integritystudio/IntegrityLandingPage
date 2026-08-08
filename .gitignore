@@ -85,5 +85,15 @@ dist/
 # Allow scripts/ TypeScript source (runbooks, admin utilities)
 !scripts/*.ts
 
+# Allow supabase/ Edge Function source
+#
+# 🔴 Added 2026-08-07. Its absence is why the repo could not rebuild its own
+# deployed functions: the blanket `*.ts` above swallowed every
+# `supabase/functions/*/index.ts`, so `git ls-files supabase/functions/`
+# returned NOTHING while eight functions ran in production. Sources that
+# happened to exist locally looked tracked and were not — a fresh clone had
+# zero of them. Recovered via `supabase functions download <slug> --project-ref`.
+!supabase/functions/**/*.ts
+
 # Serena (machine-specific config, cache, memories)
 .serena/
