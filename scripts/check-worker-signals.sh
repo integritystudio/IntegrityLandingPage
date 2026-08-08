@@ -45,7 +45,19 @@ readonly STRIPE_WEBHOOK_CRON_PER_DAY=96
 readonly CRON_MISS_TOLERANCE=0.75
 # A reconciliation tick issues at least one Supabase read.  Below this ratio the
 # worker is running without reaching its database - the CR20 failure signature.
-readonly MIN_SUBREQUEST_RATIO=0.5
+#
+# 🔴 TEMPORARY 2026-08-08 — set to an unreachable 99 to force exactly one breach,
+# so that CR20's *notification* half can be observed rather than assumed. The
+# scheduled path only proves the job RUNS; the alert channel is GitHub's
+# job-FAILURE email, so a passing run notifies nobody and proves nothing about
+# whether anyone would be told. stripe-webhook's real ratio is ~1.00, so 99
+# guarantees a single deterministic breach and exit 1.
+#
+# REVERT TO: readonly MIN_SUBREQUEST_RATIO=0.5
+# immediately after the failure email is confirmed. Left in place, this check
+# fails every run and becomes noise that trains the owner to ignore it — the
+# precise way an alert dies quietly.
+readonly MIN_SUBREQUEST_RATIO=99
 # Any scriptThrewException is worth surfacing; these are unhandled throws.
 readonly MAX_EXCEPTIONS=0
 # Pending dead letters awaiting retry.  Sustained depth means the cron is not
