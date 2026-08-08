@@ -656,7 +656,14 @@ So production `integrity-studio-contact` and the provisioning receiver now share
 
 ⚠️ **Two things this does not cover.** `dashboard/e2e/integration/setup.ts` mints ROPC through `VITE_AUTH0_CLIENT_ID`, which now refuses the password grant — but that suite already could not run under `dev`, because it also requires `SUPABASE_SERVICE_ROLE_KEY`, a slot that exists in neither config (the [[CR01]] finding). When it is revived, point it at the confidential `integrity-dev-ropc` (`AUTH0_CLIENT_ID`) as `observability-toolkit`'s `provision-key.e2e.ts` already does, rather than re-adding ROPC to the SPA. And the generalisable half below is still only half-answered: three names were added to a fixed list, which is not the same as classifying every name present in both configs.
 
-**Status:** Open — 5 of 6 values fixed; `CLOUDFLARE_D1_TOKEN` remains, and the detector still compares a hand-maintained list rather than every shared name.
+🔴 **A sixth instance, in a config store this detector cannot see (2026-08-08).** `~/.claude/settings.json`'s `OTEL_EXPORTER_OTLP_HEADERS` carried a **dev** API key while `OTEL_EXPORTER_OTLP_ENDPOINT` in the same block pointed at **production** ingest. Probed as a pair: `200` against `obtool-api-dev`, `401` against `api.integritystudio.ai` — the credential and the endpoint it shipped to belonged to different environments. Fixed to match `OBTOOL_API_KEY` (now 200 prod / 401 dev).
+
+Two things this adds to the item rather than merely repeating it:
+
+1. **`check:env-isolation` compares Doppler `dev` against Doppler `prd` and nothing else.** This value lives in a gitignored local settings file, so it was outside the detector by construction — not a gap in the list, a gap in the *sources* the list is drawn from. Any host-local config that carries a credential (settings.json, `.envrc`, a shell profile) is a place a dev key can point at production unobserved.
+2. **It was harmless only by accident, and the accident was in the consumer.** `otlpAuthHeaders` gives `OBTOOL_API_KEY` precedence, so the hand-rolled shipper never used the bad header. But the OTel SDK exporters read `OTEL_EXPORTER_OTLP_HEADERS` natively and know nothing about `OBTOOL_API_KEY` — any SDK-based export inheriting that env would have sent a dev key to production and 401'd silently. **Reasoning from precedence said "safe"; the capability probe said "wrong environment".** That is this item's own rule, met again: assert on what the credential can reach.
+
+**Status:** Open — 6 of 7 values fixed; `CLOUDFLARE_D1_TOKEN` remains, and the detector still compares a hand-maintained list rather than every shared name.
 
 ---
 
