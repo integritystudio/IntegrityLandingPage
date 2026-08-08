@@ -668,7 +668,33 @@ Two things this adds to the item rather than merely repeating it:
 
 **What that does and does not buy this item.** It catches *this* shape — two credentials configured for one endpoint that disagree — wherever the shipper runs, including config stores `check:env-isolation` cannot see. It does **not** catch a single credential pointed at the wrong environment, which is the more common form here and the one `CLOUDFLARE_D1_TOKEN` still has: with nothing to disagree with, there is no conflict to detect. That still needs the capability probe this item keeps arriving at — assert what the credential reaches, not whether two values differ.
 
-**Status:** Open — 6 of 7 values fixed; `CLOUDFLARE_D1_TOKEN` remains, and the detector still compares a hand-maintained list rather than every shared name.
+🔴 **`INJECT_HMAC_SECRET` was shared, and unlike the URLs it was *proven* to reach production (2026-08-08).** Found by finally doing what the "generalisable half" above asks for — comparing **every** name present in both configs instead of the hand-maintained list. That comparison is now a number: **170 shared names, 117 byte-identical.** Most are legitimately shared (Anthropic, OpenAI, Sentry, Porkbun — third-party keys with no dev/prd notion), which is exactly why a full-config comparison has to *classify* rather than fail on identity.
+
+Four of the 117 are not legitimate, and they split cleanly by whether anything reads them:
+
+| Value | Reaches | Readers today |
+|---|---|---|
+| `INJECT_HMAC_SECRET` | **production evaluations webhook — proven** | `obtool-ingest` (prod + dev), toolkit e2e |
+| `CLOUDFLARE_D1_TOKEN` | production D1 | toolkit ops scripts |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | `902fc8a4…`, the **production dashboard KV** (dev's is `fc5bbe48…`) | none in either repo |
+| `VITE_SUPABASE_URL` / `REACT_APP_SUPABASE_URL` (+ `_ANON_KEY` twins) | production project `cfrbahzzklwrnmbtqojl`, while the unprefixed `SUPABASE_URL` is correctly dev | none in either repo |
+
+The last two are the `VITE_AUTH0_DOMAIN` defect repeated for Supabase and KV — **a prefixed twin holding production while the unprefixed name holds dev.** Latent rather than live only because nothing reads them, which is not a property to rely on: `PROVISION_WORKER_URL` was latent in exactly this way until a suite started using it.
+
+`HOME_ORG_ID` is byte-identical too (production's `f4286657-…` under `dev`). Also unread today — but `observability-toolkit`'s `ORG-VARS-THIRD-WORKER` deliberately left `quality-metrics-api-dev` empty rather than copy that UUID, so `doppler run -c dev` would hand a future reader precisely the value that item refused to hardcode.
+
+✅ **Rotated in `dev` 2026-08-08, and verified by capability rather than by the values differing** — a 2×2 matrix run to steady state, using a body that fails `JSON.parse` *after* signature verification, so a valid signature returns 400 and nothing is ever persisted:
+
+| signing key → target | `obtool-ingest-dev` | production |
+|---|---|---|
+| **new** `dev` secret | **400** (accepted) | **401** (rejected) |
+| `prd` secret (= the old shared `dev` value) | **401** (rejected) | **400** (accepted) |
+
+Both diagonals matter: the top-right is the gap closing, and the bottom-left proves the old value is genuinely revoked in dev rather than merely superseded in Doppler. Production is untouched — `prd`'s slot was never written, confirmed by hash before and after. Bound to `obtool-ingest-dev` with `wrangler secret put --env dev`; the toolkit's `wrangler.toml` already documents that re-upload command.
+
+⚠️ **The first reading of this matrix was wrong in both directions, and the probe is why.** An initial run returned 401 for *every* cell — the `openssl dgst` output on this machine carries no `(stdin)=` prefix, so `awk '{print $2}'` produced an empty signature and the endpoint rejected everything. A uniform negative is what a broken probe looks like, which this repo has now recorded five times. The next run then caught Cloudflare mid-rollout, with the dev Worker answering from two versions at once — new secret rejected on one sample and accepted on the next. **Neither a uniform result nor a single sample is a measurement**; the table above is the steady state across four consecutive samples.
+
+**Status:** Open — 6 of 7 listed values fixed; `CLOUDFLARE_D1_TOKEN` remains. The generalisable half is now **measured rather than argued** (170 shared names, 117 identical, 4 illegitimate, 2 of them live) but still not implemented: the detector compares a hand-maintained list, and the four above were found by an ad-hoc script, not by `check:env-isolation`.
 
 ---
 
