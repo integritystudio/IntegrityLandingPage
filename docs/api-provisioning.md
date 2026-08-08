@@ -423,9 +423,45 @@ Remaining:
 
 ## Monitoring Runbook
 
-Daily alerting runs via `.github/workflows/worker-signals.yml` (W04 step 4). A
-failing job triggers GitHub's notification emails to the repo owner. The signal
-definitions and thresholds live in [`docs/observability-signals.md`](observability-signals.md).
+Daily alerting runs via `.github/workflows/worker-signals.yml` (W04 step 4) at
+`37 8 * * *`. A failing job triggers GitHub's notification emails to the repo
+owner. The signal definitions and thresholds live in
+[`docs/observability-signals.md`](observability-signals.md).
+
+### Proving the alert channel — and why a green run does not
+
+**The alert is a job-*failure* email, so a passing run notifies nobody and tells
+you nothing about whether anyone would be told.** An alert that has only ever
+succeeded is indistinguishable from one whose channel is broken. Verified end to
+end on 2026-08-08 by deliberately failing it:
+
+1. Temporarily set `MIN_SUBREQUEST_RATIO` from `0.5` to an unreachable `99` in
+   `scripts/check-worker-signals.sh`. `stripe-webhook`'s real ratio is ~1.00, so
+   this breaches **exactly once** — one breach, not five; a storm proves the same
+   thing and is harder to read.
+2. `gh workflow run worker-signals.yml` — `workflow_dispatch` rather than waiting
+   for the schedule, so the test is deterministic instead of hostage to GitHub's
+   scheduler latency.
+3. Confirm the job failed **for the intended reason**, not incidentally:
+   `FAIL: 1 signal(s) breached — stripe-webhook: subrequest ratio 1.00 below 99.00`,
+   exit 1.
+4. Confirm GitHub raised a notification — `gh api notifications`, looking for
+   `ci_activity` / `CheckSuite`. **Capture the count before the test**, or a new
+   entry is indistinguishable from the backlog.
+5. **Confirm a human received the email.** This is the only step that cannot be
+   verified from the API: it shows what GitHub *created*, not what reached an
+   inbox, and delivery depends on per-account settings and the mail provider.
+6. **Revert the threshold, and verify the revert** — `git diff` against the
+   pre-test commit should be empty and the check should exit 0 again.
+
+⚠️ **Step 6 is not bookkeeping.** A threshold left at 99 fails every run and
+trains the owner to ignore the alert, which is how an alert dies quietly — the
+same end state as having no alert, arrived at by a different road.
+
+⚠️ **`workflow_dispatch` proves the channel, NOT the schedule.** They are
+separate claims and were conflated once already (see CR20). Confirm one
+`schedule`-triggered run in Actions before treating the daily job as live;
+`gh run list --workflow worker-signals.yml` shows the `event` column.
 
 ### Running manually
 

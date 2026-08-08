@@ -149,6 +149,25 @@ there, so a receiver failure breaks provisioning exactly as a sender failure
 would — but it deploys from the `observability-toolkit` repo and this one cannot
 fix it. Reporting it stops the failure being misattributed to the sender.
 
+> 🔴 **What this check does NOT watch: `obtool-ingest`.** Measured 2026-08-08 —
+> the string appears **zero times** in `check-worker-signals.sh`. `OWNED` is the
+> four Workers this repo deploys and `FOREIGN` is `api-provisioning-receiver`
+> alone. The **dashboard** covers `obtool-ingest` (it is in `OTHER_WORKERS` in
+> `worker-dashboard.sh`); the **alert** does not.
+>
+> That gap is not hypothetical. `obtool-ingest` was killed for
+> `exceededResources` 9–12 times an hour for days — SIGNAL 3's exact failure
+> mode, threshold 0 — and nothing here would have said a word. It was found by
+> someone opening the dashboard, which is the difference between a dashboard and
+> an alert.
+>
+> **Do not fix this by adding it to `OWNED` or `FOREIGN`.** `FOREIGN` is
+> report-only by design, so it would print a line and still email nobody;
+> `OWNED` would fail this repo's build for a fault it cannot repair, which is the
+> thing `FOREIGN` exists to prevent. The right home is `observability-toolkit`,
+> which deploys the Worker and currently has no scheduled alerting at all —
+> tracked there as `INGEST-CPU-STARVATION`.
+
 ### SIGNAL 5 — dead-letter queue depth
 
 `webhook_dead_letters`, thresholds: **pending > 10**, **abandoned > 0**.
