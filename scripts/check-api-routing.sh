@@ -53,13 +53,20 @@ fail() { echo "  FAIL: $*"; FAIL=1; }
 # internal app routes, not external API calls that need DNS verification.
 # ---------------------------------------------------------------------------
 
-ALL_URLS=$(grep -rhoE "https?://[a-z0-9.-]*integritystudio\.ai[a-zA-Z0-9/{}:_.%-]*" \
+# Both TLDs. `.dev` was added 2026-08-08 when api-gateway was bound to
+# api.integritystudio.dev (CR13). Until then this matched `.ai` only, and it
+# PASSED while silently covering none of the new hostname — no DNS check, no
+# doc-coverage check — on the host the shipped app depends on. That is the same
+# defect class this script exists to catch: the fourth CR31 defect was found
+# only by fixing this grep. A checker that narrows its own scope reports green.
+ALL_URLS=$(grep -rhoE "https?://[a-z0-9.-]*integritystudio\.(ai|dev)[a-zA-Z0-9/{}:_.%-]*" \
   "$REPO_ROOT/lib/" --include='*.dart' 2>/dev/null | sort -u)
 
-# Filter to subdomain URLs — hosts like api.integritystudio.ai, ingest.integritystudio.ai.
-# Exclude the bare main domain (integritystudio.ai without a subdomain) since those are
-# internal app routes, not external API calls that need DNS verification.
-API_URLS=$(echo "$ALL_URLS" | grep -E "https?://[a-z0-9-]+\.integritystudio\.ai" || true)
+# Filter to subdomain URLs — hosts like api.integritystudio.ai, api.integritystudio.dev.
+# Exclude the bare main domains (integritystudio.ai / integritystudio.dev without a
+# subdomain) since those are internal app routes and the dashboard SPA, not external
+# API calls that need DNS verification.
+API_URLS=$(echo "$ALL_URLS" | grep -E "https?://[a-z0-9-]+\.integritystudio\.(ai|dev)" || true)
 
 if [ -z "$API_URLS" ]; then
   echo "check-api-routing.sh: no API-subdomain URLs found in lib/ — nothing to check"
@@ -106,8 +113,14 @@ else
     # The table may use either form depending on context.
     bare="${url#https://}"
     bare="${bare#http://}"
-    # Path is everything after ".integritystudio.ai" — empty for bare-host URLs.
-    path_part="${bare#*.integritystudio.ai}"
+    # Path is everything after the host — empty for bare-host URLs. Parameter
+    # expansion takes no alternation, so the TLDs are matched separately; a URL
+    # on neither yields no path rather than silently keeping the whole host.
+    case "$bare" in
+      *.integritystudio.ai*)  path_part="${bare#*.integritystudio.ai}" ;;
+      *.integritystudio.dev*) path_part="${bare#*.integritystudio.dev}" ;;
+      *)                      path_part="" ;;
+    esac
 
     if grep -qF "$bare" "$DOC" || { [ -n "$path_part" ] && grep -qF "$path_part" "$DOC"; }; then
       pass "$url found in api-routing.md"
