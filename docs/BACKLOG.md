@@ -643,6 +643,7 @@ So production `integrity-studio-contact` and the provisioning receiver now share
 | `VITE_AUTH0_DOMAIN` | the **production** tenant, while `AUTH0_DOMAIN` in the same config held the dev one — a split-tenant `dev` config | ✅ **fixed 2026-08-08** → `dev-njjmghdzm23uy0p7` |
 | `AUTH0_TENANT_NAME` | production's tenant, and read by no code in either repo. Deliberately repointed at production during [[CR01]]'s recovery, when leaving no dev-tenant value in either config was the goal — correct then, stale once the dev tenant became legitimate | ✅ **fixed 2026-08-08** → `dev-njjmghdzm23uy0p7` |
 | `CLOUDFLARE_D1_TOKEN` | **byte-identical in `dev` and `prd`** (`cfat_tMXH…`), and on no isolation list | 🔴 **open** — scope a dev D1 token or accept and document it |
+| `INJECT_HMAC_SECRET` | **byte-identical**, and *proven* to authenticate against the production evaluations webhook — found 2026-08-08 | ✅ **rotated in `dev` 2026-08-08**, see below |
 
 **The generalisable half, and the reason this is P2 rather than a footnote: endpoint URLs are as load-bearing as credentials.** Three of the four are not secrets at all — two URLs and a public client id — and `PROVISION_WORKER_URL` did the most damage of any of them. A perfectly-scoped dev credential aimed at a production endpoint is the same defect as a shared credential, and the detector is built to catch only the second. Extend it to compare **every** name present in both configs and classify rather than hash-compare a fixed list, or at minimum add the `*_URL` / `*_NAMESPACE_ID` / `VITE_*` / `CLOUDFLARE_*` families.
 
@@ -662,6 +663,10 @@ Two things this adds to the item rather than merely repeating it:
 
 1. **`check:env-isolation` compares Doppler `dev` against Doppler `prd` and nothing else.** This value lives in a gitignored local settings file, so it was outside the detector by construction — not a gap in the list, a gap in the *sources* the list is drawn from. Any host-local config that carries a credential (settings.json, `.envrc`, a shell profile) is a place a dev key can point at production unobserved.
 2. **It was harmless only by accident, and the accident was in the consumer.** `otlpAuthHeaders` gives `OBTOOL_API_KEY` precedence, so the hand-rolled shipper never used the bad header. But the OTel SDK exporters read `OTEL_EXPORTER_OTLP_HEADERS` natively and know nothing about `OBTOOL_API_KEY` — any SDK-based export inheriting that env would have sent a dev key to production and 401'd silently. **Reasoning from precedence said "safe"; the capability probe said "wrong environment".** That is this item's own rule, met again: assert on what the credential can reach.
+
+✅ **That sixth instance is now runtime-detectable** (`~/.claude` `17a54a00`). `describeOtlpCredentialConflict()` reports when an `OTEL_EXPORTER_OTLP_HEADERS` bearer disagrees with `OBTOOL_API_KEY`, naming the variables and never the credentials, and the shipper warns on it. Verified against the real pre-fix config, not a fixture: it fires there and is silent once corrected.
+
+**What that does and does not buy this item.** It catches *this* shape — two credentials configured for one endpoint that disagree — wherever the shipper runs, including config stores `check:env-isolation` cannot see. It does **not** catch a single credential pointed at the wrong environment, which is the more common form here and the one `CLOUDFLARE_D1_TOKEN` still has: with nothing to disagree with, there is no conflict to detect. That still needs the capability probe this item keeps arriving at — assert what the credential reaches, not whether two values differ.
 
 **Status:** Open — 6 of 7 values fixed; `CLOUDFLARE_D1_TOKEN` remains, and the detector still compares a hand-maintained list rather than every shared name.
 
