@@ -451,7 +451,7 @@ CLOUDFLARE_ACCOUNT_ID=$(doppler secrets get CLOUDFLARE_ACCOUNT_ID \
   npm run check:worker-signals
 ```
 
-Exit 0 = all within threshold (or SKIPPED if credentials absent), 1 = breach, 2 = check itself failed.
+Exit 0 = all within threshold (or SKIPPED if credentials absent), 1 = breach, 2 = check itself failed. The CI workflow calls `bash scripts/check-worker-signals.sh` directly; both forms are equivalent.
 
 ### What each breach means
 
