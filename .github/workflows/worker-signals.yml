@@ -24,17 +24,7 @@ name: Worker Signals Check
 
 on:
   schedule:
-    # 🔴 TEMPORARY — 2026-08-08, to prove the scheduled path fires at all.
-    # CR20 / W04 step 4 have never had a single scheduled run, so "the alert is
-    # armed" is currently an inference from the workflow being active, not an
-    # observation. Every-5-minutes rather than a pinned minute because GitHub's
-    # scheduler is routinely 5-20+ min late and a single pinned time can simply
-    # be missed, which would look identical to "still broken".
-    #
-    # REVERT TO:  - cron: '37 8 * * *'   # 08:37 UTC daily
-    # as soon as one scheduled run appears in Actions. Left in place this is
-    # 288 runs/day against the Cloudflare and Supabase APIs for no benefit.
-    - cron: '*/5 * * * *'
+    - cron: '37 8 * * *'  # 08:37 UTC daily, outside the common round-number congestion
   workflow_dispatch: {}
 
 permissions: {}
