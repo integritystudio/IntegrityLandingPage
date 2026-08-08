@@ -437,6 +437,8 @@ What this unblocks, and what it does not: the signals in step 1 will exist once 
    > | `org:…:traces` | 2026-08-01 07:31 | **7 days** |
    > | `evaluations` | never run | — |
    >
+   > ✅ **Post-deploy measurement 2026-08-08 09:43 UTC — the CPU half is fixed, and that is what proves the rest of this note wrong.** The toolkit's chunking fix went live at **08:57:01Z** with `cpu_ms` unchanged at 500. `exceededResources` ran **9–12/h for eight straight hours** — against 12 `*/5` cron runs an hour — and dropped to **0** in the 43 min after. A scheduled-handler-only change cannot affect an ingest-POST kill, so that attributes the kills to the cron. But **the staleness did not move**: traces still 2026-08-01, logs still 2026-08-07, while metrics advanced to 09:40. The fix worked *and the stale signals stayed stale*, which is only possible if they were never waiting on the flush. Caveat: 43 minutes is ~8–9 cron runs, not a week.
+   >
    > ⚠️ **The starvation reading above is WRONG, and was corrected in `observability-toolkit` after a fix had already shipped on it.** Traces are 7 days stale because they **stopped arriving** on 2026-08-01, not because the flush starved them: the newest flushed traces key equals the traces watermark *exactly*, and a completed run drains metrics while finding **zero** trace objects. That is a producer problem, not a flush one. The CPU kills are real and remain unexplained — but they are not what stalled traces, and the watermark table above cannot distinguish the two on its own. **Generalisable half, worth more than the incident: a stale watermark means "nothing arrived" as often as "nothing drained", and one query against the newest flushed key tells you which.** Tracked as `INGEST-CPU-STARVATION` (name now a misnomer) in `observability-toolkit`; this repo's dashboard surfaces the CPU reading but cannot diagnose or fix it. Historical detail from the original 2026-07-31 finding follows.
 
    > **🔴 Blocker found 2026-07-31 (original text, numbers superseded above).** `obtool-ingest` is failing **~90% of its invocations** with `exceededResources`, and its `*/5` cron fails essentially every run. Successful ingest collapsed from tens of thousands per day to ~30 around 2026-07-28 while resource kills became the dominant outcome:
@@ -651,6 +653,43 @@ So production `integrity-studio-contact` and the provisioning receiver now share
 🔴 **Related divergence found while pinning `verify_jwt`, and it has a deadline: the dev project's service key is legacy JWT format (`eyJ…`) while production's is `sb_secret_…`.** That difference is load-bearing — `api-keys-create` must run `verify_jwt = false` because a `sb_secret_` bearer is not a JWT, and dev only tolerated `verify_jwt = true` because its legacy key *is* one. When the dev key moves to the modern format (or legacy keys are disabled, which [[CR24]] already started), dev provisioning starts 401ing with no code change and no obvious cause. The `verify_jwt` values are now pinned per function in `supabase/config.toml` so deploys stop inheriting CLI defaults, but the key-format gap is unfixed.
 
 **Status:** Open — tracking fixed; review, the `provision-api-key` liveness question, and the dev key-format divergence are not.
+
+---
+
+## W11: the Playwright suite did not run for two months, and two tests silently went stale
+
+**Priority:** P2 | **Source:** session 2026-08-08, PR #23 CI
+
+`e2e.yml` last ran green on `a51daef`, **2026-06-09**. Its next run was **2026-08-08** — and it
+failed. Inside that two-month gap, `f439651` (2026-07-26, *"fix(gdpr): gate Meta Pixel on
+marketing consent"*) removed the unconditional pixel `<script>` and its `<noscript><img>` from
+`web/index.html`, moving injection behind `if (prefs.marketing)` (`lib/app.dart:55`). The commit
+updated the **GTM** test to match but not the two **pixel** tests, which went on asserting the
+pre-GDPR behaviour — *requiring the privacy fix to be absent*.
+
+✅ **The two tests are fixed** (this branch): the pixel case became three — no consent, marketing
+consent, analytics-only — because the gate is on `marketing` specifically and the third case is
+what separates "gated on marketing" from "gated on any consent". The noscript assertion is
+inverted to assert **absence**, since a noscript pixel fires for every visitor with no way to
+gate it. Negative cases wait out `GTM_INJECT_SETTLE_MS` or they pass merely because injection
+has not happened yet.
+
+🔴 **The gap itself is the item, and it is not fixed.** A stale test is a small cost; a suite
+that stops running is what let it stay stale for 13 days after the change and would hide the
+next one just as well. **Establish why there were no runs between 06-09 and 08-08** — the two
+candidates are that `e2e.yml` is effectively schedule-driven and GitHub suspended it (the same
+~60-day cron suspension already flagged under [[CR20]] as a second-order risk to
+`worker-signals.yml`), or that no qualifying push reached `main` in the window. Those want
+different fixes, so measure before choosing. Related in kind to `observability-toolkit`'s
+`E2E-PERMANENT-SKIPS`: **a test suite that cannot run and a test suite that is gated off are the
+same defect wearing different clothes, and neither shows up as a red build.**
+
+**Also noted, not changed:** `e2e/tests/web-platform.spec.ts:67` — the pre-existing
+`GTM script is NOT injected before consent` test has no settle wait, so it is vulnerable to the
+same vacuity. Left alone deliberately: it passes today, and changing it could fail a PR on an
+unrelated pre-existing issue. One line when someone wants it.
+
+**Status:** Open — stale tests fixed; the two-month run gap is undiagnosed.
 
 ---
 
