@@ -83,10 +83,57 @@ test.describe('Web Platform: Tracking Initialization (#76)', () => {
     expect(consoleErrors.filter((e) => !isKnownFlutterError(e))).toHaveLength(0);
   });
 
-  test('meta-pixel.js is loaded in page', async ({ page }) => {
+  // ---------------------------------------------------------------------------
+  // Meta Pixel consent gating
+  //
+  // A single test here asserted `meta-pixel.js is loaded in page` → true, and
+  // had been wrong since f439651 (2026-07-26): "fix(gdpr): gate Meta Pixel on
+  // marketing consent — remove unconditional head script". That commit deleted
+  // the unconditional <script> from web/index.html and moved injection behind
+  // `if (prefs.marketing)` (lib/app.dart:55). Its GTM sibling above was updated
+  // to match; the pixel test was not, so it went on requiring the privacy fix
+  // to be absent. It only surfaced on 2026-08-08 because e2e had not run since
+  // 2026-06-09.
+  //
+  // The gate is on `marketing` specifically, so three cases pin it: no consent,
+  // marketing consent, and analytics-only. The third is what distinguishes
+  // "gated on marketing" from "gated on any consent at all" — without it, a
+  // regression to the looser condition stays green.
+  // ---------------------------------------------------------------------------
+
+  test.afterEach(async ({ page }) => {
+    await page.evaluate((key) => localStorage.removeItem(key), CONSENT_STORAGE_KEY);
+  });
+
+  async function loadWithConsent(page: Page, analytics: boolean, marketing: boolean) {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(
+      ({ key, val }) => localStorage.setItem(key, val),
+      { key: CONSENT_STORAGE_KEY, val: consentJson(analytics, marketing) },
+    );
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await waitForFlutter(page);
+    await page.waitForTimeout(GTM_INJECT_SETTLE_MS);
+  }
+
+  test('meta-pixel.js is NOT injected before consent (GDPR)', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await waitForFlutter(page);
+    // The settle wait is load-bearing on a negative assertion: without it this
+    // passes simply because injection has not happened *yet*, which is what a
+    // broken gate also looks like.
+    await page.waitForTimeout(GTM_INJECT_SETTLE_MS);
+    expect(await hasScriptSrc(page, 'meta-pixel.js')).toBe(false);
+  });
+
+  test('meta-pixel.js is injected after marketing consent', async ({ page }) => {
+    await loadWithConsent(page, false, true);
     expect(await hasScriptSrc(page, 'meta-pixel.js')).toBe(true);
+  });
+
+  test('meta-pixel.js is NOT injected for analytics-only consent', async ({ page }) => {
+    await loadWithConsent(page, true, false);
+    expect(await hasScriptSrc(page, 'meta-pixel.js')).toBe(false);
   });
 });
 

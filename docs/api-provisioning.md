@@ -419,7 +419,143 @@ Shipped:
 Remaining:
 
 - Nonce store if replay protection must be stricter than timestamp-only — tracked as W06 in `docs/BACKLOG.md`
-- Monitoring/alerting + dashboards for the provisioning path — tracked as W04 in `docs/BACKLOG.md`. The **signals** are defined and executable ([Worker health signals](observability-signals.md), `npm run check:worker-signals`); the dashboard and alert channel are not. Note that `/send` error rate is among the signals *not* yet covered — `RECEIVER_ERROR` vs `INTERNAL_ERROR` vs the 502 "receiver-worker unreachable" path is distinguishable only in the response body, which Cloudflare's telemetry does not record, so it needs a counter emitted from the Worker.
+- ~~Monitoring/alerting + dashboards for the provisioning path — tracked as W04 in `docs/BACKLOG.md`.~~ Signals, alerting **and the dashboard** are implemented (see Monitoring Runbook below). The dashboard was recorded as blocked on `obtool-ingest` being repaired until 2026-08-08; that blocker only ever applied to routing through the internal OTEL pipeline, which was one of two options W04 step 3 offered — the Cloudflare Workers Analytics option needed nothing repaired. Note that `/send` error rate is among the signals *not* yet covered — `RECEIVER_ERROR` vs `INTERNAL_ERROR` vs the 502 "receiver-worker unreachable" path is distinguishable only in the response body, which Cloudflare's telemetry does not record, so it needs a counter emitted from the Worker.
+
+## Monitoring Runbook
+
+Daily alerting runs via `.github/workflows/worker-signals.yml` (W04 step 4). A
+failing job triggers GitHub's notification emails to the repo owner. The signal
+definitions and thresholds live in [`docs/observability-signals.md`](observability-signals.md).
+
+### Running manually
+
+```bash
+CLOUDFLARE_API_TOKEN=$(doppler secrets get CLOUDFLARE_API_TOKEN \
+  --project integrity-studio --config prd --plain) \
+CLOUDFLARE_ACCOUNT_ID=$(doppler secrets get CLOUDFLARE_ACCOUNT_ID \
+  --project integrity-studio --config prd --plain) \
+SUPABASE_URL=$(doppler secrets get SUPABASE_URL \
+  --project integrity-studio --config prd --plain) \
+SUPABASE_SERVICE_ROLE_KEY=$(doppler secrets get SUPABASE_PROVISIONING_KEY \
+  --project integrity-studio --config prd --plain) \
+  npm run check:worker-signals
+```
+
+Or without Supabase (dead-letter depth is skipped):
+
+```bash
+CLOUDFLARE_API_TOKEN=$(doppler secrets get CLOUDFLARE_API_TOKEN \
+  --project integrity-studio --config prd --plain) \
+CLOUDFLARE_ACCOUNT_ID=$(doppler secrets get CLOUDFLARE_ACCOUNT_ID \
+  --project integrity-studio --config prd --plain) \
+  npm run check:worker-signals
+```
+
+Exit 0 = all within threshold (or SKIPPED if credentials absent), 1 = breach, 2 = check itself failed. The CI workflow calls `bash scripts/check-worker-signals.sh` directly; both forms are equivalent.
+
+### The dashboard
+
+`npm run dashboard:workers` (`scripts/worker-dashboard.sh`, W04 step 3) renders
+the observation surface to read **when the gate above fires**, or when asking
+whether the provisioning path is healthy. Same credentials as the check, same
+`SKIPPED` behaviour without them:
+
+```bash
+CLOUDFLARE_API_TOKEN=$(doppler secrets get CLOUDFLARE_API_TOKEN \
+  --project integrity-studio --config prd --plain) \
+CLOUDFLARE_ACCOUNT_ID=$(doppler secrets get CLOUDFLARE_ACCOUNT_ID \
+  --project integrity-studio --config prd --plain) \
+  npm run dashboard:workers
+
+# Default window is 7 days:
+DASHBOARD_WINDOW_DAYS=30 npm run dashboard:workers
+```
+
+**It is not a gate and never exits non-zero on an unhealthy reading** — exit 0
+rendered or skipped, 2 only if the API call itself failed. Keeping the two
+separate is deliberate: a gate that also tries to be a dashboard accumulates
+thresholds for things nobody wants to fail a build on.
+
+Four panels:
+
+| Panel | What it answers |
+|---|---|
+| Provisioning path | Is `sender-worker` → `api-provisioning-receiver` healthy end to end? Both on one panel because a receiver failure is indistinguishable from a sender failure otherwise. |
+| Other production workers | Invocations, failure %, subrequest ratio, and the non-`success` status split per Worker. |
+| Daily trend | Sparklines of successes and failures. **Each row is scaled to its own peak**, so heights compare within a row and never between rows. |
+| Resource headroom | cpuTime p50/p99 against each Worker's *configured* `cpu_ms`, and memory p99 against the 128 MiB platform ceiling. |
+
+The resource panel is the point of the dashboard. It is CR20's lesson applied to
+the other failure mode: a Worker killed for exceeding CPU never runs handler
+code, so it throws no exception and writes no log — error rate is blind to it in
+exactly the way it was blind to `stripe-webhook`'s four-month outage. Watching
+p99 against the limit predicts the kill before data starts being dropped.
+
+Both the CPU limit and the observability setting are read live from each
+script's settings endpoint rather than parsed from a `wrangler.toml`, so they
+cannot drift from what is deployed and they work for the two Workers that deploy
+out of `observability-toolkit`. The observability read is what lets the dashboard
+distinguish "no invocations because idle" from "no invocations recorded because
+the Worker is dark" — otherwise the same empty row.
+
+Source is Cloudflare Workers Analytics (GraphQL) only, never Workers Logs. See
+[`docs/observability-signals.md`](observability-signals.md) § Data sources for
+why the two disagree and why an empty log query must never be read as "no
+errors".
+
+### What each breach means
+
+**SIGNAL 1 — `scriptThrewException` on any owned Worker:**
+An unhandled throw escaped the handler; the caller got a Cloudflare `1101`.
+Check Workers Logs for the event (available from the time `observability` was
+enabled; for `api-gateway` and `integrity-studio-contact` that is 2026-07-30).
+Look for the error type and stack. If the root cause is not determinable from
+logs alone, a recurrence will be diagnosable since all handlers now carry
+`worker_uncaught_exception` log lines — wait for the next occurrence before
+guessing.
+
+**SIGNAL 2 — `stripe-webhook` subrequest ratio below threshold:**
+The reconciliation cron fired but did not reach Supabase. CR20's key finding:
+this is the check error rate cannot make (the cron reported `status: success`
+for four months while making zero outbound calls). Check that `SUPABASE_URL`
+and `SUPABASE_SERVICE_ROLE_KEY` are bound in the Worker settings
+(`GET /accounts/.../workers/scripts/stripe-webhook/settings`). Also check
+invocation count — if below 75% of the expected 96/day, the cron itself has
+stopped firing; verify the `*/15` cron is present in Worker settings.
+
+**SIGNAL 3 — `exceededResources` on any owned Worker:**
+The isolate was killed for exceeding CPU or memory. No handler code ran. Check
+for a recent code change that increased memory or CPU usage. If it is
+`stripe-webhook`'s cron, check for a large dead-letter queue causing an
+oversized Supabase response.
+
+**SIGNAL 4 — `exceededResources` or `scriptThrewException` on `api-provisioning-receiver`:**
+Reported but never fails this build — the receiver deploys from `observability-toolkit`.
+File a finding against that repo; the cause is code there, not here. If
+sustained, provision new keys will fail silently from the sender's perspective
+(the sender returns `502` or `500` based on the receiver response).
+
+**SIGNAL 5 — pending dead letters above threshold:**
+The `*/15` reconciliation cron is not draining the queue. Confirm the cron is
+running (SIGNAL 2 above). If the cron is running with healthy subrequest ratios,
+the handler is failing post-claim — check Worker logs for `CRITICAL` lines in
+`stripe-webhook`. Pending rows need the cron to drain; they will recover without
+intervention once the cron is healthy.
+
+**SIGNAL 5 — abandoned dead letters above zero:**
+Retries are exhausted. These require a manual Stripe replay:
+1. Log in to the [Stripe Dashboard](https://dashboard.stripe.com) → Developers → Webhooks.
+2. Find the failed event(s) and use "Resend" to replay.
+3. After the event processes, reset the `webhook_dead_letters` row `status` to
+   `pending` and `retry_count` to `0` if the Worker dead-lettered again (the
+   cron will then pick it up on the next `*/15` tick).
+
+### Rate limits on investigations
+
+`check:worker-signals` reads the Cloudflare GraphQL API using `CLOUDFLARE_API_TOKEN`. The
+account-owned token (`cfat_` prefix) verifies only at
+`/accounts/<id>/tokens/verify` — not the user endpoint — and requires **Account
+Analytics Read**. A `403` here is a scope problem on the token, not an expired token.
 
 ## CORS and Origin Headers
 

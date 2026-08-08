@@ -49,6 +49,21 @@ SECRETS=(
   AUTH0_CLIENT_SECRET
   AUTH0_CLI_ID
   AUTH0_CLI_SECRET
+  # Added 2026-08-08 (W09). All three held PRODUCTION tenant values under `dev`
+  # while AUTH0_DOMAIN correctly held the dev tenant's — a split-tenant config
+  # this list could not see, because it named only the unprefixed spelling.
+  # VITE_AUTH0_DOMAIN is what the dashboard SPA builds against, so the two
+  # disagreeing is not cosmetic: once DEV_WORKER_URL pointed at a Worker that
+  # verifies dev-tenant JWTs, a production-tenant login could not authenticate
+  # against it at all.
+  #
+  # ⚠️ VITE_AUTH0_AUDIENCE is deliberately NOT here. An Auth0 API identifier is
+  # just a name and each tenant registers its own under it, so that one is
+  # legitimately byte-identical across configs — adding it would manufacture a
+  # permanent failure and train the reader to ignore this check.
+  VITE_AUTH0_DOMAIN
+  VITE_AUTH0_CLIENT_ID
+  AUTH0_TENANT_NAME
   SHARED_SECRET
   STRIPE_SECRET_KEY
   STRIPE_API_KEY
