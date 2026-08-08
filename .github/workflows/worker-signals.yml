@@ -1,0 +1,67 @@
+# W04 step 4 — daily health-signal check for the provisioning Workers.
+#
+# This is the alerting implementation for BACKLOG.md CR20 / W04 step 4.  Each
+# signal is defined in docs/observability-signals.md and evaluated by
+# scripts/check-worker-signals.sh.  A job failure triggers GitHub's notification
+# emails to the repo owner, which is the alert channel.
+#
+# The check script exits 0 (SKIPPED) when Cloudflare credentials are absent
+# (Doppler outage, token rotation, etc.), so credential failures never
+# false-alarm.  It exits 1 on a breach and 2 on a Cloudflare API error — both
+# fail this job and notify.  Supabase credentials are optional; without them,
+# dead-letter depth (SIGNAL 5) is skipped and the job still passes if the four
+# Cloudflare-only signals are clean.
+#
+# Two limitations to know when this seems silent:
+#   * Scheduled workflows run from the DEFAULT branch only — this workflow is
+#     inert until it lands on main.
+#   * GitHub suspends cron workflows after ~60 days without repo activity.
+#
+# Manual trigger: Actions -> Worker Signals Check -> Run workflow.
+# Manual with Supabase: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY as env
+# vars or add them to the Doppler fetch block below.
+name: Worker Signals Check
+
+on:
+  schedule:
+    - cron: '37 8 * * *'  # 08:37 UTC daily, outside the common round-number congestion
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  check:
+    name: Evaluate worker health signals
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install Doppler CLI
+        run: curl -Ls https://cli.doppler.com/install.sh | sudo sh
+
+      - name: Run signal check
+        env:
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+        run: |
+          # `|| true` keeps a missing Doppler slot from aborting before the
+          # script runs; the script itself decides to SKIP on empty creds.
+          CLOUDFLARE_API_TOKEN=$(doppler secrets get CLOUDFLARE_API_TOKEN \
+            --project integrity-studio --config prd --plain 2>/dev/null || true)
+          CLOUDFLARE_ACCOUNT_ID=$(doppler secrets get CLOUDFLARE_ACCOUNT_ID \
+            --project integrity-studio --config prd --plain 2>/dev/null || true)
+          # Supabase creds enable SIGNAL 5 (dead-letter depth).  Optional:
+          # without them the depth check is skipped and the rest still runs.
+          # Note: the Doppler slot is SUPABASE_PROVISIONING_KEY, not
+          # SUPABASE_SERVICE_ROLE_KEY — the latter is the Worker binding name.
+          SUPABASE_URL=$(doppler secrets get SUPABASE_URL \
+            --project integrity-studio --config prd --plain 2>/dev/null || true)
+          SUPABASE_SERVICE_ROLE_KEY=$(doppler secrets get SUPABASE_PROVISIONING_KEY \
+            --project integrity-studio --config prd --plain 2>/dev/null || true)
+          export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID \
+                 SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY
+          bash scripts/check-worker-signals.sh
