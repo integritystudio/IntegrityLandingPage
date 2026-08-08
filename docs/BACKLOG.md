@@ -642,7 +642,7 @@ So production `integrity-studio-contact` and the provisioning receiver now share
 | `VITE_AUTH0_CLIENT_ID` | production's SPA client (`CNfd6…`), byte-identical in both configs and **nonexistent in the dev tenant**, so every dev ROPC mint returned `access_denied` | ✅ **fixed 2026-08-08** → `w4KMCpBA…`, a dev-tenant SPA provisioned for this |
 | `VITE_AUTH0_DOMAIN` | the **production** tenant, while `AUTH0_DOMAIN` in the same config held the dev one — a split-tenant `dev` config | ✅ **fixed 2026-08-08** → `dev-njjmghdzm23uy0p7` |
 | `AUTH0_TENANT_NAME` | production's tenant, and read by no code in either repo. Deliberately repointed at production during [[CR01]]'s recovery, when leaving no dev-tenant value in either config was the goal — correct then, stale once the dev tenant became legitimate | ✅ **fixed 2026-08-08** → `dev-njjmghdzm23uy0p7` |
-| `CLOUDFLARE_D1_TOKEN` | **byte-identical in `dev` and `prd`** (`cfat_tMXH…`), and on no isolation list | 🔴 **open** — scope a dev D1 token or accept and document it |
+| `CLOUDFLARE_D1_TOKEN` | not two equal values but **one token object** (`3a227938`, `tcad-d1-query`) in both configs, carrying **D1 Write over the whole account** — so a `--config dev` script can `DROP TABLE` production telemetry | 🔴 **open, and the fork is now decided: scoping is IMPOSSIBLE** — see below |
 | `INJECT_HMAC_SECRET` | **byte-identical**, and *proven* to authenticate against the production evaluations webhook — found 2026-08-08 | ✅ **rotated in `dev` 2026-08-08**, see below |
 
 **The generalisable half, and the reason this is P2 rather than a footnote: endpoint URLs are as load-bearing as credentials.** Three of the four are not secrets at all — two URLs and a public client id — and `PROVISION_WORKER_URL` did the most damage of any of them. A perfectly-scoped dev credential aimed at a production endpoint is the same defect as a shared credential, and the detector is built to catch only the second. Extend it to compare **every** name present in both configs and classify rather than hash-compare a fixed list, or at minimum add the `*_URL` / `*_NAMESPACE_ID` / `VITE_*` / `CLOUDFLARE_*` families.
@@ -694,7 +694,40 @@ Both diagonals matter: the top-right is the gap closing, and the bottom-left pro
 
 ⚠️ **The first reading of this matrix was wrong in both directions, and the probe is why.** An initial run returned 401 for *every* cell — the `openssl dgst` output on this machine carries no `(stdin)=` prefix, so `awk '{print $2}'` produced an empty signature and the endpoint rejected everything. A uniform negative is what a broken probe looks like, which this repo has now recorded five times. The next run then caught Cloudflare mid-rollout, with the dev Worker answering from two versions at once — new secret rejected on one sample and accepted on the next. **Neither a uniform result nor a single sample is a measurement**; the table above is the steady state across four consecutive samples.
 
-**Status:** Open — 6 of 7 listed values fixed; `CLOUDFLARE_D1_TOKEN` remains. The generalisable half is now **measured rather than argued** (170 shared names, 117 identical, 4 illegitimate, 2 of them live) but still not implemented: the detector compares a hand-maintained list, and the four above were found by an ad-hoc script, not by `check:env-isolation`.
+### `CLOUDFLARE_D1_TOKEN` measured 2026-08-08 — the row understated it, and the fork it offers is already closed
+
+**It is not "byte-identical values", it is one credential.** Both configs resolve to the *same token object*: id `3a227938fa953d76aa8ead731cdbb5c4`, name **`tcad-d1-query`**, `status=active`, issued 2026-08-06, **no expiry**. Rotating one config cannot produce a second token; there is nothing to rotate *to* without minting. (The inventory under [[CR11]] step 8 already had this row — `3a227938 | tcad-d1-query | CLOUDFLARE_D1_TOKEN, both configs` — so the two entries were describing one fact from different ends without meeting.)
+
+📌 **Its name is not this system's.** `tcad-d1-query` was minted for TCAD (`tcad-api`, `tcad-token-refresh` on the same account), and is what now reads and writes `obtool-telemetry-db`. A third project's credential is the one holding production telemetry.
+
+**Policy read directly** (via `prd`'s `CLOUDFLARE_GLOBAL_API_KEY` = `cloudflare_platform_token` `6d51c3d8`, the one credential here carrying Account API Tokens Write):
+
+```
+resources: { com.cloudflare.api.account.b3868dd0…: "*" }
+perms:     D1 Metadata Read, D1 Read, D1 Write
+```
+
+**Capability probed rather than inferred**, and the write half proven with controls on the **dev** database only — absent → `CREATE TABLE` → confirmed in `sqlite_master` → `INSERT` → read back `42` → `DROP` → confirmed gone. Nothing was written to production; it did not need to be, since the same token reads production D1 and enumerates every database, so the resource scope is account-wide and the proven DDL reaches both.
+
+| Surface | Result |
+|---|---|
+| D1 `SELECT` on **production** `e93f19eb…` | 200 |
+| D1 `SELECT` on dev `9c34333f…`, list **all** databases | 200 |
+| D1 DDL + DML (proven on dev) | CREATE / INSERT / DROP all succeed |
+| Workers scripts / R2 / KV | 403 / 403 / 401 |
+| Zones | **200 with an empty list — scoped, NOT zone access** |
+
+⚠️ **That last row is the probe trap again.** A bare `200` reads as access; an empty `result` is exactly what a correctly-scoped token returns. Reporting the status code alone would have manufactured a zone-access finding that does not exist — the mirror image of the uniform-negative failure recorded twice above. **Read the body, not the code.**
+
+🔴 **The row's fork — "scope a dev D1 token *or* accept and document it" — has only one arm. Scoping is impossible.** All three D1 permission groups, out of 386 on the account, carry `scopes: ['com.cloudflare.api.account']` and nothing finer; there is no per-database resource selector to scope to. This is [[CR11]] step 8's structural ceiling in a second product: **Workers Scripts has no per-script selector, D1 has no per-database selector, and no token can fix either.** So the remaining options are (a) accept and document, or (b) separate Cloudflare accounts — the same answer CR11 reached, and worth writing down here so this is not re-attempted as a token-minting task.
+
+⚠️ **A first pass at this concluded the policy was unreadable** — `prd`'s general `CLOUDFLARE_API_TOKEN` returns `9109 Unauthorized` on both the token-read and permission-groups endpoints — and was about to record "cannot be determined from this machine". It was determined; the credential that could do it was already inventoried under CR11 four rows above the one being investigated. **The account inventory in this file is a working index, not just a record — read it before concluding a capability is absent.**
+
+📌 **This session moved the token in the wrong direction, stated because it is easier to find now than later.** `observability-toolkit`'s new `worker-signals.yml` reads `CLOUDFLARE_D1_TOKEN` from Doppler `prd` on a daily schedule, so as of 2026-08-08 this credential also flows into GitHub Actions. Correct for that check's purpose — SIGNAL 4 needs D1 read, and the general token gets `7403` there — but it adds a consumer to an unscoped account-wide write token while this item is open. Note also that **every code consumer is in `observability-toolkit`** (`scripts/check-worker-signals.sh`, `worker-signals.yml`, `docs/reliability/ingest-recovery-runbook.md`); this repo, where W09 tracks it, has none outside this file.
+
+**Next, and it is small:** mint a **read-only** D1 token (D1 Read + D1 Metadata Read, dropping D1 Write) for the signals check and the runbook, since neither writes. That does not fix the dev/prd sharing — nothing can — but it removes account-wide *write* from the daily-scheduled path, which is the part that is actually cheap to close.
+
+**Status:** Open — 6 of 7 listed values fixed. `CLOUDFLARE_D1_TOKEN` remains and is now **characterised rather than merely flagged**: one account-wide D1 **write** token shared by both configs, whose per-database scoping is **impossible**, so the item's remaining decision is accept-and-document vs separate accounts — not a minting task. A read-only replacement for the non-writing consumers is the one cheap improvement available. The generalisable half is **measured rather than argued** (170 shared names, 117 identical, 4 illegitimate, 2 of them live) but still not implemented: the detector compares a hand-maintained list, and the four were found by an ad-hoc script, not by `check:env-isolation`.
 
 ---
 
@@ -1451,7 +1484,37 @@ These are complementary halves of one product API — a telemetry data plane and
 
 **Suggested:** step 1 (delete the `routes` key) immediately and unconditionally — it is safe, reversible, and independent of everything else. Defer the destination until `obtool-api`'s audience is settled, because that answer decides between "gateway takes `api.integritystudio.ai`" and options C/D.
 
-**Status:** ⚠️ Partial — step 1 done (2026-07-29) and **proven in practice (2026-07-30)**. The `routes` key is gone from `workers/api-gateway/wrangler.toml`, and rather than trusting that, a real `npm run deploy:prd` was run and the zone's route list re-read immediately after: still exactly `api.integritystudio.ai/*` → `obtool-api` and `ingest.integritystudio.ai/*` → `obtool-ingest`, with nothing pointing at `api-gateway`. The trap is defused in fact, not just in config, and [[CR22]]'s fix has shipped. Hostname-topology decision (steps 2–5: which approach to give the gateway a branded endpoint) still needed.
+**Status:** ⚠️ Partial — step 1 done (2026-07-29) and **proven in practice (2026-07-30)**. The `routes` key is gone from `workers/api-gateway/wrangler.toml`, and rather than trusting that, a real `npm run deploy:prd` was run and the zone's route list re-read immediately after: still exactly `api.integritystudio.ai/*` → `obtool-api` and `ingest.integritystudio.ai/*` → `obtool-ingest`, with nothing pointing at `api-gateway`. The trap is defused in fact, not just in config, and [[CR22]]'s fix has shipped. ~~Hostname-topology decision (steps 2–5: which approach to give the gateway a branded endpoint) still needed.~~ ✅ **Decided 2026-08-08 — option C, `api.integritystudio.dev`** (owner decision). The decision is made; what remains is a **registrar-level prerequisite that no config change can satisfy** — see the block below.
+
+> ✅ **DECISION 2026-08-08 — option C: the gateway gets `api.integritystudio.dev`.** This closes the topology question steps 3–5 have held open since 2026-07-27. It also **supersedes [[CR31]]'s option-B recommendation** and the "Recommendation — split by path" section of [`docs/api-routing.md`](api-routing.md), which still argues for a 4-pattern split on `api.integritystudio.ai` — that document has not been updated and now disagrees with this entry.
+>
+> **Why this hostname rather than a path-split.** `https://api.integritystudio.dev` is *already* the gateway's Auth0 audience and resource-server identifier (`69c4e28bf801eab9e683c85a`), declared at `workers/api-gateway/wrangler.toml:41,101`, matched by `AUTH0_CLIENT_AUDIENCE` in both Doppler configs, and used by the dashboard SPA. The name is already spoken for by this Worker. ⚠️ **Do not read that as a defect being fixed:** an Auth0 audience is an opaque identifier and is under no obligation to resolve. Nothing is broken today because it does not; making it resolve is naming correctness, not a repair. Option C also avoids the standing cost of B — a route list in this repo that is a hand-maintained mirror of a dispatch table in another.
+>
+> 🔴 **The blocker is that `integritystudio.dev` is not a Cloudflare zone, so no Workers route or Custom Domain can attach to it at all.** Measured, not assumed: the account holds exactly `integritystudio.ai` and `alephatx.info`; `integritystudio.dev` delegates to `maceio/fortaleza/salvador/curitiba.ns.porkbun.com`. This is a **registrar action, not a `wrangler.toml` edit**, and it is the whole of the remaining work.
+>
+> ⚠️ **The apex is ruled out on evidence, the same way step 4's speculation was.** `integritystudio.dev` A → `185.199.108–111.153` (GitHub Pages) and answers **200** — it serves the `quality-metrics-dashboard` SPA ([[CR04]]). A route on `integritystudio.dev/*` would capture it. The target is the `api.` label only.
+>
+> **State of `api.integritystudio.dev` today:** a Porkbun URL-forward — `301` to `http://integritystudio.dev/`, and **`https://` does not connect at all**. `.dev` is on the **HSTS preload list** (Google-operated TLD), so browsers force HTTPS on every hostname under it; the existing forward is therefore already dead in a browser. It is reached via a **wildcard** — a random label resolves to the same `pixie.porkbun.com` — so `app`, `dashboard`, `docs`, `status`, `sandbox-api` all currently 301 to the apex.
+>
+> **Migration is a delegation change, not a registrar transfer.** The domain stays registered at Porkbun; only the NS records change. No transfer lock, no auth code, and Cloudflare Registrar's `.dev` support is irrelevant. Both usual blockers are already clear:
+> - **DNSSEC is off** — no `DS` at the `.dev` parent (the query returns the parent SOA), no `DNSKEY`, no `ad` flag on responses. This is the one that breaks resolution globally if left enabled through an NS change.
+> - **No MX, no TXT, no CAA** — nothing for email, domain verification, or CA pinning is at risk.
+>
+> **Records to recreate**, measured by probe: apex `A` ×4 → GitHub Pages, TTL 600; `www` `CNAME` → `integritystudio.github.io.`, TTL 600; and the `*` wildcard. ⚠️ **The wildcard does not survive** — Porkbun URL forwarding is a registrar feature, not a copyable DNS record, so every `*.integritystudio.dev` label NXDOMAINs after the move unless it is rebuilt as a Cloudflare Redirect Rule. ⚠️ **And this inventory is probed, not authoritative** — Porkbun API access is off for this domain (`DOMAIN_IS_NOT_OPTED_IN_TO_API_ACCESS`), so it lists only record types someone thought to ask for, and Cloudflare's scan-on-add is also incomplete. Export the real list from the Porkbun dashboard and diff against both. **This is the same failure this entry already records twice** — probing where you should read the source of truth, and a checker that normalises away what it is checking.
+>
+> **Ordering, and the two ways to get it wrong:**
+> 1. Add the zone to Cloudflare → diff its scan against the Porkbun export → set SSL/TLS to **Full** → change NS at Porkbun → confirm apex and `www` still 200 → add the Workers Custom Domain → **only then** add `routes` to `wrangler.toml`.
+> 2. ⚠️ **Adding `routes` before the zone exists breaks `deploy:prd` outright** — wrangler cannot resolve the zone and fails the deploy. The config change is *last*, not first.
+> 3. ⚠️ **If the GitHub Pages records are proxied, SSL/TLS mode must be `Full`, not `Flexible`.** Flexible against an HTTPS-only origin on an HSTS-preloaded TLD produces a redirect loop and takes the dashboard down.
+> 4. When `routes` is finally added, [[CR13]]'s original trap still applies: **top-level `routes` only, with an explicit `routes = []` under `[env.dev]`** — `routes` is inheritable, and that inheritance is what handed a production hostname to a secret-less dev Worker on 2026-07-27.
+>
+> **Rollback is reverting NS at Porkbun, and it is not fast** — record TTLs are 600s but NS delegation is governed by the parent, so budget hours. Schedule this when it can be watched.
+>
+> **New cost this decision accepts:** the dashboard's DNS comes under Cloudflare. Today a Cloudflare mistake cannot reach the dashboard; afterwards it can.
+>
+> **Scriptable vs owner:** adding the zone appears scriptable — a `POST /zones` probe with Doppler `prd`'s token returned `1002 Invalid domain`, a *validation* error, so it cleared authorization and Zone:Create is present. (Its `user/tokens/verify` "Invalid API Token" is the expected `cfat_` account-token behaviour per CLAUDE.md, not a permissions problem — confirm at the account endpoint.) **The NS change at Porkbun is owner-only** unless global API access is enabled in Porkbun account settings.
+>
+> **Step 5 unblocks only after the hostname is live** — `dashboard_service.dart:16` and `provisioning_service.dart:22` still default to `https://api-gateway.alyshia-b38.workers.dev`, and flipping them before the Custom Domain answers would break the shipped app.
 
 > ✅ **Update 2026-08-03 — the measurement steps 3–5 were missing now exists as [[CR31]] and [`docs/api-routing.md`](api-routing.md).** Both API surfaces were inventoried from source and the zone routes re-read live. Three things it settles, so they need not be re-derived here:
 > - **Option B is the recommendation, and it is four patterns, not three.** `/v1/me`, `/v1/orgs*`, `/v1/ingest/*`, `/bootstrap` — the last is new since this entry was written, and the api-keys routes turned out to be nested under `/v1/orgs/:id/`, so `/v1/orgs*` already covers them. No code change on either worker.
