@@ -312,4 +312,16 @@ When binding a secret to a Worker, pipe that captured value into `wrangler secre
 
 **Prd secrets** are rotated on a schedule. Read values with `doppler secrets get --project integrity-studio --config prd --plain` and fingerprint them (recipe above), then bind with `wrangler secret put` — **not** with `doppler run`, which has served a stale cached value. And a rotation is not a revocation: the superseded credential stays live until it is explicitly deleted at the provider.
 
+**Checking whether a slot exists — `doppler secrets` and `doppler secrets get` differ by one word and by every value in the config.** Measured on CLI `3.76.1` ([[W07]]):
+
+| Command | On a missing name | Prints values? |
+|---|---|---|
+| `doppler secrets get NAME … --plain` | `Doppler Error: Could not find requested secret`, exit 1, **empty stdout** | only the one requested |
+| `doppler secrets … --only-names` | n/a — lists names | **no** |
+| `doppler secrets …` (bare, no `get`) | n/a — lists everything | **yes — 500 lines, every value inline** |
+
+Use `--only-names` to answer "does this slot exist". The bare list form is the one that dumps a whole config into your terminal or an agent's transcript; no script or workflow in either repo calls it, and none should.
+
+⚠️ **The real hazard in the `get` form is the opposite of a dump: it is silence.** Every call site here wraps it as `$(doppler secrets get … --plain 2>/dev/null || true)`, which is deliberate — the consuming script decides whether to skip. But it means a **missing or renamed slot yields an empty string, not an error**, so a credential that quietly stops resolving looks identical to one that was never configured. Any new consumer must check for empty and say which it is; `check-worker-signals.sh` distinguishes them (absent → skip, present-but-broken → exit 2) and is the pattern to copy.
+
 See `.github/workflows/ci.yml` for the current production deployment configuration and secret injection.

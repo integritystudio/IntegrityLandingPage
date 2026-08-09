@@ -64,6 +64,25 @@ SECRETS=(
   VITE_AUTH0_DOMAIN
   VITE_AUTH0_CLIENT_ID
   AUTH0_TENANT_NAME
+  # Added 2026-08-08 (W09 closure). Every one held a PRODUCTION identifier under
+  # `dev` while its unprefixed twin held the correct dev value — the same defect
+  # as VITE_AUTH0_DOMAIN, repeated for Supabase, KV and the home org.
+  #
+  # These are the reason the sweep below exists. All six were invisible to this
+  # list for as long as the list did not name them, and they were found by an
+  # ad-hoc full-config diff rather than by this script. They are pinned here so
+  # a regression fails on the named row as well as in the sweep — two
+  # independent detections, because the sweep's allowlist is itself editable.
+  #
+  # ⚠️ Latent, not live: nothing read any of them at the time of the fix. That is
+  # not a reason to relax. PROVISION_WORKER_URL was latent in exactly this way
+  # until a test suite picked it up and started writing production.
+  VITE_SUPABASE_URL
+  REACT_APP_SUPABASE_URL
+  VITE_SUPABASE_ANON_KEY
+  REACT_APP_SUPABASE_ANON_KEY
+  CLOUDFLARE_KV_NAMESPACE_ID
+  HOME_ORG_ID
   SHARED_SECRET
   STRIPE_SECRET_KEY
   STRIPE_API_KEY
@@ -252,10 +271,161 @@ phantom failure in its place.
 EOF
 fi
 
+# ---------------------------------------------------------------------------
+# FULL-CONFIG SWEEP (W09) — classify EVERY name present in both configs.
+#
+# The list above is a hand-maintained "these must differ" set, and its blind
+# spot is structural: a name it does not mention is not measured, so the check
+# passes. That is not hypothetical — it is how this file's own history reads.
+# PROVISION_WORKER_URL pointed dev at the production sender, KV_NAMESPACE_ID at
+# production's AUTH namespace, and INJECT_HMAC_SECRET was *proven* to
+# authenticate against the production evaluations webhook. All four passed,
+# because none of them were named.
+#
+# So this pass inverts the polarity. Instead of asking "do the names I listed
+# differ?", it asks "of every name present in both configs, which hold the same
+# bytes, and is each one legitimately shared?" A name nobody has classified
+# FAILS. New names default to visible instead of invisible.
+#
+# Three buckets, and the distinction between the last two is the whole point:
+#
+#   SHARED_BY_DESIGN  — third-party keys, other projects, account identifiers
+#                       and business constants. No dev/prd notion exists, so
+#                       sharing is correct, not tolerated.
+#   ACCEPTED          — cross-environment and CANNOT be fixed with a credential.
+#                       Scoping is structurally impossible; the only remedy is
+#                       separate accounts. Accepted with a reason, printed loud
+#                       on every run so acceptance never becomes silence.
+#   KNOWN_GAP         — genuinely wrong, fixable, and not yet fixed. Carries a
+#                       backlog id. Printed as a defect every run.
+#
+# Values are never printed by this pass — only names and verdicts.
+SWEEP_JSON_DEV="$(doppler secrets download --project "$PROJECT" --config "$BASE_CONFIG" --no-file --format json 2>/dev/null)"
+SWEEP_JSON_PRD="$(doppler secrets download --project "$PROJECT" --config "$PROD_CONFIG" --no-file --format json 2>/dev/null)"
+
+if [[ -z "$SWEEP_JSON_DEV" || -z "$SWEEP_JSON_PRD" ]]; then
+  echo "SWEEP: skipped — could not download one or both configs."
+  echo "       This is a DEGRADED run, not a pass. The list-based checks above"
+  echo "       still ran; the full-config classification did not."
+  echo
+  sweep_unclassified=0
+else
+  sweep_out="$(SWEEP_DEV="$SWEEP_JSON_DEV" SWEEP_PRD="$SWEEP_JSON_PRD" python3 - <<'PYSWEEP'
+import json, os, sys
+
+dev = json.loads(os.environ["SWEEP_DEV"])
+prd = json.loads(os.environ["SWEEP_PRD"])
+
+# No dev/prd notion exists for these: one third-party account, one other
+# project, or a plain identifier/constant. Sharing is correct.
+SHARED_BY_DESIGN = {
+    # LLM / AI vendors — one account each, no environments
+    "ANTHROPIC_API_KEY","OPENAI_API_KEY","GEMINI_API_KEY","XAI_API_KEY","CODEX_API_KEY",
+    "OPEN_ROUTER_API_KEY","HF_TOKEN","CLAUDE_API_KEY_ADMIN","CLAUDE_API_KEY_SUDO",
+    "OPENCLAW_ANTHROPIC_TOKEN","OPENCLAW_LEVIATHAN_GATEWAY_TOKEN",
+    "LANGTRACE_ACCESS_TOKEN","LANGTRACE_API_KEY",
+    # Sentry — project/org identifiers and DSNs; environment is a tag, not a key
+    "SENTRY_AUTH_TOKEN","SENTRY_DSN","SENTRY_ORG","SENTRY_ORG_ID","SENTRY_ORG_SLUG",
+    "SENTRY_PROJECT","SENTRY_PROJECT_SLUG","SENTRY_DSN_SINGLE_SITE_SCRAPER",
+    "SENTRY_DSN_TOOL_VISUALIZER","SENTRY_OBTOOL_DASHBOARD_AUTH_TOKEN",
+    "REACT_APP_SENTRY_DSN","VITE_SENTRY_DSN","FILE_SYSTEM_SENTRY_DSN",
+    "OBTOOL_SENTRY_API_KEY","DOPPLER_DSN",
+    # Marketing / analytics — one ad account, one property
+    "ALEDLIE_PIXEL","INTEGRITY_PIXEL","FB_AD_ACCOUNT_ID_ALYSHIA","FB_APP_ID",
+    "FB_APP_SECRET","FB_PIXEL_ID","FB_REDIRECT_URI","GA4_REPORTS_ID",
+    "GOOGLE_ANALYTICS_API_SECRET","GOOGLE_ANALYTICS_MEASUREMENT_ID",
+    "GOOGLE_TAG_MANAGER_CONTAINER_ID","GTM_CONTAINER_ID","META_ACCESS_TOKEN",
+    "VITE_MIXPANEL_TOKEN","EVENTBRITE_API_KEY","MEETUP_API_KEY",
+    # Google / Gmail OAuth — one Google Cloud project
+    "GMAIL_APP_CLIENT_ID","GMAIL_APP_SECRET","GOOGLE_EMAIL_CLIENT_ID",
+    "GOOGLE_EMAIL_CLIENT_SECRET","GOOGLE_PROJECT_ID","GOOGLE_PUBLIC_KEY",
+    # Business / legal constants — facts about the company, not credentials
+    "INTEGRITY_ADDRESS","INTEGRITY_EIN","INTEGRITY_WEFILE_ID","LEORA_LICENSE_NUMBER",
+    "INTEGRITY_STUDIO_COMPTROLLER_FILE_NUMBER","INTEGRITY_STUDIO_COMPTROLLER_TAX_ID",
+    # Unrelated projects sharing this Doppler project
+    "TCAD_RENDER_DEPLOY_HOOK","TCAD_TOKEN_WORKER_SECRET","TCAD_WORKER_URL",
+    "TOKEN_WORKER_SECRET","TOKEN_WORKER_URL","RENDER_API_KEY","RENDER_DB",
+    "RENDER_DB_PASSWORD","RENDER_DB_USER","RENDER_EXTERNAL_DB_URL",
+    "RENDER_INTERNAL_DB_URL","RENDER_JOBS_API_KEY","RENDER_PSQL_COMMAND","REDIS_URL",
+    "VITE_ANALYTICSBOT_API_URL","VITE_ANALYTICSBOT_PROJECT_ID",
+    "DISCORD_BOT_TOKEN","DISCORD_CLIENT_ID","DISCORD_CLIENT_TOKEN","DISCORD_TOKEN",
+    "HUBSPOT_ACCOUNT_ID","HUBSPOT_PAT","AWS_ACCESS_KEY_ID","AWS_SECRET_ACCESS_KEY",
+    "GITHUB_TOKEN","PORKBUN_API_KEY","PORKBUN_SECRET_API_KEY",
+    # Identifiers, not credentials. One Cloudflare account and one zone exist,
+    # so these CANNOT differ; they grant nothing on their own.
+    "CLOUDFLARE_ACCOUNT_ID","CF_ACCOUNT_ID","CLOUDFLARE_ZONE_ID",
+    "CLOUDFLARE_D2_API_ENDPOINT",
+    # Auth0 API identifiers. Each tenant registers its own API under the SAME
+    # identifier string by design — only issuer/JWKS differ. Flagging these
+    # would manufacture a permanent failure; compare issuers, not audiences.
+    "VITE_AUTH0_AUDIENCE","AUTH0_CLIENT_AUDIENCE",
+    # Recovery codes for the shared Auth0 *account* (not a tenant credential)
+    "AUTH0_RECOVER_CODE","AUTH_RECOVERY_CODE","AUTH0_TEST_ORGANIZATION_ID",
+    # Plain configuration constants
+    "DOPPLER_PROJECT","API_PORT","OTEL_EXPORTER_OTLP_PROTOCOL",
+}
+
+# Cross-environment, and NO credential can fix it — the resource scope has no
+# selector finer than the account. Documented in BACKLOG.md W09.
+ACCEPTED = {
+    "CLOUDFLARE_D1_TOKEN":            "D1 has no per-database selector (all 3 D1 permission groups are account-scoped)",
+    "CLOUDFLARE_R2_API_KEY":          "R2 tokens are account-scoped",
+    "CLOUDFLARE_R2_SECRET_ACCESS_KEY":"R2 tokens are account-scoped",
+    "CLOUDFLARE_WORKER_TOKEN":        "Workers Scripts has no per-script selector",
+    "CLOUDFLARE_PAGES_DEPLOY_TOKEN":  "Pages tokens are account-scoped",
+    "CLOUDFLARE_PAGES_GITHUB_TOKEN":  "Pages tokens are account-scoped",
+    "CLOUDFLARE_OAUTH_TOKEN":         "wrangler OAuth is per-user, not per-environment",
+    "CLOUDFLARE_REFRESH_TOKEN":       "wrangler OAuth is per-user, not per-environment",
+    "AE_SQL_API_TOKEN":               "Analytics Engine SQL API is account-scoped",
+    "SUPABASE_ACCESS_TOKEN":          "sbp_ management token spans every project in the account",
+}
+
+# Wrong, fixable, not yet fixed. Each MUST carry a backlog id.
+KNOWN_GAP = {
+    "IS_PROD_TOKEN":               "W12 - dp.st.prd. service token: grants dev read of the ENTIRE prd config",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "W12 - dev exports telemetry to PRODUCTION ingest",
+    "OBTOOL_INGEST_ROUTE":         "W12 - production ingest route",
+    "JWT_SECRET":                  "W12 - unread by any code; provenance unknown, needs triage",
+    "OBTOOL_API_KEY_INVENTORY_AI": "W12 - a customer's obtk_ API key present in dev",
+}
+
+shared = sorted(set(dev) & set(prd))
+identical = [k for k in shared if dev[k] == prd[k]]
+
+rows, unclassified = [], []
+for k in identical:
+    if k in SHARED_BY_DESIGN:
+        continue
+    if k in ACCEPTED:
+        rows.append(("ACCEPTED", k, ACCEPTED[k]))
+    elif k in KNOWN_GAP:
+        rows.append(("KNOWN GAP", k, KNOWN_GAP[k]))
+    else:
+        rows.append(("UNCLASSIFIED", k, "shared and nobody has said why - classify or fix"))
+        unclassified.append(k)
+
+print(f"SWEEP: {len(shared)} names in both configs, {len(identical)} byte-identical, "
+      f"{len(identical) - len(rows)} shared by design.")
+print()
+if rows:
+    print(f"{'VERDICT':<14} {'NAME':<32} WHY")
+    print("-" * 118)
+    for verdict, name, why in sorted(rows):
+        print(f"{verdict:<14} {name:<32} {why}")
+    print()
+print(f"__UNCLASSIFIED__={len(unclassified)}")
+PYSWEEP
+)"
+  echo "$sweep_out" | grep -v '^__UNCLASSIFIED__='
+  sweep_unclassified="$(printf '%s' "$sweep_out" | sed -n 's/^__UNCLASSIFIED__=//p')"
+  sweep_unclassified="${sweep_unclassified:-0}"
+  (( failures += sweep_unclassified ))
+fi
+
 if (( failures > 0 )); then
   cat <<EOF
-FAIL: $failures check(s) failed across ${#SECRETS[@]} credentials and
-${#STRIPE_MODED_KEYS[@]} Stripe mode assertions.
+FAIL: $failures check(s) failed across ${#SECRETS[@]} credentials,
+${#STRIPE_MODED_KEYS[@]} Stripe mode assertions, and the full-config sweep.
 
 '--config $BASE_CONFIG' is not a safety boundary. Anything run against it
 reads and writes production state. Do not push these values into the *-dev
