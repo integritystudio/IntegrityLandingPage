@@ -790,3 +790,55 @@ Incidental: Cloudflare rejects `Python-urllib` with error 1010 before the reques
 - Fixed the 4 stale assertions. One was genuinely stale (`/signin` asserted `404` though it is Auth0 ROPC — replaced with four cases covering the real contract). One was message drift. One had a false premise. And **one was correct all along** — `SUPABASE_ORG_MEMBERSHIP_FAILED` failed only because the worker's compensating rollback was unmocked, so the rollback's own failures replaced the original error.
 - **`sender-worker` `test:live` re-pointed at `--config prd`** (dev credentials cannot mint a management token by design) — and a destructive trap defused: the suite **deletes** the user at `AUTH0_TEST_EMAIL`, which in `prd` is the real `test@integritystudio.ai` account with two org memberships and a Supabase row keyed to its Auth0 `sub`. `vitest.live.config.ts` now overrides that to a disposable identity.
 - Worker totals: **1,063 tests** via `npm run test:workers`, zero TypeScript errors via `npm run lint:workers` (which *is* the worker linter — there is no ESLint under `workers/`).
+
+## W12 — five cross-environment values in Doppler `dev`, found and fixed (2026-08-09)
+
+Filed and closed within a day. Recorded here in full rather than by id, because a
+changelog that holds an item's id but not its content is the same loss with a
+citation on top.
+
+**How they were found, which is the reusable part.** `W09` closed by replacing a
+hand-maintained "these must differ" list with a classifier over *every* name present
+in both configs. Its first run produced five names no list had ever mentioned. The
+list had not been wrong about the values it named — it was wrong about the ones it
+did not, and a name it does not mention is never measured, so the check passed.
+
+| Value | Why it was wrong | Resolution |
+|---|---|---|
+| `IS_PROD_TOKEN` | prefix `dp.st.prd.` — a Doppler **service token scoped to `prd`**, sitting in `dev`. Anything with dev access could read the entire production config | **deleted from `dev`** (retained in `prd`) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `https://ingest.integritystudio.ai` — production ingest, under `dev` | repointed at `obtool-ingest-dev` |
+| `OBTOOL_INGEST_ROUTE` | `ingest.integritystudio.ai/*` — production route | repointed at `obtool-ingest-dev` |
+| `OBTOOL_API_KEY_INVENTORY_AI` | a **customer's** live `obtk_` key, byte-identical in both configs | **deleted from `dev`** |
+| `JWT_SECRET` | 44 chars, provenance unknown, read by nothing | **deleted from `dev`** |
+
+🔴 **`IS_PROD_TOKEN` was a different *kind* of finding from anything W09 held.** Every
+other value there reached one production *resource* — a database, a tenant, a webhook.
+This one reached **the credential store itself**, making the whole isolation boundary
+conditional on nobody using a token sitting in plain view.
+
+**Verification, and the trap it avoided.** All five were confirmed unread before any
+deletion. `JWT_SECRET` first appeared to have **8 consumers** — every one was a
+substring match inside `SUPABASE_JWT_SECRET`. A word-boundary grep returns zero. That
+is the third instance of the substring-merge trap in this repo, after
+`api.integritystudio.ai` inside `sandbox-api.integritystudio.ai` (CR31) — **a bare
+substring grep merges names, and the merged result reads as evidence of use.** The
+`OTEL_*` hits were likewise all customer-facing documentation pages showing users how
+to configure their own exporter, not Doppler reads.
+
+**Deletes were reversible by construction:** all three deleted names remain in `prd`
+with identical values, so the dev deletion destroys no information.
+
+**`KNOWN_GAP` in `scripts/check-env-isolation.sh` is now empty, and deliberately kept
+as an empty map rather than removed.** An empty map asserts "no known-wrong shared
+values"; deleting the concept would assert nothing at all, and would push the next
+real gap toward `SHARED_BY_DESIGN` — which converts a printed defect into a silent
+pass, the exact failure the detector exists to prevent.
+
+Post-fix: `npm run check:env-isolation` PASSES with **zero** `KNOWN GAP` rows (was 5),
+167 names in both configs, 24 credentials differing, 10 accepted as account-scoped
+(Cloudflare and Supabase tokens that have no per-environment scoping at all).
+
+⚠️ **Not addressed, and deliberately out of scope:** the `prd` copies of
+`OBTOOL_API_KEY_INVENTORY_AI` (a customer credential at rest in our secret store) and
+`JWT_SECRET` (an untriaged dead slot). Neither is an isolation defect; both are
+questions about whether the value belongs in the project at all.
