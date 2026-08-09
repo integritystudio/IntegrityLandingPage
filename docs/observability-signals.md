@@ -4,7 +4,7 @@ The signals worth alerting on for the Workers this repo deploys, where each one
 comes from, and what "bad" looks like. This is [`BACKLOG.md`](BACKLOG.md) **W04
 step 2**; step 3 (dashboard) and step 4 (alert channel) consume it.
 
-Evaluate them all with:
+Evaluate SIGNALS 1–5 with:
 
 ```bash
 CLOUDFLARE_API_TOKEN=$(doppler secrets get CLOUDFLARE_API_TOKEN --project integrity-studio --config prd --plain) \
@@ -13,6 +13,17 @@ SUPABASE_URL=$(doppler secrets get SUPABASE_URL --project integrity-studio --con
 SUPABASE_SERVICE_ROLE_KEY=$(doppler secrets get SUPABASE_PROVISIONING_KEY --project integrity-studio --config prd --plain) \
   npm run check:worker-signals
 ```
+
+SIGNAL 6 is a **separate script with no Cloudflare dependency**, run first by the
+same workflow:
+
+```bash
+GH_TOKEN=$(gh auth token) npm run check:workflows-active
+```
+
+The split is deliberate. `check-worker-signals.sh` exits 0 early when Cloudflare
+credentials are absent, and SIGNAL 6 is the check that catches checks which have
+stopped running — it must not sit behind a credential path that can itself fail.
 
 Exit 0 = all within threshold, 1 = a breach, 2 = the check itself failed. With no
 Cloudflare credentials it prints `SKIPPED` and exits 0, matching

@@ -16,6 +16,11 @@
 #   * Scheduled workflows run from the DEFAULT branch only — this workflow is
 #     inert until it lands on main.
 #   * GitHub suspends cron workflows after ~60 days without repo activity.
+#     SIGNAL 6 (the workflow-state step below) now BREACHES on that state, so
+#     this workflow can report its own impending silence — for every cause
+#     except being disabled at the same moment as everything else. Nothing
+#     running inside GitHub Actions can detect that Actions is not running it;
+#     an external heartbeat is the only complete answer and there isn't one.
 #
 # Manual trigger: Actions -> Worker Signals Check -> Run workflow.
 # Manual with Supabase: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY as env
