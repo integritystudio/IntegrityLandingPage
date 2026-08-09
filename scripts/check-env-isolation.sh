@@ -381,12 +381,18 @@ ACCEPTED = {
 }
 
 # Wrong, fixable, not yet fixed. Each MUST carry a backlog id.
+# All five W12 entries were resolved 2026-08-09 and removed from this map rather
+# than left as satisfied baseline rows: IS_PROD_TOKEN / JWT_SECRET /
+# OBTOOL_API_KEY_INVENTORY_AI deleted from dev (all three still in prd, so the
+# deletes are reversible), and OTEL_EXPORTER_OTLP_ENDPOINT / OBTOOL_INGEST_ROUTE
+# repointed at obtool-ingest-dev.
+#
+# Deliberately left EMPTY rather than deleted as a concept. An empty map means
+# "no known-wrong shared values", which is a different and stronger statement
+# than "this check has no notion of a known-wrong value" — and the next real gap
+# gets recorded here instead of being argued into SHARED_BY_DESIGN, which would
+# convert a printed defect into a silent pass.
 KNOWN_GAP = {
-    "IS_PROD_TOKEN":               "W12 - dp.st.prd. service token: grants dev read of the ENTIRE prd config",
-    "OTEL_EXPORTER_OTLP_ENDPOINT": "W12 - dev exports telemetry to PRODUCTION ingest",
-    "OBTOOL_INGEST_ROUTE":         "W12 - production ingest route",
-    "JWT_SECRET":                  "W12 - unread by any code; provenance unknown, needs triage",
-    "OBTOOL_API_KEY_INVENTORY_AI": "W12 - a customer's obtk_ API key present in dev",
 }
 
 shared = sorted(set(dev) & set(prd))

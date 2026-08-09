@@ -299,6 +299,22 @@ verify_jwt = true
 [functions.api-keys-rotate]
 verify_jwt = true
 
+[functions.ga4-list-properties]
+# End-user facing: reads `sub` from the JWT header via base64-decode only (no
+# signature check), then filters provider_oauth_tokens by user_id. Platform
+# verification is load-bearing — without it any caller can forge a sub and
+# read another user's GA4 tokens. Do not set verify_jwt=false without adding
+# handler-level signature verification.
+verify_jwt = true
+
+[functions.ga4-select-property]
+# Same pattern as ga4-list-properties: sub drives the UPDATE filter.
+verify_jwt = true
+
+[functions.ga4-token-refresh]
+# Same pattern as ga4-list-properties: sub drives the SELECT and UPDATE filter.
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327
