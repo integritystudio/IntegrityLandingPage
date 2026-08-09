@@ -27,7 +27,10 @@ on:
     - cron: '37 8 * * *'  # 08:37 UTC daily, outside the common round-number congestion
   workflow_dispatch: {}
 
-permissions: {}
+# actions: read is the ONLY grant, and it exists solely for the workflow-state
+# check below (GET /actions/workflows). The signals check needs no GitHub scope.
+permissions:
+  actions: read
 
 jobs:
   check:
@@ -40,6 +43,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      # Deliberately FIRST and independent of Doppler: this is the check that
+      # catches a check that has stopped running, so it must not sit behind a
+      # credential path that can itself fail. check-worker-signals.sh exits 0
+      # early when Cloudflare creds are absent, which would take this with it.
+      # W11: e2e.yml was disabled for two months and produced no runs, no
+      # failures and no notifications — the silence this makes loud.
+      - name: Check every workflow is active
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: bash scripts/check-workflows-active.sh
 
       - name: Install Doppler CLI
         run: curl -Ls https://cli.doppler.com/install.sh | sudo sh

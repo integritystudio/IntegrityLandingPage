@@ -808,7 +808,7 @@ perms:     D1 Metadata Read, D1 Read, D1 Write
 
 ---
 
-## W11: the Playwright suite did not run for two months, and two tests silently went stale
+## ~~W11: the Playwright suite did not run for two months, and two tests silently went stale~~ ✅
 
 **Priority:** P2 | **Source:** session 2026-08-08, PR #23 CI
 
@@ -841,7 +841,61 @@ same defect wearing different clothes, and neither shows up as a red build.**
 same vacuity. Left alone deliberately: it passes today, and changing it could fail a PR on an
 unrelated pre-existing issue. One line when someone wants it.
 
-**Status:** Open — stale tests fixed; the two-month run gap is undiagnosed.
+### Diagnosed 2026-08-08 — and BOTH recorded candidates are wrong
+
+The gap was not cron suspension and not a lack of qualifying pushes. **The workflow was
+disabled.** Measured over the exact window 2026-06-10 → 2026-08-07, same repo, same branch,
+same pushes:
+
+| Workflow | Runs in the gap |
+|---|---|
+| `ci.yml` | **71** |
+| `e2e.yml` | **0** |
+
+That pair refutes both candidates at once. Cron suspension stops only `schedule` events, and
+`e2e.yml` is missing its `push` runs too — while `ci.yml`, which triggers on the same pushes to
+`main`, ran 71 times. And "no qualifying push reached `main`" is contradicted by **~270 commits**
+across 18 active days in the window (06-26, 06-27, 07-01, 07-12, 07-14, 07-17, 07-25, then daily
+from 07-26). The repo was never inactive for 60 days either — the longest quiet stretch after the
+last e2e run is **17 days**, so `disabled_inactivity` cannot apply. Run history resumes on
+2026-08-08 with one `schedule` run and then `push` runs, i.e. it was re-enabled.
+
+🔴 **A disabled workflow is the quietest failure in either repo.** No runs, no failures, no
+notifications — there is nothing to alert on, because nothing happens. It is invisible to every
+technique this file has accumulated: error rate, subrequest count, watermark freshness and skip
+counts all presuppose that *something ran*. The only symptom was two Playwright tests going stale
+for 13 days, and those were found by reading, not by a check.
+
+✅ **Fixed: `scripts/check-workflows-active.sh`**, wired as **SIGNAL 6** and documented in
+[`docs/observability-signals.md`](observability-signals.md). It asserts every `.yml`/`.yaml` on
+disk under `.github/workflows/` reports `state: active`, and it is deliberately the **first** step
+of `worker-signals.yml` — ahead of Doppler — because a check that catches checks which have
+stopped running must not sit behind a credential path that can itself fail
+(`check-worker-signals.sh` exits 0 early when Cloudflare credentials are absent, and folding this
+into it would have inherited that). `permissions: actions: read` is the only grant added.
+
+**It watches the files, not a list.** Adding a workflow enrols it automatically; deleting one
+retires it. A pinned list needs editing on every change, which is how a guard decays into a
+formality — the same reasoning as the toolkit's skip-count guard asserting on skips rather than
+pinning `passed == 46`.
+
+**Mutation-proven in six states, because a check that has never failed is not known to work:**
+all-active → exit 0 (against the live repo); `disabled_manually` → exit 1 naming the file;
+`disabled_inactivity` → exit 1; HTTP 401 → exit 2; non-JSON body → exit 2; absent `GH_TOKEN` →
+skip with exit 0. A workflow on disk but unregistered (a feature branch, or a new file) is a
+**NOTE**, not a breach.
+
+📌 **It partly watches its own host.** `disabled_inactivity` is the state [[CR20]] flags as a
+standing risk to `worker-signals.yml` itself, and this signal breaches on it — so the alert can
+now report its own impending silence, for every cause except being disabled at the same moment.
+That residual is irreducible from inside the repo: nothing running in GitHub Actions can detect
+that GitHub Actions is not running it. An external heartbeat is the only complete answer, and none
+is proposed here.
+
+**Status:** ✅ **Closed 2026-08-08** — stale tests fixed earlier; the run gap is diagnosed
+(workflow disabled, both candidates refuted) and a guard now fails the daily job on any non-active
+workflow. The `web-platform.spec.ts:67` settle-wait note below is unchanged and still open as a
+one-line cleanup.
 
 ---
 
