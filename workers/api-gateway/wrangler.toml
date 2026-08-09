@@ -14,18 +14,37 @@ compatibility_date = "2026-03-19"
 # covers [env.dev]. BACKLOG.md CR14.
 preview_urls = false
 
-# `routes` intentionally absent. A routes key here would capture
-# api.integritystudio.ai/v1/* on every `deploy:prd`, displacing obtool-api's
-# wildcard and swallowing its telemetry paths. The shipped Flutter app calls the
-# workers.dev hostname directly, so no zone route is needed today. Topology
-# decision is tracked in BACKLOG.md CR13; this removal is step 1. See also the
-# [env.dev] comment below, which explains the inheritance hazard that made this
-# block dangerous to leave in place.
+# This Worker's public hostname (BACKLOG.md CR13, decided 2026-08-08: option C).
 #
+# `custom_domain = true` is NOT the same key as a zone route, and the difference
+# is the whole reason this line is safe where the old one was not. A route
+# pattern claims a path on a hostname someone else may already serve; a custom
+# domain binds ONE hostname to this Worker and creates its DNS record. The
+# hostname is `api.integritystudio.dev` — a zone this repo's Workers are the
+# only occupants of — so there is nothing here to displace.
+#
+# What this replaced, and why the replacement is not the same hazard:
+# a `routes = ["api.integritystudio.ai/v1/*"]` key lived here until 2026-07-29.
+# `/v1/*` is MORE SPECIFIC than obtool-api's `api.integritystudio.ai/*`, so
+# every `deploy:prd` would have captured that path and swallowed obtool-api's
+# telemetry routes — /v1/traces among them. That key is gone and must not come
+# back: the two route tables are disjoint apart from /health (docs/api-routing.md),
+# so this Worker has no claim on the .ai hostname at all.
+#
+# Deployed reality this line matches, rather than creates: the custom domain was
+# provisioned 2026-08-08 (id e3f5d910…) after integritystudio.dev was migrated
+# from Porkbun to Cloudflare. Declaring it here makes `deploy:prd` idempotent
+# against that state instead of leaving the binding undeclared in source.
+# Cloudflare represents it as an AAAA record to the discard prefix `100::` —
+# do not "fix" that record or set it to DNS-only; graying it unbinds the Worker
+# while leaving the hostname resolving, which fails as a 522 rather than loudly.
+routes = [{ pattern = "api.integritystudio.dev", custom_domain = true }]
+
 # An `[env.staging]` block declaring staging-api.integritystudio.ai/v1/* was
-# removed for the same reason. Nothing ever passed `--env staging` — no script,
-# no workflow — so it was an unreachable route claim in the one file where a
-# stray route claim has already caused an outage, and it repeated neither
+# removed for the same reason the .ai route was. Nothing ever passed
+# `--env staging` — no script, no workflow — so it was an unreachable route
+# claim in the one file where a stray route claim has already caused an outage,
+# and it repeated neither
 # `durable_objects` nor `observability`, so deploying it would have produced a
 # Worker with no DO namespace and no telemetry. Reinstate it only alongside a
 # deploy path and the full binding set (BACKLOG.md CR13).

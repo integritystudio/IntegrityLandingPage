@@ -13,7 +13,7 @@ export '../models/dashboard_models.dart';
 /// Configurable via --dart-define for staging/development.
 const _apiGatewayUrl = String.fromEnvironment(
   'API_GATEWAY_URL',
-  defaultValue: 'https://api-gateway.alyshia-b38.workers.dev',
+  defaultValue: 'https://api.integritystudio.dev',
 );
 
 /// Billing status API response.
