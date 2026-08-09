@@ -26,6 +26,7 @@
     "check:env-isolation": "bash scripts/check-env-isolation.sh",
     "check:migration-drift": "bash scripts/check-migration-drift.sh",
     "check:worker-signals": "bash scripts/check-worker-signals.sh",
+    "check:workflows-active": "bash scripts/check-workflows-active.sh",
     "check:api-routing": "bash scripts/check-api-routing.sh",
     "dashboard:workers": "bash scripts/worker-dashboard.sh"
   }

@@ -413,7 +413,7 @@ What this unblocks, and what it does not: the signals in step 1 will exist once 
 1. ✅ **Done** — enable observability on every Worker so there is something to observe (see Step 0 above). Deploy to make it live.
 2. ✅ **Done 2026-07-31 — signals defined in [`docs/observability-signals.md`](observability-signals.md) and made executable as `npm run check:worker-signals`** (`scripts/check-worker-signals.sh`, following the `check:env-isolation` / `check:migration-drift` pattern: exit 0 within threshold, 1 on breach, 2 on prerequisite failure, `SKIPPED` + exit 0 without credentials).
 
-   Defining these in prose alone is how they go stale, so each is computed rather than described. Five are implemented — unhandled exceptions, the cron no-op detector, resource exhaustion, cross-repo receiver health (reported, never failing the build, since this repo cannot fix it), and dead-letter queue depth. Five are named as **not** implemented so they are not mistaken for covered: the `/send` error-code split, receiver 401 spikes, provisioning latency, Auth0/Supabase call failures, and the auth 429 rate. The first needs a counter emitted from the Worker — `ERROR_CODE.RECEIVER_ERROR` vs `INTERNAL_ERROR` vs the 502 path is distinguishable only in the response body, which neither Cloudflare telemetry source records.
+   Defining these in prose alone is how they go stale, so each is computed rather than described. **Six** are implemented — unhandled exceptions, the cron no-op detector, resource exhaustion, cross-repo receiver health (reported, never failing the build, since this repo cannot fix it), dead-letter queue depth, and **workflow state** (SIGNAL 6, added 2026-08-08 with [[W11]]: every workflow on disk must be `active`, run by a separate credential-independent script). Five are named as **not** implemented so they are not mistaken for covered: the `/send` error-code split, receiver 401 spikes, provisioning latency, Auth0/Supabase call failures, and the auth 429 rate. The first needs a counter emitted from the Worker — `ERROR_CODE.RECEIVER_ERROR` vs `INTERNAL_ERROR` vs the 502 path is distinguishable only in the response body, which neither Cloudflare telemetry source records.
 
    > **⚠️ Do not build this on error rate alone — measured 2026-07-31, [[CR20]] step 4.** Throughout those four months the cron reported `status: success` with `errors: 0` on every one of ~96 daily invocations, because the Supabase client threw on unbound secrets and `fetchPendingDeadLetters` swallowed it into `[]`. The only telemetry that distinguished broken from working was **`subrequests`**, which sat at exactly 0 until secrets were bound and then rose to 1.00 per invocation. Any alert designed around errors or invocation count would have stayed green for the entire outage. The signature to watch for, here and on any future cron, is **"succeeded while making no outbound calls"**.
 
@@ -808,7 +808,7 @@ perms:     D1 Metadata Read, D1 Read, D1 Write
 
 ---
 
-## W11: the Playwright suite did not run for two months, and two tests silently went stale
+## ~~W11: the Playwright suite did not run for two months, and two tests silently went stale~~ ✅
 
 **Priority:** P2 | **Source:** session 2026-08-08, PR #23 CI
 
@@ -841,7 +841,61 @@ same defect wearing different clothes, and neither shows up as a red build.**
 same vacuity. Left alone deliberately: it passes today, and changing it could fail a PR on an
 unrelated pre-existing issue. One line when someone wants it.
 
-**Status:** Open — stale tests fixed; the two-month run gap is undiagnosed.
+### Diagnosed 2026-08-08 — and BOTH recorded candidates are wrong
+
+The gap was not cron suspension and not a lack of qualifying pushes. **The workflow was
+disabled.** Measured over the exact window 2026-06-10 → 2026-08-07, same repo, same branch,
+same pushes:
+
+| Workflow | Runs in the gap |
+|---|---|
+| `ci.yml` | **71** |
+| `e2e.yml` | **0** |
+
+That pair refutes both candidates at once. Cron suspension stops only `schedule` events, and
+`e2e.yml` is missing its `push` runs too — while `ci.yml`, which triggers on the same pushes to
+`main`, ran 71 times. And "no qualifying push reached `main`" is contradicted by **~270 commits**
+across 18 active days in the window (06-26, 06-27, 07-01, 07-12, 07-14, 07-17, 07-25, then daily
+from 07-26). The repo was never inactive for 60 days either — the longest quiet stretch after the
+last e2e run is **17 days**, so `disabled_inactivity` cannot apply. Run history resumes on
+2026-08-08 with one `schedule` run and then `push` runs, i.e. it was re-enabled.
+
+🔴 **A disabled workflow is the quietest failure in either repo.** No runs, no failures, no
+notifications — there is nothing to alert on, because nothing happens. It is invisible to every
+technique this file has accumulated: error rate, subrequest count, watermark freshness and skip
+counts all presuppose that *something ran*. The only symptom was two Playwright tests going stale
+for 13 days, and those were found by reading, not by a check.
+
+✅ **Fixed: `scripts/check-workflows-active.sh`**, wired as **SIGNAL 6** and documented in
+[`docs/observability-signals.md`](observability-signals.md). It asserts every `.yml`/`.yaml` on
+disk under `.github/workflows/` reports `state: active`, and it is deliberately the **first** step
+of `worker-signals.yml` — ahead of Doppler — because a check that catches checks which have
+stopped running must not sit behind a credential path that can itself fail
+(`check-worker-signals.sh` exits 0 early when Cloudflare credentials are absent, and folding this
+into it would have inherited that). `permissions: actions: read` is the only grant added.
+
+**It watches the files, not a list.** Adding a workflow enrols it automatically; deleting one
+retires it. A pinned list needs editing on every change, which is how a guard decays into a
+formality — the same reasoning as the toolkit's skip-count guard asserting on skips rather than
+pinning `passed == 46`.
+
+**Mutation-proven in six states, because a check that has never failed is not known to work:**
+all-active → exit 0 (against the live repo); `disabled_manually` → exit 1 naming the file;
+`disabled_inactivity` → exit 1; HTTP 401 → exit 2; non-JSON body → exit 2; absent `GH_TOKEN` →
+skip with exit 0. A workflow on disk but unregistered (a feature branch, or a new file) is a
+**NOTE**, not a breach.
+
+📌 **It partly watches its own host.** `disabled_inactivity` is the state [[CR20]] flags as a
+standing risk to `worker-signals.yml` itself, and this signal breaches on it — so the alert can
+now report its own impending silence, for every cause except being disabled at the same moment.
+That residual is irreducible from inside the repo: nothing running in GitHub Actions can detect
+that GitHub Actions is not running it. An external heartbeat is the only complete answer, and none
+is proposed here.
+
+**Status:** ✅ **Closed 2026-08-08** — stale tests fixed earlier; the run gap is diagnosed
+(workflow disabled, both candidates refuted) and a guard now fails the daily job on any non-active
+workflow. The `web-platform.spec.ts:67` settle-wait note below is unchanged and still open as a
+one-line cleanup.
 
 ---
 
@@ -895,7 +949,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR13](#cr13) | P2 | ✅ **DONE 2026-08-08 — every step, decided and executed same day** | **Option C: the gateway got `api.integritystudio.dev`**, which closes steps 3–5 and **supersedes [[CR31]]'s option-B path-split**; [`api-routing.md`](api-routing.md) has been resynced to match (`f36b813`) rather than left disagreeing. The name was already the gateway's Auth0 audience/resource server (`69c4e28bf801eab9e683c85a`) — though an audience is opaque and was never obliged to resolve, so this was naming correctness, not a repair. Executed: `integritystudio.dev` migrated Porkbun → Cloudflare (a **delegation change, not a transfer**; DNSSEC off, no MX/TXT/CAA), zone active in 20 min, Custom Domain `e3f5d910…` live (**200** `/health`, **401** `/v1/me`), `routes = [{ …, custom_domain = true }]` in `wrangler.toml` (`a61e4a6`), Flutter defaults repointed with CORS measured on both hosts (`f36b813`). **No outage** — both nameserver sets served byte-identical answers throughout, verified before delegation moved. 🔴 **Two regressions found and closed by re-probing after cutover rather than trusting the parity check**: a probed DNS inventory missed all four **AAAA** records (would have dropped the dashboard for IPv6 clients only), and Cloudflare imported the vestigial `*` CNAME **proxied**, serving `525` on an HSTS-preloaded TLD. **Record-level parity does not prove behavioural parity when the proxy flag is part of the record.** Step 1 remains **proven by a real deploy 2026-07-30** |
 | [CR17](#cr17) | P2 | ✅ done | Migration ledger repaired; drift detector in CI (`scripts/check-migration-drift.sh` + `migration-drift-check` job) |
 | [CR19](#cr19) | P2 | ✅ done | `stripe-webhook` org-not-found now returns `{ ok: false }` → unclaimEvent + dead-letter (commits eaaa199, 9741594) |
-| [CR20](#cr20) | P2 | ⚠️ **notification proven, SCHEDULING still unobserved — reopened same day** | **The alert was deliberately FAILED to prove its channel, because a passing run proves nothing about it.** `MIN_SUBREQUEST_RATIO` was temporarily set 0.5 → 99 to force exactly one breach; run `31265198806` exited 1 for the intended reason, GitHub raised a `CheckSuite` notification 24 s later, and **the owner confirmed receipt of the email** ("Failed in 13 seconds"). All four links observed rather than inferred: breach detected → job exits 1 → notification raised → email lands. Both temporary changes reverted in `613fa8f`, verified byte-identical to `982f406`, check exits 0 again. Armed on `main` as `982f406`, schedule `37 8 * * *`, workflow `state=active`. *Historical, before the merge:* **Step 4 answered 2026-07-31 (cron runs and succeeds). Alert implemented 2026-08-08**: daily `worker-signals.yml` workflow covering subrequest-ratio check (SIGNAL 2 — the one error rate cannot make) and dead-letter depth (SIGNAL 5). Verified live: all five signals evaluate and the check exits 0, with `stripe-webhook` at **1.00 subreqs/req** — the number that was 0.00 throughout the four-month outage. 🔴 **But it is inert until this branch reaches `main`**: GitHub runs `schedule` workflows from the **default branch only**, so no alert can fire today, and there is no notification to prove the channel works until then. Marking this ✅ before the merge is the same **merged-≠-live** error this file has now corrected four times ([[CR21]], [[CR22]], CR03/CR15, and this). Merge, then confirm one scheduled run actually appears in Actions. Second-order: GitHub also suspends cron workflows after ~60 days of repo inactivity, so a quiet period silently disarms it. [[W04]] step 3 (dashboard) remains blocked on `obtool-ingest` repair but is not CR20's scope |
+| [CR20](#cr20) | P2 | ⚠️ **notification proven, SCHEDULING still unobserved — reopened same day** | **The alert was deliberately FAILED to prove its channel, because a passing run proves nothing about it.** `MIN_SUBREQUEST_RATIO` was temporarily set 0.5 → 99 to force exactly one breach; run `31265198806` exited 1 for the intended reason, GitHub raised a `CheckSuite` notification 24 s later, and **the owner confirmed receipt of the email** ("Failed in 13 seconds"). All four links observed rather than inferred: breach detected → job exits 1 → notification raised → email lands. Both temporary changes reverted in `613fa8f`, verified byte-identical to `982f406`, check exits 0 again. Armed on `main` as `982f406`, schedule `37 8 * * *`, workflow `state=active`. *Historical, before the merge:* **Step 4 answered 2026-07-31 (cron runs and succeeds). Alert implemented 2026-08-08**: daily `worker-signals.yml` workflow covering subrequest-ratio check (SIGNAL 2 — the one error rate cannot make) and dead-letter depth (SIGNAL 5). Verified live: all five signals evaluate and the check exits 0, with `stripe-webhook` at **1.00 subreqs/req** — the number that was 0.00 throughout the four-month outage. 🔴 **But it is inert until this branch reaches `main`**: GitHub runs `schedule` workflows from the **default branch only**, so no alert can fire today, and there is no notification to prove the channel works until then. Marking this ✅ before the merge is the same **merged-≠-live** error this file has now corrected four times ([[CR21]], [[CR22]], CR03/CR15, and this). Merge, then confirm one scheduled run actually appears in Actions. Second-order: GitHub also suspends cron workflows after ~60 days of repo inactivity, so a quiet period silently disarms it — ✅ **now detected**, since [[W11]]'s SIGNAL 6 breaches on `disabled_inactivity` and runs as the first step of this same workflow. The irreducible residual is that nothing running inside GitHub Actions can detect that Actions is not running it. [[W04]] step 3 (dashboard) remains blocked on `obtool-ingest` repair but is not CR20's scope |
 | [CR03](#cr03) | P2 | ✅ done | KV namespaces created and bound; **live in production since the 2026-07-30 deploy** — `RATE_LIMIT_KV` → `766332ec…` confirmed in the deploy's binding list |
 | [CR15](#cr15) | P3 | ✅ done | Item 1 deployed 2026-07-30 (`enabled=True logs=True invocation=True traces=True` after ~4 months unmonitored). **Item 2 done 2026-07-31** — all four stale secrets deleted; production `sender-worker` went 16 → 12 bound, `/signin` still 401s correctly and the `RECEIVER` service binding survived |
 | [CR21](#cr21) | P3 | ✅ done | `stripe-webhook` uses `ctx.waitUntil(processEvent(...))` — 2xx before DB writes. **Merged 2026-07-29 but only live since 2026-07-30**; verified by grepping the deployed bundle, not inferred |

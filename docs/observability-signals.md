@@ -4,7 +4,7 @@ The signals worth alerting on for the Workers this repo deploys, where each one
 comes from, and what "bad" looks like. This is [`BACKLOG.md`](BACKLOG.md) **W04
 step 2**; step 3 (dashboard) and step 4 (alert channel) consume it.
 
-Evaluate them all with:
+Evaluate SIGNALS 1–5 with:
 
 ```bash
 CLOUDFLARE_API_TOKEN=$(doppler secrets get CLOUDFLARE_API_TOKEN --project integrity-studio --config prd --plain) \
@@ -13,6 +13,17 @@ SUPABASE_URL=$(doppler secrets get SUPABASE_URL --project integrity-studio --con
 SUPABASE_SERVICE_ROLE_KEY=$(doppler secrets get SUPABASE_PROVISIONING_KEY --project integrity-studio --config prd --plain) \
   npm run check:worker-signals
 ```
+
+SIGNAL 6 is a **separate script with no Cloudflare dependency**, run first by the
+same workflow:
+
+```bash
+GH_TOKEN=$(gh auth token) npm run check:workflows-active
+```
+
+The split is deliberate. `check-worker-signals.sh` exits 0 early when Cloudflare
+credentials are absent, and SIGNAL 6 is the check that catches checks which have
+stopped running — it must not sit behind a credential path that can itself fail.
 
 Exit 0 = all within threshold, 1 = a breach, 2 = the check itself failed. With no
 Cloudflare credentials it prints `SKIPPED` and exits 0, matching
@@ -178,6 +189,37 @@ fix it. Reporting it stops the failure being misattributed to the sender.
 Optional; skipped without Supabase credentials. This is the signal CR27 proved
 necessary: the first real Stripe traffic this account ever saw dead-lettered all
 three events on two four-month-old defects, and nothing alerted.
+
+### SIGNAL 6 — a workflow that has stopped running
+
+Every `.yml`/`.yaml` under `.github/workflows/` must report `state: active` on
+GitHub. Threshold: **any non-active state**. Run by
+`scripts/check-workflows-active.sh`, and deliberately the **first** step of
+`worker-signals.yml` — before Doppler — because a check that catches checks which
+have stopped running must not sit behind a credential path that can itself fail.
+`check-worker-signals.sh` exits 0 early when Cloudflare credentials are absent,
+and folding this into it would have inherited that.
+
+Unlike every other signal here, this one watches GitHub rather than a Worker, and
+it watches the **files** rather than a list. Adding a workflow enrols it
+automatically; deleting one retires it. A pinned list would need editing on every
+change, which is how a guard decays into a formality.
+
+This is the signal W11 needed and did not have. `e2e.yml` ran nightly through
+2026-06-09 and then produced **nothing** until 2026-08-08 — no `schedule` runs and
+no `push` runs — while `ci.yml` recorded **71** runs over the same window from the
+same pushes to the same branch. Both of W11's recorded candidates are refuted by
+that pair: cron suspension stops only `schedule` events, and "no qualifying push
+reached `main`" is contradicted by ~270 commits. The workflow was **disabled**.
+
+**A disabled workflow is the quietest failure in this document.** It produces no
+runs, no failures, and no notifications — there is nothing to alert on, because
+nothing happens. Two months of Playwright coverage were absent and the only
+symptom was two tests going stale unnoticed. It also covers the `disabled_inactivity`
+state that CR20 flags as a standing risk to `worker-signals.yml` itself, so this
+check partly watches its own host.
+
+Skipped without `GH_TOKEN` (absent → skip); a token that fails exits **2**.
 
 ### Not yet implemented
 
