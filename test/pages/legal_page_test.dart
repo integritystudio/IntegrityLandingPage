@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/legal_page.dart';
+import 'package:integrity_studio_ai/widgets/docs/doc_components.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../helpers/test_helpers.dart';
 
@@ -239,6 +240,17 @@ void main() {
         await tester.pump();
 
         expect(find.textContaining('Introduction'), findsOneWidget);
+      });
+
+      testWidgets('renders the cookie category table as a DocTable',
+          (tester) async {
+        await pumpLegalPage(tester, LegalPageType.cookies);
+
+        expect(find.byType(DocTable), findsOneWidget);
+        expect(find.text('Category'), findsOneWidget);
+        expect(find.text('Essential'), findsOneWidget);
+        // No raw markdown pipe rows leak into the rendered text
+        expect(find.textContaining('| Category'), findsNothing);
       });
     });
 

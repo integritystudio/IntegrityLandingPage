@@ -23,6 +23,7 @@ export 'content/models.dart';
 export 'content/constants.dart';
 export 'content/comparison_content.dart';
 export 'content/security_content.dart';
+export 'content/legal_content.dart';
 export 'content/features_content.dart';
 export 'content/status_content.dart';
 export 'content/blog_content.dart';
