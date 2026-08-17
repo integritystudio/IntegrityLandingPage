@@ -88,7 +88,7 @@ run_query() {
   local body_only
   body_only=$(echo "$response" | grep -v '__HTTP_CODE__')
 
-  if [[ "$http_code" != "200" ]]; then
+  if [[ "$http_code" != "200" ]] && [[ "$http_code" != "201" ]]; then
     echo "error: Management API returned HTTP $http_code" >&2
     echo "       response: $body_only" >&2
     exit 2
