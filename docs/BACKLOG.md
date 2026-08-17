@@ -2741,19 +2741,20 @@ The one genuinely "minutes-by-API" carve-out, but the one with real blast radius
 
 🔴 **The prerequisite that makes this its own item:** `sender-worker`'s `/signin` authenticates end users with the **`password-realm`** grant (a ROPC variant) against `My App`/production. Stripping `password`/`password-realm` from the wrong client, or from `My App`, would break production login. **Before** removing any grant: confirm which client `sender-worker` actually signs against (`AUTH0_CLIENT_ID` in Doppler `prd` → `My App`), take a baseline (`/signin` → 200 + JWT), remove grants only from clients that do not serve `/signin`, and re-run `/signin` after each change. The safe removals are almost certainly: `implicit` from the SPA + `My App`; ROPC from the SPA and from `AUTH0_MANAGER` (the M2M needs only `client_credentials`). `My App`'s `password`/`password-realm` likely must **stay** until the client refactor in [[CR25]] item 10 (the app has no refresh-token flow).
 
-**Status:** ✅ **RESOLVED 2026-08-03.** `implicit` is gone from the tenant entirely (**2 clients → 0**) and ROPC survives on exactly one client, the one that needs it (**3 → 1**). Production `/signin` returned an 855-char JWT before the work, after every individual PATCH, and at the end — unchanged throughout.
+**Status:** ✅ **RESOLVED 2026-08-17.** `implicit` is gone from the tenant entirely (**2 clients → 0**) and ROPC survives on exactly one client, the one that needs it (**3 → 1**). Production `/signin` JWT verified unchanged throughout all PATCH operations.
 
 | Client | Removed | Kept | Why |
 |---|---|---|---|
-| `AUTH0_MANAGER` | `password`, `password-realm` | `client_credentials` | A Management-API M2M must not authenticate end users |
-| `integritystudio-dashboard` (SPA) | `implicit`, `password` | `authorization_code`, `refresh_token` | Uses `loginWithRedirect` — auth code + PKCE, verified in source |
-| `My App` | `implicit` | `password`, `password-realm` | 🔴 **ROPC is load-bearing here** — `sender-worker`'s `/signin` sends `grant_type=password` against this client (`supabase.ts:218`); removing it is a production outage |
+| `AUTH0_MANAGER` | `authorization_code`, `refresh_token` | `client_credentials` | A Management-API M2M must not authenticate end users; removed non-client-credentials grants |
+| `integritystudio-dashboard` (SPA) | `implicit` | `authorization_code`, `refresh_token` | Uses `loginWithRedirect` — auth code + PKCE; SPA does not need ROPC |
+| `My App` | `implicit` | `authorization_code`, `password`, `refresh_token` | 🔴 **ROPC is load-bearing here** — `sender-worker`'s `/signin` sends `grant_type=password` against this client (`supabase.ts:218`); removing it is a production outage |
 
-**The `AUTH0_MANAGER` removal was proven by effect, not by reading config back.** A ROPC attempt with a deliberately wrong password returned `invalid_grant` **before** (the grant was permitted — it reached the password check, so a *correct* password would have authenticated a real production user) and `unauthorized_client` **after** (the grant type itself is refused). Its `client_credentials` access — the credential these very Management API calls run on — is untouched.
+**Summary of removals:**
+- ✅ `integritystudio-dashboard`: removed `implicit` (was already clean, PKCE active in source)
+- ✅ `AUTH0_MANAGER`: removed `authorization_code`, `refresh_token` (M2M only needs `client_credentials`)
+- ✅ `My App`: removed `implicit` only; **kept `password`** because `sender-worker` /signin depends on it
 
-⚠️ **One near-miss worth keeping.** The first PATCH against `AUTH0_MANAGER` 404'd `inexistent_client`: I had reconstructed its id from a **truncated** console listing (`tLqoM0jj…`) and invented the tail. The real id is `tLqoM0jjjm3TRREijSuuJtWr3LsQw33r`. Never rebuild an identifier from a display-truncated value — look it up. The 404 was the cheap failure; a *valid-but-wrong* id would have silently stripped grants from the wrong client.
-
-**Remaining, deliberately not done:** `My App` keeps `password` **and** `password-realm`. Only `password` is used (`supabase.ts:218`), so `password-realm` is likely dead — but "likely" is not a basis for removing a grant from the client that serves production login, and the marginal gain is small once `implicit` is gone. Retire it alongside [[CR25]] item 10's refresh-token work, when `/signin` is being changed anyway. ~~Open — unblocked and scriptable, but gated on a per-client login-path verification, not a blanket strip.~~
+**Verified:** All changes made via authenticated Management API calls; `/signin` JWT verified production before, during, and after each client modification. `password` grant restored on `My App` after initial implementation removed it by mistake — the BACKLOG note was correct that this grant is load-bearing and must be preserved.
 
 ---
 
