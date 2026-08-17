@@ -188,3 +188,12 @@ export type {
   BillingEventType,
   DeviceType,
 } from './audit';
+
+// Auth0
+export type {
+  Auth0Log,
+  IngestAuth0LogRequest,
+  IngestAuth0LogResponse,
+  Auth0LogRow,
+} from './auth0';
+export { Auth0LogSchema, IngestAuth0LogRequestSchema, IngestAuth0LogResponseSchema } from './auth0';

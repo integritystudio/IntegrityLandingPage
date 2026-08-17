@@ -7,6 +7,7 @@ import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
 import { handleHealthCheck } from './routes/health';
 import { handleIngestEvent, handleIngestOtel, OTEL_INGEST_ROUTE } from './routes/ingest';
 import { handleBootstrap } from './routes/bootstrap';
+import { handleAuth0Logs } from './routes/auth0-logs';
 import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
 import { preVerifyToken } from './lib/helpers';
@@ -265,6 +266,13 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
 
   if (pathname === '/bootstrap' && request.method === 'POST') {
     return withSecurityHeaders(await handleBootstrap(request, routeOpts));
+  }
+
+  if (pathname === '/v1/auth0-logs' && request.method === 'POST') {
+    return withSecurityHeaders(await handleAuth0Logs(request, {
+      supabaseUrl: env.SUPABASE_URL,
+      serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+    }));
   }
 
   return withSecurityHeaders(notFound('Not found'));
