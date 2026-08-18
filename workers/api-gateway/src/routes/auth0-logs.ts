@@ -74,6 +74,7 @@ export async function handleAuth0Logs(
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${env.serviceRoleKey}`,
+        'apikey': env.serviceRoleKey, // Supabase REST API requires apikey header
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal', // Don't echo back the inserted row
       },
