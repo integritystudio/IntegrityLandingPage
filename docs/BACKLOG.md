@@ -2723,26 +2723,33 @@ DNS is not the blocker and was confirmed ready in the same pass: `integritystudi
 
 ⚠️ **Do not create an `http` log stream pointing at the OTLP ingest endpoint** — it will fail every delivery. This is the trap the W04 note walked into.
 
-**Status:** ✅ **IMPLEMENTED 2026-08-17** — auth0_logs table + POST /v1/auth0-logs receiver built in api-gateway
+**Status:** ✅ **FULLY OPERATIONAL 2026-08-18** — Auth0 logs flowing to Supabase in real time
 
-**Implementation:**
-1. ✅ **Supabase table** (`auth0_logs`) — Created with RLS policy (service_role read/write only), UNIQUE constraint on log_id for dedup, JSONB `details` column for full payload audit trail
-2. ✅ **Zod schema** (`Auth0LogSchema`) — Validates Auth0 log entry format, allows passthrough for unknown fields
-3. ✅ **POST /v1/auth0-logs handler** — Unauthenticated endpoint (Auth0 cannot send Bearer tokens), validates payload, inserts to Supabase, returns 200 on errors to prevent Auth0 retry backoff
-4. ✅ **Indexes** — created_at (DESC), event_type, user_id, client_id for audit queries
+**Implementation Complete:**
+1. ✅ **Supabase table** (`auth0_logs`) — RLS policy (service_role read/write), UNIQUE on log_id, JSONB details, indexes on created_at/event_type/user_id/client_id
+2. ✅ **Zod validation schema** — Validates Auth0 log format, passthrough for unknown fields
+3. ✅ **POST /v1/auth0-logs endpoint** — Unauthenticated, validates payload, persists to Supabase, returns 200 on all outcomes (prevents Auth0 retry backoff)
+4. ✅ **Auth0 Event Stream configured** — HTTP log stream POSTing to `https://api.integritystudio.dev/v1/auth0-logs` with shared secret authentication token
+5. ✅ **Logs flowing** — Verified 2026-08-18 00:03 UTC; events persisting with full payloads
 
-**To enable in Auth0 Dashboard:**
-- **Production:** Create HTTP log stream → POST to `https://api.integritystudio.dev/v1/auth0-logs`
-- **Dev:** Create HTTP log stream → POST to `https://api-gateway-dev.alyshia-b38.workers.dev/v1/auth0-logs`
-- Auth0 will start POSTing login events, MFA events, admin actions, and failures
-- Full raw payload stored in `details` column for compliance/debugging
-- Queries possible on event_type, user_id, client_id, created_at
+**Architecture:**
+- Event Stream handler in Auth0 Dashboard → POSTs every event to `/v1/auth0-logs`
+- Endpoint validates with Zod, deduplicates on log_id, inserts to Supabase with service_role
+- Full raw event stored in `details` JSONB column for audit trail/compliance
+- Queries on event_type, user_id, client_id, created_at, email for audit/analytics
 
-**Design notes:**
-- Endpoint returns 200 even on DB errors (prevents Auth0 backing off the stream)
-- log_id deduplication prevents retries from creating duplicates
-- No authentication required (Auth0 log streams cannot send Bearer tokens; the endpoint is public but safe because it only stores data, never mutates business logic)
-- Integrates with existing api-gateway architecture (no new workers needed)
+**Operational:**
+- Auth0 will auto-retry on non-200 responses, so endpoint returns 200 even on Supabase errors (prevents stream lockout)
+- Duplicate protection: UNIQUE constraint on log_id from Auth0
+- RLS enforced: service_role can insert/read; anon/authenticated cannot
+- Ready for production audit queries and compliance reporting
+
+**Verification (2026-08-18):**
+```bash
+curl -s "https://cfrbahzzklwrnmbtqojl.supabase.co/rest/v1/auth0_logs?order=created_at.desc&limit=5" \
+  -H "Authorization: Bearer $(doppler secrets get SUPABASE_PROVISIONING_KEY --project integrity-studio --config prd --plain)" \
+  -H "apikey: $(doppler secrets get SUPABASE_PROVISIONING_KEY --project integrity-studio --config prd --plain)" | jq '.[] | {event_type, email, user_id, created_at}'
+```
 
 ---
 
