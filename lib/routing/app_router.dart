@@ -173,6 +173,13 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
         ),
       ),
       GoRoute(
+        path: '/app',
+        builder: (context, state) => AuthPage(
+          mode: AuthMode.signIn,
+          onBack: _goHome(context),
+        ),
+      ),
+      GoRoute(
         path: Routes.forgotPassword,
         builder: (context, state) => AuthPage(
           mode: AuthMode.signIn,
