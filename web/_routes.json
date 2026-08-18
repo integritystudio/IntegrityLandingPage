@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [
+    "/images/*",
+    "/icons/*",
+    "/js/*",
+    "/css/*",
+    "/fonts/*",
+    "/*.js",
+    "/*.css",
+    "/*.png",
+    "/*.ico",
+    "/*.json",
+    "/*.txt",
+    "/*.xml",
+    "/*.svg",
+    "/*.webmanifest"
+  ],
+  "rules": [
+    {
+      "include": ["/*"],
+      "exclude": [
+        "/images/*",
+        "/icons/*",
+        "/js/*",
+        "/css/*",
+        "/fonts/*",
+        "/*.js",
+        "/*.css",
+        "/*.png",
+        "/*.ico",
+        "/*.json",
+        "/*.txt",
+        "/*.xml",
+        "/*.svg",
+        "/*.webmanifest"
+      ],
+      "fetch": "/index.html"
+    }
+  ]
+}
