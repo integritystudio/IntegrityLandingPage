@@ -10,7 +10,7 @@ import '../helpers/test_helpers.dart';
 /// Mock platform check that can simulate web environment.
 class MockPlatformCheck implements PlatformCheck {
   final bool _isWeb;
-  MockPlatformCheck({bool isWeb = false}) : _isWeb = isWeb;
+  MockPlatformCheck({this._isWeb = false});
 
   @override
   bool get isWeb => _isWeb;
