@@ -59,7 +59,7 @@ All site content is defined in `content.yaml` at project root. Content constants
 
 All navigation uses GoRouter via `context.go()`. Routes are organized into groups:
 - `_homeRoute` / `_mainPageRoutes` — primary pages with cookie settings
-- `_authRoutes` — login, signup, provision, checkout, checkout-success, dashboard, billing, usage, entitlements, quota, health, request result pages, OAuth callback, help center
+- `_authRoutes` — login, signup, provision, checkout, checkout-success, dashboard, billing, usage, entitlements, quota, health, request result pages, help center
 - `_blogRoutes` — blog, comparisons, sources
 - `_legalRoutes` — privacy, terms, cookies, accessibility, security
 - `_docsRoutes` — documentation, API, compliance

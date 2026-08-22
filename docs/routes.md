@@ -88,7 +88,6 @@ Navigator.pushNamed(context, '/pricing');
 | `/login` | `AuthPage(mode: AuthMode.signIn)` | No (renamed from `/signin`) |
 | `/request_success` | `RequestSuccessPage` | Yes |
 | `/request_failure` | `RequestFailurePage` | Yes (failure detail passed via `state.extra`; auto-redirects to `/login` on existing-user errors) |
-| `/oauth/callback` | `OAuthCallbackPage` | No (accepts `?code=`, `?state=`, `?error=`, `?error_description=`, `?success=`) |
 | `/support` | `HelpCenterPage` | No |
 
 ### Provisioning & Billing (authenticated)

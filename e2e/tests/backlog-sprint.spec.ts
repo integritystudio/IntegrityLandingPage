@@ -48,7 +48,7 @@ test.describe('Route Group Coverage (#65)', () => {
     });
   }
 
-  const authRoutes = ['/request_success', '/request_failure', '/support', '/signup', '/oauth/callback'];
+  const authRoutes = ['/request_success', '/request_failure', '/support', '/signup'];
   for (const route of authRoutes) {
     test(`auth group: ${route} loads`, async ({ page }) => {
       await navigateAndWaitForFlutter(page, route);

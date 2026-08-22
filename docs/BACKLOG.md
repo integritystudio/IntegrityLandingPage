@@ -106,6 +106,8 @@ Implement authenticated dashboard with org switching, billing status, usage summ
 | #8 OAuth State Validation | CRITICAL | ✅ Done — `OAuthService.validateCallback()` with constant-time compare; CSRF rejection tracked in analytics (commit b957544) |
 | #9 PKCE Implementation | CRITICAL | ✅ Done — `OAuthService.buildAuthorizationUrl()` with RFC 7636 S256 challenge; sessionStorage scoped; conditional web/stub exports (commit b957544) |
 
+> 🗑️ **REMOVED 2026-08-22 — the code these rows hardened was a dead shell, deleted rather than completed.** `buildAuthorizationUrl` never gained a caller (nothing initiated the authorize redirect), and `OAuthCallbackPage` validated state then stopped — its "backend handles this" token exchange was never built, so `/oauth/callback` could never complete a login. When the homepage Log In was pointed at the dashboard SPA (which runs its own Auth0 Universal Login at `integritystudio.dev/callback` — see the CR04 note below), this repo's half of the flow lost its purpose. Deleted: `OAuthService` (web/stub/conditional export), `OAuthCallbackPage`, the `/oauth/callback` route, and the orphaned `SecurityUtils` OAuth sanitizers + their tests. If a first-party Universal Login flow is ever wanted here, resurrect from git (`b957544` lineage) **and build the token exchange first** — the UI shell without it is what sat here for months reading as working.
+
 ---
 
 ## Accepted Risk
