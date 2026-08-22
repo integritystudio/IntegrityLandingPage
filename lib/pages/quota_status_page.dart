@@ -5,6 +5,7 @@ import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
+import '../widgets/common/dashboard_card.dart';
 import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
 import '../widgets/common/status_badge.dart';
@@ -121,76 +122,52 @@ class _QuotaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: AppDecorations.card(borderColor: AppColors.gray700),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Quota Usage',
-                style: AppTypography.bodyMD.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (isLoading)
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(AppColors.blue500),
-                  ),
-                ),
-            ],
-          ),
-          if (data != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            if (data!.planKey != null) ...[
-              StatusBadge(
-                label: _formatPlanKey(data!.planKey!),
-                color: AppColors.blue500,
-              ),
-              const SizedBox(height: AppSpacing.md),
-            ],
-            _QuotaRow(
-              icon: LucideIcons.zap,
-              label: 'Minute',
-              used: data!.minuteUsed,
-              limit: data!.minuteLimit,
+    return DashboardCard(
+      title: 'Quota Usage',
+      isLoading: isLoading,
+      children: [
+        if (data != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          if (data!.planKey != null) ...[
+            StatusBadge(
+              label: _formatPlanKey(data!.planKey!),
+              color: AppColors.blue500,
             ),
-            const SizedBox(height: AppSpacing.sm),
-            _QuotaRow(
-              icon: LucideIcons.calendar,
-              label: 'Monthly',
-              used: data!.monthlyUsed,
-              limit: data!.monthlyLimit,
-            ),
-          ] else if (!isLoading) ...[
             const SizedBox(height: AppSpacing.md),
-            Text(
-              'No quota data available.',
-              style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
-            ),
           ],
+          _QuotaRow(
+            icon: LucideIcons.zap,
+            label: 'Minute',
+            used: data!.minuteUsed,
+            limit: data!.minuteLimit,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _QuotaRow(
+            icon: LucideIcons.calendar,
+            label: 'Monthly',
+            used: data!.monthlyUsed,
+            limit: data!.monthlyLimit,
+          ),
+        ] else if (!isLoading) ...[
           const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: OutlineButton(
-                  onPressed: isLoading ? null : onRefresh,
-                  text: 'Refresh',
-                  icon: LucideIcons.rotateCw,
-                ),
-              ),
-            ],
+          Text(
+            'No quota data available.',
+            style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
           ),
         ],
-      ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: OutlineButton(
+                onPressed: isLoading ? null : onRefresh,
+                text: 'Refresh',
+                icon: LucideIcons.rotateCw,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

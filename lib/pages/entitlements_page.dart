@@ -4,6 +4,7 @@ import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
+import '../widgets/common/dashboard_card.dart';
 import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
 import '../widgets/common/status_badge.dart';
@@ -121,61 +122,33 @@ class _EntitlementsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        border: Border.all(color: AppColors.gray700),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Feature Entitlements',
-                style: AppTypography.bodyMD.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (isLoading)
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(AppColors.blue500),
-                  ),
-                ),
-            ],
-          ),
-          if (data != null && data!.entitlements.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.md),
-            _EntitlementsGrid(entitlements: data!.entitlements),
-          ] else if (!isLoading) ...[
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'No entitlements found for this organization.',
-              style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
-            ),
-          ],
+    return DashboardCard(
+      title: 'Feature Entitlements',
+      isLoading: isLoading,
+      children: [
+        if (data != null && data!.entitlements.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: OutlineButton(
-                  onPressed: isLoading ? null : onRefresh,
-                  text: 'Refresh',
-                  icon: LucideIcons.rotateCw,
-                ),
-              ),
-            ],
+          _EntitlementsGrid(entitlements: data!.entitlements),
+        ] else if (!isLoading) ...[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'No entitlements found for this organization.',
+            style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
           ),
         ],
-      ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: OutlineButton(
+                onPressed: isLoading ? null : onRefresh,
+                text: 'Refresh',
+                icon: LucideIcons.rotateCw,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

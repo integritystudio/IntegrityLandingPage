@@ -6,6 +6,7 @@ import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
+import '../widgets/common/dashboard_card.dart';
 import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
 import '../widgets/common/status_badge.dart';
@@ -217,102 +218,78 @@ class _BillingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: AppDecorations.card(borderColor: AppColors.gray700),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                billingStatus?.planDisplayName.isNotEmpty == true
-                    ? billingStatus!.planDisplayName
-                    : 'Plan',
-                style: AppTypography.bodyMD.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (billingStatus != null)
-                StatusBadge(
-                  label: _statusLabel(billingStatus!.billingStatus),
-                  color: _statusColor(billingStatus!.billingStatus),
-                )
-              else if (isLoading)
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor:
-                        AlwaysStoppedAnimation(AppColors.blue500),
-                  ),
-                ),
-            ],
-          ),
-          if (billingStatus != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            _InfoRow(
-              icon: LucideIcons.tag,
-              label: 'Plan',
-              value: billingStatus!.planKey.isNotEmpty
-                  ? billingStatus!.planKey
-                  : '—',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _InfoRow(
-              icon: LucideIcons.calendar,
-              label: billingStatus!.cancelAtPeriodEnd
-                  ? 'Cancels on'
-                  : 'Renews on',
-              value: renewalDateLabel ?? '—',
-            ),
-          ],
-          if (billingStatus != null && !billingStatus!.hasBillingAccount) ...[
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              _isContractBilled
-                  ? 'This organization is billed by contract. Contact support to make changes.'
-                  : 'No billing account yet. Choose a plan to set one up.',
-              style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
-            ),
-          ],
+    return DashboardCard(
+      title: billingStatus?.planDisplayName.isNotEmpty == true
+          ? billingStatus!.planDisplayName
+          : 'Plan',
+      isLoading: isLoading,
+      trailing: billingStatus != null
+          ? StatusBadge(
+              label: _statusLabel(billingStatus!.billingStatus),
+              color: _statusColor(billingStatus!.billingStatus),
+            )
+          : null,
+      children: [
+        if (billingStatus != null) ...[
           const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: OutlineButton(
-                  onPressed: isLoading ? null : onRefresh,
-                  text: 'Refresh',
-                  icon: LucideIcons.rotateCw,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              // Until an org has a Stripe customer there is no portal session to
-              // create and POST /billing-portal answers 404, so the CTA switches to
-              // checkout rather than offering a button that cannot work. Contract-
-              // billed orgs get neither.
-              Expanded(
-                child: _isContractBilled
-                    ? const SizedBox.shrink()
-                    : GradientButton(
-                        onPressed: (isLoading || isPortalLoading)
-                            ? null
-                            : (billingStatus?.hasBillingAccount ?? false)
-                                ? onManageBilling
-                                : onStartCheckout,
-                        isLoading: isPortalLoading,
-                        text: (billingStatus?.hasBillingAccount ?? false)
-                            ? 'Manage Billing'
-                            : 'Choose a plan',
-                      ),
-              ),
-            ],
+          _InfoRow(
+            icon: LucideIcons.tag,
+            label: 'Plan',
+            value: billingStatus!.planKey.isNotEmpty
+                ? billingStatus!.planKey
+                : '—',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _InfoRow(
+            icon: LucideIcons.calendar,
+            label: billingStatus!.cancelAtPeriodEnd
+                ? 'Cancels on'
+                : 'Renews on',
+            value: renewalDateLabel ?? '—',
           ),
         ],
-      ),
+        if (billingStatus != null && !billingStatus!.hasBillingAccount) ...[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            _isContractBilled
+                ? 'This organization is billed by contract. Contact support to make changes.'
+                : 'No billing account yet. Choose a plan to set one up.',
+            style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: OutlineButton(
+                onPressed: isLoading ? null : onRefresh,
+                text: 'Refresh',
+                icon: LucideIcons.rotateCw,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            // Until an org has a Stripe customer there is no portal session to
+            // create and POST /billing-portal answers 404, so the CTA switches to
+            // checkout rather than offering a button that cannot work. Contract-
+            // billed orgs get neither.
+            Expanded(
+              child: _isContractBilled
+                  ? const SizedBox.shrink()
+                  : GradientButton(
+                      onPressed: (isLoading || isPortalLoading)
+                          ? null
+                          : (billingStatus?.hasBillingAccount ?? false)
+                              ? onManageBilling
+                              : onStartCheckout,
+                      isLoading: isPortalLoading,
+                      text: (billingStatus?.hasBillingAccount ?? false)
+                          ? 'Manage Billing'
+                          : 'Choose a plan',
+                    ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

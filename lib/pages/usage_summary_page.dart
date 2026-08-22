@@ -8,6 +8,7 @@ import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/buttons.dart';
+import '../widgets/common/dashboard_card.dart';
 import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
 
@@ -214,80 +215,52 @@ class _UsageSummaryCard extends StatelessWidget {
         ? 'Since ${summary!.periodStart}'
         : 'Current period';
 
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.gray800,
-        border: Border.all(color: AppColors.gray700),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Monthly Usage',
-                style: AppTypography.bodyMD.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (isLoading)
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(AppColors.blue500),
-                  ),
-                ),
-            ],
+    return DashboardCard(
+      title: 'Monthly Usage',
+      isLoading: isLoading,
+      children: [
+        if (summary != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          // Usage bar
+          _UsageBar(
+            usedUnits: total,
+            quotaUnits: quota,
+            ratio: usageRatio,
+            periodLabel: periodLabel,
           ),
-          if (summary != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            // Usage bar
-            _UsageBar(
-              usedUnits: total,
-              quotaUnits: quota,
-              ratio: usageRatio,
-              periodLabel: periodLabel,
-            ),
-            if (summary!.buckets.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.lg),
-              // Daily bar chart
-              _DailyBarChart(
-                buckets: summary!.buckets,
-                monthlyUnitsQuota: monthlyUnitsQuota,
-              ),
-            ],
-            if (totals.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.lg),
-              // Per-metric breakdown
-              _MetricTable(totals: totals),
-            ],
-          ] else if (!isLoading) ...[
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'No usage data for this period.',
-              style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
+          if (summary!.buckets.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.lg),
+            // Daily bar chart
+            _DailyBarChart(
+              buckets: summary!.buckets,
+              monthlyUnitsQuota: monthlyUnitsQuota,
             ),
           ],
+          if (totals.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.lg),
+            // Per-metric breakdown
+            _MetricTable(totals: totals),
+          ],
+        ] else if (!isLoading) ...[
           const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: OutlineButton(
-                  onPressed: isLoading ? null : onRefresh,
-                  text: 'Refresh',
-                  icon: LucideIcons.rotateCw,
-                ),
-              ),
-            ],
+          Text(
+            'No usage data for this period.',
+            style: AppTypography.bodySM.copyWith(color: AppColors.gray300),
           ),
         ],
-      ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: OutlineButton(
+                onPressed: isLoading ? null : onRefresh,
+                text: 'Refresh',
+                icon: LucideIcons.rotateCw,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
