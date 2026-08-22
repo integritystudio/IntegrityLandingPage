@@ -359,7 +359,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR15](#cr15) | P3 | ✅ done | Item 1 deployed 2026-07-30 (`enabled=True logs=True invocation=True traces=True` after ~4 months unmonitored). **Item 2 done 2026-07-31** — all four stale secrets deleted; production `sender-worker` went 16 → 12 bound, `/signin` still 401s correctly and the `RECEIVER` service binding survived |
 | [CR21](#cr21) | P3 | ✅ done | `stripe-webhook` uses `ctx.waitUntil(processEvent(...))` — 2xx before DB writes. **Merged 2026-07-29 but only live since 2026-07-30**; verified by grepping the deployed bundle, not inferred |
 | [CR16](#cr16) | P3 | 📋 by design | Internal vs customer-facing OTEL pipelines — deliberate; **do not de-duplicate**. Convergence deferred |
-| [CR22](#cr22) | P3 | ✅ **exercised and confirmed live 2026-08-06** | Billing-portal API-key 403, deployed 2026-07-30, now proven end to end now that [[CR12]] bound `API_KEY_HMAC_SECRET`: a real signed test key against `POST /v1/orgs/:id/billing-portal` returns exactly `403 "Billing portal requires a user session; API keys are not accepted"` |
+| [CR22](changelog/1.3/CHANGELOG.md#cr22) | P3 | ✅ **exercised and confirmed live 2026-08-06** | Billing-portal API-key 403, deployed 2026-07-30, now proven end to end now that [[CR12]] bound `API_KEY_HMAC_SECRET`: a real signed test key against `POST /v1/orgs/:id/billing-portal` returns exactly `403 "Billing portal requires a user session; API keys are not accepted"` |
 | [CR23](#cr23) | P3 | ✅ resolved | Design decision: 401 for invalid credentials, 403 for valid-but-wrong-type. HTTP-correct; no code change needed |
 | [CR24](#cr24) | P2 | ✅ done | Legacy `anon` + `service_role` JWT keys disabled 2026-07-29 — **verified by probe**: both now return 401. Reversible via the same endpoint if the receiver turns out to depend on one (its `/health` is 200 post-disable) |
 | [CR25](#cr25) | P2 | ⚠️ 1 item open (MFA enforcement) | Auth0 tenant A production-readiness. Restructured 2026-08-03: 8 of 13 done (incl. branding, and the `integrity-dev-m2m` security finding closed via CR11), 4 carved out to [[CR32]]–[[CR35]], **1 left here — MFA enforcement** (factors available, `guardian/policies` `[]`; enabling forces ~96 users to re-enrol, owner decision). No active security finding |
@@ -1637,25 +1637,6 @@ Severity is limited by the atomic claim: a timeout followed by a Stripe retry hi
 **Status:** ✅ Done (2026-07-29, commit 8de2122) — handler logic extracted into `processEvent`; `handleWebhook` now atomically claims the event, returns `200 { ok: true, queued: true }` immediately, then runs `ctx.waitUntil(processEvent(...))`. The dead-letter CRITICAL path no longer returns 500 (the response is already sent by then; manual Stripe replay is the only recovery). 152 tests passing.
 
 **✅ Actually live since 2026-07-30, and it was not before.** This entry was marked done on 2026-07-29, but production `stripe-webhook` had last shipped code on 2026-07-28 — so the fix sat undeployed for a day while the backlog read as complete. Confirmed after deploying by fetching the live bundle (`GET .../scripts/stripe-webhook/content/v2`) and finding `waitUntil`, `queued`, and `Manual replay required` present, with the stale `Failed to log processed event` string from the 2026-03-31 build absent. **Worth generalising: "commit merged" and "behaviour live" are different claims, and this file has now conflated them twice** (see the audit note at the head of Phase 4).
-
----
-
-<a id="cr22"></a>
-
-### CR22: The billing-portal API-key 403 — deployed 2026-07-30, but still not exercisable
-
-**Priority:** P3 | **Source:** session 2026-07-27 late, follow-up to the `handleBillingPortal` auth change
-**Estimated:** 15 minutes
-
-**Context:** `handleBillingPortal` (`workers/api-gateway/src/routes/orgs.ts`) now rejects `int_live_…` bearer tokens with `403 "Billing portal requires a user session; API keys are not accepted"` instead of letting them fall through to `resolveJwt` and return an opaque `401`. Typecheck is clean and the worker suite passes 147/147, including a new case in `orgs.test.ts`.
-
-Nothing is deployed. `api-gateway` deploys are manual (see [[CR02]]) and there are dev/prod variants, so the fix reaches production only when someone runs the deploy — and doing that here trips the hazard already recorded at the head of this section: **`deploy:prd` in `workers/api-gateway` must wait for [[CR13]] step 1**, or its `routes` key captures all of `/v1/*` from `obtool-api`. So this is blocked on CR13, not merely unscheduled.
-
-Note the user-visible effect is currently nil either way: the portal cannot work at all until `STRIPE_SECRET_KEY` is bound ([[CR18]], [[CR12]]), and API-key routes are dead while `API_KEY_HMAC_SECRET` is unbound — meaning **no caller can reach the new 403 in production today**. This is a correctness improvement waiting behind the same credential work.
-
-✅ **Exercised in production 2026-08-06, now that [[CR12]] bound `API_KEY_HMAC_SECRET`.** A real, correctly-HMAC-signed test key (deleted after) hit `POST /v1/orgs/:id/billing-portal` and returned exactly `403 {"error":{"message":"Billing portal requires a user session; API keys are not accepted"}}` — not the fabricated-key `401` this entry previously used to argue the path was unreachable. The 403 branch is live and correct.
-
-**Status:** ✅ **Done — exercised and confirmed live 2026-08-06** (see the paragraph above; this line lagged it until 2026-08-22, the same table/body drift CR33 had). The rule that outlives it: the 403 fires only for a credential that *authenticates* as an API key and then fails the type check, so exercising it requires a valid HMAC-verified key — a probe with a fabricated key returns `401 {"error":{"message":"Invalid JWT format"}}`, which is [[CR23]]'s deliberate two-tier split working correctly. **Do not read that 401 as this fix having failed.**
 
 ---
 

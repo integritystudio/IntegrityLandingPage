@@ -945,6 +945,27 @@ This is a one-shot bootstrap value. It is needed **only** in `checkout.session.c
 **Files:**
 - `workers/sender-worker/src/stripe.ts`, `src/supabase.ts`, `src/index.ts`, `src/index.test.ts`
 
+## [2026-08-06] - Billing-portal API-key 403 exercised in production (CR22)
+
+> Migrated verbatim from `docs/BACKLOG.md` on 2026-08-22 (`/backlog-migrate`, append-to-1.3 decision). Heading normalised; body unchanged.
+
+<a id="cr22"></a>
+
+### CR22: The billing-portal API-key 403 — deployed 2026-07-30, but still not exercisable
+
+**Priority:** P3 | **Source:** session 2026-07-27 late, follow-up to the `handleBillingPortal` auth change
+**Estimated:** 15 minutes
+
+**Context:** `handleBillingPortal` (`workers/api-gateway/src/routes/orgs.ts`) now rejects `int_live_…` bearer tokens with `403 "Billing portal requires a user session; API keys are not accepted"` instead of letting them fall through to `resolveJwt` and return an opaque `401`. Typecheck is clean and the worker suite passes 147/147, including a new case in `orgs.test.ts`.
+
+Nothing is deployed. `api-gateway` deploys are manual (see [[CR02]]) and there are dev/prod variants, so the fix reaches production only when someone runs the deploy — and doing that here trips the hazard already recorded at the head of this section: **`deploy:prd` in `workers/api-gateway` must wait for [[CR13]] step 1**, or its `routes` key captures all of `/v1/*` from `obtool-api`. So this is blocked on CR13, not merely unscheduled.
+
+Note the user-visible effect is currently nil either way: the portal cannot work at all until `STRIPE_SECRET_KEY` is bound ([[CR18]], [[CR12]]), and API-key routes are dead while `API_KEY_HMAC_SECRET` is unbound — meaning **no caller can reach the new 403 in production today**. This is a correctness improvement waiting behind the same credential work.
+
+✅ **Exercised in production 2026-08-06, now that [[CR12]] bound `API_KEY_HMAC_SECRET`.** A real, correctly-HMAC-signed test key (deleted after) hit `POST /v1/orgs/:id/billing-portal` and returned exactly `403 {"error":{"message":"Billing portal requires a user session; API keys are not accepted"}}` — not the fabricated-key `401` this entry previously used to argue the path was unreachable. The 403 branch is live and correct.
+
+**Status:** ✅ **Done — exercised and confirmed live 2026-08-06** (see the paragraph above; this line lagged it until 2026-08-22, the same table/body drift CR33 had). The rule that outlives it: the 403 fires only for a credential that *authenticates* as an API key and then fails the type check, so exercising it requires a valid HMAC-verified key — a probe with a fabricated key returns `401 {"error":{"message":"Invalid JWT format"}}`, which is [[CR23]]'s deliberate two-tier split working correctly. **Do not read that 401 as this fix having failed.**
+
 ## [2026-08-08] - Doppler CLI `secrets get` — premise refuted, measured behaviour documented (W07)
 
 > Migrated verbatim from `docs/BACKLOG.md` on 2026-08-22 (`/backlog-migrate`, append-to-1.3 decision). Heading normalised; body unchanged.
