@@ -351,9 +351,10 @@ SHARED_BY_DESIGN = {
     "DISCORD_BOT_TOKEN","DISCORD_CLIENT_ID","DISCORD_CLIENT_TOKEN","DISCORD_TOKEN",
     "HUBSPOT_ACCOUNT_ID","HUBSPOT_PAT","AWS_ACCESS_KEY_ID","AWS_SECRET_ACCESS_KEY",
     "GITHUB_TOKEN","PORKBUN_API_KEY","PORKBUN_SECRET_API_KEY",
-    # Identifiers, not credentials. One Cloudflare account and one zone exist,
+    # Identifiers, not credentials. One Cloudflare account exists, and the
+    # zone id names the integritystudio.ai zone (one zone per hostname),
     # so these CANNOT differ; they grant nothing on their own.
-    "CLOUDFLARE_ACCOUNT_ID","CF_ACCOUNT_ID","CLOUDFLARE_ZONE_ID",
+    "CLOUDFLARE_ACCOUNT_ID","CF_ACCOUNT_ID","CLOUDFLARE_ZONE_ID_INTEGRITYSTUDIO_AI",
     "CLOUDFLARE_D2_API_ENDPOINT",
     # Auth0 API identifiers. Each tenant registers its own API under the SAME
     # identifier string by design — only issuer/JWKS differ. Flagging these
