@@ -343,6 +343,7 @@ SHARED_BY_DESIGN = {
     "INTEGRITY_ADDRESS","INTEGRITY_EIN","INTEGRITY_WEFILE_ID","LEORA_LICENSE_NUMBER",
     "INTEGRITY_STUDIO_COMPTROLLER_FILE_NUMBER","INTEGRITY_STUDIO_COMPTROLLER_TAX_ID",
     # Unrelated projects sharing this Doppler project
+    "GOOGLE_CALENDAR_PROJECT_ID","GOOGLE_CALENDAR_PROJECT_SECRET",
     "TCAD_RENDER_DEPLOY_HOOK","TCAD_TOKEN_WORKER_SECRET","TCAD_WORKER_URL",
     "TOKEN_WORKER_SECRET","TOKEN_WORKER_URL","RENDER_API_KEY","RENDER_DB",
     "RENDER_DB_PASSWORD","RENDER_DB_USER","RENDER_EXTERNAL_DB_URL",
@@ -379,6 +380,8 @@ ACCEPTED = {
     "CLOUDFLARE_REFRESH_TOKEN":       "wrangler OAuth is per-user, not per-environment",
     "AE_SQL_API_TOKEN":               "Analytics Engine SQL API is account-scoped",
     "SUPABASE_ACCESS_TOKEN":          "sbp_ management token spans every project in the account",
+    "AUTH0_PERSONAL_PASSWORD":        "production smoke-test login, deliberately in both configs (owner decision 2026-08-22)",
+    "AUTH0_PERSONAL_TEST_EMAIL":      "production smoke-test login, deliberately in both configs (owner decision 2026-08-22)",
 }
 
 # Wrong, fixable, not yet fixed. Each MUST carry a backlog id.
