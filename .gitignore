@@ -59,6 +59,7 @@ package-lock.json
 # Repomix output files
 repomix-output.xml
 docs/repomix/*.xml
+docs/repomix/gitlog-top20.txt
 *-output.xml
 
 # E2E screenshots
