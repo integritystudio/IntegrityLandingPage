@@ -1225,6 +1225,51 @@ is proposed here.
 workflow. The `web-platform.spec.ts:67` settle-wait note below is unchanged and still open as a
 one-line cleanup.
 
+## [2026-08-08] - Provisioning replay-protection nonce store — already built, then finished right (W06)
+
+> Migrated verbatim from `docs/BACKLOG.md` on 2026-08-22 (`/backlog-migrate`, append-to-1.3 decision). Heading normalised; body unchanged.
+
+### W06: Provisioning — nonce store for sub-window replay protection
+
+**Priority:** P3 | **Source:** session 2026-06-27, documented in `docs/api-provisioning.md` (Production Hardening → Remaining) but not previously tracked
+**Estimated:** 3–5 hours
+
+**Context:** Replay protection on the `sender-worker` → `api-provisioning-receiver` path is currently timestamp-only: a signed `/inbox` request is accepted if its `x-timestamp` is within the ±5-minute `REPLAY_WINDOW_MS` window and the HMAC signature verifies. A captured request can therefore be replayed within that window. A nonce store (record each request's nonce/signature and reject duplicates) closes that gap. Low urgency — the window is narrow and the signature is constant-time verified — so this is a hardening enhancement, not a fix.
+
+> **⚠️ Audit 2026-07-27 — do not put the nonce store in the receiver's existing KV namespace.** `api-provisioning-receiver` already binds `RATE_LIMIT_KV`, and it is namespace `cf9d7d72bb07488faab8187ceb3589d4` — **the same namespace bound to production `integrity-studio-contact`**. Two unrelated workers already share it. Contact-form writes unprefixed `rate_limit:${ip}` and `idempotency:${key}` (`contact-form/src/index.ts:154,448`), so adding nonce keys there stacks a third key convention into a namespace with no worker-level prefixing. Provision a dedicated namespace for the nonce store, and treat the existing collision as its own cleanup — it is not currently manifesting (the namespace reads empty, since all keys carry TTLs), and I could not confirm whether the receiver's own rate-limit keys collide with contact-form's because `observability-toolkit` was not available to read.
+
+**Scope:**
+1. Add a per-request nonce (or reuse the signature) and persist seen values with a TTL ≥ `REPLAY_WINDOW_MS` — in a **dedicated** KV namespace, or a Durable Object on the receiver in `observability-toolkit`. See the audit note above.
+2. Reject `/inbox` requests whose nonce has already been seen (401, distinct error code).
+3. Confirm TTL ≥ replay window so entries can't expire while still replayable.
+
+**Files to touch:**
+- `api-provisioning-receiver` (`observability-toolkit` repo, `services/api-provisioning-receiver/`) — verification path
+- `workers/sender-worker/src/` — emit nonce header if not reusing the signature
+- `docs/api-provisioning.md` (Production Hardening) — move from Remaining to Shipped on completion
+
+🔴 **Steps 1–3 are ALREADY IMPLEMENTED and this entry did not know it — measured 2026-08-06 by reading the receiver source.** `services/api-provisioning-receiver/src/nonce.ts` exists and `src/index.ts:122-128` calls it on every `/inbox` request. So the "design decision" this item has been parked on was settled in code some time ago: **signature dedup in KV**, not a Durable Object, not a separate nonce header. `checkAndStoreNonce` keys on the request signature (`nonce:<sig>`), returns 401 `REPLAY_DETECTED` on reuse, and `NONCE_TTL_SECONDS` is derived as `ceil(REPLAY_WINDOW_MS / TIME_MS.SECOND)` — so step 3's "TTL ≥ replay window" is satisfied *by construction* rather than by a constant someone has to keep in sync. Scope items 1, 2 and 3 are done; `workers/sender-worker/src/` needed no change because the signature is reused rather than a nonce emitted.
+
+**What is actually still open is the part the audit note warned about, and it was not heeded.** The nonce store went into **exactly** the shared namespace the note said to avoid. Verified 2026-08-06 by diffing the two configs — they are byte-identical, `preview_id` included:
+
+| Config | binding | `id` |
+|---|---|---|
+| `services/api-provisioning-receiver/wrangler.toml:32-35` | `RATE_LIMIT_KV` | `cf9d7d72bb07488faab8187ceb3589d4` |
+| `workers/contact-form/wrangler.toml:28-31` | `RATE_LIMIT_KV` | `cf9d7d72bb07488faab8187ceb3589d4` |
+
+So production `integrity-studio-contact` and the provisioning receiver now share one namespace across **three** key conventions — contact-form's `rate_limit:${ip}` and `idempotency:${key}`, plus the receiver's `nonce:<sig>`. The `nonce:` prefix does prevent a literal key collision (the note's narrow worry), so this is not corrupting data today; the real cost is that two unrelated services' security state shares a blast radius, and a namespace-wide operation (purge, quota exhaustion, accidental unbind) hits both. ⚠️ The audit note's closing caveat — "I could not confirm whether the receiver's own rate-limit keys collide with contact-form's because `observability-toolkit` was not available to read" — **is now answerable and the answer is no collision**: the receiver's rate limiter uses `enforceRateLimit(env.RATE_LIMIT_KV, "ip"|"email", …)`, a different prefix again.
+
+🟠 **Second finding, not previously recorded: all three checks fail OPEN.** The nonce check, and both receiver rate-limit calls, are each wrapped in `if (env.RATE_LIMIT_KV)`. If that binding is ever absent or misnamed, `/inbox` silently loses replay protection *and* rate limiting while still returning 200 — no error, no audit event, nothing to alert on. That is the same failure shape as [[CR29]]'s keyless downgrade and [[W04]]'s "succeeded while making no outbound calls": the degraded path is indistinguishable from the healthy one from outside. Worth deciding deliberately whether an unbound `RATE_LIMIT_KV` should fail closed (503) or at minimum emit an audit event, rather than being an untracked silent default.
+
+**Revised scope — what is left:**
+1. ~~Add a per-request nonce…~~ ✅ done in code (`nonce.ts`, signature dedup).
+2. ~~Reject `/inbox` requests whose nonce has already been seen~~ ✅ done (401 `REPLAY_DETECTED`).
+3. ~~Confirm TTL ≥ replay window~~ ✅ done, derived rather than hardcoded.
+4. ~~Provision a dedicated KV namespace for the receiver~~ ✅ **done 2026-08-08**: namespace `7ab3fb981d5b4ea186c348acd1e03590` provisioned; `wrangler.toml` updated. `cf9d7d72…` is now contact-form's namespace only.
+5. ~~Decide the fail-open question above~~ ✅ **done 2026-08-08**: fail closed. The three `if (env.RATE_LIMIT_KV)` guards are replaced by a single early-return 503 + `alert.check_failed` audit event. An absent binding is now detectable in Sentry rather than a silent degradation.
+
+**Status:** ✅ **Complete 2026-08-08.** All five scope items are done. Receiver-side changes are in `observability-toolkit` repo (commit `bb2228b` on `main`; Worker deployed to production, version `1564a7e7`).
+
 ## [2026-08-09] - Provisioning workers — monitoring, alerting & dashboards, scheduled run observed (W04)
 
 > Migrated verbatim from `docs/BACKLOG.md` on 2026-08-22 (`/backlog-migrate`, append-to-1.3 decision). Heading normalised; body unchanged.
