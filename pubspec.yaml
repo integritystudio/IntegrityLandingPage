@@ -19,7 +19,7 @@ dependencies:
   lottie: ^3.0.0
 
   # Icons/Images
-  lucide_icons_flutter: ^3.1.14
+  lucide_icons_flutter: ^3.1.17
   flutter_svg: ^2.0.9
   cupertino_icons: ^1.0.8  # bundle CupertinoIcons font referenced transitively (icon tree-shaker)
 
