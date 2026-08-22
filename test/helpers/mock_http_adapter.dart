@@ -26,21 +26,31 @@ class MockHttpAdapter implements HttpClientAdapter {
   int requestCount(String method) =>
       requestLog.where((r) => r.method == method.toUpperCase()).length;
 
-  /// Respond to all [method] requests with [data] as a JSON body.
+  /// Respond to [method] requests with [data] as a JSON body.
+  ///
+  /// [path] narrows the stub to URLs ending with that suffix (e.g. '/send'),
+  /// so services that hit several endpoints with the same HTTP method can be
+  /// stubbed by URL rather than by call order. A path stub wins over a bare
+  /// method stub; the method stub remains the fallback.
   void stubJson(
     String method,
     Map<String, dynamic> data, {
     int statusCode = 200,
     Map<String, List<String>>? headers,
+    String? path,
   }) {
-    _stubs[method.toUpperCase()] =
+    _stubs[_key(method, path)] =
         _Stub(data: data, statusCode: statusCode, headers: headers);
   }
 
-  /// Fail all [method] requests with a [DioException] of [type].
-  void stubError(String method, DioExceptionType type) {
-    _stubs[method.toUpperCase()] = _Stub(errorType: type);
+  /// Fail [method] requests with a [DioException] of [type].
+  /// [path] narrows the stub as in [stubJson].
+  void stubError(String method, DioExceptionType type, {String? path}) {
+    _stubs[_key(method, path)] = _Stub(errorType: type);
   }
+
+  static String _key(String method, [String? path]) =>
+      path == null ? method.toUpperCase() : '${method.toUpperCase()} $path';
 
   /// Respond to [method] only after the returned completer is completed.
   Completer<void> stubDelayedJson(
@@ -66,7 +76,16 @@ class MockHttpAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requestLog.add(options);
-    final stub = _stubs[options.method];
+    // Longest suffix wins so overlapping stubs (e.g. '/send' vs '/resend')
+    // resolve to the most specific match rather than insertion order.
+    final pathStubs = _stubs.entries.where((e) =>
+        e.key.startsWith('${options.method} ') &&
+        options.path.endsWith(e.key.split(' ')[1]));
+    final stub = pathStubs.isNotEmpty
+        ? pathStubs
+            .reduce((a, b) => a.key.length >= b.key.length ? a : b)
+            .value
+        : _stubs[options.method];
     if (stub == null) {
       throw StateError(
           'MockHttpAdapter: no stub for ${options.method} ${options.path}');
