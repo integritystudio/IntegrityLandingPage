@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/theme.dart';
 import '../config/content/constants.dart';
 import '../controllers/landing_controller.dart';
+import '../services/analytics.dart';
 import '../widgets/modals/demo_modal.dart';
 import '../widgets/sections/hero_section.dart';
 import '../widgets/sections/tabbed_features_section.dart';
@@ -40,6 +42,11 @@ class LandingPage extends StatefulWidget {
 }
 
 class _LandingPageState extends State<LandingPage> {
+  /// Navigate the current tab rather than opening a new one — url_launcher's
+  /// web default is `_blank`, but leaving the marketing site to sign in should
+  /// read as a redirect, not a popup.
+  static const String _sameTab = '_self';
+
   late final LandingController _controller;
 
   // Section IDs for registration with the controller
@@ -250,6 +257,7 @@ class _LandingPageState extends State<LandingPage> {
                   _buildPopupMenuItem('Pricing', 'pricing'),
                   _buildPopupMenuItem('Contact', 'contact'),
                   _buildPopupMenuItem('Docs', Routes.docs),
+                  _buildPopupMenuItem(CTAText.logIn, ExternalUrls.dashboardApp),
                 ],
               ),
             ]
@@ -312,6 +320,9 @@ class _LandingPageState extends State<LandingPage> {
                 onTap: () => context.go(Routes.docs),
               ),
               const SizedBox(width: AppSpacing.md),
+              // Log In button (existing customers -> dashboard SPA's Auth0 login)
+              _buildLoginButton(context),
+              const SizedBox(width: AppSpacing.sm),
               // CTA button
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.md),
@@ -340,6 +351,40 @@ class _LandingPageState extends State<LandingPage> {
     );
   }
 
+  /// Log In button sending existing customers to the dashboard SPA, which
+  /// runs its own Auth0 Universal Login (auth code + PKCE).
+  Widget _buildLoginButton(BuildContext context) {
+    return Semantics(
+      label: CTAText.logIn,
+      button: true,
+      child: TextButton.icon(
+        onPressed: _handleLogIn,
+        icon: const Icon(
+          LucideIcons.logIn,
+          size: AppSpacing.md,
+          color: AppColors.gray300,
+        ),
+        label: Text(
+          CTAText.logIn,
+          style: AppTypography.bodySM.copyWith(
+            color: AppColors.gray300,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+            side: const BorderSide(color: AppColors.borderDefault),
+          ),
+        ),
+      ),
+    );
+  }
+
   PopupMenuItem<String> _buildPopupMenuItem(String text, String value) {
     return PopupMenuItem<String>(
       value: value,
@@ -351,10 +396,33 @@ class _LandingPageState extends State<LandingPage> {
   }
 
   void _handleNavItemSelected(String value) {
-    if (value.startsWith('/')) {
+    // An absolute URL (scheme present) leaves the app; an app path routes
+    // in-place; anything else names a section on this page.
+    if (Uri.parse(value).hasScheme) {
+      _launchExternal(value);
+    } else if (value.startsWith('/')) {
       context.go(value);
     } else {
       _controller.scrollToSection(value);
+    }
+  }
+
+  /// Send an existing customer to the dashboard SPA, which owns the Auth0
+  /// Universal Login redirect. This site never handles their credentials.
+  void _handleLogIn() => _launchExternal(ExternalUrls.dashboardApp);
+
+  /// Open an off-site URL, reporting rather than throwing on failure — an
+  /// unavailable launcher must not take down the homepage (see #55).
+  Future<void> _launchExternal(String url) async {
+    try {
+      await launchUrl(Uri.parse(url), webOnlyWindowName: _sameTab);
+    } catch (e, stackTrace) {
+      ErrorTrackingService.captureException(
+        e,
+        stackTrace: stackTrace,
+        context: 'landing._launchExternal',
+        extra: {'url': url},
+      );
     }
   }
 

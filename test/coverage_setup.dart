@@ -14,8 +14,6 @@ import 'package:integrity_studio_ai/main.dart';
 // ignore: unused_import
 import 'package:integrity_studio_ai/services/auth_storage_stub.dart';
 // ignore: unused_import
-import 'package:integrity_studio_ai/services/oauth_service_stub.dart';
-// ignore: unused_import
 import 'package:integrity_studio_ai/services/tracking.dart';
 // ignore: unused_import
 import 'package:integrity_studio_ai/services/url_launcher.dart';

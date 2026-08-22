@@ -38,7 +38,6 @@ import '../pages/status_page.dart';
 import '../pages/demo_page.dart';
 import '../pages/request_success_page.dart';
 import '../pages/request_failure_page.dart';
-import '../pages/oauth_callback_page.dart';
 import '../pages/dashboard_page.dart';
 import '../pages/checkout_page.dart';
 import '../pages/checkout_success_page.dart';
@@ -145,20 +144,6 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
         builder: (context, state) => HelpCenterPage(onBack: _goHome(context)),
       ),
       GoRoute(
-        path: '/oauth/callback',
-        builder: (context, state) {
-          final params = state.uri.queryParameters;
-          return OAuthCallbackPage(
-            onBack: _goHome(context),
-            code: params['code'],
-            state: params['state'],
-            error: params['error'],
-            errorDescription: params['error_description'],
-            success: params['success'] == 'true',
-          );
-        },
-      ),
-      GoRoute(
         path: '/signup',
         builder: (context, state) => SignupPage(
           tier: SignupTiers.normalize(state.uri.queryParameters['tier']),
@@ -172,12 +157,11 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
           onBack: _goHome(context),
         ),
       ),
+      // /app is the customer-facing vanity URL; AuthPage is mounted once, at
+      // Routes.login. Kept as a redirect so existing links keep working.
       GoRoute(
-        path: '/app',
-        builder: (context, state) => AuthPage(
-          mode: AuthMode.signIn,
-          onBack: _goHome(context),
-        ),
+        path: Routes.app,
+        redirect: (context, state) => Routes.login,
       ),
       GoRoute(
         path: Routes.forgotPassword,

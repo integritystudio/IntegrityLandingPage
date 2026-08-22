@@ -38,6 +38,7 @@ abstract final class CTAText {
   static const String requestDemo = 'Request Demo';
   static const String contactSales = 'Contact Sales';
   static const String learnMore = 'Learn More';
+  static const String logIn = 'Log In';
 
   // Navigation CTAs
   static String get backToHome => ContentLoader.ctaBackToHome;
@@ -135,6 +136,7 @@ abstract final class Routes {
   static const String signup = '/signup';
   static const String signupGrowth = '$signup?tier=${SignupTiers.growth}';
   static const String login = '/login';
+  static const String app = '/app';
   static const String forgotPassword = '/forgot-password';
   static const String provision = '/provision';
   static const String checkout = '/checkout';

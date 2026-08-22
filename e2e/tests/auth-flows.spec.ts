@@ -6,7 +6,6 @@ import { navigateAndWaitForFlutter, assertFlutterRendering } from './helpers';
  *
  * Covers:
  * - /request_success and /request_failure (post-form-submission pages)
- * - /oauth/callback with code, state, error, and error_description params
  * - /signup with tier query parameter variations
  * - /support (help center) route
  */
@@ -37,37 +36,6 @@ test.describe('Auth & Post-Submission Flows', () => {
 
     test('/request_failure returns 200', async ({ request }) => {
       expect((await request.get('/request_failure')).status()).toBe(200);
-    });
-  });
-
-  test.describe('OAuth Callback', () => {
-    test('/oauth/callback loads with no params (bare route)', async ({ page }) => {
-      await navigateAndWaitForFlutter(page, '/oauth/callback');
-      expect(page.url()).toContain('/oauth/callback');
-      await assertFlutterRendering(page);
-    });
-
-    test('/oauth/callback preserves code and state params', async ({ page }) => {
-      await navigateAndWaitForFlutter(page, '/oauth/callback?code=test_auth_code&state=csrf_token_123');
-      expect(page.url()).toContain('code=test_auth_code');
-      expect(page.url()).toContain('state=csrf_token_123');
-      await assertFlutterRendering(page);
-    });
-
-    test('/oauth/callback handles error params', async ({ page }) => {
-      await navigateAndWaitForFlutter(
-        page,
-        '/oauth/callback?error=access_denied&error_description=User%20cancelled%20login',
-      );
-      expect(page.url()).toContain('error=access_denied');
-      expect(page.url()).toContain('error_description=');
-      await assertFlutterRendering(page);
-    });
-
-    test('/oauth/callback handles error without description', async ({ page }) => {
-      await navigateAndWaitForFlutter(page, '/oauth/callback?error=server_error');
-      expect(page.url()).toContain('error=server_error');
-      await assertFlutterRendering(page);
     });
   });
 

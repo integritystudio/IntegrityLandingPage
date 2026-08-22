@@ -219,112 +219,6 @@ void main() {
       });
     });
 
-    group('sanitizeErrorCode', () {
-      test('returns null for null input', () {
-        expect(SecurityUtils.sanitizeErrorCode(null), isNull);
-      });
-
-      test('returns null for empty input', () {
-        expect(SecurityUtils.sanitizeErrorCode(''), isNull);
-      });
-
-      test('allows valid error codes with underscores', () {
-        expect(SecurityUtils.sanitizeErrorCode('access_denied'),
-            equals('access_denied'));
-        expect(SecurityUtils.sanitizeErrorCode('INVALID_TOKEN'),
-            equals('INVALID_TOKEN'));
-      });
-
-      test('allows valid error codes with hyphens', () {
-        expect(SecurityUtils.sanitizeErrorCode('access-denied'),
-            equals('access-denied'));
-      });
-
-      test('allows alphanumeric error codes', () {
-        expect(SecurityUtils.sanitizeErrorCode('error123'), equals('error123'));
-        expect(SecurityUtils.sanitizeErrorCode('E404'), equals('E404'));
-      });
-
-      test('sanitizes error codes with special characters', () {
-        final result = SecurityUtils.sanitizeErrorCode('<script>');
-        expect(result, contains('&lt;'));
-        expect(result, isNot(contains('<')));
-      });
-
-      test('truncates long error codes', () {
-        final longCode = 'error_' * 20;
-        final result = SecurityUtils.sanitizeErrorCode(longCode);
-
-        expect(result!.length, lessThanOrEqualTo(103)); // 100 + '...'
-      });
-    });
-
-    group('sanitizeOAuthCode', () {
-      test('returns null for null input', () {
-        expect(SecurityUtils.sanitizeOAuthCode(null), isNull);
-      });
-
-      test('returns null for empty input', () {
-        expect(SecurityUtils.sanitizeOAuthCode(''), isNull);
-      });
-
-      test('allows valid base64 OAuth codes', () {
-        const code = 'abc123XYZ+/=';
-        expect(SecurityUtils.sanitizeOAuthCode(code), equals(code));
-      });
-
-      test('allows valid base64url OAuth codes', () {
-        const code = 'abc123XYZ_-';
-        expect(SecurityUtils.sanitizeOAuthCode(code), equals(code));
-      });
-
-      test('sanitizes OAuth codes with special characters', () {
-        final result = SecurityUtils.sanitizeOAuthCode('<script>');
-        expect(result, contains('&lt;'));
-        expect(result, isNot(contains('<')));
-      });
-
-      test('truncates extremely long OAuth codes', () {
-        final longCode = 'a' * 3000;
-        final result = SecurityUtils.sanitizeOAuthCode(longCode);
-
-        expect(result!.length, lessThanOrEqualTo(2051)); // 2048 + '...'
-      });
-    });
-
-    group('sanitizeOAuthState', () {
-      test('returns null for null input', () {
-        expect(SecurityUtils.sanitizeOAuthState(null), isNull);
-      });
-
-      test('returns null for empty input', () {
-        expect(SecurityUtils.sanitizeOAuthState(''), isNull);
-      });
-
-      test('allows valid hex state values', () {
-        const state = 'abc123def456';
-        expect(SecurityUtils.sanitizeOAuthState(state), equals(state));
-      });
-
-      test('allows valid base64url state values', () {
-        const state = 'abc123_-XYZ.';
-        expect(SecurityUtils.sanitizeOAuthState(state), equals(state));
-      });
-
-      test('sanitizes state with special characters', () {
-        final result = SecurityUtils.sanitizeOAuthState('<script>');
-        expect(result, contains('&lt;'));
-        expect(result, isNot(contains('<')));
-      });
-
-      test('truncates long state values', () {
-        final longState = 'a' * 150;
-        final result = SecurityUtils.sanitizeOAuthState(longState);
-
-        expect(result!.length, lessThanOrEqualTo(103)); // 100 + '...'
-      });
-    });
-
     group('sanitizeServerError', () {
       test('passes through short friendly message', () {
         const msg = 'Invalid email or password.';
@@ -423,13 +317,6 @@ void main() {
         expect(SecurityUtils.maxErrorLength, equals(200));
       });
 
-      test('maxErrorCodeLength is reasonable', () {
-        expect(SecurityUtils.maxErrorCodeLength, equals(100));
-      });
-
-      test('maxOAuthCodeLength is reasonable', () {
-        expect(SecurityUtils.maxOAuthCodeLength, equals(2048));
-      });
     });
   });
 }

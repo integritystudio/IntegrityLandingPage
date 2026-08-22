@@ -12,12 +12,6 @@ class SecurityUtils {
   /// Maximum length for error messages to prevent DoS
   static const int maxErrorLength = 200;
 
-  /// Maximum length for error codes
-  static const int maxErrorCodeLength = 100;
-
-  /// Maximum length for OAuth codes/tokens
-  static const int maxOAuthCodeLength = 2048;
-
   /// Sanitizes user input to prevent XSS attacks.
   ///
   /// Uses a single-pass approach with StringBuffer for efficiency.
@@ -173,28 +167,6 @@ class SecurityUtils {
     return true;
   }
 
-  /// Sanitizes an error code for display.
-  ///
-  /// Error codes should be alphanumeric with underscores/hyphens only.
-  /// Returns null if input is null/empty.
-  /// Returns sanitized version if input contains unexpected characters.
-  static String? sanitizeErrorCode(String? input) {
-    if (input == null || input.isEmpty) return null;
-
-    // Allow only alphanumeric, underscores, and hyphens (standard OAuth error codes)
-    if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(input)) {
-      // Input contains unexpected characters - potential attack
-      // Log would go here in production: debugPrint('[SECURITY] Suspicious error code')
-      return sanitizeUserInput(input, maxLength: maxErrorCodeLength);
-    }
-
-    // Truncate if too long
-    if (input.length > maxErrorCodeLength) {
-      return '${input.substring(0, maxErrorCodeLength)}...';
-    }
-    return input;
-  }
-
   /// Default message for verbose or unrecognized server errors.
   static const String genericErrorMessage =
       'Something went wrong. Please try again.';
@@ -236,48 +208,5 @@ class SecurityUtils {
       return genericErrorMessage;
     }
     return sanitizeUserInput(raw, maxLength: maxServerErrorLength);
-  }
-
-  /// Sanitizes an OAuth authorization code.
-  ///
-  /// OAuth codes are typically base64-encoded, so we allow alphanumeric
-  /// plus standard base64 characters (+, /, =, -). Any other characters
-  /// are sanitized for safe display/logging.
-  static String? sanitizeOAuthCode(String? input) {
-    if (input == null || input.isEmpty) return null;
-
-    // OAuth codes are typically base64 or hex encoded
-    // Allow: alphanumeric, +, /, =, -, _ (for base64url)
-    if (!RegExp(r'^[a-zA-Z0-9+/=_-]+$').hasMatch(input)) {
-      // Unexpected format - sanitize for safe display
-      return sanitizeUserInput(input, maxLength: maxOAuthCodeLength);
-    }
-
-    // Truncate if too long
-    if (input.length > maxOAuthCodeLength) {
-      return '${input.substring(0, maxOAuthCodeLength)}...';
-    }
-    return input;
-  }
-
-  /// Sanitizes an OAuth state parameter.
-  ///
-  /// State parameters are typically base64-encoded or random hex strings.
-  /// Returns sanitized version if unexpected characters are found.
-  static String? sanitizeOAuthState(String? input) {
-    if (input == null || input.isEmpty) return null;
-
-    // State params are typically base64url or hex
-    // Allow: alphanumeric, -, _, . (for base64url)
-    if (!RegExp(r'^[a-zA-Z0-9._-]+$').hasMatch(input)) {
-      // Unexpected format - sanitize for safe display
-      return sanitizeUserInput(input, maxLength: maxErrorCodeLength);
-    }
-
-    // Truncate if too long
-    if (input.length > maxErrorCodeLength) {
-      return '${input.substring(0, maxErrorCodeLength)}...';
-    }
-    return input;
   }
 }

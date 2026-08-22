@@ -23,6 +23,7 @@ import 'package:integrity_studio_ai/pages/docs_quickstart_page.dart';
 import 'package:integrity_studio_ai/pages/docs_alerts_page.dart';
 import 'package:integrity_studio_ai/pages/docs_agents_page.dart';
 import 'package:integrity_studio_ai/pages/help_center_page.dart';
+import 'package:integrity_studio_ai/pages/auth_page.dart';
 import 'package:integrity_studio_ai/routing/cookie_shell.dart';
 import 'package:integrity_studio_ai/routing/app_router.dart';
 import 'package:integrity_studio_ai/theme/theme.dart';
@@ -484,6 +485,17 @@ void main() {
         await tester.pumpAndSettleWithTimeout();
 
         expect(find.byType(DocsIndexPage), findsOneWidget);
+      });
+
+      // /app is the customer-facing vanity URL for signing in; AuthPage is
+      // mounted once, at /login, so /app must redirect rather than duplicate.
+      testWidgets('redirects /app to /login', (tester) async {
+        setDesktopSize(tester);
+
+        await tester.pumpWidget(buildTestApp(initialLocation: '/app'));
+        await tester.pumpAndSettleWithTimeout();
+
+        expect(find.byType(AuthPage), findsOneWidget);
       });
     });
   });
