@@ -46,9 +46,6 @@ dependencies:
   web: ^1.0.0
   marionette_flutter: ^0.6.0
 
-  # Payments
-  flutter_stripe: ^13.0.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
