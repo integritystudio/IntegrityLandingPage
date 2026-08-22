@@ -88,7 +88,18 @@ class _ProvisionPageState extends State<ProvisionPage> {
     // never reads location.hash. Passing the JWT in a fragment only put it in
     // that origin's address bar and history — and it is GitHub Pages, which
     // sets no headers, so no CSP or Referrer-Policy can contain it. CR04.
-    await launchUrl(Uri.parse(ExternalUrls.dashboardApp));
+    // Report rather than throw on failure — an unavailable launcher must not
+    // take down the page (same pattern as landing_page/footer_section, #55).
+    try {
+      await launchUrl(Uri.parse(ExternalUrls.dashboardApp));
+    } catch (e, stackTrace) {
+      ErrorTrackingService.captureException(
+        e,
+        stackTrace: stackTrace,
+        context: 'provision._goToDashboard',
+        extra: {'url': ExternalUrls.dashboardApp},
+      );
+    }
   }
 
   Future<void> _loadBootstrap() async {
