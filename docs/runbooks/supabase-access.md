@@ -12,7 +12,7 @@ A second dev project, `tumhmtshahktumhqqamk` / `integritystudio-dev`, exists for
 
 ## Access routes
 
-**The working DDL route (found 2026-08-03).** The Supabase CLI holds a valid `sbp_` personal access token in the macOS keychain, and the Management API query endpoint runs **arbitrary SQL including DDL** with it. No Docker, no `SUPABASE_DB_PASSWORD`. Extraction: `security find-generic-password -s "Supabase CLI" -w`, strip the `go-keyring-base64:` prefix, `base64 -d` → `sbp_…` (recipe in CLAUDE.md). This is the route that read production's entire schema for BACKLOG CR30.
+**The working DDL route (found 2026-08-03).** The Supabase CLI holds an `sbp_` personal access token in the macOS keychain, and the Management API query endpoint runs **arbitrary SQL including DDL** with it — **while that login is valid; it expires.** On 2026-09-11 the keychain token returned `Unauthorized` everywhere (`projects list`, `functions list`, the query endpoint). `supabase login` refreshes it interactively (not from a non-TTY `!` prompt). The alternative that worked that day: Doppler `prd` `SUPABASE_ACCESS_TOKEN` (see below), via `doppler run --project integrity-studio --config prd --`. No Docker, no `SUPABASE_DB_PASSWORD`. Extraction: `security find-generic-password -s "Supabase CLI" -w`, strip the `go-keyring-base64:` prefix, `base64 -d` → `sbp_…` (recipe in CLAUDE.md). This is the route that read production's entire schema for BACKLOG CR30.
 
 **`supabase db push --db-url <conn>` works without linking**, which avoids mutating the repo's linked-project state that other sessions share. Use the **session pooler on :5432**, not :6543 — the transaction pooler fails mid-push with `prepared statement "lrupsc_1_0" already exists`. `supabase db dump` is *not* usable: it shells out to Docker.
 
@@ -33,7 +33,7 @@ Four dead ends, so you don't re-derive them:
 
 ## Doppler slots
 
-**`SUPABASE_ACCESS_TOKEN` is EMPTY in Doppler on purpose.** The slot held the revoked old service key, and a garbage value **overrides** the CLI's keychain login — exporting it breaks `supabase` commands that otherwise work. Leave it unset until a real `sbp_` token is minted in the Dashboard (BACKLOG CR01 step 3); that also un-skips CI's migration-drift job.
+~~**`SUPABASE_ACCESS_TOKEN` is EMPTY in Doppler on purpose.**~~ **Stale since a real `sbp_` token was stored — verified 2026-09-11 in both `prd` and `dev`.** With the keychain login expired, `doppler run --project integrity-studio --config prd -- supabase functions delete …` and the Management API query endpoint both authenticated with it (three GA4 functions deleted, `20260910000000` applied and recorded). The override behaviour described here is still real — a value in the env wins over the keychain — which is now the desired direction. *(Historical: the slot once held the revoked old service key, and a garbage value broke every `supabase` command; that is why this line existed.)*
 
 **The service key lives in `SUPABASE_PROVISIONING_KEY`, not `SUPABASE_SERVICE_ROLE_KEY`.** The latter exists in **neither** config (verified 2026-07-31) even though it is the name every Worker *binds* it under. Reading the binding name from Doppler silently returns empty and the next command fails with a misleading "No API key found in request".
 

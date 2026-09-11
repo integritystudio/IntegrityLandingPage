@@ -62,9 +62,12 @@ is not running it.
 
 **Supabase** — migrations are the source of truth for schema, proven 2026-08-03 by replaying the set onto an empty database. The CI guard is `migration-replay-check.yml` (first run green the same day; it triggers only on `main`, so a feature-branch push runs nothing — `gh run list --workflow=migration-replay-check.yml` settles its state). Ledger history and dead ends: [docs/runbooks/supabase-access.md](docs/runbooks/supabase-access.md).
 ```bash
-# ⚠️ SUPABASE_ACCESS_TOKEN is EMPTY in Doppler on purpose — a value here OVERRIDES the
-# CLI's keychain login and breaks `supabase` commands that otherwise work. Leave unset
-# until a real sbp_ token is minted (BACKLOG CR01 step 3).
+# Doppler prd/dev SUPABASE_ACCESS_TOKEN holds a VALID sbp_ token (verified 2026-09-11 —
+# it deleted edge functions and ran DDL via the Management API). It overrides the CLI's
+# keychain login, which is what you want once that login has expired (`supabase projects
+# list` → Unauthorized). Prefix any supabase/Management-API call with
+# `doppler run --project integrity-studio --config prd --`. This comment said the slot was
+# "EMPTY on purpose" until 2026-09-11; that was stale.
 export SUPABASE_DB_PASSWORD=$(doppler secrets get SUPABASE_DB_PASSWORD --project integrity-studio --config prd --plain)
 supabase migration list --linked   # local vs remote; any blank `remote` column is pending
 supabase db push --dry-run         # preview; add --include-all if a file sorts before the last applied version
