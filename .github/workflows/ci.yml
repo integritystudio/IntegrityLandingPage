@@ -275,6 +275,18 @@ jobs:
           name: web-build
           path: build/web
 
+      # wrangler-action installs wrangler with `npm i` in the checkout root, where
+      # package-lock.json sits. Without setup-node that runs the runner image's
+      # default npm, and when that major differs from the one that wrote the
+      # lockfile, arborist crashes with "Cannot read properties of null (reading
+      # 'edgesOut')" — which broke every deploy from the 2026-09-07 image onward
+      # (runs 34560252951, 34563819398, 34564646916). Pin Node 24 like the
+      # sender-worker job, whose npm 11.19 handled the same day's install fine.
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v4
         with:
