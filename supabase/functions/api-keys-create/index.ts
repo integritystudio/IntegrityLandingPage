@@ -38,21 +38,29 @@ function generateToken(): string {
   return `obtk_${hex}`;
 }
 
-// Constant-time string equality so the service-key comparison does not leak
-// prefix length through timing.
-function timingSafeEqual(a: string, b: string): boolean {
-  const ab = new TextEncoder().encode(a);
-  const bb = new TextEncoder().encode(b);
-  if (ab.length !== bb.length) return false;
-  let diff = 0;
-  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i];
-  return diff === 0;
-}
-
 function bearerToken(req: Request): string | null {
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return null;
   return auth.slice("Bearer ".length).trim() || null;
+}
+
+// Is the presented credential a service-level key for THIS project? Decided by
+// capability, not equality: the Auth admin API answers 200 only to the legacy
+// service_role JWT or an sb_secret_ key, and 401 to anon/publishable keys, user
+// JWTs and garbage (verified 2026-09-11 against production). Equality against
+// one env value cannot work here — the receiver sends the sb_secret_ key held in
+// Doppler as SUPABASE_PROVISIONING_KEY, the edge runtime injects the legacy JWT
+// as SUPABASE_SERVICE_ROLE_KEY, and the project has more than one sb_secret_
+// key in circulation.
+async function isServiceCredential(supabaseUrl: string, presented: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1`, {
+      headers: { apikey: presented, Authorization: `Bearer ${presented}` },
+    });
+    return res.status === 200;
+  } catch {
+    return false;
+  }
 }
 
 const VALID_TIERS = new Set(["starter", "growth", "enterprise"]);
@@ -76,10 +84,10 @@ Deno.serve(async (req) => {
   // with no credential at all, and the "direct user" branch decoded the JWT
   // payload without checking its signature. Both were open doors to minting a
   // key for any user in any org at any tier. The receiver is the only caller
-  // (no frontend code calls this function), so the JWT branch is gone and the
-  // service key is required on every request.
+  // (no frontend code calls this function), so the JWT branch is gone and a
+  // service-level key is required on every request (see isServiceCredential).
   const presented = bearerToken(req);
-  if (!presented || !timingSafeEqual(presented, serviceRoleKey)) {
+  if (!presented || !(await isServiceCredential(supabaseUrl, presented))) {
     return errorResponse("Unauthorized", 401);
   }
 
