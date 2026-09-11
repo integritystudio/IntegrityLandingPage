@@ -106,11 +106,13 @@ Stripe webhook -> verify signature -> write billing_event_log -> upsert subscrip
 
 ## Plan → entitlement projection
 
-| Plan | usage_dashboard | alerts | compliance_summary | api_keys_max | monthly_units | requests_per_minute |
-|---|---|---|---|---|---|---|
-| free | ✓ | ✓ | — | 1 | 10,000 | 60 |
-| growth | ✓ | ✓ | ✓ | 10 | 500,000 | 600 |
-| enterprise | ✓ (all features) | ✓ | ✓ | custom | custom | custom |
+| Plan | usage_dashboard | alerts | compliance_summary | monthly_units | requests_per_minute |
+|---|---|---|---|---|---|
+| starter | ✓ | ✓ | — | 10,000 | 60 |
+| growth | ✓ | ✓ | ✓ | 500,000 | 600 |
+| enterprise | ✓ (all features) | ✓ | ✓ | custom | custom |
+
+The API key quota is **not** in `plans.features`. It lives only in `QUOTA_LIMITS` in `api-provisioning-receiver` (observability-toolkit repo): starter 3, growth 10, enterprise unlimited. The `api_keys_max` field this table used to show (starter 1) was never read by anything and disagreed with the enforced value; migration `20260911000000` removed it. *(The seed inserted the first tier as `free`; production has held it as `starter` since an unrecorded rename.)*
 
 Ties visible cost/data usage back into pricing and contract decisions rather than exposing opaque technical metrics.
 
