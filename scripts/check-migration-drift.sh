@@ -43,13 +43,12 @@ TOKEN="${SUPABASE_ACCESS_TOKEN:-}"
 
 # ── Prerequisites ─────────────────────────────────────────────────────────────
 
-# A missing token is a SKIP, not a failure. The prd slot is deliberately empty
-# until a personal access token is minted in the Dashboard — the Management API
-# cannot create one (BACKLOG.md CR01 step 3) — so treating it as an error meant
-# every push to main went red for a known, non-actionable reason. A check that is
-# always failing is a check nobody reads, which is worse than one that is honestly
-# skipped. Other prerequisite problems below still exit 2, because those mean the
-# environment is broken rather than unconfigured.
+# A missing token is a SKIP, not a failure. Doppler prd has held a valid sbp_
+# token since before 2026-09-11 (the slot was deliberately empty for a while —
+# BACKLOG.md CR01 step 3), so in CI this path now means a Doppler outage or a
+# revoked token, not "unconfigured". It stays a SKIP because a check that is
+# always failing is a check nobody reads; other prerequisite problems below
+# still exit 2, because those mean the environment is broken.
 if [[ -z "$TOKEN" ]]; then
   echo "SKIPPED: migration drift not checked — SUPABASE_ACCESS_TOKEN is unset."
   echo "  Mint a personal access token at supabase.com/dashboard/account/tokens and"
@@ -99,15 +98,31 @@ run_query() {
 
 # ── Parse expected objects from migration SQL ─────────────────────────────────
 
-# Parse CREATE TABLE [IF NOT EXISTS] [public.]name from all migration files.
-# Lower-case before sed so the pattern works on both macOS and GNU sed
-# (macOS sed has no /I flag for case-insensitive substitution).
+# Walk the migration files in version order and replay CREATE TABLE / DROP TABLE
+# into a set: a table declared by an early file and dropped by a later one is
+# NOT expected live. Order matters — 20260320000000 drops five tables as
+# pre-create cleanup and recreates them in the same file, so a flat
+# "created minus dropped" set would wrongly exclude them; replaying statements
+# in file+line order keeps them. (Before 2026-09-11 this only collected creates,
+# so the first versioned DROP TABLE — 20260910000000 — turned the check red for
+# three tables that were absent by design.)
+# Lower-case before matching so the patterns work on both macOS and GNU tools.
 expected_tables() {
-  grep -rhi 'create table' "$MIGRATIONS_DIR" \
-    | grep -v '^--' \
-    | tr '[:upper:]' '[:lower:]' \
-    | sed -E 's/.*create table (if not exists )?(public\.)?([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]].*/\3/' \
-    | sort -u
+  ls "$MIGRATIONS_DIR"/*.sql | sort | while read -r f; do
+    grep -v '^--' "$f" | tr '[:upper:]' '[:lower:]'
+  done | awk '
+    /create table/ {
+      if (match($0, /create table (if not exists )?(public\.)?[a-z_][a-z0-9_]*/)) {
+        n = substr($0, RSTART, RLENGTH); sub(/.* /, "", n); live[n] = 1
+      }
+    }
+    /drop table/ {
+      if (match($0, /drop table (if exists )?(public\.)?[a-z_][a-z0-9_]*/)) {
+        n = substr($0, RSTART, RLENGTH); sub(/.* /, "", n); delete live[n]
+      }
+    }
+    END { for (n in live) print n }
+  ' | sed -E 's/^public\.//' | sort -u
 }
 
 # Parse CREATE [OR REPLACE] FUNCTION [public.]name( from all migration files.
