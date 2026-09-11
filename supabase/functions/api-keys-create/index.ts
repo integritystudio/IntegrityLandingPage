@@ -38,16 +38,25 @@ function generateToken(): string {
   return `obtk_${hex}`;
 }
 
-function getJwtSub(req: Request): string | null {
+// Constant-time string equality so the service-key comparison does not leak
+// prefix length through timing.
+function timingSafeEqual(a: string, b: string): boolean {
+  const ab = new TextEncoder().encode(a);
+  const bb = new TextEncoder().encode(b);
+  if (ab.length !== bb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i];
+  return diff === 0;
+}
+
+function bearerToken(req: Request): string | null {
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return null;
-  try {
-    const payload = JSON.parse(atob(auth.split(".")[1]));
-    return payload.sub ?? null;
-  } catch {
-    return null;
-  }
+  return auth.slice("Bearer ".length).trim() || null;
 }
+
+const VALID_TIERS = new Set(["starter", "growth", "enterprise"]);
+const DEFAULT_TIER = "starter";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -57,11 +66,29 @@ Deno.serve(async (req) => {
     return errorResponse("Method not allowed", 405);
   }
 
-  // Parse body
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  // Trust boundary: this function is server-to-server ONLY. supabase/config.toml
+  // sets verify_jwt = false so the provisioning receiver can call it with the
+  // service key, which means the platform verifies nothing — so the function
+  // must. Until 2026-09-11 it did not: a body carrying `userId` was accepted
+  // with no credential at all, and the "direct user" branch decoded the JWT
+  // payload without checking its signature. Both were open doors to minting a
+  // key for any user in any org at any tier. The receiver is the only caller
+  // (no frontend code calls this function), so the JWT branch is gone and the
+  // service key is required on every request.
+  const presented = bearerToken(req);
+  if (!presented || !timingSafeEqual(presented, serviceRoleKey)) {
+    return errorResponse("Unauthorized", 401);
+  }
+
+  // Parse body. `tier` is deliberately NOT read: the key's tier comes from the
+  // organization's current_plan below (AUTH-PER-USER-QUOTAS gap 4). The receiver
+  // still sends it for backward compatibility; it is ignored here.
   let name = "Default";
   let organizationId: string | null = null;
   let bodyUserId: string | null = null;
-  let bodyTier: string | null = null;
   try {
     const body = await req.json();
     if (body.name && typeof body.name === "string") {
@@ -73,61 +100,64 @@ Deno.serve(async (req) => {
     if (body.userId && typeof body.userId === "string") {
       bodyUserId = body.userId;
     }
-    if (body.tier && typeof body.tier === "string") {
-      bodyTier = body.tier;
-    }
   } catch {
     // Empty body is fine — use defaults
   }
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-  let userId: string;
-  let userTier: string;
-
-  if (bodyUserId) {
-    // Server-to-server call: userId provided by the receiver (already Auth0-validated upstream).
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("id, tier")
-      .eq("id", bodyUserId)
-      .single();
-    if (userError || !user) {
-      return errorResponse("User not found.", 404);
-    }
-    userId = user.id;
-    userTier = bodyTier ?? user.tier;
-  } else {
-    // Direct user call: look up by JWT sub (auth0_id).
-    const sub = getJwtSub(req);
-    if (!sub) return errorResponse("Missing or invalid JWT", 401);
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("id, tier")
-      .eq("auth0_id", sub)
-      .single();
-    if (userError || !user) {
-      return errorResponse("User not found. Complete registration first.", 404);
-    }
-    userId = user.id;
-    userTier = bodyTier ?? user.tier;
+  if (!bodyUserId) {
+    return errorResponse("userId is required", 400);
   }
 
-  // Resolve organization: prefer body param, else look up from membership
-  if (!organizationId) {
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  const { data: user, error: userError } = await supabase
+    .from("users")
+    .select("id, tier")
+    .eq("id", bodyUserId)
+    .single();
+  if (userError || !user) {
+    return errorResponse("User not found.", 404);
+  }
+  const userId: string = user.id;
+
+  // Resolve organization. A caller-supplied organizationId is honoured only if
+  // the user holds an ACTIVE membership in it; otherwise it would let a caller
+  // mint keys into an org the user does not belong to.
+  if (organizationId) {
     const { data: membership } = await supabase
       .from("organization_memberships")
       .select("organization_id")
       .eq("user_id", userId)
+      .eq("organization_id", organizationId)
+      .eq("status", "active")
       .limit(1)
-      .single();
+      .maybeSingle();
+    if (!membership) {
+      return errorResponse("User is not an active member of that organization.", 403);
+    }
+  } else {
+    const { data: membership } = await supabase
+      .from("organization_memberships")
+      .select("organization_id")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
     organizationId = membership?.organization_id ?? null;
   }
   if (!organizationId) {
     return errorResponse("User has no organization. Contact support.", 403);
   }
+
+  // Resolve tier server-side, mirroring the receiver's checkOrgKeyQuota: the
+  // org's current_plan is authoritative (the Stripe webhook is its writer);
+  // users.tier is the legacy fallback; starter if neither is a known tier.
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("current_plan")
+    .eq("id", organizationId)
+    .maybeSingle();
+  const candidate = org?.current_plan ?? user.tier ?? DEFAULT_TIER;
+  const userTier: string = VALID_TIERS.has(candidate) ? candidate : DEFAULT_TIER;
 
   // Cloudflare KV config
   const cfAccountId = Deno.env.get("CLOUDFLARE_ACCOUNT_ID");

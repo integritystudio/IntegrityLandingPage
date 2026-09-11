@@ -281,7 +281,9 @@ inspector_port = 8083
 [functions.api-keys-create]
 # Server-to-server only: the provisioning receiver authenticates with the
 # service key, which is not a JWT. Platform verification must stay off; the
-# function's own trust boundary is that key.
+# function's own trust boundary is that key — and since 2026-09-11 the handler
+# actually enforces it (constant-time compare against SUPABASE_SERVICE_ROLE_KEY,
+# 401 otherwise). Before that the comment described a check that did not exist.
 verify_jwt = false
 
 [functions.api-keys-list]
