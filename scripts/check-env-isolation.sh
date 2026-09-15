@@ -173,11 +173,17 @@ printf '%s\n' "-----------------------------------------------------------------
 #   SUPABASE_JWT_SECRET — removed from the code 2026-07-31 (workers verify Auth0
 #   tokens via Auth0 JWKS; EnvSchema.SUPABASE_JWT_SECRET went .optional()). The
 #   prd slot still holds the old value; it authenticates nothing.
+#   SUPABASE_ACCESS_TOKEN — deleted from dev 2026-09-14. Unlike the two above
+#   it is LIVE in prd (ci.yml reads it for check-migration-drift.sh), but no
+#   dev consumer remains: observability-toolkit's four Management-API scripts
+#   and its .supabase now read SUPABASE_MGMT_PAT, a project-scoped PAT held
+#   per config. Measured 2026-09-14: the dev PAT 403s on the production
+#   project and the prd PAT 403s on dev.
 #   STRIPE_API_KEY — deleted from prd 2026-08-07 (CR18 item 2): dead, expired
 #   (verified 401 api_key_expired), unbound from every worker, and read by no
 #   code — `STRIPE_SECRET_KEY` is the name the code actually reads. dev's
 #   sk_test_ value is likewise unread; left as-is, out of scope for that fix.
-is_dead_slot() { case "$1" in SUPABASE_JWT_SECRET|STRIPE_API_KEY) return 0;; *) return 1;; esac; }
+is_dead_slot() { case "$1" in SUPABASE_JWT_SECRET|STRIPE_API_KEY|SUPABASE_ACCESS_TOKEN) return 0;; *) return 1;; esac; }
 
 failures=0
 unmeasured=0
@@ -379,7 +385,6 @@ ACCEPTED = {
     "CLOUDFLARE_OAUTH_TOKEN":         "wrangler OAuth is per-user, not per-environment",
     "CLOUDFLARE_REFRESH_TOKEN":       "wrangler OAuth is per-user, not per-environment",
     "AE_SQL_API_TOKEN":               "Analytics Engine SQL API is account-scoped",
-    "SUPABASE_ACCESS_TOKEN":          "sbp_ management token spans every project in the account",
     "AUTH0_PERSONAL_PASSWORD":        "production smoke-test login, deliberately in both configs (owner decision 2026-08-22)",
     "AUTH0_PERSONAL_TEST_EMAIL":      "production smoke-test login, deliberately in both configs (owner decision 2026-08-22)",
 }
