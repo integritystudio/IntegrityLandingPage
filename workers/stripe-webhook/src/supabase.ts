@@ -15,8 +15,16 @@ interface SubscriptionUpsertRow extends Record<string, unknown> {
   stripe_subscription_id: string;
   stripe_price_id: string | null;
   status: string;
+  current_period_start?: string;
+  current_period_end?: string;
   created_at: string;
   updated_at: string;
+}
+
+/** Current billing period as ISO-8601 timestamps, taken from the first subscription item. */
+export interface SubscriptionPeriod {
+  start: string;
+  end: string;
 }
 
 /**
@@ -85,6 +93,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     stripeSubscriptionId: string,
     stripePriceId: string | null,
     status: string,
+    period?: SubscriptionPeriod,
   ): Promise<VoidResult> {
     const now = new Date().toISOString();
     // Soft-delete prior active subscriptions with a different ID (free→paid upgrade path).
@@ -109,6 +118,9 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
         stripe_subscription_id: stripeSubscriptionId,
         stripe_price_id: stripePriceId,
         status,
+        // Omitted rather than nulled when unknown: the upsert merges duplicates, so a
+        // Checkout stub (no items yet) must not erase a period a later event wrote.
+        ...(period ? { current_period_start: period.start, current_period_end: period.end } : {}),
         created_at: now,
         updated_at: now,
       },

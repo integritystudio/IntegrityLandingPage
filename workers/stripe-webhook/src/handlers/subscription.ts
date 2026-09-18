@@ -1,7 +1,23 @@
-import type { SupabaseAdmin } from '../supabase';
+import type { SubscriptionPeriod, SupabaseAdmin } from '../supabase';
 import type { HandlerResult, ApiKeyTier, StripeEvent } from '../../../lib/types';
 import { toBillingStatus } from '../../../lib/billing';
-import { SubscriptionSchema } from '../stripe-schemas';
+import { SubscriptionSchema, type SubscriptionItem } from '../stripe-schemas';
+
+const MS_PER_SECOND = 1_000;
+
+/**
+ * Billing period of a subscription item as ISO timestamps, or `undefined` when the
+ * item carries neither bound. Stripe sends epoch seconds; the column is timestamptz.
+ * Both bounds or nothing — a half-open period would be a Stripe payload bug, not a
+ * state worth persisting.
+ */
+export function subscriptionPeriod(item: SubscriptionItem | undefined): SubscriptionPeriod | undefined {
+  if (item?.current_period_start === undefined || item.current_period_end === undefined) return undefined;
+  return {
+    start: new Date(item.current_period_start * MS_PER_SECOND).toISOString(),
+    end: new Date(item.current_period_end * MS_PER_SECOND).toISOString(),
+  };
+}
 
 
 // Status handling lives in `workers/lib/billing.ts`. `BillingStatus` mirrors Stripe's
@@ -40,6 +56,7 @@ export async function handleSubscriptionUpdated(
       subscription.id,
       priceId,
       subscription.status,
+      subscriptionPeriod(firstItem),
     );
     if (!upsertResult.ok) {
       return { ok: false, error: `Failed to upsert subscription: ${upsertResult.error}` };
@@ -95,6 +112,7 @@ export async function handleSubscriptionDeleted(
       subscription.id,
       firstItem.price.id,
       'canceled',
+      subscriptionPeriod(firstItem),
     );
     if (!upsertResult.ok) {
       return { ok: false, error: `Failed to mark subscription canceled: ${upsertResult.error}` };

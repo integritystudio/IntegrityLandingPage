@@ -1,8 +1,16 @@
 import { z } from 'zod';
 
+// `current_period_*` live on the item, not the subscription: Stripe moved them there
+// in API version 2025-03-31 (the endpoint runs 2025-09-30.clover), and the
+// subscription-level fields now arrive `null`. Optional because a Checkout stub
+// subscription has no items yet.
 const SubscriptionItemSchema = z.object({
   price: z.object({ id: z.string() }),
+  current_period_start: z.number().int().optional(),
+  current_period_end: z.number().int().optional(),
 }).passthrough();
+
+export type SubscriptionItem = z.infer<typeof SubscriptionItemSchema>;
 
 export const CheckoutSessionSchema = z.object({
   customer: z.string().optional(),

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleSubscriptionUpdated, handleSubscriptionDeleted } from './subscription';
+import { handleSubscriptionUpdated, handleSubscriptionDeleted, subscriptionPeriod } from './subscription';
 import type { StripeEvent } from '../../../lib/types';
 import type { SupabaseAdmin } from '../supabase';
 import { STRIPE_SUBSCRIPTION_STATUSES } from '../../../lib/billing';
@@ -32,6 +32,40 @@ const VALID_SUBSCRIPTION = {
   status: 'active',
   items: { data: [{ price: { id: 'price_abc' } }] },
 };
+
+// Epoch seconds, as Stripe sends them; the item-level fields are where API 2025-03-31+
+// puts the period (the subscription-level ones arrive null).
+const PERIOD_START_S = 1_788_158_217;
+const PERIOD_END_S = 1_790_750_217;
+const PERIOD_START_ISO = '2026-08-31T06:36:57.000Z';
+const PERIOD_END_ISO = '2026-09-30T06:36:57.000Z';
+const PERIOD_ITEM = {
+  price: { id: 'price_abc' },
+  current_period_start: PERIOD_START_S,
+  current_period_end: PERIOD_END_S,
+};
+const SUBSCRIPTION_WITH_PERIOD = { ...VALID_SUBSCRIPTION, items: { data: [PERIOD_ITEM] } };
+
+describe('subscriptionPeriod', () => {
+  it('is undefined when there is no item', () => {
+    expect(subscriptionPeriod(undefined)).toBeUndefined();
+  });
+
+  it('is undefined when the item carries no period', () => {
+    expect(subscriptionPeriod({ price: { id: 'price_abc' } })).toBeUndefined();
+  });
+
+  it.each([
+    ['start only', { price: { id: 'price_abc' }, current_period_start: PERIOD_START_S }],
+    ['end only', { price: { id: 'price_abc' }, current_period_end: PERIOD_END_S }],
+  ])('is undefined for a half-open period (%s) rather than persisting one bound', (_label, item) => {
+    expect(subscriptionPeriod(item)).toBeUndefined();
+  });
+
+  it('converts epoch seconds to ISO timestamps', () => {
+    expect(subscriptionPeriod(PERIOD_ITEM)).toEqual({ start: PERIOD_START_ISO, end: PERIOD_END_ISO });
+  });
+});
 
 describe('handleSubscriptionUpdated', () => {
   it('returns { ok: false } when payload fails schema validation', async () => {
@@ -73,7 +107,19 @@ describe('handleSubscriptionUpdated', () => {
     const event = makeSubEvent(VALID_SUBSCRIPTION);
     const db = makeDb();
     await handleSubscriptionUpdated(event, db, {});
-    expect(db.upsertSubscription).toHaveBeenCalledWith('org-1', 'sub_1', 'price_abc', 'active');
+    expect(db.upsertSubscription).toHaveBeenCalledWith('org-1', 'sub_1', 'price_abc', 'active', undefined);
+  });
+
+  // The column sat null for every row the webhook wrote, because it read the period from
+  // the subscription object, where Stripe no longer puts it.
+  it("passes the first item's billing period through as ISO timestamps", async () => {
+    const event = makeSubEvent(SUBSCRIPTION_WITH_PERIOD);
+    const db = makeDb();
+    await handleSubscriptionUpdated(event, db, {});
+    expect(db.upsertSubscription).toHaveBeenCalledWith('org-1', 'sub_1', 'price_abc', 'active', {
+      start: PERIOD_START_ISO,
+      end: PERIOD_END_ISO,
+    });
   });
 
   it('skips upsertSubscription when items is absent', async () => {
@@ -138,7 +184,7 @@ describe('handleSubscriptionUpdated', () => {
     const event = makeSubEvent({ ...VALID_SUBSCRIPTION, status: 'trialing' });
     const db = makeDb();
     await handleSubscriptionUpdated(event, db, {});
-    expect(db.upsertSubscription).toHaveBeenCalledWith('org-1', 'sub_1', 'price_abc', 'trialing');
+    expect(db.upsertSubscription).toHaveBeenCalledWith('org-1', 'sub_1', 'price_abc', 'trialing', undefined);
     expect(db.updateOrgBillingStatus).toHaveBeenCalledWith('org-1', 'trialing', undefined, true);
   });
 
@@ -196,7 +242,17 @@ describe('handleSubscriptionDeleted', () => {
     const event = makeSubEvent(VALID_SUBSCRIPTION);
     const db = makeDb();
     await handleSubscriptionDeleted(event, db);
-    expect(db.upsertSubscription).toHaveBeenCalledWith('org-1', 'sub_1', 'price_abc', 'canceled');
+    expect(db.upsertSubscription).toHaveBeenCalledWith('org-1', 'sub_1', 'price_abc', 'canceled', undefined);
+  });
+
+  it('keeps the final billing period on the canceled row', async () => {
+    const event = makeSubEvent(SUBSCRIPTION_WITH_PERIOD);
+    const db = makeDb();
+    await handleSubscriptionDeleted(event, db);
+    expect(db.upsertSubscription).toHaveBeenCalledWith('org-1', 'sub_1', 'price_abc', 'canceled', {
+      start: PERIOD_START_ISO,
+      end: PERIOD_END_ISO,
+    });
   });
 
   it('skips upsertSubscription when items is absent', async () => {

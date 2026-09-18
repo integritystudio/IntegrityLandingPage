@@ -294,6 +294,34 @@ describe('upsertSubscription', () => {
     ]);
   });
 
+  it('writes the billing period when one is supplied', async () => {
+    const stub = stubSupabase(subscriptionRoutes());
+    const period = { start: '2026-08-31T06:36:57.000Z', end: '2026-09-30T06:36:57.000Z' };
+
+    await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', 'active', period);
+
+    const post = stub.find('POST', SUBSCRIPTIONS_TABLE)!;
+    expect(rowsBody(post)).toEqual([
+      expect.objectContaining({
+        current_period_start: period.start,
+        current_period_end: period.end,
+      }),
+    ]);
+  });
+
+  // The upsert merges duplicates, so a null here would erase the period a
+  // customer.subscription.updated event wrote when the Checkout stub (no items yet)
+  // lands on the same row.
+  it('omits the period columns when none is supplied', async () => {
+    const stub = stubSupabase(subscriptionRoutes());
+
+    await db.upsertSubscription('org-1', 'sub_abc', null, 'active');
+
+    const [row] = rowsBody(stub.find('POST', SUBSCRIPTIONS_TABLE)!) as Record<string, unknown>[];
+    expect(row).not.toHaveProperty('current_period_start');
+    expect(row).not.toHaveProperty('current_period_end');
+  });
+
   // Nothing wrote organizations.active_subscription_id before 2026-08-01 — not this
   // Worker, not api-gateway, not any DB trigger — so the FK sat null even for paying
   // orgs. team-inventoryai-io was observed with a live subscription row and a null
