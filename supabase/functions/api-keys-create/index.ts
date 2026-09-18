@@ -207,8 +207,9 @@ Deno.serve(async (req) => {
     keyId: apiKey.id,
     prefix,
     // Org-scoped multi-tenancy P3: obtool-ingest resolves the telemetry
-    // keyspace (org/<orgId>/...) from this field. Values without it
-    // grace-map to the home org until backfilled/rotated.
+    // keyspace (org/<orgId>/...) from this field, and obtool-api scopes
+    // every read to it (2026-09-17). Both hard-reject a record without it
+    // (no grace-map since 2026-07-28), so api-keys-rotate must write it too.
     organizationId,
   });
   const kvUrl = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/storage/kv/namespaces/${kvNamespaceId}/values/${kvKey}`;

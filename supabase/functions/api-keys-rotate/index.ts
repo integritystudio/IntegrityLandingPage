@@ -155,6 +155,12 @@ Deno.serve(async (req) => {
     userId: user.id,
     keyId: newKey.id,
     prefix,
+    // Same record shape as api-keys-create: obtool-ingest and obtool-api
+    // resolve the key's org from this field and reject a record without it,
+    // so a rotation that dropped it produced a key that could neither ingest
+    // (since 2026-07-28) nor read (since 2026-09-17). Found by the toolkit's
+    // api-key-auth e2e test 7 the day the read side started enforcing it.
+    organizationId: membership.organization_id,
   });
   const kvUrl = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/storage/kv/namespaces/${kvNamespaceId}/values/${kvKey}`;
   const kvRes = await fetch(kvUrl, {
