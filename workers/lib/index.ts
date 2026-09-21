@@ -3,6 +3,8 @@ export { hmacSign, hmacSignHex, hmacVerify, arrayBufferToBase64Url } from './cry
 
 // Re-export billing status helpers
 export { isEntitled, toBillingStatus, STRIPE_SUBSCRIPTION_STATUSES } from './billing';
+export { buildEntitlementMap, projectPlanEntitlements, PLAN_LIMIT_KEYS, PLAN_SELECT } from './entitlements';
+export type { EntitlementMap, PlanRow } from './entitlements';
 export type { StripeSubscriptionStatus } from './billing';
 
 // Re-export all types

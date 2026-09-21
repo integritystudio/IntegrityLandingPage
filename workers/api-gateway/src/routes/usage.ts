@@ -4,7 +4,7 @@ import { verifyJwt } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, Entitlement, UsageBucket as UsageBucketBase } from '../../../lib/types';
-import { buildEntitlementMap, auth0VerifyParams, resolveUserId, requireHmacSecret, type UserTokenOptions } from '../lib/helpers';
+import { buildEntitlementMap, loadOrgPlan, auth0VerifyParams, resolveUserId, requireHmacSecret, type UserTokenOptions } from '../lib/helpers';
 import { getQuotaStatus } from '../lib/quota';
 import type { AuthResult } from '../../../lib/types/handler-options';
 
@@ -129,15 +129,18 @@ export async function handleOrgEntitlements(
   const access = await assertOrgAccess(auth, orgId, sb);
   if (!access.ok) return access.error;
 
-  const result = await sb.query<Entitlement>('entitlements', {
-    filters: [{ column: 'organization_id', operator: 'eq', value: orgId }],
-  });
+  const [result, plan] = await Promise.all([
+    sb.query<Entitlement>('entitlements', {
+      filters: [{ column: 'organization_id', operator: 'eq', value: orgId }],
+    }),
+    loadOrgPlan(sb, orgId),
+  ]);
 
   if (!result.ok) {
     return serverError('Failed to load entitlements');
   }
 
-  const entitlements = buildEntitlementMap(result.data);
+  const entitlements = buildEntitlementMap(result.data, plan);
 
   return ok({ org_id: orgId, entitlements });
 }

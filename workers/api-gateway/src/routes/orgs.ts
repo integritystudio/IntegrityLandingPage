@@ -4,7 +4,7 @@ import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase
 import { requireBearerToken, safeParseJson } from '../../../lib/http/request';
 import { parseApiKey } from '../../../lib/api-keys';
 import type { Organization, OrgRole, OrgMembership, Entitlement } from '../../../lib/types';
-import { resolveJwt, resolveJwtRateLimited, buildEntitlementMap, writeAuditLog, auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
+import { resolveJwt, resolveJwtRateLimited, buildEntitlementMap, loadPlan, writeAuditLog, auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
 
 interface OrgsHandlerOptions extends UserTokenOptions {
   supabaseUrl: string;
@@ -152,11 +152,14 @@ export async function handleOrgDashboard(
 
   const org = orgResult.data[0];
 
-  const entResult = await sb.query<Entitlement>('entitlements', {
-    filters: [{ column: 'organization_id', operator: 'eq', value: orgId }],
-  });
+  const [entResult, plan] = await Promise.all([
+    sb.query<Entitlement>('entitlements', {
+      filters: [{ column: 'organization_id', operator: 'eq', value: orgId }],
+    }),
+    loadPlan(sb, org.current_plan),
+  ]);
 
-  const entitlements = buildEntitlementMap(entResult.ok ? entResult.data : []);
+  const entitlements = buildEntitlementMap(entResult.ok ? entResult.data : [], plan);
 
   return ok({
     org,

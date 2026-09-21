@@ -193,6 +193,14 @@ describe('POST /bootstrap', () => {
       'GET organizations': okRows([makeOrgRow()]),
       'GET entitlements': okRows([makeEntitlementRow()]),
       'GET usage_buckets_daily': okRows([makeUsageBucketRow()]),
+      // makeOrgRow() is on starter (UA01: entitlements start from the active org's plan).
+      'GET plans': okRows([{
+        key: 'starter',
+        monthly_units: 10000,
+        requests_per_minute: 60,
+        concurrent_jobs: 1,
+        features: { alerts: true, usage_dashboard: true },
+      }]),
     });
     const res = await handleBootstrap(makeRequest(token), opts);
     expect(res.status).toBe(200);
@@ -202,6 +210,30 @@ describe('POST /bootstrap', () => {
     expect(body).toHaveProperty('active_org_id');
     expect(body).toHaveProperty('entitlements');
     expect(body).toHaveProperty('usage_snapshot');
+    const entitlements = body.entitlements as Record<string, boolean | number | null>;
+    expect(entitlements.usage_dashboard).toBe(true);
+    expect(entitlements.monthly_units).toBe(10000);
+    expect(entitlements.requests_per_minute).toBe(60);
+    expect(entitlements).not.toHaveProperty('compliance_summary');
+  });
+
+  it('still answers 200 with row-only entitlements when the plan lookup fails', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const token = await jwt.sign({ sub: 'auth0|u1', email: 'user@example.com' });
+    stubSupabase({
+      'GET users': okRows([makeUserRow()]),
+      'GET organization_memberships': okRows([makeMembershipRow()]),
+      'GET organizations': okRows([makeOrgRow()]),
+      'GET entitlements': okRows([makeEntitlementRow()]),
+      'GET usage_buckets_daily': okRows([makeUsageBucketRow()]),
+      'GET plans': httpError(500, 'DB error'),
+    });
+    const res = await handleBootstrap(makeRequest(token), opts);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { entitlements: Record<string, unknown> };
+    expect(body.entitlements).not.toHaveProperty('monthly_units');
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('plan lookup failed'), 'starter', expect.any(String));
+    error.mockRestore();
   });
 
   // Both fields come from the users row, not the token. A real Auth0 access token for a

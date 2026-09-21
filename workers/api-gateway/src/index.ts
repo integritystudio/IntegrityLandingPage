@@ -11,6 +11,8 @@ import { handleAuth0Logs } from './routes/auth0-logs';
 import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
 import { preVerifyToken } from './lib/helpers';
+import { meteredRoute, recordMeteredRequest } from './lib/usage-ledger';
+import { createSupabaseClient } from '../../lib/supabase';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -195,6 +197,7 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
   if (orgMatch) {
     const orgId = orgMatch[1];
     const subPath = orgMatch[2] ?? '';
+    const startedAt = Date.now();
 
     // Verify the bearer token is authentic before consuming any quota.
     // An invalid or missing token returns 401 without touching the quota DO,
@@ -214,7 +217,24 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
     const quota = await enforceOrgQuota(orgId, quotaOpts);
     if (!quota.ok) return withSecurityHeaders(quota.response);
 
+    // UA01: the quota DO reserved one unit for this request; write the same unit
+    // to `usage_events` (→ `usage_buckets_daily` via trigger) so what is enforced
+    // is also what `/usage/summary` reports. Off the response path via waitUntil.
+    const ledger = createSupabaseClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    const requestId = crypto.randomUUID();
     const withRateLimitHeaders = (response: Response): Response => {
+      const write = recordMeteredRequest(ledger, {
+        orgId,
+        route: meteredRoute(request.method, subPath),
+        requestId,
+        statusCode: response.status,
+        latencyMs: Date.now() - startedAt,
+      });
+      // `recordMeteredRequest` never rejects; the catch is a guard so a future edit
+      // inside it cannot turn a lost ledger row into an unhandled rejection here.
+      const guarded = write.catch(() => undefined);
+      if (ctx) ctx.waitUntil(guarded);
+      else void guarded;
       const rl = quota.rateLimitHeaders;
       const headers = new Headers(response.headers);
       headers.set('X-Content-Type-Options', 'nosniff');

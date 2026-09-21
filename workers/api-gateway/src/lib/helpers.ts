@@ -5,7 +5,7 @@ import { verifyJwt, auth0JwtKey, auth0IssuerFor } from '../../../lib/auth';
 import type { JwtVerificationKey } from '../../../lib/auth';
 import { parseApiKey, verifyApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient } from '../../../lib/supabase';
-import type { Entitlement } from '../../../lib/types';
+import { PLAN_SELECT, type PlanRow } from '../../../lib/entitlements';
 import type { SupabaseClient } from '../../../lib/supabase';
 
 export interface AuditLogEntry {
@@ -202,14 +202,45 @@ export async function resolveUserId(
   return { ok: true, userId: result.data[0].id, email: result.data[0].email };
 }
 
-export function buildEntitlementMap(rows: Entitlement[]): Record<string, boolean | number | null> {
-  const map: Record<string, boolean | number | null> = {};
-  for (const ent of rows) {
-    if (!ent.enabled) {
-      map[ent.feature_key] = false;
-      continue;
-    }
-    map[ent.feature_key] = ent.hard_limit ?? ent.soft_limit ?? true;
+// Plan projection + row overlay live in the shared lib (UA01); re-exported so the
+// routes keep one import site.
+export { buildEntitlementMap } from '../../../lib/entitlements';
+
+/**
+ * The `plans` row for a plan key, or null when the key is empty, unknown or the
+ * lookup fails. Null degrades the caller to explicit `entitlements` rows only —
+ * never to a guessed plan — and the failure is logged because an org silently
+ * reporting no entitlements is exactly the state UA01 was filed for.
+ */
+export async function loadPlan(sb: SupabaseClient, planKey: string | null | undefined): Promise<PlanRow | null> {
+  if (!planKey) return null;
+  const result = await sb.query<PlanRow>('plans', {
+    select: PLAN_SELECT,
+    filters: [{ column: 'key', operator: 'eq', value: planKey }],
+    single: true,
+  });
+  if (!result.ok) {
+    console.error('[entitlements] plan lookup failed for', planKey, result.error);
+    return null;
   }
-  return map;
+  return result.data;
+}
+
+/**
+ * `loadPlan` for an org that has not been fetched yet: one read for its `current_plan`.
+ * A missing org row also resolves to null: every caller has already passed a
+ * membership check that 403s/404s an unknown org, so "no row" here is a race with
+ * a delete, not a state worth failing the response over.
+ */
+export async function loadOrgPlan(sb: SupabaseClient, orgId: string): Promise<PlanRow | null> {
+  const org = await sb.query<{ current_plan: string | null }>('organizations', {
+    select: 'current_plan',
+    filters: [{ column: 'id', operator: 'eq', value: orgId }],
+    single: true,
+  });
+  if (!org.ok) {
+    console.error('[entitlements] organization lookup failed for', orgId, org.error);
+    return null;
+  }
+  return loadPlan(sb, org.data?.current_plan);
 }

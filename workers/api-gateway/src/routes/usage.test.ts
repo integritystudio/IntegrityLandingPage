@@ -28,6 +28,19 @@ const opts = {
   serviceRoleKey: TEST_SERVICE_ROLE_KEY,
 };
 
+// Mirrors the live `plans` row for growth (2026-09-18).
+const GROWTH_PLAN = {
+  key: 'growth',
+  monthly_units: 500000,
+  requests_per_minute: 600,
+  concurrent_jobs: 5,
+  features: { alerts: true, usage_dashboard: true, compliance_summary: true },
+};
+const planRoutes = (planKey = 'growth'): Record<string, RouteResponder> => ({
+  'GET organizations': okRows([{ id: ORG_ID, current_plan: planKey }]),
+  'GET plans': okRows([{ ...GROWTH_PLAN, key: planKey }]),
+});
+
 const makeMembership = (orgId = ORG_ID, role = 'owner') => ({
   organization_id: orgId,
   user_id: USER_ID,
@@ -185,26 +198,50 @@ describe('GET /v1/orgs/:orgId/entitlements', () => {
     expect(stub.requests).toHaveLength(0);
   });
 
-  it('returns entitlements map for JWT-authenticated member', async () => {
+  // UA01: the map is the org's plan projection with explicit rows layered on top.
+  it('returns the plan projection overlaid with explicit rows for a JWT-authenticated member', async () => {
     const entitlements = [
-      { organization_id: ORG_ID, feature_key: 'usage_dashboard', enabled: true, hard_limit: null, soft_limit: null },
-      { organization_id: ORG_ID, feature_key: 'monthly_units', enabled: true, hard_limit: 500000, soft_limit: null },
+      { organization_id: ORG_ID, feature_key: 'monthly_units', enabled: true, hard_limit: 250000, soft_limit: null },
       { organization_id: ORG_ID, feature_key: 'alerts', enabled: false, hard_limit: null, soft_limit: null },
     ];
     const stub = stubSupabase({
       ...membershipRoute(),
+      ...planRoutes(),
       'GET entitlements': okRows(entitlements),
     });
 
     const res = await handleOrgEntitlements(await makeJwtRequest(PATH), ORG_ID, opts);
     expect(res.status).toBe(200);
     const body = await res.json() as { entitlements: Record<string, boolean | number | null> };
+    // From the plan:
     expect(body.entitlements.usage_dashboard).toBe(true);
-    expect(body.entitlements.monthly_units).toBe(500000);
+    expect(body.entitlements.compliance_summary).toBe(true);
+    expect(body.entitlements.requests_per_minute).toBe(600);
+    // Rows win over the plan for the same key:
+    expect(body.entitlements.monthly_units).toBe(250000);
     expect(body.entitlements.alerts).toBe(false);
 
-    const entParams = stub.find('GET', 'entitlements')!.url.searchParams;
-    expect(entParams.get('organization_id')).toBe(`eq.${ORG_ID}`);
+    expect(stub.find('GET', 'entitlements')!.url.searchParams.get('organization_id')).toBe(`eq.${ORG_ID}`);
+    expect(stub.find('GET', 'organizations')!.url.searchParams.get('select')).toBe('current_plan');
+    expect(stub.find('GET', 'plans')!.url.searchParams.get('key')).toBe('eq.growth');
+  });
+
+  it('falls back to the explicit rows alone when the plan lookup fails', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    stubSupabase({
+      ...membershipRoute(),
+      'GET organizations': okRows([{ id: ORG_ID, current_plan: 'growth' }]),
+      'GET plans': httpError(500, 'DB error'),
+      'GET entitlements': okRows([
+        { organization_id: ORG_ID, feature_key: 'api_keys_max', enabled: true, hard_limit: 10, soft_limit: null },
+      ]),
+    });
+
+    const res = await handleOrgEntitlements(await makeJwtRequest(PATH), ORG_ID, opts);
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { entitlements: unknown }).entitlements).toEqual({ api_keys_max: 10 });
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('plan lookup failed'), 'growth', expect.any(String));
+    error.mockRestore();
   });
 
   it('returns 403 when JWT user is not a member', async () => {

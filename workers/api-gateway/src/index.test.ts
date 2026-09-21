@@ -263,3 +263,100 @@ describe('api-gateway', () => {
     });
   });
 });
+
+// UA01: every /v1/orgs/:id/* response the quota DO admitted is mirrored into usage_events.
+describe('usage ledger on org routes', () => {
+  interface Captured { organization_id: string; route: string; metric_key: string; quantity: number; source: string; status_code: number; latency_ms: number; request_id: string }
+  let captured: Captured[];
+  let pending: Promise<unknown>[];
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  const ctx = () => ({
+    waitUntil: (p: Promise<unknown>) => { pending.push(p); },
+    passThroughOnException: () => {},
+  }) as unknown as ExecutionContext;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    captured = [];
+    pending = [];
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // usage_events inserts succeed; everything else stands in for unreachable Supabase.
+    vi.stubGlobal('fetch', jwt.wrap((async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes('/rest/v1/usage_events') && init?.method === 'POST') {
+        const parsed: unknown = JSON.parse(String(init.body));
+        captured.push((Array.isArray(parsed) ? parsed[0] : parsed) as Captured);
+        return new Response('[]', { status: 201 });
+      }
+      return new Response('unavailable', { status: 503 });
+    }) as unknown as typeof fetch));
+  });
+
+  afterEach(() => {
+    errorSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it('records one `requests` unit per admitted org request, matching what the DO reserved', async () => {
+    vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true, rateLimitHeaders: {} });
+    const token = await jwt.sign({ sub: 'auth0|user-123', email: 'user@example.com' });
+
+    const res = await worker.fetch(
+      makeRequest('GET', '/v1/orgs/org-123/entitlements', { headers: { Authorization: `Bearer ${token}` } }),
+      makeEnv(),
+      ctx(),
+    );
+    await Promise.all(pending);
+
+    expect(captured).toHaveLength(1);
+    const [row] = captured;
+    expect(row.organization_id).toBe('org-123');
+    expect(row.route).toBe('GET /v1/orgs/:id/entitlements');
+    expect(row.metric_key).toBe('requests');
+    expect(row.quantity).toBe(1);
+    expect(row.source).toBe('api');
+    // Supabase is unreachable in this stub, so the handler answered non-2xx — and the
+    // row still records it: the DO reserved the unit whatever the handler then did.
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(row.status_code).toBe(res.status);
+    expect(row.latency_ms).toBeGreaterThanOrEqual(0);
+    expect(row.request_id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('records nothing when the quota DO refused the request', async () => {
+    vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({
+      ok: false,
+      response: new Response(JSON.stringify({ error: 'quota exceeded' }), { status: 429 }),
+    });
+    const token = await jwt.sign({ sub: 'auth0|user-123', email: 'user@example.com' });
+
+    const res = await worker.fetch(
+      makeRequest('GET', '/v1/orgs/org-123/dashboard', { headers: { Authorization: `Bearer ${token}` } }),
+      makeEnv(),
+      ctx(),
+    );
+    await Promise.all(pending);
+
+    expect(res.status).toBe(429);
+    expect(captured).toHaveLength(0);
+  });
+
+  // A ledger failure must never surface to the caller: it is logged and the response is unchanged.
+  it('keeps the response when the ledger insert fails', async () => {
+    vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true, rateLimitHeaders: {} });
+    vi.stubGlobal('fetch', jwt.wrap((async () => new Response('unavailable', { status: 503 })) as unknown as typeof fetch));
+    const token = await jwt.sign({ sub: 'auth0|user-123', email: 'user@example.com' });
+
+    const res = await worker.fetch(
+      makeRequest('GET', '/v1/orgs/org-123/entitlements', { headers: { Authorization: `Bearer ${token}` } }),
+      makeEnv(),
+      ctx(),
+    );
+    await Promise.all(pending);
+
+    expect(res.status).not.toBe(429);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[usage-ledger]'), 'GET /v1/orgs/:id/entitlements', 'for org', 'org-123', expect.anything());
+  });
+});
+

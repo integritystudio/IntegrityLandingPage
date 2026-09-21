@@ -160,6 +160,14 @@ describe('GET /v1/orgs/:orgId/dashboard', () => {
       ...membershipRoutes(),
       'GET organizations': okRows([makeOrg()]),
       'GET entitlements': okRows(entitlements),
+      // makeOrg() is on growth; the projection of its plan row joins the explicit row (UA01).
+      'GET plans': okRows([{
+        key: 'growth',
+        monthly_units: 500000,
+        requests_per_minute: 600,
+        concurrent_jobs: 5,
+        features: { alerts: true, usage_dashboard: true, compliance_summary: true },
+      }]),
     });
 
     const req = authedRequest(`/v1/orgs/${ORG_ID}/dashboard`, token);
@@ -172,7 +180,16 @@ describe('GET /v1/orgs/:orgId/dashboard', () => {
     };
     expect(body.org.id).toBe(ORG_ID);
     expect(body.role).toBe('owner');
-    expect(body.entitlements).toEqual({ api_keys_max: 10 });
+    expect(body.entitlements).toEqual({
+      alerts: true,
+      usage_dashboard: true,
+      compliance_summary: true,
+      monthly_units: 500000,
+      requests_per_minute: 600,
+      concurrent_jobs: 5,
+      api_keys_max: 10,
+    });
+    expect(stub.find('GET', 'plans')!.url.searchParams.get('key')).toBe('eq.growth');
 
     const orgParams = stub.find('GET', 'organizations')!.url.searchParams;
     expect(orgParams.get('id')).toBe(`eq.${ORG_ID}`);

@@ -1,7 +1,7 @@
 import { ok, notFound, serverError } from '../../../lib/http';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { Organization, OrgRole, OrgMembership, Entitlement, UsageBucket, BootstrapResponse } from '../../../lib/types';
-import { resolveJwtRateLimited, resolveUserId, buildEntitlementMap, type UserTokenOptions } from '../lib/helpers';
+import { resolveJwtRateLimited, resolveUserId, buildEntitlementMap, loadPlan, type UserTokenOptions } from '../lib/helpers';
 
 export interface BootstrapHandlerOptions extends UserTokenOptions {
   supabaseUrl: string;
@@ -147,11 +147,14 @@ async function buildBootstrapPayload(
   activeOrgId: string,
   sb: SupabaseClient,
 ): Promise<BootstrapResponse | null> {
-  const [entitlementResult, usage] = await Promise.all([
+  // UA01: entitlements are the active org's plan projection overlaid with its rows.
+  const activePlanKey = orgs.find((org) => org.id === activeOrgId)?.current_plan;
+  const [entitlementResult, usage, plan] = await Promise.all([
     sb.query<Entitlement>('entitlements', {
       filters: [{ column: 'organization_id', operator: 'eq', value: activeOrgId }],
     }),
     loadUsageSnapshot(activeOrgId, sb),
+    loadPlan(sb, activePlanKey),
   ]);
 
   if (!entitlementResult.ok) {
@@ -167,7 +170,7 @@ async function buildBootstrapPayload(
     user: { id: userId, email: userEmail },
     organizations: orgs,
     active_org_id: activeOrgId,
-    entitlements: buildEntitlementMap(entitlementResult.data),
+    entitlements: buildEntitlementMap(entitlementResult.data, plan),
     usage_snapshot: usage,
   };
 }
