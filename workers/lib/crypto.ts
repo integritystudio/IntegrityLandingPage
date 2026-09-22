@@ -19,6 +19,19 @@ export async function hmacSignHex(secret: string, message: string): Promise<stri
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * SHA-256 of a message as lowercase hex.
+ *
+ * This is the digest `api_keys.hash` stores for an `obtk_` key and the one the
+ * obtool `AUTH` KV keys its `apikey:<sha256>` records by — taken over the WHOLE
+ * token, not over a separable secret half. Distinct from `hmacSignHex`, which
+ * keys on `API_KEY_HMAC_SECRET` and covers the legacy `int_live_` format.
+ */
+export async function sha256Hex(message: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', ENCODER.encode(message));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 /** Encode an ArrayBuffer to a base64url string (no padding). */
 export function arrayBufferToBase64Url(buf: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf)))

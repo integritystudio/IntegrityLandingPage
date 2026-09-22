@@ -1,5 +1,5 @@
 // Re-export crypto primitives
-export { hmacSign, hmacSignHex, hmacVerify, arrayBufferToBase64Url } from './crypto';
+export { hmacSign, hmacSignHex, hmacVerify, sha256Hex, arrayBufferToBase64Url } from './crypto';
 
 // Re-export billing status helpers
 export { isEntitled, toBillingStatus, STRIPE_SUBSCRIPTION_STATUSES } from './billing';

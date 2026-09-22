@@ -20,6 +20,8 @@ const AUTH0_SUB = 'auth0|test-subject';
 const USER_ID = 'user-id-1';
 const RETURN_URL = 'https://app.integritystudio.ai/#/billing';
 const API_KEY_TOKEN = 'int_live_abc12345_0123456789abcdef';
+// An obtk_ key is still a key: billing routes owe it the same 403, not a JWT-shaped 401.
+const OBTOOL_KEY_TOKEN = `obtk_${'a3b04102'}${'f'.repeat(56)}`;
 
 const makeOrg = (overrides: Partial<Organization> = {}): Organization => ({
   id: ORG_ID,
@@ -312,6 +314,18 @@ describe('POST /v1/orgs/:id/billing-portal', () => {
     const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
     const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
     expect(res.status).toBe(403);
+  });
+
+  // Widening parseApiKey (UA07) also fixed this: an obtk_ key used to miss the
+  // key check, fall through to resolveJwt and get "Invalid JWT format" instead.
+  it('rejects an obtk_ key with the same 403 as a legacy key', async () => {
+    const stub = stubSupabase({});
+    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, OBTOOL_KEY_TOKEN, 'POST');
+    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: { message: string } };
+    expect(body.error.message).toContain('API keys are not accepted');
+    expect(stub.requests).toHaveLength(0);
   });
 
   it('returns 403 when user role is not owner or billing_admin', async () => {

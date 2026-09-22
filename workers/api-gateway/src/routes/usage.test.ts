@@ -20,6 +20,10 @@ const USER_ID = 'user-id-1';
 const API_KEY_PREFIX = 'abc12345';
 const API_KEY_SECRET = 'testsecret32charsminimumvalue000';
 const API_KEY_TOKEN = `int_live_${API_KEY_PREFIX}_${API_KEY_SECRET}`;
+// The format every live key uses: obtk_ + 64 hex, digest = sha256(whole token) (UA07).
+const OBTOOL_PREFIX = 'a3b04102';
+const OBTOOL_TOKEN = `obtk_${OBTOOL_PREFIX}${'f'.repeat(56)}`;
+const OBTOOL_HASH = '3bb195d74926d133a50e5c56264cebb627ed4d415c5cc749e6f5774a7ab947d2';
 
 const opts = {
   ...TEST_AUTH0_OPTS,
@@ -92,6 +96,27 @@ const makeApiKeyRequest = (path: string) =>
   new Request(`https://api.test${path}`, {
     method: 'GET',
     headers: { authorization: `Bearer ${API_KEY_TOKEN}` },
+  });
+
+const makeObtoolKeyRow = (orgId = ORG_ID) => ({
+  id: 'key-id-obtool',
+  user_id: USER_ID,
+  organization_id: orgId,
+  prefix: OBTOOL_PREFIX,
+  hash: OBTOOL_HASH,
+  name: 'inventoryai-growth',
+  tier: 'growth',
+  status: 'active',
+  expires_at: null,
+  last_used_at: null,
+  created_at: '2026-01-01T00:00:00Z',
+  revoked_at: null,
+});
+
+const makeObtoolKeyRequest = (path: string) =>
+  new Request(`https://api.test${path}`, {
+    method: 'GET',
+    headers: { authorization: `Bearer ${OBTOOL_TOKEN}` },
   });
 
 let jwt: Auth0JwtFixture;
@@ -254,6 +279,34 @@ describe('GET /v1/orgs/:orgId/entitlements', () => {
   it('returns 403 when API key belongs to different org', async () => {
     const stub = stubSupabase(await apiKeyRoute(await makeApiKeyRow('other-org-id')));
     const res = await handleOrgEntitlements(makeApiKeyRequest(PATH), ORG_ID, opts);
+    expect(res.status).toBe(403);
+    expect(stub.findAll('GET', 'entitlements')).toHaveLength(0);
+  });
+
+  // UA07 acceptance: before 2026-09-21 this 401'd with "Invalid JWT format", because
+  // an obtk_ token failed the API-key regex and fell through to the JWT branch.
+  it('authenticates an obtk_ key and returns the plan projection', async () => {
+    const stub = stubSupabase({
+      'GET api_keys': okRows([makeObtoolKeyRow()]),
+      ...planRoutes(),
+      'GET entitlements': okRows([]),
+    });
+
+    const res = await handleOrgEntitlements(makeObtoolKeyRequest(PATH), ORG_ID, opts);
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as { entitlements: Record<string, boolean | number | null> };
+    expect(body.entitlements.monthly_units).toBe(500000);
+    expect(body.entitlements.compliance_summary).toBe(true);
+    // Looked up by digest on the globally unique `hash`, not by the per-org `prefix`.
+    const keyParams = stub.find('GET', 'api_keys')!.url.searchParams;
+    expect(keyParams.get('hash')).toBe(`eq.${OBTOOL_HASH}`);
+    expect(keyParams.get('prefix')).toBeNull();
+  });
+
+  it('returns 403 when an obtk_ key belongs to a different org', async () => {
+    const stub = stubSupabase({ 'GET api_keys': okRows([makeObtoolKeyRow('other-org-id')]) });
+    const res = await handleOrgEntitlements(makeObtoolKeyRequest(PATH), ORG_ID, opts);
     expect(res.status).toBe(403);
     expect(stub.findAll('GET', 'entitlements')).toHaveLength(0);
   });

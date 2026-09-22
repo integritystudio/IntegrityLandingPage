@@ -299,6 +299,9 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
     const parsed = parseApiKey(body.token);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
+    // This route mints the legacy int_live_ format; only that one has a secret half.
+    expect(parsed.format).toBe('legacy');
+    if (parsed.format !== 'legacy') return;
 
     const [row] = stub.find('POST', 'api_keys')!.body as Array<{ hash: string; prefix: string }>;
     expect(row.prefix).toBe(parsed.prefix);
