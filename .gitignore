@@ -83,6 +83,10 @@ dist/
 !workers/**/package.json
 !workers/**/vitest.config.ts
 
+# Allow agents/ SDK scripts — the package ships a tsconfig, run scripts and
+# docs, but the blanket *.ts rule above excluded its only source file.
+!agents/**/*.ts
+
 # Allow scripts/ TypeScript source (runbooks, admin utilities)
 !scripts/*.ts
 
