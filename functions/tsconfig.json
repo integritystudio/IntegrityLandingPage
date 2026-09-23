@@ -9,5 +9,9 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "_middleware.ts"]
+  "include": ["src/**/*", "_middleware.ts"],
+  // Tests need Node globals; the Worker source must not. They are checked
+  // separately by tsconfig.test.json so this `types` array keeps guarding
+  // _middleware.ts against fs/process/Buffer, which do not exist at runtime.
+  "exclude": ["src/__tests__/**"]
 }
