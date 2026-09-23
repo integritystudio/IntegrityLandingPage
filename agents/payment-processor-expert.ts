@@ -64,7 +64,7 @@ async function main() {
         allowedTools: ["Read", "Grep", "Glob"],
         systemPrompt,
         maxTurns: 10,
-        model: "claude-opus-4-6",
+        model: "claude-opus-5",
         thinking: { type: "adaptive" },
       },
     })) {
