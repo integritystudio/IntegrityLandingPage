@@ -1,6 +1,11 @@
 # Payment Processor & Billing Architecture Research
 
 > **Research record — implemented.** The Stripe/Auth0/Supabase B2B billing architecture proposed here shipped across the API provisioning workers and the service-binding architecture (see changelog 1.2/1.3). Condensed from the original proposal; see [changelog 1.3](../changelog/1.3/CHANGELOG.md) "Superseded Design-Doc Reconciliation".
+>
+> **Shipped-vs-proposed delta (verified against the deployed Workers, 2026-09-23).** The body below is the proposal as written; these three points did not ship as described:
+> 1. **"Rate limit bindings by tier" / "apply Cloudflare tier rate limiter" did not ship.** No Cloudflare rate-limit binding exists in any `wrangler.toml`. What exists is a KV + per-isolate throttle on the *identity*-scoped routes only, uniform across plans. Tracked as CR36.
+> 2. **The Durable Object quota path did ship** — `QuotaDurableObject`, one DO per org via `idFromName(orgId)`, bound in production and `[env.dev]` — but it is **deliberately fail-open**: an unreachable DO allows the request. That is a documented availability-over-enforcement tradeoff, see [api-usage-ingestion.md § Rate Limiting](../api-usage-ingestion.md#rate-limiting).
+> 3. **The DO does not "flush rollups to Supabase".** Usage is written per request by the gateway's usage ledger (`workers/api-gateway/src/lib/usage-ledger.ts`, UA01) via `ctx.waitUntil`, not flushed from the DO. The proposal's final request-path step — "async write usage event to Supabase" — is accurate; the actor is just the Worker, not the DO.
 
 **Original date:** 2026-07-12 (pre-implementation) · **Domain:** Billing architecture
 

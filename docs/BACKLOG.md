@@ -2120,6 +2120,28 @@ DNS is not the blocker and was confirmed ready in the same pass: `integritystudi
 
 ---
 
+### CR36: the plan-tiered edge rate limiter is documented as a live pipeline step but was never implemented
+
+**Priority:** P2 | **Source:** verification of the shipped Workers against `docs/research/payment-processor-research.md`, 2026-09-23
+**Estimated:** small if a uniform per-org edge limit is acceptable; larger if it must be plan-aware (needs the plan at the edge, before the DO call)
+
+`docs/TWO_LAYER_AUTH_ARCHITECTURE.md` described **[Step 4] Rate limit (Cloudflare, edge-local)** applying a plan-based tier limit keyed on `org_id`, and the research record listed "Rate limit bindings by tier" in the edge box. **Neither exists.** There is no Cloudflare rate-limit binding in any `wrangler.toml` — `RATE_LIMIT_KV` is a KV namespace, not a rate-limit binding.
+
+What is actually deployed:
+
+- **Org-scoped routes (`/v1/orgs/:id/*`)** — no edge throttle. Their per-minute ceiling is the quota Durable Object's, applied in Step 5, and that path is deliberately fail-open (documented in `api-usage-ingestion.md`). So a DO outage removes the *only* per-minute limit these routes have.
+- **Identity-scoped routes (`/v1/me`, `/v1/orgs`, `/bootstrap`)** — `checkIdentityRateLimit`, KV plus a per-isolate map keyed on the verified JWT subject. Uniform `IDENTITY_RATE_LIMIT_MAX = 120` per 60s; **no plan input**, so starter and enterprise get the same ceiling.
+
+The two mechanisms are disjoint: the routes with a throttle have no quota, and the routes with a quota have no throttle. The documented "throttle, then meter" pipeline is not what runs.
+
+**Two decisions before implementing**, neither obvious:
+1. Is a *tiered* edge limit actually wanted, or is the DO's per-minute limit the real ceiling and the docs simply wrong? The DO already enforces per-minute per org — an edge limiter would mostly protect the DO from load, which is a different goal than billing tiers.
+2. A plan-aware edge limit needs `current_plan` **before** the DO call. Today the plan is read from Supabase inside `enforceOrgQuota`, so making it edge-available is the bulk of the work, not the limiter itself.
+
+**Status:** Open. Docs corrected 2026-09-23 so they no longer assert the limiter exists; the implementation gap is what remains.
+
+---
+
 ## User Data-Integrity Audit 2026-09-18 → 2026-09-22 (UA01–UA08)
 
 Filed from a read of one paying user (`alyshia@inventoryai.io`, org `team-inventoryai-io`, plan growth) across Supabase, Auth0, Stripe, the obtool AUTH KV and the query API. What was wrong for that user and fixed the same day is not here (users.tier set to growth; `/v1/me` reads the org plan, `6dc91c2`; the webhook writes the billing period from the first item, `1a29d7b`; the InventoryAI and gmail keys now reach Doppler and the obtool resolver). What is here is what the audit showed to be true of **every** org or user — measured, not inferred, and each stated with the number that would change if it were fixed.
