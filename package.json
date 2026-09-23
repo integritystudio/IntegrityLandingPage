@@ -6,8 +6,8 @@
     "repomix": "^1.13.1",
     "stripe": "^21.0.1",
     "supabase": "^2.84.4",
-    "vitest": "^4.1.2",
-    "wrangler": "^4.77.0"
+    "vitest": "^4.1.11",
+    "wrangler": "^4.131.0"
   },
   "dependencies": {
     "typescript": "^6.0.2"
