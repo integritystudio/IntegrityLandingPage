@@ -3,9 +3,15 @@
     "target": "ES2020",
     "module": "ESNext",
     "lib": ["ES2020"],
-    "moduleResolution": "node",
+    // "node" (node10) is deprecated in TS 6 and removed in TS 7. "bundler"
+    // matches how this is actually run (tsx) and needs no file extensions;
+    // it requires module esnext/preserve, which is already set above.
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "allowJs": true,
+    // bundler resolution does not pick up @types/node implicitly the way
+    // node10 did, so name it explicitly.
+    "types": ["node"],
     "skipLibCheck": true,
     "strict": true,
     "esModuleInterop": true,
