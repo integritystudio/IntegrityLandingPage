@@ -12,11 +12,11 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260801.1",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@cloudflare/workers-types": "^5.20260923.1",
+    "@vitest/coverage-v8": "^4.1.11",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.10",
-    "wrangler": "^4.118.0"
+    "vitest": "^4.1.11",
+    "wrangler": "^4.131.0"
   },
   "optionalDependencies": {
     "@rollup/rollup-darwin-arm64": "^4.55.1"
