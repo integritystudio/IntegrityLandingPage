@@ -5,9 +5,14 @@
  * - Cache org quota/plan state
  * - Serialize quota checks
  * - Track current minute counters
- * - Track monthly counter deltas before flush
+ * - Track monthly counters in DO storage
  * - Reject over-limit requests
- * - Expose checkAndReserve() and flushUsage() methods
+ * - Expose checkAndReserve()
+ *
+ * There is no flushUsage() method and nothing here writes to Supabase: the
+ * durable usage record is written per request by the gateway's usage ledger
+ * (lib/usage-ledger.ts, UA01) via ctx.waitUntil. This comment claimed a flush
+ * that was never implemented.
  */
 
 interface QuotaCheckRequest {
