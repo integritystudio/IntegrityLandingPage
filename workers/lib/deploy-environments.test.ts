@@ -44,6 +44,17 @@ const NON_INHERITABLE = ['durable_objects', 'services', 'vars', 'kv_namespaces',
 
 const WORKERS = ['api-gateway', 'sender-worker', 'stripe-webhook', 'contact-form', 'receiver-worker'] as const;
 
+/**
+ * `receiver-worker` is a local stub / test double. The Worker of that name was
+ * deleted from Cloudflare on 2026-06-26 (e2e8807); the production receiver is
+ * `api-provisioning-receiver` in the observability-toolkit repo, reached by
+ * sender-worker through a service binding. It therefore ships no deploy
+ * scripts, and the test below asserts that rather than exempting it silently —
+ * a `deploy:prd` here would recreate the orphan under its old production name.
+ */
+const STUB_WORKERS: readonly string[] = ['receiver-worker'];
+const DEPLOYABLE_WORKERS = WORKERS.filter((w) => !STUB_WORKERS.includes(w));
+
 const WORKERS_ROOT = join(__dirname, '..');
 
 /**
@@ -124,13 +135,23 @@ describe('worker deploy environments (CR02)', () => {
     expect(dev!.name).not.toBe(config.name);
   });
 
-  it.each(WORKERS)('%s: deploy targets --env dev, deploy:prd stays on top-level config', (worker) => {
+  it.each(DEPLOYABLE_WORKERS)('%s: deploy targets --env dev, deploy:prd stays on top-level config', (worker) => {
     const scripts = loadScripts(worker);
 
     expect(scripts.deploy).toContain('--env dev');
     // deploy:prd must NOT pass --env: a named environment would rename the
     // production worker and orphan its DO namespaces, routes, and crons.
     expect(scripts['deploy:prd']).not.toContain('--env');
+  });
+
+  it.each(STUB_WORKERS)('%s: is a stub and ships no deploy scripts', (worker) => {
+    const scripts = loadScripts(worker);
+
+    expect(scripts.deploy, `${worker} is a stub; a deploy script would recreate a deleted Worker`).toBeUndefined();
+    expect(scripts['deploy:prd'], `${worker} is a stub; deploy:prd would recreate it under its production name`).toBeUndefined();
+    // Still developable and testable locally.
+    expect(scripts.dev).toBeTruthy();
+    expect(scripts.test).toBeTruthy();
   });
 
   it.each(WORKERS)('%s: [env.dev] disclaims routes EXPLICITLY when production has them', (worker) => {
