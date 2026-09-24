@@ -3,7 +3,7 @@
 **Last Updated:** 2026-07-31 (rotation procedure rewritten — correct `SIGNING_KEYS` wire format, receiver-first ordering, split into Procedure A/B; see [CR29](BACKLOG.md#cr29))
 **Version:** 2.1
 
-This guide covers HMAC signing-key generation (`SIGNING_KEYS` + `ACTIVE_KEY_ID`, and the legacy `SHARED_SECRET`), Flutter app configuration, the implementation/security reference, and troubleshooting for the API provisioning **sender worker**.
+This guide covers HMAC signing-key generation (`SIGNING_KEYS` + `ACTIVE_KEY_ID`; the legacy `SHARED_SECRET` is retired — see below), Flutter app configuration, the implementation/security reference, and troubleshooting for the API provisioning **sender worker**.
 
 > ℹ️ **Scope note.** The production receiver is **`api-provisioning-receiver`**, which lives in the separate `observability-toolkit` repo and is reached by `sender-worker` via a **service binding** (`service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`), not a URL. The live sender is `sender-worker.alyshia-b38.workers.dev` (no custom worker domains exist). Earlier sections describing a deployable in-repo `receiver-worker`, `RECEIVER_WORKER_URL`, `*.integritystudio.ai` worker hostnames, and `--env staging` deploys described a retired HTTP-based wiring and were removed (consolidated 2026-06-27, `docs/BACKLOG.md` W03). This guide predates the Auth0 ROPC + Supabase flow, so it does **not** cover the required `AUTH0_*` / `SUPABASE_*` sender secrets — see `workers/sender-worker/wrangler.toml` for the current secret list, and the `observability-toolkit` repo for receiver setup.
 
@@ -43,7 +43,7 @@ openssl rand -base64 32
 
 **Important — provision `SIGNING_KEYS` + `ACTIVE_KEY_ID`, not `SHARED_SECRET`, for anything new.** The keyed path is the production path: the sender signs with `SIGNING_KEYS[ACTIVE_KEY_ID]` and sends `x-key-id`, and the receiver resolves the matching entry (`workers/sender-worker/src/utils.ts` `resolveOutboundSigningKey`, receiver `resolveSigningKey`). Both sides need the same id → secret pair; `SIGNING_KEYS` is a JSON object, format detailed under Rotation Procedure below.
 
-`SHARED_SECRET` still has to match on both workers **for the deployed receiver only**. CR29 step 2 (2026-08-02, unshipped) removed the keyless fallback, so once it ships the receiver reads `SIGNING_KEYS` alone and this secret authenticates nothing. Rotation cadence/policy is tracked as W05 in `docs/BACKLOG.md`.
+~~`SHARED_SECRET` still has to match on both workers **for the deployed receiver only**.~~ **`SHARED_SECRET` is gone — do not provision it.** CR29 step 2 shipped and was **deployed 2026-08-03**: the receiver requires `x-key-id` and resolves through `SIGNING_KEYS` alone, so a keyless `/inbox` request is a 401. Step 3 followed — the secret is unbound from both Workers, and its Doppler slots are deleted in **both** configs (`prd` 2026-08-03, `dev` 2026-09-24). It is also dropped from `KEY_ROTATION_DATES` in both (`prd` `{v2}`, `dev` `{dev1}`), because the cron alerts on the age of a *name* in that blob, not on a key's liveness — an entry for a deleted credential is a permanently stale warning. Rotation cadence/policy is tracked as W05 in `docs/BACKLOG.md`.
 
 ---
 
@@ -162,7 +162,10 @@ SignupPage (/signup?tier=enterprise)
 .env.local (git-ignored) -- template at workers/sender-worker/.env.example
 ├── SIGNING_KEYS: {"v2":"test-secret-key-12345"}
 ├── ACTIVE_KEY_ID: v2
-└── SHARED_SECRET: test-secret-key-12345   # not read; present only to mirror production
+└── SHARED_SECRET: test-secret-key-12345   # read by nothing. Kept DELIBERATELY, and with a value
+                                        # different from the active key, so "unreachable" is proven
+                                        # with the credential present. Do not tidy it out (CR29).
+                                        # Production no longer holds it in any form.
 
 # Both signing vars are required: ACTIVE_KEY_ID is sent as x-key-id and the receiver
 # rejects a request without it, so an unset pair means /send returns 500 and forwards
@@ -174,9 +177,11 @@ SignupPage (/signup?tier=enterprise)
 ### Production
 ```
 Cloudflare Secrets (via Doppler integrity-studio/prd):
-├── sender-worker (this repo):                                 SIGNING_KEYS + ACTIVE_KEY_ID (v2), SHARED_SECRET
+├── sender-worker (this repo):                                 SIGNING_KEYS + ACTIVE_KEY_ID (v2)
 └── api-provisioning-receiver (observability-toolkit repo):    SIGNING_KEYS (MUST contain the same id → secret),
-                                                              KEY_ROTATION_DATES, SHARED_SECRET
+                                                              KEY_ROTATION_DATES ({"v2":<ISO>})
+
+# SHARED_SECRET is bound to NEITHER worker and exists in NO Doppler config (CR29 step 3).
 
 # SHARED_SECRET is listed last on purpose: it is the legacy credential. The deployed
 # receiver still accepts it (keyless), so it must still match; CR29 step 2 removes that
