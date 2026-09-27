@@ -1,11 +1,42 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:integrity_studio_ai/models/consent_preferences.dart';
+import 'package:integrity_studio_ai/services/consent_manager.dart';
 import 'package:integrity_studio_ai/widgets/consent/cookie_banner.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 
 import '../../helpers/test_helpers.dart';
+
+// ---------------------------------------------------------------------------
+// Local mock implementations (same shape as consent_manager_test.dart mocks)
+// ---------------------------------------------------------------------------
+
+class _MockPlatformCheck implements PlatformCheck {
+  @override
+  bool get isWeb => true;
+}
+
+class _MockConsentStorage implements ConsentStorage {
+  final Map<String, String> _store = {};
+
+  @override
+  String? get(String key) => _store[key];
+
+  @override
+  void set(String key, String value) => _store[key] = value;
+
+  @override
+  void remove(String key) => _store.remove(key);
+
+  ConsentPreferences? get lastSavedPrefs {
+    const storageKey = 'integrity_cookie_consent';
+    final raw = _store[storageKey];
+    if (raw == null) return null;
+    return ConsentPreferences.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+  }
+}
 
 void main() {
   // ==========================================================================
@@ -379,6 +410,89 @@ void main() {
         await pumpBannerAndWait(tester);
 
         expect(find.byType(SafeArea), findsOneWidget);
+      });
+    });
+
+    // ------------------------------------------------------------------------
+    // Consent-Level Assertions
+    // ------------------------------------------------------------------------
+
+    group('consent level assertions', () {
+      late _MockConsentStorage mockStorage;
+
+      setUp(() {
+        mockStorage = _MockConsentStorage();
+        ConsentManager.configureDependencies(
+          platform: _MockPlatformCheck(),
+          storage: mockStorage,
+        );
+      });
+
+      tearDown(() {
+        ConsentManager.resetDependencies();
+      });
+
+      testWidgets('Accept All saves all=true analytics=true marketing=true', (tester) async {
+        setDesktopSize(tester);
+        await pumpBannerAndWait(tester);
+
+        await tester.tap(find.text('Accept All'));
+        await tester.pumpAndSettleWithTimeout();
+
+        final prefs = mockStorage.lastSavedPrefs;
+        expect(prefs, isNotNull);
+        expect(prefs!.essential, isTrue);
+        expect(prefs.analytics, isTrue);
+        expect(prefs.marketing, isTrue);
+      });
+
+      testWidgets('Reject Non-Essential saves analytics=false marketing=false', (tester) async {
+        setDesktopSize(tester);
+        await pumpBannerAndWait(tester);
+
+        await tester.tap(find.text('Reject Non-Essential'));
+        await tester.pumpAndSettleWithTimeout();
+
+        final prefs = mockStorage.lastSavedPrefs;
+        expect(prefs, isNotNull);
+        expect(prefs!.essential, isTrue);
+        expect(prefs.analytics, isFalse);
+        expect(prefs.marketing, isFalse);
+      });
+
+      testWidgets('Save Preferences with analytics on saves analytics=true marketing=false', (tester) async {
+        setDesktopSize(tester);
+        await pumpBannerAndWait(tester);
+        await navigateToPreferences(tester);
+
+        // Turn on analytics (index 1), leave marketing off
+        final switches = find.byType(Switch);
+        await tester.tap(switches.at(1));
+        await tester.pump();
+
+        await tester.tap(find.text('Save Preferences'));
+        await tester.pumpAndSettleWithTimeout();
+
+        final prefs = mockStorage.lastSavedPrefs;
+        expect(prefs, isNotNull);
+        expect(prefs!.essential, isTrue);
+        expect(prefs.analytics, isTrue);
+        expect(prefs.marketing, isFalse);
+      });
+
+      testWidgets('Reject All in preferences saves analytics=false marketing=false', (tester) async {
+        setDesktopSize(tester);
+        await pumpBannerAndWait(tester);
+        await navigateToPreferences(tester);
+
+        await tester.tap(find.text('Reject All'));
+        await tester.pumpAndSettleWithTimeout();
+
+        final prefs = mockStorage.lastSavedPrefs;
+        expect(prefs, isNotNull);
+        expect(prefs!.essential, isTrue);
+        expect(prefs.analytics, isFalse);
+        expect(prefs.marketing, isFalse);
       });
     });
   });

@@ -671,4 +671,200 @@ void main() {
       expect(find.text('provision_page'), findsNothing);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Forgot-password widget tests
+  // ---------------------------------------------------------------------------
+
+  group('AuthPage forgot-password mode', () {
+    late MockHttpAdapter adapter;
+
+    setUp(() {
+      adapter = MockHttpAdapter();
+      ProvisioningService.setDioForTesting(dioWithMockAdapter(adapter));
+      ProvisioningService.retryDelay = (_) async {};
+    });
+
+    tearDown(() {
+      ProvisioningService.resetDio();
+      ProvisioningService.resetRetryDelay();
+    });
+
+    group('entering forgot-password mode', () {
+      testWidgets('Forgot password link is visible in sign-in mode', (tester) async {
+        await pumpAuthPage(tester, mode: AuthMode.signIn);
+        expect(find.text('Forgot password?'), findsOneWidget);
+      });
+
+      testWidgets('Forgot password link is not shown in sign-up mode', (tester) async {
+        await pumpAuthPage(tester, mode: AuthMode.signUp);
+        expect(find.text('Forgot password?'), findsNothing);
+      });
+
+      testWidgets('tapping Forgot password shows Reset Password title', (tester) async {
+        await pumpAuthPage(tester, mode: AuthMode.signIn);
+
+        await tester.tap(find.text('Forgot password?'));
+        await tester.pump();
+
+        expect(find.text('Reset Password'), findsOneWidget);
+      });
+
+      testWidgets('forgot-password view shows email field and Send Reset Link button', (tester) async {
+        await pumpAuthPage(tester, mode: AuthMode.signIn);
+
+        await tester.tap(find.text('Forgot password?'));
+        await tester.pump();
+
+        expect(find.byType(FormTextField), findsOneWidget);
+        expect(find.text('Send Reset Link'), findsOneWidget);
+      });
+
+      testWidgets('initialForgotPassword: true opens directly in reset mode', (tester) async {
+        setDesktopSize(tester);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: const AuthPage(
+              mode: AuthMode.signIn,
+              initialForgotPassword: true,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.text('Reset Password'), findsOneWidget);
+      });
+    });
+
+    group('Send Reset Link button state', () {
+      testWidgets('button is disabled with empty email', (tester) async {
+        await pumpAuthPage(tester, mode: AuthMode.signIn);
+        await tester.tap(find.text('Forgot password?'));
+        await tester.pump();
+
+        final button = tester.widget<GradientButton>(find.byType(GradientButton));
+        expect(button.onPressed, isNull);
+      });
+
+      testWidgets('button is disabled with invalid email', (tester) async {
+        await pumpAuthPage(tester, mode: AuthMode.signIn);
+        await tester.tap(find.text('Forgot password?'));
+        await tester.pump();
+
+        await tester.enterText(find.byType(FormTextField), 'notanemail');
+        await tester.pump();
+
+        final button = tester.widget<GradientButton>(find.byType(GradientButton));
+        expect(button.onPressed, isNull);
+      });
+
+      testWidgets('button is enabled with valid email', (tester) async {
+        await pumpAuthPage(tester, mode: AuthMode.signIn);
+        await tester.tap(find.text('Forgot password?'));
+        await tester.pump();
+
+        await tester.enterText(find.byType(FormTextField), 'user@example.com');
+        await tester.pump();
+
+        final button = tester.widget<GradientButton>(find.byType(GradientButton));
+        expect(button.onPressed, isNotNull);
+      });
+    });
+
+    group('forgot-password submission', () {
+      testWidgets('success shows Check Your Email title', (tester) async {
+        setDesktopSize(tester);
+        adapter.stubJson('POST', {}, statusCode: 200);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: const AuthPage(
+              mode: AuthMode.signIn,
+              initialForgotPassword: true,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.enterText(find.byType(FormTextField), 'user@example.com');
+        await tester.pump();
+
+        await tester.tap(find.text('Send Reset Link'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('Check Your Email'), findsOneWidget);
+      });
+
+      testWidgets('success shows success Alert', (tester) async {
+        setDesktopSize(tester);
+        adapter.stubJson('POST', {}, statusCode: 200);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: const AuthPage(
+              mode: AuthMode.signIn,
+              initialForgotPassword: true,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.enterText(find.byType(FormTextField), 'user@example.com');
+        await tester.pump();
+
+        await tester.tap(find.text('Send Reset Link'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.byType(Alert), findsOneWidget);
+      });
+
+      testWidgets('API error shows error Alert', (tester) async {
+        setDesktopSize(tester);
+        adapter.stubJson('POST', {'error': 'User not found'}, statusCode: 400);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: testTheme,
+            home: const AuthPage(
+              mode: AuthMode.signIn,
+              initialForgotPassword: true,
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.enterText(find.byType(FormTextField), 'user@example.com');
+        await tester.pump();
+
+        await tester.tap(find.text('Send Reset Link'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.byType(Alert), findsOneWidget);
+        // Stays on reset-password view, not success view
+        expect(find.text('Check Your Email'), findsNothing);
+      });
+    });
+
+    group('Back to sign in link', () {
+      testWidgets('exits forgot-password mode and shows sign-in form', (tester) async {
+        await pumpAuthPage(tester, mode: AuthMode.signIn);
+        await tester.tap(find.text('Forgot password?'));
+        await tester.pump();
+
+        expect(find.text('Reset Password'), findsOneWidget);
+
+        await tester.tap(find.text('Back to sign in'));
+        await tester.pump();
+
+        expect(find.text('Reset Password'), findsNothing);
+        expect(find.text('Forgot password?'), findsOneWidget);
+      });
+    });
+  });
 }
