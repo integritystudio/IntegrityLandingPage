@@ -1524,6 +1524,15 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when tier has no configured price', async () => {
+      // TS02: stub fetch so the Supabase org lookup does not hit supabase.test.
+      // The price check fails before any Stripe call, so only Supabase is stubbed.
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        if (url.includes('/rest/v1/')) {
+          return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        throw new TypeError(`[test stub] unmatched fetch to ${url}`);
+      });
       const noPriceEnv: Env = {
         ...mockEnv,
         STRIPE_SECRET_KEY: 'sk_test_abc123',
@@ -1540,6 +1549,7 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(500);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toContain('growth');
+      fetchSpy.mockRestore();
     });
 
     it('returns 400 when email is missing', async () => {
@@ -1567,12 +1577,20 @@ describe('Sender Worker', () => {
     });
 
     it('returns 500 when Stripe API fails', async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: { message: 'Invalid API key' } }), {
+      // TS02: route by URL — mockResolvedValueOnce binds to the Supabase org lookup
+      // (the first fetch in the handler), not the Stripe call; using a single-shot mock
+      // lets the Stripe call through to api.stripe.com. Route instead so both are
+      // intercepted correctly.
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        if (url.includes('/rest/v1/')) {
+          return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        return new Response(JSON.stringify({ error: { message: 'Invalid API key' } }), {
           status: 401,
           headers: { 'content-type': 'application/json' },
-        }),
-      );
+        });
+      });
 
       const request = new Request('https://worker.test/create-checkout-session', {
         method: 'POST',
@@ -1827,6 +1845,15 @@ describe('Sender Worker', () => {
     };
 
     it('returns 500 when STRIPE_PLAN_TO_PRICE_JSON is invalid JSON', async () => {
+      // TS02: stub fetch so Supabase org lookup does not hit supabase.test.
+      // JSON parse fails before any Stripe call, so only Supabase needs stubbing.
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        if (url.includes('/rest/v1/')) {
+          return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        throw new TypeError(`[test stub] unmatched fetch to ${url}`);
+      });
       const badJsonEnv: Env = {
         ...mockEnv,
         STRIPE_SECRET_KEY: 'sk_test_abc123',
@@ -1841,9 +1868,18 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(500);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toContain('configuration');
+      fetchSpy.mockRestore();
     });
 
     it('uses default empty price map when STRIPE_PLAN_TO_PRICE_JSON is not set, returning 500', async () => {
+      // TS02: stub fetch so Supabase org lookup does not hit supabase.test.
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        if (url.includes('/rest/v1/')) {
+          return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+        }
+        throw new TypeError(`[test stub] unmatched fetch to ${url}`);
+      });
       const noJsonEnv: Env = {
         ...mockEnv,
         STRIPE_SECRET_KEY: 'sk_test_abc123',
@@ -1858,6 +1894,7 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(500);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toContain('growth');
+      fetchSpy.mockRestore();
     });
 
     // These two route by URL rather than using mockResolvedValueOnce: the handler

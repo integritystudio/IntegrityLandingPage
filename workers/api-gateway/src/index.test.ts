@@ -29,10 +29,25 @@ function makeRequest(method: string, path: string, init: RequestInit = {}): Requ
 
 describe('api-gateway', () => {
   describe('GET /health', () => {
+    // TS02: stub fetch so the DB check fails immediately rather than waiting up
+    // to DB_CHECK_TIMEOUT_MS (5 s) for DNS on the test.supabase.co hostname.
+    beforeEach(() => {
+      vi.stubGlobal('fetch', async (input: RequestInfo) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        if (url.includes('supabase')) {
+          return new Response('service unavailable', { status: 503 });
+        }
+        throw new TypeError(`[test stub] unmatched fetch to ${url}`);
+      });
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
     it('returns a health status response with all expected fields', async () => {
       const res = await worker.fetch(makeRequest('GET', '/health'), makeEnv());
-      // Status depends on Supabase connectivity; in tests expect 503 (db unreachable).
-      // Key assertion: response is JSON with expected shape.
+      // Supabase is stubbed as unreachable, so status is 503.
+      expect(res.status).toBe(503);
       const body = (await res.json()) as Record<string, unknown>;
       expect(body).toHaveProperty('database');
       expect(body).toHaveProperty('durableObjects');
