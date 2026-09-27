@@ -115,8 +115,17 @@ enabled = true
 name = "api-gateway-dev"
 routes = []
 
+# The DEV tenant — the same value as Doppler `dev` AUTH0_DOMAIN, which is where
+# sender-worker-dev mints its tokens. From 2026-07-30 to 2026-09-27 this block was
+# a verbatim copy of [vars] above, so api-gateway-dev verified JWTs against the
+# PRODUCTION tenant's JWKS: dev-tenant tokens 401'd here and production tokens
+# were accepted. `check:env-isolation` reads Doppler, never `vars`, so it could
+# not see it; ../lib/deploy-environments.test.ts now pins the two domains apart.
+# AUTH0_AUDIENCE is deliberately the same string as production: the dev tenant
+# registers its own API under that identifier ("Integrity Studio API (dev)"),
+# and an audience is an opaque id, not a hostname.
 [env.dev.vars]
-AUTH0_DOMAIN = "dev-68gg87ow4mg4kzyo.us.auth0.com"
+AUTH0_DOMAIN = "dev-njjmghdzm23uy0p7.us.auth0.com"
 AUTH0_AUDIENCE = "https://api.integritystudio.dev"
 
 [[env.dev.kv_namespaces]]
