@@ -240,6 +240,7 @@ Choose the appropriate file based on the task:
 - [docs-compressed.xml](docs/repomix/docs-compressed.xml) — compressed docs, CLAUDE.md, README (~11K tokens); use for broad docs understanding and search
 - [repomix.xml](docs/repomix/repomix.xml) — full lossless source; use only when exact code detail is needed (e.g. line-level edits, debugging)
 - [tests-compressed.xml](docs/repomix/tests-compressed.xml) — compressed test suite (Flutter + Workers); use when writing or reviewing tests
+- [repomix-workers.xml](docs/repomix/repomix-workers.xml) — lossless Cloudflare Workers source, wrangler/vitest config, and worker docs (tests excluded); use when changing routes, bindings, schemas, or deploy config
 
 ## Deployment Strategy
 
