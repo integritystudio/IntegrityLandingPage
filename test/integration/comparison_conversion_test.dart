@@ -37,7 +37,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(ComparisonPage), findsOneWidget);
     });
 
     testWidgets('whylabs page is scrollable', (tester) async {
@@ -58,7 +58,7 @@ void main() {
         await pumpFrames(tester, frames: 8);
       }
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(ComparisonPage), findsOneWidget);
     });
 
     testWidgets('whylabs page has comparison content', (tester) async {
@@ -88,8 +88,8 @@ void main() {
         }
       }
 
-      expect(foundContent || find.byType(MaterialApp).evaluate().isNotEmpty,
-          isTrue);
+      expect(foundContent,
+          isTrue, reason: 'Page should show comparison-related content');
     });
 
     testWidgets('whylabs page back button works', (tester) async {
@@ -125,7 +125,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(ComparisonPage), findsOneWidget);
     });
 
     testWidgets('arize page is scrollable', (tester) async {
@@ -145,7 +145,7 @@ void main() {
         await pumpFrames(tester, frames: 8);
       }
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(ComparisonPage), findsOneWidget);
     });
 
     testWidgets('arize page has comparison content', (tester) async {
@@ -174,8 +174,8 @@ void main() {
         }
       }
 
-      expect(foundContent || find.byType(MaterialApp).evaluate().isNotEmpty,
-          isTrue);
+      expect(foundContent,
+          isTrue, reason: 'Page should show comparison-related content');
     });
   });
 
@@ -252,7 +252,7 @@ void main() {
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(ComparisonPage), findsOneWidget);
     });
   });
 
@@ -267,7 +267,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(ComparisonPage), findsOneWidget);
     });
 
     testWidgets('arize page renders on mobile', (tester) async {
@@ -280,7 +280,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(ComparisonPage), findsOneWidget);
     });
 
     testWidgets('comparison tables scroll on mobile', (tester) async {
@@ -300,7 +300,7 @@ void main() {
         await pumpFrames(tester, frames: 8);
       }
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(ComparisonPage), findsOneWidget);
     });
   });
 

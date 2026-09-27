@@ -35,7 +35,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(BlogPage), findsOneWidget);
     });
 
     testWidgets('blog page is scrollable', (tester) async {
@@ -54,7 +54,7 @@ void main() {
       await tester.fling(scrollables.first, const Offset(0, -500), 1000);
       await pumpFrames(tester, frames: 10);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(BlogPage), findsOneWidget);
     });
 
     testWidgets('blog has article content', (tester) async {
@@ -83,8 +83,7 @@ void main() {
         }
       }
 
-      expect(foundContent || find.byType(MaterialApp).evaluate().isNotEmpty,
-          isTrue);
+      expect(foundContent, isTrue, reason: 'Blog page should show recognisable content');
     });
   });
 
@@ -192,7 +191,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(BlogPage), findsOneWidget);
     });
 
     testWidgets('blog scrolls on mobile', (tester) async {
@@ -209,7 +208,7 @@ void main() {
       await tester.fling(scrollables.first, const Offset(0, -400), 1000);
       await pumpFrames(tester, frames: 10);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(BlogPage), findsOneWidget);
     });
   });
 

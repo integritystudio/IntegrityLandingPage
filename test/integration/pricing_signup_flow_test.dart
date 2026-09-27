@@ -40,7 +40,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(PricingPage), findsOneWidget);
     });
 
     testWidgets('pricing tiers are visible', (tester) async {
@@ -74,8 +74,7 @@ void main() {
         }
       }
 
-      expect(foundTier || find.byType(MaterialApp).evaluate().isNotEmpty,
-          isTrue);
+      expect(foundTier, isTrue, reason: 'Pricing tiers should be visible');
     });
 
     testWidgets('pricing page is scrollable', (tester) async {
@@ -97,7 +96,7 @@ void main() {
       await tester.fling(scrollables.first, const Offset(0, -500), 1000);
       await pumpFrames(tester, frames: 10);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(PricingPage), findsOneWidget);
     });
 
     testWidgets('FAQ section is accessible', (tester) async {
@@ -135,8 +134,7 @@ void main() {
         }
       }
 
-      expect(foundFaq || find.byType(MaterialApp).evaluate().isNotEmpty,
-          isTrue);
+      expect(foundFaq, isTrue, reason: 'FAQ section should be visible after scrolling');
     });
   });
 
@@ -297,7 +295,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(PricingPage), findsOneWidget);
     });
 
     testWidgets('pricing cards stack on mobile', (tester) async {
@@ -318,7 +316,7 @@ void main() {
       await tester.fling(scrollables.first, const Offset(0, -300), 1000);
       await pumpFrames(tester, frames: 10);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(PricingPage), findsOneWidget);
     });
   });
 }

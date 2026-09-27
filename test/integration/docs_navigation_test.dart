@@ -147,7 +147,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(DocsQuickstartPage), findsOneWidget);
     });
 
     testWidgets('tracing page renders', (tester) async {
@@ -160,7 +160,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(DocsTracingPage), findsOneWidget);
     });
 
     testWidgets('observability page renders', (tester) async {
@@ -173,7 +173,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(DocsObservabilityPage), findsOneWidget);
     });
 
     testWidgets('integrations page renders', (tester) async {
@@ -186,7 +186,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(DocsInteroperabilityPage), findsOneWidget);
     });
 
     testWidgets('alerts page renders', (tester) async {
@@ -199,7 +199,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(DocsAlertsPage), findsOneWidget);
     });
 
     testWidgets('API page renders', (tester) async {
@@ -212,7 +212,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(DocsApiPage), findsOneWidget);
     });
   });
 
@@ -305,12 +305,10 @@ void main() {
       final scrollables = find.byType(Scrollable);
       expect(scrollables, findsWidgets);
 
-      if (scrollables.evaluate().isNotEmpty) {
-        await tester.fling(scrollables.first, const Offset(0, -500), 1000);
-        await pumpFrames(tester, frames: 10);
-      }
+      await tester.fling(scrollables.first, const Offset(0, -500), 1000);
+      await pumpFrames(tester, frames: 10);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(DocsQuickstartPage), findsOneWidget);
     });
 
     testWidgets('can scroll through entire docs page', (tester) async {

@@ -89,7 +89,7 @@ void main() {
       await tester.fling(scrollables.first, const Offset(0, -500), 1000);
       await pumpFrames(tester, frames: 10);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(LandingPage), findsOneWidget);
     });
   });
 
@@ -173,7 +173,7 @@ void main() {
         }
       }
 
-      expect(foundPricing || true, isTrue); // Soft check
+      expect(foundPricing, isTrue, reason: 'Pricing section should be visible after scrolling');
     });
   });
 
@@ -193,7 +193,7 @@ void main() {
       await tester.fling(scrollables.first, const Offset(0, -500), 1000);
       await pumpFrames(tester, frames: 10);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(LandingPage), findsOneWidget);
     });
 
     testWidgets('can scroll through entire page', (tester) async {
@@ -214,7 +214,7 @@ void main() {
         await pumpFrames(tester, frames: 8);
       }
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(LandingPage), findsOneWidget);
     });
 
     testWidgets('can scroll back to top', (tester) async {
@@ -276,7 +276,7 @@ void main() {
         await pumpFrames(tester, frames: 8);
       }
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(LandingPage), findsOneWidget);
     });
 
     testWidgets('footer is reachable', (tester) async {
@@ -312,8 +312,9 @@ void main() {
         }
       }
 
-      expect(foundFooter || find.byType(MaterialApp).evaluate().isNotEmpty,
-          isTrue);
+      // Footer text may not be rendered into the test viewport even after deep scroll.
+      // Assert LandingPage survived; a web e2e test covers footer visibility.
+      expect(find.byType(LandingPage), findsOneWidget);
     });
   });
 
@@ -328,7 +329,8 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      // Hero CTAs should be visible on desktop
+      expect(find.textContaining('AI Observability'), findsOneWidget);
     });
 
     testWidgets('scroll momentum works naturally', (tester) async {
@@ -351,7 +353,7 @@ void main() {
 
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(LandingPage), findsOneWidget);
     });
   });
 }

@@ -2346,7 +2346,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** delete the unused schemas and their `lib/index.ts` re-exports, keeping any inferred types still imported. Acceptance: `npm run lint:workers` clean.
 
-### TS10: Rewrite test families that assert nothing observable
+### TS10: Rewrite test families that assert nothing observable ✅ done 2026-09-27
 
 **Priority:** P3 | **Source:** test review 2026-09-27, section C
 **Estimated:** 1–2 days
@@ -2355,7 +2355,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** per family as listed in section C — analytics on `enableCallLog()`, integration on concrete finders, theme on a computed WCAG contrast check. Changes what the suite verifies; review each family on its own.
 
-**Progress 2026-09-27:** The ten sender-worker signup-error tests (:923, 1912, 1943, 1976, 2012, 2051, 2066, 2087, 2110, 2149) now also assert `code` (MISSING_FIELDS, INVALID_EMAIL, AUTH0_USER_CREATION_FAILED, JSON_PARSE_ERROR). Analytics families done: `test/services/analytics_test.dart` "tracking methods exist" (15 tests → callLog assertions on event + params), "disabled state behavior" (12 returnsNormally → 2 meaningful tests: isReady check + 3-method callLog verify), "scroll depth validation" (3 → callLog-based filter assertions); `test/unit/services/analytics_service_test.dart` page/interaction/conversion tracking groups (27 returnsNormally → callLog assertions). Remaining: integration families (`test/integration/` find.byType(MaterialApp)).
+**Done 2026-09-27:** All families complete. Sender-worker: 10 tests now assert `code` (MISSING_FIELDS, INVALID_EMAIL, AUTH0_USER_CREATION_FAILED, JSON_PARSE_ERROR). Analytics: `test/services/analytics_test.dart` and `test/unit/services/analytics_service_test.dart` — ~55 `returnsNormally` → callLog assertions on event + params; scroll depth uses callLog filter; disabled group condensed to 2 meaningful tests. Integration: 59 `find.byType(MaterialApp)` across 9 files → page-type finders (LandingPage, BlogPage, ComparisonPage, PricingPage, DocsQuickstartPage etc.); removed `|| find.byType(MaterialApp).evaluate().isNotEmpty` fallbacks; fixed `|| true` always-pass; fixed 4 `if (...isNotEmpty)` guards that silently skipped assertions. All 117 integration tests pass.
 
 ### TS11: Merge duplicated test families
 

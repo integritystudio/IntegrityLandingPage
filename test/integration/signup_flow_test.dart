@@ -339,7 +339,7 @@ void main() {
       await pumpFrames(tester, frames: 20);
 
       // Verify pricing page content
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(PricingPage), findsOneWidget);
     });
   });
 }

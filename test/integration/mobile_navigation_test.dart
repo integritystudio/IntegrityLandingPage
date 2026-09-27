@@ -38,9 +38,6 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      // Page should render
-      expect(find.byType(MaterialApp), findsOneWidget);
-
       // Hero should be visible
       expect(find.textContaining('AI Observability'), findsOneWidget);
     });
@@ -58,7 +55,6 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
       expect(find.text('Get in Touch'), findsWidgets);
     });
 
@@ -75,7 +71,7 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.textContaining('Simple, Transparent Pricing'), findsWidgets);
     });
 
     testWidgets('docs page adapts to mobile viewport', (tester) async {
@@ -88,7 +84,6 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
       expect(find.text('Documentation'), findsOneWidget);
     });
   });
@@ -113,7 +108,8 @@ void main() {
         await pumpFrames(tester, frames: 8);
       }
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      // LandingPage survives scrolling
+      expect(find.byType(LandingPage), findsOneWidget);
     });
 
     testWidgets('contact page scrolls on mobile', (tester) async {
@@ -136,7 +132,8 @@ void main() {
         await pumpFrames(tester, frames: 8);
       }
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      // ContactPage survives scrolling
+      expect(find.byType(ContactPage), findsOneWidget);
     });
 
     testWidgets('can scroll to contact section on mobile', (tester) async {
@@ -157,7 +154,8 @@ void main() {
         await pumpFrames(tester, frames: 8);
       }
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      // LandingPage survives deep scroll
+      expect(find.byType(LandingPage), findsOneWidget);
     });
   });
 
@@ -182,11 +180,10 @@ void main() {
 
       // Find text fields and enter data
       final textFields = find.byType(TextField);
-      if (textFields.evaluate().isNotEmpty) {
-        await tester.enterText(textFields.first, 'Mobile Test');
-        await pumpFrames(tester, frames: 3);
-        expect(find.text('Mobile Test'), findsWidgets);
-      }
+      expect(textFields, findsWidgets);
+      await tester.enterText(textFields.first, 'Mobile Test');
+      await pumpFrames(tester, frames: 3);
+      expect(find.text('Mobile Test'), findsWidgets);
     });
 
     testWidgets('quick contact cards stack on mobile', (tester) async {
@@ -228,7 +225,7 @@ void main() {
       await tester.drag(scrollables.first, const Offset(0, -200));
       await pumpFrames(tester, frames: 5);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(LandingPage), findsOneWidget);
     });
 
     testWidgets('fling scrolling works on mobile', (tester) async {
@@ -247,7 +244,7 @@ void main() {
       await tester.fling(scrollables.first, const Offset(0, -800), 2000);
       await pumpFrames(tester, frames: 15);
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(LandingPage), findsOneWidget);
     });
   });
 

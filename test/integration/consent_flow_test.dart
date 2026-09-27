@@ -127,8 +127,7 @@ void main() {
       }
 
       // Either found option or app renders correctly
-      expect(foundOption || find.byType(MaterialApp).evaluate().isNotEmpty,
-          isTrue);
+      expect(foundOption, isTrue, reason: 'Cookie consent options should be visible');
     });
 
     testWidgets('customize preferences option exists', (tester) async {
@@ -161,8 +160,7 @@ void main() {
         }
       }
 
-      expect(foundOption || find.byType(MaterialApp).evaluate().isNotEmpty,
-          isTrue);
+      expect(foundOption, isTrue, reason: 'Cookie consent options should be visible');
     });
   });
 
@@ -190,7 +188,7 @@ void main() {
         await pumpFrames(tester, frames: 5);
       }
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(LandingPage), findsOneWidget);
     });
 
     testWidgets('content is fully interactive after consent', (tester) async {
@@ -221,7 +219,7 @@ void main() {
         await pumpFrames(tester, frames: 10);
       }
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(LandingPage), findsOneWidget);
     });
 
     testWidgets('forms work after consent given', (tester) async {
@@ -293,8 +291,7 @@ void main() {
         }
       }
 
-      expect(foundLink || find.byType(MaterialApp).evaluate().isNotEmpty,
-          isTrue);
+      expect(foundLink, isTrue, reason: 'Privacy/terms links should be visible in the banner');
     });
   });
 
@@ -377,8 +374,8 @@ void main() {
         await pumpFrames(tester, frames: 10);
       }
 
-      // App should continue functioning
-      expect(find.byType(MaterialApp), findsOneWidget);
+      // App should continue functioning — child content is still present
+      expect(find.text('Content'), findsOneWidget);
     });
   });
 
@@ -405,7 +402,7 @@ void main() {
       }
 
       // Page should continue to function
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(LandingPage), findsOneWidget);
 
       // Should be able to interact with the page
       final scrollables = find.byType(Scrollable);
@@ -414,7 +411,7 @@ void main() {
         await pumpFrames(tester, frames: 10);
       }
 
-      expect(find.byType(MaterialApp), findsOneWidget);
+      expect(find.byType(LandingPage), findsOneWidget);
     });
   });
 }
