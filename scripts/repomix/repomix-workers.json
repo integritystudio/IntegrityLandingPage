@@ -1,0 +1,38 @@
+{
+  "$schema": "https://repomix.com/schemas/latest/schema.json",
+  "output": {
+    "parsableStyle": true,
+    "showLineNumbers": true,
+    "compress": false,
+    "fileSummary": true,
+    "directoryStructure": true,
+    "instructionFilePath": "scripts/repomix/instructions/workers.md"
+  },
+  "include": [
+    "workers/**/*.ts",
+    "workers/**/*.mts",
+    "workers/**/*.md",
+    "workers/*/wrangler.toml",
+    "workers/*/package.json",
+    "workers/*/tsconfig.json",
+    "workers/lib/package.json",
+    "workers/lib/tsconfig.json"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "**/*.test.ts",
+      "**/*.d.ts",
+      "**/node_modules/**",
+      "**/.wrangler/**",
+      "**/dist/**",
+      "**/coverage/**",
+      "**/package-lock.json",
+      "**/pnpm-lock.yaml",
+      "**/.env*",
+      "**/.claude/**",
+      "**/.DS_Store"
+    ]
+  }
+}

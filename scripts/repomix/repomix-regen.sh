@@ -13,6 +13,7 @@ DOCS_ONLY_FILE="repomix-docs"
 DOCS_COMPRESSED_FILE="docs-compressed"
 GIT_RANKED_FILE="repomix-git-ranked"
 TESTS_FILE="tests-compressed"
+WORKERS_FILE="repomix-workers"
 
 # absolute filepaths - output
 OUTPUT_PATH="docs/repomix"
@@ -24,6 +25,7 @@ DOCS_ONLY_REPO_FILE="$OUT_DIR/$DOCS_ONLY_FILE.xml"
 DOCS_COMPRESSED_REPO_FILE="$OUT_DIR/$DOCS_COMPRESSED_FILE.xml"
 GIT_RANKED_REPO_FILE="$OUT_DIR/$GIT_RANKED_FILE.xml"
 TESTS_REPO_FILE="$OUT_DIR/$TESTS_FILE.xml"
+WORKERS_REPO_FILE="$OUT_DIR/$WORKERS_FILE.xml"
 GITLOG_TOP_FILE="$OUT_DIR/gitlog-top20.txt"
 
 #relative filepaths - input
@@ -34,6 +36,7 @@ DOCS_ONLY_FILE_NAME="$OUTPUT_PATH/$DOCS_ONLY_FILE.xml"
 DOCS_COMPRESSED_FILE_NAME="$OUTPUT_PATH/$DOCS_COMPRESSED_FILE.xml"
 GIT_RANKED_FILE_NAME="$OUTPUT_PATH/$GIT_RANKED_FILE.xml"
 TESTS_FILE_NAME="$OUTPUT_PATH/$TESTS_FILE.xml"
+WORKERS_FILE_NAME="$OUTPUT_PATH/$WORKERS_FILE.xml"
 GITLOG_TOP_FILE_NAME="$OUTPUT_PATH/gitlog-top20.txt"
 SCRIPT_DIR="$ROOT/scripts/repomix"
 
@@ -45,6 +48,7 @@ DOCS_ONLY_SCRIPT="$SCRIPT_DIR/generate-repomix-docs.sh"
 DOCS_COMPRESSED_SCRIPT="$SCRIPT_DIR/docs-compressed.sh"
 GIT_RANKED_SCRIPT="$SCRIPT_DIR/generate-repomix-git-ranked.sh"
 TESTS_SCRIPT="$SCRIPT_DIR/tests-compressed.sh"
+WORKERS_SCRIPT="$SCRIPT_DIR/generate-repomix-workers.sh"
 GITLOG_TOP_SCRIPT="$SCRIPT_DIR/generate-gitlog-top20.sh"
 GIT_RANKED_INCLUDE_LOGS_COUNT="${REPOMIX_GIT_RANKED_INCLUDE_LOGS_COUNT:-200}"
 
@@ -61,6 +65,7 @@ rm -f \
   "$DOCS_COMPRESSED_REPO_FILE" \
   "$GIT_RANKED_REPO_FILE" \
   "$TESTS_REPO_FILE" \
+  "$WORKERS_REPO_FILE" \
   "$GITLOG_TOP_FILE"
 
 # project-level logging
@@ -102,6 +107,11 @@ bash "$TESTS_SCRIPT" "$ROOT" "$TESTS_REPO_FILE"
 echo "Success!"
 echo
 
+echo "Generating workers repomix file for $PROJECT_DIR at $WORKERS_FILE_NAME"
+bash "$WORKERS_SCRIPT" "$ROOT" "$WORKERS_REPO_FILE"
+echo "Success!"
+echo
+
 echo "Generating top-file git history at $GITLOG_TOP_FILE_NAME"
 bash "$GITLOG_TOP_SCRIPT" 200 "$GITLOG_TOP_FILE"
 echo "Success!"
@@ -129,4 +139,5 @@ print_artifact "$DOCS_ONLY_REPO_FILE" "$DOCS_ONLY_FILE_NAME"
 print_artifact "$DOCS_COMPRESSED_REPO_FILE" "$DOCS_COMPRESSED_FILE_NAME"
 print_artifact "$GIT_RANKED_REPO_FILE" "$GIT_RANKED_FILE_NAME"
 print_artifact "$TESTS_REPO_FILE" "$TESTS_FILE_NAME"
+print_artifact "$WORKERS_REPO_FILE" "$WORKERS_FILE_NAME"
 print_artifact "$GITLOG_TOP_FILE" "$GITLOG_TOP_FILE_NAME"
