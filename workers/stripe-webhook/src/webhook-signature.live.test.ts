@@ -43,18 +43,25 @@ const STALE_OFFSET_SECONDS = REPLAY_WINDOW_SECONDS * 2;
 
 const HTTP_OK = 200;
 const HTTP_UNAUTHORIZED = 401;
-const HTTP_SERVER_ERROR = 500;
 
-/**
- * A verified request continues into the handler, so its final status depends on
- * what the target Worker can reach. With no database binding the idempotency
- * claim fails with 500; fully configured it returns 200. Both prove the
- * signature was accepted — only 401 means verification rejected it.
- */
-const VERIFIED_STATUSES = [HTTP_OK, HTTP_SERVER_ERROR];
+// TS05: tightened from [HTTP_OK, HTTP_SERVER_ERROR]. The dev worker has been
+// database-bound since 2026-08-03 (CR02), so a correctly signed event
+// processes through to 200. Accepting 500 masked any database wiring failure.
+const VERIFIED_STATUSES = [HTTP_OK];
 
 const WEBHOOK_SECRET = process.env['STRIPE_WEBHOOK_SECRET'];
 const TARGET_URL = process.env['STRIPE_WEBHOOK_TARGET_URL'] ?? DEFAULT_TARGET_URL;
+
+// TS05: fail when CI or LIVE_TESTS is set but the secret is absent, so a
+// missing Doppler slot does not silently report "5 skipped, exit 0".
+const CI = process.env['CI'];
+const LIVE_TESTS = process.env['LIVE_TESTS'];
+if ((CI ?? LIVE_TESTS) && !WEBHOOK_SECRET) {
+  throw new Error(
+    'STRIPE_WEBHOOK_SECRET is required when CI or LIVE_TESTS is set — ' +
+      'check that the Doppler slot is populated and the token has read access.',
+  );
+}
 
 const HEX_RADIX = 16;
 const HEX_DIGITS_PER_BYTE = 2;

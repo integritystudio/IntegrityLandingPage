@@ -86,9 +86,10 @@ void main() {
     });
 
     group('signIn', () {
-      test('returns AuthError (404) - not implemented in worker', () async {
-        // The sender-worker intentionally returns 404 for /signin
-        // This test documents the contract
+      // TS05: /signin exists on the worker. Invalid credentials return AuthError
+      // (wrong password) rather than 404. Updated from the stale "404 not implemented"
+      // assertion that contradicted the actual route.
+      test('returns AuthError with invalid credentials', () async {
         final result = await ProvisioningService.signIn(
           'test@example.com',
           'password123',
