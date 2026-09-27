@@ -50,6 +50,41 @@ void main() {
 
       expect(json['organization'], 'ACME Corp');
     });
+
+    test('toJson includes companySize when present', () {
+      const data = ContactFormData(
+        name: 'John',
+        email: 'john@example.com',
+        companySize: '50-200',
+        message: 'Message',
+      );
+      expect(data.toJson()['companySize'], equals('50-200'));
+    });
+
+    test('toJson excludes companySize when null', () {
+      const data = ContactFormData(name: 'John', email: 'john@example.com', message: 'Message');
+      expect(data.toJson().containsKey('companySize'), isFalse);
+    });
+
+    test('toJson includes useCase when present', () {
+      const data = ContactFormData(
+        name: 'John',
+        email: 'john@example.com',
+        useCase: 'AI Observability',
+        message: 'Message',
+      );
+      expect(data.toJson()['useCase'], equals('AI Observability'));
+    });
+
+    test('toJson excludes useCase when null', () {
+      const data = ContactFormData(name: 'John', email: 'john@example.com', message: 'Message');
+      expect(data.toJson().containsKey('useCase'), isFalse);
+    });
+
+    test('toJson excludes message when null', () {
+      const data = ContactFormData(name: 'John', email: 'john@example.com');
+      expect(data.toJson().containsKey('message'), isFalse);
+    });
   });
 
   group('Form Validation', () {
@@ -518,6 +553,14 @@ void main() {
       expect(errors4.hasErrors, true);
     });
 
+    test('hasErrors returns true when companySize error exists', () {
+      expect(ContactFormErrors(companySize: 'Too long').hasErrors, isTrue);
+    });
+
+    test('hasErrors returns true when useCase error exists', () {
+      expect(ContactFormErrors(useCase: 'Too long').hasErrors, isTrue);
+    });
+
     test('hasErrors returns false when no errors', () {
       final errors = ContactFormErrors();
 
@@ -537,6 +580,23 @@ void main() {
       expect(map['email'], 'Invalid email');
       expect(map.containsKey('message'), false);
       expect(map.containsKey('organization'), false);
+    });
+
+    test('toMap includes all fields when all set', () {
+      final map = ContactFormErrors(
+        name: 'Name error',
+        email: 'Email error',
+        organization: 'Org error',
+        message: 'Message error',
+        companySize: 'Size error',
+        useCase: 'Use case error',
+      ).toMap();
+      expect(map['name'], equals('Name error'));
+      expect(map['email'], equals('Email error'));
+      expect(map['organization'], equals('Org error'));
+      expect(map['message'], equals('Message error'));
+      expect(map['companySize'], equals('Size error'));
+      expect(map['useCase'], equals('Use case error'));
     });
   });
 
@@ -569,6 +629,62 @@ void main() {
 
       expect(payload.timestamp, greaterThanOrEqualTo(before));
       expect(payload.timestamp, lessThanOrEqualTo(after));
+    });
+
+    test('includes CSRF token', () {
+      final payload = ContactFormPayload(
+        formData: const ContactFormData(
+          name: 'Test',
+          email: 'test@test.com',
+          message: 'Message',
+        ),
+        csrfToken: 'abc123token',
+      );
+      expect(payload.csrfToken, equals('abc123token'));
+    });
+
+    test('includes user agent', () {
+      final payload = ContactFormPayload(
+        formData: const ContactFormData(
+          name: 'Test',
+          email: 'test@test.com',
+          message: 'Message',
+        ),
+        userAgent: 'Mozilla/5.0 Test Browser',
+      );
+      expect(payload.userAgent, equals('Mozilla/5.0 Test Browser'));
+    });
+  });
+
+  // ContactFormResponse — sealed class type-check and pattern-match
+
+  group('ContactFormResponse sealed class', () {
+    test('ContactFormSuccess is a ContactFormResponse', () {
+      const response = ContactFormSuccess(message: 'Success', submissionId: 'sub_123');
+      expect(response, isA<ContactFormResponse>());
+    });
+
+    test('ContactFormError is a ContactFormResponse', () {
+      const response = ContactFormError(error: 'Error');
+      expect(response, isA<ContactFormResponse>());
+    });
+
+    test('can pattern match on response types', () {
+      const ContactFormResponse success =
+          ContactFormSuccess(message: 'Success', submissionId: 'sub_123');
+      const ContactFormResponse error = ContactFormError(error: 'Error');
+
+      final successResult = switch (success) {
+        ContactFormSuccess(:final message) => 'Got success: $message',
+        ContactFormError(:final error) => 'Got error: $error',
+      };
+      final errorResult = switch (error) {
+        ContactFormSuccess(:final message) => 'Got success: $message',
+        ContactFormError(:final error) => 'Got error: $error',
+      };
+
+      expect(successResult, equals('Got success: Success'));
+      expect(errorResult, equals('Got error: Error'));
     });
   });
 }
