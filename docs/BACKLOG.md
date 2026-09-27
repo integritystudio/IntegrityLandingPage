@@ -2386,7 +2386,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Done 2026-09-27:** RS256 branch (`verifyJwt — RS256 via JWKS`, 5 tests), JWKS TTL expiry (2 tests), JWKS unknown-kid cooldown (2 tests), `sha256Hex` (4 tests), `enrichReceiverErrorBody` via `/send` endpoint (6 tests), `ProvisioningService.signIn` (6 tests), `ProvisioningService.forgotPassword` (6 tests), dashboard request path + Authorization header (7 tests), `state.extra` redirect guards for 6 protected routes (13 tests), `StatusSection` widget test (12 tests), `CookieBanner` consent-level assertions (4 tests), AuthPage forgot-password widget tests (13 tests). All items complete.
 
-### TS14: A missing `users` row is 401 on `/bootstrap` but 404 on `/me` and `/api-keys` (review)
+### TS14: A missing `users` row is 401 on `/bootstrap` but 404 on `/me` and `/api-keys` (review) ✅ done 2026-09-27
 
 **Priority:** P4 | **Source:** test review 2026-09-27, section A12
 **Estimated:** 30 minutes
@@ -2395,7 +2395,9 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** pick one status, apply it in all three routes, and update the tests.
 
-### TS15: Decide whether `audit_log.action` gets a database check constraint (review)
+**Done 2026-09-27:** standardized on 404 (semantically correct — valid JWT, no provisioned row is a data-not-found, not an auth failure). Changed `resolveUserId` in `helpers.ts` to return `notFound` instead of `unauthorized` when the users row is empty. Updated `bootstrap.test.ts` assertion from 401 to 404. All 238 api-gateway tests pass.
+
+### TS15: Decide whether `audit_log.action` gets a database check constraint (review) ✅ decided 2026-09-27
 
 **Priority:** P4 | **Source:** production catalog query 2026-09-27
 **Estimated:** 30 minutes
@@ -2404,7 +2406,9 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** decision first. If yes, one migration with `check (action in (...))` matching `AuditActionSchema`, and a test asserting the two lists agree.
 
-### TS16: Confirm no external caller sends extra fields to `POST /v1/orgs/:id/api-keys` (review)
+**Decision 2026-09-27: No constraint.** `writeAuditLog` is the only writer (the `create_audit_log_entry` SQL function has no callers per `audit.ts` comment), the vocabulary is 4 actions, and a migration per action is friction with no safety gain beyond what Zod already enforces at the write site.
+
+### TS16: Confirm no external caller sends extra fields to `POST /v1/orgs/:id/api-keys` (review) ⚠️ partially blocked
 
 **Priority:** P4 | **Source:** `df174a2` follow-up
 **Estimated:** 30 minutes
@@ -2412,3 +2416,5 @@ Filed from a nine-area review of every test file, read against the code under te
 **Context:** `CreateApiKeyBodySchema` is `.strict()` and now enforced, so a body with any field besides `name`/`expires_at` returns 422. No client in this repo calls the route; the dashboard lives elsewhere.
 
 **Scope:** grep the dashboard repo's create-key call. If it sends extra fields, drop `.strict()` or trim the payload there.
+
+**Status 2026-09-27:** dashboard repo (observability-toolkit frontend / IntegrityMonitor) is not available locally in any form that has an api-gateway call site for `POST /v1/orgs/:id/api-keys`. Checked `is-internal/IntegrityMonitor/src/` — no results for `orgs.*api-keys` or `v1/orgs`. Confirm by grepping the live dashboard codebase when available.
