@@ -134,20 +134,6 @@ export interface UsageBucket {
 // Re-exports from Zod schema files for convenience
 // ============================================================================
 
-// Provisioning
-export type {
-  ProvisioningJob,
-  ProvisioningJobType,
-  ProvisioningJobSource,
-  ProvisioningJobStatus,
-  UserCreatedPayload,
-  UserUpdatedPayload,
-  MembershipChangedPayload,
-  SubscriptionChangedPayload,
-  EntitlementsRecomputedPayload,
-  QuotaVersionBumpedPayload,
-} from './provisioning';
-
 // Usage
 export type {
   UsageEvent,

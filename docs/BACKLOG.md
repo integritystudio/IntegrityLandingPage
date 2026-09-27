@@ -2337,7 +2337,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** delete; run `flutter test` and each worker's `npm test`. Acceptance: suites green, counts drop by the numbers above.
 
-### TS09: Remove schema source files that nothing parses
+### TS09: Remove schema source files that nothing parses ✅ done 2026-09-27
 
 **Priority:** P3 | **Source:** test review 2026-09-27, section B; tests removed in `bf12226`
 **Estimated:** 1 hour
