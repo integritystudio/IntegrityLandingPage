@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { ERROR_CODE } from './types';
 import { FetchMock } from './test-helpers/fetch-mock';
 import { fixtures, SignupScenarioBuilder } from './test-helpers/fixtures';
 
@@ -874,8 +875,9 @@ describe('Sender Worker', () => {
       const response = await worker.fetch(request, mockEnv);
 
       expect(response.status).toBe(400);
-      const data = await response.json() as { error: string };
+      const data = await response.json() as ErrorResponse;
       expect(data.error).toContain('email');
+      expect(data.code).toBe(ERROR_CODE.MISSING_FIELDS);
     });
 
     it('returns 400 when password is missing', async () => {
@@ -888,8 +890,9 @@ describe('Sender Worker', () => {
       const response = await worker.fetch(request, mockEnv);
 
       expect(response.status).toBe(400);
-      const data = await response.json() as { error: string };
+      const data = await response.json() as ErrorResponse;
       expect(data.error).toContain('password');
+      expect(data.code).toBe(ERROR_CODE.MISSING_FIELDS);
     });
 
     it('returns 400 for invalid email format', async () => {
@@ -902,8 +905,9 @@ describe('Sender Worker', () => {
       const response = await worker.fetch(request, mockEnv);
 
       expect(response.status).toBe(400);
-      const data = await response.json() as { error: string };
+      const data = await response.json() as ErrorResponse;
       expect(data.error).toContain('email');
+      expect(data.code).toBe(ERROR_CODE.INVALID_EMAIL);
     });
 
     it('returns 400 when email is a non-string (e.g. a number)', async () => {
@@ -916,8 +920,10 @@ describe('Sender Worker', () => {
       const response = await worker.fetch(request, mockEnv);
 
       expect(response.status).toBe(400);
-      const data = await response.json() as { error: string };
+      const data = await response.json() as ErrorResponse;
       expect(data.error).toContain('email');
+      // email: 42 is treated as "missing email or password" (not a string), not an invalid format
+      expect(data.code).toBe(ERROR_CODE.MISSING_FIELDS);
     });
 
     it('returns 500 when Auth0 createUser fails', async () => {
@@ -947,8 +953,9 @@ describe('Sender Worker', () => {
       const response = await worker.fetch(request, mockEnv);
 
       expect(response.status).toBe(500);
-      const data = await response.json() as { error: string };
+      const data = await response.json() as ErrorResponse;
       expect(data.error).toBe('signup failed');
+      expect(data.code).toBe(ERROR_CODE.AUTH0_USER_CREATION_FAILED);
 
       fetchSpy.mockRestore();
     });
@@ -1299,8 +1306,10 @@ describe('Sender Worker', () => {
       const response = await worker.fetch(request, mockEnv);
 
       expect(response.status).toBe(400);
-      const data = await response.json() as { error: string };
+      const data = await response.json() as ErrorResponse;
       expect(data.error).toContain('email');
+      // email: 42 is treated as "missing email or password" (not a string), not an invalid format
+      expect(data.code).toBe(ERROR_CODE.MISSING_FIELDS);
     });
 
     it('returns 401 when Auth0 ROPC rejects the credentials', async () => {
@@ -1723,6 +1732,7 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(400);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toBe('invalid json');
+      expect(data.code).toBe(ERROR_CODE.JSON_PARSE_ERROR);
     });
   });
 
@@ -1736,6 +1746,7 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(400);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toBe('invalid json');
+      expect(data.code).toBe(ERROR_CODE.JSON_PARSE_ERROR);
     });
   });
 
@@ -1753,6 +1764,7 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(400);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toBe('invalid json');
+      expect(data.code).toBe(ERROR_CODE.JSON_PARSE_ERROR);
     });
   });
 
@@ -2633,6 +2645,7 @@ describe('Sender Worker', () => {
       expect(response.status).toBe(400);
       const data = await response.json() as ErrorResponse;
       expect(data.error).toBe('invalid json');
+      expect(data.code).toBe(ERROR_CODE.JSON_PARSE_ERROR);
     });
 
     it('returns 429 when rate limit is exceeded', async () => {
