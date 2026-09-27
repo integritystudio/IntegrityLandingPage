@@ -186,4 +186,15 @@ void main() {
       expect(magnet.requiresEmail, true);
     });
   });
+
+  group('StatusServiceContent', () {
+    test('degraded service has isOperational false', () {
+      const service = StatusServiceContent(
+        name: 'Database',
+        status: 'Degraded',
+      );
+
+      expect(service.isOperational, isFalse);
+    });
+  });
 }

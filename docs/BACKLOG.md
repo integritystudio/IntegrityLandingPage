@@ -2188,7 +2188,7 @@ Filed from a read of one paying user (`alyshia@inventoryai.io`, org `team-invent
 
 **Scope:** either make `users.tier` a generated/derived value (trigger from `organizations.current_plan` of the default org) or remove it and the two fallbacks so a missing org plan is an error rather than `starter`. Acceptance: `grep -rn "user.tier\|users.tier" workers supabase` finds no read path, or the column is provably always equal to the default org's plan.
 
-### UA05: `subscriptions.created_at` is the last webhook touch, not the creation time
+### ✅ UA05 — done 2026-09-27: `subscriptions.created_at` is the last webhook touch, not the creation time
 
 **Priority:** P3 | **Source:** audit 2026-09-18, `workers/stripe-webhook/src/supabase.ts` `upsertSubscription`
 **Estimated:** 30 minutes
@@ -2238,7 +2238,7 @@ That also closes **UA01 step 5**: the three probes wrote `usage_events` rows wit
 
 **Original scope, for the record:** pick one format. Cheapest: teach `parseApiKey`/`verifyApiKey` the issued shape — `obtk_` + 64 hex, prefix = first 8 hex, verify by `sha256(token) == api_keys.hash` (no HMAC secret needed; `API_KEY_HMAC_SECRET` becomes unused on this path) — and keep `int_live_` only if something still mints it (nothing does; the design doc's format was never implemented). Acceptance: the probe above returns 200 with the growth projection, and a `usage_events` row with `source = 'api'` appears for the org.
 
-### UA08: any valid credential can spend another org's quota, and now shows up on their usage ledger
+### ✅ UA08 — done 2026-09-27: any valid credential can spend another org's quota, and now shows up on their usage ledger
 
 **Priority:** P2 | **Source:** observed in production data while verifying UA07, 2026-09-22
 **Estimated:** 2 hours
@@ -2268,7 +2268,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** read the production receiver's response in `observability-toolkit`. If it returns an object, fix the Dart model — the app's `/send` provisioning is failing. Either way, assert the result variant in all six tests. Acceptance: a contract test fails when the field type disagrees.
 
-### TS02: `npm test` reaches the real network from three test files
+### ✅ TS02 — done 2026-09-27: `npm test` reaches the real network from three test files
 
 **Priority:** P2 | **Source:** test review 2026-09-27, section A5
 **Estimated:** 1 hour
@@ -2277,7 +2277,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** route mocks by URL (the `index.test.ts:1867` pattern), and install a suite-level fetch stub that throws on unmatched URLs. Acceptance: all three suites pass with networking disabled.
 
-### TS03: stripe-webhook cron tests never assert which handler ran
+### ✅ TS03 — done 2026-09-27: stripe-webhook cron tests never assert which handler ran
 
 **Priority:** P2 | **Source:** test review 2026-09-27, section A7
 **Estimated:** 1 hour
@@ -2286,7 +2286,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** one `it.each` over the five subscribed event types asserting the exact handler called and the other four not. Acceptance: swapping two cases in the router's switch fails the suite.
 
-### TS04: api-gateway quota fail-open has no test that reaches it
+### ✅ TS04 — done 2026-09-27: api-gateway quota fail-open has no test that reaches it
 
 **Priority:** P2 | **Source:** test review 2026-09-27, section A6
 **Estimated:** 1 hour
@@ -2304,7 +2304,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** point the Dart suite at the `*-dev` workers or delete it; drop `continue-on-error`. Tighten the Stripe suite to 200, and fail when `CI`/`LIVE_TESTS` is set but the secret is absent.
 
-### TS06: `/v1/orgs/:id/usage` builds its month boundary in local time
+### ✅ TS06 — done 2026-09-27: `/v1/orgs/:id/usage` builds its month boundary in local time
 
 **Priority:** P4 | **Source:** test review 2026-09-27, section A2 (possible duplicate of the CR26 item 4 fix, which covered `/bootstrap` only)
 **Estimated:** 30 minutes
@@ -2322,7 +2322,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** give the fields controllers (or a form key reset) and assert empty fields after success. Acceptance: the test fails against the current widget.
 
-### TS08: Delete tests and helpers that never run or test nothing
+### TS08: Delete tests and helpers that never run or test nothing ✅ done 2026-09-27
 
 **Priority:** P3 | **Source:** test review 2026-09-27, section B
 **Estimated:** 2 hours
