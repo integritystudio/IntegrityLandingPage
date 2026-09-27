@@ -96,7 +96,8 @@ enabled = true
 
 # --- dev environment (`npm run deploy`) -------------------------------------
 # Publishes to a separate Worker so a local deploy cannot overwrite the one
-# api.integritystudio.ai points at.
+# api.integritystudio.dev points at (custom domain, CR13). The `.ai` hostname in
+# the incident below is the toolkit's `obtool-api` wildcard; do not repoint it.
 #
 # `routes = []` MUST be explicit, and is the whole reason this comment is long.
 # `routes` is an INHERITABLE key: a named environment that omits it inherits the
