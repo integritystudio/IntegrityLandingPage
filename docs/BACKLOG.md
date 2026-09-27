@@ -2255,3 +2255,156 @@ The comment at the `preVerifyToken` call says an invalid token "returns 401 with
 
 **Scope:** resolve the credential's org during `preVerifyToken` (it already loads the key row; the JWT branch needs the membership lookup the handlers repeat) and refuse a mismatch *before* `enforceOrgQuota`. Keep the handlers' checks — defence in depth — but make the gateway's first gate answer "may this credential act on this org?", not just "is it real?". Acceptance: a valid key for org A hitting org B's URL returns 403, org B's quota counter does not move, and no `usage_events` row appears on org B.
 
+## Test Suite Review 2026-09-27 (TS01–TS16)
+
+Filed from a nine-area review of every test file, read against the code under test — not from `docs/repomix/tests-compressed.xml`, which strips every `test()`/`it()` body. Full findings, with `path:line` for each, are in [test-suite-review-2026-09-27.md](test-suite-review-2026-09-27.md); section letters below refer to it. Done in the same session and **not** listed here: the ~230 `workers/lib` tests of schemas no request parses were deleted (`bf12226`), `CreateApiKeyBodySchema` was wired into the create-key route (`df174a2`), and `AuditActionSchema` was narrowed to the four emitted actions and enforced at runtime in `writeAuditLog` (`df174a2`, `a3aa746`).
+
+### TS01: Provisioning `received` is cast to `String` but the receiver contract returns an object
+
+**Priority:** P2 | **Source:** test review 2026-09-27, section A1
+**Estimated:** 1 hour
+
+**Context:** `lib/services/provisioning_service.dart:389` does `data['received'] as String?`; the receiver stub (`workers/receiver-worker/src/index.ts:126`) and its `InboxSuccessResponse` return an object. Six tests in `test/services/provisioning_service_contract_test.dart` (:29, 54, 80, 98, 120, 140) fixture `'received': {}`, take the TypeError → `ProvisioningError` path, and pass only because they assert the request body.
+
+**Scope:** read the production receiver's response in `observability-toolkit`. If it returns an object, fix the Dart model — the app's `/send` provisioning is failing. Either way, assert the result variant in all six tests. Acceptance: a contract test fails when the field type disagrees.
+
+### TS02: `npm test` reaches the real network from three test files
+
+**Priority:** P2 | **Source:** test review 2026-09-27, section A5
+**Estimated:** 1 hour
+
+**Context:** `workers/sender-worker/src/index.test.ts:1569` binds `mockResolvedValueOnce` to the Supabase lookup, so the Stripe call goes through `vi.spyOn` call-through to api.stripe.com (measured: 401 "Invalid API Key"); it asserts only 500, which both branches produce, so the named branch is never tested. `:1526, 1829, 1846` fetch `https://supabase.test`. `workers/api-gateway/src/index.test.ts:31` fetches `https://test.supabase.co` for `/health` (up to the 5 s DB timeout on a slow resolver).
+
+**Scope:** route mocks by URL (the `index.test.ts:1867` pattern), and install a suite-level fetch stub that throws on unmatched URLs. Acceptance: all three suites pass with networking disabled.
+
+### TS03: stripe-webhook cron tests never assert which handler ran
+
+**Priority:** P2 | **Source:** test review 2026-09-27, section A7
+**Estimated:** 1 hour
+
+**Context:** `workers/stripe-webhook/src/index.test.ts:700, 727, 752, 777` are titled "handleX called" and assert `claimEvent`/`resolveDeadLetter` only. They pass because sibling handler mocks keep `mockResolvedValue({ok:true})` across `vi.clearAllMocks`, so a mis-routed event goes green. The cron is the only retry path (CR20).
+
+**Scope:** one `it.each` over the five subscribed event types asserting the exact handler called and the other four not. Acceptance: swapping two cases in the router's switch fails the suite.
+
+### TS04: api-gateway quota fail-open has no test that reaches it
+
+**Priority:** P2 | **Source:** test review 2026-09-27, section A6
+**Estimated:** 1 hour
+
+**Context:** the catch at `workers/api-gateway/src/lib/quota.ts:140` is the fail-open path. `index.test.ts:228` ("fail-open when quota DO is unavailable") mocks `enforceOrgQuota` to `{ok:true}` and asserts not-429, so it tests the mock. `lib/quota.ts` has no test file; its 429 mapping and header derivation are untested too.
+
+**Scope:** add `src/lib/quota.test.ts` with a DO namespace whose stub throws, and one that returns 429. Acceptance: removing the catch fails a test.
+
+### TS05: Two live suites cannot fail
+
+**Priority:** P3 | **Source:** test review 2026-09-27, section A9
+**Estimated:** 2 hours
+
+**Context:** `test/services/provisioning_service_live_test.dart` runs in CI with `continue-on-error: true` against the production sender URL; its header says "staging", which does not exist. Its four `skip:` reasons (:57, 104, 139, 169) are stale, and unskipping :57 would create real Auth0 users in the production tenant; :89 asserts 404 for a `/signin` route that exists. `workers/stripe-webhook/src/webhook-signature.live.test.ts:54` accepts 500 as "signature verified" on the premise that dev has no DB binding, false since 2026-08-03; a missing Doppler slot reports "5 skipped, exit 0".
+
+**Scope:** point the Dart suite at the `*-dev` workers or delete it; drop `continue-on-error`. Tighten the Stripe suite to 200, and fail when `CI`/`LIVE_TESTS` is set but the secret is absent.
+
+### TS06: `/v1/orgs/:id/usage` builds its month boundary in local time
+
+**Priority:** P4 | **Source:** test review 2026-09-27, section A2 (possible duplicate of the CR26 item 4 fix, which covered `/bootstrap` only)
+**Estimated:** 30 minutes
+
+**Context:** `workers/api-gateway/src/routes/usage.ts:101` uses `new Date(y, m, 1).toISOString()`, the form `bootstrap.ts:113` fixed. Workers run in UTC, so production is unaffected; any machine east of UTC over-counts. `usage.test.ts:174` derives both sides of its assertion from the same value and cannot fail.
+
+**Scope:** use the UTC constructor and assert `gte.<UTC yyyy-mm-01>` under `Asia/Tokyo`, as `bootstrap.test.ts:492` does.
+
+### TS07: Contact form "clears form" on success cannot clear visible fields
+
+**Priority:** P3 | **Source:** test review 2026-09-27, section A8
+**Estimated:** 1 hour
+
+**Context:** `_formData.clear()` (`lib/widgets/sections/contact_section.dart:524`) resets state, but `FormTextField` uses `initialValue` (`lib/widgets/common/form_fields.dart:118`), so typed text stays on screen. `test/widgets/sections/contact_section_test.dart:1076` is titled "…and clears form" and never asserts clearing; the W2 comment at :382 cites it as the test that does.
+
+**Scope:** give the fields controllers (or a form key reset) and assert empty fields after success. Acceptance: the test fails against the current widget.
+
+### TS08: Delete tests and helpers that never run or test nothing
+
+**Priority:** P3 | **Source:** test review 2026-09-27, section B
+**Estimated:** 2 hours
+
+**Context:** about 290 tests with zero coverage value:
+- `integration_test/e2e/` (48) — no CI job, script or workflow runs it; also `test_driver/`.
+- `workers/tests/org-quota-do.test.ts` (26) — outside every vitest include, tests inline simulators, 19 `tsc --strict` errors.
+- `test/config/contact_content_test.dart` (100) plus the members it tests in `lib/config/content/contact_content.dart`, which nothing in `lib/` reads and which have drifted from `content.yaml`.
+- `test/widgets/sections/social_proof_section_test.dart.inactive` (53) and `lib/widgets/sections/social_proof_section.dart`, mounted nowhere.
+- `test/widgets/common/base_action_button_test.dart` (21), `test/widgets/sections/status_section_test.dart` (11; move :91 to `models_test`), `test/unit/services/tracking_none_test.dart` (24), `test/widget_test.dart` (8).
+- Zero-caller helpers listed in section E of the review.
+
+**Scope:** delete; run `flutter test` and each worker's `npm test`. Acceptance: suites green, counts drop by the numbers above.
+
+### TS09: Remove schema source files that nothing parses
+
+**Priority:** P3 | **Source:** test review 2026-09-27, section B; tests removed in `bf12226`
+**Estimated:** 1 hour
+
+**Context:** the tests are gone, but the schemas remain: `workers/lib/types/provisioning.ts`, `supabase.ts`, `handler-options.ts` (whose own header says to delete it), and 20 of 27 schemas in `schemas.ts`. Two are duplicated with different shapes: `UsageBucketSchema` (`schemas.ts:123` vs `usage.ts:77`, consumers use a hand-written interface) and `StripeEventSchema` ≡ `StripeEventBodySchema`.
+
+**Scope:** delete the unused schemas and their `lib/index.ts` re-exports, keeping any inferred types still imported. Acceptance: `npm run lint:workers` clean.
+
+### TS10: Rewrite test families that assert nothing observable
+
+**Priority:** P3 | **Source:** test review 2026-09-27, section C
+**Estimated:** 1–2 days
+
+**Context:** about 110 of 122 `test/services/analytics_test.dart` and 55 of 73 `test/unit/services/analytics_service_test.dart` assert `returnsNormally` on void methods; about 60 of 117 `test/integration/` tests end in `find.byType(MaterialApp)` or guard their only assertion in `if`; theme tests copy `lib/theme` literals; ten sender-worker signup-error tests assert `error` but never `code`.
+
+**Scope:** per family as listed in section C — analytics on `enableCallLog()`, integration on concrete finders, theme on a computed WCAG contrast check. Changes what the suite verifies; review each family on its own.
+
+### TS11: Merge duplicated test families
+
+**Priority:** P4 | **Source:** test review 2026-09-27, section D
+**Estimated:** 1 day
+
+**Context:** the same promises are maintained in two or more places — the two contact-service test files (keep the real-Dio `test/services/` one and port the unit file's unique cases, then delete its 889-line `.mocks.dart`), consent model, provisioning contract vs unit, `app_test` vs `app_router_test` (24 routes), SharedAppBar per page (~25), viewport and back-button tests per page, `dashboard_service_test` error blocks ×6, api-gateway portal/checkout and create/revoke gates.
+
+**Scope:** as tabled in section D. Behaviour-preserving; run the suite after each file.
+
+### TS12: Stale tests, comments and docs
+
+**Priority:** P4 | **Source:** test review 2026-09-27, section E
+**Estimated:** 2 hours
+
+**Context:** `test/unit/services/contact_service_test.dart:1361-1463` pins "500 is not retryable" while production retries; `app_test.dart` names `_checkConsent`/`_createRouter`, which do not exist; `app_router_test:430` says 22 routes (44 exist); `test/README.md` counts and layout; `scripts/repomix/instructions/tests.md` claims 15 known sender-worker failures (the suite is green); `workers/sender-worker/wrangler.toml:50-56, 109-113, 138-143` say `SHARED_SECRET` is bound and dev `RECEIVER` points at production (both closed); `workers/lib/auth.test.ts:344-354` describes Supabase ES256.
+
+**Scope:** delete or correct each, per section E.
+
+### TS13: Coverage gaps the review found
+
+**Priority:** P3 | **Source:** test review 2026-09-27, section G
+**Estimated:** 2 days
+
+**Context:** zero tests for the AuthPage forgot-password flow and `ProvisioningService.forgotPassword`/`signIn`; 17 of 44 routes have no route→page test and the `state.extra` redirect guards are untested through `createAppRouter`; `StatusSection` has no widget test; `CookieBanner` never asserts which consent level is saved; `workers/lib/auth.ts` RS256 branch (the one production uses) and JWKS TTL/cooldown; `crypto.ts` `sha256Hex`; sender-worker `enrichReceiverErrorBody`; no dashboard test asserts the request path or `Authorization` header.
+
+**Scope:** as listed in section G, highest-risk first (RS256, redirect guards, forgot-password).
+
+### TS14: A missing `users` row is 401 on `/bootstrap` but 404 on `/me` and `/api-keys` (review)
+
+**Priority:** P4 | **Source:** test review 2026-09-27, section A12
+**Estimated:** 30 minutes
+
+**Context:** the tests pin the inconsistency rather than a rule. A client that retries on 404 and re-authenticates on 401 behaves differently per route for the same state.
+
+**Scope:** pick one status, apply it in all three routes, and update the tests.
+
+### TS15: Decide whether `audit_log.action` gets a database check constraint (review)
+
+**Priority:** P4 | **Source:** production catalog query 2026-09-27
+**Estimated:** 30 minutes
+
+**Context:** production `public.audit_log` has a primary key and three foreign keys, no check constraint; `action` is plain `text`. `writeAuditLog` now refuses unknown actions (`a3aa746`), but any other writer — the SQL editor, a future Worker — can store any string. A constraint would close that, at the cost of a migration for every new action.
+
+**Scope:** decision first. If yes, one migration with `check (action in (...))` matching `AuditActionSchema`, and a test asserting the two lists agree.
+
+### TS16: Confirm no external caller sends extra fields to `POST /v1/orgs/:id/api-keys` (review)
+
+**Priority:** P4 | **Source:** `df174a2` follow-up
+**Estimated:** 30 minutes
+
+**Context:** `CreateApiKeyBodySchema` is `.strict()` and now enforced, so a body with any field besides `name`/`expires_at` returns 422. No client in this repo calls the route; the dashboard lives elsewhere.
+
+**Scope:** grep the dashboard repo's create-key call. If it sends extra fields, drop `.strict()` or trim the payload there.
