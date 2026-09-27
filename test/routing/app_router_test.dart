@@ -3,6 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:integrity_studio_ai/routing/app_router.dart';
 import 'package:integrity_studio_ai/routing/cookie_shell.dart';
+import 'package:integrity_studio_ai/config/content/constants.dart';
+import 'package:integrity_studio_ai/services/provisioning_service.dart';
+import 'package:integrity_studio_ai/pages/dashboard_page.dart';
+import 'package:integrity_studio_ai/pages/billing_status_page.dart';
+import 'package:integrity_studio_ai/pages/usage_summary_page.dart';
+import 'package:integrity_studio_ai/pages/entitlements_page.dart';
+import 'package:integrity_studio_ai/pages/quota_status_page.dart';
 import 'package:integrity_studio_ai/pages/landing_page.dart';
 import 'package:integrity_studio_ai/pages/about_page.dart';
 import 'package:integrity_studio_ai/pages/pricing_page.dart';
@@ -565,6 +572,116 @@ void main() {
 
       // /reports does not start with '/reports/' so it goes to error handler
       expect(router, isNotNull);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // state.extra redirect guards
+  //
+  // Protected routes require a typed extra argument. Without it the router
+  // redirects to /login (auth-required routes) or /home (checkout). These tests
+  // prove the guard fires — they do NOT check the page that renders on redirect,
+  // only that the router did not land on the intended path.
+  // ---------------------------------------------------------------------------
+
+  group('state.extra redirect guards', () {
+    /// Navigate to [path] with [extra] on a live router. Returns current path.
+    Future<String> navigateTo(
+      WidgetTester tester,
+      String path, {
+      Object? extra,
+    }) async {
+      final router = createAppRouter(
+        onConsentGiven: () {},
+        onShowCookieSettings: () {},
+      );
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(size: Size(1920, 1080), disableAnimations: true),
+          child: MaterialApp.router(
+            routerConfig: router,
+            theme: testTheme,
+          ),
+        ),
+      );
+      await tester.pump();
+      router.go(path, extra: extra);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      clearOverflowExceptions(tester);
+      return router.routerDelegate.currentConfiguration.uri.path;
+    }
+
+    testWidgets('/provision without AuthSuccess extra redirects to /login', (tester) async {
+      final path = await navigateTo(tester, Routes.provision);
+      expect(path, Routes.login);
+    });
+
+    testWidgets('/provision with AuthSuccess extra proceeds to /provision', (tester) async {
+      final auth = AuthSuccess(jwt: 'test.jwt', email: 'user@example.com');
+      final path = await navigateTo(tester, Routes.provision, extra: auth);
+      expect(path, Routes.provision);
+    });
+
+    testWidgets('/dashboard without DashboardArgs extra redirects to /login', (tester) async {
+      final path = await navigateTo(tester, Routes.dashboard);
+      expect(path, Routes.login);
+    });
+
+    testWidgets('/dashboard with DashboardArgs extra proceeds to /dashboard', (tester) async {
+      final args = DashboardArgs(jwt: 'test.jwt');
+      final path = await navigateTo(tester, Routes.dashboard, extra: args);
+      expect(path, Routes.dashboard);
+    });
+
+    testWidgets('/billing without BillingStatusArgs extra redirects to /login', (tester) async {
+      final path = await navigateTo(tester, Routes.billingStatus);
+      expect(path, Routes.login);
+    });
+
+    testWidgets('/billing with BillingStatusArgs extra proceeds to /billing', (tester) async {
+      final args = BillingStatusArgs(jwt: 'test.jwt', orgId: 'org-1');
+      final path = await navigateTo(tester, Routes.billingStatus, extra: args);
+      expect(path, Routes.billingStatus);
+    });
+
+    testWidgets('/usage without UsageSummaryArgs extra redirects to /login', (tester) async {
+      final path = await navigateTo(tester, Routes.usageSummary);
+      expect(path, Routes.login);
+    });
+
+    testWidgets('/usage with UsageSummaryArgs extra proceeds to /usage', (tester) async {
+      final args = UsageSummaryArgs(jwt: 'test.jwt', orgId: 'org-1', orgName: 'Test Org', monthlyUnitsQuota: 0);
+      final path = await navigateTo(tester, Routes.usageSummary, extra: args);
+      expect(path, Routes.usageSummary);
+    });
+
+    testWidgets('/entitlements without EntitlementsArgs extra redirects to /login', (tester) async {
+      final path = await navigateTo(tester, Routes.entitlements);
+      expect(path, Routes.login);
+    });
+
+    testWidgets('/entitlements with EntitlementsArgs extra proceeds to /entitlements', (tester) async {
+      final args = EntitlementsArgs(jwt: 'test.jwt', orgId: 'org-1', orgName: 'Test Org');
+      final path = await navigateTo(tester, Routes.entitlements, extra: args);
+      expect(path, Routes.entitlements);
+    });
+
+    testWidgets('/quota without QuotaStatusArgs extra redirects to /login', (tester) async {
+      final path = await navigateTo(tester, Routes.quotaStatus);
+      expect(path, Routes.login);
+    });
+
+    testWidgets('/quota with QuotaStatusArgs extra proceeds to /quota', (tester) async {
+      final args = QuotaStatusArgs(jwt: 'test.jwt', orgId: 'org-1', orgName: 'Test Org');
+      final path = await navigateTo(tester, Routes.quotaStatus, extra: args);
+      expect(path, Routes.quotaStatus);
+    });
+
+    testWidgets('/checkout without CheckoutArgs extra redirects to home', (tester) async {
+      final path = await navigateTo(tester, Routes.checkout);
+      // Missing CheckoutArgs redirects to Routes.home (not Routes.login)
+      expect(path, isNot(Routes.checkout));
     });
   });
 

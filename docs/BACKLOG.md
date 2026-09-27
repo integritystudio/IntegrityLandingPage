@@ -2384,7 +2384,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** as listed in section G, highest-risk first (RS256, redirect guards, forgot-password).
 
-**Done 2026-09-27:** RS256 branch (`verifyJwt — RS256 via JWKS`, 5 tests), JWKS TTL expiry (2 tests), JWKS unknown-kid cooldown (2 tests), `sha256Hex` (4 tests), `enrichReceiverErrorBody` via `/send` endpoint (6 tests), `ProvisioningService.signIn` (6 tests), `ProvisioningService.forgotPassword` (6 tests), dashboard request path + Authorization header (7 tests × 6 endpoints). Remaining: `state.extra` redirect guards in `createAppRouter`, `StatusSection` widget test, `CookieBanner` consent-level assertion, AuthPage forgot-password widget tests.
+**Done 2026-09-27:** RS256 branch (`verifyJwt — RS256 via JWKS`, 5 tests), JWKS TTL expiry (2 tests), JWKS unknown-kid cooldown (2 tests), `sha256Hex` (4 tests), `enrichReceiverErrorBody` via `/send` endpoint (6 tests), `ProvisioningService.signIn` (6 tests), `ProvisioningService.forgotPassword` (6 tests), dashboard request path + Authorization header (7 tests), `state.extra` redirect guards for 6 protected routes (13 tests). Remaining: `StatusSection` widget test, `CookieBanner` consent-level assertion, AuthPage forgot-password widget tests.
 
 ### TS14: A missing `users` row is 401 on `/bootstrap` but 404 on `/me` and `/api-keys` (review)
 
