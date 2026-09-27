@@ -144,12 +144,12 @@ Sentry `ingest.sentry.io` endpoint shared across staging and prod. CSP allows on
 
 **Severity:** CRITICAL — ✅ FULLY REMEDIATED
 **Category:** Security — Access Control Staleness
-**File:** `workers/lib/types.zod.ts:39-45` | Commit: `312070b`
+**File:** `supabase/migrations/20260326000000_update_custom_access_token_hook.sql` | Commit: `b352a2c` (2026-03-26). The M18-V01 commit itself, `1d0778c` (`312070b` before the 2026-07-29 history rewrite, CR01), edited only a Zod mirror that nothing imported
 
 JWT tokens from Supabase included mutable billing state claims (`default_org_plan` and `default_org_billing_status`) that reflect values at token issuance time (up to 3600s stale). When these values change via Stripe webhooks, JWT claims remain immutable, violating SOC 2 CC6.1 (system monitoring) and creating stale-read access control vulnerabilities.
 
 **Remediation completed:**
-- ✅ Removed both claims from `JWTPayloadSchema` (commit `312070b`)
+- ✅ Removed both claims from the token in the custom-access-token-hook migration (commit `b352a2c`, 2026-03-26). The M18-V01 commit five days earlier, `1d0778c`, dropped them only from a Zod mirror, `workers/lib/types.zod.ts`, which nothing ever imported — the migration is the remediation; the mirror was deleted 2026-09-27
 - ✅ Code already queries fresh values from database (`orgs.ts`)
 - ✅ Added `.passthrough()` for backward compatibility with old tokens
 - ✅ Supabase Custom Access Token Hook updated via migration `20260326000000_update_custom_access_token_hook.sql` — hook now emits only `org_ids`, `default_org_id`, `default_org_role`
