@@ -12,11 +12,17 @@ interface Auth0LogsEnv {
  * Auth0 sends log entries via HTTP POST to configured log streams. This handler
  * receives them, validates the payload, and persists to the auth0_logs table.
  *
- * Note: This endpoint has NO authentication because Auth0 cannot send a Bearer token.
- * The endpoint is public but safe because:
+ * This endpoint has NO authentication (BACKLOG.md CR40). The original rationale was
+ * that Auth0 cannot send a bearer token and that service_role is write-only; neither
+ * holds. Auth0 HTTP log streams take a configurable Authorization header, and
+ * service_role bypasses RLS entirely — the insert below runs with full write access.
+ * What actually bounds the exposure today:
  * 1. Duplicate log_id entries are rejected (UNIQUE constraint)
- * 2. We only store data, no mutations to business logic
- * 3. The service_role account is write-only (cannot delete/modify existing logs)
+ * 2. Only `auth0_logs` is written, with columns chosen by this handler
+ * 3. The row is schema-validated, but `details` stores the caller's whole entry as
+ *    JSONB — so anyone on the internet can insert unbounded rows of attacker-chosen
+ *    content under any log_id not yet seen, and nothing rate-limits them.
+ * The fix is a shared secret in the stream's Authorization header, checked here.
  *
  * Auth0 retries on anything other than 200/204, so we must return success even if
  * insertion fails (after logging the error), to avoid Auth0 backing off the stream.

@@ -216,7 +216,8 @@ export async function handleOrgBillingStatus(
 /**
  * POST /v1/orgs/:id/billing-portal
  * Creates a Stripe Customer Portal session and returns the session URL.
- * Requires a user session (Supabase JWT) with owner or billing_admin role.
+ * Requires a user session — an Auth0 JWT, verified against the tenant's JWKS by the
+ * shared `resolveJwt` — with owner or billing_admin role.
  * API keys are rejected with 403 — the shared `preVerifyToken` gate accepts
  * them, so without this check a key-authenticated caller would fall through to
  * `resolveJwt` and get an opaque 401 instead of "keys can't do this".

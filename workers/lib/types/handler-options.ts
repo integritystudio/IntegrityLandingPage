@@ -32,7 +32,11 @@ export const EnvSchema = z.object({
   /** Database access only; the service role key bypasses RLS. Not a token issuer. */
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string(),
-  /** Optional: never bound in production, so a required schema would assert a false contract. */
+  /**
+   * Optional because api-gateway's own `Env` declares it optional and the API-key
+   * resolver fails closed when it is absent. Bound in production since 2026-08-06
+   * (CR12); an earlier version of this comment said it never had been.
+   */
   API_KEY_HMAC_SECRET: z.string().optional(),
   /** Auth0 tenant issuing browser tokens; the JWKS URL and expected `iss` derive from it. */
   AUTH0_DOMAIN: z.string(),
