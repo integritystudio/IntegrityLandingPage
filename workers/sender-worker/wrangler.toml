@@ -47,13 +47,6 @@ enabled = true
 #
 # `services` and `observability` are non-inheritable keys and are repeated below.
 #
-# CAVEAT — this environment is not fully isolated. RECEIVER still binds to the
-# production `api-provisioning-receiver`, because no dev receiver is deployed
-# (it lives in the observability-toolkit repo). A `/send` event from a dev
-# deploy therefore reaches the production receiver. The inline /signup and
-# /signin paths do not go through RECEIVER and are isolated by whatever
-# Supabase and Auth0 credentials the Doppler `dev` config supplies. Deploying a
-# dev receiver and repointing this binding is tracked in BACKLOG.md CR02.
 [env.dev]
 name = "sender-worker-dev"
 
@@ -106,11 +99,6 @@ id = "766332ec6de3462fb29777aa1b6bc9d3"        # AUTH_RATE_LIMIT_KV
 preview_id = "46a717cd692a4cc2969bff9504bcc87b" # dev-RATE_LIMIT_KV
 
 # Secrets (set via wrangler secret put or doppler):
-#   SHARED_SECRET              — legacy HMAC key. NOT READ BY THIS WORKER as of CR29 step 2:
-#                                resolveOutboundSigningKey no longer falls back to it, so it
-#                                signs nothing. Still bound only because step 3 (unbinding it)
-#                                is gated on the receiver's auth.key_unresolved going quiet.
-#                                Do not restore a fallback to it — that is the whole defect.
 #   SIGNING_KEYS               — JSON Record<keyId, secret>. REQUIRED: with ACTIVE_KEY_ID it is
 #                                the only credential this worker signs with. Must match the
 #                                receiver's SIGNING_KEYS exactly, or every signed request 401s

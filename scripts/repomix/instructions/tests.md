@@ -28,6 +28,4 @@ failures, reviewing coverage patterns, or understanding how existing behavior is
 
 ## Known Gaps
 
-- `social_proof_section_test.dart` is inactive (`.inactive` extension)
-- Sender-worker has 15 known failing tests (pre-existing, not a regression)
 - `_launchUrl` and `_initializeTracking` error paths are untestable in the test environment

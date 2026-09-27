@@ -1387,7 +1387,7 @@ void main() {
         final response = await ContactService.submitForm(payload);
 
         expect(response, isA<ContactFormError>());
-        // 500 is not retryable — single attempt
+        // MockDio throws DioException directly; real Dio with validateStatus would return a Response and retry 5xx.
         verify(mockDio.post(
           any,
           data: anyNamed('data'),
@@ -1421,7 +1421,7 @@ void main() {
         final response = await ContactService.submitForm(payload);
 
         expect(response, isA<ContactFormError>());
-        // 502 is not retryable — single attempt
+        // MockDio throws DioException directly; same path as above.
         verify(mockDio.post(
           any,
           data: anyNamed('data'),
@@ -1454,7 +1454,7 @@ void main() {
         final response = await ContactService.submitForm(payload);
 
         expect(response, isA<ContactFormError>());
-        // Should only be called once (no retries for non-retryable errors)
+        // MockDio throws DioException synchronously — does not exercise the status-code retry path.
         verify(mockDio.post(
           any,
           data: anyNamed('data'),

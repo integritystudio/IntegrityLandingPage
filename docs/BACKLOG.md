@@ -2364,7 +2364,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** as tabled in section D. Behaviour-preserving; run the suite after each file.
 
-### TS12: Stale tests, comments and docs
+### TS12: Stale tests, comments and docs ✅ done 2026-09-27
 
 **Priority:** P4 | **Source:** test review 2026-09-27, section E
 **Estimated:** 2 hours

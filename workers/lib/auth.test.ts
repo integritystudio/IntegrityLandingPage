@@ -341,11 +341,11 @@ describe('verifyJwt — aud claim (V-18)', () => {
 // ---------------------------------------------------------------------------
 // ES256 / JWKS verification
 //
-// Supabase issues ES256-signed tokens once a project migrates to asymmetric
-// signing keys, at which point there is no shared secret to verify against —
-// the signature is checked with the public key published at the project's JWKS
-// endpoint. These tests use a locally generated P-256 key pair so no network
-// access is required.
+// Tests the asymmetric JWKS verification path used by `verifyJwtWithJwks`.
+// Production verifies Auth0 RS256 tokens; this suite exercises the same JWKS
+// fetch-and-verify code path with locally generated P-256 keys so no network
+// access is required. The JWKS_URL below is a test fixture — it is not the
+// production Auth0 JWKS URL.
 // ---------------------------------------------------------------------------
 
 /** workers-types' JsonWebKey omits the JOSE registered members we need to set. */

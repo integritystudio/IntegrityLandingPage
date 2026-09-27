@@ -256,11 +256,11 @@ void main() {
         expect(find.byType(MaterialApp), findsOneWidget);
       });
 
-      testWidgets('_checkConsent completes async initialization', (tester) async {
+      testWidgets('completes async initialization after pump', (tester) async {
         setDesktopSize(tester);
 
         await tester.pumpWidget(const IntegrityStudioApp());
-        // Allow async _checkConsent to complete
+        // Allow async initialization to complete
         await tester.pump(const Duration(milliseconds: 200));
         await tester.pump(const Duration(milliseconds: 200));
 
@@ -680,20 +680,20 @@ void main() {
   });
 
   group('Real IntegrityStudioApp integration', () {
-    testWidgets('verifies initState and _checkConsent are called', (tester) async {
+    testWidgets('renders correctly after initState', (tester) async {
       setDesktopSize(tester);
 
       // Create and pump the real app
       await tester.pumpWidget(const IntegrityStudioApp());
 
-      // initState is called immediately, which calls _createRouter and _checkConsent
+      // initState is called immediately, which sets up the router and starts consent checks
       await tester.pump(const Duration(milliseconds: 100));
 
       // Verify the app renders correctly after initialization
       expect(find.byType(IntegrityStudioApp), findsOneWidget);
       expect(find.byType(MaterialApp), findsOneWidget);
 
-      // Allow any async operations from _checkConsent to complete
+      // Allow any async operations to complete
       await tester.pump(const Duration(milliseconds: 500));
 
       // The app should still be rendering correctly

@@ -427,7 +427,6 @@ void main() {
         onShowCookieSettings: () {},
       );
       final shellRoute = router.configuration.routes.first as ShellRoute;
-      // 22 routes total
       expect(shellRoute.routes.length, greaterThanOrEqualTo(20));
     });
   });

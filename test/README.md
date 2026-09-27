@@ -1,12 +1,12 @@
 # Test Architecture
 
-This project uses four test frameworks at different layers of the testing pyramid.
+This project uses three test frameworks at different layers of the testing pyramid.
 
 ## Directories
 
 ### `test/` — Unit & Widget Tests (Dart)
 
-Primary test suite. Runs via `flutter test`. ~1978 tests, ~94% coverage.
+Primary test suite. Runs via `flutter test`. ~2836 tests.
 
 | Subdirectory | Purpose |
 |---|---|
@@ -20,21 +20,6 @@ Primary test suite. Runs via `flutter test`. ~1978 tests, ~94% coverage.
 | `integration/` | Multi-page user flows using Dart test framework |
 | `helpers/` | Shared utilities: viewport setup, overflow suppression, mocks, content fixtures |
 
-### `integration_test/` — Flutter Integration Tests (Dart)
-
-On-device integration tests using Flutter's `integration_test` package. Tests run against a real Flutter app instance.
-
-```bash
-flutter test integration_test/
-```
-
-| File | Coverage |
-|---|---|
-| `consent_flow_test.dart` | Cookie consent banner interaction |
-| `contact_form_test.dart` | Contact form submission flow |
-| `landing_page_test.dart` | Full landing page rendering |
-| `navigation_test.dart` | Route navigation between pages |
-
 ### `e2e/` — Browser E2E Tests (Playwright)
 
 External browser tests using Playwright (Node.js). Tests the deployed/served app from the outside.
@@ -44,14 +29,6 @@ cd e2e && npm test
 ```
 
 Tests: accessibility, cache headers, landing page content, mobile viewport, routing, SPA navigation.
-
-### `test_driver/` — Integration Test Driver
-
-Flutter test driver entry point for running `integration_test/` tests on a device/browser.
-
-```bash
-flutter drive --driver=test_driver/integration_test.dart --target=integration_test/e2e/landing_page_test.dart -d chrome
-```
 
 ## Shared Helpers
 
