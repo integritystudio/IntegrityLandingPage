@@ -520,7 +520,7 @@ class _ContactSectionState extends State<ContactSection> {
                 name: validatedData.name,
               );
               FacebookPixelService.trackLead(email: validatedData.email);
-              // Clear form on success
+              // Clear form data map so rebuilt fields get initialValue: ''.
               _formData.clear();
             case ContactFormError(:final error, :final fieldErrors):
               _submitSuccess = false;
@@ -530,6 +530,13 @@ class _ContactSectionState extends State<ContactSection> {
               }
           }
         });
+        // After the setState rebuild the form fields have initialValue: '',
+        // so reset() makes the visible text match.
+        if (response case ContactFormSuccess()) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _formKey.currentState?.reset();
+          });
+        }
       }
     } catch (e, stackTrace) {
       ErrorTrackingService.captureException(

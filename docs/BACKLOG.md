@@ -2313,7 +2313,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** use the UTC constructor and assert `gte.<UTC yyyy-mm-01>` under `Asia/Tokyo`, as `bootstrap.test.ts:492` does.
 
-### TS07: Contact form "clears form" on success cannot clear visible fields
+### ✅ TS07 — done 2026-09-27: Contact form "clears form" on success cannot clear visible fields
 
 **Priority:** P3 | **Source:** test review 2026-09-27, section A8
 **Estimated:** 1 hour

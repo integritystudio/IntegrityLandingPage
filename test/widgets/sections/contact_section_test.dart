@@ -1101,6 +1101,13 @@ void main() {
         // Success alert shows server-returned message
         expect(find.byType(Alert), findsOneWidget);
         expect(find.text('We received your message!'), findsOneWidget);
+
+        // One extra pump to let the post-frame callback fire and reset() run
+        await tester.pump();
+
+        // Fields are visually cleared — the filled text no longer appears
+        expect(find.text('John Doe'), findsNothing);
+        expect(find.text('john@example.com'), findsNothing);
       });
 
       testWidgets('error response shows error alert', (tester) async {
