@@ -862,19 +862,25 @@ describe('runReconciliation', () => {
 
   // TS03: assert which handler ran (not just claimEvent/resolveDeadLetter).
   // Swapping any two cases in the cron router's switch must fail this suite.
-  it.each<[string, () => ReturnType<typeof vi.fn>]>([
-    ['checkout.session.completed', () => mockHandleCheckout],
-    ['customer.subscription.updated', () => mockHandleSubscriptionUpdated],
-    ['customer.subscription.deleted', () => vi.mocked(handleSubscriptionDeleted)],
-    ['invoice.paid', () => vi.mocked(handleInvoicePaid)],
-    ['invoice.payment_failed', () => vi.mocked(handleInvoicePaymentFailed)],
-  ])('cron routing: %s dead letter dispatches only the correct handler', async (eventType, getExpected) => {
+  // Store vi.mocked() references once so the identity comparison h !== expected
+  // uses the same object on both sides.
+  const mockSubDeleted = vi.mocked(handleSubscriptionDeleted);
+  const mockInvPaid = vi.mocked(handleInvoicePaid);
+  const mockInvPayFailed = vi.mocked(handleInvoicePaymentFailed);
+
+  it.each<[string, ReturnType<typeof vi.fn>]>([
+    ['checkout.session.completed', mockHandleCheckout],
+    ['customer.subscription.updated', mockHandleSubscriptionUpdated],
+    ['customer.subscription.deleted', mockSubDeleted],
+    ['invoice.paid', mockInvPaid],
+    ['invoice.payment_failed', mockInvPayFailed],
+  ])('cron routing: %s dead letter dispatches only the correct handler', async (eventType, expected) => {
     const allHandlers = [
       mockHandleCheckout,
       mockHandleSubscriptionUpdated,
-      vi.mocked(handleSubscriptionDeleted),
-      vi.mocked(handleInvoicePaid),
-      vi.mocked(handleInvoicePaymentFailed),
+      mockSubDeleted,
+      mockInvPaid,
+      mockInvPayFailed,
     ];
     allHandlers.forEach((h) => h.mockResolvedValue({ ok: true }));
 
@@ -896,7 +902,6 @@ describe('runReconciliation', () => {
       {} as ExecutionContext,
     );
 
-    const expected = getExpected();
     expect(expected).toHaveBeenCalledOnce();
     for (const h of allHandlers) {
       if (h !== expected) {
