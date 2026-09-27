@@ -54,7 +54,8 @@ void main() {
     group('signUp', () {
       test(
         'returns AuthSuccess with valid JWT structure',
-        skip: 'requires Auth0 + sender-worker configured on staging',
+        skip: 'unskipping would create a real Auth0 user in the production tenant; '
+            'run manually with --dart-define=SENDER_WORKER_URL=<dev> only when testing signup flow',
         () async {
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final testEmail = 'live-test-flutter-$timestamp@integritystudio-test.invalid';
@@ -102,7 +103,8 @@ void main() {
     group('sendEvent', () {
       test(
         'returns ProvisioningSuccess with valid JWT',
-        skip: 'blocked: receiver-worker apiKey return not yet deployed to staging',
+        skip: 'sender-worker-dev has no SIGNING_KEYS/ACTIVE_KEY_ID bound — /send returns 500; '
+            'provision signing keys on dev before unskipping (BACKLOG CR29, never copy prd keys to dev)',
         () async {
           // Requires valid JWT from signUp
           final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -137,7 +139,8 @@ void main() {
     group('createCheckoutSession', () {
       test(
         'returns CheckoutSuccess with valid Stripe URL',
-        skip: 'skipped when Stripe not configured',
+        skip: 'dev worker has Stripe sandbox keys bound, but this creates a real test-mode session; '
+            'run manually with a disposable test email when exercising the checkout flow',
         () async {
           final result = await ProvisioningService.createCheckoutSession(
             email: 'test@example.com',
@@ -151,15 +154,14 @@ void main() {
       );
 
       test('gracefully handles missing Stripe configuration', () async {
-        // If Stripe isn't configured on staging, service returns CheckoutError
-        // This verifies graceful degradation
+        // Dev worker has Stripe sandbox keys bound (2026-08-03), so this will
+        // typically return CheckoutSuccess, not CheckoutError.
         final result = await ProvisioningService.createCheckoutSession(
           email: 'test@example.com',
           tier: 'growth',
         );
 
-        // Result may be either CheckoutSuccess (if Stripe is configured)
-        // or CheckoutError (if Stripe is not configured)
+        // Result is either CheckoutSuccess or CheckoutError — both are acceptable here.
         expect(result, isA<CheckoutResponse>());
       });
     });
@@ -167,7 +169,8 @@ void main() {
     group('bootstrap', () {
       test(
         'returns BootstrapSuccess with org and entitlements',
-        skip: 'requires authenticated session',
+        skip: 'requires a valid JWT from a real signIn call; '
+            'pass --dart-define=BOOTSTRAP_TOKEN=<jwt> to run this test manually',
         () async {
           // This requires a valid Auth0 session token
           // Skipped in CI unless BOOTSTRAP_TOKEN is set

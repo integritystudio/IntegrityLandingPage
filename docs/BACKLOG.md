@@ -2295,7 +2295,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** add `src/lib/quota.test.ts` with a DO namespace whose stub throws, and one that returns 429. Acceptance: removing the catch fails a test.
 
-### TS05: Two live suites cannot fail
+### ✅ TS05 — done 2026-09-27: Two live suites cannot fail
 
 **Priority:** P3 | **Source:** test review 2026-09-27, section A9
 **Estimated:** 2 hours
