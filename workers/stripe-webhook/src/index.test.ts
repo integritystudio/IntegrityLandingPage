@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { verifyStripeSignature } from './verify';
 import worker, { type Env } from './index';
+// TS03: static imports get the mocked versions (vi.mock is hoisted before imports).
+import { handleSubscriptionDeleted } from './handlers/subscription';
+import { handleInvoicePaid, handleInvoicePaymentFailed } from './handlers/invoice';
 import { REPLAY_WINDOW_MS } from '../../constants';
 import { hmacSignHex } from '../../lib/crypto';
 
@@ -855,6 +858,52 @@ describe('runReconciliation', () => {
 
     // dlA (created=100) must be processed before dlB (created=200)
     expect(callOrder).toEqual(['evt_a', 'evt_b']);
+  });
+
+  // TS03: assert which handler ran (not just claimEvent/resolveDeadLetter).
+  // Swapping any two cases in the cron router's switch must fail this suite.
+  it.each<[string, () => ReturnType<typeof vi.fn>]>([
+    ['checkout.session.completed', () => mockHandleCheckout],
+    ['customer.subscription.updated', () => mockHandleSubscriptionUpdated],
+    ['customer.subscription.deleted', () => vi.mocked(handleSubscriptionDeleted)],
+    ['invoice.paid', () => vi.mocked(handleInvoicePaid)],
+    ['invoice.payment_failed', () => vi.mocked(handleInvoicePaymentFailed)],
+  ])('cron routing: %s dead letter dispatches only the correct handler', async (eventType, getExpected) => {
+    const allHandlers = [
+      mockHandleCheckout,
+      mockHandleSubscriptionUpdated,
+      vi.mocked(handleSubscriptionDeleted),
+      vi.mocked(handleInvoicePaid),
+      vi.mocked(handleInvoicePaymentFailed),
+    ];
+    allHandlers.forEach((h) => h.mockResolvedValue({ ok: true }));
+
+    const dl = {
+      ...checkoutDeadLetter,
+      id: 'dl_route',
+      stripe_event_id: 'evt_route',
+      event_type: eventType,
+      payload: { id: 'evt_route', type: eventType, data: { object: {} } },
+    };
+    mockDb.fetchPendingDeadLetters.mockResolvedValue([dl]);
+    mockDb.isEventProcessed.mockResolvedValue({ ok: true, processed: false });
+    mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
+    mockDb.resolveDeadLetter.mockResolvedValue({ ok: true });
+
+    await worker.scheduled(
+      { scheduledTime: Date.now(), cron: '*/15 * * * *' } as ScheduledEvent,
+      MOCK_ENV,
+      {} as ExecutionContext,
+    );
+
+    const expected = getExpected();
+    expect(expected).toHaveBeenCalledOnce();
+    for (const h of allHandlers) {
+      if (h !== expected) {
+        expect(h).not.toHaveBeenCalled();
+      }
+    }
+    expect(mockDb.resolveDeadLetter).toHaveBeenCalledWith('dl_route');
   });
 });
 
