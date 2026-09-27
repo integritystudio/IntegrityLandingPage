@@ -202,9 +202,11 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
     // Verify the bearer token is authentic before consuming any quota.
     // An invalid or missing token returns 401 without touching the quota DO,
     // preventing unauthenticated callers from exhausting an org's quota.
+    // UA08: pass orgId so cross-org credentials are refused before quota is consumed.
     const preAuth = await preVerifyToken(request, {
       ...routeOpts,
       hmacSecret: env.API_KEY_HMAC_SECRET,
+      orgId,
     });
     if (!preAuth.ok) return withSecurityHeaders(preAuth.error);
 

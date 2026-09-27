@@ -1,4 +1,4 @@
-import { unauthorized, tooManyRequests, serviceUnavailable } from '../../../lib/http';
+import { unauthorized, tooManyRequests, serviceUnavailable, forbidden } from '../../../lib/http';
 import { checkIdentityRateLimit } from './rate-limit';
 import { requireBearerToken } from '../../../lib/http/request';
 import { verifyJwt, auth0JwtKey, auth0IssuerFor } from '../../../lib/auth';
@@ -80,6 +80,17 @@ interface PreVerifyTokenOptions extends UserTokenOptions {
   hmacSecret?: string;
   supabaseUrl: string;
   serviceRoleKey: string;
+  /**
+   * When set, verifies the caller belongs to this org before returning ok.
+   * Prevents an authenticated credential from a different org from spending this org's
+   * quota and polluting its usage ledger (UA08).
+   *
+   * API keys: verified by comparing the key's stored organization_id (cheap, no extra DB call).
+   * JWTs: verified by querying organization_memberships (one extra DB call). Fails open on
+   * DB errors — the route handlers still enforce membership and will 403 any unauthorized caller,
+   * but only after quota has already been consumed in that failure mode.
+   */
+  orgId?: string;
 }
 
 /**
@@ -125,12 +136,44 @@ export async function preVerifyToken(
     const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
     const result = await verifyApiKey(token, secret.hmacSecret, sb);
     if (!result.ok) return result;
+    // UA08: refuse a cross-org API key before the quota DO is touched.
+    // The key row already carries organization_id — no extra DB call.
+    if (opts.orgId !== undefined && result.organizationId !== opts.orgId) {
+      return { ok: false, error: forbidden('API key does not belong to this organization') };
+    }
     return { ok: true };
   }
 
   const { key, issuerUrl, audience } = auth0VerifyParams(opts);
   const jwtResult = await verifyJwt(token, key, { issuerUrl, audience });
   if (!jwtResult.ok) return jwtResult;
+
+  // UA08: for JWT callers, verify org membership before the quota DO is touched.
+  // Fails open on DB errors — the handler still checks membership and will 403 unauthorized
+  // callers, but only after the quota unit has already been consumed.
+  if (opts.orgId !== undefined) {
+    const sub = jwtResult.payload.sub;
+    if (!sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
+    const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+    const user = await resolveUserId(sub, sb);
+    if (user.ok) {
+      const membership = await sb.query<{ user_id: string }>('organization_memberships', {
+        select: 'user_id',
+        filters: [
+          { column: 'user_id', operator: 'eq', value: user.userId },
+          { column: 'organization_id', operator: 'eq', value: opts.orgId },
+          { column: 'status', operator: 'eq', value: 'active' },
+        ],
+        limit: 1,
+      });
+      if (membership.ok && membership.data.length === 0) {
+        return { ok: false, error: forbidden('Not a member of this organization') };
+      }
+      // membership.ok false (DB error) → fail open; handler re-checks and will 403.
+    }
+    // user.ok false (DB error) → fail open.
+  }
+
   return { ok: true };
 }
 

@@ -3,6 +3,7 @@ import worker from './index';
 import type { Env } from './index';
 import * as quotaLib from './lib/quota';
 import { createAuth0JwtFixture, TEST_AUTH0_OPTS, TEST_AUTH0_DOMAIN, type Auth0JwtFixture } from '../../lib/test-helpers/auth0-jwt-stub';
+import { createSupabaseFetchStub, okRows } from '../../lib/test-helpers/supabase-fetch-stub';
 
 
 const makeEnv = (overrides: Partial<Env> = {}): Env => ({
@@ -357,6 +358,74 @@ describe('usage ledger on org routes', () => {
 
     expect(res.status).not.toBe(429);
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[usage-ledger]'), 'GET /v1/orgs/:id/entitlements', 'for org', 'org-123', expect.anything());
+  });
+});
+
+// UA08: a valid credential from a different org must be refused before quota is consumed.
+describe('UA08: cross-org access refused before quota', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns 403 without consuming quota when an API key belongs to a different org', async () => {
+    vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true, rateLimitHeaders: {} });
+
+    // A validly-formatted obtk_ token — the stub returns the canned row for any api_keys query.
+    const apiKey = `obtk_${'a'.repeat(64)}`;
+
+    const stub = createSupabaseFetchStub({
+      'GET api_keys': okRows([{
+        id: 'key-id-1',
+        organization_id: 'org-a',
+        user_id: 'user-id-1',
+        hash: 'abc123',
+        prefix: 'aaaaaaaa',
+        status: 'active',
+        revoked_at: null,
+        expires_at: null,
+        name: 'test',
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      }]),
+    });
+    vi.stubGlobal('fetch', jwt.wrap(stub.fetch as typeof fetch));
+
+    // The key belongs to org-a; the URL targets org-b.
+    const res = await worker.fetch(
+      makeRequest('GET', '/v1/orgs/org-b/entitlements', {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      }),
+      makeEnv(),
+    );
+
+    expect(res.status).toBe(403);
+    expect(quotaLib.enforceOrgQuota).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 without consuming quota when a JWT user has no membership in the org', async () => {
+    vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true, rateLimitHeaders: {} });
+
+    const token = await jwt.sign({ sub: 'auth0|user-123', email: 'user@example.com' });
+
+    // User resolves, but has no membership in org-123.
+    const stub = createSupabaseFetchStub({
+      'GET users': okRows([{ id: 'user-uuid-1', email: 'user@example.com' }]),
+      'GET organization_memberships': okRows([]),
+    });
+    vi.stubGlobal('fetch', jwt.wrap(stub.fetch as typeof fetch));
+
+    const res = await worker.fetch(
+      makeRequest('GET', '/v1/orgs/org-123/entitlements', {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      makeEnv(),
+    );
+
+    expect(res.status).toBe(403);
+    expect(quotaLib.enforceOrgQuota).not.toHaveBeenCalled();
   });
 });
 
