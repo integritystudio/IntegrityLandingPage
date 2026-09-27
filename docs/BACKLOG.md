@@ -384,6 +384,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR43](#cr43) | P2 | 🔴 open | `usage_buckets_daily` has **two writers**: the ledger trigger increments, then `rollupDailyBucket` overwrites the same row with a recount capped at 10 000 events — an undercount on any day past the cap, and a same-row race on every ingest |
 | [CR44](#cr44) | P3 | 🔴 open | `workers/lib/supabase.ts` builds PostgREST filters from raw values (an `in` list splits on `,`) and `update`/`deleteRows` accept an **empty filter**, which would PATCH/DELETE the whole table. No caller trips either today; `sender-worker` suspicion refuted |
 | [CR45](#cr45) | P3 | 🔴 open | Quota DO `POST /flush-usage` zeroes the monthly counter and persists nothing; `lib/quota.ts` `flushUsage()` has no callers; the DO header said neither existed. Delete, or decide what a flush means |
+| [CR46](#cr46) | P3 | 🔴 open | Grow **one shared CORS allowlist helper** from `workers/cors-utils.ts` + `getAllowedOrigins`, migrate api-gateway / contact-form / sender-worker to it, then retire the root copies. Never `*`; env-driven; `.`-anchored preview suffix |
 
 ~~**Two items are now blocked on code** — [[CR20]] and [[CR21]]…~~ **Superseded 2026-07-31.** [[CR21]] is done and live, and [[CR20]] is not blocked on code at all — its remaining work is monitoring ([[W04]]), since [[CR21]] foreclosed the 5xx option. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). What still needs a decision rather than an implementation: a credential/provisioning call (CR01, CR11, CR12's cross-repo HMAC secret), or an answer about intent (CR13, CR16).
 
@@ -2299,6 +2300,27 @@ User-controlled values that reach a filter today, all through `eq`: `orgId` from
 **Why it matters:** the route is reachable from any `api-gateway` code holding the `QUOTA_DO` binding, and calling it forgives an org's whole month of usage while the ledger (`usage-ledger.ts`, UA01) keeps the truth — the two would silently disagree. Dead code with that shape should not wait for someone to "wire it up".
 
 **Fix:** delete `handleFlushUsage`, the `/flush-usage` route, the `flushUsage()` client, and their tests; then the DO header's claim becomes true. If a monthly reset is wanted, it belongs to a period rollover keyed on the ledger, not a callable reset.
+
+**Status:** Open.
+
+---
+
+### CR46: grow one shared CORS allowlist helper from `workers/cors-utils.ts`, then retire the per-worker copies
+
+**Priority:** P3 | **Source:** 2026-09-27 investigation of `workers/lib/http/cors.ts` (never adopted; deleted the same day)
+**Estimated:** small–medium — three call sites, each with one quirk worth keeping
+
+Three live CORS implementations, all allowlist-based, none shared:
+
+- `workers/api-gateway/src/index.ts:93` `corsHeaders(origin, env)` — reads `getAllowedOrigins(env)` from root `workers/http-helpers.ts`, emits the *first allowed* origin for a non-matching caller (never reflects), adds `Vary: Origin`, and is applied once at the outer boundary so no route can ship without it.
+- `workers/contact-form` → root `workers/cors-utils.ts` (`buildCorsHeaders`, `isOriginAllowed`, `isOriginAllowedWithEnv`), also reading `getAllowedOrigins(env)`; credentials only for allowed origins.
+- `workers/sender-worker/src/index.ts:50-70` — its own gate: hard-coded `integritystudio.ai` origins plus a `PAGES_PREVIEW_HOST_SUFFIX` rule for Cloudflare Pages previews (anchored on a `.` boundary so `…pages.dev.attacker.com` fails; https only), overridable by `ALLOWED_ORIGINS_JSON`.
+
+A fourth, `workers/lib/http/cors.ts`, defaulted to `Access-Control-Allow-Origin: *`, was re-exported from the `lib/http` barrel, and was never imported by a worker in its six months of life. It was deleted rather than kept as the seed: a wildcard default is the wrong starting point for a helper whose whole job is to deny.
+
+**Goal:** one helper under `workers/lib/http/` grown from `cors-utils.ts` and `http-helpers.ts`'s `getAllowedOrigins`. It takes the env allowlist and an optional anchored preview-suffix rule, returns headers for an allowed origin and a deny signal otherwise, never `*`, always `Vary: Origin`. Migrate the three workers to it, keeping each worker's existing allow/deny tests as the acceptance suite; then delete root `cors-utils.ts` and `http-helpers.ts` (the root-level trio confuses readers of the context pack — `constants.ts` is separate and stays until its consumers move).
+
+**Rules that must survive the consolidation:** no wildcard default anywhere; the allowlist stays env-driven so dev and production origin sets differ (CR02 / CR11); suffix matching anchors on a `.` boundary; api-gateway keeps CORS at the single outer boundary (the pre-CR26 outage was a Worker with no CORS at all).
 
 **Status:** Open.
 
