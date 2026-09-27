@@ -3,7 +3,11 @@ import { z } from 'zod';
 // API Key Management
 export const CreateApiKeyBodySchema = z.object({
   name: z.string().min(1).max(255).optional(),
-  expires_at: z.string().datetime().optional(),
+  expires_at: z
+    .string()
+    .datetime()
+    .refine((value) => Date.parse(value) > Date.now(), 'expires_at must be in the future')
+    .optional(),
 }).strict();
 
 export type CreateApiKeyBody = z.infer<typeof CreateApiKeyBodySchema>;

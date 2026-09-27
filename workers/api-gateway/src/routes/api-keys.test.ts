@@ -22,6 +22,12 @@ const AUTH0_SUB = 'auth0|test-subject';
 const USER_ID = 'user-id-1';
 const KEY_ID = 'key-id';
 const REVOKED_AT = '2026-03-20T00:00:00Z';
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+/** Relative to now, so the future-only expiry rule cannot start failing on a calendar date. */
+const FUTURE_EXPIRY = new Date(Date.now() + 30 * MS_PER_DAY).toISOString();
+const PAST_EXPIRY = new Date(Date.now() - MS_PER_DAY).toISOString();
+const NAME_MAX_LENGTH = 255;
+const UNPROCESSABLE_STATUS = 422;
 
 const opts = {
   ...TEST_AUTH0_OPTS,
@@ -325,17 +331,53 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(createRoutes());
     const res = await handleCreateApiKey(
-      makeCreateRequest(token, { name: 'Expiring Key', expires_at: '2027-01-01T00:00:00Z' }),
+      makeCreateRequest(token, { name: 'Expiring Key', expires_at: FUTURE_EXPIRY }),
       ORG_ID,
       opts,
     );
     expect(res.status).toBe(201);
     // Verify insert was called with expires_at
     expect(stub.find('POST', 'api_keys')!.body).toEqual([
-      expect.objectContaining({ expires_at: '2027-01-01T00:00:00Z' }),
+      expect.objectContaining({ expires_at: FUTURE_EXPIRY }),
     ]);
     const body = await res.json() as CreateApiKeyResponse;
-    expect(body.expires_at).toBe('2027-01-01T00:00:00Z');
+    expect(body.expires_at).toBe(FUTURE_EXPIRY);
+  });
+
+  it.each([
+    ['name is not a string', { name: 42 }, 'name'],
+    ['name is empty', { name: '' }, 'name'],
+    ['name exceeds the length limit', { name: 'k'.repeat(NAME_MAX_LENGTH + 1) }, 'name'],
+    ['expires_at is not an ISO datetime', { expires_at: 'next tuesday' }, 'expires_at'],
+    ['expires_at is in the past', { expires_at: PAST_EXPIRY }, 'expires_at'],
+    ['the body carries an unknown field', { name: 'ok', tier: 'enterprise' }, 'root'],
+  ])('returns 422 and mints nothing when %s', async (_label, requestBody, issuePath) => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes());
+
+    const res = await handleCreateApiKey(makeCreateRequest(token, requestBody), ORG_ID, opts);
+
+    expect(res.status).toBe(UNPROCESSABLE_STATUS);
+    const body = await res.json() as { error: { details: { issues: Array<{ path: string }> } } };
+    expect(body.error.details.issues.map((issue) => issue.path)).toContain(issuePath);
+    expect(stub.find('POST', 'api_keys')).toBeUndefined();
+    expect(stub.find('POST', 'audit_log')).toBeUndefined();
+  });
+
+  it('mints a default-named key with no expiry when the request has no body', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    const stub = stubSupabase(createRoutes());
+    const bodiless = new Request('https://api.test/v1/orgs/org-id-1/api-keys', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    const res = await handleCreateApiKey(bodiless, ORG_ID, opts);
+
+    expect(res.status).toBe(201);
+    expect(stub.find('POST', 'api_keys')!.body).toEqual([
+      expect.objectContaining({ name: 'Default', expires_at: null }),
+    ]);
   });
 });
 

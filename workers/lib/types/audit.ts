@@ -5,24 +5,17 @@ import { z } from 'zod';
  * Track all meaningful changes for compliance and debugging
  */
 
+/**
+ * Every action written to `audit_log`. `writeAuditLog` (api-gateway/src/lib/helpers.ts) is
+ * the table's only writer — the `create_audit_log_entry` SQL function has no callers — and
+ * `audit_log.action` is unconstrained text, so this enum is the whole vocabulary. Add a
+ * name here before emitting it; the `AuditLogEntry.action` type makes that a compile error.
+ */
 export const AuditActionSchema = z.enum([
-  'user_signup',
-  'user_login',
-  'user_logout',
-  'user_profile_update',
-  'org_created',
-  'org_updated',
-  'membership_added',
-  'membership_removed',
-  'membership_role_changed',
-  'api_key_created',
-  'api_key_revoked',
-  'subscription_changed',
-  'entitlements_recomputed',
-  'quota_exceeded',
-  'quota_reset',
-  'settings_updated',
-  'security_event',
+  'api_key.created',
+  'api_key.revoked',
+  'billing_portal.accessed',
+  'checkout_session.created',
 ]);
 
 export type AuditAction = z.infer<typeof AuditActionSchema>;

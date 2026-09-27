@@ -1,5 +1,8 @@
 import { ok, created, forbidden, notFound, serverError, badRequest } from '../../../lib/http';
 import { generateApiKey, hashApiKeySecret } from '../../../lib/api-keys';
+import { safeParseJson, isJsonRequest } from '../../../lib/http/request';
+import { zodValidationError } from '../../../lib/validation';
+import { CreateApiKeyBodySchema, type CreateApiKeyBody } from '../../../lib/types/request-bodies';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, ApiKey, OrgRole } from '../../../lib/types';
 import { resolveJwt, writeAuditLog, auth0VerifyParams, requireHmacSecret, type UserTokenOptions } from '../lib/helpers';
@@ -12,11 +15,6 @@ interface ApiKeysHandlerOptions extends UserTokenOptions {
 
 /** Roles that may create or revoke org API keys (viewers and billing-only roles excluded). */
 const API_KEY_ROLES: OrgRole[] = ['owner', 'admin', 'member'];
-
-interface CreateApiKeyBody {
-  name?: string;
-  expires_at?: string;
-}
 
 async function assertOrgMembership(
   userId: string,
@@ -76,13 +74,14 @@ export async function handleCreateApiKey(
     return forbidden('Insufficient role to manage API keys');
   }
 
+  // The body is optional: a bodiless request mints a key named 'Default' with no expiry.
   let body: CreateApiKeyBody = {};
-  if (request.headers.get('content-type')?.includes('application/json')) {
-    try {
-      body = await request.json() as CreateApiKeyBody;
-    } catch {
-      return badRequest('Invalid JSON body');
-    }
+  if (isJsonRequest(request)) {
+    const raw = await safeParseJson(request);
+    if (!raw.ok) return badRequest('Invalid JSON body');
+    const parsed = CreateApiKeyBodySchema.safeParse(raw.data);
+    if (!parsed.success) return zodValidationError(parsed.error);
+    body = parsed.data;
   }
 
   // Minting a key whose hash cannot be reproduced would create an unusable credential,

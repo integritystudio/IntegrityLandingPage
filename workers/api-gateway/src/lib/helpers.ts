@@ -7,11 +7,12 @@ import { parseApiKey, verifyApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient } from '../../../lib/supabase';
 import { PLAN_SELECT, type PlanRow } from '../../../lib/entitlements';
 import type { SupabaseClient } from '../../../lib/supabase';
+import type { AuditAction } from '../../../lib/types';
 
 export interface AuditLogEntry {
   organization_id?: string;
   actor_user_id?: string;
-  action: string;
+  action: AuditAction;
   target_type: string;
   target_id: string;
   new_values?: Record<string, unknown>;
