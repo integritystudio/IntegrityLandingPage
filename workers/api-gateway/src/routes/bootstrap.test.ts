@@ -97,13 +97,13 @@ describe('POST /bootstrap', () => {
     expect(stub.requests).toHaveLength(0);
   });
 
-  it('returns 401 when the user row does not exist', async () => {
+  it('returns 404 when the user row does not exist', async () => {
     const token = await jwt.sign({ sub: 'auth0|ghost', email: 'ghost@example.com' });
     const stub = stubSupabase({
       'GET users': okRows([]),
     });
     const res = await handleBootstrap(makeRequest(token), opts);
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(404);
     expect(stub.find('GET', 'users')?.url.searchParams.get('auth0_id')).toBe('eq.auth0|ghost');
   });
 

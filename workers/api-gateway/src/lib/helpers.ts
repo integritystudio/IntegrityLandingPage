@@ -1,4 +1,4 @@
-import { unauthorized, tooManyRequests, serviceUnavailable, forbidden } from '../../../lib/http';
+import { unauthorized, tooManyRequests, serviceUnavailable, forbidden, notFound } from '../../../lib/http';
 import { checkIdentityRateLimit } from './rate-limit';
 import { requireBearerToken } from '../../../lib/http/request';
 import { verifyJwt, auth0JwtKey, auth0IssuerFor } from '../../../lib/auth';
@@ -249,7 +249,7 @@ export async function resolveUserId(
   }
   if (result.data.length === 0) {
     // Authentic token, but no provisioned row — a signup that half-completed.
-    return { ok: false, error: unauthorized('No user record for this identity') };
+    return { ok: false, error: notFound('No user record for this identity') };
   }
   return { ok: true, userId: result.data[0].id, email: result.data[0].email };
 }
