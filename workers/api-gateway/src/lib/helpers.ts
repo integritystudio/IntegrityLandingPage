@@ -7,7 +7,7 @@ import { parseApiKey, verifyApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient } from '../../../lib/supabase';
 import { PLAN_SELECT, type PlanRow } from '../../../lib/entitlements';
 import type { SupabaseClient } from '../../../lib/supabase';
-import type { AuditAction } from '../../../lib/types';
+import { AuditActionSchema, type AuditAction } from '../../../lib/types/audit';
 
 export interface AuditLogEntry {
   organization_id?: string;
@@ -20,6 +20,14 @@ export interface AuditLogEntry {
 }
 
 export async function writeAuditLog(sb: SupabaseClient, entry: AuditLogEntry): Promise<void> {
+  // The type already rejects unknown actions at compile time; this catches a value that
+  // reached here through a cast. Skipping keeps the table's vocabulary closed — the column
+  // is unconstrained text, so nothing downstream would refuse it.
+  const action = AuditActionSchema.safeParse(entry.action);
+  if (!action.success) {
+    console.error('[audit] Refusing to write unknown audit action', entry.action);
+    return;
+  }
   try {
     const result = await sb.insert('audit_log', entry as unknown as Record<string, unknown>);
     if (!result.ok) {
