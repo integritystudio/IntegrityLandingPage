@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hmacSign, hmacSignHex, hmacVerify } from './crypto';
+import { hmacSign, hmacSignHex, hmacVerify, sha256Hex } from './crypto';
 
 const SECRET = 'test-secret-key';
 const MESSAGE = 'hello.world';
@@ -59,5 +59,31 @@ describe('hmacVerify', () => {
   it('returns false for a zero-length signature', async () => {
     const result = await hmacVerify(SECRET, new Uint8Array(0), MESSAGE);
     expect(result).toBe(false);
+  });
+});
+
+describe('sha256Hex', () => {
+  it('returns a 64-char lowercase hex string', async () => {
+    const hex = await sha256Hex('obtk_test_key');
+    expect(hex).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('is deterministic for the same input', async () => {
+    const a = await sha256Hex('obtk_test_key');
+    const b = await sha256Hex('obtk_test_key');
+    expect(a).toBe(b);
+  });
+
+  it('produces a different digest for different inputs', async () => {
+    const a = await sha256Hex('obtk_key_one');
+    const b = await sha256Hex('obtk_key_two');
+    expect(a).not.toBe(b);
+  });
+
+  it('differs from hmacSignHex for the same input — it has no key', async () => {
+    // sha256Hex is a plain digest; hmacSignHex is a keyed HMAC. They must not collide.
+    const digest = await sha256Hex(MESSAGE);
+    const hmac = await hmacSignHex('any-key', MESSAGE);
+    expect(digest).not.toBe(hmac);
   });
 });

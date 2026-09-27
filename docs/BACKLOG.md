@@ -2375,7 +2375,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** delete or correct each, per section E.
 
-### TS13: Coverage gaps the review found
+### TS13: Coverage gaps the review found ✅ done 2026-09-27 (partial — highest-risk items)
 
 **Priority:** P3 | **Source:** test review 2026-09-27, section G
 **Estimated:** 2 days
@@ -2383,6 +2383,8 @@ Filed from a nine-area review of every test file, read against the code under te
 **Context:** zero tests for the AuthPage forgot-password flow and `ProvisioningService.forgotPassword`/`signIn`; 17 of 44 routes have no route→page test and the `state.extra` redirect guards are untested through `createAppRouter`; `StatusSection` has no widget test; `CookieBanner` never asserts which consent level is saved; `workers/lib/auth.ts` RS256 branch (the one production uses) and JWKS TTL/cooldown; `crypto.ts` `sha256Hex`; sender-worker `enrichReceiverErrorBody`; no dashboard test asserts the request path or `Authorization` header.
 
 **Scope:** as listed in section G, highest-risk first (RS256, redirect guards, forgot-password).
+
+**Done 2026-09-27:** RS256 branch (`verifyJwt — RS256 via JWKS`, 5 tests), JWKS TTL expiry (2 tests), JWKS unknown-kid cooldown (2 tests), `sha256Hex` (4 tests), `enrichReceiverErrorBody` via `/send` endpoint (6 tests), `ProvisioningService.signIn` (6 tests), `ProvisioningService.forgotPassword` (6 tests), dashboard request path + Authorization header (7 tests × 6 endpoints). Remaining: `state.extra` redirect guards in `createAppRouter`, `StatusSection` widget test, `CookieBanner` consent-level assertion, AuthPage forgot-password widget tests.
 
 ### TS14: A missing `users` row is 401 on `/bootstrap` but 404 on `/me` and `/api-keys` (review)
 

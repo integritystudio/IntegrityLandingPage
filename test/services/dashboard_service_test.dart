@@ -11,6 +11,7 @@ void main() {
   late HttpServer fakeServer;
   late Dio testDio;
   late _FakeServerHandler serverHandler;
+  late _TestInterceptor testInterceptor;
 
   setUp(() async {
     serverHandler = _FakeServerHandler();
@@ -34,9 +35,8 @@ void main() {
     );
 
     // Add interceptor to handle network errors and redirect requests to the fake server
-    testDio.interceptors.add(
-      _TestInterceptor(serverHandler, 'http://127.0.0.1:${fakeServer.port}'),
-    );
+    testInterceptor = _TestInterceptor(serverHandler, 'http://127.0.0.1:${fakeServer.port}');
+    testDio.interceptors.add(testInterceptor);
 
     DashboardService.setDioForTesting(testDio);
     DashboardService.retryDelay = (_) async {};
@@ -1691,6 +1691,101 @@ void main() {
       expect(serverHandler.postCallCount, 3);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Request path and Authorization header
+  //
+  // Each public method must hit the correct API path and include the caller's
+  // JWT as an Authorization Bearer token. The interceptor now captures both
+  // before rewriting the URL, so we can assert the exact path and header.
+  // ---------------------------------------------------------------------------
+
+  group('request path and Authorization header', () {
+    const testJwt = 'test.jwt.token';
+    const orgId = 'org-abc-123';
+
+    test('fetchBillingStatus sends GET to /v1/orgs/:id/billing-status with Bearer token', () async {
+      serverHandler.mockGetResponse({'plan': 'starter', 'status': 'active'}, statusCode: 200);
+
+      await DashboardService.fetchBillingStatus(orgId: orgId, jwt: testJwt);
+
+      expect(testInterceptor.lastRequestPath, '/v1/orgs/$orgId/billing-status');
+      expect(testInterceptor.lastRequestHeaders?['Authorization'], 'Bearer $testJwt');
+    });
+
+    test('fetchUsageSummary sends GET to /v1/orgs/:id/usage/summary with Bearer token', () async {
+      serverHandler.mockGetResponse({
+        'usage_buckets': <dynamic>[],
+        'total_events': 0,
+        'period_start': '2026-01-01T00:00:00Z',
+        'period_end': '2026-01-31T23:59:59Z',
+      }, statusCode: 200);
+
+      await DashboardService.fetchUsageSummary(orgId: orgId, jwt: testJwt);
+
+      expect(testInterceptor.lastRequestPath, '/v1/orgs/$orgId/usage/summary');
+      expect(testInterceptor.lastRequestHeaders?['Authorization'], 'Bearer $testJwt');
+    });
+
+    test('fetchEntitlements sends GET to /v1/orgs/:id/entitlements with Bearer token', () async {
+      serverHandler.mockGetResponse({
+        'max_events_per_minute': 1000,
+        'max_events_per_day': 100000,
+        'max_retention_days': 30,
+        'max_seats': 5,
+      }, statusCode: 200);
+
+      await DashboardService.fetchEntitlements(orgId: orgId, jwt: testJwt);
+
+      expect(testInterceptor.lastRequestPath, '/v1/orgs/$orgId/entitlements');
+      expect(testInterceptor.lastRequestHeaders?['Authorization'], 'Bearer $testJwt');
+    });
+
+    test('fetchQuotaStatus sends GET to /v1/orgs/:id/quota/status with Bearer token', () async {
+      serverHandler.mockGetResponse({
+        'within_quota': true,
+        'events_used_today': 0,
+        'events_limit_today': 10000,
+        'events_used_this_minute': 0,
+        'events_limit_per_minute': 100,
+        'reset_at': '2026-01-02T00:00:00Z',
+      }, statusCode: 200);
+
+      await DashboardService.fetchQuotaStatus(orgId: orgId, jwt: testJwt);
+
+      expect(testInterceptor.lastRequestPath, '/v1/orgs/$orgId/quota/status');
+      expect(testInterceptor.lastRequestHeaders?['Authorization'], 'Bearer $testJwt');
+    });
+
+    test('fetchBillingPortalUrl sends POST to /v1/orgs/:id/billing-portal with Bearer token', () async {
+      serverHandler.mockPostResponse({'url': 'https://billing.stripe.com/session/abc'}, statusCode: 200);
+
+      await DashboardService.fetchBillingPortalUrl(orgId: orgId, jwt: testJwt);
+
+      expect(testInterceptor.lastRequestPath, '/v1/orgs/$orgId/billing-portal');
+      expect(testInterceptor.lastRequestHeaders?['Authorization'], 'Bearer $testJwt');
+    });
+
+    test('createCheckoutSession sends POST to /v1/orgs/:id/checkout-session with Bearer token', () async {
+      serverHandler.mockPostResponse({'url': 'https://checkout.stripe.com/c/pay/abc'}, statusCode: 200);
+
+      await DashboardService.createCheckoutSession(orgId: orgId, jwt: testJwt, plan: 'growth');
+
+      expect(testInterceptor.lastRequestPath, '/v1/orgs/$orgId/checkout-session');
+      expect(testInterceptor.lastRequestHeaders?['Authorization'], 'Bearer $testJwt');
+    });
+
+    test('fetchOrgList sends GET to /v1/orgs with Bearer token', () async {
+      serverHandler.mockGetResponse({
+        'organizations': <dynamic>[],
+      }, statusCode: 200);
+
+      await DashboardService.fetchOrgList(jwt: testJwt);
+
+      expect(testInterceptor.lastRequestPath, '/v1/orgs');
+      expect(testInterceptor.lastRequestHeaders?['Authorization'], 'Bearer $testJwt');
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1700,6 +1795,13 @@ void main() {
 class _TestInterceptor extends Interceptor {
   final _FakeServerHandler _handler;
   final String _fakeBaseUrl;
+
+  /// Path of the most recent request (e.g. `/v1/orgs/org-1/billing-status`),
+  /// captured before the URL is rewritten to the fake server.
+  String? lastRequestPath;
+
+  /// Headers of the most recent request, captured before rewriting.
+  Map<String, dynamic>? lastRequestHeaders;
 
   _TestInterceptor(this._handler, this._fakeBaseUrl);
 
@@ -1758,9 +1860,11 @@ class _TestInterceptor extends Interceptor {
       }
     }
 
-    // Extract the path from the full URL and redirect to fake server
+    // Capture the original path and headers before rewriting.
     final uri = Uri.parse(options.path);
     final path = uri.path;
+    lastRequestPath = path;
+    lastRequestHeaders = Map<String, dynamic>.from(options.headers);
     final query = uri.query;
 
     final newUrl = '$_fakeBaseUrl$path${query.isNotEmpty ? '?$query' : ''}';

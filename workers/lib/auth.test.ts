@@ -610,3 +610,224 @@ describe('auth0IssuerFor', () => {
     expect(auth0IssuerFor('https://tenant.us.auth0.com')).toBe('https://tenant.us.auth0.com/');
   });
 });
+
+// ---------------------------------------------------------------------------
+// RS256 via JWKS
+//
+// Auth0 signs its tokens with RS256. These tests exercise the RSA-PKCS1-v1_5
+// path using locally-generated keys so no network access is needed.
+// The ASYMMETRIC_ALGS map covers both ES256 and RS256 identically from the
+// caller's perspective; the tests below prove the RS256 branch is reachable
+// and correct.
+// ---------------------------------------------------------------------------
+
+const RS256_JWKS_URL = 'https://my-tenant.auth0.com/.well-known/jwks.json';
+const RS256_KID = 'rsa-test-key-1';
+
+async function generateRs256KeyPair(): Promise<{ privateKey: CryptoKey; jwk: TestJwk }> {
+  const pair = (await crypto.subtle.generateKey(
+    { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
+    true,
+    ['sign', 'verify'],
+  )) as CryptoKeyPair;
+  const jwk = (await crypto.subtle.exportKey('jwk', pair.publicKey)) as TestJwk;
+  return { privateKey: pair.privateKey, jwk };
+}
+
+async function buildRs256Jwt(
+  claims: Record<string, unknown>,
+  privateKey: CryptoKey,
+  kid = RS256_KID,
+): Promise<string> {
+  const encodedHeader = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT', kid }));
+  const encodedPayload = b64url(JSON.stringify(claims));
+  const sig = await crypto.subtle.sign(
+    { name: 'RSASSA-PKCS1-v1_5' },
+    privateKey,
+    new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`),
+  );
+  return `${encodedHeader}.${encodedPayload}.${b64urlBytes(new Uint8Array(sig))}`;
+}
+
+describe('verifyJwt — RS256 via JWKS', () => {
+  let privateKey: CryptoKey;
+  let rsaJwk: TestJwk;
+
+  beforeAll(async () => {
+    const pair = await generateRs256KeyPair();
+    privateKey = pair.privateKey;
+    rsaJwk = { ...pair.jwk, kid: RS256_KID, alg: 'RS256', use: 'sig' };
+  });
+
+  beforeEach(() => {
+    resetJwksCache();
+    vi.stubGlobal('fetch', async () =>
+      new Response(JSON.stringify({ keys: [rsaJwk] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('accepts a token signed with an RSA-2048 private key', async () => {
+    const token = await buildRs256Jwt(futureClaims(), privateKey);
+    const result = await verifyJwt(token, { jwksUrl: RS256_JWKS_URL });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.payload.sub).toBe('user-1');
+  });
+
+  it('rejects an RS256 token signed by a different key', async () => {
+    const other = await generateRs256KeyPair();
+    const token = await buildRs256Jwt(futureClaims(), other.privateKey);
+    expect((await verifyJwt(token, { jwksUrl: RS256_JWKS_URL })).ok).toBe(false);
+  });
+
+  it('rejects an RS256 token whose kid is absent from the key set', async () => {
+    const token = await buildRs256Jwt(futureClaims(), privateKey, 'unknown-kid');
+    expect((await verifyJwt(token, { jwksUrl: RS256_JWKS_URL })).ok).toBe(false);
+  });
+
+  it('enforces exp on RS256 tokens', async () => {
+    const token = await buildRs256Jwt({ ...futureClaims(), exp: NOW - 1 }, privateKey);
+    expect((await verifyJwt(token, { jwksUrl: RS256_JWKS_URL })).ok).toBe(false);
+  });
+
+  it('enforces issuer on RS256 tokens', async () => {
+    const token = await buildRs256Jwt({ ...futureClaims(), iss: 'https://other.example/' }, privateKey);
+    expect((await verifyJwt(token, { jwksUrl: RS256_JWKS_URL }, { issuerUrl: 'https://my-tenant.auth0.com/' })).ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// JWKS TTL and cooldown
+//
+// The cache has two time-based gates:
+//   JWKS_CACHE_TTL_MS (10 min): a stale entry triggers a refetch.
+//   JWKS_UNKNOWN_KID_REFETCH_COOLDOWN_MS (30 s): an unrecognised kid triggers
+//     at most one upstream refetch per window, so a stream of forged-kid
+//     requests cannot drive unbounded JWKS fetches.
+//
+// Both are tested by controlling Date.now() via vi.setSystemTime.
+// ---------------------------------------------------------------------------
+
+describe('verifyJwt — JWKS TTL expiry', () => {
+  let privateKey: CryptoKey;
+  let jwk: TestJwk;
+  let fetchCalls: number;
+
+  beforeAll(async () => {
+    const pair = await generateEs256KeyPair();
+    privateKey = pair.privateKey;
+    jwk = { ...pair.jwk, kid: TEST_KID, alg: 'ES256', use: 'sig' };
+  });
+
+  beforeEach(() => {
+    resetJwksCache();
+    fetchCalls = 0;
+    vi.stubGlobal('fetch', async () => {
+      fetchCalls++;
+      return new Response(JSON.stringify({ keys: [jwk] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('refetches after the TTL window expires', async () => {
+    const token = await buildEs256Jwt(futureClaims(), privateKey);
+
+    // First verification primes the cache.
+    await verifyJwt(token, { jwksUrl: JWKS_URL });
+    expect(fetchCalls).toBe(1);
+
+    // Advance time past JWKS_CACHE_TTL_MS (10 minutes + 1 ms).
+    vi.advanceTimersByTime(10 * 60 * 1000 + 1);
+
+    // Second verification must refetch because the entry is stale.
+    await verifyJwt(token, { jwksUrl: JWKS_URL });
+    expect(fetchCalls).toBe(2);
+  });
+
+  it('does not refetch before the TTL window expires', async () => {
+    const token = await buildEs256Jwt(futureClaims(), privateKey);
+
+    await verifyJwt(token, { jwksUrl: JWKS_URL });
+    expect(fetchCalls).toBe(1);
+
+    // Advance to just under TTL (9 minutes 59 seconds).
+    vi.advanceTimersByTime(9 * 60 * 1000 + 59 * 1000);
+
+    await verifyJwt(token, { jwksUrl: JWKS_URL });
+    // Still served from cache.
+    expect(fetchCalls).toBe(1);
+  });
+});
+
+describe('verifyJwt — JWKS unknown-kid cooldown', () => {
+  let privateKey: CryptoKey;
+  let jwk: TestJwk;
+  let fetchCalls: number;
+
+  beforeAll(async () => {
+    const pair = await generateEs256KeyPair();
+    privateKey = pair.privateKey;
+    jwk = { ...pair.jwk, kid: TEST_KID, alg: 'ES256', use: 'sig' };
+  });
+
+  beforeEach(() => {
+    resetJwksCache();
+    fetchCalls = 0;
+    vi.stubGlobal('fetch', async () => {
+      fetchCalls++;
+      // Serve only a key with a different kid so the requesting token's kid is always unknown.
+      return new Response(JSON.stringify({ keys: [{ ...jwk, kid: 'other-kid' }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('limits refetch to one per cooldown window for an unknown kid', async () => {
+    // Token with a kid that is never in the key set.
+    const token = await buildEs256Jwt(futureClaims(), privateKey, { alg: 'ES256', typ: 'JWT', kid: 'never-there' });
+
+    // First request: initial fetch + one refetch on unknown kid.
+    await verifyJwt(token, { jwksUrl: JWKS_URL });
+    const callsAfterFirst = fetchCalls;
+    expect(callsAfterFirst).toBeGreaterThanOrEqual(2);
+
+    // Second request within cooldown window: no additional refetch.
+    await verifyJwt(token, { jwksUrl: JWKS_URL });
+    expect(fetchCalls).toBe(callsAfterFirst);
+  });
+
+  it('allows another refetch after the cooldown window elapses', async () => {
+    const token = await buildEs256Jwt(futureClaims(), privateKey, { alg: 'ES256', typ: 'JWT', kid: 'never-there' });
+
+    await verifyJwt(token, { jwksUrl: JWKS_URL });
+    const callsAfterFirst = fetchCalls;
+
+    // Advance past JWKS_UNKNOWN_KID_REFETCH_COOLDOWN_MS (30 s + 1 ms).
+    vi.advanceTimersByTime(30 * 1000 + 1);
+
+    await verifyJwt(token, { jwksUrl: JWKS_URL });
+    // One more refetch should have fired.
+    expect(fetchCalls).toBeGreaterThan(callsAfterFirst);
+  });
+});

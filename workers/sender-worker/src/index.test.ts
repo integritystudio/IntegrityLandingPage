@@ -2273,6 +2273,97 @@ describe('Sender Worker', () => {
     });
   });
 
+  describe('POST /send — enrichReceiverErrorBody', () => {
+    // enrichReceiverErrorBody is not exported; it is exercised through the /send endpoint
+    // when the receiver returns a non-2xx JSON body with a known error code.
+
+    beforeEach(() => {
+      mockReceiverFetch.mockReset();
+    });
+
+    it('attaches a description for a known receiver error code', async () => {
+      // Simulate a receiver returning a known code with no description yet.
+      const receiverBody = { error: 'key not found', code: 'MISSING_FIELDS' };
+      mockReceiverFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify(receiverBody), {
+          status: 400,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+      const request = makeSendRequest(validSendPayload);
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(400);
+      const data = await response.json() as Record<string, unknown>;
+      expect(typeof data['description']).toBe('string');
+      expect((data['description'] as string).length).toBeGreaterThan(0);
+    });
+
+    it('leaves the body unchanged when a description is already present', async () => {
+      const receiverBody = { error: 'bad input', code: 'MISSING_FIELDS', description: 'already set' };
+      mockReceiverFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify(receiverBody), {
+          status: 400,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+      const request = makeSendRequest(validSendPayload);
+      const response = await worker.fetch(request, mockEnv);
+      const data = await response.json() as Record<string, unknown>;
+      expect(data['description']).toBe('already set');
+    });
+
+    it('leaves the body unchanged for an unknown error code', async () => {
+      const receiverBody = { error: 'something obscure', code: 'TOTALLY_UNKNOWN_CODE_XYZ' };
+      mockReceiverFetch.mockResolvedValueOnce(
+        new Response(JSON.stringify(receiverBody), {
+          status: 500,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+      const request = makeSendRequest(validSendPayload);
+      const response = await worker.fetch(request, mockEnv);
+      const data = await response.json() as Record<string, unknown>;
+      expect(data['description']).toBeUndefined();
+    });
+
+    it('leaves the body unchanged when the receiver returns 2xx', async () => {
+      // enrichReceiverErrorBody skips bodies whose status < 400
+      mockReceiverResponse({ ok: true, received: {} }, 200);
+      const request = makeSendRequest(validSendPayload);
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(200);
+      const data = await response.json() as Record<string, unknown>;
+      expect(data['description']).toBeUndefined();
+    });
+
+    it('leaves a non-JSON error body unchanged', async () => {
+      mockReceiverFetch.mockResolvedValueOnce(
+        new Response('gateway error', {
+          status: 502,
+          headers: { 'content-type': 'text/plain' },
+        }),
+      );
+      const request = makeSendRequest(validSendPayload);
+      const response = await worker.fetch(request, mockEnv);
+      expect(response.status).toBe(502);
+      const text = await response.text();
+      expect(text).toBe('gateway error');
+    });
+
+    it('leaves an invalid-JSON error body unchanged', async () => {
+      mockReceiverFetch.mockResolvedValueOnce(
+        new Response('not json {', {
+          status: 400,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+      const request = makeSendRequest(validSendPayload);
+      const response = await worker.fetch(request, mockEnv);
+      const text = await response.text();
+      expect(text).toBe('not json {');
+    });
+  });
+
   describe('GET /health', () => {
     it('returns 200 with service info', async () => {
       const request = new Request('https://worker.test/health', { method: 'GET' });

@@ -781,6 +781,114 @@ void main() {
     });
   });
 
+  group('signIn', () {
+    test('sends email and password in POST body', () async {
+      mockDio.mockPostResponse({'jwt': 'signin.jwt.token'}, statusCode: 200);
+
+      await ProvisioningService.signIn('user@example.com', 'pass123');
+
+      final body = mockDio.lastPostBody;
+      expect(body, isNotNull);
+      expect(body!['email'], 'user@example.com');
+      expect(body['password'], 'pass123');
+    });
+
+    test('returns AuthSuccess with jwt and email on 200', () async {
+      mockDio.mockPostResponse({'jwt': 'signin.jwt.token'}, statusCode: 200);
+
+      final result = await ProvisioningService.signIn('user@example.com', 'pass123');
+
+      expect(result, isA<AuthSuccess>());
+      expect((result as AuthSuccess).jwt, 'signin.jwt.token');
+      expect(result.email, 'user@example.com');
+    });
+
+    test('returns AuthError on 401 invalid credentials', () async {
+      mockDio.mockPostResponse({'error': 'invalid_grant'}, statusCode: 401);
+
+      final result = await ProvisioningService.signIn('user@example.com', 'wrong');
+
+      expect(result, isA<AuthError>());
+    });
+
+    test('returns AuthError on 500', () async {
+      mockDio.mockPostResponse({'error': 'server error'}, statusCode: 500);
+
+      final result = await ProvisioningService.signIn('user@example.com', 'pass123');
+
+      expect(result, isA<AuthError>());
+    });
+
+    test('returns AuthError when 200 body is missing jwt', () async {
+      mockDio.mockPostResponse({'email': 'user@example.com'}, statusCode: 200);
+
+      final result = await ProvisioningService.signIn('user@example.com', 'pass123');
+
+      expect(result, isA<AuthError>());
+    });
+
+    test('returns AuthError on network error', () async {
+      mockDio.mockPostError(DioExceptionType.connectionTimeout);
+
+      final result = await ProvisioningService.signIn('user@example.com', 'pass123');
+
+      expect(result, isA<AuthError>());
+    });
+  });
+
+  group('forgotPassword', () {
+    test('sends email in POST body', () async {
+      mockDio.mockPostResponse({}, statusCode: 200);
+
+      await ProvisioningService.forgotPassword('user@example.com');
+
+      final body = mockDio.lastPostBody;
+      expect(body, isNotNull);
+      expect(body!['email'], 'user@example.com');
+    });
+
+    test('returns ForgotPasswordSuccess on 200', () async {
+      mockDio.mockPostResponse({}, statusCode: 200);
+
+      final result = await ProvisioningService.forgotPassword('user@example.com');
+
+      expect(result, isA<ForgotPasswordSuccess>());
+    });
+
+    test('returns ForgotPasswordError on 400', () async {
+      mockDio.mockPostResponse({'error': 'invalid email'}, statusCode: 400);
+
+      final result = await ProvisioningService.forgotPassword('user@example.com');
+
+      expect(result, isA<ForgotPasswordError>());
+    });
+
+    test('returns ForgotPasswordError on 500', () async {
+      mockDio.mockPostResponse({'error': 'server error'}, statusCode: 500);
+
+      final result = await ProvisioningService.forgotPassword('user@example.com');
+
+      expect(result, isA<ForgotPasswordError>());
+    });
+
+    test('returns ForgotPasswordError on network error', () async {
+      mockDio.mockPostError(DioExceptionType.connectionTimeout);
+
+      final result = await ProvisioningService.forgotPassword('user@example.com');
+
+      expect(result, isA<ForgotPasswordError>());
+    });
+
+    test('returns ForgotPasswordError and includes server error message on non-200', () async {
+      mockDio.mockPostResponse({'error': 'rate limit exceeded'}, statusCode: 429);
+
+      final result = await ProvisioningService.forgotPassword('user@example.com');
+
+      expect(result, isA<ForgotPasswordError>());
+      expect((result as ForgotPasswordError).error, isNotEmpty);
+    });
+  });
+
   group('MockProvisioningDio per-attempt response data', () {
     test('post returns per-attempt data when attemptNumber matches', () async {
       // Attempt 0: connection error (triggers retry), attempt 1: success
