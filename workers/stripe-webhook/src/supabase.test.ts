@@ -380,15 +380,33 @@ describe('upsertSubscription', () => {
     expect(stub.find('POST', SUBSCRIPTIONS_TABLE)).toBeDefined();
   });
 
-  it('stamps created_at and updated_at with the same timestamp as the soft-delete', async () => {
+  it('stamps updated_at to match the soft-delete timestamp, and omits created_at from the upsert body', async () => {
     const stub = stubSupabase(subscriptionRoutes());
 
     await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', 'active');
 
     const cancelled = objectBody(stub.find('PATCH', SUBSCRIPTIONS_TABLE)!);
     const [row] = rowsBody(stub.find('POST', SUBSCRIPTIONS_TABLE)!);
-    expect(row.created_at).toBe(row.updated_at);
+    // updated_at must be co-stamped with the soft-delete so all writes share one timestamp.
     expect(cancelled.updated_at).toBe(row.updated_at);
+    // UA05: created_at must NOT be in the upsert body so the database keeps the first-insert
+    // value on conflict instead of rewriting it with each webhook touch.
+    expect(row).not.toHaveProperty('created_at');
+  });
+
+  it('does not overwrite created_at on a second upsert for the same org', async () => {
+    const stub = stubSupabase(subscriptionRoutes());
+
+    await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', 'active');
+    await db.upsertSubscription('org-1', 'sub_abc', 'price_xyz', 'past_due');
+
+    // Both POST bodies must lack created_at so the DB retains the original value.
+    const posts = stub.findAll('POST', SUBSCRIPTIONS_TABLE);
+    expect(posts).toHaveLength(2);
+    for (const post of posts) {
+      const [row] = rowsBody(post);
+      expect(row).not.toHaveProperty('created_at');
+    }
   });
 
   it('upserts with null price_id for stub rows from checkout handler', async () => {

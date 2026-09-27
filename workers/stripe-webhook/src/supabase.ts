@@ -121,7 +121,9 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
         // Omitted rather than nulled when unknown: the upsert merges duplicates, so a
         // Checkout stub (no items yet) must not erase a period a later event wrote.
         ...(period ? { current_period_start: period.start, current_period_end: period.end } : {}),
-        created_at: now,
+        // UA05: omit created_at so the column keeps the first-insert value on conflict.
+        // The column has `default now()`, so inserts always stamp it; the upsert's
+        // merge-duplicates strategy only sets columns present in the body.
         updated_at: now,
       },
       'organization_id',

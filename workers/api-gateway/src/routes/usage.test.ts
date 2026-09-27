@@ -210,6 +210,30 @@ describe('GET /v1/orgs/:orgId/usage/summary', () => {
     const res = await handleUsageSummary(await makeJwtRequest(PATH), ORG_ID, opts);
     expect(res.status).toBe(500);
   });
+
+  // TS06: a local-time constructor produces the prior month's last day for machines
+  // east of UTC, and the wrong boundary silently over-counts a month of usage.
+  it('filters usage from the first of the month in UTC regardless of local timezone', async () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'Asia/Tokyo';
+    try {
+      const stub = stubSupabase({
+        ...membershipRoute(),
+        'GET usage_buckets_daily': okRows([]),
+      });
+      await handleUsageSummary(await makeJwtRequest(PATH), ORG_ID, opts);
+
+      const now = new Date();
+      const expected = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
+      const filter = stub.find('GET', 'usage_buckets_daily')!.url.searchParams.get('bucket_date');
+      expect(filter).toBe(`gte.${expected}`);
+      // Day 01 specifically: a local-time constructor would produce 28-31 of the prior month.
+      expect(filter).toMatch(/^gte\.\d{4}-\d{2}-01$/);
+    } finally {
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    }
+  });
 });
 
 describe('GET /v1/orgs/:orgId/entitlements', () => {

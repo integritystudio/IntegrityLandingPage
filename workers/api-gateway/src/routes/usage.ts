@@ -98,7 +98,8 @@ export async function handleUsageSummary(
   if (!access.ok) return access.error;
 
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  // TS06: use UTC methods so the boundary is the same regardless of the server's local offset.
+  const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
 
   const result = await sb.query<UsageBucket>('usage_buckets_daily', {
     select: 'organization_id, bucket_date, metric_key, total_quantity, request_count, avg_latency_ms',
