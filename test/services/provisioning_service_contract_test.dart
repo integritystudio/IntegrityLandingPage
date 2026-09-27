@@ -38,8 +38,10 @@ void main() {
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
 
       // Act
-      await ProvisioningService.sendEvent(event, jwt: jwt);
+      final result = await ProvisioningService.sendEvent(event, jwt: jwt);
 
+      // Assert: response is a success (received field is an object, not a string)
+      expect(result, isA<ProvisioningSuccess>());
       // Assert: POST body matches SendRequestSchema (no org_name when null)
       expect(mockDio.lastPostBody, {
         'action': 'provision_api_key',
@@ -64,8 +66,10 @@ void main() {
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
 
       // Act
-      await ProvisioningService.sendEvent(event, jwt: jwt);
+      final result = await ProvisioningService.sendEvent(event, jwt: jwt);
 
+      // Assert: response is a success (received field is an object, not a string)
+      expect(result, isA<ProvisioningSuccess>());
       // Assert: POST body includes org_name in snake_case (SendRequestSchema)
       expect(mockDio.lastPostBody, {
         'action': 'provision_api_key',
@@ -88,9 +92,10 @@ void main() {
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
 
       // Act
-      await ProvisioningService.sendEvent(event, jwt: jwt);
+      final result = await ProvisioningService.sendEvent(event, jwt: jwt);
 
       // Assert
+      expect(result, isA<ProvisioningSuccess>());
       expect(mockDio.lastPostBody?['action'], 'provision_api_key');
     });
 
@@ -109,9 +114,10 @@ void main() {
         );
 
         // Act
-        await ProvisioningService.sendEvent(event, jwt: jwt);
+        final result = await ProvisioningService.sendEvent(event, jwt: jwt);
 
         // Assert
+        expect(result, isA<ProvisioningSuccess>());
         expect(mockDio.lastPostBody?['tier'], tier);
       }
     });
@@ -128,8 +134,10 @@ void main() {
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
 
       // Act
-      await ProvisioningService.sendEvent(event, jwt: jwt);
+      final result = await ProvisioningService.sendEvent(event, jwt: jwt);
 
+      // Assert: response is a success (received field is an object, not a string)
+      expect(result, isA<ProvisioningSuccess>());
       // Assert: JWT is sent via x-session-data header (encoded in sender-worker)
       // POST body doesn't contain JWT directly
       expect(mockDio.lastPostBody, isA<Map<String, dynamic>>());
@@ -148,8 +156,10 @@ void main() {
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
 
       // Act
-      await ProvisioningService.sendEvent(event, jwt: jwt);
+      final result = await ProvisioningService.sendEvent(event, jwt: jwt);
 
+      // Assert: response is a success (received field is an object, not a string)
+      expect(result, isA<ProvisioningSuccess>());
       // Assert: POST body is JSON (verified by jsonEncode in service)
       expect(mockDio.lastPostBody, isA<Map<String, dynamic>>());
     });
@@ -161,7 +171,7 @@ void main() {
       mockDio.mockPostResponse({
         'ok': true,
         'apiKey': 'sk-0123456789abcdef0123456789abcdef',
-        'received': '',
+        'received': <String, dynamic>{},
       });
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
@@ -184,7 +194,7 @@ void main() {
       // This guards against regression if receiver-worker reverts to old shape
       mockDio.mockPostResponse({
         'ok': true,
-        'received': '',
+        'received': <String, dynamic>{},
       });
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
@@ -228,7 +238,7 @@ void main() {
       mockDio.mockPostResponse({
         'ok': true,
         'apiKey': 'sk-abcdef0123456789abcdef0123456789',
-        'received': '',
+        'received': <String, dynamic>{},
       });
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';

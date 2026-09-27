@@ -86,7 +86,7 @@ void main() {
       mockDio.mockPostResponse({
         'ok': true,
         'apiKey': 'sk-test-key-123',
-        'received': 'abc-def-ghi',
+        'received': <String, dynamic>{},
       });
 
       final event = ProvisioningEvent(
@@ -99,7 +99,7 @@ void main() {
 
       expect(result, isA<ProvisioningSuccess>());
       expect((result as ProvisioningSuccess).apiKey, 'sk-test-key-123');
-      expect(result.received, 'abc-def-ghi');
+      expect(result.received, isA<Map<String, dynamic>>());
     });
 
     test('retries on 500 and succeeds on third attempt', () async {
@@ -109,7 +109,7 @@ void main() {
         {
           'ok': true,
           'apiKey': 'sk-recovered',
-          'received': 'xyz',
+          'received': <String, dynamic>{},
         },
       ], statusCode: 500, successStatusCode: 200);
 
@@ -152,7 +152,7 @@ void main() {
         {
           'ok': true,
           'apiKey': 'sk-recovered',
-          'received': 'xyz',
+          'received': <String, dynamic>{},
         },
       ], statusCode: 504, successStatusCode: 200);
 
@@ -173,7 +173,7 @@ void main() {
       mockDio.mockPostResponse({
         'ok': true,
         'apiKey': 'sk-key',
-        'received': 'abc',
+        'received': <String, dynamic>{},
       });
 
       final event = ProvisioningEvent(
@@ -193,7 +193,7 @@ void main() {
       mockDio.mockPostResponse({
         'ok': true,
         'apiKey': 'sk-key',
-        'received': 'abc',
+        'received': <String, dynamic>{},
       });
 
       final event = ProvisioningEvent(
@@ -213,7 +213,7 @@ void main() {
       mockDio.mockPostResponse({
         'ok': true,
         'apiKey': 'sk-key',
-        'received': 'abc',
+        'received': <String, dynamic>{},
       });
 
       final event = ProvisioningEvent(
@@ -302,7 +302,7 @@ void main() {
       mockDio.mockPostResponse({
         'ok': true,
         'apiKey': 'sk-contract-test',
-        'received': 'contract-id',
+        'received': <String, dynamic>{},
       });
 
       final event = ProvisioningEvent(
@@ -331,7 +331,7 @@ void main() {
       mockDio.mockPostResponse({
         'ok': true,
         'apiKey': 'sk-no-org',
-        'received': 'no-org-id',
+        'received': <String, dynamic>{},
       });
 
       final event = ProvisioningEvent(
@@ -786,7 +786,7 @@ void main() {
       // Attempt 0: connection error (triggers retry), attempt 1: success
       mockDio.mockPostError(DioExceptionType.connectionTimeout, attemptNumber: 0);
       mockDio.mockPostResponse(
-        {'ok': true, 'apiKey': 'sk-retry-key', 'received': 'xyz'},
+        {'ok': true, 'apiKey': 'sk-retry-key', 'received': <String, dynamic>{}},
         attemptNumber: 1,
       );
 

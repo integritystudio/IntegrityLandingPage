@@ -53,7 +53,7 @@ sealed class ProvisioningResponse {
 /// Successful provisioning response with API key.
 class ProvisioningSuccess extends ProvisioningResponse {
   final String apiKey;
-  final String received;
+  final Map<String, dynamic> received;
 
   const ProvisioningSuccess({
     required this.apiKey,
@@ -386,7 +386,9 @@ class ProvisioningService {
           }
           return ProvisioningSuccess(
             apiKey: apiKey,
-            received: data['received'] as String? ?? '',
+            received: data['received'] is Map
+                ? Map<String, dynamic>.from(data['received'] as Map)
+                : const <String, dynamic>{},
           );
         }
 

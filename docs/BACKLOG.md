@@ -2259,7 +2259,7 @@ The comment at the `preVerifyToken` call says an invalid token "returns 401 with
 
 Filed from a nine-area review of every test file, read against the code under test — not from `docs/repomix/tests-compressed.xml`, which strips every `test()`/`it()` body. Full findings, with `path:line` for each, are in [test-suite-review-2026-09-27.md](test-suite-review-2026-09-27.md); section letters below refer to it. Done in the same session and **not** listed here: the ~230 `workers/lib` tests of schemas no request parses were deleted (`bf12226`), `CreateApiKeyBodySchema` was wired into the create-key route (`df174a2`), and `AuditActionSchema` was narrowed to the four emitted actions and enforced at runtime in `writeAuditLog` (`df174a2`, `a3aa746`).
 
-### TS01: Provisioning `received` is cast to `String` but the receiver contract returns an object
+### ✅ TS01 — done 2026-09-27: Provisioning `received` is cast to `String` but the receiver contract returns an object
 
 **Priority:** P2 | **Source:** test review 2026-09-27, section A1
 **Estimated:** 1 hour
