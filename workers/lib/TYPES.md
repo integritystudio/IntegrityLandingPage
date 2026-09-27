@@ -28,8 +28,8 @@ JwtPayloadSchema = z.object({
   exp: z.number(),
 }).passthrough()
 ```
-**Purpose:** Validates Auth0 JWT tokens before trusting claims.
-**Usage:** `workers/lib/auth.ts` - JWT verification in `verifyJwt()`
+**Purpose:** Shape reference for the claims a verified Auth0 token carries.
+**Usage:** Only `types/schemas.test.ts` parses with it. `workers/lib/auth.ts` verifies Auth0-issued RS256/ES256 tokens against the tenant's JWKS and types the payload with its own `JwtPayload` interface; it does not import this schema.
 
 #### UserRow
 ```typescript
@@ -39,7 +39,6 @@ UserRowSchema = z.object({
   email: z.string().email(),
   name: z.string().nullable(),
   tier: z.string(),
-  default_organization_id: z.string().uuid().nullable(),
   created_at: z.string().datetime(),
 })
 ```
@@ -55,12 +54,12 @@ OrganizationSchema = z.object({
   slug: z.string(),
   name: z.string(),
   billing_status: BillingStatusSchema,
-  current_plan: PlanKeySchema,
+  current_plan: ApiKeyTierSchema,
   quota_version: z.number(),
 })
 ```
-**Billing Status Enum:** `'inactive' | 'active' | 'past_due' | 'canceled'`
-**Plan Key Enum:** `'free' | 'growth' | 'enterprise'`
+**Billing Status Enum:** Stripe's eight subscription statuses verbatim plus `inactive` ("no subscription exists"): `'inactive' | 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused'`
+**Plan Key Enum:** `'starter' | 'growth' | 'enterprise'` (`ApiKeyTierSchema` — the same enum types API keys; there is no separate `PlanKeySchema`)
 **Usage:** Org listing, dashboard, and status routes
 
 #### OrgMembership
@@ -123,7 +122,7 @@ ApiKeySchema = z.object({
   revoked_at: z.string().datetime().nullable(),
 })
 ```
-**Tier Enum:** `'new' | 'free' | 'growth' | 'enterprise'`
+**Tier Enum:** `'starter' | 'growth' | 'enterprise'`
 **Status Enum:** `'active' | 'revoked' | 'expired'`
 **Usage:** API key database model validation
 
@@ -165,7 +164,7 @@ RevokeApiKeyResponseSchema = z.object({
 
 ### /v1/me
 **Schema:** `MeResponseSchema`
-- Returns authenticated user profile (id, email, name, tier, default_org_id, created_at)
+- Returns authenticated user profile (id, email, name, tier, created_at)
 - Auth: JWT bearer token required
 
 ### /v1/orgs
@@ -202,12 +201,12 @@ RevokeApiKeyResponseSchema = z.object({
 ### BaseRouteOptions
 ```typescript
 BaseRouteOptionsSchema = z.object({
-  jwtSecret: z.string(),
   supabaseUrl: z.string().url(),
   serviceRoleKey: z.string(),
+  jwtIssuerUrl: z.string().url().optional(), // expected `iss`; other issuers are rejected (V-02)
 })
 ```
-Used by routes requiring JWT verification.
+Database access for every route. A `jwtSecret` field lived here until 2026-07-31, when the HS256 verification path it fed was removed as unreachable (CR26). JWT verification takes its key set from `auth0JwtKey({ auth0Domain })` in `workers/lib/auth.ts`, not from these options.
 
 ### MachineRouteOptions
 ```typescript
@@ -220,19 +219,20 @@ Used by routes supporting both JWT and API key auth (requires HMAC for key verif
 ### Env (Worker Environment)
 ```typescript
 EnvSchema = z.object({
-  SUPABASE_URL: z.string().url(),
+  SUPABASE_URL: z.string().url(),            // database access only; not a token issuer
   SUPABASE_SERVICE_ROLE_KEY: z.string(),
-  SUPABASE_JWT_SECRET: z.string(),
-  API_KEY_HMAC_SECRET: z.string(),
+  API_KEY_HMAC_SECRET: z.string().optional(), // bound in production since 2026-08-06 (CR12)
+  AUTH0_DOMAIN: z.string(),                   // JWKS URL and expected `iss` derive from it
+  AUTH0_AUDIENCE: z.string().optional(),      // absent means `aud` is not validated
 })
 ```
-Validates Cloudflare Worker environment variables in `wrangler.toml`.
+Mirrors api-gateway's `Env` by hand — nothing imports this schema, so a drift here is silent. `SUPABASE_JWT_SECRET` is deliberately absent: browser tokens are Auth0-issued and verified against Auth0 JWKS, and verifying them against Supabase is exactly what produced the original `401 Invalid JWT signature` (CR26). Do not re-add it.
 
 ### AuthResult
 Union type for dual JWT/API key authentication resolution:
 ```typescript
 type AuthResult =
-  | { ok: true; type: 'jwt'; sub: string }
+  | { ok: true; type: 'jwt'; sub: string; userId: string }
   | { ok: true; type: 'api_key'; userId: string; organizationId: string }
   | { ok: false; error: Response }
 ```
@@ -241,6 +241,7 @@ type AuthResult =
 
 ### From workers/lib/index.ts (barrel export)
 ```typescript
+// Workers import the shared package by relative path (no path alias is configured).
 import {
   // Types
   type JwtPayload,
@@ -255,7 +256,7 @@ import {
   EnvSchema,
   CreateApiKeyBodySchema,
   MeResponseSchema,
-} from '@workers/lib';
+} from '../../lib';
 ```
 
 ### Validation in request handlers
@@ -293,7 +294,7 @@ To use these schemas in existing route handlers:
 
 ### `workers/lib/crypto.ts`
 
-Shared HMAC-SHA256 primitives used by all workers that sign or verify inter-service messages, API keys, JWTs, and Stripe webhooks. Exported from `workers/lib/index.ts`.
+Shared HMAC-SHA256 primitives used by the workers that sign or verify inter-service messages, API keys, and Stripe webhooks. JWTs are not among them: `auth.ts` verifies asymmetric (RS256/ES256) signatures with WebCrypto against Auth0's JWKS and imports nothing from this module. Exported from `workers/lib/index.ts`.
 
 ```typescript
 // Sign a message, returns raw bytes
@@ -312,18 +313,17 @@ hmacVerify(secret: string, signature: Uint8Array, message: string): Promise<bool
 |---|---|---|
 | `lib/api-keys.ts` | `hmacSignHex` | Hash API key secret for storage |
 | `lib/api-keys.ts` | `hmacVerify` | Verify API key secret against stored hash |
-| `lib/auth.ts` | `hmacVerify` | Verify HS256 JWT signature |
 | `stripe-webhook/src/verify.ts` | `hmacVerify` | Verify Stripe webhook HMAC signature |
-| `receiver-worker/src/index.ts` | `hmacSignHex` | Verify HMAC-signed inter-worker requests |
-| `sender-worker/src/crypto.ts` | `hmacSignHex` | Sign requests to receiver-worker |
+| `receiver-worker/src/index.ts` | `hmacVerify` | Verify HMAC-signed inter-worker requests (local stub) |
+| `sender-worker/src/crypto.ts` | `hmacSignHex` | Sign requests to the receiver |
 | `contact-form/src/index.ts` | `hmacSign` | Generate and validate CSRF tokens (base64url encoded) |
 
 ## Related Files
 
-- **workers/lib/auth.ts** — JWT verification using `JwtPayloadSchema` and `hmacVerify`
+- **workers/lib/auth.ts** — Auth0 JWT verification: RS256/ES256 against the tenant's JWKS, `iss`/`aud`/`exp`/`nbf` checks; no HMAC and no HS256 path
 - **workers/lib/api-keys.ts** — API key generation and verification using `hmacSignHex`/`hmacVerify`
 - **workers/lib/crypto.ts** — HMAC-SHA256 sign/verify primitives
 - **workers/lib/supabase.ts** — Database client with type-safe queries
 - **workers/lib/validation/** — Shared validation utilities and error handling
 - **workers/api-gateway/** — Route handlers using these schemas
-- **docs/roadmap/payments-implementation.md** — Architecture documentation
+- **docs/research/payments-implementation.md** — Architecture documentation
