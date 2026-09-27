@@ -42,122 +42,157 @@ void main() {
     });
 
     group('page tracking', () {
-      test('trackPageView does not throw when not ready', () {
-        expect(() => AnalyticsService.trackPageView('test_page'), returnsNormally);
+      late List<({AnalyticsEvent event, Map<String, dynamic> params})> log;
+
+      setUp(() {
+        log = AnalyticsService.enableCallLog();
       });
 
-      test('trackScrollDepth only fires at 25% intervals', () {
-        // Valid 25% intervals should not throw
-        expect(() => AnalyticsService.trackScrollDepth(25), returnsNormally);
-        expect(() => AnalyticsService.trackScrollDepth(50), returnsNormally);
-        expect(() => AnalyticsService.trackScrollDepth(75), returnsNormally);
-        expect(() => AnalyticsService.trackScrollDepth(100), returnsNormally);
+      tearDown(() {
+        AnalyticsService.resetForTesting();
+      });
 
-        // Non-25% intervals should be silently ignored
-        expect(() => AnalyticsService.trackScrollDepth(30), returnsNormally);
-        expect(() => AnalyticsService.trackScrollDepth(60), returnsNormally);
+      test('trackPageView records page_view event', () {
+        AnalyticsService.trackPageView('test_page');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.pageView));
+        expect(log.first.params['page_title'], equals('test_page'));
+      });
+
+      test('trackScrollDepth records event only for 25% intervals', () {
+        AnalyticsService.trackScrollDepth(25);
+        AnalyticsService.trackScrollDepth(50);
+        AnalyticsService.trackScrollDepth(75);
+        AnalyticsService.trackScrollDepth(100);
+        expect(log, hasLength(4));
+        expect(log.every((e) => e.event == AnalyticsEvent.scrollDepth), isTrue);
+      });
+
+      test('trackScrollDepth silently drops non-25% values', () {
+        AnalyticsService.trackScrollDepth(30);
+        AnalyticsService.trackScrollDepth(60);
+        expect(log, isEmpty);
       });
     });
 
     group('interaction tracking', () {
-      test('trackCTAClick does not throw when not ready', () {
-        expect(
-          () => AnalyticsService.trackCTAClick(
-            buttonName: 'test_button',
-            location: 'hero',
-          ),
-          returnsNormally,
-        );
+      late List<({AnalyticsEvent event, Map<String, dynamic> params})> log;
+
+      setUp(() {
+        log = AnalyticsService.enableCallLog();
       });
 
-      test('trackCTAClick accepts optional ctaType', () {
-        expect(
-          () => AnalyticsService.trackCTAClick(
-            buttonName: 'test_button',
-            location: 'hero',
-            ctaType: 'primary',
-          ),
-          returnsNormally,
-        );
+      tearDown(() {
+        AnalyticsService.resetForTesting();
       });
 
-      test('trackFeatureInteraction does not throw', () {
-        expect(
-          () => AnalyticsService.trackFeatureInteraction('monitoring'),
-          returnsNormally,
+      test('trackCTAClick records cta_click with required params', () {
+        AnalyticsService.trackCTAClick(
+          buttonName: 'test_button',
+          location: 'hero',
         );
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.ctaClick));
+        expect(log.first.params['button_name'], equals('test_button'));
+        expect(log.first.params['location'], equals('hero'));
       });
 
-      test('trackExternalLink does not throw', () {
-        expect(
-          () => AnalyticsService.trackExternalLink('https://example.com'),
-          returnsNormally,
+      test('trackCTAClick includes cta_type when provided', () {
+        AnalyticsService.trackCTAClick(
+          buttonName: 'test_button',
+          location: 'hero',
+          ctaType: 'primary',
         );
+        expect(log, hasLength(1));
+        expect(log.first.params['cta_type'], equals('primary'));
+      });
+
+      test('trackFeatureInteraction records feature_name', () {
+        AnalyticsService.trackFeatureInteraction('monitoring');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.featureInteraction));
+        expect(log.first.params['feature_name'], equals('monitoring'));
+      });
+
+      test('trackExternalLink records url', () {
+        AnalyticsService.trackExternalLink('https://example.com');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.externalLinkClick));
+        expect(log.first.params['url'], equals('https://example.com'));
       });
     });
 
     group('conversion tracking', () {
-      test('trackFormSubmission does not throw', () {
-        expect(
-          () => AnalyticsService.trackFormSubmission(
-            formType: 'contact',
-            success: true,
-          ),
-          returnsNormally,
-        );
+      late List<({AnalyticsEvent event, Map<String, dynamic> params})> log;
+
+      setUp(() {
+        log = AnalyticsService.enableCallLog();
       });
 
-      test('trackFormSubmission accepts error message', () {
-        expect(
-          () => AnalyticsService.trackFormSubmission(
-            formType: 'contact',
-            success: false,
-            errorMessage: 'Validation failed',
-          ),
-          returnsNormally,
-        );
+      tearDown(() {
+        AnalyticsService.resetForTesting();
       });
 
-      test('trackPricingView does not throw', () {
-        expect(
-          () => AnalyticsService.trackPricingView('enterprise'),
-          returnsNormally,
+      test('trackFormSubmission records form_type and success', () {
+        AnalyticsService.trackFormSubmission(
+          formType: 'contact',
+          success: true,
         );
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.formSubmission));
+        expect(log.first.params['form_type'], equals('contact'));
+        expect(log.first.params['success'], isTrue);
       });
 
-      test('trackPricingToggle does not throw', () {
-        expect(
-          () => AnalyticsService.trackPricingToggle(isAnnual: true),
-          returnsNormally,
+      test('trackFormSubmission records error_message on failure', () {
+        AnalyticsService.trackFormSubmission(
+          formType: 'contact',
+          success: false,
+          errorMessage: 'Validation failed',
         );
-        expect(
-          () => AnalyticsService.trackPricingToggle(isAnnual: false),
-          returnsNormally,
-        );
+        expect(log, hasLength(1));
+        expect(log.first.params['error_message'], equals('Validation failed'));
       });
 
-      test('trackDemoRequest does not throw', () {
-        expect(() => AnalyticsService.trackDemoRequest(), returnsNormally);
+      test('trackPricingView records tier', () {
+        AnalyticsService.trackPricingView('enterprise');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.pricingTierView));
+        expect(log.first.params['tier'], equals('enterprise'));
       });
 
-      test('trackLeadMagnetDownload does not throw', () {
-        expect(
-          () => AnalyticsService.trackLeadMagnetDownload('eu-ai-act-checklist'),
-          returnsNormally,
-        );
+      test('trackPricingToggle records correct billing_period', () {
+        AnalyticsService.trackPricingToggle(isAnnual: true);
+        expect(log.last.params['billing_period'], equals('annual'));
+        AnalyticsService.trackPricingToggle(isAnnual: false);
+        expect(log.last.params['billing_period'], equals('monthly'));
       });
 
-      test('trackBlogPostClick does not throw', () {
-        expect(
-          () => AnalyticsService.trackBlogPostClick('ai-observability-guide'),
-          returnsNormally,
-        );
+      test('trackDemoRequest records demo_request event', () {
+        AnalyticsService.trackDemoRequest();
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.demoRequest));
       });
 
+      test('trackLeadMagnetDownload records resource_name', () {
+        AnalyticsService.trackLeadMagnetDownload('eu-ai-act-checklist');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.leadMagnetDownload));
+        expect(log.first.params['resource_name'], equals('eu-ai-act-checklist'));
+      });
+
+      test('trackBlogPostClick records post_slug', () {
+        AnalyticsService.trackBlogPostClick('ai-observability-guide');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.blogPostClick));
+        expect(log.first.params['post_slug'], equals('ai-observability-guide'));
+      });
     });
 
+    // trackEvent bypasses _track and goes directly to _sendEvent (web-only).
+    // Only smoke tests are meaningful here.
     group('custom event tracking', () {
-      test('trackEvent does not throw when not ready', () {
+      test('trackEvent does not throw', () {
         expect(
           () => AnalyticsService.trackEvent(
             eventName: 'custom_event',

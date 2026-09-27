@@ -75,135 +75,137 @@ void main() {
     });
 
     group('tracking methods exist', () {
-      test('trackPageView accepts page name', () {
-        // Should not throw
-        expect(
-          () => AnalyticsService.trackPageView('test'),
-          returnsNormally,
-        );
+      late List<({AnalyticsEvent event, Map<String, dynamic> params})> log;
+
+      setUp(() {
+        log = AnalyticsService.enableCallLog();
       });
 
-      test('trackScrollDepth only tracks 25% increments', () {
-        // Should not throw for any value
-        expect(
-          () => AnalyticsService.trackScrollDepth(25),
-          returnsNormally,
-        );
-        expect(
-          () => AnalyticsService.trackScrollDepth(50),
-          returnsNormally,
-        );
-        expect(
-          () => AnalyticsService.trackScrollDepth(75),
-          returnsNormally,
-        );
-        expect(
-          () => AnalyticsService.trackScrollDepth(100),
-          returnsNormally,
-        );
-        // Non-25% values are silently ignored
-        expect(
-          () => AnalyticsService.trackScrollDepth(30),
-          returnsNormally,
-        );
+      tearDown(() {
+        AnalyticsService.resetForTesting();
       });
 
-      test('trackCTAClick accepts required parameters', () {
-        expect(
-          () => AnalyticsService.trackCTAClick(
-            buttonName: 'Start Trial',
-            location: 'hero',
-          ),
-          returnsNormally,
-        );
+      test('trackPageView records page_view with page_title', () {
+        AnalyticsService.trackPageView('test');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.pageView));
+        expect(log.first.params['page_title'], equals('test'));
+        expect(log.first.params['page_location'], equals('test'));
       });
 
-      test('trackCTAClick accepts optional ctaType', () {
-        expect(
-          () => AnalyticsService.trackCTAClick(
-            buttonName: 'Start Trial',
-            location: 'hero',
-            ctaType: 'primary',
-          ),
-          returnsNormally,
-        );
+      test('trackScrollDepth records scroll_depth event for 25% increments', () {
+        AnalyticsService.trackScrollDepth(25);
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.scrollDepth));
+        expect(log.first.params['percentage'], equals(25));
       });
 
-      test('trackFeatureInteraction accepts feature name', () {
-        expect(
-          () => AnalyticsService.trackFeatureInteraction('Tracing'),
-          returnsNormally,
-        );
+      test('trackScrollDepth silently ignores non-25% values', () {
+        AnalyticsService.trackScrollDepth(30);
+        expect(log, isEmpty);
       });
 
-      test('trackExternalLink accepts URL', () {
-        expect(
-          () => AnalyticsService.trackExternalLink('https://example.com'),
-          returnsNormally,
+      test('trackCTAClick records cta_click with button_name and location', () {
+        AnalyticsService.trackCTAClick(
+          buttonName: 'Start Trial',
+          location: 'hero',
         );
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.ctaClick));
+        expect(log.first.params['button_name'], equals('Start Trial'));
+        expect(log.first.params['location'], equals('hero'));
+        expect(log.first.params.containsKey('cta_type'), isFalse);
       });
 
-      test('trackFormSubmission accepts parameters', () {
-        expect(
-          () => AnalyticsService.trackFormSubmission(
-            formType: 'contact',
-            success: true,
-          ),
-          returnsNormally,
+      test('trackCTAClick includes cta_type when provided', () {
+        AnalyticsService.trackCTAClick(
+          buttonName: 'Start Trial',
+          location: 'hero',
+          ctaType: 'primary',
         );
+        expect(log, hasLength(1));
+        expect(log.first.params['cta_type'], equals('primary'));
       });
 
-      test('trackFormSubmission accepts error message on failure', () {
-        expect(
-          () => AnalyticsService.trackFormSubmission(
-            formType: 'contact',
-            success: false,
-            errorMessage: 'Validation failed',
-          ),
-          returnsNormally,
-        );
+      test('trackFeatureInteraction records feature_interaction with feature_name', () {
+        AnalyticsService.trackFeatureInteraction('Tracing');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.featureInteraction));
+        expect(log.first.params['feature_name'], equals('Tracing'));
       });
 
-      test('trackPricingView accepts tier name', () {
-        expect(
-          () => AnalyticsService.trackPricingView('Growth'),
-          returnsNormally,
-        );
+      test('trackExternalLink records external_link_click with url', () {
+        AnalyticsService.trackExternalLink('https://example.com');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.externalLinkClick));
+        expect(log.first.params['url'], equals('https://example.com'));
       });
 
-      test('trackPricingToggle accepts billing period', () {
-        expect(
-          () => AnalyticsService.trackPricingToggle(isAnnual: true),
-          returnsNormally,
+      test('trackFormSubmission records form_submission with form_type and success', () {
+        AnalyticsService.trackFormSubmission(
+          formType: 'contact',
+          success: true,
         );
-        expect(
-          () => AnalyticsService.trackPricingToggle(isAnnual: false),
-          returnsNormally,
-        );
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.formSubmission));
+        expect(log.first.params['form_type'], equals('contact'));
+        expect(log.first.params['success'], isTrue);
+        expect(log.first.params.containsKey('error_message'), isFalse);
       });
 
-      test('trackDemoRequest works without parameters', () {
-        expect(
-          () => AnalyticsService.trackDemoRequest(),
-          returnsNormally,
+      test('trackFormSubmission includes error_message on failure', () {
+        AnalyticsService.trackFormSubmission(
+          formType: 'contact',
+          success: false,
+          errorMessage: 'Validation failed',
         );
+        expect(log, hasLength(1));
+        expect(log.first.params['error_message'], equals('Validation failed'));
       });
 
-      test('trackLeadMagnetDownload accepts resource name', () {
-        expect(
-          () => AnalyticsService.trackLeadMagnetDownload('whitepaper'),
-          returnsNormally,
-        );
+      test('trackPricingView records pricing_tier_view with tier', () {
+        AnalyticsService.trackPricingView('Growth');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.pricingTierView));
+        expect(log.first.params['tier'], equals('Growth'));
       });
 
-      test('trackBlogPostClick accepts post slug', () {
-        expect(
-          () => AnalyticsService.trackBlogPostClick('ai-observability'),
-          returnsNormally,
-        );
+      test('trackPricingToggle records annual billing_period', () {
+        AnalyticsService.trackPricingToggle(isAnnual: true);
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.pricingToggle));
+        expect(log.first.params['billing_period'], equals('annual'));
       });
 
-      test('trackEvent accepts custom event', () {
+      test('trackPricingToggle records monthly billing_period', () {
+        AnalyticsService.trackPricingToggle(isAnnual: false);
+        expect(log, hasLength(1));
+        expect(log.first.params['billing_period'], equals('monthly'));
+      });
+
+      test('trackDemoRequest records demo_request event', () {
+        AnalyticsService.trackDemoRequest();
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.demoRequest));
+      });
+
+      test('trackLeadMagnetDownload records lead_magnet_download with resource_name', () {
+        AnalyticsService.trackLeadMagnetDownload('whitepaper');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.leadMagnetDownload));
+        expect(log.first.params['resource_name'], equals('whitepaper'));
+      });
+
+      test('trackBlogPostClick records blog_post_click with post_slug', () {
+        AnalyticsService.trackBlogPostClick('ai-observability');
+        expect(log, hasLength(1));
+        expect(log.first.event, equals(AnalyticsEvent.blogPostClick));
+        expect(log.first.params['post_slug'], equals('ai-observability'));
+      });
+
+      // trackEvent bypasses _track and goes directly to _sendEvent (platform-only).
+      // On non-web, _sendEvent returns early, so only a smoke test is meaningful here.
+      test('trackEvent does not throw', () {
         expect(
           () => AnalyticsService.trackEvent(
             eventName: 'custom_event',
@@ -211,23 +213,15 @@ void main() {
           ),
           returnsNormally,
         );
+        // trackEvent does not go through _track, so callLog stays empty
+        expect(log, isEmpty);
       });
 
-      test('trackEvent with empty parameters', () {
-        expect(
-          () => AnalyticsService.trackEvent(eventName: 'simple_event'),
-          returnsNormally,
-        );
-      });
-
-      test('trackContact with only email', () {
+      test('trackContact does not throw', () {
         expect(
           () => FacebookPixelService.trackContact(email: 'test@example.com'),
           returnsNormally,
         );
-      });
-
-      test('trackContact with only name', () {
         expect(
           () => FacebookPixelService.trackContact(name: 'Test User'),
           returnsNormally,
@@ -244,120 +238,57 @@ void main() {
         AnalyticsService.enable();
       });
 
-      test('trackPageView does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackPageView('test'),
-          returnsNormally,
-        );
+      test('isReady is false when disabled', () {
+        expect(AnalyticsService.isReady, isFalse);
       });
 
-      test('trackScrollDepth does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackScrollDepth(50),
-          returnsNormally,
-        );
+      test('tracking methods called when disabled do not reach the platform', () {
+        // _track records to callLog before the isReady guard, so we can
+        // verify the method ran but isReady was false (no _sendEvent called).
+        final log = AnalyticsService.enableCallLog();
+        AnalyticsService.trackPageView('test');
+        AnalyticsService.trackCTAClick(buttonName: 'btn', location: 'hero');
+        AnalyticsService.trackFormSubmission(formType: 'contact', success: true);
+        expect(log, hasLength(3)); // methods were called
+        expect(AnalyticsService.isReady, isFalse); // but no platform event fired
+        AnalyticsService.resetForTesting();
+        AnalyticsService.disable(); // tearDown restores this
       });
-
-      test('trackCTAClick does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackCTAClick(
-            buttonName: 'Test',
-            location: 'hero',
-          ),
-          returnsNormally,
-        );
-      });
-
-      test('trackFormSubmission does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackFormSubmission(
-            formType: 'contact',
-            success: true,
-          ),
-          returnsNormally,
-        );
-      });
-
-      test('trackEvent does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackEvent(
-            eventName: 'test',
-            parameters: {'key': 'value'},
-          ),
-          returnsNormally,
-        );
-      });
-
-      test('trackFeatureInteraction does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackFeatureInteraction('feature'),
-          returnsNormally,
-        );
-      });
-
-      test('trackExternalLink does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackExternalLink('https://example.com'),
-          returnsNormally,
-        );
-      });
-
-      test('trackPricingView does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackPricingView('Growth'),
-          returnsNormally,
-        );
-      });
-
-      test('trackPricingToggle does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackPricingToggle(isAnnual: true),
-          returnsNormally,
-        );
-      });
-
-      test('trackDemoRequest does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackDemoRequest(),
-          returnsNormally,
-        );
-      });
-
-      test('trackLeadMagnetDownload does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackLeadMagnetDownload('whitepaper'),
-          returnsNormally,
-        );
-      });
-
-      test('trackBlogPostClick does nothing when disabled', () {
-        expect(
-          () => AnalyticsService.trackBlogPostClick('slug'),
-          returnsNormally,
-        );
-      });
-
     });
 
     group('scroll depth validation', () {
-      test('trackScrollDepth with 0 is valid (0 % 25 == 0)', () {
-        expect(
-          () => AnalyticsService.trackScrollDepth(0),
-          returnsNormally,
-        );
+      late List<({AnalyticsEvent event, Map<String, dynamic> params})> log;
+
+      setUp(() {
+        log = AnalyticsService.enableCallLog();
       });
 
-      test('trackScrollDepth ignores non-25% increments', () {
-        // These should return early without error
-        expect(() => AnalyticsService.trackScrollDepth(10), returnsNormally);
-        expect(() => AnalyticsService.trackScrollDepth(33), returnsNormally);
-        expect(() => AnalyticsService.trackScrollDepth(67), returnsNormally);
-        expect(() => AnalyticsService.trackScrollDepth(99), returnsNormally);
+      tearDown(() {
+        AnalyticsService.resetForTesting();
       });
 
-      test('trackScrollDepth accepts negative values (early return)', () {
-        // -25 % 25 == 0, so it would pass the check
-        expect(() => AnalyticsService.trackScrollDepth(-25), returnsNormally);
+      test('trackScrollDepth records event for valid 25% increments', () {
+        for (final pct in [0, 25, 50, 75, 100]) {
+          AnalyticsService.trackScrollDepth(pct);
+        }
+        expect(log, hasLength(5));
+        expect(log.every((e) => e.event == AnalyticsEvent.scrollDepth), isTrue);
+        expect(log.map((e) => e.params['percentage']).toList(),
+            equals([0, 25, 50, 75, 100]));
+      });
+
+      test('trackScrollDepth does not record non-25% increments', () {
+        for (final pct in [10, 33, 67, 99]) {
+          AnalyticsService.trackScrollDepth(pct);
+        }
+        expect(log, isEmpty);
+      });
+
+      test('trackScrollDepth records -25 (passes % 25 == 0 check)', () {
+        // -25 % 25 == 0 in Dart, so this fires. Documents the boundary behaviour.
+        AnalyticsService.trackScrollDepth(-25);
+        expect(log, hasLength(1));
+        expect(log.first.params['percentage'], equals(-25));
       });
     });
   });

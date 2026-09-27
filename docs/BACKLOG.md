@@ -2355,7 +2355,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** per family as listed in section C — analytics on `enableCallLog()`, integration on concrete finders, theme on a computed WCAG contrast check. Changes what the suite verifies; review each family on its own.
 
-**Progress 2026-09-27:** The ten sender-worker signup-error tests (:923, 1912, 1943, 1976, 2012, 2051, 2066, 2087, 2110, 2149) now also assert `code` (MISSING_FIELDS, INVALID_EMAIL, AUTH0_USER_CREATION_FAILED, JSON_PARSE_ERROR). Remaining: analytics and integration families.
+**Progress 2026-09-27:** The ten sender-worker signup-error tests (:923, 1912, 1943, 1976, 2012, 2051, 2066, 2087, 2110, 2149) now also assert `code` (MISSING_FIELDS, INVALID_EMAIL, AUTH0_USER_CREATION_FAILED, JSON_PARSE_ERROR). Analytics families done: `test/services/analytics_test.dart` "tracking methods exist" (15 tests → callLog assertions on event + params), "disabled state behavior" (12 returnsNormally → 2 meaningful tests: isReady check + 3-method callLog verify), "scroll depth validation" (3 → callLog-based filter assertions); `test/unit/services/analytics_service_test.dart` page/interaction/conversion tracking groups (27 returnsNormally → callLog assertions). Remaining: integration families (`test/integration/` find.byType(MaterialApp)).
 
 ### TS11: Merge duplicated test families
 
