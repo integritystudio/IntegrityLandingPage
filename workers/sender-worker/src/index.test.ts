@@ -1038,7 +1038,9 @@ describe('Sender Worker', () => {
       fetchSpy.mockRestore();
     });
 
-    it('sets current_plan from tier when provided', async () => {
+    it('ignores caller-supplied tier; always writes starter as current_plan (CR37)', async () => {
+      // CR37: current_plan is set only by stripe-webhook after payment; signup
+      // must not let an unauthenticated caller escalate their own quota.
       const orgId = 'org-uuid-tier-test';
       let capturedOrgBody: Record<string, unknown> | null = null;
 
@@ -1072,7 +1074,8 @@ describe('Sender Worker', () => {
       await worker.fetch(request, mockEnv);
 
       expect(capturedOrgBody).not.toBeNull();
-      expect(capturedOrgBody!['current_plan']).toBe('growth');
+      // Must be 'starter' regardless of the requested 'growth' tier (CR37).
+      expect(capturedOrgBody!['current_plan']).toBe('starter');
 
       fetchSpy.mockRestore();
     });
