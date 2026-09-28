@@ -5,15 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:mockito/mockito.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/services/contact_service.dart';
 import 'package:integrity_studio_ai/widgets/sections/contact_section.dart';
 import 'package:integrity_studio_ai/widgets/common/alert.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import 'package:integrity_studio_ai/widgets/common/form_fields.dart';
+import '../../helpers/mock_http_adapter.dart';
 import '../../helpers/test_helpers.dart';
-import '../../unit/services/contact_service_test.mocks.dart';
 
 void main() {
   group('ContactSection', () {
@@ -1053,19 +1052,15 @@ void main() {
     // ==========================================================================
 
     group('ContactService submitForm path', () {
-      late MockDio mockDio;
+      late MockHttpAdapter adapter;
 
       setUp(() {
-        mockDio = MockDio();
-        ContactService.setDioForTesting(mockDio);
+        adapter = MockHttpAdapter();
+        ContactService.setDioForTesting(dioWithMockAdapter(adapter));
         ContactService.retryDelay = (_) async {};
 
-        // Default: mock CSRF token fetch
-        when(mockDio.get(any)).thenAnswer((_) async => Response(
-              requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
-              data: {'csrfToken': 'test_csrf_token'},
-            ));
+        // Default: stub CSRF token fetch for every test in this group.
+        adapter.stubJson('GET', {'csrfToken': 'test_csrf_token'});
       });
 
       tearDown(() {
@@ -1077,19 +1072,11 @@ void main() {
           (tester) async {
         setLargeViewport(tester);
 
-        when(mockDio.post(
-          any,
-          data: anyNamed('data'),
-          options: anyNamed('options'),
-        )).thenAnswer((_) async => Response(
-              requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
-              data: {
-                'success': true,
-                'message': 'We received your message!',
-                'submissionId': 'sub_widget_test',
-              },
-            ));
+        adapter.stubJson('POST', {
+          'success': true,
+          'message': 'We received your message!',
+          'submissionId': 'sub_widget_test',
+        });
 
         await tester.pumpWidget(buildTestWidget(
           content: minimalFormContent(),
@@ -1113,18 +1100,8 @@ void main() {
       testWidgets('error response shows error alert', (tester) async {
         setLargeViewport(tester);
 
-        when(mockDio.post(
-          any,
-          data: anyNamed('data'),
-          options: anyNamed('options'),
-        )).thenAnswer((_) async => Response(
-              requestOptions: RequestOptions(path: ''),
-              statusCode: 400,
-              data: {
-                'success': false,
-                'error': 'Invalid submission',
-              },
-            ));
+        adapter.stubJson('POST', {'success': false, 'error': 'Invalid submission'},
+            statusCode: 400);
 
         await tester.pumpWidget(buildTestWidget(
           content: minimalFormContent(errorMessage: 'Default error'),
@@ -1140,18 +1117,7 @@ void main() {
           (tester) async {
         setLargeViewport(tester);
 
-        when(mockDio.post(
-          any,
-          data: anyNamed('data'),
-          options: anyNamed('options'),
-        )).thenAnswer((_) async => Response(
-              requestOptions: RequestOptions(path: ''),
-              statusCode: 200,
-              data: {
-                'success': false,
-                'error': 'Validation failed',
-              },
-            ));
+        adapter.stubJson('POST', {'success': false, 'error': 'Validation failed'});
 
         await tester.pumpWidget(buildTestWidget(
           content: minimalFormContent(),
@@ -1166,15 +1132,8 @@ void main() {
       testWidgets('network error shows error alert', (tester) async {
         setLargeViewport(tester);
 
-        // Use non-retryable error to avoid retry delays in test
-        when(mockDio.post(
-          any,
-          data: anyNamed('data'),
-          options: anyNamed('options'),
-        )).thenThrow(DioException(
-          requestOptions: RequestOptions(path: ''),
-          type: DioExceptionType.unknown,
-        ));
+        // Use non-retryable error to avoid retry delays in test.
+        adapter.stubError('POST', DioExceptionType.unknown);
 
         await tester.pumpWidget(buildTestWidget(
           content: minimalFormContent(),

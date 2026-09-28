@@ -153,11 +153,21 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('POST /v1/orgs/:orgId/api-keys', () => {
+/**
+ * Shared membership gate tests for create and revoke.
+ * Call inside a describe block — each call defines 4 it() cases covering the
+ * auth and role gates that both handlers must enforce before any mutation.
+ */
+function apiKeyGates(
+  makeUnauthReq: () => Request,
+  makeAuthReq: (token: string) => Request,
+  routes: (override: Record<string, RouteResponder>) => Record<string, RouteResponder>,
+  callHandler: (req: Request) => Promise<Response>,
+  assertNoMutation: (stub: SupabaseFetchStub) => void,
+): void {
   it('returns 401 when no bearer token', async () => {
     const stub = stubSupabase({});
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys', { method: 'POST' });
-    const res = await handleCreateApiKey(req, ORG_ID, opts);
+    const res = await callHandler(makeUnauthReq());
     expect(res.status).toBe(401);
     // Auth is rejected before any Supabase traffic is issued.
     expect(stub.requests).toEqual([]);
@@ -165,12 +175,41 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
 
   it('returns 403 when user is not a member', async () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    const stub = stubSupabase(createRoutes({ 'GET organization_memberships': okRows([]) }));
-    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
+    const stub = stubSupabase(routes({ 'GET organization_memberships': okRows([]) }));
+    const res = await callHandler(makeAuthReq(token));
     expect(res.status).toBe(403);
-    // No key is minted when membership fails.
-    expect(stub.find('POST', 'api_keys')).toBeUndefined();
+    assertNoMutation(stub);
   });
+
+  it('returns 403 when user role is viewer', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    const stub = stubSupabase(routes({
+      'GET organization_memberships': okRows([makeMembership(ORG_ID, 'viewer')]),
+    }));
+    const res = await callHandler(makeAuthReq(token));
+    expect(res.status).toBe(403);
+    assertNoMutation(stub);
+  });
+
+  it('returns 403 when user role is billing_admin', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    const stub = stubSupabase(routes({
+      'GET organization_memberships': okRows([makeMembership(ORG_ID, 'billing_admin')]),
+    }));
+    const res = await callHandler(makeAuthReq(token));
+    expect(res.status).toBe(403);
+    assertNoMutation(stub);
+  });
+}
+
+describe('POST /v1/orgs/:orgId/api-keys', () => {
+  apiKeyGates(
+    () => new Request('https://api.test/v1/orgs/org-id-1/api-keys', { method: 'POST' }),
+    (token) => makeCreateRequest(token),
+    createRoutes,
+    (req) => handleCreateApiKey(req, ORG_ID, opts),
+    (stub) => expect(stub.find('POST', 'api_keys')).toBeUndefined(),
+  );
 
   // API_KEY_HMAC_SECRET is unbound in production (BACKLOG.md CR12). Minting here would store a
   // hash keyed on nothing, producing a token that can never authenticate — refuse instead.
@@ -179,26 +218,6 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
     const stub = stubSupabase(createRoutes());
     const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, { ...opts, hmacSecret: undefined });
     expect(res.status).toBe(503);
-    expect(stub.find('POST', 'api_keys')).toBeUndefined();
-  });
-
-  it('returns 403 when user role is viewer', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    const stub = stubSupabase(createRoutes({
-      'GET organization_memberships': okRows([makeMembership(ORG_ID, 'viewer')]),
-    }));
-    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
-    expect(res.status).toBe(403);
-    expect(stub.find('POST', 'api_keys')).toBeUndefined();
-  });
-
-  it('returns 403 when user role is billing_admin', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    const stub = stubSupabase(createRoutes({
-      'GET organization_memberships': okRows([makeMembership(ORG_ID, 'billing_admin')]),
-    }));
-    const res = await handleCreateApiKey(makeCreateRequest(token), ORG_ID, opts);
-    expect(res.status).toBe(403);
     expect(stub.find('POST', 'api_keys')).toBeUndefined();
   });
 
@@ -382,43 +401,13 @@ describe('POST /v1/orgs/:orgId/api-keys', () => {
 });
 
 describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
-  it('returns 401 when no bearer token', async () => {
-    const stub = stubSupabase({});
-    const req = new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', {
-      method: 'POST',
-    });
-    const res = await handleRevokeApiKey(req, ORG_ID, KEY_ID, opts);
-    expect(res.status).toBe(401);
-    expect(stub.requests).toEqual([]);
-  });
-
-  it('returns 403 when user is not a member', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    const stub = stubSupabase(revokeRoutes({ 'GET organization_memberships': okRows([]) }));
-    const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
-    expect(res.status).toBe(403);
-    expect(stub.find('PATCH', 'api_keys')).toBeUndefined();
-  });
-
-  it('returns 403 when user role is viewer', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    const stub = stubSupabase(revokeRoutes({
-      'GET organization_memberships': okRows([makeMembership(ORG_ID, 'viewer')]),
-    }));
-    const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
-    expect(res.status).toBe(403);
-    expect(stub.find('PATCH', 'api_keys')).toBeUndefined();
-  });
-
-  it('returns 403 when user role is billing_admin', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    const stub = stubSupabase(revokeRoutes({
-      'GET organization_memberships': okRows([makeMembership(ORG_ID, 'billing_admin')]),
-    }));
-    const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
-    expect(res.status).toBe(403);
-    expect(stub.find('PATCH', 'api_keys')).toBeUndefined();
-  });
+  apiKeyGates(
+    () => new Request('https://api.test/v1/orgs/org-id-1/api-keys/key-id/revoke', { method: 'POST' }),
+    (token) => makeRevokeRequest(token),
+    revokeRoutes,
+    (req) => handleRevokeApiKey(req, ORG_ID, KEY_ID, opts),
+    (stub) => expect(stub.find('PATCH', 'api_keys')).toBeUndefined(),
+  );
 
   it('returns 404 when key does not belong to the org', async () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });

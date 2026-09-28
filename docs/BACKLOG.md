@@ -2357,12 +2357,19 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Done 2026-09-27:** All families complete. Sender-worker: 10 tests now assert `code` (MISSING_FIELDS, INVALID_EMAIL, AUTH0_USER_CREATION_FAILED, JSON_PARSE_ERROR). Analytics: `test/services/analytics_test.dart` and `test/unit/services/analytics_service_test.dart` — ~55 `returnsNormally` → callLog assertions on event + params; scroll depth uses callLog filter; disabled group condensed to 2 meaningful tests. Integration: 59 `find.byType(MaterialApp)` across 9 files → page-type finders (LandingPage, BlogPage, ComparisonPage, PricingPage, DocsQuickstartPage etc.); removed `|| find.byType(MaterialApp).evaluate().isNotEmpty` fallbacks; fixed `|| true` always-pass; fixed 4 `if (...isNotEmpty)` guards that silently skipped assertions. All 117 integration tests pass.
 
-### TS11: Merge duplicated test families
+### TS11: Merge duplicated test families ⚠️ partial 2026-09-27
 
 **Priority:** P4 | **Source:** test review 2026-09-27, section D
 **Estimated:** 1 day
 
 **Context:** the same promises are maintained in two or more places — the two contact-service test files (keep the real-Dio `test/services/` one and port the unit file's unique cases, then delete its 889-line `.mocks.dart`), consent model, provisioning contract vs unit, `app_test` vs `app_router_test` (24 routes), SharedAppBar per page (~25), viewport and back-button tests per page, `dashboard_service_test` error blocks ×6, api-gateway portal/checkout and create/revoke gates.
+
+**Done 2026-09-27:**
+- contact-service merge ✅ (test/unit/services/ deleted, 889-line mocks gone, unique tests ported)
+- `dashboard_service_test` error+network blocks ✅ — `runDashboardErrorSuite<T>` helper inside `main()` replaces 10 group blocks (428 lines → 5 calls + 85-line helper); BillingStatus's separate "retries on 500" test merged into the 500 test via `checkRetryCount: true`
+- api-gateway api-keys create/revoke gates ✅ — `apiKeyGates()` helper replaces 8 duplicate `it()` blocks across the two describe blocks; 503 HMAC test kept inline (unique to create)
+
+**Remaining (open):** consent model, provisioning contract vs unit, `app_test` vs `app_router_test` (24 routes — different test approaches, risky to merge), SharedAppBar per page (~25), viewport and back-button per page, api-gateway portal/checkout gates.
 
 **Scope:** as tabled in section D. Behaviour-preserving; run the suite after each file.
 

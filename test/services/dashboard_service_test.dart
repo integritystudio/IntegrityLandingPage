@@ -48,6 +48,96 @@ void main() {
     await fakeServer.close();
   });
 
+  // ─── Shared error-suite runner ─────────────────────────────────────────────
+  // Defines two groups per service: "$name — error responses" and
+  // "$name — network errors". All five dashboard fetch methods share the same
+  // HTTP-error and network-error handling, so we parameterise rather than
+  // duplicate 10 near-identical group blocks.
+  //
+  // fetch401:         call the service with an expired/bad JWT (401 trigger).
+  // fetch:            call the service with a valid JWT (all other cases).
+  // cast:             unsafe cast applied AFTER isA<T>() has already asserted.
+  // errorOf:          extract the user-visible error string from a typed error.
+  // checkRetryCount:  when true the 500 test also asserts callCount == 3.
+  void runDashboardErrorSuite<T>({
+    required String name,
+    required Future<Object?> Function() fetch401,
+    required Future<Object?> Function() fetch,
+    required T Function(Object?) cast,
+    required String Function(T) errorOf,
+    bool checkRetryCount = false,
+  }) {
+    group('$name — error responses', () {
+      test('returns sanitized auth message on 401', () async {
+        serverHandler.mockGetResponse({'error': 'Unauthorized'}, statusCode: 401);
+        final result = await fetch401();
+        expect(result, isA<T>());
+        final err = errorOf(cast(result));
+        expect(err, isNot(contains('Unauthorized')));
+        expect(err, contains('log in'));
+      });
+
+      test('returns sanitized permission message on 403', () async {
+        serverHandler.mockGetResponse({'error': 'Forbidden'}, statusCode: 403);
+        final result = await fetch();
+        expect(result, isA<T>());
+        final err = errorOf(cast(result));
+        expect(err, isNot(contains('Forbidden')));
+        expect(err, contains('permission'));
+      });
+
+      test('returns server error on 500 after retries', () async {
+        serverHandler.mockGetResponse({}, statusCode: 500);
+        final result = await fetch();
+        expect(result, isA<T>());
+        expect(errorOf(cast(result)), contains('Server error'));
+        if (checkRetryCount) expect(serverHandler.callCount, 3);
+      });
+
+      test('returns server error on 504 after retries', () async {
+        serverHandler.mockGetResponse({}, statusCode: 504);
+        final result = await fetch();
+        expect(result, isA<T>());
+        expect(errorOf(cast(result)), contains('Server error'));
+      });
+
+      test('returns unexpected error on unrecognized 4xx', () async {
+        serverHandler.mockGetResponse({}, statusCode: 422);
+        final result = await fetch();
+        expect(result, isA<T>());
+      });
+    });
+
+    group('$name — network errors', () {
+      test('returns timeout error on connection timeout', () async {
+        serverHandler.mockGetError(DioExceptionType.connectionTimeout);
+        final result = await fetch();
+        expect(result, isA<T>());
+        expect(errorOf(cast(result)), contains('timed out'));
+      });
+
+      test('returns timeout error on receive timeout', () async {
+        serverHandler.mockGetError(DioExceptionType.receiveTimeout);
+        final result = await fetch();
+        expect(result, isA<T>());
+        expect(errorOf(cast(result)), contains('timed out'));
+      });
+
+      test('returns network error on connection error', () async {
+        serverHandler.mockGetError(DioExceptionType.connectionError);
+        final result = await fetch();
+        expect(result, isA<T>());
+        expect(errorOf(cast(result)), contains('Network error'));
+      });
+
+      test('returns unexpected error on non-DioException', () async {
+        serverHandler.mockGetThrow(Exception('boom'));
+        final result = await fetch();
+        expect(result, isA<T>());
+      });
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // BillingStatusData.fromJson
   // ---------------------------------------------------------------------------
@@ -205,131 +295,14 @@ void main() {
     });
   });
 
-  group('fetchBillingStatus — error responses', () {
-    test('returns sanitized auth message on 401', () async {
-      serverHandler.mockGetResponse({'error': 'Unauthorized'}, statusCode: 401);
-
-      final result = await DashboardService.fetchBillingStatus(
-        orgId: 'org-1',
-        jwt: 'bad-jwt',
-      );
-
-      expect(result, isA<BillingStatusError>());
-      final err = (result as BillingStatusError).error;
-      expect(err, isNot(contains('Unauthorized')));
-      expect(err, contains('log in'));
-    });
-
-    test('returns sanitized permission message on 403', () async {
-      serverHandler.mockGetResponse({'error': 'Forbidden'}, statusCode: 403);
-
-      final result = await DashboardService.fetchBillingStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<BillingStatusError>());
-      final err = (result as BillingStatusError).error;
-      expect(err, isNot(contains('Forbidden')));
-      expect(err, contains('permission'));
-    });
-
-    test('returns server error on 500 after retries', () async {
-      serverHandler.mockGetResponse({}, statusCode: 500);
-
-      final result = await DashboardService.fetchBillingStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<BillingStatusError>());
-      expect((result as BillingStatusError).error, contains('Server error'));
-    });
-
-    test('returns server error on 504 after retries', () async {
-      serverHandler.mockGetResponse({}, statusCode: 504);
-
-      final result = await DashboardService.fetchBillingStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<BillingStatusError>());
-      expect((result as BillingStatusError).error, contains('Server error'));
-    });
-
-    test('returns unexpected error on unrecognized 4xx', () async {
-      serverHandler.mockGetResponse({}, statusCode: 422);
-
-      final result = await DashboardService.fetchBillingStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<BillingStatusError>());
-    });
-
-    test('retries on 500 before returning server error', () async {
-      serverHandler.mockGetResponse({}, statusCode: 500);
-
-      final result = await DashboardService.fetchBillingStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<BillingStatusError>());
-      expect(serverHandler.callCount, 3);
-    });
-  });
-
-  group('fetchBillingStatus — network errors', () {
-    test('returns timeout error on connection timeout', () async {
-      serverHandler.mockGetError(DioExceptionType.connectionTimeout);
-
-      final result = await DashboardService.fetchBillingStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<BillingStatusError>());
-      expect((result as BillingStatusError).error, contains('timed out'));
-    });
-
-    test('returns timeout error on receive timeout', () async {
-      serverHandler.mockGetError(DioExceptionType.receiveTimeout);
-
-      final result = await DashboardService.fetchBillingStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<BillingStatusError>());
-      expect((result as BillingStatusError).error, contains('timed out'));
-    });
-
-    test('returns network error on connection error', () async {
-      serverHandler.mockGetError(DioExceptionType.connectionError);
-
-      final result = await DashboardService.fetchBillingStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<BillingStatusError>());
-      expect((result as BillingStatusError).error, contains('Network error'));
-    });
-
-    test('returns unexpected error on non-DioException', () async {
-      serverHandler.mockGetThrow(Exception('boom'));
-
-      final result = await DashboardService.fetchBillingStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<BillingStatusError>());
-    });
-  });
+  runDashboardErrorSuite<BillingStatusError>(
+    name: 'fetchBillingStatus',
+    fetch401: () => DashboardService.fetchBillingStatus(orgId: 'org-1', jwt: 'bad-jwt'),
+    fetch: () => DashboardService.fetchBillingStatus(orgId: 'org-1', jwt: 'jwt'),
+    cast: (r) => r as BillingStatusError,
+    errorOf: (e) => e.error,
+    checkRetryCount: true,
+  );
 
   // ---------------------------------------------------------------------------
   // UsageBucket.fromJson
@@ -499,119 +472,14 @@ void main() {
     });
   });
 
-  group('fetchUsageSummary — error responses', () {
-    test('returns sanitized auth message on 401', () async {
-      serverHandler.mockGetResponse({'error': 'Unauthorized'}, statusCode: 401);
-
-      final result = await DashboardService.fetchUsageSummary(
-        orgId: 'org-1',
-        jwt: 'bad-jwt',
-      );
-
-      expect(result, isA<UsageSummaryError>());
-      final err = (result as UsageSummaryError).error;
-      expect(err, isNot(contains('Unauthorized')));
-      expect(err, contains('log in'));
-    });
-
-    test('returns sanitized permission message on 403', () async {
-      serverHandler.mockGetResponse({'error': 'Forbidden'}, statusCode: 403);
-
-      final result = await DashboardService.fetchUsageSummary(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<UsageSummaryError>());
-      final err = (result as UsageSummaryError).error;
-      expect(err, contains('permission'));
-    });
-
-    test('returns server error on 500 after retries', () async {
-      serverHandler.mockGetResponse({}, statusCode: 500);
-
-      final result = await DashboardService.fetchUsageSummary(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<UsageSummaryError>());
-      expect((result as UsageSummaryError).error, contains('Server error'));
-      expect(serverHandler.callCount, 3);
-    });
-
-    test('returns server error on 504 after retries', () async {
-      serverHandler.mockGetResponse({}, statusCode: 504);
-
-      final result = await DashboardService.fetchUsageSummary(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<UsageSummaryError>());
-      expect((result as UsageSummaryError).error, contains('Server error'));
-    });
-
-    test('returns unexpected error on unrecognized 4xx', () async {
-      serverHandler.mockGetResponse({}, statusCode: 422);
-
-      final result = await DashboardService.fetchUsageSummary(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<UsageSummaryError>());
-    });
-  });
-
-  group('fetchUsageSummary — network errors', () {
-    test('returns timeout error on connection timeout', () async {
-      serverHandler.mockGetError(DioExceptionType.connectionTimeout);
-
-      final result = await DashboardService.fetchUsageSummary(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<UsageSummaryError>());
-      expect((result as UsageSummaryError).error, contains('timed out'));
-    });
-
-    test('returns timeout error on receive timeout', () async {
-      serverHandler.mockGetError(DioExceptionType.receiveTimeout);
-
-      final result = await DashboardService.fetchUsageSummary(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<UsageSummaryError>());
-      expect((result as UsageSummaryError).error, contains('timed out'));
-    });
-
-    test('returns network error on connection error', () async {
-      serverHandler.mockGetError(DioExceptionType.connectionError);
-
-      final result = await DashboardService.fetchUsageSummary(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<UsageSummaryError>());
-      expect((result as UsageSummaryError).error, contains('Network error'));
-    });
-
-    test('returns unexpected error on non-DioException', () async {
-      serverHandler.mockGetThrow(Exception('boom'));
-
-      final result = await DashboardService.fetchUsageSummary(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<UsageSummaryError>());
-    });
-  });
+  runDashboardErrorSuite<UsageSummaryError>(
+    name: 'fetchUsageSummary',
+    fetch401: () => DashboardService.fetchUsageSummary(orgId: 'org-1', jwt: 'bad-jwt'),
+    fetch: () => DashboardService.fetchUsageSummary(orgId: 'org-1', jwt: 'jwt'),
+    cast: (r) => r as UsageSummaryError,
+    errorOf: (e) => e.error,
+    checkRetryCount: true,
+  );
 
   // ---------------------------------------------------------------------------
   // EntitlementsData.fromJson
@@ -741,125 +609,13 @@ void main() {
     });
   });
 
-  group('fetchEntitlements — error responses', () {
-    test('returns sanitized auth message on 401 — does not surface raw API string (L23)', () async {
-      serverHandler.mockGetResponse(
-        {'error': 'Unauthorized'},
-        statusCode: 401,
-      );
-
-      final result = await DashboardService.fetchEntitlements(
-        orgId: 'org-1',
-        jwt: 'bad-jwt',
-      );
-
-      expect(result, isA<EntitlementsError>());
-      final err = (result as EntitlementsError).error;
-      expect(err, isNot('Unauthorized'));
-      expect(err, contains('log in'));
-    });
-
-    test('returns sanitized permission message on 403 — does not surface raw API string (L23)', () async {
-      serverHandler.mockGetResponse(
-        {'error': 'Forbidden'},
-        statusCode: 403,
-      );
-
-      final result = await DashboardService.fetchEntitlements(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<EntitlementsError>());
-      final err = (result as EntitlementsError).error;
-      expect(err, isNot(contains('Forbidden')));
-      expect(err, contains('permission'));
-    });
-
-    test('returns server error message on 500 after retries', () async {
-      serverHandler.mockGetResponse({}, statusCode: 500);
-
-      final result = await DashboardService.fetchEntitlements(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<EntitlementsError>());
-      expect((result as EntitlementsError).error, contains('Server error'));
-    });
-
-    test('returns server error on 504 after retries', () async {
-      serverHandler.mockGetResponse({}, statusCode: 504);
-
-      final result = await DashboardService.fetchEntitlements(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<EntitlementsError>());
-      expect((result as EntitlementsError).error, contains('Server error'));
-    });
-
-    test('falls back to unexpected error when 4xx has no error field', () async {
-      serverHandler.mockGetResponse({}, statusCode: 422);
-
-      final result = await DashboardService.fetchEntitlements(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<EntitlementsError>());
-    });
-  });
-
-  group('fetchEntitlements — network errors', () {
-    test('returns timeout error on connection timeout', () async {
-      serverHandler.mockGetError(DioExceptionType.connectionTimeout);
-
-      final result = await DashboardService.fetchEntitlements(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<EntitlementsError>());
-      expect((result as EntitlementsError).error, contains('timed out'));
-    });
-
-    test('returns timeout error on receive timeout', () async {
-      serverHandler.mockGetError(DioExceptionType.receiveTimeout);
-
-      final result = await DashboardService.fetchEntitlements(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<EntitlementsError>());
-      expect((result as EntitlementsError).error, contains('timed out'));
-    });
-
-    test('returns network error on connection error', () async {
-      serverHandler.mockGetError(DioExceptionType.connectionError);
-
-      final result = await DashboardService.fetchEntitlements(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<EntitlementsError>());
-      expect((result as EntitlementsError).error, contains('Network error'));
-    });
-
-    test('returns unexpected error on non-DioException', () async {
-      serverHandler.mockGetThrow(Exception('boom'));
-
-      final result = await DashboardService.fetchEntitlements(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<EntitlementsError>());
-    });
-  });
+  runDashboardErrorSuite<EntitlementsError>(
+    name: 'fetchEntitlements',
+    fetch401: () => DashboardService.fetchEntitlements(orgId: 'org-1', jwt: 'bad-jwt'),
+    fetch: () => DashboardService.fetchEntitlements(orgId: 'org-1', jwt: 'jwt'),
+    cast: (r) => r as EntitlementsError,
+    errorOf: (e) => e.error,
+  );
 
   // ---------------------------------------------------------------------------
   // QuotaStatusData.fromJson
@@ -995,118 +751,13 @@ void main() {
     });
   });
 
-  group('fetchQuotaStatus — error responses', () {
-    test('returns sanitized auth message on 401 — does not surface raw API string (L23)', () async {
-      serverHandler.mockGetResponse({'error': 'Unauthorized'}, statusCode: 401);
-
-      final result = await DashboardService.fetchQuotaStatus(
-        orgId: 'org-1',
-        jwt: 'bad-jwt',
-      );
-
-      expect(result, isA<QuotaStatusError>());
-      final err = (result as QuotaStatusError).error;
-      expect(err, isNot('Unauthorized'));
-      expect(err, contains('log in'));
-    });
-
-    test('returns sanitized permission message on 403', () async {
-      serverHandler.mockGetResponse({'error': 'Forbidden'}, statusCode: 403);
-
-      final result = await DashboardService.fetchQuotaStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<QuotaStatusError>());
-      final err = (result as QuotaStatusError).error;
-      expect(err, contains('permission'));
-    });
-
-    test('returns server error on 500 after retries', () async {
-      serverHandler.mockGetResponse({'error': 'Internal Error'}, statusCode: 500);
-
-      final result = await DashboardService.fetchQuotaStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<QuotaStatusError>());
-      expect((result as QuotaStatusError).error, contains('Server error'));
-    });
-
-    test('returns server error on 504 after retries', () async {
-      serverHandler.mockGetResponse({}, statusCode: 504);
-
-      final result = await DashboardService.fetchQuotaStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<QuotaStatusError>());
-      expect((result as QuotaStatusError).error, contains('Server error'));
-    });
-
-    test('returns unexpected error on unrecognized 4xx', () async {
-      serverHandler.mockGetResponse({}, statusCode: 422);
-
-      final result = await DashboardService.fetchQuotaStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<QuotaStatusError>());
-    });
-  });
-
-  group('fetchQuotaStatus — network errors', () {
-    test('returns timeout error on connection timeout', () async {
-      serverHandler.mockGetError(DioExceptionType.connectionTimeout);
-
-      final result = await DashboardService.fetchQuotaStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<QuotaStatusError>());
-      expect((result as QuotaStatusError).error, contains('timed out'));
-    });
-
-    test('returns timeout error on receive timeout', () async {
-      serverHandler.mockGetError(DioExceptionType.receiveTimeout);
-
-      final result = await DashboardService.fetchQuotaStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<QuotaStatusError>());
-      expect((result as QuotaStatusError).error, contains('timed out'));
-    });
-
-    test('returns network error on connection error', () async {
-      serverHandler.mockGetError(DioExceptionType.connectionError);
-
-      final result = await DashboardService.fetchQuotaStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<QuotaStatusError>());
-      expect((result as QuotaStatusError).error, contains('Network error'));
-    });
-
-    test('returns unexpected error on non-DioException', () async {
-      serverHandler.mockGetThrow(Exception('boom'));
-
-      final result = await DashboardService.fetchQuotaStatus(
-        orgId: 'org-1',
-        jwt: 'jwt',
-      );
-
-      expect(result, isA<QuotaStatusError>());
-    });
-  });
+  runDashboardErrorSuite<QuotaStatusError>(
+    name: 'fetchQuotaStatus',
+    fetch401: () => DashboardService.fetchQuotaStatus(orgId: 'org-1', jwt: 'bad-jwt'),
+    fetch: () => DashboardService.fetchQuotaStatus(orgId: 'org-1', jwt: 'jwt'),
+    cast: (r) => r as QuotaStatusError,
+    errorOf: (e) => e.error,
+  );
 
   // ---------------------------------------------------------------------------
   // OrgSummary.fromJson
@@ -1213,93 +864,14 @@ void main() {
   // fetchOrgList — error responses
   // ---------------------------------------------------------------------------
 
-  group('fetchOrgList — error responses (L23)', () {
-    test('returns sanitized auth message on 401 — does not surface raw API string', () async {
-      serverHandler.mockGetResponse({'error': 'Unauthorized'}, statusCode: 401);
-
-      final result = await DashboardService.fetchOrgList(jwt: 'expired-jwt');
-
-      expect(result, isA<OrgListError>());
-      final err = (result as OrgListError).error;
-      expect(err, isNot(contains('Unauthorized')));
-      expect(err, contains('log in'));
-    });
-
-    test('returns sanitized permission message on 403 — does not surface raw API string', () async {
-      serverHandler.mockGetResponse({'error': 'Forbidden'}, statusCode: 403);
-
-      final result = await DashboardService.fetchOrgList(jwt: 'jwt');
-
-      expect(result, isA<OrgListError>());
-      final err = (result as OrgListError).error;
-      expect(err, isNot(contains('Forbidden')));
-      expect(err, contains('permission'));
-    });
-
-    test('returns server error on 500 after retries', () async {
-      serverHandler.mockGetResponse({}, statusCode: 500);
-
-      final result = await DashboardService.fetchOrgList(jwt: 'jwt');
-
-      expect(result, isA<OrgListError>());
-      expect((result as OrgListError).error, contains('Server error'));
-      expect(serverHandler.callCount, 3);
-    });
-
-    test('returns server error on 504 after retries', () async {
-      serverHandler.mockGetResponse({}, statusCode: 504);
-
-      final result = await DashboardService.fetchOrgList(jwt: 'jwt');
-
-      expect(result, isA<OrgListError>());
-      expect((result as OrgListError).error, contains('Server error'));
-    });
-
-    test('returns unexpected error on unrecognized 4xx', () async {
-      serverHandler.mockGetResponse({}, statusCode: 422);
-
-      final result = await DashboardService.fetchOrgList(jwt: 'jwt');
-
-      expect(result, isA<OrgListError>());
-    });
-  });
-
-  group('fetchOrgList — network errors', () {
-    test('returns timeout error on connection timeout', () async {
-      serverHandler.mockGetError(DioExceptionType.connectionTimeout);
-
-      final result = await DashboardService.fetchOrgList(jwt: 'jwt');
-
-      expect(result, isA<OrgListError>());
-      expect((result as OrgListError).error, contains('timed out'));
-    });
-
-    test('returns timeout error on receive timeout', () async {
-      serverHandler.mockGetError(DioExceptionType.receiveTimeout);
-
-      final result = await DashboardService.fetchOrgList(jwt: 'jwt');
-
-      expect(result, isA<OrgListError>());
-      expect((result as OrgListError).error, contains('timed out'));
-    });
-
-    test('returns network error on connection error', () async {
-      serverHandler.mockGetError(DioExceptionType.connectionError);
-
-      final result = await DashboardService.fetchOrgList(jwt: 'jwt');
-
-      expect(result, isA<OrgListError>());
-      expect((result as OrgListError).error, contains('Network error'));
-    });
-
-    test('returns unexpected error on non-DioException', () async {
-      serverHandler.mockGetThrow(Exception('boom'));
-
-      final result = await DashboardService.fetchOrgList(jwt: 'jwt');
-
-      expect(result, isA<OrgListError>());
-    });
-  });
+  runDashboardErrorSuite<OrgListError>(
+    name: 'fetchOrgList',
+    fetch401: () => DashboardService.fetchOrgList(jwt: 'expired-jwt'),
+    fetch: () => DashboardService.fetchOrgList(jwt: 'jwt'),
+    cast: (r) => r as OrgListError,
+    errorOf: (e) => e.error,
+    checkRetryCount: true,
+  );
 
   // ---------------------------------------------------------------------------
   // fetchBillingPortalUrl
