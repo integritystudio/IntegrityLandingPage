@@ -8,6 +8,7 @@ import { handleHealthCheck } from './routes/health';
 import { handleIngestEvent, handleIngestOtel, OTEL_INGEST_ROUTE } from './routes/ingest';
 import { handleBootstrap } from './routes/bootstrap';
 import { handleAuth0Logs } from './routes/auth0-logs';
+import { pollAuth0Logs } from './lib/auth0-log-poller';
 import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
 import { preVerifyToken } from './lib/helpers';
@@ -65,6 +66,12 @@ export interface Env {
    * delivery to /v1/auth0-logs (BACKLOG.md CR40). While unbound, that route answers 503.
    */
   AUTH0_LOG_STREAM_TOKEN?: string;
+  /**
+   * M2M client granted `read:logs` only, used by the scheduled Auth0 log poller
+   * (lib/auth0-log-poller.ts). Production only: [env.dev] runs no cron.
+   */
+  AUTH0_LOG_READER_CLIENT_ID?: string;
+  AUTH0_LOG_READER_CLIENT_SECRET?: string;
 }
 
 const APP_URL_FALLBACK = 'https://app.integritystudio.ai';
@@ -129,6 +136,26 @@ export default {
     const cors = corsHeaders(request.headers.get('Origin'), env);
     if (request.method === 'OPTIONS') return noContent({ headers: cors });
     return withHeaders(await route(request, env, ctx), cors);
+  },
+
+  /**
+   * Cron (wrangler.toml [triggers]): pull new Auth0 tenant log entries into auth0_logs.
+   * A failed run throws, so it is recorded as an errored invocation rather than a success —
+   * the stripe-webhook cron reported success for four months while doing nothing (CR20).
+   */
+  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
+    const result = await pollAuth0Logs({
+      auth0Domain: env.AUTH0_DOMAIN,
+      clientId: env.AUTH0_LOG_READER_CLIENT_ID,
+      clientSecret: env.AUTH0_LOG_READER_CLIENT_SECRET,
+      kv: env.RATE_LIMIT_KV,
+      supabaseUrl: env.SUPABASE_URL,
+      serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+    });
+    if (result.status === 'failed') {
+      throw new Error(`[auth0-log-poller] ${result.reason} (inserted ${result.inserted}, pages ${result.pages})`);
+    }
+    console.log(`[auth0-log-poller] inserted ${result.inserted} over ${result.pages} page(s)`);
   },
 };
 

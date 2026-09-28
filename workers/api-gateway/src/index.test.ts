@@ -669,3 +669,13 @@ describe('CR40: /v1/auth0-logs is dispatched with the stream token', () => {
     expect(stub.findAll('POST', 'auth0_logs')).toHaveLength(1);
   });
 });
+
+describe('scheduled: the Auth0 log poller', () => {
+  it('throws when the poller fails, so the cron invocation records an error', async () => {
+    const ctx = { waitUntil: () => {}, passThroughOnException: () => {} } as unknown as ExecutionContext;
+
+    await expect(
+      worker.scheduled({} as ScheduledEvent, makeEnv(), ctx),
+    ).rejects.toThrow('AUTH0_LOG_READER_CLIENT_ID/SECRET not bound');
+  });
+});

@@ -1,20 +1,21 @@
 import { ok, badRequest, unauthorized, serviceUnavailable, getBearerToken } from '../../../lib/http';
 import { secretsEqual } from '../../../lib/crypto';
-import { Auth0LogStreamEventSchema, type Auth0LogRow, type Auth0LogStreamEvent } from '../../../lib/types';
+import { Auth0LogStreamEventSchema, type Auth0LogRow } from '../../../lib/types';
+import { insertAuth0LogRows, toAuth0LogRow, type Auth0LogStoreEnv } from '../lib/auth0-log-store';
 
 const LOG_PREFIX = '[auth0-logs]';
-/** Upsert on the UNIQUE `log_id`, so a batch Auth0 retries inserts nothing twice. */
-const INSERT_PATH = '/rest/v1/auth0_logs?on_conflict=log_id';
 
-interface Auth0LogsEnv {
-  supabaseUrl: string;
-  serviceRoleKey: string;
+interface Auth0LogsEnv extends Auth0LogStoreEnv {
   /** Shared secret the stream sends as `Authorization: Bearer <token>` (AUTH0_LOG_STREAM_TOKEN). */
   streamToken?: string;
 }
 
 /**
  * POST /v1/auth0-logs — receiver for the Auth0 custom-webhook log stream (CR33, CR40).
+ *
+ * No stream feeds it today: the tenant's plan refuses log streams (`409` on create,
+ * 2026-09-28), so logs arrive through the scheduled poller in `lib/auth0-log-poller.ts`.
+ * The route is kept for a plan upgrade, and shares its row mapping with the poller.
  *
  * Authentication: the stream's `httpAuthorization` is `Bearer <AUTH0_LOG_STREAM_TOKEN>`,
  * and Auth0 sends it on every delivery. The token is checked in constant time before the
@@ -57,7 +58,7 @@ export async function handleAuth0Logs(
   for (const event of events) {
     const parsed = Auth0LogStreamEventSchema.safeParse(event);
     if (parsed.success) {
-      rows.push(toRow(parsed.data));
+      rows.push(toAuth0LogRow(parsed.data.log_id, parsed.data.data));
     } else {
       console.warn(`${LOG_PREFIX} Skipping invalid event:`, parsed.error.issues);
     }
@@ -66,45 +67,10 @@ export async function handleAuth0Logs(
     return badRequest('No valid log events');
   }
 
-  try {
-    const response = await fetch(`${env.supabaseUrl}${INSERT_PATH}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.serviceRoleKey}`,
-        'apikey': env.serviceRoleKey, // Supabase REST API requires apikey header
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=ignore-duplicates,return=minimal',
-      },
-      body: JSON.stringify(rows),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error(`${LOG_PREFIX} Supabase insert failed: ${response.status} ${text}`);
-      return ok({ message: 'Logged (Supabase insert failed but acknowledged)' });
-    }
-
-    return ok({ message: 'Log events persisted' });
-  } catch (e) {
-    console.error(`${LOG_PREFIX} Insert error:`, e);
-    return ok({ message: 'Logged (DB error but acknowledged)' });
+  const result = await insertAuth0LogRows(env, rows);
+  if (!result.ok) {
+    console.error(`${LOG_PREFIX} ${result.error}`);
+    return ok({ message: 'Logged (insert failed but acknowledged)' });
   }
-}
-
-function toRow({ log_id, data }: Auth0LogStreamEvent): Auth0LogRow {
-  return {
-    log_id,
-    event_type: data.type,
-    event_name: data.name || null,
-    client_id: data.client_id || null,
-    client_name: data.client_name || null,
-    user_id: data.user_id || null,
-    user_name: data.user_name || null,
-    email: data.email || null,
-    ip_address: data.ip || null,
-    user_agent: data.user_agent || null,
-    scope: data.scope || null,
-    description: data.description || null,
-    details: { ...data }, // Store full entry for audit/debugging
-  };
+  return ok({ message: 'Log events persisted' });
 }
