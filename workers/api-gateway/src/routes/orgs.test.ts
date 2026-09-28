@@ -521,8 +521,8 @@ describe('POST /v1/orgs/:id/checkout-session', () => {
     expect(res.status).toBe(400);
   });
 
-  // 'enterprise' is represented in the catalogue by a null stripe_price_id, so this is
-  // the branch that keeps a contract-billed tier out of self-serve checkout.
+  // A null stripe_price_id is the catalogue's marker for a contract-billed plan (enterprise
+  // was one until its price was created 2026-09-27), and keeps it out of self-serve checkout.
   it('returns 400 for a plan with no Stripe price', async () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(checkoutRoutes(null, [{ key: 'enterprise', stripe_price_id: null }]));
@@ -561,6 +561,26 @@ describe('POST /v1/orgs/:id/checkout-session', () => {
       makeCheckoutOpts(),
     );
     expect(res.status).toBe(404);
+  });
+
+  it('opens an enterprise checkout at its 6-seat minimum and lets the buyer add seats', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(checkoutRoutes(null, [{ key: 'enterprise', stripe_price_id: 'price_enterprise_1' }]));
+    const create = vi.fn().mockResolvedValue({ url: 'https://checkout.stripe.com/c/pay/ent' });
+
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token, { plan: 'enterprise' }),
+      ORG_ID,
+      makeCheckoutOpts(checkoutStripeWith(create)),
+    );
+    expect(res.status).toBe(200);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        line_items: [
+          { price: 'price_enterprise_1', quantity: 6, adjustable_quantity: { enabled: true, minimum: 6 } },
+        ],
+      }),
+    );
   });
 
   it('creates a session carrying the route org id, not one derived from the user', async () => {

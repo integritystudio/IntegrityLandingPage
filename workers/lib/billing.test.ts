@@ -3,6 +3,7 @@ import {
   isEntitled,
   effectivePlan,
   UNPAID_PLAN,
+  PLAN_MIN_SEATS,
   toBillingStatus,
   STRIPE_SUBSCRIPTION_STATUSES,
   type StripeSubscriptionStatus,
@@ -89,6 +90,14 @@ describe('effectivePlan (CR37)', () => {
   it('falls back to the unpaid plan when either column is missing', () => {
     expect(effectivePlan(null, 'active')).toBe(UNPAID_PLAN);
     expect(effectivePlan('growth', undefined)).toBe(UNPAID_PLAN);
+  });
+});
+
+describe('PLAN_MIN_SEATS', () => {
+  // Enterprise is $50/user/month with a 6-user minimum; the live price's first tier is a
+  // flat fee for exactly this many users, so the two must not drift apart.
+  it('holds enterprise to more than five seats and no other plan to any', () => {
+    expect(PLAN_MIN_SEATS).toEqual({ enterprise: 6 });
   });
 });
 

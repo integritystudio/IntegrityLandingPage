@@ -1,4 +1,4 @@
-import { type ApiKeyTier } from "./types.js";
+import { type ApiKeyTier, PLAN_MIN_SEATS, DEFAULT_CHECKOUT_SEATS } from "./types.js";
 
 export type CheckoutSessionResult =
   | { ok: true; checkoutUrl: string }
@@ -46,15 +46,22 @@ export async function createStripeCheckoutSession(
   const successUrl = `${base}/checkout-success?email=${encodeURIComponent(email)}&tier=${tier}`;
   const cancelUrl = `${base}/signup?tier=${tier}`;
 
+  const minSeats = PLAN_MIN_SEATS[tier];
   const params = new URLSearchParams({
     mode: "subscription",
     "payment_method_types[]": "card",
     "line_items[0][price]": priceId,
-    "line_items[0][quantity]": "1",
+    "line_items[0][quantity]": String(minSeats ?? DEFAULT_CHECKOUT_SEATS),
     success_url: successUrl,
     cancel_url: cancelUrl,
     customer_email: email,
   });
+
+  // A plan with a seat minimum opens at it, and the buyer can add seats but not go below.
+  if (minSeats) {
+    params.set("line_items[0][adjustable_quantity][enabled]", "true");
+    params.set("line_items[0][adjustable_quantity][minimum]", String(minSeats));
+  }
 
   if (orgId) {
     params.set("metadata[org_id]", orgId);

@@ -148,6 +148,14 @@ export const ApiKeyTierSchema = z.enum(["starter", "growth", "enterprise"]);
 export type ApiKeyTier = z.infer<typeof ApiKeyTierSchema>;
 export const DEFAULT_TIER: ApiKeyTier = "starter";
 
+/** Seats a checkout opens at when the plan sets no minimum. */
+export const DEFAULT_CHECKOUT_SEATS = 1;
+
+// The fewest seats a plan can be bought with: enterprise is $50 per user per month with a
+// 6-user minimum. The Stripe price bills the minimum by itself (graduated tiers); checkout
+// opens here so the seat quantity matches. Mirrors PLAN_MIN_SEATS in workers/lib/billing.ts.
+export const PLAN_MIN_SEATS: Partial<Record<ApiKeyTier, number>> = { enterprise: 6 };
+
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const ProvisionApiKeyRequestSchema = z.object({

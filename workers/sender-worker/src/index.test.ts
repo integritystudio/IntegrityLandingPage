@@ -1407,9 +1407,31 @@ describe('Sender Worker', () => {
       expect(params.get('mode')).toBe('subscription');
       expect(params.get('line_items[0][price]')).toBe('price_growth_monthly');
       expect(params.get('line_items[0][quantity]')).toBe('1');
+      expect(params.has('line_items[0][adjustable_quantity][enabled]')).toBe(false);
       expect(params.get('customer_email')).toBe('user@example.com');
       expect(params.get('success_url')).toContain('/checkout-success');
       expect(params.get('cancel_url')).toContain('/signup?tier=growth');
+      spy.mockRestore();
+    });
+
+    it('opens an enterprise checkout at its 6-seat minimum and lets the buyer add seats', async () => {
+      const { spy, state } = mockCheckoutFetch({
+        users: [{ id: 'user-1', default_organization_id: TEST_ORG_ID }],
+      });
+
+      const request = new Request('https://worker.test/create-checkout-session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com', tier: 'enterprise' }),
+      });
+
+      await worker.fetch(request, stripeEnv);
+
+      const params = new URLSearchParams(state.stripeBody);
+      expect(params.get('line_items[0][price]')).toBe('price_enterprise_annual');
+      expect(params.get('line_items[0][quantity]')).toBe('6');
+      expect(params.get('line_items[0][adjustable_quantity][enabled]')).toBe('true');
+      expect(params.get('line_items[0][adjustable_quantity][minimum]')).toBe('6');
       spy.mockRestore();
     });
 

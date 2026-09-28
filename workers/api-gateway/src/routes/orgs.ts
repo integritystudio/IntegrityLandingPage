@@ -3,8 +3,8 @@ import { ok, badRequest, conflict, forbidden, notFound, serverError } from '../.
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import { requireBearerToken, safeParseJson } from '../../../lib/http/request';
 import { parseApiKey } from '../../../lib/api-keys';
-import type { Organization, OrgRole, OrgMembership, Entitlement } from '../../../lib/types';
-import { effectivePlan } from '../../../lib/billing';
+import type { Organization, OrgRole, OrgMembership, Entitlement, ApiKeyTier } from '../../../lib/types';
+import { effectivePlan, PLAN_MIN_SEATS, DEFAULT_CHECKOUT_SEATS } from '../../../lib/billing';
 import { resolveJwt, resolveJwtRateLimited, buildEntitlementMap, loadPlan, writeAuditLog, auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
 
 interface OrgsHandlerOptions extends UserTokenOptions {
@@ -360,10 +360,10 @@ export async function handleCreateCheckoutSession(
   if (planResult.data.length === 0) return badRequest(`Unknown plan: ${plan}`);
 
   /**
-   * Null `stripe_price_id` is the catalogue's marker for "not self-serve" — it is how
-   * 'enterprise' is represented, since that tier has no Stripe product and is billed by
-   * contract. Reading it from the table rather than hardcoding the tier name means a
-   * plan becomes purchasable by being given a price, with no code change.
+   * Null `stripe_price_id` is the catalogue's marker for "not self-serve": a plan billed
+   * by contract. Reading it from the table rather than hardcoding the tier name means a
+   * plan becomes purchasable by being given a price, with no code change. That is how
+   * 'enterprise' became self-serve on 2026-09-27; contract-billed orgs still exist.
    */
   const priceId = planResult.data[0].stripe_price_id;
   if (!priceId) {
@@ -379,9 +379,15 @@ export async function handleCreateCheckoutSession(
         httpClient: Stripe.createFetchHttpClient(),
       });
 
+    // A plan with a seat minimum opens at it, and the buyer can add seats but not go below.
+    const minSeats = PLAN_MIN_SEATS[planResult.data[0].key as ApiKeyTier];
+    const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = minSeats
+      ? { price: priceId, quantity: minSeats, adjustable_quantity: { enabled: true, minimum: minSeats } }
+      : { price: priceId, quantity: DEFAULT_CHECKOUT_SEATS };
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [lineItem],
       success_url: `${base}/#/billing`,
       cancel_url: `${base}/#/billing`,
       client_reference_id: orgId,

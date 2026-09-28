@@ -64,6 +64,21 @@ export function isEntitled(status: BillingStatus): boolean {
   return status === 'active' || status === 'trialing';
 }
 
+/** Seats a checkout opens at when the plan sets no minimum. */
+export const DEFAULT_CHECKOUT_SEATS = 1;
+
+/**
+ * The fewest seats a plan can be bought with. Enterprise is $50 per user per month with a
+ * 6-user minimum (live price `price_1UKTwYAwEfePbhfkAS5HUuqk`, 2026-09-27).
+ *
+ * The Stripe price enforces the charge by itself: graduated tiers, a flat fee for the first
+ * six users and then a per-user amount. The live Customer Portal allows quantity changes, so
+ * a quantity cut below the minimum there still bills the minimum. Checkout opens at this
+ * count so the recorded seat quantity matches what is billed. Mirrors `PLAN_MIN_SEATS` in
+ * sender-worker `src/types.ts` and the price's first tier; keep all three in step.
+ */
+export const PLAN_MIN_SEATS: Partial<Record<ApiKeyTier, number>> = { enterprise: 6 };
+
 /** The plan an org is held to when its stored plan is not paid for. */
 export const UNPAID_PLAN: ApiKeyTier = 'starter';
 
