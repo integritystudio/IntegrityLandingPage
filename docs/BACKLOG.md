@@ -2463,11 +2463,13 @@ The comment at the `preVerifyToken` call says an invalid token "returns 401 with
 
 `/v1/me` (`workers/api-gateway/src/routes/me.ts`, `orgPlan ?? user.tier`) and `supabase/functions/api-keys-create/index.ts` (`org?.current_plan ?? user.tier ?? DEFAULT_TIER`) still fall back to `users.tier`. Since UA04 it matches the default org's plan for any user who has one, and all 9 production users do. The fallbacks are now either redundant, or wrong only for users with no default org. **Scope:** decide whether a user with no default org should be an error; if so, remove both fallbacks and update `me.test.ts`'s two fallback tests.
 
-### UA12: Doppler prd `SUPABASE_SERVICE_ROLE_KEY` is a third live service-level key, origin unrecorded
+### ❌ UA12 — won't do (2026-09-27): Doppler prd `SUPABASE_SERVICE_ROLE_KEY` is a third live service-level key, origin unrecorded
 
 **Priority:** P2 | **Source:** session 2026-09-27, count-only PostgREST probe
 
 The slot CLAUDE.md said "exists in no config" now holds an `sb_secret_` key (41 chars, sha1 prefix `d1ace259a923`). Against production, `GET /rest/v1/organizations?select=id&limit=0` with `Prefer: count=exact` returned `206`, `content-range */7`: it sees every org through RLS, so it has full service-role access. It matches neither `SUPABASE_PROVISIONING_KEY` nor `SUPABASE_INTEGRITY_MEMERSHIP_KEY`, so `prd` now holds three distinct live bypass keys. Every Worker binds its service key under this same name, and the bound values cannot be read back, so which key production runs on is unknown. **Isolation holds:** `dev`'s `SUPABASE_SERVICE_ROLE_KEY` (`b9341dcac1c3`) gets `401 Invalid API key` against production and `206 */6` against its own project (positive control). `check-env-isolation.sh` watches the slot but only checks that the two values differ. **Scope:** in the Supabase Dashboard (API Keys), identify the named key behind each of the three and when it was created. Decide the single key production should use, re-bind the Workers to it with `wrangler secret put`, then revoke the others at Supabase **before** clearing their Doppler slots.
+
+**Won't do (owner decision 2026-09-27):** this is a service key, not an application access key. Holding it in `prd` alongside the others is intended, so there is nothing to consolidate or revoke.
 
 ## Test Suite Review 2026-09-27 (TS01–TS16)
 
