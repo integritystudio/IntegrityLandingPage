@@ -156,3 +156,4 @@ enabled = true
 # STRIPE_SECRET_KEY
 # APP_URL (optional; defaults to https://app.integritystudio.ai)
 # PAGERDUTY_INTEGRATION_KEY (optional; when set, fires PagerDuty trigger on unhealthy /health responses)
+# AUTH0_LOG_STREAM_TOKEN (the Auth0 log stream's bearer token; /v1/auth0-logs answers 503 while unbound — CR40)
