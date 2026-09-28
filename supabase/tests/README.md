@@ -54,6 +54,26 @@ org read its ancestors.
 | T9 | multi-level walk reaches a grandparent |
 | T10 | a naive inline policy still recurses (justifies the function indirection) |
 
+### `users-tier-derivation/`
+
+Covers `migrations/20260927000000_derive_users_tier_from_default_org.sql` (UA04),
+which derives `users.tier` from the default organization's `current_plan` by
+trigger and backfills existing drift. Port 55433.
+
+| | assertion |
+|---|---|
+| T1 | backfill fixes drift; no-org users keep their value; `free` maps to `starter` |
+| T2 | insert ignores the supplied tier and derives it |
+| T3 | a direct write to `tier` is overwritten |
+| T4 | changing `default_organization_id` recomputes |
+| T5 | a plan change reaches every user of that org and no one else |
+| T6 | unknown plan resolves to `starter`; mapping is case-insensitive |
+| T7 | a writer with no grant on `users` still propagates (security definer) |
+| T8 | clearing the default org keeps the last derived value |
+| T9 | invariant: no user with a default org disagrees with its plan |
+
+Mutation-checked: run against an empty migration, T1a fails.
+
 ## Writing a new suite
 
 Copy the three-file shape: `fixture.sql`, `verify.sql`, `run.sh`. Four traps

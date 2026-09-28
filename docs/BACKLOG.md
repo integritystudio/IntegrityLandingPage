@@ -2179,7 +2179,7 @@ Filed from a read of one paying user (`alyshia@inventoryai.io`, org `team-invent
 
 **Scope:** read the deployed functions' `KV_NAMESPACE_ID` in the Supabase Dashboard; set Doppler prd `KV_NAMESPACE_ID` to `b5a89aed…` (and decide what `CLOUDFLARE_KV_NAMESPACE_ID` is for — rename it `DASHBOARD_KV_NAMESPACE_ID` if that is what it holds); add both to `check:env-isolation`. Acceptance: `doppler secrets get KV_NAMESPACE_ID` equals the `AUTH` `id` in both worker configs.
 
-### UA04: `users.tier` is a legacy column two code paths still fall back to, and it disagreed with the paid plan for seven weeks
+### ✅ UA04 — implemented 2026-09-27 (not yet applied to production): `users.tier` is a legacy column two code paths still fall back to, and it disagreed with the paid plan for seven weeks
 
 **Priority:** P3 | **Source:** audit 2026-09-18; `/v1/me` fixed to read the org plan in `6dc91c2`
 **Estimated:** 2 hours
@@ -2187,6 +2187,8 @@ Filed from a read of one paying user (`alyshia@inventoryai.io`, org `team-invent
 **Context:** billing never updates `users.tier`. The owner of `team-inventoryai-io` carried `starter` from 2026-07-31 (growth checkout) until it was hand-set on 2026-09-18, and `/v1/me` reported it verbatim. `api-keys-create` reads `org?.current_plan ?? user.tier`, `/v1/me` now does the same; both still make the column the answer whenever the org lookup misses. Two truths for one fact.
 
 **Scope:** either make `users.tier` a generated/derived value (trigger from `organizations.current_plan` of the default org) or remove it and the two fallbacks so a missing org plan is an error rather than `starter`. Acceptance: `grep -rn "user.tier\|users.tier" workers supabase` finds no read path, or the column is provably always equal to the default org's plan.
+
+**Implemented 2026-09-27 — derived by trigger.** Migration `20260927000000_derive_users_tier_from_default_org.sql`: `users_derive_tier` (BEFORE INSERT / UPDATE OF `default_organization_id`, `tier` on `users`) sets `tier = plan_to_api_key_tier(default org's current_plan)`, overwriting direct writes; `organizations_propagate_tier` (AFTER UPDATE OF `current_plan`) pushes a plan change to every user whose default org it is. Both SECURITY DEFINER with empty `search_path`, so the webhook's org update propagates whatever its role. Mapping matches `api-keys-create`: `growth`/`enterprise` pass through, `free` and anything unknown → `starter`. Backfills existing drift. Users with **no** default org keep their stored value — there is no plan to derive. The two code fallbacks stay; they now agree with the org by construction. Tests: `supabase/tests/users-tier-derivation/run.sh` (16 assertions, mutation-checked). **Remaining:** apply to production (`supabase db query --linked -f …` then `migration repair --status applied 20260927000000`, or `db push` if nothing else is pending) and re-run the T9 invariant query there.
 
 ### ✅ UA05 — done 2026-09-27: `subscriptions.created_at` is the last webhook touch, not the creation time
 
