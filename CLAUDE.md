@@ -23,6 +23,9 @@ wrangler dev --port 8787          # Local dev server
 
 # Opt-in suites (excluded from `npm test`)
 npm run test:live                 # stripe-webhook: real Stripe-signed requests to the deployed dev Worker
+                                  #   + plan-sync (CR38): creates a sandbox customer/subscription and a dev org,
+                                  #   waits for the Worker to write current_plan, then deletes them. Refuses a
+                                  #   live Stripe key or a non-dev Supabase project.
                                   # sender-worker: real Auth0 Management API calls against the PRODUCTION tenant
                                   #   (--config prd; dev creds cannot mint a management token).
                                   #   vitest.live.config.ts overrides AUTH0_TEST_EMAIL to a disposable identity —
