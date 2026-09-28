@@ -2811,15 +2811,19 @@ The handlers are unit-tested, but the router lines that dispatch to them never e
 
 ### TS24: rate-limiter memory bounds are untested, and one CR36 test duplicates another
 
-**Priority:** P4 | **Source:** coverage audit 2026-09-28
+**Priority:** P4 | **Source:** coverage audit 2026-09-28 | **Status:** DONE 2026-09-28
 
 1. `pruneExpired` and `pruneOrgExpired` (`workers/api-gateway/src/lib/rate-limit.ts:56`, `:159`) never delete an expired window or hit the 10,000-entry cap in any test. A leak, or a clear that wipes live windows, would pass.
 2. "provides a floor independent of the quota DO" (`rate-limit.test.ts:243`) has the same body as "still limits per isolate when RATE_LIMIT_KV is unbound" and never touches the DO its name describes. The router-level CR36 tests now back that claim, so delete it.
 
 **Scope:** inject the clock, or use fake timers, and test expiry and the cap for both limiters, then delete the duplicate.
 
+**Resolution:** Deleted the duplicate test. Added `describe('TS24: memory bounds')` with four tests using `vi.useFakeTimers()` and a 10,001-entry loop to cover expiry and the cap for both `pruneExpired` and `pruneOrgExpired`. 264 tests pass.
+
 ### TS25: `/v1/me` has no test for a default org whose row is missing
 
-**Priority:** P4 | **Source:** coverage audit 2026-09-28
+**Priority:** P4 | **Source:** coverage audit 2026-09-28 | **Status:** DONE 2026-09-28
 
 `resolveOrgPlan` returns `plan: null` when `default_organization_id` points at no row (`workers/api-gateway/src/routes/me.ts:81`), so the route reports `starter`. That is the only uncovered branch in the file. **Scope:** one test.
+
+**Resolution:** Added "returns starter when default_organization_id points at a missing org row" to `me.test.ts`. The stub returns `okRows([])` for organizations; response is 200 with `tier: 'starter'`. 265 tests pass.

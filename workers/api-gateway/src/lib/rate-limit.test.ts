@@ -237,14 +237,102 @@ describe('checkOrgRateLimit', () => {
     expect((await checkOrgRateLimit(ORG_ID, { RATE_LIMIT_KV: kv })).allowed).toBe(true);
   });
 
-  // CR36: the org rate limit runs before the quota DO call. A DO outage leaves
-  // enforceOrgQuota fail-open, but this limiter must still deny a looping caller
-  // even without KV (the in-memory tier is the floor).
-  it('provides a floor independent of the quota DO — denies a loop even without KV', async () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    for (let i = 0; i < ORG_RATE_LIMIT_MAX; i++) {
-      await checkOrgRateLimit(ORG_ID, {});
+});
+
+// ---------------------------------------------------------------------------
+// TS24: memory bounds — pruneExpired and pruneOrgExpired
+// ---------------------------------------------------------------------------
+// pruneExpired/pruneOrgExpired are called on every cache miss. They delete
+// entries whose resetAt has passed and, as a backstop, call clear() when the
+// map exceeds MAX_TRACKED_IDENTITIES / MAX_TRACKED_ORGS (10,000 each). Neither
+// path was exercised by any test before TS24.
+
+describe('TS24: memory bounds', () => {
+  it('pruneExpired deletes expired in-memory identity windows', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // Hit the per-identity limit (no KV → in-memory only).
+      for (let i = 0; i < IDENTITY_RATE_LIMIT_MAX; i++) {
+        await checkIdentityRateLimit('prune-id-A', {});
+      }
+      expect((await checkIdentityRateLimit('prune-id-A', {})).allowed).toBe(false);
+
+      // Advance the fake clock past the window — prune-id-A's entry is now expired.
+      vi.advanceTimersByTime(IDENTITY_RATE_LIMIT_WINDOW_SECONDS * 1000 + 1);
+
+      // A new-identity miss triggers pruneExpired, which deletes the stale entry.
+      await checkIdentityRateLimit('prune-id-B', {});
+
+      // prune-id-A's window was deleted; a fresh count-1 window starts → allowed.
+      expect((await checkIdentityRateLimit('prune-id-A', {})).allowed).toBe(true);
+    } finally {
+      vi.useRealTimers();
     }
-    expect((await checkOrgRateLimit(ORG_ID, {})).allowed).toBe(false);
   });
+
+  // The 10,000-entry cap is a backstop for the pathological case where every
+  // request carries a fresh identity and none ever expire. When the map exceeds
+  // the threshold, pruneExpired calls inMemoryWindows.clear(). This test fills
+  // the map past that threshold and verifies that a previously-denied identity
+  // is allowed again after the clear.
+  it('pruneExpired: the 10,000-entry cap clears all in-memory windows', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // Hit the limit for identity 0 so we can prove it was cleared.
+    for (let i = 0; i < IDENTITY_RATE_LIMIT_MAX; i++) {
+      await checkIdentityRateLimit('cap-id-0', {});
+    }
+    expect((await checkIdentityRateLimit('cap-id-0', {})).allowed).toBe(false);
+
+    // Fill 10,000 more distinct identities — map now holds 10,001 entries.
+    for (let i = 1; i <= 10_000; i++) {
+      await checkIdentityRateLimit(`cap-id-${i}`, {});
+    }
+
+    // The next new identity triggers pruneExpired: no entries expired, but
+    // size 10,001 > MAX_TRACKED_IDENTITIES (10,000) → inMemoryWindows.clear().
+    await checkIdentityRateLimit('cap-id-trigger', {});
+
+    // cap-id-0's window was cleared; it now starts fresh and is allowed.
+    expect((await checkIdentityRateLimit('cap-id-0', {})).allowed).toBe(true);
+  }, 30_000); // Iterates ~50 M map entries; allow generous time.
+
+  it('pruneOrgExpired deletes expired in-memory org windows', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      for (let i = 0; i < ORG_RATE_LIMIT_MAX; i++) {
+        await checkOrgRateLimit('prune-org-A', {});
+      }
+      expect((await checkOrgRateLimit('prune-org-A', {})).allowed).toBe(false);
+
+      vi.advanceTimersByTime(ORG_RATE_LIMIT_WINDOW_SECONDS * 1000 + 1);
+
+      await checkOrgRateLimit('prune-org-B', {});
+
+      expect((await checkOrgRateLimit('prune-org-A', {})).allowed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('pruneOrgExpired: the 10,000-entry cap clears all in-memory windows', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    for (let i = 0; i < ORG_RATE_LIMIT_MAX; i++) {
+      await checkOrgRateLimit('cap-org-0', {});
+    }
+    expect((await checkOrgRateLimit('cap-org-0', {})).allowed).toBe(false);
+
+    for (let i = 1; i <= 10_000; i++) {
+      await checkOrgRateLimit(`cap-org-${i}`, {});
+    }
+
+    await checkOrgRateLimit('cap-org-trigger', {});
+
+    expect((await checkOrgRateLimit('cap-org-0', {})).allowed).toBe(true);
+  }, 30_000);
 });

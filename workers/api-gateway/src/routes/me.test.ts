@@ -191,6 +191,25 @@ describe('GET /v1/me', () => {
     error.mockRestore();
   });
 
+  // TS25: default_organization_id is set but the org row is missing (e.g. deleted
+  // mid-flight). resolveOrgPlan gets { ok: true, data: null } from the empty array,
+  // returns plan: null, and handleMe falls back to DEFAULT_TIER instead of 500.
+  it('returns starter when default_organization_id points at a missing org row', async () => {
+    const token = await jwt.sign({ sub: 'user-id-1', email: 'user@example.com' });
+    const stub = stubSupabase({
+      'GET users': okRows([makeUserRow({ default_organization_id: 'org-gone' })]),
+      // org-gone is not in the database — the query succeeds but returns zero rows.
+      'GET organizations': okRows([]),
+    });
+
+    const res = await handleMe(makeRequest(token), opts);
+
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as MeBody).tier).toBe('starter');
+    expect(stub.find('GET', 'organizations')!.url.searchParams.get('id')).toBe('eq.org-gone');
+    expect(stub.unexpected).toHaveLength(0);
+  });
+
   it('returns 500 when the membership lookup fails', async () => {
     const token = await jwt.sign({ sub: 'user-id-1', email: 'user@example.com' });
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
