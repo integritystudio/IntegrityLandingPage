@@ -4,6 +4,10 @@ import {
   resetIdentityRateLimit,
   IDENTITY_RATE_LIMIT_MAX,
   IDENTITY_RATE_LIMIT_WINDOW_SECONDS,
+  checkOrgRateLimit,
+  resetOrgRateLimit,
+  ORG_RATE_LIMIT_MAX,
+  ORG_RATE_LIMIT_WINDOW_SECONDS,
 } from './rate-limit';
 
 const IDENTITY = 'auth0|subject-1';
@@ -129,5 +133,118 @@ describe('checkIdentityRateLimit', () => {
     resetIdentityRateLimit();
 
     expect((await checkIdentityRateLimit(IDENTITY, { RATE_LIMIT_KV: kv })).allowed).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// checkOrgRateLimit (CR36)
+// ---------------------------------------------------------------------------
+
+const ORG_ID = 'org-uuid-1';
+
+beforeEach(() => {
+  resetOrgRateLimit();
+});
+
+describe('checkOrgRateLimit', () => {
+  it('allows requests below the limit', async () => {
+    const env = { RATE_LIMIT_KV: makeKv() };
+    for (let i = 0; i < ORG_RATE_LIMIT_MAX; i++) {
+      expect((await checkOrgRateLimit(ORG_ID, env)).allowed).toBe(true);
+    }
+  });
+
+  it('denies once the limit is exceeded, with a retry hint inside the window', async () => {
+    const env = { RATE_LIMIT_KV: makeKv() };
+    for (let i = 0; i < ORG_RATE_LIMIT_MAX; i++) {
+      await checkOrgRateLimit(ORG_ID, env);
+    }
+
+    const result = await checkOrgRateLimit(ORG_ID, env);
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.retryAfterSeconds).toBeGreaterThan(0);
+      expect(result.retryAfterSeconds).toBeLessThanOrEqual(ORG_RATE_LIMIT_WINDOW_SECONDS);
+    }
+  });
+
+  it('counts each org independently', async () => {
+    const env = { RATE_LIMIT_KV: makeKv() };
+    for (let i = 0; i <= ORG_RATE_LIMIT_MAX; i++) {
+      await checkOrgRateLimit(ORG_ID, env);
+    }
+    expect((await checkOrgRateLimit(ORG_ID, env)).allowed).toBe(false);
+    expect((await checkOrgRateLimit('org-uuid-2', env)).allowed).toBe(true);
+  });
+
+  it('still limits per isolate when RATE_LIMIT_KV is unbound', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (let i = 0; i < ORG_RATE_LIMIT_MAX; i++) {
+      expect((await checkOrgRateLimit(ORG_ID, {})).allowed).toBe(true);
+    }
+    expect((await checkOrgRateLimit(ORG_ID, {})).allowed).toBe(false);
+  });
+
+  it('warns once per isolate about the unbound namespace, not once per request', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await checkOrgRateLimit(ORG_ID, {});
+    await checkOrgRateLimit('org-uuid-3', {});
+    await checkOrgRateLimit('org-uuid-4', {});
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('degrades to the in-memory count when KV throws', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const env = {
+      RATE_LIMIT_KV: makeKv({
+        get: (async () => {
+          throw new Error('kv unavailable');
+        }) as unknown as KVNamespace['get'],
+      }),
+    };
+
+    for (let i = 0; i < ORG_RATE_LIMIT_MAX; i++) {
+      expect((await checkOrgRateLimit(ORG_ID, env)).allowed).toBe(true);
+    }
+    expect((await checkOrgRateLimit(ORG_ID, env)).allowed).toBe(false);
+  });
+
+  it('denies a fresh isolate when the KV count is already over the limit', async () => {
+    const kv = makeKv();
+    await kv.put(
+      `gw_org_rl:${ORG_ID}`,
+      JSON.stringify({
+        count: ORG_RATE_LIMIT_MAX + 5,
+        resetAt: Date.now() + ORG_RATE_LIMIT_WINDOW_SECONDS * 1000,
+      }),
+    );
+
+    resetOrgRateLimit();
+
+    const result = await checkOrgRateLimit(ORG_ID, { RATE_LIMIT_KV: kv });
+    expect(result.allowed).toBe(false);
+  });
+
+  it('starts a new window once the stored one has expired', async () => {
+    const kv = makeKv();
+    await kv.put(
+      `gw_org_rl:${ORG_ID}`,
+      JSON.stringify({ count: ORG_RATE_LIMIT_MAX + 5, resetAt: Date.now() - 1000 }),
+    );
+    resetOrgRateLimit();
+
+    expect((await checkOrgRateLimit(ORG_ID, { RATE_LIMIT_KV: kv })).allowed).toBe(true);
+  });
+
+  // CR36: the org rate limit runs before the quota DO call. A DO outage leaves
+  // enforceOrgQuota fail-open, but this limiter must still deny a looping caller
+  // even without KV (the in-memory tier is the floor).
+  it('provides a floor independent of the quota DO — denies a loop even without KV', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (let i = 0; i < ORG_RATE_LIMIT_MAX; i++) {
+      await checkOrgRateLimit(ORG_ID, {});
+    }
+    expect((await checkOrgRateLimit(ORG_ID, {})).allowed).toBe(false);
   });
 });
