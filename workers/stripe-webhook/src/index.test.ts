@@ -251,12 +251,25 @@ describe('handleWebhook (fetch handler)', () => {
     );
   });
 
-  it('health endpoint → 200 with ok:true', async () => {
+  it('health endpoint → 200 with ok:true and priceToPlanEntries count', async () => {
     const request = new Request('https://example.com/health', { method: 'GET' });
     const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
-    const json = await response.json<{ ok: boolean }>();
+    const json = await response.json<{ ok: boolean; priceToPlanEntries: number }>();
     expect(response.status).toBe(200);
     expect(json.ok).toBe(true);
+    // MOCK_ENV has no STRIPE_PRICE_TO_PLAN_JSON → map is empty (CR38 detection path).
+    expect(json.priceToPlanEntries).toBe(0);
+  });
+
+  it('health endpoint reports correct priceToPlanEntries when map is bound', async () => {
+    const envWithMap = { ...MOCK_ENV, STRIPE_PRICE_TO_PLAN_JSON: '{"price_abc":"growth","price_xyz":"starter"}' };
+    const request = new Request('https://example.com/health', { method: 'GET' });
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const response = await worker.fetch(request, envWithMap, mockCtx.ctx);
+    consoleSpy.mockRestore();
+    const json = await response.json<{ ok: boolean; priceToPlanEntries: number }>();
+    expect(response.status).toBe(200);
+    expect(json.priceToPlanEntries).toBe(2);
   });
 
   it('unknown route → 404', async () => {
@@ -487,7 +500,8 @@ describe('parsePriceToPlan (via handleWebhook)', () => {
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('not valid JSON'));
   });
 
-  it('missing env var → empty map passed to handler', async () => {
+  it('missing env var → empty map passed to handler and CR38 warn emitted', async () => {
+    // CR38: absence of STRIPE_PRICE_TO_PLAN_JSON must not be silent on subscription events.
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
     mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
 
@@ -499,7 +513,7 @@ describe('parsePriceToPlan (via handleWebhook)', () => {
       expect.any(Object),
       {},
     );
-    expect(consoleSpy).not.toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('CR38'));
   });
 });
 
