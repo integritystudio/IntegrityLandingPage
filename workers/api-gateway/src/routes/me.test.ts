@@ -122,8 +122,9 @@ describe('GET /v1/me', () => {
     expect(lookup.headers['apikey']).toBe(TEST_SERVICE_ROLE_KEY);
   });
 
-  // `users.tier` is the pre-organizations column and billing never updates it: the owner
-  // of a paid growth org read `starter` here while api-keys-create minted growth keys.
+  // `users.tier` is the pre-organizations column and billing never wrote it: the owner of a
+  // paid growth org read `starter` here while api-keys-create minted growth keys. A trigger
+  // now derives it (UA04), but the route still reads the org plan directly.
   it('reports the default organization plan as tier, not users.tier', async () => {
     const token = await jwt.sign({ sub: 'user-id-1', email: 'user@example.com' });
     const stub = stubSupabase({

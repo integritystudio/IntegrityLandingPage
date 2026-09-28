@@ -158,7 +158,8 @@ Deno.serve(async (req) => {
 
   // Resolve tier server-side, mirroring the receiver's checkOrgKeyQuota: the
   // org's current_plan is authoritative (the Stripe webhook is its writer);
-  // users.tier is the legacy fallback; starter if neither is a known tier.
+  // users.tier is the fallback (trigger-derived from the default org's plan
+  // since UA04); starter if neither is a known tier.
   const { data: org } = await supabase
     .from("organizations")
     .select("current_plan")

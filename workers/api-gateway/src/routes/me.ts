@@ -33,10 +33,12 @@ const ACTIVE_MEMBERSHIP = 'active';
 /**
  * The plan a user is on is their organization's `current_plan`, not `users.tier`.
  *
- * `users.tier` predates organizations and nothing in billing updates it: the
- * owner of a paid `growth` org still carried `starter` there and this route
- * reported it, while `api-keys-create` (which reads `org.current_plan ??
- * user.tier`) minted `growth` keys for the same user. The org is chosen the
+ * `users.tier` predates organizations and billing never wrote it: the owner of
+ * a paid `growth` org still carried `starter` there and this route reported it,
+ * while `api-keys-create` (which reads `org.current_plan ?? user.tier`) minted
+ * `growth` keys for the same user. Since UA04 (migration 20260927000000) the
+ * column is derived from the default org's plan by trigger, so the fallback
+ * agrees with the org for any user who has one. The org is chosen the
  * way the rest of the gateway chooses it — `default_organization_id` first,
  * otherwise the oldest active membership — and `null` means "no org plan
  * resolved", in which case the caller falls back to the legacy column.
