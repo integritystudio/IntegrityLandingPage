@@ -178,7 +178,6 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
     return withSecurityHeaders(await handleIngestEvent(
       request,
       { ...machineRouteOpts },
-      ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
     ));
   }
 
@@ -186,7 +185,6 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
     return withSecurityHeaders(await handleIngestOtel(
       request,
       { ...machineRouteOpts, doNamespace: env.QUOTA_DO },
-      ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
     ));
   }
 

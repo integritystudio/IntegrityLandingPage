@@ -595,3 +595,50 @@ describe('CR36: per-org edge rate limit on org routes', () => {
     expect(reserved.get(ORG)).toBe(ORG_RATE_LIMIT_MAX);
   });
 });
+
+// CR43: usage_buckets_daily has one writer, the ledger trigger on usage_events.
+describe('CR43: ingest leaves usage_buckets_daily to the ledger trigger', () => {
+  const ORG_ID = '00000000-0000-4000-8000-000000000001';
+  const USER_ID = '00000000-0000-4000-8000-000000000002';
+  const BUCKETS_TABLE = 'usage_buckets_daily';
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('writes the event and nothing to the daily buckets, including deferred work', async () => {
+    // usage_events answers reads with a row, so a rollup that recounted the day would
+    // reach its bucket upsert here rather than stop at an unstubbed read.
+    const stub = createSupabaseFetchStub({
+      'GET users': okRows([{ id: USER_ID }]),
+      'GET organization_memberships': okRows([
+        { organization_id: ORG_ID, user_id: USER_ID, role: 'owner', status: 'active' },
+      ]),
+      'POST usage_events': createdRows([{ id: 'evt-1' }]),
+      'GET usage_events': okRows([
+        { organization_id: ORG_ID, metric_key: 'api_requests', quantity: 1, latency_ms: null },
+      ]),
+    });
+    vi.stubGlobal('fetch', jwt.wrap(stub.fetch));
+    const pending: Promise<unknown>[] = [];
+    const ctx = {
+      waitUntil: (p: Promise<unknown>) => { pending.push(p); },
+      passThroughOnException: () => {},
+    } as unknown as ExecutionContext;
+    const token = await jwt.sign({ sub: 'auth0|user-123', email: 'user@example.com' });
+
+    const res = await worker.fetch(
+      makeRequest('POST', '/v1/ingest/events', {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org_id: ORG_ID, metric_key: 'api_requests' }),
+      }),
+      makeEnv(),
+      ctx,
+    );
+    await Promise.allSettled(pending);
+
+    expect(res.status).toBe(202);
+    expect(stub.findAll('POST', 'usage_events')).toHaveLength(1);
+    expect(stub.requests.filter((r) => r.table === BUCKETS_TABLE).map((r) => r.method)).toEqual([]);
+  });
+});

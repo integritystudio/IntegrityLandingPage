@@ -7,7 +7,6 @@ import type { OrgMembership } from '../../../lib/types';
 import { IngestEventRequestSchema, IngestOtelRequestSchema, type IngestEventRequest } from '../../../lib/types/usage';
 import { auth0VerifyParams, resolveUserId, requireHmacSecret, type UserTokenOptions } from '../lib/helpers';
 import { enforceOrgQuota } from '../lib/quota';
-import { rollupDailyBucket } from '../aggregation';
 
 type IngestAuth =
   | { ok: true; type: 'jwt'; sub: string; userId: string; keyId: null }
@@ -82,7 +81,6 @@ async function assertOrgAccess(
 export async function handleIngestEvent(
   request: Request,
   opts: IngestHandlerOptions,
-  waitUntil?: (p: Promise<unknown>) => void,
 ): Promise<Response> {
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
@@ -104,9 +102,6 @@ export async function handleIngestEvent(
 
   const requestId = crypto.randomUUID();
   const now = new Date().toISOString();
-  // Derive bucket date from created_at, not server wall-clock, so that a
-  // waitUntil rollup scheduled near midnight still targets the correct day.
-  const bucketDate = now.slice(0, 10); // YYYY-MM-DD UTC
 
   const insertResult = await sb.insert('usage_events', {
     organization_id: body.org_id,
@@ -127,13 +122,6 @@ export async function handleIngestEvent(
     return serverError('Failed to store usage event');
   }
 
-  if (waitUntil) {
-    waitUntil(
-      rollupDailyBucket(body.org_id, bucketDate, sb)
-        .catch(err => console.error('[ingest] rollup failed', err)),
-    );
-  }
-
   return json({ ok: true, request_id: requestId }, { status: 202 });
 }
 
@@ -146,12 +134,11 @@ const OTEL_MAX_SPANS = 1_000;
  *
  * Accepts a batch of simplified OTLP-compatible spans, writes a usage event
  * with metric_key='otel_events' and quantity=spans.length for quota tracking,
- * and stores span data in metadata. Fire-and-forget daily rollup via waitUntil.
+ * and stores span data in metadata.
  */
 export async function handleIngestOtel(
   request: Request,
   opts: IngestHandlerOptions,
-  waitUntil?: (p: Promise<unknown>) => void,
 ): Promise<Response> {
   const tokenResult = requireBearerToken(request);
   if (!tokenResult.ok) return tokenResult.error;
@@ -191,7 +178,6 @@ export async function handleIngestOtel(
 
   const requestId = crypto.randomUUID();
   const now = new Date().toISOString();
-  const bucketDate = now.slice(0, 10);
 
   const insertResult = await sb.insert('usage_events', {
     organization_id: orgId,
@@ -210,13 +196,6 @@ export async function handleIngestOtel(
 
   if (!insertResult.ok) {
     return serverError('Failed to store OTEL spans');
-  }
-
-  if (waitUntil) {
-    waitUntil(
-      rollupDailyBucket(orgId, bucketDate, sb)
-        .catch(err => console.error('[ingest/otel] rollup failed', err)),
-    );
   }
 
   return applyRateLimitHeaders(

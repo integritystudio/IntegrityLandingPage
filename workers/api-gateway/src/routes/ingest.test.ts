@@ -51,11 +51,9 @@ const makeApiKeyRow = async (orgId = ORG_ID, prefix = 'abc12345', secret = API_K
   revoked_at: null,
 });
 
-/** Routes shared by every happy path: the event insert and the rollup it triggers. */
+/** Routes shared by every happy path: the event insert. The daily bucket is the ledger trigger's (CR43). */
 const writeRoutes = (): Record<string, RouteResponder> => ({
   'POST usage_events': createdRows([{ id: 'evt-1' }]),
-  'GET usage_events': okRows([]),
-  'POST usage_buckets_daily': createdRows([]),
 });
 
 /** Installs the stub as global fetch and returns it for assertions. */
@@ -189,13 +187,6 @@ describe('POST /v1/ingest/events', () => {
     expect(res.status).toBe(500);
   });
 
-  it('calls waitUntil with rollup promise when provided', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    stubSupabase(jwtRoutes());
-    const waitUntil = vi.fn();
-    await handleIngestEvent(makeRequest(validBody(), token), opts, waitUntil);
-    expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
-  });
 });
 
 const validSpan = () => ({
@@ -317,14 +308,6 @@ describe('POST /v1/ingest/otel', () => {
     expect(res.status).toBe(500);
   });
 
-  it('calls waitUntil with rollup promise when provided', async () => {
-    stubSupabase(await apiKeyRoutes());
-    const waitUntil = vi.fn();
-    await handleIngestOtel(
-      makeOtelRequest({ spans: [validSpan()] }, API_KEY_TOKEN), opts, waitUntil,
-    );
-    expect(waitUntil).toHaveBeenCalledWith(expect.any(Promise));
-  });
 
   it('returns 422 when spans exceed the 1000-span limit', async () => {
     stubSupabase(await apiKeyRoutes());
