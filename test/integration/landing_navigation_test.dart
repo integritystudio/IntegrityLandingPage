@@ -297,21 +297,6 @@ void main() {
         await pumpFrames(tester, frames: 8);
       }
 
-      // Look for footer indicators
-      final footerIndicators = [
-        find.textContaining('©'),
-        find.textContaining('Privacy'),
-        find.textContaining('Terms'),
-      ];
-
-      var foundFooter = false;
-      for (final indicator in footerIndicators) {
-        if (indicator.evaluate().isNotEmpty) {
-          foundFooter = true;
-          break;
-        }
-      }
-
       // Footer text may not be rendered into the test viewport even after deep scroll.
       // Assert LandingPage survived; a web e2e test covers footer visibility.
       expect(find.byType(LandingPage), findsOneWidget);
