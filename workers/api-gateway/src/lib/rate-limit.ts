@@ -125,3 +125,103 @@ export function resetIdentityRateLimit(): void {
   inMemoryWindows.clear();
   missingKvWarningLogged = false;
 }
+
+// ---------------------------------------------------------------------------
+// Per-org rate limiter for /v1/orgs/:id/* routes (CR36)
+//
+// The quota Durable Object enforces per-minute and per-monthly limits for
+// authenticated org-scoped routes, but it fails open on an outage — so a DO
+// outage removes the only per-minute ceiling those routes have. This limiter
+// runs before the DO call, is keyed on org_id, and uses the same RATE_LIMIT_KV
+// namespace. It is deliberately uniform (not plan-tiered): reading the plan
+// from Supabase to tier it would require a Supabase call before the DO call,
+// adding latency and a second point of failure. The DO already enforces plan-
+// tiered per-minute limits; this layer protects the DO from load and provides
+// a floor when the DO is unavailable.
+// ---------------------------------------------------------------------------
+
+/**
+ * Requests allowed per org per window. An org can have multiple simultaneous
+ * users, so this is higher than the per-identity limit. 300/minute = 5/s,
+ * enough for a team actively using the dashboard while still stopping loops.
+ */
+export const ORG_RATE_LIMIT_MAX = 300;
+/** Window length in seconds — matches the identity rate limit window. */
+export const ORG_RATE_LIMIT_WINDOW_SECONDS = 60;
+/** KV key prefix — distinct from the identity prefix to avoid collisions. */
+const ORG_KV_KEY_PREFIX = 'gw_org_rl:';
+/** Cap on distinct orgs tracked in one isolate. */
+const MAX_TRACKED_ORGS = 10_000;
+
+const orgInMemoryWindows = new Map<string, RateLimitWindow>();
+let orgMissingKvWarningLogged = false;
+
+function pruneOrgExpired(now: number): void {
+  for (const [key, window] of orgInMemoryWindows) {
+    if (window.resetAt <= now) orgInMemoryWindows.delete(key);
+  }
+  if (orgInMemoryWindows.size > MAX_TRACKED_ORGS) orgInMemoryWindows.clear();
+}
+
+/**
+ * Count one request against `orgId` and report whether it may proceed.
+ *
+ * Same two-tier design as checkIdentityRateLimit: in-memory always runs, KV is
+ * the authoritative cross-isolate count. KV failure is not fail-open — the
+ * in-memory tier has already counted the request and denies at the limit.
+ */
+export async function checkOrgRateLimit(
+  orgId: string,
+  env: RateLimitEnv,
+): Promise<RateLimitResult> {
+  const now = Date.now();
+  const windowMs = ORG_RATE_LIMIT_WINDOW_SECONDS * 1000;
+
+  const existing = orgInMemoryWindows.get(orgId);
+  if (existing && existing.resetAt > now) {
+    if (existing.count >= ORG_RATE_LIMIT_MAX) {
+      return { allowed: false, retryAfterSeconds: Math.ceil((existing.resetAt - now) / 1000) };
+    }
+    existing.count++;
+  } else {
+    pruneOrgExpired(now);
+    orgInMemoryWindows.set(orgId, { count: 1, resetAt: now + windowMs });
+  }
+
+  if (!env.RATE_LIMIT_KV) {
+    if (!orgMissingKvWarningLogged) {
+      orgMissingKvWarningLogged = true;
+      console.warn(
+        '[gateway org rate limit] RATE_LIMIT_KV is not bound; limiting per isolate only. ' +
+        'An org spread across colos is undercounted — bind the namespace in wrangler.toml.',
+      );
+    }
+    return { allowed: true };
+  }
+
+  const kvKey = `${ORG_KV_KEY_PREFIX}${orgId}`;
+  try {
+    const stored = (await env.RATE_LIMIT_KV.get(kvKey, 'json')) as RateLimitWindow | null;
+    const data: RateLimitWindow =
+      !stored || stored.resetAt < now
+        ? { count: 1, resetAt: now + windowMs }
+        : { count: stored.count + 1, resetAt: stored.resetAt };
+
+    const ttlSeconds = Math.max(Math.ceil((data.resetAt - now) / 1000), MIN_KV_TTL_SECONDS);
+    await env.RATE_LIMIT_KV.put(kvKey, JSON.stringify(data), { expirationTtl: ttlSeconds });
+
+    if (data.count > ORG_RATE_LIMIT_MAX) {
+      return { allowed: false, retryAfterSeconds: Math.ceil((data.resetAt - now) / 1000) };
+    }
+  } catch {
+    console.error('[gateway org rate limit] KV error; falling back to the in-memory count');
+  }
+
+  return { allowed: true };
+}
+
+/** Reset org rate limit module state. Tests only. */
+export function resetOrgRateLimit(): void {
+  orgInMemoryWindows.clear();
+  orgMissingKvWarningLogged = false;
+}

@@ -1,6 +1,7 @@
 import { ok, notFound, serverError } from '../../../lib/http';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { Organization, OrgRole, OrgMembership, Entitlement, UsageBucket, BootstrapResponse } from '../../../lib/types';
+import { effectivePlan } from '../../../lib/billing';
 import { resolveJwtRateLimited, resolveUserId, buildEntitlementMap, loadPlan, type UserTokenOptions } from '../lib/helpers';
 
 export interface BootstrapHandlerOptions extends UserTokenOptions {
@@ -148,7 +149,8 @@ async function buildBootstrapPayload(
   sb: SupabaseClient,
 ): Promise<BootstrapResponse | null> {
   // UA01: entitlements are the active org's plan projection overlaid with its rows.
-  const activePlanKey = orgs.find((org) => org.id === activeOrgId)?.current_plan;
+  const activeOrg = orgs.find((org) => org.id === activeOrgId);
+  const activePlanKey = activeOrg && effectivePlan(activeOrg.current_plan, activeOrg.billing_status);
   const [entitlementResult, usage, plan] = await Promise.all([
     sb.query<Entitlement>('entitlements', {
       filters: [{ column: 'organization_id', operator: 'eq', value: activeOrgId }],

@@ -24,9 +24,9 @@ function makeOpts(doNamespace: DurableObjectNamespace): OrgQuotaMiddlewareOption
 }
 
 /** Stub that returns a single org row so the plan lookup succeeds. */
-function stubOrgFetch(plan = 'starter'): void {
+function stubOrgFetch(plan = 'starter', billingStatus = 'inactive'): void {
   const stub = createSupabaseFetchStub({
-    'GET organizations': okRows([{ id: ORG_ID, current_plan: plan, quota_version: 0 }]),
+    'GET organizations': okRows([{ id: ORG_ID, current_plan: plan, quota_version: 0, billing_status: billingStatus }]),
   });
   vi.stubGlobal('fetch', stub.fetch);
 }
@@ -111,5 +111,35 @@ describe('enforceOrgQuota — 429 mapping (TS04)', () => {
       expect(result.response.headers.get('X-RateLimit-Remaining-Minute')).toBe('0');
       expect(result.response.headers.get('X-RateLimit-Remaining-Monthly')).toBe('50');
     }
+  });
+});
+
+describe('enforceOrgQuota — billing gate (CR37)', () => {
+  /** DO stub that records the planKey it was asked to enforce. */
+  function recordingDO(): { ns: DurableObjectNamespace; planKeys: string[] } {
+    const planKeys: string[] = [];
+    const ns = {
+      idFromName: vi.fn().mockReturnValue('do-id'),
+      get: vi.fn().mockReturnValue({
+        fetch: vi.fn(async (req: Request) => {
+          planKeys.push(((await req.json()) as { planKey: string }).planKey);
+          return new Response(JSON.stringify({ allowed: true }), { status: 200 });
+        }),
+      }),
+    } as unknown as DurableObjectNamespace;
+    return { ns, planKeys };
+  }
+
+  it.each([
+    ['growth', 'active', 'growth'],
+    ['growth', 'trialing', 'growth'],
+    ['enterprise', 'inactive', 'starter'],
+    ['growth', 'past_due', 'starter'],
+    ['growth', 'canceled', 'starter'],
+  ])('current_plan %s with billing_status %s enforces %s', async (plan, status, expected) => {
+    stubOrgFetch(plan, status);
+    const { ns, planKeys } = recordingDO();
+    await enforceOrgQuota(ORG_ID, makeOpts(ns));
+    expect(planKeys).toEqual([expected]);
   });
 });

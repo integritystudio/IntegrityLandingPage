@@ -359,7 +359,6 @@ async function handleSend(env: Env, req: Record<string, unknown>, clientIp?: str
           jwt: data.jwt,
           name: data.name,
           email: data.email,
-          tier: data.tier,
           org_name: data.org_name,
         };
     return await forwardToReceiver(env, outbound, clientIp);

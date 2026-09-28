@@ -3,6 +3,7 @@
  */
 
 import { createSupabaseClient } from '../../../lib/supabase';
+import { effectivePlan } from '../../../lib/billing';
 import {
   QuotaCheckResponseSchema,
   QuotaFlushResultSchema,
@@ -113,7 +114,7 @@ export async function enforceOrgQuota(
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
   const orgResult = await sb.query<OrgPlanRow>('organizations', {
-    select: 'current_plan, quota_version',
+    select: 'current_plan, quota_version, billing_status',
     filters: [{ column: 'id', operator: 'eq', value: orgId }],
     limit: 1,
   });
@@ -123,7 +124,8 @@ export async function enforceOrgQuota(
       ? orgResult.data[0]
       : null;
 
-  const planKey = (org?.current_plan ?? 'starter') as 'starter' | 'growth' | 'enterprise';
+  // CR37: a stored paid plan counts only while billing is in good standing.
+  const planKey = effectivePlan(org?.current_plan, org?.billing_status);
   const quotaVersion: number = org?.quota_version ?? 0;
   const requestId = crypto.randomUUID();
 
