@@ -375,8 +375,8 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR34](changelog/1.3/CHANGELOG.md#cr34) | P2 | ✅ **RESOLVED 2026-08-03 — implicit 2→0, ROPC 3→1** | Strip Auth0 **`implicit` + ROPC** grants (SPA + `AUTH0_MANAGER`). Carved from CR25 items 7–8. Minutes by API, but must verify `sender-worker`'s `password-realm` `/signin` survives; `My App`'s ROPC likely stays until the client gets a refresh flow |
 | [CR35](#cr35) | P3 | 🔴 open — spend | Auth0 **breached-password detection**. Carved from CR25 item 3. Genuinely plan-gated (PATCH 400 "upgrade your subscription"); re-attempt after any plan change |
 | [CR36](#cr36) | P2 | 🔴 open | The **plan-tiered edge rate limiter** is documented as a live pipeline step but was never implemented; the quota DO's per-minute limit is the only ceiling on org routes, and it fails open |
-| [CR37](#cr37) | P1 | 🔴 open | **`/signup` lets the caller choose the plan.** Unauthenticated `tier` → `organizations.current_plan`, which `api-gateway` quota **and** the toolkit receiver's key limit both treat as authoritative. `{"tier":"enterprise"}` = enterprise request quota + unlimited API keys, unpaid |
-| [CR38](#cr38) | P1 | 🔴 open | **`stripe-webhook` never writes `current_plan` in production** — `STRIPE_PRICE_TO_PLAN_JSON` is unbound (measured 2026-09-27), so `priceToPlan` is `{}` and a paid upgrade only flips `billing_status`. Plan changes have been a no-op since go-live |
+| [CR37](#cr37) | P1 | ✅ **DONE 2026-09-27** (sender-worker) | **`/signup` lets the caller choose the plan.** Sender fixed in `2076b8e` — always writes `starter`. Toolkit receiver fix (`__tests__/supabase.test.ts:84`) is open in that repo |
+| [CR38](#cr38) | P1 | ⚠️ code done, binding pending | **`stripe-webhook` never writes `current_plan` in production** — `/health` now reports `priceToPlanEntries` and subscription events warn when map is empty (`1c10221`). `STRIPE_PRICE_TO_PLAN_JSON` still needs to be bound manually (commands in the detail section below) |
 | [CR39](#cr39) | P2 | ✅ **DONE 2026-09-27 — by UA08** | `/v1/orgs/:id/*` reserved quota and wrote a `usage_events` row **before** the membership check. Fixed by UA08 (`61a4e71`): `preVerifyToken` now takes `orgId` and 403s a foreign API key or a JWT with no membership row before `enforceOrgQuota`; fails open only on a DB error, where the handler re-checks |
 | [CR40](#cr40) | P2 | 🔴 open | `/v1/auth0-logs` is an unauthenticated POST inserting with the service-role key; its "Auth0 cannot send a token" rationale is false — HTTP log streams have an Authorization header. Stream is live (CR33), so exposed today |
 | [CR41](#cr41) | P1 | ✅ **DONE 2026-09-27** | `api-gateway-dev` `[env.dev.vars]` pinned `AUTH0_DOMAIN` to the **production** tenant since 2026-07-30 — invisible to `check:env-isolation`, which reads Doppler, never `vars`. Fixed (`d1cdb45`), guarded (`ff8b923`), deployed. Residual: dev has no `API_KEY_HMAC_SECRET` |
@@ -2173,7 +2173,7 @@ The chain, all verified in code:
 2. Both enforcers gate non-starter plans on an entitled `billing_status` — the plan column alone is not evidence of payment.
 3. Flip the toolkit test at `__tests__/supabase.test.ts:84` (it pins the bug) and add a sender test that `/signup` with `tier: enterprise` produces a `starter` org.
 
-**Status:** Open.
+**Status:** ✅ Done 2026-09-27 — sender-worker fix in commit `2076b8e`. `ApiKeyTierSchema` and `tier` variable removed from `handleSignup`; `supabaseCreatePersonalOrg` always receives `DEFAULT_TIER`. Pinned-bug test "sets current_plan from tier when provided" flipped to expect `starter` and renamed to document the invariant. Item 2 (gateway billing gate) and toolkit test item 3 (`__tests__/supabase.test.ts:84`) are in a separate repo — open there.
 
 ---
 
@@ -2193,7 +2193,17 @@ Production `stripe-webhook` binds exactly three secrets — `STRIPE_WEBHOOK_SECR
 2. Make absence loud: `/health` reports the map's entry count, and an empty map logs at warn on every subscription event — or the Worker refuses to acknowledge subscription events until the map is present. Decide; silent success is the current failure.
 3. Verify with a real `customer.subscription.updated` in the sandbox and read `current_plan` back.
 
-**Status:** Open.
+**Status:** ⚠️ Partially done 2026-09-27 — code changes in commit `1c10221`. `/health` now reports `priceToPlanEntries`; `customer.subscription.updated` (live and dead-letter) emits `console.warn` with tag `CR38` when the map is empty. **Binding step still required:** run the commands below to bind the secret, then verify at `/health` and in the sandbox. Dev binding also needed (find sandbox price IDs in the Stripe sandbox dashboard).
+
+```bash
+# Production binding (run once, requires Doppler prd access):
+PLAN_TO_PRICE=$(doppler secrets get STRIPE_PLAN_TO_PRICE_JSON --project integrity-studio --config prd --plain)
+PRICE_TO_PLAN=$(echo "$PLAN_TO_PRICE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({v:k for k,v in d.items()}))")
+printf '%s' "$PRICE_TO_PLAN" | doppler run --project integrity-studio --config prd -- npx wrangler secret put STRIPE_PRICE_TO_PLAN_JSON --name stripe-webhook
+# Verify (priceToPlanEntries must be 2 after binding):
+curl -s https://stripe-webhook.<your-workers-dev-subdomain>.workers.dev/health | python3 -m json.tool
+# Dev binding: substitute sandbox price IDs from Stripe sandbox dashboard
+```
 
 ---
 
