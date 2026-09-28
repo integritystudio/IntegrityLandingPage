@@ -331,6 +331,9 @@ SHARED_BY_DESIGN = {
     "OPEN_ROUTER_API_KEY","HF_TOKEN","CLAUDE_API_KEY_ADMIN","CLAUDE_API_KEY_SUDO",
     "OPENCLAW_ANTHROPIC_TOKEN","OPENCLAW_LEVIATHAN_GATEWAY_TOKEN",
     "LANGTRACE_ACCESS_TOKEN","LANGTRACE_API_KEY",
+    # Owner decision 2026-09-27: no per-environment split needed. The judge key exists
+    # for per-key spend attribution, not environment isolation.
+    "LLM_JUDGE_ANTHROPIC_KEY","GOOGLE_TELEMETRY_API_KEY",
     # Sentry — project/org identifiers and DSNs; environment is a tag, not a key
     "SENTRY_AUTH_TOKEN","SENTRY_DSN","SENTRY_ORG","SENTRY_ORG_ID","SENTRY_ORG_SLUG",
     "SENTRY_PROJECT","SENTRY_PROJECT_SLUG","SENTRY_DSN_SINGLE_SITE_SCRAPER",
