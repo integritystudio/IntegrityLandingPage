@@ -497,11 +497,9 @@ describe('api-keys-create: downstream failures', () => {
     expect(backend.rows('api_keys')).toHaveLength(1);
   });
 
-  // BUG (BACKLOG.md TS19): the KV sync `fetch` is not guarded, so a network failure
-  // throws AFTER the api_keys row is inserted. The caller gets a runtime 500 with no
-  // token, and an active key row exists that nobody holds. `it.fails` keeps the suite
-  // green while the bug stands and turns red the moment it is fixed — then make it `it`.
-  it.fails('still returns the token, with a warning, when KV is unreachable', async () => {
+  // Regression (BACKLOG.md TS19): a network failure used to throw AFTER the api_keys row
+  // was inserted, so the caller got a 500 with no token and the active row was orphaned.
+  it('still returns the token, with a warning, when KV is unreachable', async () => {
     const { backend, post } = setup();
     backend.fail('kv', { kind: 'network' });
 
