@@ -78,6 +78,25 @@ trigger and backfills existing drift. Port 55433.
 
 Mutation-checked: run against an empty migration, T1a fails.
 
+### `edge-functions/`
+
+Behavioural tests for the Edge Functions, not the migrations — a Node/vitest package, not
+a Postgres cluster. Each function's logic lives in a `handler.ts` that takes its I/O
+(`env`, `fetch`, supabase-js's `createClient`) as parameters; `index.ts` only binds it to
+`Deno.serve`. The tests drive the handler with the **real** supabase-js client against
+`fake-backend.ts`, an in-memory PostgREST + Auth admin + Cloudflare KV that keeps state
+and throws on any request shape it does not implement, so assertions are on what was
+stored, never on which calls were made.
+
+```bash
+cd supabase/tests/edge-functions && npm install && npm test
+```
+
+Covers `api-keys-create` today (53 tests). Mutation-checked: 12 of 12 seeded defects in
+`handler.ts` are caught. One test is `it.fails`: it pins a known bug (TS19) and turns red
+once the bug is fixed. To type-check a function under Deno from inside this repo:
+`deno check --node-modules-dir=none supabase/functions/<name>/index.ts`.
+
 ## Writing a new suite
 
 Copy the three-file shape: `fixture.sql`, `verify.sql`, `run.sh`. Four traps
