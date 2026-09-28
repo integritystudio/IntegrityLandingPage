@@ -38,7 +38,7 @@ npm run test:e2e                  # sender-worker: workerd runtime, all outbound
 
 **Repo-root checks** — each exits 0 within threshold, 1 on breach, 2 on a prerequisite failure, and prints `SKIPPED` + exit 0 without credentials. Absent credentials skip; present-but-broken ones fail, and conflating the two is how an expired token switches a check off behind a green tick.
 ```bash
-npm run check:env-isolation    # dev vs prd credential isolation (18 named + full-config sweep)
+npm run check:env-isolation    # dev vs prd credential isolation (named list + full-config sweep)
 npm run check:migration-drift  # Supabase ledger vs remote
 npm run check:worker-signals    # SIGNALS 1-5, Worker health (docs/observability-signals.md)
 npm run check:workflows-active  # SIGNAL 6 — every workflow on disk is `active` on GitHub
@@ -102,8 +102,8 @@ where n.nspname='public' and c.relkind='r' and c.relrowsecurity=false;
 
 ## Current Status
 
-**Phase**: Codebase review remediation, CR01–CR35 — canonical status table: [docs/BACKLOG.md](docs/BACKLOG.md)
-**Last Updated**: 2026-08-09
+**Phase**: Codebase review remediation (CR01–CR47), user data-integrity audit (UA01–UA12), test-suite and coverage review (TS01–TS25) — canonical status: [docs/BACKLOG.md](docs/BACKLOG.md)
+**Last Updated**: 2026-09-28 (Known Issues cut to rules only, and the env-isolation counts; other lines carry their own dates)
 **Tests**: green across the board as of 2026-08-03 — but counts in docs have drifted by ~100 before, so run the suites rather than reconciling a number: `flutter test --coverage`, per-worker `npm test`, `npm run lint:workers` (= `tsc --noEmit` × the 6 packages; the **only** worker linter — plain `npm run lint` is `flutter analyze`). That now covers every test file in all six packages: `sender-worker`'s tsconfig `exclude` that hid 111 type errors is gone and **must not come back**. Full story, suite snapshot, and the `node`-types / `globalThis` findings: [docs/runbooks/worker-deps-and-typechecking.md](docs/runbooks/worker-deps-and-typechecking.md).
 **Dependencies**: all six worker packages aligned and `npm audit` 0 in each (2026-08-03). Not npm workspaces — audit and bump **per package**. Lockfiles are gitignored, so **declared floors are the only control**: raise them after every `npm update`. The manifest-editing rules (wrangler ≥4.114 forces workers-types v5, vendored nested copies, unpinned `allowScripts`, the disjunct trap): same runbook.
 **Database**: Supabase `cfrbahzzklwrnmbtqojl` `ACTIVE_HEALTHY`; ledger replay-proven; RLS enabled on every table in `public`. Dev project: `tumhmtshahktumhqqamk` / `integritystudio-dev`.
@@ -135,28 +135,57 @@ See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recen
 
 ### Known Issues
 
-Canonical detail, step lists, and live status: [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr35) — read it before working any CR. Entries here are one-line pointers plus the rules that outlive each item, deliberately free of counts that go stale.
+Status for every item — open, done, or waiting on a deploy — lives only in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr35) (the CR table, then the UA and TS sections); read it before working any item. This section keeps only the rules and hazards that outlive their items. Do not copy status, dates, version IDs or counts here — copies of them went stale in both files at once.
 
-**P1**
-- **CR29** ✅ closed and durable (2026-08-03): sender fails closed, receiver requires `x-key-id`, `SHARED_SECRET` unbound from both Workers and deleted from **both** Doppler configs (`prd` 2026-08-03, `dev` 2026-09-24) and from `KEY_ROTATION_DATES` in both (`prd` `{v2}`, `dev` `{dev1}` — dev's active key is `dev1`, not `v2`, so copying prd's value there would exempt the live key from the age alert). Rules that outlive it: a green `/send` never tests the legacy path (`resolveOutboundSigningKey` prefers `v2`); the load-bearing test assertion is `expect(mockReceiverFetch).not.toHaveBeenCalled()`, not the status code; the live gate metric is `auth.key_unresolved` with `miss: "missing_key_id"` at zero (`auth.verified_legacy_key`'s emitting path is deleted, so its silence proves nothing); test helpers meaning "omit this header" must take `null` as the sentinel — `f(undefined)` uses the default; toolkit `receiver-security.e2e.ts` keeps its `assertSignatureAccepted` positive control (without it a 401 passes while testing nothing); and `SHARED_SECRET` stays in the test fixtures with a value *different* from the active key, so "unreachable" is proven with the credential present — do not tidy it out. **Do not provision `SIGNING_KEYS`/`ACTIVE_KEY_ID` into Doppler `dev`** — dev's `RECEIVER` binds the production receiver.
-- **CR11** ✅ **DONE 2026-08-07 — nothing in this repo remains** (dev token scoped 2026-08-06; the toolkit e2e suite is restored and, since 2026-08-08, runs on every PR there). `npm run check:env-isolation` PASSES; re-run it rather than trusting this line. It now checks **18** named credentials **and** sweeps every name present in both configs, failing on any it cannot account for (W09) — the hand-maintained list's blind spot was structural, since a name it did not mention was never measured. Auth0 traps: creating any client **auto-enables it on the production connection** (re-check the client list after every creation), and the plain `password` grant resolves via the tenant-wide `default_directory`.
-- **CR01** ⚠️ rotations done; revocations pending (two Stripe Dashboard keys, the transcript-exposed `sbp_` token). **A rotation is not a revocation.** On-disk `doppler.json` and `~/.doppler/fallback/` still hold pre-rotation material — do not delete yet.
-- **CR12** ✅ done 2026-08-06 — `API_KEY_HMAC_SECRET` generated here and bound to production, verified with a real key (positive control 200, wrong-secret 401). The old premise that the canonical value had to come from `observability-toolkit` was **wrong**: the receiver hashes minted keys with plain SHA-256, so the HMAC step is entirely this repo's own verification layer and there was no value to match.
-- **CR18** ✅ done 2026-08-06 — including the `…B6I8` revocation and its slot removal (see Stripe above).
-- **CR14** ✅ effectively closed 2026-08-03: the production receiver's `preview_urls = false` is deployed (toolkit `dbac959`) and verified — its preview URLs return 404 `error code: 1042`; this repo's workers were closed 2026-07-29, `stripe-webhook-dev` 2026-08-03. ✅ **Account-wide as of 2026-08-03 — toolkit `PREVIEW-URLS` is closed too**: `obtool-ingest` (22 of 26 live → 0; it served `INJECT_HMAC_SECRET` from versions back to 2026-02-24 and was the worst of the three, found only by auditing) and `obtool-api` (7 of 9 → 0, no secrets). **0 live preview URLs in the account.** Rules that outlive it: 🔴 **`preview_urls = false` retracts EXISTING preview URLs, not just future ones** — the opposite of what both backlogs assumed, which is why the planned follow-ups (version deletion, credential rotation) were **unnecessary**; a retained version snapshots code **and** bindings as uploaded — rotation neither leaks backwards onto old versions nor cleans them up forwards; within a 404, body `error code: 1042` = previews disabled while Cloudflare's HTML 404 page = previews still on (not evidence of mitigation); the mitigation POST **must include `"enabled":true`** or it takes down the Worker's `workers.dev` hostname — the only route for the shipped Flutter app to `sender-worker`/`integrity-studio-contact` and for Stripe's test-mode delivery; propagation takes seconds, so sample more than once; and workers.dev serves `Python-urllib` a blanket 403 — probe with curl.
+**HMAC signing (CR29)**
+- A green `/send` never tests the keyless path, because `resolveOutboundSigningKey` prefers the active key. Sign `/inbox` directly.
+- The load-bearing test assertion is `expect(mockReceiverFetch).not.toHaveBeenCalled()`, not the status code.
+- The live gate metric is `auth.key_unresolved` with `miss: "missing_key_id"` at zero. `auth.verified_legacy_key`'s emitting path is deleted, so its silence proves nothing.
+- Test helpers meaning "omit this header" take `null` as the sentinel — `f(undefined)` uses the default.
+- Keep the toolkit's `receiver-security.e2e.ts` `assertSignatureAccepted` positive control; without it a 401 passes while testing nothing.
+- Keep `SHARED_SECRET` in the test fixtures with a value different from the active key, so "unreachable" is proven with the credential present — do not tidy it out.
+- dev and prd sign with different key ids (`dev1`, `v2`). Never copy prd's `SIGNING_KEYS`, `ACTIVE_KEY_ID` or `KEY_ROTATION_DATES` into dev: the rotation-date copy would track a key dev does not have and exempt the one it does from the age alert.
 
-**P2**
-- **CR20** ⚠️ `stripe-webhook`'s cron is still the **only** retry path (CR21 returns 2xx before processing via `ctx.waitUntil`), but it is **no longer unmonitored**: `worker-signals.yml` runs daily at `37 8 * * *` on `main` and its notification channel is proven end to end — a deliberately forced breach exited 1, GitHub raised a notification in 24 s, and the owner confirmed the email. ✅ **Closed 2026-08-09 — the scheduling half is now observed too.** Run `31305667972`, event `schedule`, success: the first schedule-triggered run in repo history, and verified it evaluated live signals rather than skipping on absent credentials (a `SKIPPED` exit 0 is indistinguishable from a pass in the run list). ⚠️ **It fired at 09:20Z against a `37 8 * * *` cron — 43 minutes late**, and `observability-toolkit`'s `09:17` cron was +42 min the same morning. A cron-liveness check needs a window of hours; at +15 min both would read as dead. ✅ The second-order risk it carried — GitHub suspending cron workflows after ~60 days of repo inactivity — is now **detected**: SIGNAL 6 breaches on `disabled_inactivity` and runs as the first step of this same workflow, so the alert can report its own impending silence.
-- **CR31** ✅ **DONE 2026-08-08, all 7 steps** — and its recommended fix was **superseded before being built**: CR13 gave `api-gateway` its own hostname, so there is no path-split on `api.integritystudio.ai`. The rule that outlives it: **do not repoint that wildcard** — it would 404 all thirteen `obtool-api` routes. Inventory and probe traps: [docs/api-routing.md](docs/api-routing.md).
-- **CR13** ✅ **DONE 2026-08-08 — decided and executed the same day.** `api-gateway` serves `api.integritystudio.dev` (option C); `/health` returns 200. The zone had to be created first — `integritystudio.dev` delegated to Porkbun and **no Workers route or Custom Domain can attach to a domain that is not a Cloudflare zone**, which no `wrangler.toml` edit can change. Ordering rule that outlives it: **add `routes` only after the zone exists**, or `deploy:prd` breaks outright.
-- **CR25** ⚠️ Auth0 production-readiness: google-oauth2's shared dev-keys disabled ✅; MFA enforcement is a decision (would force all users to enrol); breached-password detection is genuinely plan-gated (PATCH returns 400 "upgrade your subscription"). ✅ **implicit and ROPC closed 2026-08-03 ([[CR34]]): implicit 2 clients → 0, ROPC 3 → 1.** 🔴 **Do not strip the survivor** — `My App` (`vnFenjO3…`) must keep `password`, because `sender-worker`'s `/signin` sends `grant_type=password` against it (`supabase.ts:218`); removing it is a production login outage. `AUTH0_MANAGER` lost ROPC (proven by effect: a wrong-password attempt went `invalid_grant` → `unauthorized_client`) and the dashboard SPA lost `implicit`+`password` (it uses `loginWithRedirect`, auth code + PKCE). ⚠️ Auth0 client ids are **display-truncated** in listings — look the full id up before PATCHing, or you strip grants off the wrong client. Remaining CR25 work split out: custom domain **CR32 (🔴 it IS gated — corrected 2026-08-06: a real `POST /custom-domains` with a valid body and correctly-scoped token returns `403 "There must be a verified credit card on file"`. The earlier "400, not 403" reading came from an empty-body probe that never reached the billing check. Owner must add a card; everything after that is scriptable)**, log streams **CR33** (needs a receiver; the OTLP ingest cannot parse Auth0's format), breached-password **CR35** (spend), MFA enforcement stays here.
-- **CR04** ✅ deployed 2026-08-03 — the URL-fragment token handoff is deleted; `access_token` appears nowhere in `lib/`, `test/`, or `e2e/`. (The receiving dashboard never read the fragment; GitHub Pages can set no security headers, which is why the token had to stop landing there.)
-- **CR02** ✅ **done 2026-08-07 — all 8 items**, including the dev receiver: `api-provisioning-receiver-dev` is deployed from the toolkit with its own KV namespace and dataset, and `sender-worker-dev`'s `RECEIVER` binding points at it. A mutation-verified test now forbids any `[env.dev]` binding a service that is not itself a dev Worker.
+**Environment isolation (CR11, CR02)**
+- Re-run `npm run check:env-isolation` rather than trusting any doc that says it passes. Only its full-config sweep catches a credential stored under a name the named list does not mention.
+- An `[env.dev]` block must never bind a service that is not itself a dev Worker; `workers/lib/deploy-environments.test.ts` enforces it.
+- Creating any Auth0 client auto-enables it on the production connection — re-check the client list after every creation. The plain `password` grant resolves via the tenant-wide `default_directory`.
 
-**P3**
-- **CR22** ⚠️ deployed but unexercised — the 403 path needs a valid API key that fails only the type check, unreachable until CR12. An invalid key returning `401 Invalid JWT format` is CR23's design decision, not a regression.
-- **CR16** 📋 by design: `obtool-ingest` (internal, → R2+D1) and `api-gateway`'s `/v1/ingest/otel` (customer-facing, → Supabase) are separate pipelines — **do not de-duplicate them.**
-- **Closed**: CR03, CR15, CR17, CR19, CR21, CR24 (**never re-enable the legacy Supabase `anon`/`service_role` JWT keys — those JWTs are disclosed material**), CR26, CR27, CR28.
+**Credentials (CR01, CR12, CR24)**
+- A rotation is not a revocation. Revoke at the provider, then prove it by probe, paired with a still-live credential as the positive control.
+- Deleting `~/.doppler/fallback/` cleans nothing; the CLI rewrites it on every `doppler run`.
+- `API_KEY_HMAC_SECRET` is this repo's own verification layer. The receiver hashes minted keys with plain SHA-256, so there is no toolkit value to match.
+- Never re-enable the legacy Supabase `anon`/`service_role` JWT keys — those JWTs are disclosed material.
+
+**Preview URLs (CR14)**
+- `preview_urls = false` retracts existing preview URLs, not just future ones; version deletion and credential rotation are unnecessary.
+- A retained version snapshots code and bindings as uploaded. Rotation neither leaks backwards onto old versions nor cleans them up forwards.
+- Within a 404, body `error code: 1042` means previews are disabled; Cloudflare's HTML 404 page means previews are still on — not evidence of mitigation.
+- "No live preview URLs" and `previews_enabled: false` are different claims. Read the setting, not just the URLs.
+- The mitigation POST must include `"enabled":true`, or it takes down the Worker's `workers.dev` hostname — the only route from the shipped Flutter app to `sender-worker` and `integrity-studio-contact`, and for Stripe's test-mode delivery.
+- Changes propagate over seconds, so sample more than once. workers.dev serves `Python-urllib` a blanket 403 — probe with curl.
+
+**Monitoring (CR20)**
+- `stripe-webhook`'s cron is the only retry path, because the Worker returns 2xx before processing (`ctx.waitUntil`, CR21). Do not remove or disable it.
+- A `SKIPPED` exit 0 looks like a pass in the run list; confirm a run evaluated live signals.
+- GitHub `schedule` runs can fire most of an hour late, so a cron-liveness check needs a window of hours.
+
+**Routing (CR13, CR31)**
+- Do not repoint the `api.integritystudio.ai/*` wildcard — it would 404 every `obtool-api` route. Inventory and probe traps: [docs/api-routing.md](docs/api-routing.md).
+- No Workers route or Custom Domain can attach to a domain that is not a Cloudflare zone. Add `routes` only after the zone exists, or `deploy:prd` breaks.
+
+**Auth0 (CR25, CR32, CR33, CR34)**
+- Do not strip `password` from `My App`: `sender-worker`'s `/signin` sends `grant_type=password` against it, so removing it is a production login outage.
+- Do not re-add `implicit` or `password` to the dashboard SPA (it uses `loginWithRedirect`, auth code + PKCE), or ROPC to `AUTH0_MANAGER`.
+- Client ids are display-truncated in listings. Look the full id up before PATCHing, or you strip grants off the wrong client.
+- Enforcing MFA forces every user to re-enrol — an owner decision, not a config fix.
+- Probe gated features with a real request body: an empty-body `POST /custom-domains` returns a 400 that never reaches the billing check, hiding the real 403.
+- Never point an Auth0 `http` log stream at the OTLP ingest — it rejects every batch.
+
+**Other**
+- Never pass a token to the dashboard in a URL fragment or query (CR04). GitHub Pages can set no security headers, and the dashboard logs in itself.
+- An invalid API key returning `401 Invalid JWT format` is by design (CR23: 401 for invalid credentials, 403 for valid-but-wrong-type), not a regression.
+- Do not de-duplicate `obtool-ingest` (internal → R2 + D1) and `api-gateway`'s `/v1/ingest/otel` (customer-facing → Supabase) (CR16).
 
 ---
 
@@ -283,7 +312,7 @@ flutter run -d chrome \
 Without these the app uses the compile-time defaults in `lib/services/`, which point at the **production** workers — including in `ci.yml`, which builds with no `--dart-define`.
 
 **Environment isolation** (status 2026-08-03; proofs and holdings in [docs/runbooks/cloudflare-deploy-notes.md](docs/runbooks/cloudflare-deploy-notes.md)):
-- Doppler `dev` is data-isolated from `prd` — its own Supabase project (`tumhmtshahktumhqqamk`), Auth0 tenant (`dev-njjmghdzm23uy0p7`), HMAC secret, and Stripe sandbox. Verify with `npm run check:env-isolation` (PASSES; re-run rather than trust). Since W09 (2026-08-08) it checks **18** named credentials *and* classifies every name byte-identical across both configs, failing on any it cannot account for — that sweep immediately found five more, including a `dp.st.prd.` Doppler service token sitting in `dev`, which reads the whole production store. ⚠️ **Ten credentials are account-scoped and cannot be environment-scoped at all** (Cloudflare D1/Workers Scripts have no per-database or per-script selector); they are accepted as a class, recorded per name in code, and printed every run — not silently excluded.
+- Doppler `dev` is data-isolated from `prd` — its own Supabase project (`tumhmtshahktumhqqamk`), Auth0 tenant (`dev-njjmghdzm23uy0p7`), HMAC secret, and Stripe sandbox. Verify with `npm run check:env-isolation` (PASSES; re-run rather than trust). Since W09 (2026-08-08) it checks a named list (24 names on 2026-09-28) *and* classifies every name byte-identical across both configs, failing on any it cannot account for — that sweep immediately found five more, including a `dp.st.prd.` Doppler service token sitting in `dev`, which reads the whole production store. ⚠️ **Eleven names are ACCEPTED on the 2026-09-28 run**: nine Cloudflare/wrangler credentials that cannot be environment-scoped at all (D1, Workers Scripts, R2 and Pages have no per-resource selector; wrangler OAuth is per-user), and two production smoke-test logins kept in both configs by owner decision. They are recorded per name in code with a reason and printed every run — not silently excluded.
 - The `*-dev` workers hold those dev credentials. `SHARED_SECRET` is no longer withheld because it no longer exists anywhere (CR29 step 3). `sender-worker-dev`'s `RECEIVER` binds `api-provisioning-receiver-dev`, not production — repointed 2026-08-07 when the dev receiver was stood up (CR02 item 5, cleared), and guarded by the "dev never binds a production service" assertion in `workers/lib/deploy-environments.test.ts`.
 - **Never push `prd` values into a `*-dev` worker.** Isolation is free on all three vendors (verified 2026-08-02: Supabase 2 free projects per owner, Auth0 extra tenants free, Stripe sandboxes free), so cost never justifies sharing. **`dev` must never receive a copy of a `*_live_` key** — the `rk_live_` in prd being correct least-privilege practice is exactly what makes copying it tempting.
 - Deploy auth: `wrangler` authenticates with **`CLOUDFLARE_API_TOKEN`** — `npm run deploy` injects it from Doppler `dev`, `deploy:prd` from `prd`, and the two values are distinct. But dev's token is account-wide in scope (it can reach every production script), so what stops `npm run deploy` hitting production is `--env dev` plus the test asserting it; **separate Cloudflare accounts with pinned wrangler profiles are the only structural fix** (CR11 step 8). `CLOUDFLARE_WORKER_TOKEN` is read by nothing in this repo. Full audit: runbook.
@@ -331,7 +360,7 @@ When binding a secret to a Worker, pipe that captured value into `wrangler secre
 - `npm run deploy` targets `--env dev`, so a local deploy cannot overwrite a production worker (enforced by `workers/lib/deploy-environments.test.ts`)
 - All workers have `deploy:prd` for emergency hotfixes; `deploy:prd` uses `--config prd`, never `dev`
 - E2E tests use `--config dev`, which is isolated from prod as of 2026-08-03 (`npm run check:env-isolation`)
-- `doppler.json` was scrubbed from git history (2026-07-29) and credentials rotated — but **rotated is not revoked**: the on-disk `doppler.json` and `~/.doppler/fallback/` still hold pre-rotation material (CR01)
+- `doppler.json` was scrubbed from git history (2026-07-29), credentials rotated, and the on-disk copy deleted (CR01, done 2026-08-17) — but **rotated is not revoked**: two revocations are still unconfirmed (see CR01 above)
 
 ### Deployment Checklist
 
