@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
 
   const { data: user, error: userError } = await supabase
     .from("users")
-    .select("id, tier")
+    .select("id")
     .eq("id", bodyUserId)
     .single();
   if (userError || !user) {
@@ -158,14 +158,15 @@ Deno.serve(async (req) => {
 
   // Resolve tier server-side, mirroring the receiver's checkOrgKeyQuota: the
   // org's current_plan is authoritative (the Stripe webhook is its writer);
-  // users.tier is the fallback (trigger-derived from the default org's plan
-  // since UA04); starter if neither is a known tier.
+  // starter if the org row is missing or the plan is not a known tier.
+  // users.tier is no longer read (UA11): since UA04 it is derived from the
+  // default org's plan by trigger, so as a fallback it had nothing to add.
   const { data: org } = await supabase
     .from("organizations")
     .select("current_plan")
     .eq("id", organizationId)
     .maybeSingle();
-  const candidate = org?.current_plan ?? user.tier ?? DEFAULT_TIER;
+  const candidate = org?.current_plan ?? DEFAULT_TIER;
   const userTier: string = VALID_TIERS.has(candidate) ? candidate : DEFAULT_TIER;
 
   // Cloudflare KV config

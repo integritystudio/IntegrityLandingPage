@@ -38,7 +38,7 @@ function stubSupabase(routes: Record<string, RouteResponder>): SupabaseFetchStub
   return stub;
 }
 
-const USER_SELECT = 'id, auth0_id, email, name, tier, created_at, default_organization_id';
+const USER_SELECT = 'id, auth0_id, email, name, created_at, default_organization_id';
 
 const makeUserRow = (overrides: Record<string, unknown> = {}) => ({
   id: 'user-id-1',
@@ -53,7 +53,7 @@ const makeUserRow = (overrides: Record<string, unknown> = {}) => ({
 
 const makeOrgRow = (current_plan = 'growth') => ({ id: 'org-1', current_plan });
 
-/** A user with no default org and no memberships: `tier` falls back to `users.tier`. */
+/** A user with no default org and no memberships: `tier` is `starter`, whatever `users.tier` holds (UA11). */
 const noOrgRoutes = (userOverrides: Record<string, unknown> = {}): Record<string, RouteResponder> => ({
   'GET users': okRows([makeUserRow(userOverrides)]),
   'GET organization_memberships': okRows([]),
@@ -124,7 +124,8 @@ describe('GET /v1/me', () => {
 
   // `users.tier` is the pre-organizations column and billing never wrote it: the owner of a
   // paid growth org read `starter` here while api-keys-create minted growth keys. A trigger
-  // now derives it (UA04), but the route still reads the org plan directly.
+  // now derives it (UA04) and the route no longer reads it at all (UA11): the org plan is the
+  // answer, `starter` when the user has no organization, and a failed lookup is a 500.
   it('reports the default organization plan as tier, not users.tier', async () => {
     const token = await jwt.sign({ sub: 'user-id-1', email: 'user@example.com' });
     const stub = stubSupabase({
@@ -163,29 +164,45 @@ describe('GET /v1/me', () => {
     expect(stub.find('GET', 'organizations')!.url.searchParams.get('id')).toBe('eq.org-2');
   });
 
-  it('falls back to users.tier when the user has no active membership', async () => {
+  it('reports starter, never users.tier, when the user has no organization', async () => {
     const token = await jwt.sign({ sub: 'user-id-1', email: 'user@example.com' });
-    stubSupabase(noOrgRoutes({ tier: 'starter' }));
+    // The stub returns whatever row it is given: a stored `enterprise` proves the column is not read.
+    const stub = stubSupabase(noOrgRoutes({ tier: 'enterprise' }));
 
     const res = await handleMe(makeRequest(token), opts);
 
     expect(res.status).toBe(200);
     expect(((await res.json()) as MeBody).tier).toBe('starter');
+    expect(stub.find('GET', 'users')!.url.searchParams.get('select')).not.toContain('tier');
   });
 
-  it('still answers 200 with users.tier when the organization lookup fails', async () => {
+  it('returns 500 when the organization lookup fails', async () => {
     const token = await jwt.sign({ sub: 'user-id-1', email: 'user@example.com' });
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     stubSupabase({
-      'GET users': okRows([makeUserRow({ tier: 'starter', default_organization_id: 'org-1' })]),
+      'GET users': okRows([makeUserRow({ default_organization_id: 'org-1' })]),
       'GET organizations': httpError(500, 'DB error'),
     });
 
     const res = await handleMe(makeRequest(token), opts);
 
-    expect(res.status).toBe(200);
-    expect(((await res.json()) as MeBody).tier).toBe('starter');
+    expect(res.status).toBe(500);
     expect(error).toHaveBeenCalledWith(expect.stringContaining('organization lookup failed'), 'org-1', expect.any(String));
+    error.mockRestore();
+  });
+
+  it('returns 500 when the membership lookup fails', async () => {
+    const token = await jwt.sign({ sub: 'user-id-1', email: 'user@example.com' });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    stubSupabase({
+      'GET users': okRows([makeUserRow({ default_organization_id: null })]),
+      'GET organization_memberships': httpError(500, 'DB error'),
+    });
+
+    const res = await handleMe(makeRequest(token), opts);
+
+    expect(res.status).toBe(500);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('membership lookup failed'), 'user-id-1', expect.any(String));
     error.mockRestore();
   });
 
