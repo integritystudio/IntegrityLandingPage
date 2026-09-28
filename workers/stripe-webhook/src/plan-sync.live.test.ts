@@ -8,11 +8,16 @@
  * because `STRIPE_PRICE_TO_PLAN_JSON` was unbound and every unit test passed
  * regardless — only a run through the deployed Worker can see that.
  *
+ * The same run checks UA10: the plan write reaches the org's members, because
+ * `organizations_propagate_tier` derives `users.tier` from the default org's
+ * `current_plan`. Only the Worker's real write fires that trigger.
+ *
  * Each run creates its own fixture and removes it: a sandbox customer on
- * Stripe's test card, a personal org linked to it, and a growth subscription.
- * Cleanup deletes the customer (which cancels the subscription), waits for the
- * resulting `customer.subscription.deleted` to land, then deletes the org —
- * deleting the org first would make the Worker dead-letter that event. If the
+ * Stripe's test card, a personal org linked to it, a dev user whose default org
+ * it is, and a growth subscription. Cleanup deletes the customer (which cancels
+ * the subscription) and the user, waits for the resulting
+ * `customer.subscription.deleted` to land, then deletes the org — deleting the
+ * org first would make the Worker dead-letter that event. If the
  * Stripe side cannot be removed, or its event does not land in time, the org is
  * kept (so late events still match it) and the run fails naming the ids.
  *
@@ -44,6 +49,8 @@ const STRIPE_TEST_PAYMENT_METHOD = 'pm_card_visa';
 const SANDBOX_GROWTH_PRICE_ID = 'price_1Txye8BWbFuvm1I6S4T7JNBD';
 
 const EXPECTED_PLAN = 'growth';
+/** `plan_to_api_key_tier('growth')`, which the org's members must follow. */
+const EXPECTED_TIER = 'growth';
 const ENTITLED_STATUS = 'active';
 const CANCELED_STATUS = 'canceled';
 const UNPAID_PLAN = 'starter';
@@ -125,6 +132,13 @@ async function readOrg(orgId: string): Promise<OrgRow> {
   return row;
 }
 
+async function readUserTier(userId: string): Promise<string> {
+  const response = await supabaseRequest('GET', `users?id=eq.${userId}&select=tier`);
+  const [row] = (await response.json()) as Array<{ tier: string }>;
+  if (!row) throw new Error(`user ${userId} not found`);
+  return row.tier;
+}
+
 interface SettleResult {
   settled: boolean;
   /** The last row read, so a timeout still reports the state the org was left in. */
@@ -145,6 +159,7 @@ async function waitForOrg(orgId: string, isSettled: (row: OrgRow) => boolean): P
 describe.skipIf(!HAS_CREDENTIALS)('stripe-webhook live plan sync (CR38)', () => {
   let customerId: string | null = null;
   let orgId: string | null = null;
+  let userId: string | null = null;
   let subscriptionId: string;
 
   beforeEach(async () => {
@@ -171,6 +186,15 @@ describe.skipIf(!HAS_CREDENTIALS)('stripe-webhook live plan sync (CR38)', () => 
     if (!org) throw new Error('organizations insert returned no row');
     orgId = org.id;
 
+    const insertedUser = await supabaseRequest('POST', 'users', {
+      auth0_id: `cr38-e2e|${runId}`,
+      email: `cr38-e2e+${runId}@example.com`,
+      default_organization_id: org.id,
+    });
+    const [user] = (await insertedUser.json()) as Array<{ id: string }>;
+    if (!user) throw new Error('users insert returned no row');
+    userId = user.id;
+
     const subscription = await stripePost<{ id: string }>('/subscriptions', {
       customer: customer.id,
       'items[0][price]': SANDBOX_GROWTH_PRICE_ID,
@@ -179,9 +203,10 @@ describe.skipIf(!HAS_CREDENTIALS)('stripe-webhook live plan sync (CR38)', () => 
   }, TEST_TIMEOUT_MS);
 
   afterEach(async () => {
-    const [customer, org] = [customerId, orgId];
+    const [customer, org, user] = [customerId, orgId, userId];
     customerId = null;
     orgId = null;
+    userId = null;
 
     // Deleting the customer cancels its subscription. The org goes only once that
     // event has landed: an org deleted earlier makes the Worker dead-letter it, and one
@@ -191,9 +216,13 @@ describe.skipIf(!HAS_CREDENTIALS)('stripe-webhook live plan sync (CR38)', () => 
       try {
         await stripeRequest('DELETE', `/customers/${customer}`);
       } catch (error) {
-        throw new Error(`cleanup: sandbox customer ${customer} not deleted; kept dev org ${org}. ${String(error)}`);
+        throw new Error(
+          `cleanup: sandbox customer ${customer} not deleted; kept dev org ${org} and its user ${user}. ${String(error)}`,
+        );
       }
     }
+    // The user plays no part in Stripe's events, and the org cannot be deleted while it references it.
+    if (user) await supabaseRequest('DELETE', `users?id=eq.${user}`);
     if (!org) return;
     if (customer) {
       const cancel = await waitForOrg(org, (row) => row.billing_status === CANCELED_STATUS);
@@ -220,5 +249,13 @@ describe.skipIf(!HAS_CREDENTIALS)('stripe-webhook live plan sync (CR38)', () => 
       billing_status: ENTITLED_STATUS,
     });
     expect(org.active_subscription_id).not.toBeNull();
+  }, TEST_TIMEOUT_MS);
+
+  it("moves the default org's members to the mapped tier (UA10)", async () => {
+    await stripePost(`/subscriptions/${subscriptionId}`, { 'metadata[plan_sync_probe]': new Date().toISOString() });
+
+    const { row: org } = await waitForOrg(orgId as string, (row) => row.current_plan === EXPECTED_PLAN);
+    expect(org.current_plan, 'the plan never synced, so the tier had nothing to follow').toBe(EXPECTED_PLAN);
+    expect(await readUserTier(userId as string), 'users.tier did not follow current_plan').toBe(EXPECTED_TIER);
   }, TEST_TIMEOUT_MS);
 });
