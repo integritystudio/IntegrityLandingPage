@@ -2443,6 +2443,24 @@ The comment at the `preVerifyToken` call says an invalid token "returns 401 with
 
 **Scope:** resolve the credential's org during `preVerifyToken` (it already loads the key row; the JWT branch needs the membership lookup the handlers repeat) and refuse a mismatch *before* `enforceOrgQuota`. Keep the handlers' checks — defence in depth — but make the gateway's first gate answer "may this credential act on this org?", not just "is it real?". Acceptance: a valid key for org A hitting org B's URL returns 403, org B's quota counter does not move, and no `usage_events` row appears on org B.
 
+### UA09: The `supabase` CLI cannot reach the production database — every `--linked` command in CLAUDE.md fails
+
+**Priority:** P3 | **Source:** UA04 production apply, session 2026-09-27
+
+`doppler run -p integrity-studio -c prd -- supabase migration list --linked` returns `LegacyDbConnectError: PgClient: Failed to connect`. `migration list`, `db push`, `db query --linked` and `migration repair` — the whole documented Supabase workflow — share that connection. UA04 was applied through the Management API `/database/query` endpoint instead, with its ledger row inserted by hand into `supabase_migrations.schema_migrations`. That works, but it skips the CLI's checks and is how CR17-style ledger drift happens. Likely the same root cause as the `SUPABASE_DB_PASSWORD` 28P01 failure (CLAUDE.md). **Scope:** reset the DB password and store it, or document the Management API route as the supported one, including the ledger insert.
+
+### UA10: UA04's tier trigger only fires on a `current_plan` change, so it inherits CR38 (related to CR38)
+
+**Priority:** P2 | **Source:** UA04, session 2026-09-27
+
+`organizations_propagate_tier` runs `AFTER UPDATE OF current_plan`. If `stripe-webhook` never writes `current_plan` in production (CR38), an upgrade or downgrade never reaches `users.tier`. That is no worse than before UA04, but the column now claims to be derived. Propagation on a real production plan change has not been observed: a rolled-back live probe was declined, so only the local suite covers it (T5/T7). **Scope:** after CR38 is fixed, watch the next real plan change and confirm the members' `tier` follows it.
+
+### UA11: Retire the `users.tier` fallbacks now that the column is derived (review)
+
+**Priority:** P4 | **Source:** UA04, session 2026-09-27
+
+`/v1/me` (`workers/api-gateway/src/routes/me.ts`, `orgPlan ?? user.tier`) and `supabase/functions/api-keys-create/index.ts` (`org?.current_plan ?? user.tier ?? DEFAULT_TIER`) still fall back to `users.tier`. Since UA04 it matches the default org's plan for any user who has one, and all 9 production users do. The fallbacks are now either redundant, or wrong only for users with no default org. **Scope:** decide whether a user with no default org should be an error; if so, remove both fallbacks and update `me.test.ts`'s two fallback tests.
+
 ## Test Suite Review 2026-09-27 (TS01–TS16)
 
 Filed from a nine-area review of every test file, read against the code under test — not from `docs/repomix/tests-compressed.xml`, which strips every `test()`/`it()` body. Full findings, with `path:line` for each, are in [test-suite-review-2026-09-27.md](test-suite-review-2026-09-27.md); section letters below refer to it. Done in the same session and **not** listed here: the ~230 `workers/lib` tests of schemas no request parses were deleted (`bf12226`), `CreateApiKeyBodySchema` was wired into the create-key route (`df174a2`), and `AuditActionSchema` was narrowed to the four emitted actions and enforced at runtime in `writeAuditLog` (`df174a2`, `a3aa746`).
@@ -2613,3 +2631,15 @@ Filed from a nine-area review of every test file, read against the code under te
 **Scope:** grep the dashboard repo's create-key call. If it sends extra fields, drop `.strict()` or trim the payload there.
 
 **Done 2026-09-27 — no external caller exists; `.strict()` stays.** The dashboard is `observability-toolkit/dashboard` (toolkit `2e98f69b`, dashboard `82b63ac`), not IntegrityMonitor. Neither `dashboard/src` nor `dashboard/worker` references `/v1/orgs/:id/api-keys`, `api-keys`, or any key-creation call; its only `integritystudio.dev` uses are the Auth0 audience and a CORS origin. The toolkit's key minting goes through the Supabase `api-keys-create` edge function (receiver `provision-api-key.ts`, e2e suites), never through api-gateway. A sweep of `~/code` (excluding this repo, `node_modules`, `.venv`) found no other caller. Re-check if a dashboard key-management UI is ever added.
+
+### TS17: The `supabase/tests/` SQL suites run in no CI workflow
+
+**Priority:** P3 | **Source:** UA04, session 2026-09-27
+
+`organization-hierarchy/run.sh` and the new `users-tier-derivation/run.sh` (16 assertions, mutation-checked) run only by hand; no file in `.github/workflows/` references `supabase/tests`. A later migration that breaks the tier triggers or the ancestor-walk policy would pass CI. **Scope:** add a job that installs Postgres 15 and runs every `supabase/tests/*/run.sh`. No Docker or credentials needed. It can sit beside `migration-replay-check.yml`.
+
+### TS18: `supabase/tests/README.md` says `SUPABASE_ACCESS_TOKEN` is empty in both Doppler configs
+
+**Priority:** P4 | **Source:** session 2026-09-27
+
+`supabase/tests/README.md:27` gives an empty token as the reason there is no DDL path to production. CLAUDE.md records the token valid since 2026-09-11, and it applied UA04 on 2026-09-27. **Scope:** correct the paragraph; the local-cluster rationale (adversarial states you would never create in production) still stands on its own.
