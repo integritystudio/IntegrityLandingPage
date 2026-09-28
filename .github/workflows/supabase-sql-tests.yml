@@ -1,0 +1,57 @@
+# TS17: Run the supabase/tests/ SQL suites against a throwaway Postgres cluster.
+# Each run.sh spins up its own cluster with initdb; no Docker, no Supabase CLI,
+# no credentials — PR-safe, including from forks.
+#
+# Path-filter: triggers when a test suite, a migration it tests, or this workflow
+# changes. New suites are picked up automatically by the matrix.
+name: Supabase SQL Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/supabase-sql-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/supabase-sql-tests.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "supabase-sql-tests-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  sql-tests:
+    name: SQL suite — ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - organization-hierarchy
+          - users-tier-derivation
+          - usage-buckets-single-writer
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install PostgreSQL 15
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-15 postgresql-client-15
+          echo "PGBIN=/usr/lib/postgresql/15/bin" >> "$GITHUB_ENV"
+
+      - name: Run ${{ matrix.suite }}
+        run: |
+          export PGBIN=/usr/lib/postgresql/15/bin
+          bash supabase/tests/${{ matrix.suite }}/run.sh
