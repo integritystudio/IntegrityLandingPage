@@ -6,9 +6,9 @@
 > separate `observability-toolkit` repo (`services/api-provisioning-receiver/`),
 > persists to Supabase, and is the target of `sender-worker`'s service binding
 > (`service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`).
-> The deploy steps and `*.integritystudio.ai` URLs below describe a retired setup —
-> do not follow them to deploy this stub. They are retained only as reference for
-> the shared signature/replay contract this stub mirrors.
+> Its `deploy` scripts were removed 2026-09-24 and `workers/lib/deploy-environments.test.ts`
+> asserts their absence — the Worker of this name was deleted from Cloudflare on 2026-06-26
+> and a deploy would recreate the orphan. Run it only locally with `wrangler dev`.
 
 Cloudflare Worker that verifies signed requests from the Sender Worker as part of the API provisioning architecture. Implements HMAC-SHA256 signature verification and replay protection.
 
@@ -19,7 +19,7 @@ The Receiver Worker acts as the trusted endpoint for the provisioning pipeline:
 1. **Sender Worker** → (signed request with x-timestamp, x-signature headers) → **Receiver Worker**
 2. **Receiver Worker** → (verifies signature, validates timestamp freshness) → stores data / returns response
 
-The Sender Worker is the trust boundary; this worker verifies that all requests come from the legitimate Sender using the shared secret.
+The Sender Worker is the trust boundary; this worker verifies that all requests come from the legitimate Sender using the `SIGNING_KEYS` entry named by the request's `x-key-id`.
 
 ## API
 
@@ -27,9 +27,9 @@ The Sender Worker is the trust boundary; this worker verifies that all requests 
 
 Public health check endpoint (no authentication required).
 
-**Request:**
+**Request (against a local `wrangler dev --port 8788`):**
 ```bash
-curl https://receiver-worker.integritystudio.ai/health
+curl http://localhost:8788/health
 ```
 
 **Response (200 OK):**
@@ -53,29 +53,33 @@ Receive and verify signed requests from the Sender Worker.
   request without it is rejected, whatever its signature (BACKLOG.md CR29 step 2)
 - `Content-Type` — application/json
 
-**Request Body:**
+**Request Body:** a JSON object whose `action` is one of the two the sender forwards,
+`provision_api_key` or `sign_in` (anything else is `400 unknown action`):
 ```json
 {
-  "userId": "user123",
-  "action": "signup",
-  "sentAt": "2026-03-20T10:15:30.000Z"
+  "action": "provision_api_key",
+  "jwt": "<Auth0 access token>",
+  "name": "My first key",
+  "email": "user@example.com",
+  "tier": "starter"
 }
 ```
 
-**Response (200 OK):**
+**Response (200 OK)** for `provision_api_key` — a mock key plus the payload echoed back:
 ```json
 {
   "ok": true,
-  "received": {
-    "userId": "user123",
-    "action": "signup",
-    "sentAt": "2026-03-20T10:15:30.000Z"
-  }
+  "apiKey": "sk-<random>",
+  "received": { "action": "provision_api_key", "jwt": "…", "name": "My first key", "email": "user@example.com", "tier": "starter" }
 }
 ```
+For `sign_in` the stub returns `{ "ok": true, "user": { "userId": "<random>", "email": "…" }, "organizations": [], "apiKeys": [] }`.
+Nothing is persisted — the production receiver writes to Supabase, this stub does not.
 
 **Error Responses:**
 - `400 invalid json` — Request body is not valid JSON
+- `400 invalid payload` — Body is not a JSON object
+- `400 unknown action` — `action` missing or not one of the two above
 - `401 missing auth headers` — x-timestamp or x-signature header missing
 - `401 stale or invalid timestamp` — Timestamp outside ±5 minute window or non-numeric
 - `401 invalid signature` — Signature verification failed, **or** `x-key-id` was absent,
@@ -99,10 +103,10 @@ wrangler secret put SIGNING_KEYS     # {"v2":"<secret>"} — keyId → secret
 sender's secret for that key id exactly. If they differ, all requests fail 401 "invalid
 signature".
 
-`SHARED_SECRET` is **no longer read for authentication** — CR29 step 2 made `SIGNING_KEYS`
-the sole authority. It stays declared in `Env` only so the tests can prove a keyless request
-is rejected with the credential still present, which is production's state until CR29 step 3
-unbinds it.
+`SHARED_SECRET` is **retired** — CR29 made `SIGNING_KEYS` the sole authority, and the
+production receiver unbound it on 2026-08-03 (CR29 closed). It stays declared in `Env`, and
+set in the test fixtures, only so the tests can prove a keyless request is rejected even with
+the credential present: "unreachable" rather than merely "absent". Do not tidy it out.
 
 ## Security Model
 
@@ -115,16 +119,10 @@ unbinds it.
 
 ## Deployment
 
-```bash
-wrangler deploy
-```
-
-Then configure the Sender Worker with the Receiver Worker URL:
-```bash
-# In sender-worker/wrangler.toml:
-[vars]
-RECEIVER_WORKER_URL = "https://receiver-worker.integritystudio.ai"
-```
+**None.** This package has no `deploy` or `deploy:prd` script, on purpose. The production
+receiver is `api-provisioning-receiver`, deployed from the observability-toolkit repo, and the
+sender reaches it through the `RECEIVER` service binding in `workers/sender-worker/wrangler.toml`
+(`api-provisioning-receiver-dev` under `[env.dev]`). There is no receiver URL variable anywhere.
 
 ## Testing
 
@@ -155,29 +153,24 @@ cd ../sender-worker
 wrangler dev --port 8787
 ```
 
-Test the flow:
+Test the flow (the sender validates the body against `SendRequestSchema` before signing, so
+`action` must be `provision_api_key` or `sign_in` and `jwt` must be JWT-shaped):
 ```bash
-# This creates a proper HMAC signature and forwards it
 curl -X POST http://localhost:8787/send \
   -H "Content-Type: application/json" \
-  -d '{"userId":"test","action":"verify"}'
+  -d '{"action":"sign_in","jwt":"<any three dot-separated base64url segments>","email":"test@example.com"}'
 ```
+
+`/send` only reaches this stub if the sender's `RECEIVER` service binding resolves to it, which
+means running both Workers under wrangler's multi-worker local dev rather than two independent
+`wrangler dev` sessions. That wiring is not documented in this repo; with the binding
+unresolved the sender returns 500 `RECEIVER service binding not configured`.
 
 ### Monitoring
 
-**Check health endpoint:**
-```bash
-curl https://receiver-worker.integritystudio.ai/health
-```
-
-**View logs:**
-```bash
-wrangler tail
-```
-
-**Verify signature validation success rate:**
-- Check Cloudflare Analytics dashboard for POST /inbox endpoint
-- Look for 200 vs 401 status code ratio
+There is nothing to monitor here — this stub is never deployed. The production receiver's
+signals (`auth.key_unresolved`, replay rejections, provisioning outcomes) are documented in
+the observability-toolkit repo and in `docs/observability-signals.md`.
 
 ## Common Issues
 

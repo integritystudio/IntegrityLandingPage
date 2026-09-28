@@ -4,9 +4,10 @@ import { hexToBytes } from '../../lib/hex-utils';
 import { json } from '../../lib/http/responses';
 
 export interface Env {
-  // No longer read for authentication — SIGNING_KEYS is the sole authority (CR29 step 2).
-  // Kept declared so the tests can prove a keyless request is rejected with the credential
-  // still bound, which is production's state until step 3 unbinds it.
+  // Retired — SIGNING_KEYS is the sole authority (CR29, closed 2026-08-03; the production
+  // receiver unbound this the same day). Kept declared, and kept set in the test fixtures,
+  // so the tests prove a keyless request is rejected even with the credential present —
+  // "unreachable" rather than merely "absent". Do not tidy it out.
   SHARED_SECRET: string;
   // JSON-encoded Record<string, string> mapping keyId → secret. Required, mirroring the
   // production receiver: it is the only credential /inbox authenticates against, so an

@@ -9,10 +9,15 @@
  * - Reject over-limit requests
  * - Expose checkAndReserve()
  *
- * There is no flushUsage() method and nothing here writes to Supabase: the
- * durable usage record is written per request by the gateway's usage ledger
- * (lib/usage-ledger.ts, UA01) via ctx.waitUntil. This comment claimed a flush
- * that was never implemented.
+ * Nothing here writes to Supabase: the durable usage record is written per
+ * request by the gateway's usage ledger (lib/usage-ledger.ts, UA01) via
+ * ctx.waitUntil. A `POST /flush-usage` route does exist (handleFlushUsage): it
+ * zeroes the in-memory monthly counter, persists that zero to DO storage and
+ * returns the count it discarded — it syncs nothing anywhere. Its only client,
+ * `flushUsage()` in lib/quota.ts, has no callers, so the route is unreachable in
+ * production; wired up as-is it would reset an org's monthly usage without a
+ * trace. Delete-or-wire is BACKLOG.md CR45. (An earlier version of this header
+ * said there was no flush method at all — wrong in the other direction.)
  */
 
 interface QuotaCheckRequest {

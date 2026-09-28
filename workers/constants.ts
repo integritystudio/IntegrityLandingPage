@@ -1,4 +1,5 @@
-// HMAC replay protection window (receiver-worker)
+// Signature replay-protection window. Read by receiver-worker (HMAC timestamp check)
+// and by stripe-webhook/src/verify.ts (Stripe-Signature `t=` tolerance).
 export const REPLAY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 // Dead letter queue: max retry attempts before abandoning

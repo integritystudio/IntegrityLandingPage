@@ -61,9 +61,10 @@ export default defineConfig({
         compatibilityDate: COMPATIBILITY_DATE,
         compatibilityFlags: COMPATIBILITY_FLAGS,
         bindings: {
-          // Bound but never read — nothing falls back to it since CR29 step 2. Kept, and kept
-          // different from the SIGNING_KEYS entry, so the suite runs against production's actual
-          // configuration rather than one where the legacy credential is simply absent.
+          // Never read — nothing falls back to it since CR29 step 2, and production unbound it
+          // 2026-08-03 (CR29 closed). Kept here, and kept different from the SIGNING_KEYS entry,
+          // so the suite proves the legacy credential is unreachable while PRESENT rather than
+          // merely absent. Removing it would weaken that proof; do not tidy it out.
           SHARED_SECRET: "e2e-shared-secret",
           SIGNING_KEYS: E2E_SIGNING_KEYS,
           ACTIVE_KEY_ID: E2E_KEY_ID,

@@ -21,7 +21,6 @@ workers/
     http/
       responses.ts      # json(), ok(), created(), etc.
       request.ts        # parseJson(), requireJson(), getHeader(), etc.
-      cors.ts           # corsHeaders(), withCors(), handleOptions()
       errors.ts         # badRequest(), unauthorized(), serverError(), etc.
       index.ts          # Re-exports
     validation/
@@ -35,7 +34,7 @@ workers/
 
 ## Core Pieces
 
-**`http/`** owns only transport concerns — response/error factories (`json`, `ok`, `created`, `badRequest`...`serverError`, `withErrorHandling`), request parsing (`isJsonRequest`, `parseJson`, `safeParseJson`, `requireJson`, bearer-token and query-param helpers, `assertMethod`), and CORS (`corsHeaders`, `withCors`, `handleOptions`). No validation-library coupling — portable to other projects.
+**`http/`** owns only transport concerns — response/error factories (`json`, `ok`, `created`, `badRequest`...`serverError`, `withErrorHandling`), request parsing (`isJsonRequest`, `parseJson`, `safeParseJson`, `requireJson`, bearer-token and query-param helpers, `assertMethod`). No validation-library coupling — portable to other projects. A CORS trio (`corsHeaders`, `withCors`, `handleOptions`) shipped here too, defaulting to `*`; no worker ever imported it and it was removed 2026-09-27 — the shared allowlist helper is BACKLOG.md CR46.
 
 **`validation/`** owns Zod: schema definitions live in one file (`schemas.ts`), and `parse.ts` converts Zod errors into API responses:
 

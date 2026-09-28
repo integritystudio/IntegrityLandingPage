@@ -12,8 +12,11 @@ Added comprehensive integration test coverage for error scenarios uncovered duri
 
 ## Tests Added (index.e2e.test.ts)
 
+Tests 1–5 live in the `describe("POST /signup — Error Code Mapping (2026-04-03 Session)")`
+block of `src/index.e2e.test.ts`; find them by name rather than by line number, which drifts.
+
 ### 1. AUTH0_TOKEN_EXCHANGE_FAILED: Client Credentials Grant Type Not Allowed
-**File**: `src/index.e2e.test.ts` (lines 642–672)
+**Test**: `returns AUTH0_TOKEN_EXCHANGE_FAILED when Auth0 /oauth/token returns 403 unauthorized_client`
 
 Tests the exact error from this session:
 ```json
@@ -33,7 +36,7 @@ Tests the exact error from this session:
 ---
 
 ### 2. AUTH0_USER_CREATION_FAILED: Invalid Password Strength
-**File**: `src/index.e2e.test.ts` (lines 674–705)
+**Test**: `returns AUTH0_USER_CREATION_FAILED when Auth0 /api/v2/users returns 400`
 
 Tests Auth0 user creation failure with 400 Bad Request:
 ```json
@@ -52,7 +55,7 @@ Tests Auth0 user creation failure with 400 Bad Request:
 ---
 
 ### 3. SUPABASE_ORG_CREATION_FAILED: Invalid Tier
-**File**: `src/index.e2e.test.ts` (lines 707–742)
+**Test**: `returns SUPABASE_ORG_CREATION_FAILED when org creation returns error`
 
 Tests Supabase org creation failure with invalid tier value:
 ```json
@@ -70,7 +73,7 @@ Tests Supabase org creation failure with invalid tier value:
 ---
 
 ### 4. SUPABASE_USER_INSERT_FAILED: Duplicate User
-**File**: `src/index.e2e.test.ts` (lines 744–783)
+**Test**: `returns SUPABASE_USER_INSERT_FAILED when user insert returns error`
 
 Tests Supabase user insert failure with duplicate constraint violation:
 ```json
@@ -89,7 +92,7 @@ Tests Supabase user insert failure with duplicate constraint violation:
 ---
 
 ### 5. SUPABASE_ORG_MEMBERSHIP_FAILED: Invalid Organization
-**File**: `src/index.e2e.test.ts` (lines 785–819)
+**Test**: `returns SUPABASE_ORG_MEMBERSHIP_FAILED when org membership insert fails`
 
 Tests org membership insert failure:
 ```json
@@ -106,7 +109,8 @@ Tests org membership insert failure:
 ---
 
 ### 6. Unknown Errors Map to INTERNAL_ERROR
-**File**: `src/index.e2e.test.ts`
+**Test**: `still returns 500 with INTERNAL_ERROR when Auth0 fails for a non-credential reason`
+(in the `POST /signin — Auth0 ROPC` block)
 
 Tests that unmapped errors default to `INTERNAL_ERROR`:
 ```json
@@ -134,7 +138,7 @@ The new tests validate all error codes added in commit 330b73a:
 | `SUPABASE_ORG_CREATION_FAILED` | Org creation endpoint fails | ✅ Test #3 |
 | `SUPABASE_USER_INSERT_FAILED` | User insert endpoint fails | ✅ Test #4 |
 | `SUPABASE_ORG_MEMBERSHIP_FAILED` | Membership insert endpoint fails | ✅ Test #5 |
-| `INTERNAL_ERROR` | Unknown/unmapped errors | ✅ Test #7 |
+| `INTERNAL_ERROR` | Unknown/unmapped errors | ✅ Test #6 |
 
 ---
 
@@ -170,40 +174,32 @@ Example:
 ### Unit Tests (Auth0/Supabase error handling logic)
 ```bash
 npm test
-# Runs all unit tests including env-validation.test.ts and supabase.test.ts
-# Test count: 146 tests passing
+# Runs all unit tests, including env-validation.test.ts and supabase.test.ts.
+# Counts recorded in docs drift; run the suite for the current number.
 ```
 
 ### E2E Tests (Full request pipeline with mocked Auth0/Supabase)
 ```bash
 npm run test:e2e
-# Requires doppler CLI and env configuration
-# Will run all *.e2e.test.ts files including new error scenario tests
+# Runs every *.e2e.test.ts in the real workerd runtime. Every outbound call is mocked, so no
+# credential is needed; the bindings live in vitest.e2e.config.mts, NOT Doppler — a new
+# required secret must be added there or every /send test 500s.
 ```
 
 ---
 
 ## Known Issues
 
-### Vitest Pool Workers Build Error
-The e2e test runner (`npm run test:e2e`) currently fails with:
-```
-Error: Missing "./config" specifier in "@cloudflare/vitest-pool-workers" package
-```
-
-**Status**: Build infrastructure issue, not related to test code
-
-**Workaround**: Unit tests for error handling logic can be created in the regular test suite without the e2e pool
-
-**Resolution**: May require upgrading @cloudflare/vitest-pool-workers or adjusting config
+None open. The runner previously failed with `Missing "./config" specifier in
+"@cloudflare/vitest-pool-workers"` because the config imported `defineWorkersConfig` from the
+package's v3 entry point. In the Vitest v4 line the pool is applied as a Vite plugin
+(`cloudflareTest(...)`), which is what `vitest.e2e.config.mts` now does — see its header comment.
 
 ---
 
 ## Next Steps
 
-1. **Fix e2e Test Runner** (optional):
-   - Upgrade @cloudflare/vitest-pool-workers package
-   - Or adjust vitest.e2e.config.ts if there's a known workaround
+1. **Fix e2e Test Runner**: ✅ Done — see Known Issues.
 
 2. **Verify Error Handling in Production** (when Auth0 config is fixed):
    - Deploy with current error handling
@@ -236,7 +232,7 @@ Error: Missing "./config" specifier in "@cloudflare/vitest-pool-workers" package
 
 ## References
 
-- [BACKLOG.md](../../../docs/BACKLOG.md) — Current blocker: Auth0 Client Credentials grant type configuration
-- [index.ts](./index.ts) — Error handling implementation (lines 98–122)
-- [types.ts](./types.ts) — ERROR_CODE constants (lines 29–45)
-- [index.e2e.test.ts](./index.e2e.test.ts) — Error scenario tests (lines 622–872)
+- [BACKLOG.md](../../../docs/BACKLOG.md) — Canonical status of every open item
+- [index.ts](./index.ts) — Error handling: `handleSignup`, `handleSignIn` (`errorResponse` itself is in `utils.ts`)
+- [types.ts](./types.ts) — `ERROR_CODE` constants and `ERROR_DESCRIPTIONS`
+- [index.e2e.test.ts](./index.e2e.test.ts) — Error scenario tests (`POST /signup — Error Code Mapping` block)

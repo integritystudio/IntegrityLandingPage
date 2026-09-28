@@ -47,6 +47,12 @@ enabled = true
 #
 # `services` and `observability` are non-inheritable keys and are repeated below.
 #
+# Isolation: RECEIVER binds the DEV receiver `api-provisioning-receiver-dev`
+# (repointed 2026-08-07, BACKLOG.md CR02 item 5 — until then it named the
+# production receiver; see the note on [[env.dev.services]] below). The inline
+# /signup, /signin and /forgot-password paths do not go through RECEIVER and are
+# isolated by the Supabase and Auth0 credentials the Doppler `dev` config
+# supplies.
 [env.dev]
 name = "sender-worker-dev"
 
@@ -99,6 +105,13 @@ id = "766332ec6de3462fb29777aa1b6bc9d3"        # AUTH_RATE_LIMIT_KV
 preview_id = "46a717cd692a4cc2969bff9504bcc87b" # dev-RATE_LIMIT_KV
 
 # Secrets (set via wrangler secret put or doppler):
+#   SHARED_SECRET              — RETIRED (BACKLOG.md CR29, closed 2026-08-03). Never read:
+#                                resolveOutboundSigningKey has no fallback to it. Unbound from
+#                                this Worker and the receiver 2026-08-03; deleted from Doppler
+#                                prd 2026-08-03 and dev 2026-09-24. Do not re-bind it or add a
+#                                fallback — the fallback was the whole defect. The test
+#                                fixtures still declare it, with a value different from the
+#                                active key, to prove signing ignores it while present.
 #   SIGNING_KEYS               — JSON Record<keyId, secret>. REQUIRED: with ACTIVE_KEY_ID it is
 #                                the only credential this worker signs with. Must match the
 #                                receiver's SIGNING_KEYS exactly, or every signed request 401s
@@ -123,12 +136,12 @@ preview_id = "46a717cd692a4cc2969bff9504bcc87b" # dev-RATE_LIMIT_KV
 #     deploy it FIRST, then set ACTIVE_KEY_ID here; see the deployment sequence comment
 #     above forwardToReceiver() in src/index.ts. Also update KEY_ROTATION_DATES on the
 #     receiver, or the new key ages without triggering the 90-day rotation alert.
-#     Both vars are UNSET in the dev config, and sender-worker-dev has ZERO secrets bound
-#     (verified 2026-07-31), so /send there now 500s instead of signing keylessly against the
-#     PRODUCTION receiver it binds (see [env.dev] below). Do NOT fix that by giving it the dev
-#     Doppler secrets — that yields a second production-capable Worker, not a dev environment
-#     (CLAUDE.md, BACKLOG.md CR11) — nor by provisioning production's SIGNING_KEYS into dev.
-#     Dev's real fix is a dev receiver (CR02 item 5).
+#     Dev: sender-worker-dev binds the DEV receiver `api-provisioning-receiver-dev` (see
+#     [env.dev] above, repointed 2026-08-07), so a dev SIGNING_KEYS/ACTIVE_KEY_ID pair can
+#     only reach that receiver and must match ITS map. Never copy production's SIGNING_KEYS
+#     into dev — that yields a second production-capable Worker, not a dev environment
+#     (CLAUDE.md, BACKLOG.md CR11). Without the pair, dev /send 500s SIGNING_KEY_UNRESOLVED
+#     and forwards nothing.
 #   SUPABASE_URL               — Supabase project URL
 #   SUPABASE_SERVICE_ROLE_KEY  — Supabase service role key
 #   AUTH0_DOMAIN               — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)
