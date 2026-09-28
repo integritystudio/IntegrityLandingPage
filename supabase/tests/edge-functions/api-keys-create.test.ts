@@ -364,6 +364,47 @@ describe('api-keys-create: organization resolution (TS21)', () => {
     expect(res.status).toBe(201);
     expect(backend.rows('api_keys')).toEqual([expect.objectContaining({ organization_id: GROWTH_ORG })]);
   });
+
+  // TS20: a failed membership query is an outage, not "no membership", so it must not
+  // become a 403 or silently fall through to another org.
+  const MEMBERSHIPS_DOWN = { kind: 'http', status: 500, body: { message: 'db down' } } as const;
+
+  it('answers 503 and mints nothing when the requested organization\'s membership lookup fails', async () => {
+    const { backend, post } = setup();
+    backend.fail('select:organization_memberships', MEMBERSHIPS_DOWN);
+
+    const res = await post({ userId: USER_ID, organizationId: GROWTH_ORG });
+
+    expect(res.status).toBe(503);
+    expectNothingMinted(backend);
+  });
+
+  it('answers 503 rather than falling back to another org when the default org\'s membership lookup fails', async () => {
+    const tables = baseTables();
+    tables.users = [{ id: USER_ID, email: 'owner@example.com', tier: 'enterprise', default_organization_id: ENTERPRISE_ORG }];
+    tables.organization_memberships = [
+      { user_id: USER_ID, organization_id: GROWTH_ORG, status: 'active', created_at: '2020-01-01T00:00:00Z' },
+      { user_id: USER_ID, organization_id: ENTERPRISE_ORG, status: 'active' },
+    ];
+    const { backend, post } = setup({ tables });
+    // Only the default-org query fails; the fallback query would succeed with GROWTH_ORG.
+    backend.fail('select:organization_memberships', MEMBERSHIPS_DOWN, 1);
+
+    const res = await post({ userId: USER_ID });
+
+    expect(res.status).toBe(503);
+    expectNothingMinted(backend);
+  });
+
+  it('answers 503 and mints nothing when the oldest-membership fallback lookup fails', async () => {
+    const { backend, post } = setup();
+    backend.fail('select:organization_memberships', MEMBERSHIPS_DOWN);
+
+    const res = await post({ userId: USER_ID });
+
+    expect(res.status).toBe(503);
+    expectNothingMinted(backend);
+  });
 });
 
 describe('api-keys-create: tier', () => {

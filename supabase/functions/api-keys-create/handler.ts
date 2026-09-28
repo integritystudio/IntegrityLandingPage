@@ -82,6 +82,9 @@ async function isServiceCredential(
 
 const VALID_TIERS = new Set(["starter", "growth", "enterprise"]);
 const DEFAULT_TIER = "starter";
+// A failed membership query is an outage, not "no membership": answer 5xx so the
+// receiver can retry rather than read it as a 403 (TS20).
+const MEMBERSHIP_LOOKUP_FAILED = "Database error resolving membership.";
 
 export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
@@ -158,7 +161,7 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
     // the user holds an ACTIVE membership in it; otherwise it would let a caller
     // mint keys into an org the user does not belong to.
     if (organizationId) {
-      const { data: membership } = await supabase
+      const { data: membership, error: membershipError } = await supabase
         .from("organization_memberships")
         .select("organization_id")
         .eq("user_id", userId)
@@ -166,6 +169,7 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
         .eq("status", "active")
         .limit(1)
         .maybeSingle();
+      if (membershipError) return errorResponse(MEMBERSHIP_LOOKUP_FAILED, 503);
       if (!membership) {
         return errorResponse("User is not an active member of that organization.", 403);
       }
@@ -175,7 +179,7 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
       // membership — deterministic for multi-org users (TS21).
       const defaultOrgId: string | null = user.default_organization_id ?? null;
       if (defaultOrgId) {
-        const { data: defaultMembership } = await supabase
+        const { data: defaultMembership, error: defaultMembershipError } = await supabase
           .from("organization_memberships")
           .select("organization_id")
           .eq("user_id", userId)
@@ -183,10 +187,11 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
           .eq("status", "active")
           .limit(1)
           .maybeSingle();
+        if (defaultMembershipError) return errorResponse(MEMBERSHIP_LOOKUP_FAILED, 503);
         if (defaultMembership) organizationId = defaultOrgId;
       }
       if (!organizationId) {
-        const { data: membership } = await supabase
+        const { data: membership, error: membershipError } = await supabase
           .from("organization_memberships")
           .select("organization_id")
           .eq("user_id", userId)
@@ -194,6 +199,7 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
           .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle();
+        if (membershipError) return errorResponse(MEMBERSHIP_LOOKUP_FAILED, 503);
         organizationId = membership?.organization_id ?? null;
       }
     }

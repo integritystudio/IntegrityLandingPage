@@ -64,7 +64,7 @@ export class FakeBackend {
 
   private readonly serviceKeys: Set<string>;
   private readonly cloudflareToken: string;
-  private readonly failures = new Map<string, Failure>();
+  private readonly failures = new Map<string, { failure: Failure; remaining: number }>();
   private nextId = 1;
 
   constructor(options: FakeBackendOptions) {
@@ -76,11 +76,19 @@ export class FakeBackend {
   }
 
   /**
-   * Make one kind of request fail from now on. Targets: `auth`, `kv`, `select:<table>`,
-   * `insert:<table>`.
+   * Make one kind of request fail from now on, or only the next `times` of them. Targets:
+   * `auth`, `kv`, `select:<table>`, `insert:<table>`.
    */
-  fail(target: string, failure: Failure): void {
-    this.failures.set(target, failure);
+  fail(target: string, failure: Failure, times = Infinity): void {
+    this.failures.set(target, { failure, remaining: times });
+  }
+
+  private takeFailure(target: string): Failure | undefined {
+    const entry = this.failures.get(target);
+    if (!entry) return undefined;
+    entry.remaining -= 1;
+    if (entry.remaining <= 0) this.failures.delete(target);
+    return entry.failure;
   }
 
   rows(table: string): Row[] {
@@ -111,7 +119,7 @@ export class FakeBackend {
 
   /** GoTrue admin API: 200 only when the caller presents a service-level key. */
   private handleAuthAdmin(request: Request): Response {
-    const failure = this.failures.get('auth');
+    const failure = this.takeFailure('auth');
     if (failure) return respondWithFailure(failure, 'auth');
     if (request.method !== 'GET') throw new Error(`fake backend: unsupported auth admin method ${request.method}`);
 
@@ -133,13 +141,13 @@ export class FakeBackend {
     const wantsObject = (request.headers.get('Accept') ?? '').includes(OBJECT_MEDIA_TYPE);
 
     if (request.method === 'GET') {
-      const failure = this.failures.get(`select:${table}`);
+      const failure = this.takeFailure(`select:${table}`);
       if (failure) return respondWithFailure(failure, `select:${table}`);
       return this.respondWithRows(this.select(table, url.searchParams), url.searchParams, wantsObject);
     }
 
     if (request.method === 'POST') {
-      const failure = this.failures.get(`insert:${table}`);
+      const failure = this.takeFailure(`insert:${table}`);
       if (failure) return respondWithFailure(failure, `insert:${table}`);
       const payload = (await request.json()) as Row | Row[];
       const inserted = (Array.isArray(payload) ? payload : [payload]).map((row) => ({
@@ -190,7 +198,7 @@ export class FakeBackend {
 
   /** Cloudflare KV "write key-value pair": requires the account's API token. */
   private async handleKv(request: Request, accountId: string, namespaceId: string, key: string): Promise<Response> {
-    const failure = this.failures.get('kv');
+    const failure = this.takeFailure('kv');
     if (failure) return respondWithFailure(failure, 'kv');
     if (request.method !== 'PUT') throw new Error(`fake backend: unsupported KV method ${request.method}`);
     if (request.headers.get('Authorization') !== `Bearer ${this.cloudflareToken}`) {

@@ -2783,7 +2783,7 @@ The KV sync `fetch` (`supabase/functions/api-keys-create/handler.ts:236`) is not
 
 **Priority:** P3 | **Source:** coverage audit 2026-09-28
 
-**Status:** ✅ **DONE 2026-09-28** — a `users` lookup answers 404 only for PostgREST's no-rows code (`PGRST116`) and 503 for any other error; a failed `organizations` lookup answers 503 instead of minting at `starter`. Both 503 paths are tested to mint nothing, and both tests fail against the previous handler. Ships with the next `supabase functions deploy api-keys-create`.
+**Status:** ✅ **DONE 2026-09-28** — a `users` lookup answers 404 only for PostgREST's no-rows code (`PGRST116`) and 503 for any other error; a failed `organizations` lookup answers 503 instead of minting at `starter`. Found in review, same class: all three `organization_memberships` lookups (requested org, default org, oldest-membership fallback) ignored their error, so an outage read as a 403 — or, for the default org, fell through to minting into another org. Each now answers 503. All five 503 paths are tested to mint nothing, and each test fails when its check is removed (the default-org test fails only the first membership query, via the fake backend's new `fail(…, times)`). Ships with the next `supabase functions deploy api-keys-create`.
 
 Two paths read a Supabase error as data:
 1. A failed `users` lookup answers **404 "User not found."** (`handler.ts:144`). The receiver cannot tell an outage from a bad `userId`, so it cannot know to retry.
@@ -2807,7 +2807,7 @@ Both fail closed on access, which is why they are P3, not P2. **Scope:** return 
 
 **Priority:** P3 | **Source:** coverage audit 2026-09-28 (same shape as TS17)
 
-**Status:** ✅ **DONE 2026-09-28** — `.github/workflows/edge-function-tests.yml` installs and runs the suite (61 tests) on `main` pushes and PRs touching `supabase/functions/**` or the suite. The optional `deno check` was **not** added: Deno is not installed here, so it could not be proven to pass, and a warn-only step would be a green that checks nothing. Add it as a failing step once `deno check` is verified clean on each `index.ts`.
+**Status:** ✅ **DONE 2026-09-28** — `.github/workflows/edge-function-tests.yml` installs and runs the suite (64 tests) on `main` pushes and PRs touching `supabase/functions/**` or the suite. The optional `deno check` was **not** added: Deno is not installed here, so it could not be proven to pass, and a warn-only step would be a green that checks nothing. Add it as a failing step once `deno check` is verified clean on each `index.ts`.
 
 `supabase/tests/edge-functions/` runs only by hand (`npm install && npm test`). A change to `api-keys-create` that breaks its trust boundary would pass CI. **Scope:** a CI job that installs and runs it. It needs no credentials, no Docker and no Deno. Consider adding `deno check --node-modules-dir=none` on each function's `index.ts` in the same job. Do it alongside TS17.
 
