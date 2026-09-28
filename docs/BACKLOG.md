@@ -144,12 +144,12 @@ Sentry `ingest.sentry.io` endpoint shared across staging and prod. CSP allows on
 
 **Severity:** CRITICAL — ✅ FULLY REMEDIATED
 **Category:** Security — Access Control Staleness
-**File:** `workers/lib/types.zod.ts:39-45` | Commit: `312070b`
+**File:** `supabase/migrations/20260326000000_update_custom_access_token_hook.sql` | Commit: `b352a2c` (2026-03-26). The M18-V01 commit itself, `1d0778c` (`312070b` before the 2026-07-29 history rewrite, CR01), edited only a Zod mirror that nothing imported
 
 JWT tokens from Supabase included mutable billing state claims (`default_org_plan` and `default_org_billing_status`) that reflect values at token issuance time (up to 3600s stale). When these values change via Stripe webhooks, JWT claims remain immutable, violating SOC 2 CC6.1 (system monitoring) and creating stale-read access control vulnerabilities.
 
 **Remediation completed:**
-- ✅ Removed both claims from `JWTPayloadSchema` (commit `312070b`)
+- ✅ Removed both claims from the token in the custom-access-token-hook migration (commit `b352a2c`, 2026-03-26). The M18-V01 commit five days earlier, `1d0778c`, dropped them only from a Zod mirror, `workers/lib/types.zod.ts`, which nothing ever imported — the migration is the remediation; the mirror was deleted 2026-09-27
 - ✅ Code already queries fresh values from database (`orgs.ts`)
 - ✅ Added `.passthrough()` for backward compatibility with old tokens
 - ✅ Supabase Custom Access Token Hook updated via migration `20260326000000_update_custom_access_token_hook.sql` — hook now emits only `org_ids`, `default_org_id`, `default_org_role`
@@ -374,6 +374,17 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR33](changelog/1.3/CHANGELOG.md#cr33) | P3 | ✅ **DONE 2026-08-18 — receiver built, stream live** | Auth0 **log streams** — receiver is `POST /v1/auth0-logs` on `api-gateway` (`api.integritystudio.dev`), persisting to Supabase `auth0_logs` (RLS, unique `log_id`, JSONB payload); Auth0 HTTP stream configured and events verified flowing 2026-08-18 00:03Z. Rule that outlives it: **do not point an http stream at the OTLP endpoint** — it rejects every batch |
 | [CR34](changelog/1.3/CHANGELOG.md#cr34) | P2 | ✅ **RESOLVED 2026-08-03 — implicit 2→0, ROPC 3→1** | Strip Auth0 **`implicit` + ROPC** grants (SPA + `AUTH0_MANAGER`). Carved from CR25 items 7–8. Minutes by API, but must verify `sender-worker`'s `password-realm` `/signin` survives; `My App`'s ROPC likely stays until the client gets a refresh flow |
 | [CR35](#cr35) | P3 | 🔴 open — spend | Auth0 **breached-password detection**. Carved from CR25 item 3. Genuinely plan-gated (PATCH 400 "upgrade your subscription"); re-attempt after any plan change |
+| [CR36](#cr36) | P2 | 🔴 open | The **plan-tiered edge rate limiter** is documented as a live pipeline step but was never implemented; the quota DO's per-minute limit is the only ceiling on org routes, and it fails open |
+| [CR37](#cr37) | P1 | 🔴 open | **`/signup` lets the caller choose the plan.** Unauthenticated `tier` → `organizations.current_plan`, which `api-gateway` quota **and** the toolkit receiver's key limit both treat as authoritative. `{"tier":"enterprise"}` = enterprise request quota + unlimited API keys, unpaid |
+| [CR38](#cr38) | P1 | 🔴 open | **`stripe-webhook` never writes `current_plan` in production** — `STRIPE_PRICE_TO_PLAN_JSON` is unbound (measured 2026-09-27), so `priceToPlan` is `{}` and a paid upgrade only flips `billing_status`. Plan changes have been a no-op since go-live |
+| [CR39](#cr39) | P2 | 🔴 open | `/v1/orgs/:id/*` reserves quota and writes a `usage_events` row **before** the membership check; any authenticated identity can burn another org's quota and pollute its ledger with 403s |
+| [CR40](#cr40) | P2 | 🔴 open | `/v1/auth0-logs` is an unauthenticated POST inserting with the service-role key; its "Auth0 cannot send a token" rationale is false — HTTP log streams have an Authorization header. Stream is live (CR33), so exposed today |
+| [CR41](#cr41) | P1 | ✅ **DONE 2026-09-27** | `api-gateway-dev` `[env.dev.vars]` pinned `AUTH0_DOMAIN` to the **production** tenant since 2026-07-30 — invisible to `check:env-isolation`, which reads Doppler, never `vars`. Fixed (`d1cdb45`), guarded (`ff8b923`), deployed. Residual: dev has no `API_KEY_HMAC_SECRET` |
+| [CR42](#cr42) | P3 | 🔴 open | `/v1/ingest/events` runs with **no quota, no rate limit, and unbounded `metadata`** — an authenticated member can insert unlimited self-reported rows of any size; `OTEL_MAX_SPANS` is declared and unused |
+| [CR43](#cr43) | P2 | 🔴 open | `usage_buckets_daily` has **two writers**: the ledger trigger increments, then `rollupDailyBucket` overwrites the same row with a recount capped at 10 000 events — an undercount on any day past the cap, and a same-row race on every ingest |
+| [CR44](#cr44) | P3 | 🔴 open | `workers/lib/supabase.ts` builds PostgREST filters from raw values (an `in` list splits on `,`) and `update`/`deleteRows` accept an **empty filter**, which would PATCH/DELETE the whole table. No caller trips either today; `sender-worker` suspicion refuted |
+| [CR45](#cr45) | P3 | 🔴 open | Quota DO `POST /flush-usage` zeroes the monthly counter and persists nothing; `lib/quota.ts` `flushUsage()` has no callers; the DO header said neither existed. Delete, or decide what a flush means |
+| [CR46](#cr46) | P3 | 🔴 open | Grow **one shared CORS allowlist helper** from `workers/cors-utils.ts` + `getAllowedOrigins`, migrate api-gateway / contact-form / sender-worker to it, then retire the root copies. Never `*`; env-driven; `.`-anchored preview suffix |
 
 ~~**Two items are now blocked on code** — [[CR20]] and [[CR21]]…~~ **Superseded 2026-07-31.** [[CR21]] is done and live, and [[CR20]] is not blocked on code at all — its remaining work is monitoring ([[W04]]), since [[CR21]] foreclosed the 5xx option. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). What still needs a decision rather than an implementation: a credential/provisioning call (CR01, CR11, CR12's cross-repo HMAC secret), or an answer about intent (CR13, CR16).
 
@@ -2139,6 +2150,179 @@ The two mechanisms are disjoint: the routes with a throttle have no quota, and t
 2. A plan-aware edge limit needs `current_plan` **before** the DO call. Today the plan is read from Supabase inside `enforceOrgQuota`, so making it edge-available is the bulk of the work, not the limiter itself.
 
 **Status:** Open. Docs corrected 2026-09-23 so they no longer assert the limiter exists; the implementation gap is what remains.
+
+---
+
+**CR37–CR45** come from the 2026-09-27 review of the workers context pack (`docs/repomix/repomix-workers.xml`, produced by `npm run repomix`). The same review found the pack's own documentation contradicting the code in a dozen places — `SHARED_SECRET` described as still bound, `receiver-worker` as deployable, `flushUsage` as a database sync, HS256 / Supabase-JWT verification, `free`/`new` plan keys, a `wrangler deploy` quick-start that targets production. Those were fixed in the same branch as these entries rather than filed. CR41 was fixed the same day; the rest are open.
+
+### CR37: `/signup` lets the caller choose the plan — an unauthenticated `tier` becomes `organizations.current_plan`, and both quota enforcers treat that column as authoritative
+
+**Priority:** P1 | **Source:** review of the workers context pack, 2026-09-27; confirmed against the toolkit receiver the same day
+**Estimated:** small to close the write; the design question — what an unpaid org's plan is allowed to be — is the real work, and it spans two repos
+
+The chain, all verified in code:
+
+- **Write.** `workers/sender-worker/src/index.ts:97-98` parses `req.tier` with `ApiKeyTierSchema` (default `starter`) on the **unauthenticated** `/signup` route, and `src/supabase.ts:80` inserts the org with `current_plan: tier`. No payment, no session, no check.
+- **Read, gateway.** `workers/api-gateway/src/lib/quota.ts:126` derives `planKey` from `current_plan` alone. `billing_status` is selected in `routes/orgs.ts` and `routes/bootstrap.ts` but gates nothing; `isEntitled` is referenced nowhere under `api-gateway/src`.
+- **Read, receiver.** In observability-toolkit `services/api-provisioning-receiver/src/supabase.ts`, `checkOrgKeyQuota` (~244-257) reads `current_plan` from the database precisely "so a client-supplied tier value cannot be used to bypass the quota" — but `ensureTeamOrg` (~74-75) and `ensurePersonalOrg` (~144-145) insert `current_plan: tier` **from the signed payload** on first provision, with `billing_status: "inactive"`, and `enterprise` maps to `Infinity`, which short-circuits the key count entirely. The comment at ~245-247 acknowledges the gap as "tracked separately". Two tests pin the two halves: `src/supabase.test.ts:85` ("ignores a client-supplied enterprise tier when DB plan is starter") and `src/__tests__/supabase.test.ts:84` ("passes tier as current_plan in the insert body").
+
+**Effect:** `POST /signup {"tier":"enterprise", …}` yields an org with enterprise request quota at `api-gateway` and unlimited API keys at the receiver, `billing_status = inactive`. The only writer that could correct `current_plan` afterwards is `stripe-webhook`, and [CR38](#cr38) makes that path inert in production. The receiver's "authoritative source" is authoritative over a value the caller set.
+
+**Fix shape (both repos):**
+1. Signup and first provision write `current_plan: 'starter'` regardless of the requested tier. The client's `tier` is at most the *requested* plan carried into `/create-checkout-session`; `current_plan` is set only by the Stripe webhook (which needs CR38 first).
+2. Both enforcers gate non-starter plans on an entitled `billing_status` — the plan column alone is not evidence of payment.
+3. Flip the toolkit test at `__tests__/supabase.test.ts:84` (it pins the bug) and add a sender test that `/signup` with `tier: enterprise` produces a `starter` org.
+
+**Status:** Open.
+
+---
+
+### CR38: `stripe-webhook` never writes `current_plan` in production — `STRIPE_PRICE_TO_PLAN_JSON` is not bound
+
+**Priority:** P1 | **Source:** same review; **measured live 2026-09-27** with `wrangler secret list --name stripe-webhook`
+**Estimated:** minutes to bind; an hour to make an empty map loud
+
+`src/index.ts:131` and `:159` call `parsePriceToPlan(env.STRIPE_PRICE_TO_PLAN_JSON)`, which returns `{}` when the variable is unset — only *invalid JSON* warns (`:33`); absence is silent. `handlers/subscription.ts:66` then computes `planKey = priceToPlan[firstItem.price.id]` → `undefined`, and `updateOrgBillingStatus(orgId, billingStatus, undefined, true)` flips `billing_status` and bumps `quota_version` but leaves `current_plan` untouched.
+
+Production `stripe-webhook` binds exactly three secrets — `STRIPE_WEBHOOK_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — and `wrangler.toml` has no `vars` entry for the map. Doppler `prd` holds `STRIPE_PLAN_TO_PRICE_JSON` (plan → price, the **sender's** direction); the webhook's reverse map has never been provisioned anywhere. `wrangler.toml:25-29` documented the other three secrets and omitted this one, which is how it stayed invisible (comment fixed in the same branch as this entry).
+
+**Effect:** a paid upgrade activates billing but the plan stays whatever signup wrote (CR37); a cancellation or downgrade cannot demote an `enterprise` plan. Plan changes have been a no-op since the webhook went live.
+
+**Fix:**
+1. Build the value by inverting `STRIPE_PLAN_TO_PRICE_JSON` (fingerprint it, never print it) and bind it: `wrangler secret put STRIPE_PRICE_TO_PLAN_JSON --name stripe-webhook`; the same for `--env dev` with the sandbox price ids.
+2. Make absence loud: `/health` reports the map's entry count, and an empty map logs at warn on every subscription event — or the Worker refuses to acknowledge subscription events until the map is present. Decide; silent success is the current failure.
+3. Verify with a real `customer.subscription.updated` in the sandbox and read `current_plan` back.
+
+**Status:** Open.
+
+---
+
+### CR39: `/v1/orgs/:id/*` reserves quota and writes a ledger row before checking membership
+
+**Priority:** P2 | **Source:** same review, confirmed in code
+**Estimated:** small
+
+`workers/api-gateway/src/index.ts:205-217`: the dispatcher runs `preVerifyToken` (token authenticity only), then `enforceOrgQuota(orgId, …)` against the org id **from the URL**, then hands off to the route handler — and the handler is where membership is checked (`routes/orgs.ts:141`, `routes/usage.ts:57`). `recordMeteredRequest` (`index.ts` ~222-235) writes the `usage_events` row for the request whatever the handler returned, so a non-member's 403 still lands in the victim org's ledger.
+
+**Effect:** any authenticated identity can burn another org's per-minute and monthly quota and pollute its `usage_events` / `usage_buckets_daily` with a loop of 403s. `index.test.ts` covers only the unauthenticated case (`not.toHaveBeenCalled` at `:158` / `:180`); there is no non-member test, which is why the gap was invisible.
+
+**Fix:** resolve membership once in the dispatcher — between `preVerifyToken` and `enforceOrgQuota` — and pass the resolved role down to the handlers (removing their per-handler lookups), so a non-member 403s before any quota or ledger effect. Add the test: non-member call → 403, with `enforceOrgQuota` and `recordMeteredRequest` `not.toHaveBeenCalled()`.
+
+**Status:** Open.
+
+---
+
+### CR40: `/v1/auth0-logs` is an unauthenticated public POST that inserts with the service-role key — and its safety rationale is false
+
+**Priority:** P2 | **Source:** same review
+**Estimated:** small — a shared token header, checked constant-time
+
+`routes/auth0-logs.ts:15-19` justified having no authentication with two claims: "Auth0 cannot send a Bearer token" and "the service_role account is write-only". Neither holds. Auth0 custom-webhook log streams have an **Authorization Token** field that is sent as the `Authorization` header on every delivery, and `service_role` bypasses RLS entirely (CLAUDE.md § Supabase). `index.ts:291` dispatches the route with no token, secret, origin, or rate check. The only constraint on inserts is the UNIQUE `log_id`; `details` is attacker-chosen JSONB of any size. The stream has been live since 2026-08-18 ([CR33](#cr33)), so this is exposed today.
+
+**Fix:** mint `AUTH0_LOG_STREAM_TOKEN`, set it on the stream in the Auth0 Dashboard, bind it to `api-gateway` (and `--env dev` with a dev value), and require it on the route with a constant-time compare, 401 otherwise. Keep the "return 200 even when the insert fails" behaviour for Auth0's retry semantics — but only *after* the token check. The comment was rewritten in the same branch as this entry to state the real exposure and point here.
+
+**Status:** Open.
+
+---
+
+### ~~CR41: `api-gateway-dev` verified JWTs against the production Auth0 tenant~~ ✅ *fixed, guarded, deployed 2026-09-27*
+
+**Priority:** P1 | **Source:** same review, confirmed in `wrangler.toml` and Doppler
+**Estimated:** done
+
+Commit `407db84` (2026-07-30) added `[env.dev.vars]` to `workers/api-gateway/wrangler.toml` by copying `[vars]` verbatim, so `api-gateway-dev` carried `AUTH0_DOMAIN = dev-68gg87ow4mg4kzyo…` — the **production** tenant — while Doppler `dev` and `sender-worker-dev` use `dev-njjmghdzm23uy0p7`. Dev-tenant tokens 401'd at the dev gateway and production tokens were accepted by it. `npm run check:env-isolation` reads Doppler and never sees wrangler `vars`, so the split sat outside everything that measured isolation.
+
+**Done:**
+- `d1cdb45` — `[env.dev.vars].AUTH0_DOMAIN` set to the dev tenant, with the history in a comment. `AUTH0_AUDIENCE` is deliberately identical to production: the dev tenant registers its own API, "Integrity Studio API (dev)", under `https://api.integritystudio.dev` (verified via the Management API).
+- `ff8b923` — `workers/lib/deploy-environments.test.ts` asserts the dev and production `AUTH0_DOMAIN` differ; mutation-verified (restoring the old value fails exactly that test).
+- Deployed to `api-gateway-dev` (version `a6539a00-b2c1-4590-8d9c-fe15cfbaa311`); `/health` 200 on two samples, database and DOs healthy. Wrangler warned that an existing remote **secret** named `AUTH0_DOMAIN` was replaced by the var — the dev Worker had carried both.
+
+**Residual (open):** `api-gateway-dev` binds only `STRIPE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`. `API_KEY_HMAC_SECRET` is unbound there, so API-key auth cannot pass on dev; bind a dev-only value.
+
+**Status:** ✅ Done except the residual.
+
+---
+
+### CR42: `/v1/ingest/events` has no quota, no rate limit, and an unbounded `metadata` payload
+
+**Priority:** P3 | **Source:** same review, confirmed in code
+**Estimated:** small
+
+`src/index.ts:172-178` dispatches `/v1/ingest/events` to `handleIngestEvent` with `machineRouteOpts` only — no DO namespace, no rate-limit KV. `routes/ingest.ts:82-136` runs `resolveAuth` → `IngestEventRequestSchema.safeParse` → `assertOrgAccess` → `sb.insert('usage_events', …)` → `rollupDailyBucket` via `waitUntil`. `enforceOrgQuota` is called only by the sibling `handleIngestOtel` (`ingest.ts:183`). Auth is real — an Auth0 JWT with membership (`ingest.ts:65-79`) or an API key whose org must match (`:60-62`) — but that is all. `metadata: z.record(z.string(), z.unknown()).optional()` at `workers/lib/types/usage.ts:58` has no size bound and `quantity` is any positive integer. `OTEL_MAX_SPANS` (`ingest.ts:142`) is declared and referenced nowhere; the actual bound lives in the schema (`usage.ts:152`, `.max(1_000)`).
+
+**Effect:** an authenticated member can insert unlimited self-reported `usage_events` rows of arbitrary size into their own org, inflating storage and whatever `/usage/summary` reports. Abuse of one's own tenant rather than another's, hence P3.
+
+**Fix:** route it through `enforceOrgQuota` exactly as `/v1/ingest/otel` is; cap `metadata` (serialised byte length and key count) and `quantity` in the schema; delete the dead `OTEL_MAX_SPANS`.
+
+**Status:** Open.
+
+---
+
+### CR43: `usage_buckets_daily` has two writers — the ledger trigger increments, then `rollupDailyBucket` overwrites with a capped recount
+
+**Priority:** P2 | **Source:** same review, confirmed against the migration
+**Estimated:** small to delete the second writer; the decision is which one stays
+
+`supabase/migrations/20260320020001_phase2_setup_ledger_triggers.sql:33` installs `trigger_upsert_daily_usage_bucket` AFTER INSERT on `usage_events`; its function (`:7-30`) **increments** `total_quantity` / `request_count` and recomputes `avg_latency_ms` on conflict. `workers/lib/usage-ledger.ts:7-9` documents this trigger as what maintains the table. Yet `workers/api-gateway/src/aggregation.ts:35-108` `rollupDailyBucket` re-reads the day's events capped at `MAX_EVENTS_PER_ROLLUP = 10_000` (`:6`, `:51`) and **upserts absolute totals** over the same `(organization_id, bucket_date, metric_key)` row, and it is called on every ingest (`routes/ingest.ts:132` and `:217`, via `waitUntil`). Hitting the cap is warned (`aggregation.ts:60`), not prevented.
+
+**Effect:** under 10 000 events a day the two writers agree by coincidence. Past it, the rollup overwrites the trigger's correct total with the capped undercount — the busiest days are the ones reported wrong. Within a single request the trigger's increment and the rollup's upsert race on the same row.
+
+**Fix:** one writer. The trigger is transactional and unbounded, so delete `rollupDailyBucket`, its two call sites, and its tests. If a reconciliation pass is wanted, make it nightly, paginated, and assertive (compare and alert) rather than an overwriting upsert. Add a test that no Worker code path writes `usage_buckets_daily` directly.
+
+**Status:** Open.
+
+---
+
+### CR44: `workers/lib/supabase.ts` builds filters from raw values and lets `update` / `deleteRows` run unfiltered
+
+**Priority:** P3 | **Source:** same review; **narrowed on verification 2026-09-27**
+**Estimated:** small
+
+`serializeFilters` (`workers/lib/supabase.ts:29-44`) builds `${operator}.${value}` with string values raw and arrays as `(${value.join(',')})`, then appends through `URLSearchParams.append`. That encoding is what saves the common case: `&` and `=` are escaped and the operator is fixed by the caller, so for `eq` the remainder is a literal and there is **no operator injection**. The real exposure is `in`: a member containing `,` or `"` splits or truncates the list. Its only two callers (`api-gateway/src/routes/orgs.ts:100`, `routes/bootstrap.ts:55`) pass database-sourced ids.
+
+`update` (`:145-176`) and `deleteRows` (`:251-272`) call `serializeFilters` and nothing rejects an empty array — `filters: []` would PATCH or DELETE every row in the table. All ten call sites today (nine in `stripe-webhook/src/supabase.ts`, one at `api-gateway/src/routes/api-keys.ts:177`) pass at least one filter, so this is a footgun, not a live bug.
+
+User-controlled values that reach a filter today, all through `eq`: `orgId` from the URL path (`api-gateway/src/index.ts`, `orgMatch[1]`), `plan` from the checkout request body (`orgs.ts:326` → `:353`, trimmed but **not enum-checked** before the query), and `auth.sub` from a verified JWT. The suspected `sender-worker` path is **refuted**: `supabaseFindOrgIdByEmail` (`sender-worker/src/supabase.ts:264-283`) builds its own fetch with `encodeURIComponent(email)` and never touches this client.
+
+**Fix:** throw on an empty filter array in `update` and `deleteRows`; quote `in` list members per PostgREST's rules (double-quote wrapping, inner quotes escaped); validate `plan` with `ApiKeyTierSchema` before `orgs.ts:353`. One test for each.
+
+**Status:** Open.
+
+---
+
+### CR45: the quota DO's `/flush-usage` route resets the monthly counter and persists nothing, and nothing calls it
+
+**Priority:** P3 | **Source:** same review
+**Estimated:** small — delete, or decide what a flush should mean
+
+`workers/api-gateway/src/durable-objects/quota.ts:12-15` said "There is no flushUsage() method and nothing here writes to Supabase". The first half was false as written: `:102-103` routes `POST /flush-usage` to `handleFlushUsage` (`:276`), which zeroes `monthlyUsed`, saves the DO state, and returns the pre-reset count — no Supabase write, no ledger entry. `src/lib/quota.ts:63` exports a `flushUsage()` client for it with **zero non-test callers**. `workers/docs/QUOTA_DURABLE_OBJECTS.md` documented it as "syncs to database". Header and doc were corrected in the same branch as this entry.
+
+**Why it matters:** the route is reachable from any `api-gateway` code holding the `QUOTA_DO` binding, and calling it forgives an org's whole month of usage while the ledger (`usage-ledger.ts`, UA01) keeps the truth — the two would silently disagree. Dead code with that shape should not wait for someone to "wire it up".
+
+**Fix:** delete `handleFlushUsage`, the `/flush-usage` route, the `flushUsage()` client, and their tests; then the DO header's claim becomes true. If a monthly reset is wanted, it belongs to a period rollover keyed on the ledger, not a callable reset.
+
+**Status:** Open.
+
+---
+
+### CR46: grow one shared CORS allowlist helper from `workers/cors-utils.ts`, then retire the per-worker copies
+
+**Priority:** P3 | **Source:** 2026-09-27 investigation of `workers/lib/http/cors.ts` (never adopted; deleted the same day)
+**Estimated:** small–medium — three call sites, each with one quirk worth keeping
+
+Three live CORS implementations, all allowlist-based, none shared:
+
+- `workers/api-gateway/src/index.ts:93` `corsHeaders(origin, env)` — reads `getAllowedOrigins(env)` from root `workers/http-helpers.ts`, emits the *first allowed* origin for a non-matching caller (never reflects), adds `Vary: Origin`, and is applied once at the outer boundary so no route can ship without it.
+- `workers/contact-form` → root `workers/cors-utils.ts` (`buildCorsHeaders`, `isOriginAllowed`, `isOriginAllowedWithEnv`), also reading `getAllowedOrigins(env)`; credentials only for allowed origins.
+- `workers/sender-worker/src/index.ts:50-70` — its own gate: hard-coded `integritystudio.ai` origins plus a `PAGES_PREVIEW_HOST_SUFFIX` rule for Cloudflare Pages previews (anchored on a `.` boundary so `…pages.dev.attacker.com` fails; https only), overridable by `ALLOWED_ORIGINS_JSON`.
+
+A fourth, `workers/lib/http/cors.ts`, defaulted to `Access-Control-Allow-Origin: *`, was re-exported from the `lib/http` barrel, and was never imported by a worker in its six months of life. It was deleted rather than kept as the seed: a wildcard default is the wrong starting point for a helper whose whole job is to deny.
+
+**Goal:** one helper under `workers/lib/http/` grown from `cors-utils.ts` and `http-helpers.ts`'s `getAllowedOrigins`. It takes the env allowlist and an optional anchored preview-suffix rule, returns headers for an allowed origin and a deny signal otherwise, never `*`, always `Vary: Origin`. Migrate the three workers to it, keeping each worker's existing allow/deny tests as the acceptance suite; then delete root `cors-utils.ts` and `http-helpers.ts` (the root-level trio confuses readers of the context pack — `constants.ts` is separate and stays until its consumers move).
+
+**Rules that must survive the consolidation:** no wildcard default anywhere; the allowlist stays env-driven so dev and production origin sets differ (CR02 / CR11); suffix matching anchors on a `.` boundary; api-gateway keeps CORS at the single outer boundary (the pre-CR26 outage was a Worker with no CORS at all).
+
+**Status:** Open.
 
 ---
 

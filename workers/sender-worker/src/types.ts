@@ -201,10 +201,11 @@ export const AUTH_RATE_LIMIT_WINDOW_SECONDS = 600;
 
 export interface Env {
   /**
-   * No longer read anywhere — SIGNING_KEYS + ACTIVE_KEY_ID are the only outbound credential
-   * (CR29 step 2). Still bound in production and still declared, so the tests can prove that
-   * signing does not fall back to it while it is present. Optional because step 3 unbinds it,
-   * which must be a `wrangler secret delete` and not a code change.
+   * Retired — SIGNING_KEYS + ACTIVE_KEY_ID are the only outbound credential (CR29, closed
+   * 2026-08-03). Unbound from production and deleted from Doppler; nothing reads it. Still
+   * declared, and still set in the test fixtures with a value different from the active key,
+   * so the tests prove that signing does not fall back to it while it is present. Do not
+   * remove the declaration or the fixture value — that turns "unreachable" into "absent".
    */
   SHARED_SECRET?: string;
   /** JSON-encoded Record<string, string> mapping keyId → secret. Required to sign anything. */

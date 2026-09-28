@@ -73,7 +73,9 @@ export const StripeEventSchema = z.object({
   }),
 });
 
-// JWT & Authentication
+// JWT & Authentication.
+// Shape reference only: `auth.ts` verifies Auth0 tokens with its own `JwtPayload`
+// interface and does not parse with this schema. Its only consumer is schemas.test.ts.
 export const JwtPayloadSchema = z.object({
   sub: z.string(),
   email: z.string().email(),

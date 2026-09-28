@@ -8,9 +8,11 @@ Quota management via Cloudflare Durable Objects provides **globally unique, stat
 - Caching org quota/plan state
 - Serializing quota checks (avoid race conditions)
 - Tracking current-minute counters (for burst limits)
-- Tracking monthly usage deltas before flush
+- Tracking the monthly counter in DO storage (reset on calendar-month rollover)
 - Rejecting over-limit requests
-- Exposing `checkAndReserve()` and `flushUsage()` methods
+- Exposing `checkAndReserve()` and `/status`
+
+The DO also answers `POST /flush-usage`, and `lib/quota.ts` exports a matching `flushUsage()` client, but **nothing calls either** and the route writes nothing to Supabase. It is dead code; delete-or-wire is tracked as BACKLOG.md CR45. The durable usage record is written elsewhere — see [Integration Points](#integration-points).
 
 ---
 
@@ -19,28 +21,29 @@ Quota management via Cloudflare Durable Objects provides **globally unique, stat
 ### Request Flow
 
 ```
-API Request
+API Request  /v1/orgs/:id/*
   ↓
-API Gateway (api-gateway worker)
+API Gateway (api-gateway worker, src/index.ts)
   ↓
-Rate Limit Check (Cloudflare binding) ← permissive, for burst control
+preVerifyToken()  ← 401 here touches no quota
   ↓
-Load org quota/entitlements from Supabase
+enforceOrgQuota(orgId)  (src/lib/quota.ts)
+  ├→ Load current_plan + quota_version from Supabase
+  ├→ Call Durable Object: checkAndReserve()
+  │    ├→ Serialize quota check
+  │    ├→ Verify minute and monthly limits
+  │    ├→ Reserve units if allowed
+  │    └→ Return QuotaCheckResponse
+  └→ 429 if denied (with X-RateLimit-Remaining-* headers), else continue
   ↓
-Call Durable Object: checkAndReserve()
-  ├→ Serialize quota check
-  ├→ Verify minute and monthly limits
-  ├→ Reserve units if allowed
-  └→ Return QuotaCheckResponse
+Route handler (membership check happens here)
   ↓
-[Reject if denied, or continue]
-  ↓
-Proxy request to upstream handler
-  ↓
-Emit usage_events asynchronously
-  ↓
-[Periodically flush usage to database]
+recordMeteredRequest() via ctx.waitUntil  (src/lib/usage-ledger.ts, UA01)
+  → one usage_events row per reserved unit
+  → trigger_upsert_daily_usage_bucket rolls it into usage_buckets_daily
 ```
+
+`POST /v1/ingest/otel` calls `enforceOrgQuota` the same way from `routes/ingest.ts`.
 
 ### Quota Plan Limits
 
@@ -48,7 +51,8 @@ Default plan quotas are stored in the Durable Object state:
 
 ```typescript
 const DEFAULT_QUOTAS: Record<string, { requestsPerMinute: number; monthlyLimit: number | null }> = {
-  free: {
+  // 'starter' is the canonical plan key in DB (current_plan column).
+  starter: {
     requestsPerMinute: 60,
     monthlyLimit: 10000,
   },
@@ -61,12 +65,13 @@ const DEFAULT_QUOTAS: Record<string, { requestsPerMinute: number; monthlyLimit: 
     monthlyLimit: null, // unlimited
   },
 };
+DEFAULT_QUOTAS.free = DEFAULT_QUOTAS.starter; // legacy alias for rows still holding 'free'
 ```
 
-When a quota `quotaVersion` changes (org subscription updated), the Durable Object:
-1. Detects version bump
+When `quotaVersion` changes (org subscription updated), the Durable Object:
+1. Detects the version bump on the next `checkAndReserve()`
 2. Reloads plan limits from `DEFAULT_QUOTAS`
-3. Resets current-minute and monthly counters
+3. **Preserves `monthlyUsed`** — resetting it would let an org evade its monthly limit by triggering a bump mid-month
 
 ---
 
@@ -81,8 +86,8 @@ interface QuotaCheckRequest {
   metricKey: string; // e.g. "requests", "otel_events", "agent_runs"
   units: number; // e.g. 1, 50, 1000
   requestId: string; // for idempotency/tracing
-  planKey: string; // "free" | "growth" | "enterprise"
-  quotaVersion: number; // increments on Stripe webhook
+  planKey: string; // "starter" | "growth" | "enterprise" ("free" accepted as an alias of starter)
+  quotaVersion: number; // set to Date.now() by the Stripe webhook on plan changes
 }
 ```
 
@@ -105,17 +110,16 @@ interface QuotaCheckResponse {
 }
 ```
 
-### flushUsage
-
-Clears the monthly usage counter and returns total units used since last flush.
+### flush-usage (dead — CR45)
 
 **Request:** POST `/flush-usage`
 
-**Response:**
+The route exists in the DO (`handleFlushUsage`) and `lib/quota.ts` exports `flushUsage()` for it, but no gateway code calls either — only `quota.test.ts` does. When invoked it zeroes the in-memory `monthlyUsed`, persists the DO state, and returns the shape below. It does **not** sync anything to Supabase; the phrase "syncs to database" in earlier versions of this document described a job that was never built. Whether to delete the route or wire it is BACKLOG.md CR45; until then, treat calling it as a way to reset an org's monthly counter, nothing more.
+
 ```typescript
 interface QuotaFlushResult {
   orgId: string;
-  monthlyUsedSinceLastFlush: number; // total units since last flush
+  monthlyUsedSinceLastFlush: number; // in-memory counter value at the time of the call
   flushedAt: string; // ISO 8601 timestamp
 }
 ```
@@ -144,112 +148,23 @@ Returns current quota state for debugging and monitoring.
 
 ## Integration Points
 
-### 1. API Gateway Routes
+### 1. API Gateway Routes — done
 
-Routes that need quota checks should:
-1. Load org context (plan, quotaVersion, entitlements)
-2. Call `checkAndReserve()` before proxying upstream
-3. Track `requestId` for tracing
-4. Emit `usage_events` after response
+`enforceOrgQuota(orgId, opts)` in `src/lib/quota.ts` is the integration. It loads `current_plan` and `quota_version` for the org, calls `checkAndReserve` with `metricKey: 'requests', units: 1`, and returns either `{ ok: true, rateLimitHeaders }` or `{ ok: false, response }` where `response` is a 429 carrying `X-RateLimit-Remaining-Minute` / `X-RateLimit-Remaining-Monthly`. If the DO is unreachable it **fails open** (request allowed, no headers).
 
-Example (to be implemented in `routes/usage.ts`):
+Call sites:
+- `src/index.ts` — every `/v1/orgs/:id/*` request, after `preVerifyToken` and before the route handler
+- `src/routes/ingest.ts` — `POST /v1/ingest/otel`, after API-key resolution
 
-```typescript
-import { checkAndReserve } from '../lib/quota';
+The unit the DO reserves is written durably by `recordMeteredRequest` (`src/lib/usage-ledger.ts`) into `usage_events`, same metric key, same one unit, off the response path via `ctx.waitUntil`. That is what `/v1/orgs/:id/usage/summary` reports.
 
-export async function handleIngestRequest(
-  request: Request,
-  orgId: string,
-  opts: RouteOptions,
-): Promise<Response> {
-  const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
+### 2. Stripe Webhook Handler — done
 
-  // 1. Verify auth
-  const auth = await resolveAuth(request, opts, sb);
-  if (!auth.ok) return auth.error;
+`updateOrgBillingStatus(orgId, billingStatus, planKey, bumpQuotaVersion)` in `workers/stripe-webhook/src/supabase.ts` sets `quota_version = Date.now()` when `bumpQuotaVersion` is true. The subscription handlers pass `true` so the DO reloads plan limits on the next request. `quota_version` is a `bigint` column, so the millisecond timestamp fits.
 
-  // 2. Load org plan/entitlements
-  const org = await sb.query('organizations', {
-    filters: [{ column: 'id', operator: 'eq', value: orgId }],
-    limit: 1,
-  });
-  const quotaVersion = org.data[0].quota_version;
+### 3. Usage Flush Job — not built, and superseded
 
-  // 3. Check quota
-  const quotaResult = await checkAndReserve(opts.env.QUOTA_DO, {
-    orgId,
-    metricKey: 'api_requests',
-    units: 1,
-    requestId: crypto.randomUUID(),
-    planKey: org.data[0].current_plan,
-    quotaVersion,
-  });
-
-  if (!quotaResult.allowed) {
-    return new Response(
-      JSON.stringify({
-        error: 'Quota exceeded',
-        reason: quotaResult.reason,
-        remaining: quotaResult.remainingMinute,
-      }),
-      { status: 429, headers: { 'Content-Type': 'application/json' } },
-    );
-  }
-
-  // 4. Proxy to upstream, emit usage events async
-  // ...
-}
-```
-
-### 2. Stripe Webhook Handler
-
-When a subscription update arrives, bump the quota version:
-
-```typescript
-// In stripe-webhook/src/handlers/subscription.ts
-export async function handleSubscriptionUpdated(
-  event: StripeEvent,
-  orgId: string,
-  sb: SupabaseClient,
-): Promise<void> {
-  // ... update subscriptions, entitlements ...
-
-  // Bump quota version to trigger Durable Object state reset
-  await sb.update('organizations', {
-    quota_version: orgId, // incrementing this forces DO reload
-  });
-}
-```
-
-### 3. Usage Flush Job
-
-Periodically call `/flush-usage` to reset monthly counters and sync to database:
-
-```typescript
-// POST /internal/usage/flush (internal endpoint)
-export async function handleFlushUsage(req: Request, env: Env): Promise<Response> {
-  // Get list of all active orgs
-  const orgs = await getActiveOrganizations(sb);
-
-  for (const org of orgs) {
-    try {
-      const flushResult = await flushUsage(env.QUOTA_DO, org.id);
-
-      // Record flush event in billing_event_log or audit_log
-      await sb.insert('usage_flush_log', {
-        organization_id: org.id,
-        units_flushed: flushResult.monthlyUsedSinceLastFlush,
-        flushed_at: flushResult.flushedAt,
-      });
-    } catch (err) {
-      // Log error, continue to next org
-      console.error(`Flush failed for org ${org.id}:`, err);
-    }
-  }
-
-  return ok({ flushed_orgs: orgs.length });
-}
-```
+No job calls `/flush-usage`, and none is planned in this form: the usage ledger (UA01, above) writes the durable record per request, so there is no batch to hand off. The dead route and client are CR45.
 
 ---
 
@@ -266,26 +181,24 @@ export async function handleFlushUsage(req: Request, env: Env): Promise<Response
 
 **Why this approach:**
 - Prevents request storms (e.g., 600 rpm = max 10 req/sec for growth)
-- Cloudflare RL binding is permissive → DO is exact
 - Serialized by single-threaded DO → no race conditions
 
 ### Monthly Soft Limit
 
 1. Track cumulative `monthlyUsed` across all requests
 2. Reject if `monthlyUsed + units > monthlyLimit`
-3. On `flushUsage()`, reset `monthlyUsed = 0`
+3. Reset `monthlyUsed = 0` when the calendar month rolls over (`lastMonthlyResetAt`)
 
-**Why separate flush:**
-- Monthly buckets are computed in database, not DO
-- DO provides the quota enforcement layer
-- Flush allows graceful handoff to async billing pipeline
+**Why the database, not the DO, is the billing record:**
+- Monthly buckets are computed in the database (`usage_events` → `usage_buckets_daily` trigger), not in the DO
+- The DO is the enforcement layer; losing a few seconds of its state affects enforcement precision, not billing
 
 ### Quota Version Bumps
 
-When Stripe webhook updates org subscription:
-1. `quotaVersion++` in database
-2. Next `checkAndReserve()` call detects version change
-3. DO reloads plan limits and resets counters
+When the Stripe webhook updates an org's subscription:
+1. `quota_version = Date.now()` in the database
+2. Next `checkAndReserve()` call detects the version change
+3. DO reloads plan limits; `monthlyUsed` is preserved
 4. No cache invalidation needed — version comparison handles it
 
 ---
@@ -304,7 +217,7 @@ Coverage includes:
 - Monthly limit enforcement
 - Quota version upgrades
 - Minute window expiration
-- Usage flushing
+- `/flush-usage` (the dead route still has tests)
 - Status reporting
 - Error handling
 
@@ -328,14 +241,12 @@ Each Durable Object logs state changes to Cloudflare Logpush:
 - Quota check attempts
 - Over-limit rejections
 - Version bumps
-- Flush events
 
 ### Alerting
 
 Set up alerts for:
 - High rejection rate (many 429s) → capacity planning
 - Version bump storms → potential billing issue
-- Flush failures → check database connectivity
 
 ---
 
@@ -344,9 +255,9 @@ Set up alerts for:
 1. ✅ Durable Object implementation
 2. ✅ Quota service client
 3. ✅ Types and schemas
-4. ⏳ **Integrate into API gateway routes** (handle rate-limited requests)
-5. ⏳ **Stripe webhook quota version bump**
-6. ⏳ **Usage flush job** (daily or hourly)
+4. ✅ **Integrate into API gateway routes** — `enforceOrgQuota` in `src/index.ts` and `routes/ingest.ts`
+5. ✅ **Stripe webhook quota version bump** — `updateOrgBillingStatus(…, true)` sets `quota_version = Date.now()`
+6. ❌ **Usage flush job** — superseded by the per-request usage ledger (UA01); removing the dead `/flush-usage` route is CR45
 7. ⏳ **Dashboard** (show usage vs quota to users)
 8. ⏳ **Monitoring** (Grafana dashboard for quota metrics)
 
@@ -358,17 +269,16 @@ Set up alerts for:
 
 ### Strategy: Hybrid lazy persistence (accepted)
 
-Quota state is persisted every **10 seconds** (`lastSavedAt` check). On DO eviction or crash between saves, up to 10 seconds of quota usage is silently dropped — counters revert to their last saved values.
+Quota state is persisted at least every **10 seconds** under load (`lastSavedAt` check on the reserve path), and a storage alarm armed on each write persists it ≤10 s after the last request during sparse traffic. On DO eviction or crash between saves, up to 10 seconds of quota usage is silently dropped — counters revert to their last saved values.
 
 **Risk appetite decision:** Acceptable for current plan tiers. Rationale:
 - Quota enforcement is a soft limit (protect against abuse, not billing precision)
-- Monthly usage is also tracked in `usage_events` table (separate audit trail)
-- `flushUsage()` syncs totals to database; short-term DO loss does not affect billing
+- The billing record is the `usage_events` ledger written per request (UA01); short-term DO loss does not affect it
 - Strict synchronous saves (on every reserve) would add ~5ms storage latency per request
 
 **Consistency SLA:**
 - Minute burst counter: eventually consistent within 10s window
-- Monthly usage counter: eventually consistent within 10s; exact totals recovered from `usage_events` flush
+- Monthly usage counter: eventually consistent within 10s; exact totals live in `usage_events` / `usage_buckets_daily`
 - Idempotency deduplication window: 5 minutes (exact; stored and persisted at same cadence)
 
 **Acceptable loss window:** ≤10 seconds of quota usage on DO eviction. Low-traffic orgs are evicted after ~15 min idle; high-traffic orgs persist indefinitely.
@@ -376,7 +286,7 @@ Quota state is persisted every **10 seconds** (`lastSavedAt` check). On DO evict
 **Cold-start safety:** `constructor` calls `state.blockConcurrencyWhile` to load storage before any `fetch()` is dispatched. Prevents two concurrent cold-start requests both seeing `quota=null` and discarding persisted state.
 
 **If higher durability is required in future:**
-- Change `10_000` to `0` in `quota.ts:217` for synchronous per-request saves (~5ms latency cost)
+- Change the `10_000` in `durable-objects/quota.ts` — both the eager-save check and the alarm delay in `handleCheckAndReserve` — to `0` for synchronous per-request saves (~5ms latency cost)
 - Or implement a hybrid: save synchronously only when `monthlyUsed` crosses a billing threshold
 - Add Cloudflare DO metrics dashboard to track eviction rate and loss frequency
 
@@ -386,4 +296,4 @@ Quota state is persisted every **10 seconds** (`lastSavedAt` check). On DO evict
 
 - [Cloudflare Durable Objects Docs](https://developers.cloudflare.com/durable-objects/)
 - [Rate Limiting Design (Requests per Second)](https://en.wikipedia.org/wiki/Token_bucket)
-- [Payments Implementation Plan](../roadmap/payments-implementation.md)
+- [Payments Implementation Plan](../../docs/research/payments-implementation.md)

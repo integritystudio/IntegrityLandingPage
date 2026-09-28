@@ -206,9 +206,6 @@ async function verifySignature(
   // type would otherwise reach `fetch(undefined)` and depend on that failing to
   // reject the token — fail-closed by accident rather than by construction.
   if (typeof key !== 'object' || key === null || !key.jwksUrl) return false;
-  // Defence in depth. The type guarantees `jwksUrl`, but a miscast or a widened
-  // type would otherwise reach `fetch(undefined)` and depend on that failing to
-  // reject the token — fail-closed by accident rather than by construction.
 
   const asymmetricAlg = alg as AsymmetricAlg;
   const signingKey = await resolveSigningKey(key.jwksUrl, header.kid, asymmetricAlg);
@@ -269,7 +266,8 @@ export function parseJwtPayload(token: string): { ok: true; payload: JwtPayload;
 export interface VerifyJwtOptions {
   /** Expected value of the `iss` (issuer) claim. When provided, tokens from
    *  any other issuer are rejected — prevents forgery via attacker-controlled JWTs.
-   *  Set to your Supabase project auth URL, e.g. https://<ref>.supabase.co/auth/v1 */
+   *  Set to the Auth0 tenant's issuer via {@link auth0IssuerFor}, e.g.
+   *  https://<tenant>.us.auth0.com/ — with the trailing slash Auth0 always emits. */
   issuerUrl?: string;
   /** Expected value of the `aud` (audience) claim (RFC 7519 §4.1.3).
    *  When provided, tokens missing this audience or containing a different one

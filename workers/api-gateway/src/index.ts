@@ -18,10 +18,14 @@ export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   /**
-   * HMAC key that API-key hashes are verified against. Optional because production has
-   * never had it bound: the canonical value belongs to `api-provisioning-receiver`, which
-   * mints the keys, and inventing one here would fail to verify every key already issued
-   * (BACKLOG.md CR12). While unset, API-key auth answers 503 and JWT routes are unaffected.
+   * HMAC key that API-key hashes are verified against. Generated in this repo and bound to
+   * production 2026-08-06 (BACKLOG.md CR12; verified with a real key — positive control 200,
+   * wrong-secret 401). The receiver hashes minted keys with plain SHA-256, so this HMAC layer
+   * is entirely this Worker's own; the earlier belief that a canonical value had to come from
+   * `api-provisioning-receiver` was wrong. Still optional because the binding can be absent —
+   * it is on `api-gateway-dev`, which binds only STRIPE_SECRET_KEY, SUPABASE_SERVICE_ROLE_KEY
+   * and SUPABASE_URL (2026-09-27) — and while unset, API-key auth answers 503 and JWT routes
+   * are unaffected.
    */
   API_KEY_HMAC_SECRET?: string;
   QUOTA_DO: DurableObjectNamespace;
@@ -202,6 +206,13 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
     // Verify the bearer token is authentic before consuming any quota.
     // An invalid or missing token returns 401 without touching the quota DO,
     // preventing unauthenticated callers from exhausting an org's quota.
+    //
+    // Authentic is not authorised: membership in `orgId` is checked later, inside
+    // each handler (orgs.ts, usage.ts, api-keys.ts). So the quota reservation and
+    // the ledger row below are made for ANY valid identity, member or not — a
+    // signed-in non-member can burn another org's minute and monthly quota and
+    // leave 403-status `usage_events` rows against it. BACKLOG.md CR39; the
+    // membership check belongs before `enforceOrgQuota`.
     const preAuth = await preVerifyToken(request, {
       ...routeOpts,
       hmacSecret: env.API_KEY_HMAC_SECRET,

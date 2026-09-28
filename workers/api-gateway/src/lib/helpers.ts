@@ -76,11 +76,12 @@ interface PreVerifyTokenOptions extends UserTokenOptions {
 /**
  * Resolve the HMAC key that API-key hashes are verified against.
  *
- * `API_KEY_HMAC_SECRET` has never been bound in production (BACKLOG.md CR12): the canonical
- * value belongs to `api-provisioning-receiver`, which mints the keys. Absence is therefore a
- * server-configuration fault, not a credential failure — hence 503 rather than 401, which
- * would tell the caller their key is bad when the server simply cannot check it. Callers must
- * invoke this only once a token is known to be key-shaped, so JWT auth stays unaffected.
+ * `API_KEY_HMAC_SECRET` has been bound in production since 2026-08-06 (BACKLOG.md CR12) but
+ * is still absent on `api-gateway-dev` (2026-09-27), and nothing stops a fresh deploy from
+ * omitting it. Absence is a server-configuration fault, not a credential failure — hence 503
+ * rather than 401, which would tell the caller their key is bad when the server simply cannot
+ * check it. Callers must invoke this only once a token is known to be key-shaped, so JWT auth
+ * stays unaffected.
  */
 export function requireHmacSecret(
   hmacSecret: string | undefined,

@@ -279,6 +279,27 @@ describe('worker deploy environments (CR02)', () => {
     }
   });
 
+  it('api-gateway: [env.dev] verifies tokens against a tenant other than production', () => {
+    // `vars` is non-inheritable, so [env.dev] has to repeat the block — and the
+    // easy way to repeat it is to copy it verbatim, which is what 407db84 did on
+    // 2026-07-30. Until 2026-09-27 api-gateway-dev therefore pinned AUTH0_DOMAIN to
+    // the production tenant and verified JWTs against production JWKS: tokens that
+    // sender-worker-dev minted from the dev tenant 401'd, and production tokens
+    // were accepted. `check:env-isolation` reads Doppler and never sees `vars`, so
+    // this file is the only place the split can be enforced. The rule is
+    // inequality rather than a pinned dev value, so it needs no account access.
+    const config = loadConfig('api-gateway');
+    const prodVars = config.vars as Record<string, string>;
+    const devVars = config.env!.dev.vars as Record<string, string>;
+
+    expect(prodVars.AUTH0_DOMAIN).toBeTruthy();
+    expect(devVars.AUTH0_DOMAIN).toBeTruthy();
+    expect(
+      devVars.AUTH0_DOMAIN,
+      'api-gateway-dev verifies JWTs against the production Auth0 tenant',
+    ).not.toBe(prodVars.AUTH0_DOMAIN);
+  });
+
   // Observability (BACKLOG.md CR15 / W04). The parent `enabled` is required:
   // wrangler deploys `observability.enabled: false` when only the child tables
   // are set, so a config that *looks* instrumented emits nothing. Production

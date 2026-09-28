@@ -28,6 +28,14 @@ preview_urls = false
 # Supabase credentials (set via environment variables or wrangler secrets)
 # SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured
 
+# Price → plan map (set via: wrangler secret put STRIPE_PRICE_TO_PLAN_JSON)
+# JSON object of Stripe price id → plan key, e.g. {"price_123":"growth"}. Read by
+# src/index.ts on every webhook and every cron tick. With it unset the map is {}
+# and handlers/subscription.ts never writes `current_plan`, so a paid upgrade
+# changes `billing_status` only. NOT BOUND on production as of 2026-09-27 —
+# `wrangler secret list --name stripe-webhook` shows only the three above.
+# BACKLOG.md CR38.
+
 # Reconciliation cron: retries dead letters and detects missed events every 15 minutes
 # Note: Cloudflare API format requires: cron = "schedule"
 [triggers]
