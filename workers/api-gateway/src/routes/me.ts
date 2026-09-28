@@ -12,7 +12,6 @@ interface UserRow extends Record<string, unknown> {
   auth0_id: string;
   email: string;
   name: string | null;
-  tier: string;
   created_at: string;
   default_organization_id: string | null;
 }
@@ -27,23 +26,29 @@ interface MembershipOrgRow extends Record<string, unknown> {
 
 type SupabaseClient = ReturnType<typeof createSupabaseClient>;
 
-const USER_SELECT = 'id, auth0_id, email, name, tier, created_at, default_organization_id';
+/** `plan: null` means the user belongs to no organization; `ok: false` means a lookup failed. */
+type OrgPlanResult = { ok: true; plan: string | null } | { ok: false };
+
+const USER_SELECT = 'id, auth0_id, email, name, created_at, default_organization_id';
 const ACTIVE_MEMBERSHIP = 'active';
+/** The plan of a user with no organization — the same answer `plan_to_api_key_tier` gives an unknown plan. */
+const DEFAULT_TIER = 'starter';
 
 /**
- * The plan a user is on is their organization's `current_plan`, not `users.tier`.
+ * The plan a user is on is their organization's `current_plan`, and nothing else.
  *
- * `users.tier` predates organizations and billing never wrote it: the owner of
- * a paid `growth` org still carried `starter` there and this route reported it,
- * while `api-keys-create` (which reads `org.current_plan ?? user.tier`) minted
- * `growth` keys for the same user. Since UA04 (migration 20260927000000) the
- * column is derived from the default org's plan by trigger, so the fallback
- * agrees with the org for any user who has one. The org is chosen the
- * way the rest of the gateway chooses it — `default_organization_id` first,
- * otherwise the oldest active membership — and `null` means "no org plan
- * resolved", in which case the caller falls back to the legacy column.
+ * `users.tier` predates organizations and billing never wrote it, so this route
+ * once reported `starter` for the owner of a paid `growth` org (UA04). Since
+ * migration 20260927000000 the column is derived from the default org's plan by
+ * trigger, which left the old fallback to it with nothing to add — as of UA11 it
+ * is not read at all. The org is chosen the way the rest of the gateway chooses
+ * it: `default_organization_id` first, otherwise the oldest active membership.
+ * `plan: null` means the user has no organization, and the caller reports
+ * `DEFAULT_TIER`. A failed lookup is an error, not a guess: reporting a wrong
+ * plan to a paying user during an outage is worse than a 500, and the route
+ * already 500s when the user row itself fails to load.
  */
-async function resolveOrgPlan(sb: SupabaseClient, user: UserRow): Promise<string | null> {
+async function resolveOrgPlan(sb: SupabaseClient, user: UserRow): Promise<OrgPlanResult> {
   let orgId = user.default_organization_id;
 
   if (!orgId) {
@@ -58,9 +63,9 @@ async function resolveOrgPlan(sb: SupabaseClient, user: UserRow): Promise<string
     });
     if (!membership.ok) {
       console.error('[me] membership lookup failed for user', user.id, membership.error);
-      return null;
+      return { ok: false };
     }
-    if (!membership.data) return null;
+    if (!membership.data) return { ok: true, plan: null };
     orgId = membership.data.organization_id;
   }
 
@@ -71,9 +76,9 @@ async function resolveOrgPlan(sb: SupabaseClient, user: UserRow): Promise<string
   });
   if (!org.ok) {
     console.error('[me] organization lookup failed for org', orgId, org.error);
-    return null;
+    return { ok: false };
   }
-  return org.data?.current_plan ?? null;
+  return { ok: true, plan: org.data?.current_plan ?? null };
 }
 
 export async function handleMe(request: Request, opts: MeHandlerOptions): Promise<Response> {
@@ -98,12 +103,15 @@ export async function handleMe(request: Request, opts: MeHandlerOptions): Promis
 
   const user = result.data[0];
   const orgPlan = await resolveOrgPlan(sb, user);
+  if (!orgPlan.ok) {
+    return serverError('Failed to load user profile');
+  }
 
   return ok({
     id: user.id,
     email: user.email,
     name: user.name,
-    tier: orgPlan ?? user.tier,
+    tier: orgPlan.plan ?? DEFAULT_TIER,
     created_at: user.created_at,
   });
 }
