@@ -30,7 +30,7 @@ const KV_KEY_PREFIX = 'gw_id_rl:';
 /** Floor for the KV TTL; Cloudflare rejects an expirationTtl below 60s. */
 const MIN_KV_TTL_SECONDS = 60;
 /** Cap on distinct identities tracked in one isolate, so the map cannot grow without bound. */
-const MAX_TRACKED_IDENTITIES = 10_000;
+export const MAX_TRACKED_IDENTITIES = 10_000;
 
 interface RateLimitWindow {
   count: number;
@@ -151,7 +151,7 @@ export const ORG_RATE_LIMIT_WINDOW_SECONDS = 60;
 /** KV key prefix — distinct from the identity prefix to avoid collisions. */
 const ORG_KV_KEY_PREFIX = 'gw_org_rl:';
 /** Cap on distinct orgs tracked in one isolate. */
-const MAX_TRACKED_ORGS = 10_000;
+export const MAX_TRACKED_ORGS = 10_000;
 
 const orgInMemoryWindows = new Map<string, RateLimitWindow>();
 let orgMissingKvWarningLogged = false;

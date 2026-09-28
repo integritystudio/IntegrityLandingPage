@@ -650,9 +650,11 @@ describe('CR43: ingest leaves usage_buckets_daily to the ledger trigger', () => 
 //
 // Strategy: every request here is authenticated (JWT + user + membership for
 // org routes; nothing for /v1/auth0-logs). The quota DO is faked to admit
-// everything. The assertion is simply `status !== 404` — that proves dispatch
-// reached the handler without requiring each handler to return a predictable
-// result against an unreachable Supabase / Stripe.
+// everything. The assertion is that the response is not the router's
+// fall-through 404 — that proves dispatch reached the handler without requiring
+// each handler to return a predictable result against an unreachable Supabase /
+// Stripe. The fall-through is matched on body `error.message`, and a positive
+// control pins that shape.
 describe('TS23: all registered routes are dispatched (not 404)', () => {
   const ORG = 'org-dispatch-test';
 
@@ -705,6 +707,24 @@ describe('TS23: all registered routes are dispatched (not 404)', () => {
   const authHeader = () => ({ Authorization: `Bearer ${token}` });
   const env = () => makeEnv({ QUOTA_DO: admitAll, RATE_LIMIT_KV: emptyKv() });
 
+  /** The router's fall-through answer (`index.ts`); every handler 404 carries its own message. */
+  const ROUTER_NOT_FOUND_MESSAGE = 'Not found';
+
+  async function isRouterFallThrough(res: Response): Promise<boolean> {
+    const body = await res.clone().json().catch(() => ({})) as { error?: { message?: unknown } };
+    return res.status === 404 && body.error?.message === ROUTER_NOT_FOUND_MESSAGE;
+  }
+
+  // Positive control: without it, a change to the fall-through's shape or message
+  // would make every assertion below pass without testing anything.
+  it.each([
+    ['GET',  `/v1/orgs/${ORG}/not-a-route`],
+    ['POST', '/not-a-route'],
+  ] as const)('control: unregistered %s %s gets the router fall-through', async (method, path) => {
+    const res = await worker.fetch(makeRequest(method, path, { headers: authHeader() }), env());
+    expect(await isRouterFallThrough(res)).toBe(true);
+  });
+
   it.each([
     ['GET',  `/v1/orgs/${ORG}/usage/summary`],
     ['GET',  `/v1/orgs/${ORG}/quota/status`],
@@ -717,11 +737,8 @@ describe('TS23: all registered routes are dispatched (not 404)', () => {
       makeRequest(method, path, { headers: authHeader() }),
       env(),
     );
-    // A handler 404 ("Organization not found", "API key not found", etc.) is a successful
-    // dispatch. Only the router's terminal notFound('Not found') means the route was missed.
-    const body = await res.clone().json().catch(() => ({})) as { error?: unknown };
-    const isRouterTerminal404 = res.status === 404 && body?.error === 'Not found';
-    expect(isRouterTerminal404).toBe(false);
+    // A handler 404 ("API key not found", etc.) is a successful dispatch.
+    expect(await isRouterFallThrough(res)).toBe(false);
   });
 
   it('POST /bootstrap reaches its handler, not the terminal 404', async () => {
@@ -732,7 +749,7 @@ describe('TS23: all registered routes are dispatched (not 404)', () => {
       }),
       env(),
     );
-    expect(res.status).not.toBe(404);
+    expect(await isRouterFallThrough(res)).toBe(false);
   });
 
   it('POST /v1/auth0-logs reaches its handler, not the terminal 404', async () => {
@@ -743,6 +760,6 @@ describe('TS23: all registered routes are dispatched (not 404)', () => {
       }),
       env(),
     );
-    expect(res.status).not.toBe(404);
+    expect(await isRouterFallThrough(res)).toBe(false);
   });
 });
