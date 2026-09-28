@@ -17,6 +17,7 @@ top_files=$(
   git -C "$REPO_ROOT" log -n "$COMMITS" --name-only --pretty=format: \
     | grep -v '^$' \
     | grep -v '^docs/' \
+    | grep -vE '(^|/)CLAUDE\.md$' \
     | sort \
     | uniq -c \
     | sort -rn \
