@@ -23,13 +23,17 @@ Requires Postgres binaries. On this machine they are keg-only Homebrew:
 
 ## Why a local cluster and not the linked project
 
-DDL cannot be applied through PostgREST, and at time of writing there was no
-working DDL path to prd from this machine: `SUPABASE_ACCESS_TOKEN` is empty in
-both Doppler configs (so the Management API `/database/query` endpoint 401s) and
-`SUPABASE_DB_PASSWORD` fails auth against `aws-1-us-east-1.pooler.supabase.com`
-on both 5432 and 6543. A local cluster also means assertions can create and roll
-back adversarial states — cycles, inactive memberships — that you would never
-want to create in prd.
+Not for lack of access: prd is reachable (the CLI's login-role path and the
+Management API `/database/query` endpoint both work; see
+[docs/runbooks/supabase-access.md](../../docs/runbooks/supabase-access.md)).
+A local cluster lets assertions create and roll back adversarial states —
+cycles, inactive memberships, stale tiers — that you would never want to create
+in prd, and it runs with no credentials at all.
+
+*(This paragraph said until 2026-09-27 that there was no DDL path to prd,
+because `SUPABASE_ACCESS_TOKEN` was empty and `SUPABASE_DB_PASSWORD` failed.
+The token has held a valid `sbp_` value since 2026-09-11; the password still
+fails, but the CLI does not need it.)*
 
 ## Suites
 
