@@ -4,10 +4,12 @@ import {
   resetIdentityRateLimit,
   IDENTITY_RATE_LIMIT_MAX,
   IDENTITY_RATE_LIMIT_WINDOW_SECONDS,
+  MAX_TRACKED_IDENTITIES,
   checkOrgRateLimit,
   resetOrgRateLimit,
   ORG_RATE_LIMIT_MAX,
   ORG_RATE_LIMIT_WINDOW_SECONDS,
+  MAX_TRACKED_ORGS,
 } from './rate-limit';
 
 const IDENTITY = 'auth0|subject-1';
@@ -236,15 +238,76 @@ describe('checkOrgRateLimit', () => {
 
     expect((await checkOrgRateLimit(ORG_ID, { RATE_LIMIT_KV: kv })).allowed).toBe(true);
   });
+});
 
-  // CR36: the org rate limit runs before the quota DO call. A DO outage leaves
-  // enforceOrgQuota fail-open, but this limiter must still deny a looping caller
-  // even without KV (the in-memory tier is the floor).
-  it('provides a floor independent of the quota DO — denies a loop even without KV', async () => {
+// ---------------------------------------------------------------------------
+// TS24: memory bounds — pruneExpired and pruneOrgExpired
+// ---------------------------------------------------------------------------
+// Both prunes run on every in-memory miss: they delete windows whose resetAt
+// has passed, then clear() the whole map once it exceeds its cap. An expired
+// window starts fresh on read whether or not it was pruned, so deletion is
+// only observable through the cap: a leaked window counts toward it, and the
+// clear() it triggers wipes live windows too.
+
+const LIMITERS = [
+  {
+    name: 'checkIdentityRateLimit',
+    check: checkIdentityRateLimit,
+    max: IDENTITY_RATE_LIMIT_MAX,
+    windowMs: IDENTITY_RATE_LIMIT_WINDOW_SECONDS * 1000,
+    cap: MAX_TRACKED_IDENTITIES,
+  },
+  {
+    name: 'checkOrgRateLimit',
+    check: checkOrgRateLimit,
+    max: ORG_RATE_LIMIT_MAX,
+    windowMs: ORG_RATE_LIMIT_WINDOW_SECONDS * 1000,
+    cap: MAX_TRACKED_ORGS,
+  },
+] as const;
+
+/** Each miss scans the whole map, so filling one to its cap is quadratic. */
+const CAP_TEST_TIMEOUT_MS = 30_000;
+
+describe.each(LIMITERS)('TS24: $name memory bounds', ({ check, max, windowMs, cap }) => {
+  beforeEach(() => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    for (let i = 0; i < ORG_RATE_LIMIT_MAX; i++) {
-      await checkOrgRateLimit(ORG_ID, {});
-    }
-    expect((await checkOrgRateLimit(ORG_ID, {})).allowed).toBe(false);
   });
+
+  async function exhaust(key: string): Promise<void> {
+    for (let i = 0; i < max; i++) await check(key, {});
+  }
+
+  async function fill(prefix: string, count: number): Promise<void> {
+    for (let i = 0; i < count; i++) await check(`${prefix}-${i}`, {});
+  }
+
+  it('deletes expired windows, and keeps live ones until the map exceeds the cap', async () => {
+    vi.useFakeTimers();
+    try {
+      await fill('stale', cap);
+      vi.advanceTimersByTime(windowMs + 1);
+
+      // The first miss after expiry prunes every stale window.
+      await exhaust('live');
+      expect((await check('live', {})).allowed).toBe(false);
+
+      // The last of these misses sees exactly `cap` windows, so none may clear the
+      // map. Had the stale windows leaked, the first one would have.
+      await fill('fresh', cap);
+      expect((await check('live', {})).allowed).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  }, CAP_TEST_TIMEOUT_MS);
+
+  it('clears every window once the map exceeds the cap', async () => {
+    await exhaust('live');
+    expect((await check('live', {})).allowed).toBe(false);
+
+    await fill('filler', cap); // the map now holds cap + 1 live windows
+    await check('trigger', {}); // a miss over the cap clears the map
+
+    expect((await check('live', {})).allowed).toBe(true);
+  }, CAP_TEST_TIMEOUT_MS);
 });

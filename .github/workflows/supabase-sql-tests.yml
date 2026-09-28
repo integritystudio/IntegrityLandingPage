@@ -1,0 +1,65 @@
+# TS17: Run every supabase/tests/*/run.sh against a throwaway Postgres cluster.
+# Each run.sh spins up its own cluster with initdb on its own port and socket;
+# no Docker, no Supabase CLI, no credentials — PR-safe, including from forks.
+#
+# Suites are discovered by glob, not listed, so a new suite directory is enrolled
+# the moment it lands and a pinned list cannot decay.
+name: Supabase SQL Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/supabase-sql-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/supabase-sql-tests.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "supabase-sql-tests-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  sql-tests:
+    name: SQL suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # ubuntu-latest ships PostgreSQL 16 only; 15 is what run.sh defaults to,
+      # so it comes from the PGDG apt repository.
+      - name: Install PostgreSQL 15
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-15
+
+      - name: Run every SQL suite
+        env:
+          PGBIN: /usr/lib/postgresql/15/bin
+        run: |
+          shopt -s nullglob
+          suites=(supabase/tests/*/run.sh)
+          if [ "${#suites[@]}" -eq 0 ]; then
+            echo "::error::no supabase/tests/*/run.sh found"
+            exit 1
+          fi
+          failed=0
+          for suite in "${suites[@]}"; do
+            echo "::group::$suite"
+            bash "$suite" || { echo "::error::$suite failed"; failed=1; }
+            echo "::endgroup::"
+          done
+          exit "$failed"
