@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:integrity_studio_ai/models/consent_preferences.dart';
 import 'package:integrity_studio_ai/services/consent_manager.dart';
 import 'package:integrity_studio_ai/widgets/consent/cookie_banner.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
