@@ -232,57 +232,26 @@ describe('Sender Worker', () => {
       );
     });
 
-    it('defaults tier to starter when absent', async () => {
-      let forwardedPayload: Record<string, unknown> | null = null;
+    it.each(['enterprise', 'growth', 'invalid-tier'])(
+      'accepts a caller-supplied tier of %s but never forwards it (CR37)',
+      async (tier) => {
+        let forwardedPayload: Record<string, unknown> | null = null;
 
-      mockReceiverFetch.mockImplementation(async (_url, init) => {
-        forwardedPayload = JSON.parse((init as RequestInit)?.body as string) as Record<string, unknown>;
-        return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'content-type': 'application/json; charset=utf-8' },
+        mockReceiverFetch.mockImplementation(async (_url, init) => {
+          forwardedPayload = JSON.parse((init as RequestInit)?.body as string) as Record<string, unknown>;
+          return new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { 'content-type': 'application/json; charset=utf-8' },
+          });
         });
-      });
 
-      const { tier: _tier, ...withoutTier } = validSendPayload;
-      const request = makeSendRequest(withoutTier);
-      await worker.fetch(request, mockEnv);
+        const res = await worker.fetch(makeSendRequest({ ...validSendPayload, tier }), mockEnv);
 
-      expect(forwardedPayload!['tier']).toBe('starter');
-    });
-
-    it('defaults tier to starter when value is invalid', async () => {
-      let forwardedPayload: Record<string, unknown> | null = null;
-
-      mockReceiverFetch.mockImplementation(async (_url, init) => {
-        forwardedPayload = JSON.parse((init as RequestInit)?.body as string) as Record<string, unknown>;
-        return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'content-type': 'application/json; charset=utf-8' },
-        });
-      });
-
-      const request = makeSendRequest({ ...validSendPayload, tier: 'invalid-tier' });
-      await worker.fetch(request, mockEnv);
-
-      expect(forwardedPayload!['tier']).toBe('starter');
-    });
-
-    it('preserves valid growth tier', async () => {
-      let forwardedPayload: Record<string, unknown> | null = null;
-
-      mockReceiverFetch.mockImplementation(async (_url, init) => {
-        forwardedPayload = JSON.parse((init as RequestInit)?.body as string) as Record<string, unknown>;
-        return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'content-type': 'application/json; charset=utf-8' },
-        });
-      });
-
-      const request = makeSendRequest({ ...validSendPayload, tier: 'growth' });
-      await worker.fetch(request, mockEnv);
-
-      expect(forwardedPayload!['tier']).toBe('growth');
-    });
+        expect(res.status).toBe(200);
+        expect(forwardedPayload).not.toBeNull();
+        expect(forwardedPayload).not.toHaveProperty('tier');
+      },
+    );
 
     it('includes org_name in forwarded payload when provided', async () => {
       let forwardedPayload: Record<string, unknown> | null = null;

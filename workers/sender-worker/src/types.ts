@@ -155,7 +155,9 @@ export const ProvisionApiKeyRequestSchema = z.object({
   jwt: z.string().jwt(),
   name: z.string().min(1),
   email: z.string().email(),
-  tier: ApiKeyTierSchema.catch(DEFAULT_TIER),
+  // No `tier` (CR37): the receiver used to write it as a new org's current_plan and pick the
+  // membership role from it. The plan is server-side state; a request carrying `tier` (the
+  // Flutter app still sends one) is accepted and the field is stripped.
   // org_name is optional — when absent, the receiver derives the team org name from the
   // registrable domain (emailToRegistrableDomainSchema / tldts getDomain). Passing a raw
   // email suffix here would produce incorrect names for subdomain addresses (e.g.
