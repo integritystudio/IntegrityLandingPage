@@ -2648,8 +2648,10 @@ Filed from a nine-area review of every test file, read against the code under te
 
 `organization-hierarchy/run.sh` and the new `users-tier-derivation/run.sh` (16 assertions, mutation-checked) run only by hand; no file in `.github/workflows/` references `supabase/tests`. A later migration that breaks the tier triggers or the ancestor-walk policy would pass CI. **Scope:** add a job that installs Postgres 15 and runs every `supabase/tests/*/run.sh`. No Docker or credentials needed. It can sit beside `migration-replay-check.yml`.
 
-### TS18: `supabase/tests/README.md` says `SUPABASE_ACCESS_TOKEN` is empty in both Doppler configs
+### TS18: `supabase/tests/README.md` says `SUPABASE_ACCESS_TOKEN` is empty in both Doppler configs ✅ done 2026-09-27
 
 **Priority:** P4 | **Source:** session 2026-09-27
 
 `supabase/tests/README.md:27` gives an empty token as the reason there is no DDL path to production. CLAUDE.md records the token valid since 2026-09-11, and it applied UA04 on 2026-09-27. **Scope:** correct the paragraph; the local-cluster rationale (adversarial states you would never create in production) still stands on its own.
+
+**Done 2026-09-27:** paragraph rewritten; production is reachable, and the local cluster is kept for adversarial states and credential-free runs. The old claim is kept as a dated note.
