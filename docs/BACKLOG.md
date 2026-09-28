@@ -2728,6 +2728,8 @@ Filed from a coverage audit of the production behaviour touched on 2026-09-27 (C
 
 **Priority:** P2 | **Source:** coverage audit 2026-09-28 — reproduced by `api-keys-create.test.ts` ("still returns the token, with a warning, when KV is unreachable", marked `it.fails`)
 
+**Status:** ✅ **DONE 2026-09-28** — the KV `fetch` is wrapped, so a thrown network error takes the same 201-with-`warning` path as an HTTP error and the caller keeps its token. The `it.fails` is now a plain `it` regression test (53/53 pass). Ships with the next `supabase functions deploy api-keys-create`.
+
 The KV sync `fetch` (`supabase/functions/api-keys-create/handler.ts:236`) is not guarded. An HTTP error from KV is handled — 201 with a `warning` — but a network failure throws **after** the `api_keys` row is inserted. The caller gets a runtime 500 with no token, and an `active` key row exists that nobody holds and that has no KV record. The receiver may retry and mint a second one. **Scope:** wrap the KV call so a thrown error takes the same path as `!kvRes.ok`. Acceptance: flip the `it.fails` to `it`, and it passes.
 
 ### TS20: `api-keys-create` turns database failures into wrong answers instead of errors

@@ -233,17 +233,25 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
       organizationId,
     });
     const kvUrl = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/storage/kv/namespaces/${kvNamespaceId}/values/${kvKey}`;
-    const kvRes = await deps.fetch(kvUrl, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${cfApiToken}`,
-        "Content-Type": "text/plain",
-      },
-      body: kvValue,
-    });
+    // TS19: the key row already exists, so a KV failure of either kind (HTTP error or a
+    // thrown network error) must still hand the caller its token, or the row is orphaned.
+    let kvFailure: string | null = null;
+    try {
+      const kvRes = await deps.fetch(kvUrl, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${cfApiToken}`,
+          "Content-Type": "text/plain",
+        },
+        body: kvValue,
+      });
+      if (!kvRes.ok) kvFailure = await kvRes.text();
+    } catch (err) {
+      kvFailure = err instanceof Error ? err.message : String(err);
+    }
 
-    if (!kvRes.ok) {
-      console.error(`KV sync failed: ${await kvRes.text()}`);
+    if (kvFailure !== null) {
+      console.error(`KV sync failed: ${kvFailure}`);
       return jsonResponse({
         token,
         keyId: apiKey.id,
