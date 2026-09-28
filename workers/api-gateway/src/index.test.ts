@@ -3,7 +3,8 @@ import worker from './index';
 import type { Env } from './index';
 import * as quotaLib from './lib/quota';
 import { createAuth0JwtFixture, TEST_AUTH0_OPTS, TEST_AUTH0_DOMAIN, type Auth0JwtFixture } from '../../lib/test-helpers/auth0-jwt-stub';
-import { createSupabaseFetchStub, okRows } from '../../lib/test-helpers/supabase-fetch-stub';
+import { createSupabaseFetchStub, createdRows, okRows } from '../../lib/test-helpers/supabase-fetch-stub';
+import { ORG_RATE_LIMIT_MAX, ORG_RATE_LIMIT_WINDOW_SECONDS, resetOrgRateLimit } from './lib/rate-limit';
 
 
 const makeEnv = (overrides: Partial<Env> = {}): Env => ({
@@ -444,3 +445,153 @@ describe('UA08: cross-org access refused before quota', () => {
   });
 });
 
+
+// CR36: the per-org edge limit is only a control if the router applies it — after the
+// caller is verified (so nobody can spend an org's budget without that org's credential)
+// and before the quota DO (so it still caps a loop while the fail-open DO is down).
+// Everything here is real except the three I/O edges: a Map-backed KV, a quota DO fake
+// that records what it reserved, and the Supabase transport stub.
+describe('CR36: per-org edge rate limit on org routes', () => {
+  const ORIGIN = 'https://integritystudio.ai';
+  const ORG = 'org-rl-1';
+  const OTHER_ORG = 'org-rl-2';
+  const USER_ROW = { id: 'user-uuid-rl', email: 'member@example.com' };
+
+  let reserved: Map<string, number>;
+  let kvStore: Map<string, string>;
+  let isMember: boolean;
+  let token: string;
+
+  const jsonRows = (rows: unknown[]) =>
+    new Response(JSON.stringify(rows), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  function makeKv(): KVNamespace {
+    return {
+      get: async (key: string, type?: string) => {
+        const raw = kvStore.get(key);
+        if (raw === undefined) return null;
+        return type === 'json' ? JSON.parse(raw) : raw;
+      },
+      put: async (key: string, value: string) => {
+        kvStore.set(key, value);
+      },
+    } as unknown as KVNamespace;
+  }
+
+  /** Admits everything and remembers how many units each org reserved. */
+  function makeQuotaDo(): DurableObjectNamespace {
+    return {
+      idFromName: (name: string) => name,
+      get: () => ({
+        fetch: async (request: Request) => {
+          const body = (await request.json()) as { orgId: string; units: number };
+          reserved.set(body.orgId, (reserved.get(body.orgId) ?? 0) + body.units);
+          return new Response(JSON.stringify({ allowed: true, remainingMinute: 1000, remainingMonthly: null }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        },
+      }),
+    } as unknown as DurableObjectNamespace;
+  }
+
+  const env = () => makeEnv({ RATE_LIMIT_KV: makeKv(), QUOTA_DO: makeQuotaDo() });
+
+  function send(orgId: string, authorization: string | null, sharedEnv: Env): Promise<Response> {
+    const headers: Record<string, string> = { Origin: ORIGIN };
+    if (authorization) headers.Authorization = authorization;
+    return worker.fetch(makeRequest('GET', `/v1/orgs/${orgId}/entitlements`, { headers }), sharedEnv);
+  }
+
+  async function sendMany(count: number, orgId: string, authorization: string | null, sharedEnv: Env): Promise<number[]> {
+    const statuses: number[] = [];
+    for (let i = 0; i < count; i++) statuses.push((await send(orgId, authorization, sharedEnv)).status);
+    return statuses;
+  }
+
+  beforeEach(async () => {
+    vi.restoreAllMocks();
+    resetOrgRateLimit();
+    reserved = new Map();
+    kvStore = new Map();
+    isMember = true;
+    token = await jwt.sign({ sub: 'auth0|member', email: USER_ROW.email });
+    const stub = createSupabaseFetchStub({
+      'GET users': okRows([USER_ROW]),
+      'GET organization_memberships': () => jsonRows(isMember ? [{ user_id: USER_ROW.id, organization_id: ORG, role: 'owner' }] : []),
+      'GET organizations': okRows([{ id: ORG, current_plan: 'growth', quota_version: 0, billing_status: 'active' }]),
+      'POST usage_events': createdRows([]),
+    });
+    vi.stubGlobal('fetch', jwt.wrap(stub.fetch as typeof fetch));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    resetOrgRateLimit();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('admits the limit, then answers 429 with Retry-After, CORS and security headers, without reaching the quota DO', async () => {
+    const sharedEnv = env();
+    const admitted = await sendMany(ORG_RATE_LIMIT_MAX, ORG, `Bearer ${token}`, sharedEnv);
+
+    const res = await send(ORG, `Bearer ${token}`, sharedEnv);
+
+    expect(admitted).not.toContain(429);
+    expect(res.status).toBe(429);
+    const retryAfter = Number(res.headers.get('Retry-After'));
+    expect(Number.isInteger(retryAfter)).toBe(true);
+    expect(retryAfter).toBeGreaterThanOrEqual(1);
+    expect(retryAfter).toBeLessThanOrEqual(ORG_RATE_LIMIT_WINDOW_SECONDS);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(await res.json()).toEqual({ error: { message: 'Too Many Requests' } });
+    expect(reserved.get(ORG)).toBe(ORG_RATE_LIMIT_MAX);
+  });
+
+  it('does not let unauthenticated requests spend an org\'s budget', async () => {
+    const sharedEnv = env();
+    const anonymous = await sendMany(ORG_RATE_LIMIT_MAX + 1, ORG, null, sharedEnv);
+
+    const res = await send(ORG, `Bearer ${token}`, sharedEnv);
+
+    expect(new Set(anonymous)).toEqual(new Set([401]));
+    expect(res.status).not.toBe(429);
+    expect(reserved.get(ORG)).toBe(1);
+  });
+
+  it('does not let a verified non-member spend an org\'s budget', async () => {
+    const sharedEnv = env();
+    isMember = false;
+    const refused = await sendMany(ORG_RATE_LIMIT_MAX + 1, ORG, `Bearer ${token}`, sharedEnv);
+    isMember = true;
+
+    const res = await send(ORG, `Bearer ${token}`, sharedEnv);
+
+    expect(new Set(refused)).toEqual(new Set([403]));
+    expect(res.status).not.toBe(429);
+    expect(reserved.get(ORG)).toBe(1);
+  });
+
+  it('gives each org its own budget', async () => {
+    const sharedEnv = env();
+    await sendMany(ORG_RATE_LIMIT_MAX + 1, ORG, `Bearer ${token}`, sharedEnv);
+
+    const res = await send(OTHER_ORG, `Bearer ${token}`, sharedEnv);
+
+    expect(res.status).not.toBe(429);
+    expect(reserved.get(OTHER_ORG)).toBe(1);
+  });
+
+  it('keeps refusing in a fresh isolate, because the count lives in the bound KV namespace', async () => {
+    const sharedEnv = env();
+    await sendMany(ORG_RATE_LIMIT_MAX, ORG, `Bearer ${token}`, sharedEnv);
+    resetOrgRateLimit(); // a new isolate: its in-memory windows start empty; KV does not
+
+    const res = await send(ORG, `Bearer ${token}`, sharedEnv);
+
+    expect(res.status).toBe(429);
+    expect(reserved.get(ORG)).toBe(ORG_RATE_LIMIT_MAX);
+  });
+});

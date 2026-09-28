@@ -100,5 +100,10 @@ dist/
 # zero of them. Recovered via `supabase functions download <slug> --project-ref`.
 !supabase/functions/**/*.ts
 
+# Allow supabase/tests/ harness source (Edge Function tests). Same trap as above:
+# without this, the suite's .ts files are silently untracked while its package.json
+# commits, so the tests look present and a fresh clone has none of them (2026-09-28).
+!supabase/tests/**/*.ts
+
 # Serena (machine-specific config, cache, memories)
 .serena/

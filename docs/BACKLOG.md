@@ -2716,3 +2716,60 @@ Filed from a nine-area review of every test file, read against the code under te
 `supabase/tests/README.md:27` gives an empty token as the reason there is no DDL path to production. CLAUDE.md records the token valid since 2026-09-11, and it applied UA04 on 2026-09-27. **Scope:** correct the paragraph; the local-cluster rationale (adversarial states you would never create in production) still stands on its own.
 
 **Done 2026-09-27:** paragraph rewritten; production is reachable, and the local cluster is kept for adversarial states and credential-free runs. The old claim is kept as a dated note.
+
+## Coverage Audit 2026-09-28 (TS19–TS25)
+
+Filed from a coverage audit of the production behaviour touched on 2026-09-27 (CR36, UA11, CR37, CR38, CR41) and from writing the first `api-keys-create` suite (`supabase/tests/edge-functions/`, 53 tests, 12/12 seeded defects caught). Closed in the same pass and **not** listed here: `api-keys-create` had no tests at all, and nothing tested that the CR36 limiter is wired into the router (5 router-level tests, 6/6 seeded wiring defects caught, including moving it ahead of authentication).
+
+### TS19: `api-keys-create` leaves an orphan active key when Cloudflare KV is unreachable
+
+**Priority:** P2 | **Source:** coverage audit 2026-09-28 — reproduced by `api-keys-create.test.ts` ("still returns the token, with a warning, when KV is unreachable", marked `it.fails`)
+
+The KV sync `fetch` (`supabase/functions/api-keys-create/handler.ts:236`) is not guarded. An HTTP error from KV is handled — 201 with a `warning` — but a network failure throws **after** the `api_keys` row is inserted. The caller gets a runtime 500 with no token, and an `active` key row exists that nobody holds and that has no KV record. The receiver may retry and mint a second one. **Scope:** wrap the KV call so a thrown error takes the same path as `!kvRes.ok`. Acceptance: flip the `it.fails` to `it`, and it passes.
+
+### TS20: `api-keys-create` turns database failures into wrong answers instead of errors
+
+**Priority:** P3 | **Source:** coverage audit 2026-09-28
+
+Two paths read a Supabase error as data:
+1. A failed `users` lookup answers **404 "User not found."** (`handler.ts:144`). The receiver cannot tell an outage from a bad `userId`, so it cannot know to retry.
+2. A failed `organizations` lookup (`handler.ts:183`) leaves `current_plan` undefined, so the key is minted at **`starter`** and written to KV that way. A paying org's key is silently downgraded, permanently, by a transient error.
+
+Both fail closed on access, which is why they are P3, not P2. **Scope:** return 5xx on a query error in both places, and add a test per path. The suite already pins that the user-lookup failure mints nothing.
+
+### TS21: `api-keys-create` resolves an org and a plan differently from the rest of the system
+
+**Priority:** P3 | **Source:** coverage audit 2026-09-28
+
+1. **Org choice.** With no `organizationId`, it takes `organization_memberships … status=active limit 1` with **no order** (`handler.ts:169`). That ignores `users.default_organization_id` and is nondeterministic for a multi-org user. The gateway and `custom_access_token_hook` both prefer the default org, then the oldest active membership.
+2. **Plan case.** `VALID_TIERS.has(candidate)` (`handler.ts:188`) is case-sensitive, while the UA04 trigger's `plan_to_api_key_tier` lower-cases. A `current_plan` of `Growth` mints a `starter` key while `users.tier` derives `growth`.
+3. **Blank name.** A whitespace-only `name` is truthy, trims to `""`, and is stored empty instead of defaulting to `Default` (`handler.ts:121`).
+
+**Scope:** decide each and pin it with a test. The suite deliberately leaves all three unasserted rather than enshrining current behaviour.
+
+### TS22: the edge-function suite runs in no CI workflow
+
+**Priority:** P3 | **Source:** coverage audit 2026-09-28 (same shape as TS17)
+
+`supabase/tests/edge-functions/` runs only by hand (`npm install && npm test`). A change to `api-keys-create` that breaks its trust boundary would pass CI. **Scope:** a CI job that installs and runs it. It needs no credentials, no Docker and no Deno. Consider adding `deno check --node-modules-dir=none` on each function's `index.ts` in the same job. Do it alongside TS17.
+
+### TS23: most `/v1/orgs/:id/*` sub-routes, `/bootstrap` and `/v1/auth0-logs` are never dispatched in tests
+
+**Priority:** P3 | **Source:** coverage audit 2026-09-28
+
+The handlers are unit-tested, but the router lines that dispatch to them never execute. That covers `/checkout-session`, `/billing-portal`, `/quota/status`, `/usage/summary`, `POST /api-keys`, `/api-keys/:id/revoke`, `/bootstrap` and `/v1/auth0-logs` (`workers/api-gateway/src/index.ts`, zero-hit under coverage). A typo in a path string or method would ship green. CR38's seat minimum goes through `/checkout-session`, and CR40's open route is `/v1/auth0-logs`. **Scope:** one parameterised router test asserting each path and method reaches its handler, for example by a handler-specific status or body. The CR36 block in `index.test.ts` shows the fakes to reuse.
+
+### TS24: rate-limiter memory bounds are untested, and one CR36 test duplicates another
+
+**Priority:** P4 | **Source:** coverage audit 2026-09-28
+
+1. `pruneExpired` and `pruneOrgExpired` (`workers/api-gateway/src/lib/rate-limit.ts:56`, `:159`) never delete an expired window or hit the 10,000-entry cap in any test. A leak, or a clear that wipes live windows, would pass.
+2. "provides a floor independent of the quota DO" (`rate-limit.test.ts:243`) has the same body as "still limits per isolate when RATE_LIMIT_KV is unbound" and never touches the DO its name describes. The router-level CR36 tests now back that claim, so delete it.
+
+**Scope:** inject the clock, or use fake timers, and test expiry and the cap for both limiters, then delete the duplicate.
+
+### TS25: `/v1/me` has no test for a default org whose row is missing
+
+**Priority:** P4 | **Source:** coverage audit 2026-09-28
+
+`resolveOrgPlan` returns `plan: null` when `default_organization_id` points at no row (`workers/api-gateway/src/routes/me.ts:81`), so the route reports `starter`. That is the only uncovered branch in the file. **Scope:** one test.

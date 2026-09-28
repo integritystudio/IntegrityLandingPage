@@ -1,0 +1,13 @@
+{
+  "name": "integrity-edge-function-tests",
+  "private": true,
+  "type": "module",
+  "description": "Node test harness for the Supabase Edge Functions. The functions run on Deno; their handlers take their I/O as parameters, so these tests drive them with the real supabase-js client against an in-memory backend (fake-backend.ts). Kept outside supabase/functions so nothing Node-specific sits in the tree the Supabase CLI bundles.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "vitest": "^4.1.11"
+  }
+}
