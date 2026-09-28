@@ -2473,6 +2473,26 @@ The slot CLAUDE.md said "exists in no config" now holds an `sb_secret_` key (41 
 
 **Won't do (owner decision 2026-09-27):** this is a service key, not an application access key. Holding it in `prd` alongside the others is intended, so there is nothing to consolidate or revoke.
 
+### W13: Two new keys are byte-identical in Doppler `dev` and `prd` and unclassified — `check:env-isolation` fails
+
+**Priority:** P3 | **Source:** `npm run check:env-isolation` run 2026-09-27 during UA09 (same class as W12)
+**Estimated:** 30 minutes plus one decision per key
+
+The W09 full-config sweep exits 1 (`FAIL: 2 check(s) failed across 24 credentials`) on two names that hold the same value in both configs and appear in neither `SHARED_BY_DESIGN` nor `ACCEPTED` in `scripts/check-env-isolation.sh`:
+
+| Name | Shape | Reader |
+|---|---|---|
+| `GOOGLE_TELEMETRY_API_KEY` | Google API key (`AIza…`, 39 chars) | **none found** — no reference in this repo, observability-toolkit, or `~/.claude` hooks/scripts/skills |
+| `LLM_JUDGE_ANTHROPIC_KEY` | Anthropic key (`sk-ant-…`, 108 chars) | observability-toolkit dashboard judge pipeline (`dashboard/scripts/judge-credentials.ts`, per its `docs/ENVIRONMENT_SETUP.md`): preferred over `ANTHROPIC_API_KEY` so judge spend is attributable per key |
+
+Neither was added in this session. While the check is red, a real cross-environment regression reads the same as these two, so the detector is effectively off until they are settled.
+
+**Scope, per key:**
+- `LLM_JUDGE_ANTHROPIC_KEY`: an LLM vendor key with one account and no environments, the same shape as `ANTHROPIC_API_KEY`, which is already `SHARED_BY_DESIGN`. Likely classify it there with a comment. Or mint a separate dev key if judge spend should be attributed per environment, which is the reason this key exists.
+- `GOOGLE_TELEMETRY_API_KEY`: find the owner and what it is for first (Google Cloud Console → Credentials; check its API restrictions). If nothing reads it, delete it from both configs. If it is live, restrict it and either classify it with a reason or give `dev` its own key.
+
+**Acceptance:** `npm run check:env-isolation` exits 0.
+
 ## Test Suite Review 2026-09-27 (TS01–TS16)
 
 Filed from a nine-area review of every test file, read against the code under test — not from `docs/repomix/tests-compressed.xml`, which strips every `test()`/`it()` body. Full findings, with `path:line` for each, are in [test-suite-review-2026-09-27.md](test-suite-review-2026-09-27.md); section letters below refer to it. Done in the same session and **not** listed here: the ~230 `workers/lib` tests of schemas no request parses were deleted (`bf12226`), `CreateApiKeyBodySchema` was wired into the create-key route (`df174a2`), and `AuditActionSchema` was narrowed to the four emitted actions and enforced at runtime in `writeAuditLog` (`df174a2`, `a3aa746`).
