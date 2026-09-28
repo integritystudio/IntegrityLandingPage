@@ -1,10 +1,6 @@
 # TS22: Run the supabase/tests/edge-functions/ vitest suite in CI.
-# The suite runs against an in-memory fake backend; no credentials or Docker
-# are required — PR-safe, including from forks.
-#
-# Optionally type-checks each function's index.ts with `deno check`; uses the
-# same Deno version the Supabase CLI bundles (v1.x). Skips deno check if the
-# Deno installation fails — the vitest suite is the primary gate.
+# The suite runs against an in-memory fake backend; no credentials, Docker or
+# Deno are required — PR-safe, including from forks.
 name: Edge Function Tests
 
 on:
@@ -41,7 +37,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: supabase/tests/edge-functions/package.json
 
@@ -52,25 +48,3 @@ jobs:
       - name: Run vitest suite
         working-directory: supabase/tests/edge-functions
         run: npm test
-
-  deno-check:
-    name: Deno type-check edge functions
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    continue-on-error: true
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Set up Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v1.x
-
-      - name: Type-check edge functions
-        run: |
-          for fn in supabase/functions/*/index.ts; do
-            echo "=== deno check $fn ==="
-            deno check --no-npm "$fn" || echo "WARN: $fn failed deno check"
-          done

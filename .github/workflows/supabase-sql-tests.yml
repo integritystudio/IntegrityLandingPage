@@ -1,9 +1,9 @@
-# TS17: Run the supabase/tests/ SQL suites against a throwaway Postgres cluster.
-# Each run.sh spins up its own cluster with initdb; no Docker, no Supabase CLI,
-# no credentials — PR-safe, including from forks.
+# TS17: Run every supabase/tests/*/run.sh against a throwaway Postgres cluster.
+# Each run.sh spins up its own cluster with initdb on its own port and socket;
+# no Docker, no Supabase CLI, no credentials — PR-safe, including from forks.
 #
-# Path-filter: triggers when a test suite, a migration it tests, or this workflow
-# changes. New suites are picked up automatically by the matrix.
+# Suites are discovered by glob, not listed, so a new suite directory is enrolled
+# the moment it lands and a pinned list cannot decay.
 name: Supabase SQL Tests
 
 on:
@@ -29,29 +29,37 @@ concurrency:
 
 jobs:
   sql-tests:
-    name: SQL suite — ${{ matrix.suite }}
+    name: SQL suites
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
-    strategy:
-      fail-fast: false
-      matrix:
-        suite:
-          - organization-hierarchy
-          - users-tier-derivation
-          - usage-buckets-single-writer
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # ubuntu-latest ships PostgreSQL 16 only; 15 is what run.sh defaults to,
+      # so it comes from the PGDG apt repository.
       - name: Install PostgreSQL 15
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y postgresql-15 postgresql-client-15
-          echo "PGBIN=/usr/lib/postgresql/15/bin" >> "$GITHUB_ENV"
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-15
 
-      - name: Run ${{ matrix.suite }}
+      - name: Run every SQL suite
+        env:
+          PGBIN: /usr/lib/postgresql/15/bin
         run: |
-          export PGBIN=/usr/lib/postgresql/15/bin
-          bash supabase/tests/${{ matrix.suite }}/run.sh
+          shopt -s nullglob
+          suites=(supabase/tests/*/run.sh)
+          if [ "${#suites[@]}" -eq 0 ]; then
+            echo "::error::no supabase/tests/*/run.sh found"
+            exit 1
+          fi
+          failed=0
+          for suite in "${suites[@]}"; do
+            echo "::group::$suite"
+            bash "$suite" || { echo "::error::$suite failed"; failed=1; }
+            echo "::endgroup::"
+          done
+          exit "$failed"
