@@ -107,8 +107,7 @@ describe('handleAuth0Logs — stream payload', () => {
   it.each([
     // The shape CR33's receiver expected; Auth0 never sends it.
     ['a flat log entry', [{ log_id: 'log-1', date: '2026-09-28T12:00:00.000Z', type: 's' }]],
-    // What the event stream est_uRZqNG2BECcHmc1G2nrXpn delivered, 36 times, all rejected.
-    ['a CloudEvent', [{ specversion: '1.0', id: 'evt-1', type: 'user.updated', data: { object: {} } }]],
+    ['a CloudEvent with no id', [{ specversion: '1.0', type: 'user.updated', data: { object: {} } }]],
     ['an empty batch', []],
   ])('answers 400 and writes nothing for %s', async (_label, body) => {
     const stub = stubInsert();
@@ -119,7 +118,50 @@ describe('handleAuth0Logs — stream payload', () => {
     expect(stub.requests).toHaveLength(0);
   });
 
-  it('answers 400 for a body that is not JSON', async () => {
+  it('stores an event-stream CloudEvent keyed on its id', async () => {
+    const stub = stubInsert();
+    // The shape event stream est_uRZqNG2BECcHmc1G2nrXpn delivers, one event per POST;
+    // it was rejected 36 times before this branch existed.
+    const cloudEvent = {
+      specversion: '1.0',
+      id: 'evt_0123456789',
+      type: 'user.deleted',
+      source: 'urn:auth0:tenant.us.auth0.com',
+      time: '2026-08-22T20:17:49.947Z',
+      data: { object: { user_id: 'auth0|user-1', email: 'user@example.com', name: 'User One' } },
+      a0tenant: 'tenant',
+      a0stream: 'est_stream',
+    };
+
+    const res = await handleAuth0Logs(post(cloudEvent), ENV);
+
+    expect(res.status).toBe(200);
+    expect(stub.find('POST', TABLE)?.body).toEqual([
+      expect.objectContaining({
+        log_id: 'evt_0123456789',
+        event_type: 'user.deleted',
+        user_id: 'auth0|user-1',
+        email: 'user@example.com',
+        details: expect.objectContaining({ a0stream: 'est_stream', data: cloudEvent.data }),
+      }),
+    ]);
+  });
+
+  it('stores a CloudEvent whose object has no user fields, as for group events', async () => {
+    const stub = stubInsert();
+
+    const res = await handleAuth0Logs(
+      post({ specversion: '1.0', id: 'evt_group', type: 'group.created', data: { object: { id: 'grp_1', name: 'Team' } } }),
+      ENV,
+    );
+
+    expect(res.status).toBe(200);
+    expect(stub.find('POST', TABLE)?.body).toEqual([
+      expect.objectContaining({ log_id: 'evt_group', event_type: 'group.created', user_id: null, email: null }),
+    ]);
+  });
+
+    it('answers 400 for a body that is not JSON', async () => {
     const stub = stubInsert();
 
     const res = await handleAuth0Logs(post('not json'), ENV);

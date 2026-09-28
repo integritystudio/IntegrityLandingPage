@@ -1,4 +1,4 @@
-import type { Auth0Log, Auth0LogRow } from '../../../lib/types';
+import type { Auth0CloudEvent, Auth0Log, Auth0LogRow } from '../../../lib/types';
 
 /** Upsert on the UNIQUE `log_id`, so an entry delivered or fetched twice is stored once. */
 const INSERT_PATH = '/rest/v1/auth0_logs?on_conflict=log_id';
@@ -26,6 +26,33 @@ export function toAuth0LogRow(logId: string, entry: Auth0Log): Auth0LogRow {
     description: entry.description || null,
     details: { ...entry }, // Store full entry for audit/debugging
   };
+}
+
+/**
+ * An event-stream CloudEvent as an `auth0_logs` row. Its `type` (`user.deleted`) cannot
+ * collide with a log entry's short code (`s`, `seccft`), so one table holds both.
+ */
+export function cloudEventToAuth0LogRow(event: Auth0CloudEvent): Auth0LogRow {
+  const object = event.data?.object ?? {};
+  return {
+    log_id: event.id,
+    event_type: event.type,
+    event_name: null,
+    client_id: null,
+    client_name: null,
+    user_id: stringOrNull(object.user_id),
+    user_name: null,
+    email: stringOrNull(object.email),
+    ip_address: null,
+    user_agent: null,
+    scope: null,
+    description: null,
+    details: { ...event }, // The whole envelope, a0tenant and a0stream included
+  };
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 /** Insert rows into `auth0_logs`, ignoring any `log_id` already stored. Never throws. */

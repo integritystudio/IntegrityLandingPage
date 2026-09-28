@@ -179,8 +179,9 @@ export type {
 export type {
   Auth0Log,
   Auth0LogStreamEvent,
+  Auth0CloudEvent,
   IngestAuth0LogRequest,
   IngestAuth0LogResponse,
   Auth0LogRow,
 } from './auth0';
-export { Auth0LogSchema, Auth0LogStreamEventSchema, IngestAuth0LogRequestSchema, IngestAuth0LogResponseSchema } from './auth0';
+export { Auth0LogSchema, Auth0LogStreamEventSchema, Auth0CloudEventSchema, IngestAuth0LogRequestSchema, IngestAuth0LogResponseSchema } from './auth0';

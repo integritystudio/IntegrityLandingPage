@@ -41,10 +41,30 @@ export const Auth0LogStreamEventSchema = z.object({
 export type Auth0LogStreamEvent = z.infer<typeof Auth0LogStreamEventSchema>;
 
 /**
- * Request body for POST /v1/auth0-logs: a batch of stream events (content format
- * JSONARRAY). A single event (JSONOBJECT) is accepted as a batch of one.
+ * One event as an Auth0 *event stream* delivers it: a CloudEvents 1.0 envelope for user,
+ * organization and group lifecycle changes (`user.created`, `organization.member.added`, …),
+ * not a tenant log entry. `data.object` is the affected resource.
  */
-export const IngestAuth0LogRequestSchema = z.array(Auth0LogStreamEventSchema);
+export const Auth0CloudEventSchema = z.object({
+  specversion: z.string().min(1),
+  id: z.string().min(1),
+  type: z.string().min(1),
+  source: z.string().optional(),
+  time: z.string().optional(),
+  data: z.object({ object: z.record(z.string(), z.unknown()) }).passthrough().optional(),
+}).passthrough();
+
+export type Auth0CloudEvent = z.infer<typeof Auth0CloudEventSchema>;
+
+/**
+ * Request body for POST /v1/auth0-logs: log-stream events in a batch (content format
+ * JSONARRAY), or a single event of either kind — an event stream posts one CloudEvent.
+ */
+export const IngestAuth0LogRequestSchema = z.union([
+  z.array(Auth0LogStreamEventSchema),
+  Auth0LogStreamEventSchema,
+  Auth0CloudEventSchema,
+]);
 export type IngestAuth0LogRequest = z.infer<typeof IngestAuth0LogRequestSchema>;
 
 /**
