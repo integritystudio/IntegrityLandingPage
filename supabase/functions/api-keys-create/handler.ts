@@ -118,7 +118,10 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
     try {
       const body = await req.json();
       if (body.name && typeof body.name === "string") {
-        name = body.name.trim().slice(0, 100);
+        const trimmed = body.name.trim().slice(0, 100);
+        // A whitespace-only name trims to ""; fall back to "Default" rather
+        // than storing an empty string (TS21).
+        name = trimmed || "Default";
       }
       if (body.organizationId && typeof body.organizationId === "string") {
         organizationId = body.organizationId;
@@ -137,11 +140,17 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
 
     const { data: user, error: userError } = await supabase
       .from("users")
-      .select("id")
+      .select("id, default_organization_id")
       .eq("id", bodyUserId)
       .single();
-    if (userError || !user) {
-      return errorResponse("User not found.", 404);
+    if (userError) {
+      // PGRST116: "JSON object requested, multiple (or no) rows returned" = not found.
+      // Any other error code is a database / network failure — surface it as 5xx so
+      // the receiver can distinguish an outage from a bad userId and retry.
+      if (userError.code === "PGRST116") {
+        return errorResponse("User not found.", 404);
+      }
+      return errorResponse("Database error resolving user.", 503);
     }
     const userId: string = user.id;
 
@@ -161,14 +170,32 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
         return errorResponse("User is not an active member of that organization.", 403);
       }
     } else {
-      const { data: membership } = await supabase
-        .from("organization_memberships")
-        .select("organization_id")
-        .eq("user_id", userId)
-        .eq("status", "active")
-        .limit(1)
-        .maybeSingle();
-      organizationId = membership?.organization_id ?? null;
+      // Prefer users.default_organization_id (mirrors custom_access_token_hook and
+      // the gateway's supabaseFindOrgIdByEmail), then fall back to the oldest active
+      // membership — deterministic for multi-org users (TS21).
+      const defaultOrgId: string | null = user.default_organization_id ?? null;
+      if (defaultOrgId) {
+        const { data: defaultMembership } = await supabase
+          .from("organization_memberships")
+          .select("organization_id")
+          .eq("user_id", userId)
+          .eq("organization_id", defaultOrgId)
+          .eq("status", "active")
+          .limit(1)
+          .maybeSingle();
+        if (defaultMembership) organizationId = defaultOrgId;
+      }
+      if (!organizationId) {
+        const { data: membership } = await supabase
+          .from("organization_memberships")
+          .select("organization_id")
+          .eq("user_id", userId)
+          .eq("status", "active")
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        organizationId = membership?.organization_id ?? null;
+      }
     }
     if (!organizationId) {
       return errorResponse("User has no organization. Contact support.", 403);
@@ -179,12 +206,22 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
     // starter if the org row is missing or the plan is not a known tier.
     // users.tier is no longer read (UA11): since UA04 it is derived from the
     // default org's plan by trigger, so as a fallback it had nothing to add.
-    const { data: org } = await supabase
+    const { data: org, error: orgError } = await supabase
       .from("organizations")
       .select("current_plan")
       .eq("id", organizationId)
       .maybeSingle();
-    const candidate = org?.current_plan ?? DEFAULT_TIER;
+    if (orgError) {
+      // A query error (not "no rows") means the DB is unavailable. Return 5xx so
+      // the receiver can retry rather than silently downgrading the key to starter
+      // — a transient error was previously indistinguishable from an org-not-found
+      // result (TS20), which would mint a permanent starter-tier key.
+      return errorResponse("Database error resolving plan.", 503);
+    }
+    // Plan comparison is case-insensitive (TS21): the UA04 trigger lower-cases before
+    // writing users.tier, but current_plan is written by stripe-webhook as-is, so a
+    // value like "Growth" must still produce a growth-tier key.
+    const candidate = (org?.current_plan ?? DEFAULT_TIER).toLowerCase();
     const userTier: string = VALID_TIERS.has(candidate) ? candidate : DEFAULT_TIER;
 
     // Cloudflare KV config
