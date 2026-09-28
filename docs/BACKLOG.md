@@ -2449,6 +2449,8 @@ The comment at the `preVerifyToken` call says an invalid token "returns 401 with
 
 `doppler run -p integrity-studio -c prd -- supabase migration list --linked` returns `LegacyDbConnectError: PgClient: Failed to connect`. `migration list`, `db push`, `db query --linked` and `migration repair` — the whole documented Supabase workflow — share that connection. UA04 was applied through the Management API `/database/query` endpoint instead, with its ledger row inserted by hand into `supabase_migrations.schema_migrations`. That works, but it skips the CLI's checks and is how CR17-style ledger drift happens. Likely the same root cause as the `SUPABASE_DB_PASSWORD` 28P01 failure (CLAUDE.md). **Scope:** reset the DB password and store it, or document the Management API route as the supported one, including the ledger insert.
 
+**Correction 2026-09-27 (same day) — the CLI is not broken; the Doppler password overrides a login that works.** `--debug` shows `Using database password from env var`: `doppler run` injects `SUPABASE_DB_PASSWORD`, which takes precedence and fails 28P01. Without it the CLI uses an access token to mint a temporary login role (`POST /v1/projects/cfrbahzzklwrnmbtqojl/cli/login-role`) and connects. Both plain `supabase migration list --linked` (keychain token) and `doppler run … -- env -u SUPABASE_DB_PASSWORD supabase …` (Doppler token) listed the full ledger, including the hand-inserted `20260927000000`. CLAUDE.md's Supabase commands are corrected. **Remaining:** reset the DB password and store it, or delete the slot so nothing can inject it.
+
 ### UA10: UA04's tier trigger only fires on a `current_plan` change, so it inherits CR38 (related to CR38)
 
 **Priority:** P2 | **Source:** UA04, session 2026-09-27
@@ -2460,6 +2462,12 @@ The comment at the `preVerifyToken` call says an invalid token "returns 401 with
 **Priority:** P4 | **Source:** UA04, session 2026-09-27
 
 `/v1/me` (`workers/api-gateway/src/routes/me.ts`, `orgPlan ?? user.tier`) and `supabase/functions/api-keys-create/index.ts` (`org?.current_plan ?? user.tier ?? DEFAULT_TIER`) still fall back to `users.tier`. Since UA04 it matches the default org's plan for any user who has one, and all 9 production users do. The fallbacks are now either redundant, or wrong only for users with no default org. **Scope:** decide whether a user with no default org should be an error; if so, remove both fallbacks and update `me.test.ts`'s two fallback tests.
+
+### UA12: Doppler prd `SUPABASE_SERVICE_ROLE_KEY` is a third live service-level key, origin unrecorded
+
+**Priority:** P2 | **Source:** session 2026-09-27, count-only PostgREST probe
+
+The slot CLAUDE.md said "exists in no config" now holds an `sb_secret_` key (41 chars, sha1 prefix `d1ace259a923`). Against production, `GET /rest/v1/organizations?select=id&limit=0` with `Prefer: count=exact` returned `206`, `content-range */7`: it sees every org through RLS, so it has full service-role access. It matches neither `SUPABASE_PROVISIONING_KEY` nor `SUPABASE_INTEGRITY_MEMERSHIP_KEY`, so `prd` now holds three distinct live bypass keys. Every Worker binds its service key under this same name, and the bound values cannot be read back, so which key production runs on is unknown. **Isolation holds:** `dev`'s `SUPABASE_SERVICE_ROLE_KEY` (`b9341dcac1c3`) gets `401 Invalid API key` against production and `206 */6` against its own project (positive control). `check-env-isolation.sh` watches the slot but only checks that the two values differ. **Scope:** in the Supabase Dashboard (API Keys), identify the named key behind each of the three and when it was created. Decide the single key production should use, re-bind the Workers to it with `wrangler secret put`, then revoke the others at Supabase **before** clearing their Doppler slots.
 
 ## Test Suite Review 2026-09-27 (TS01–TS16)
 

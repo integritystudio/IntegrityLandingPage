@@ -62,13 +62,14 @@ is not running it.
 
 **Supabase** — migrations are the source of truth for schema, proven 2026-08-03 by replaying the set onto an empty database. The CI guard is `migration-replay-check.yml` (first run green the same day; it triggers only on `main`, so a feature-branch push runs nothing — `gh run list --workflow=migration-replay-check.yml` settles its state). Ledger history and dead ends: [docs/runbooks/supabase-access.md](docs/runbooks/supabase-access.md).
 ```bash
-# Doppler prd/dev SUPABASE_ACCESS_TOKEN holds a VALID sbp_ token (verified 2026-09-11 —
-# it deleted edge functions and ran DDL via the Management API). It overrides the CLI's
-# keychain login, which is what you want once that login has expired (`supabase projects
-# list` → Unauthorized). Prefix any supabase/Management-API call with
-# `doppler run --project integrity-studio --config prd --`. This comment said the slot was
-# "EMPTY on purpose" until 2026-09-11; that was stale.
-export SUPABASE_DB_PASSWORD=$(doppler secrets get SUPABASE_DB_PASSWORD --project integrity-studio --config prd --plain)
+# Run the CLI with NO database password in the environment. Without one, it uses an access
+# token to mint a temporary login role (POST /v1/projects/<ref>/cli/login-role) and connects
+# with that. With SUPABASE_DB_PASSWORD set, the password wins, and it is broken (28P01), so
+# every --linked command fails with LegacyDbConnectError (measured 2026-09-27).
+# Token source, either works: the keychain login (plain `supabase …`), or Doppler's valid
+# sbp_ SUPABASE_ACCESS_TOKEN once that login expires — but strip the password it also injects:
+#   doppler run --project integrity-studio --config prd -- env -u SUPABASE_DB_PASSWORD supabase …
+# Never `export SUPABASE_DB_PASSWORD` or wrap the CLI in a bare `doppler run`.
 supabase migration list --linked   # local vs remote; any blank `remote` column is pending
 supabase db push --dry-run         # preview; add --include-all if a file sorts before the last applied version
 supabase db push                   # apply — ALL pending migrations, not just yours
@@ -86,9 +87,9 @@ curl -s -X POST "https://api.supabase.com/v1/projects/<ref>/database/query" \
   -d '{"query":"select 1"}'
 ```
 - `supabase db push --db-url <conn>` works without linking (avoids mutating the linked-project state other sessions share). Use the **session pooler on :5432**, not :6543 — the transaction pooler fails mid-push with `prepared statement "lrupsc_1_0" already exists`. `db dump` shells out to Docker, which is absent here.
-- 🔴 `SUPABASE_DB_PASSWORD` does **not** authenticate (SASL 28P01 in both configs; measured 2026-07-31) — the fix is a Dashboard reset plus storing the new value. Read the runbook's dead-ends list before re-deriving alternatives. The Dashboard SQL editor executes SQL **without** writing a ledger row; reconcile with `migration repair --status applied <version>` after using it.
-- The service key's Doppler slot is **`SUPABASE_PROVISIONING_KEY`** — `SUPABASE_SERVICE_ROLE_KEY` exists in no config, though it is the name every Worker binds it under; reading the binding name from Doppler silently returns empty.
-- `SUPABASE_INTEGRITY_MEMERSHIP_KEY` (typo real) is a third live `sb_secret_` key with full RLS bypass — **do not bind it to a Worker to solve an org-resolution problem**; an `sb_secret_` key is a credential, not a scope. Details in the runbook.
+- 🔴 `SUPABASE_DB_PASSWORD` does **not** authenticate (SASL 28P01 in both configs; measured 2026-07-31) — the fix is a Dashboard reset plus storing the new value. Until then it is actively harmful: when present it overrides the CLI's working login-role path (above). Read the runbook's dead-ends list before re-deriving alternatives. The Dashboard SQL editor executes SQL **without** writing a ledger row; reconcile with `migration repair --status applied <version>` after using it.
+- **Doppler `prd` holds three distinct live `sb_secret_` keys with full RLS bypass** (measured 2026-09-27; UA12): `SUPABASE_PROVISIONING_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_INTEGRITY_MEMERSHIP_KEY`. `SUPABASE_SERVICE_ROLE_KEY` is the name every Worker binds its service key under, and it used to exist in no config; it now does, with a value matching neither of the other two. Which one each Worker holds cannot be read back (`secret list` shows names only). `dev`'s `SUPABASE_SERVICE_ROLE_KEY` is its own project's key and gets `401 Invalid API key` against production.
+- `SUPABASE_INTEGRITY_MEMERSHIP_KEY` (typo real) is one of those live `sb_secret_` keys — **do not bind it to a Worker to solve an org-resolution problem**; an `sb_secret_` key is a credential, not a scope. Details in the runbook.
 - **`create policy if not exists` is invalid PostgreSQL** — use `drop policy if exists` then `create policy`. And **`migration repair --status applied` writes a ledger row without executing the SQL** (how CR17 happened) — last resort only, never a way past a failing push.
 - **RLS is not optional for privacy.** PostgREST exposes every table in `public`, so a table with RLS off is readable with the *publishable* anon key regardless of which key the workers use. RLS on with **zero policies** denies anon and authenticated while `service_role` bypasses — the correct posture for server-only tables. RLS denial returns `200 []`, not an error, so verify with the catalog:
 ```bash
