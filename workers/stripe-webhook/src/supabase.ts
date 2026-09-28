@@ -17,7 +17,7 @@ interface SubscriptionUpsertRow extends Record<string, unknown> {
   status: string;
   current_period_start?: string;
   current_period_end?: string;
-  created_at: string;
+  created_at?: string;
   updated_at: string;
 }
 
