@@ -384,7 +384,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR43](#cr43) | P2 | ✅ **code done 2026-09-27** — migration `20260927020000` must be applied before `api-gateway` `deploy:prd` | `usage_buckets_daily` had **two writers**. The Worker rollup is deleted; the ledger trigger is the only writer, now with a NULL-safe, sample-weighted latency average and UTC bucket days. Guarded by a source scan and a router-level test |
 | [CR44](#cr44) | P3 | 🔴 open | `workers/lib/supabase.ts` builds PostgREST filters from raw values (an `in` list splits on `,`) and `update`/`deleteRows` accept an **empty filter**, which would PATCH/DELETE the whole table. No caller trips either today; `sender-worker` suspicion refuted |
 | [CR45](#cr45) | P3 | 🔴 open | Quota DO `POST /flush-usage` zeroes the monthly counter and persists nothing; `lib/quota.ts` `flushUsage()` has no callers; the DO header said neither existed. Delete, or decide what a flush means |
-| [CR47](#cr47) | P2 | 🔴 open | **Joining an existing starter team org by email domain makes you its owner**, and the receiver never checks `email_verified` |
+| [CR47](#cr47) | P2 | ✅ **code done 2026-09-27** (toolkit `bbdb63ad`, unpushed) — ships with the toolkit `main` push that CR37 step 3 also waits on | Only the call that **creates** a team org makes its caller owner; later joiners are members whatever the plan. Domain grouping requires `email_verified === true`; an unverified corporate address gets a personal org. Production audit: no team org has more than one owner |
 | [CR46](#cr46) | P3 | 🔴 open | Grow **one shared CORS allowlist helper** from `workers/cors-utils.ts` + `getAllowedOrigins`, migrate api-gateway / contact-form / sender-worker to it, then retire the root copies. Never `*`; env-driven; `.`-anchored preview suffix |
 
 ~~**Two items are now blocked on code** — [[CR20]] and [[CR21]]…~~ **Superseded 2026-07-31.** [[CR21]] is done and live, and [[CR20]] is not blocked on code at all — its remaining work is monitoring ([[W04]]), since [[CR21]] foreclosed the 5xx option. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). What still needs a decision rather than an implementation: a credential/provisioning call (CR01, CR11, CR12's cross-repo HMAC secret), or an answer about intent (CR13, CR16).
@@ -2187,7 +2187,7 @@ The chain, all verified in code:
 **Rollout** (the owner ran or approved each step):
 1. ✅ `main` pushed 2026-09-28 (`d2ef524`); CI deployed `sender-worker` at 03:10Z (version `b22bf3b4`), all three workflows green, `/health` 200 ×2.
 2. ✅ `cd workers/api-gateway && npm run deploy:prd`: done 2026-09-28 02:10Z, version `8c70b4db`, `/health` 200 ×3. Another session redeployed at 03:02Z (version `08091a4c`, carrying CR36). **Checked, not assumed:** the live bundle contains the CR37 billing selects and the enterprise `adjustable_quantity`, so the gate survived the redeploy.
-3. ⏳ **Still pending:** push `observability-toolkit` `main` (`46536e69`, `ad08afc3`), which deploys `api-provisioning-receiver`. The caller-chosen plan is already closed without it: the deployed sender strips `tier`, and the sender is the receiver's only signed caller, so the old receiver falls back to `starter`. What the push adds is the receiver's own key-quota billing gate (until then an unentitled `enterprise` org, today only `home`, still gets unlimited keys) and no trust in a payload `tier` at all. Order does not matter: each side accepts the other's old and new shapes.
+3. ⏳ **Still pending — re-verified 2026-09-27.** Neither `46536e69` nor `ad08afc3` is on toolkit `origin/main`. The live receiver (version `e3a3a8c3`, created 2026-09-27 19:40Z) matches `origin/main`'s last receiver change (`69caa95c`, 19:20Z) and predates `46536e69` (2026-09-28 01:55Z). Local toolkit `main` is **13 ahead** of `origin/main`: the two CR37 commits, CR47's `bbdb63ad`, and ten unrelated commits from other sessions (ingest migration 0015, dashboard bumps, roadmap docs), so the push ships all of them. The exposure it leaves is unused: `home` (enterprise, `inactive`) has **0 active keys**. Previously recorded as: push `observability-toolkit` `main` (`46536e69`, `ad08afc3`), which deploys `api-provisioning-receiver`. The caller-chosen plan is already closed without it: the deployed sender strips `tier`, and the sender is the receiver's only signed caller, so the old receiver falls back to `starter`. What the push adds is the receiver's own key-quota billing gate (until then an unentitled `enterprise` org, today only `home`, still gets unlimited keys) and no trust in a payload `tier` at all. Order does not matter: each side accepts the other's old and new shapes.
 
 Found on the way and not fixed here: [CR47](#cr47).
 
@@ -2395,7 +2395,13 @@ A fourth, `workers/lib/http/cors.ts`, defaulted to `Access-Control-Allow-Origin:
 2. Require `email_verified === true` from `/userinfo` before domain-grouping into a team org (or fall back to a personal org).
 3. Audit production for team orgs with more than one owner.
 
-**Status:** Open.
+**Status:** ✅ Code done 2026-09-27 in observability-toolkit (`bbdb63ad`); **not live until toolkit `main` is pushed**, which deploys `api-provisioning-receiver`. That is the same push [CR37](#cr37) step 3 is waiting on.
+
+1. **Owner only on creation.** `ensureTeamOrg` now returns `{ organizationId, created }`; the handler makes the caller owner only when `created`, and a member otherwise, whatever the plan. `MEMBERSHIP_ROLE_BY_TIER` is deleted. A founder who re-provisions keeps their owner row, because `addOrgMember` treats 23505 as "already a member" and never updates it.
+2. **Verified email required.** `auth0UserinfoSchema` reads `email_verified`; only `true` groups by domain. `false` or absent gets a personal org the caller owns, and a later provision after verification joins the team org as a member. ⚠️ `/signup` creates every Auth0 user with `email_verified: false`, so a password signup's first provision now lands in a personal org by design.
+3. **Production audit (read-only, 2026-09-27):** 2 team orgs, each with exactly 1 owner (one has 6 active members). Nothing to repair.
+
+Tests: receiver 324 green, `tsc` clean. Mutation-checked: making every joiner an owner fails the 3 joiner cases; ignoring `email_verified` fails both unverified cases. The 5 integration fixtures for `user@acme.com` now carry `email_verified: true`, which is what they always meant.
 
 ---
 
