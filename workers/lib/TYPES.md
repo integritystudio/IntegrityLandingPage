@@ -1,200 +1,107 @@
-# Zod Types for API Gateway / Workers Implementation
+# Types and Schemas in `workers/lib`
 
 ## Overview
-This document catalogs all Zod validation schemas created for the API Gateway and Workers implementation (Phase 4.1). Schemas are organized by domain and can be imported from `workers/lib/index.ts`.
+
+`workers/lib` keeps two kinds of type, on purpose:
+
+- **Plain TypeScript types** for domain models — `types/index.ts`. Nothing parses these at runtime; they type rows read through the Supabase client and the shapes handlers assemble.
+- **Zod schemas** only where something is actually parsed — a request body or parameter, a Durable Object payload, an ingest payload, a log-stream entry, or the Supabase client's own option/result contract.
+
+The split dates from 2026-09-27 (TS09, `4df6d71`): seventeen domain and response schemas that no request parsed were deleted, together with `types.zod.ts` and `types/provisioning.ts`, because a schema nothing parses is documentation that drifts — and this file had drifted twice. **Do not re-add a schema for a shape that is only typed.** When a new payload needs validation, add the schema next to the code that parses it and list it here.
+
+Everything is exported from `workers/lib/index.ts`; workers import it by relative path (no path alias is configured).
 
 ## File Organization
 
-### Core Type Files
-- **`types/index.ts`** — TypeScript type definitions for all domains
-- **`types/schemas.ts`** — Zod validation schemas for domain models
-- **`types/handler-options.ts`** — Route handler configuration and request/response options
-- **`types/request-bodies.ts`** — Request payload and query parameter schemas
-- **`index.ts`** — Barrel export for all types and schemas
+| File | Holds |
+|---|---|
+| `types/index.ts` | Plain TS enums and interfaces for domain models (below), plus type re-exports from the schema files |
+| `types/schemas.ts` | `BillingStatusSchema`, `ApiKeyTierSchema`, and the quota Durable Object contract |
+| `types/request-bodies.ts` | Request payload and parameter schemas |
+| `types/usage.ts` | Usage-event and OTel ingest schemas, `UsageBucketSchema`, summary and flush shapes |
+| `types/audit.ts` | Audit log, user activity and session, billing event log schemas |
+| `types/auth0.ts` | Auth0 log-stream entry and ingest request/response schemas |
+| `types/supabase.ts` | The Supabase client's query, insert, update and RPC option and result schemas |
+| `types/handler-options.ts` | Route handler options (`BaseRouteOptions`, `MachineRouteOptions`), `Env`, `AuthResult` |
+| `crypto.ts` | Shared HMAC-SHA256 primitives (sign, signHex, verify) |
+| `index.ts` | Barrel for all of the above |
 
-### Crypto Utilities
-- **`crypto.ts`** — Shared HMAC-SHA256 primitives (sign, signHex, verify)
+**Removed 2026-09-27 (TS09):** `types.zod.ts` (never imported by any module), `types/provisioning.ts`, and from `types/schemas.ts` the `Organization`, `OrgMembership`, `Entitlement`, `BootstrapResponse`, `StripeEvent`, `JwtPayload`, `UserRow`, `ApiKey`, `CreateApiKeyResponse`, `RevokeApiKeyResponse`, `MeResponse`, `ListOrgsResponse`, `OrgDashboardResponse`, `OrgBillingStatusResponse`, `UsageSummaryResponse` and `OrgEntitlementsResponse` schemas, plus the `OrgRole`, `OrgMembershipStatus` and `ApiKeyStatus` enum schemas. Their TypeScript types survive in `types/index.ts`.
 
-## Schemas by Domain
+## Domain Types (`types/index.ts`, plain TypeScript)
 
-### Authentication & Users
+### String-union enums
 
-#### JwtPayload
-```typescript
-JwtPayloadSchema = z.object({
-  sub: z.string(),
-  email: z.string().email(),
-  iat: z.number(),
-  exp: z.number(),
-}).passthrough()
-```
-**Purpose:** Shape reference for the claims a verified Auth0 token carries.
-**Usage:** Only `types/schemas.test.ts` parses with it. `workers/lib/auth.ts` verifies Auth0-issued RS256/ES256 tokens against the tenant's JWKS and types the payload with its own `JwtPayload` interface; it does not import this schema.
+- **`OrgRole`** — `'owner' | 'admin' | 'member' | 'billing_admin' | 'viewer'`
+- **`BillingStatus`** — Stripe's eight subscription statuses verbatim plus `inactive` ("no subscription exists"): `'inactive' | 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused'`. Several of these grant access; use `isEntitled` from `billing.ts` rather than comparing to `'active'` — that comparison silently excluded trial users for four months (CR27). Zod twin: `BillingStatusSchema`.
+- **`OrgMembershipStatus`** — `'active' | 'invited' | 'suspended'`
+- **`ApiKeyStatus`** — `'active' | 'revoked' | 'expired'`
+- **`ApiKeyTier`** — `'starter' | 'growth' | 'enterprise'`. Also the organization plan key; there is no separate `PlanKey`. Zod twin: `ApiKeyTierSchema`.
 
-#### UserRow
-```typescript
-UserRowSchema = z.object({
-  id: z.string().uuid(),
-  auth0_id: z.string(),
-  email: z.string().email(),
-  name: z.string().nullable(),
-  tier: z.string(),
-  created_at: z.string().datetime(),
-})
-```
-**Purpose:** Validates user records from Supabase `users` table.
-**Usage:** `/v1/me` endpoint - returns authenticated user profile
+### Interfaces
 
-### Organizations & Membership
+- **`JwtPayload`** — `sub`, `email`, `iat`, `exp`, plus an index signature for further claims. A shape reference only: `workers/lib/auth.ts` verifies Auth0-issued RS256/ES256 tokens against the tenant's JWKS and types the verified payload itself.
+- **`UserRow`** — a Supabase `users` row: `id`, `auth0_id`, `email`, `name | null`, `tier`, `created_at`. Read by `/v1/me` and `/bootstrap`.
+- **`Organization`** — `id`, `slug`, `name`, `billing_status: BillingStatus`, `current_plan: ApiKeyTier`, `quota_version`.
+- **`OrgMembership`** — `organization_id`, `user_id`, `role: OrgRole`, `status: OrgMembershipStatus`.
+- **`Entitlement`** — `organization_id`, `feature_key`, `enabled`, `hard_limit | null`, `soft_limit | null`.
+- **`BootstrapResponse`** — `user`, `organizations` (each `Organization & { role }`), `active_org_id`, an `entitlements` map, and `usage_snapshot` with `month_to_date_units` and an optional `unavailable: true` that distinguishes "no usage yet" from "could not read usage".
+- **`ApiKey`** — an `api_keys` row: `id`, `user_id`, `organization_id`, `prefix`, `hash`, `name`, `tier`, `status`, `expires_at`, `last_used_at`, `created_at`, `revoked_at`.
+- **`StripeEvent`** — `id`, `type`, `created`, `data.object`, optional `data.previous_attributes`.
+- **`UsageBucket`** — a `usage_buckets_daily` row: `organization_id`, `bucket_date`, `metric_key`, `total_quantity`, `request_count`, `avg_latency_ms | null`. The Zod twin `UsageBucketSchema` in `types/usage.ts` additionally requires `updated_at` and pins `bucket_date` to `YYYY-MM-DD`.
 
-#### Organization
-```typescript
-OrganizationSchema = z.object({
-  id: z.string(),
-  slug: z.string(),
-  name: z.string(),
-  billing_status: BillingStatusSchema,
-  current_plan: ApiKeyTierSchema,
-  quota_version: z.number(),
-})
-```
-**Billing Status Enum:** Stripe's eight subscription statuses verbatim plus `inactive` ("no subscription exists"): `'inactive' | 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused'`
-**Plan Key Enum:** `'starter' | 'growth' | 'enterprise'` (`ApiKeyTierSchema` — the same enum types API keys; there is no separate `PlanKeySchema`)
-**Usage:** Org listing, dashboard, and status routes
+## Runtime Schemas (Zod)
 
-#### OrgMembership
-```typescript
-OrgMembershipSchema = z.object({
-  organization_id: z.string(),
-  user_id: z.string(),
-  role: OrgRoleSchema,
-  status: OrgMembershipStatusSchema,
-})
-```
-**Role Enum:** `'owner' | 'admin' | 'member' | 'billing_admin' | 'viewer'`
-**Status Enum:** `'active' | 'invited' | 'suspended'`
-**Usage:** Access control - verify user membership before granting org access
+The file named next to each schema is the source of truth; field lists are not reproduced here because they drifted the last two times they were.
 
-### Entitlements & Usage
+### Enums — `types/schemas.ts`
 
-#### Entitlement
-```typescript
-EntitlementSchema = z.object({
-  organization_id: z.string(),
-  feature_key: z.string(),
-  enabled: z.boolean(),
-  hard_limit: z.number().nullable(),
-  soft_limit: z.number().nullable(),
-})
-```
-**Usage:** `/v1/orgs/{id}/entitlements` - returns feature flags and limits for an org
+`BillingStatusSchema` and `ApiKeyTierSchema` are the Zod forms of the two enums above, used wherever a plan or billing status arrives from outside (Stripe events, quota requests).
 
-#### UsageBucket
-```typescript
-UsageBucketSchema = z.object({
-  organization_id: z.string().uuid(),
-  bucket_date: z.string(),
-  metric_key: z.string(),
-  total_quantity: z.number(),
-  request_count: z.number(),
-  avg_latency_ms: z.number().nullable(),
-})
-```
-**Purpose:** Aggregated daily usage metrics from `usage_buckets_daily` table.
-**Usage:** `/v1/orgs/{id}/usage/summary` - returns MTD (month-to-date) usage
+### Quota Durable Object contract — `types/schemas.ts`
 
-### API Keys
+`QuotaCheckRequestSchema` (`orgId`, `metricKey`, `units`, `requestId`, `planKey`, `quotaVersion`), `QuotaCheckResponseSchema` (`allowed`, `reason`, `remainingMinute`, `remainingMonthly`), `QuotaStatusResponseSchema`, `QuotaFlushResultSchema`, `OrgPlanRowSchema` (`current_plan`, `quota_version`) and `OrgQuotaMiddlewareOptionsSchema`. `workers/api-gateway/src/lib/quota.ts` parses every DO response with these. `QuotaFlushResultSchema` belongs to `flushUsage()`, which has no non-test caller — BACKLOG.md CR45.
 
-#### ApiKey
-```typescript
-ApiKeySchema = z.object({
-  id: z.string().uuid(),
-  user_id: z.string().uuid(),
-  organization_id: z.string().uuid(),
-  prefix: z.string(),
-  hash: z.string(),
-  name: z.string(),
-  tier: ApiKeyTierSchema,
-  status: ApiKeyStatusSchema,
-  expires_at: z.string().datetime().nullable(),
-  last_used_at: z.string().datetime().nullable(),
-  created_at: z.string().datetime(),
-  revoked_at: z.string().datetime().nullable(),
-})
-```
-**Tier Enum:** `'starter' | 'growth' | 'enterprise'`
-**Status Enum:** `'active' | 'revoked' | 'expired'`
-**Usage:** API key database model validation
+### Request bodies and parameters — `types/request-bodies.ts`
 
-#### CreateApiKeyBody
-```typescript
-CreateApiKeyBodySchema = z.object({
-  name: z.string().min(1).max(255).optional(),
-  expires_at: z.string().datetime().optional(),
-}).strict()
-```
-**Usage:** POST `/v1/orgs/{id}/api-keys` request validation
+- `CreateApiKeyBodySchema` — `POST /v1/orgs/{id}/api-keys` body
+- `OrgIdParamSchema`, `ApiKeyIdParamSchema` — route parameters
+- `PaginationParamsSchema` — list query parameters
+- `StripeEventBodySchema` — the envelope `stripe-webhook` parses before dispatching on `type`
 
-#### CreateApiKeyResponse
-```typescript
-CreateApiKeyResponseSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  prefix: z.string(),
-  tier: ApiKeyTierSchema,
-  status: ApiKeyStatusSchema,
-  expires_at: z.string().datetime().nullable(),
-  created_at: z.string().datetime(),
-  token: z.string(),
-})
-```
-**Usage:** API key creation response (includes raw token, shown only once)
+### Usage and ingest — `types/usage.ts`
 
-#### RevokeApiKeyResponse
-```typescript
-RevokeApiKeyResponseSchema = z.object({
-  id: z.string().uuid(),
-  status: z.literal('revoked'),
-  revoked_at: z.string().datetime(),
-})
-```
-**Usage:** POST `/v1/orgs/{id}/api-keys/{id}/revoke` response
+- `UsageEventSchema`, `UsageEventIngestionSchema`, `IngestEventRequestSchema`, `IngestEventResponseSchema` — `POST /v1/ingest/events` (no quota or rate limit on that route yet — BACKLOG.md CR42)
+- `OtelSpanSchema`, `IngestOtelRequestSchema` (bounded to 1 000 spans), `IngestOtelMetadataSchema`, `IngestOtelResponseSchema` — `POST /v1/ingest/otel`
+- `UsageBucketSchema`, `MonthlyUsageSummarySchema`, `UsageQueryResponseSchema` — `/v1/orgs/{id}/usage/summary`
+- `UsageFlushResultSchema`
 
-## API Response Schemas
+### Audit — `types/audit.ts`
 
-### /v1/me
-**Schema:** `MeResponseSchema`
-- Returns authenticated user profile (id, email, name, tier, created_at)
-- Auth: JWT bearer token required
+`AuditActionSchema` (a pinned enum: an audit write whose action is outside it is refused), `AuditLogSchema`, `UserActivitySchema`, `UserSessionSchema`, `UserSessionsResponseSchema`, `DeviceTypeSchema`, `BillingEventTypeSchema`, `BillingEventLogSchema`.
 
-### /v1/orgs
-**Schema:** `ListOrgsResponseSchema`
-- Returns array of organizations with user's role in each
-- Auth: JWT bearer token required
+### Auth0 log stream — `types/auth0.ts`
 
-### /v1/orgs/{id}/dashboard
-**Schema:** `OrgDashboardResponseSchema`
-- Returns org details, user's role, and entitlements (feature flags + limits)
-- Auth: JWT bearer token required
-- Access: Must be org member
+`Auth0LogSchema` (one stream entry), `IngestAuth0LogRequestSchema` and `IngestAuth0LogResponseSchema` for `POST /v1/auth0-logs` (a route that is currently unauthenticated — BACKLOG.md CR40), and the `Auth0LogRow` type.
 
-### /v1/orgs/{id}/billing-status
-**Schema:** `OrgBillingStatusResponseSchema`
-- Returns org billing status, plan, quota version
-- Auth: JWT bearer token required
-- Access: Must be org member with 'owner' or 'billing_admin' role
+### Supabase client contract — `types/supabase.ts`
 
-### /v1/orgs/{id}/usage/summary
-**Schema:** `UsageSummaryResponseSchema`
-- Returns org usage metrics aggregated by day for current month
-- Auth: JWT token OR API key (dual auth)
-- Access: Must be org member (JWT) or key owner's org (API key)
+`FilterOperatorSchema`, `QueryFilterSchema`, `QueryOptionsSchema`, `InsertOptionsSchema`, `UpdateOptionsSchema`, `RpcOptionsSchema`, `SupabaseQueryResultSchema`, `SupabaseRpcResultSchema`, `SupabaseRowSchema`. These describe what `workers/lib/supabase.ts` accepts and returns; note that `update` and `deleteRows` accept an empty filter list — BACKLOG.md CR44.
 
-### /v1/orgs/{id}/entitlements
-**Schema:** `OrgEntitlementsResponseSchema`
-- Returns entitlements map: feature_key → (boolean | number | null)
-- Auth: JWT token OR API key (dual auth)
-- Access: Must be org member
+## API Responses
+
+No Zod schema validates a response: handlers assemble the JSON directly, typed by `types/index.ts` (`BootstrapResponse`) or inline. The unused response schemas listed under *Removed* above were deleted in TS09. Route facts that outlive them:
+
+| Route | Auth | Access |
+|---|---|---|
+| `GET /v1/me` | JWT | authenticated user |
+| `GET /v1/orgs` | JWT | authenticated user |
+| `GET /v1/orgs/{id}/dashboard` | JWT | org member |
+| `GET /v1/orgs/{id}/billing-status` | JWT | `owner` or `billing_admin` |
+| `GET /v1/orgs/{id}/usage/summary` | JWT or API key | org member, or the key's own org |
+| `GET /v1/orgs/{id}/entitlements` | JWT or API key | org member |
+
+Since UA08 (2026-09-27), membership for every `/v1/orgs/{id}/*` route is enforced in `preVerifyToken` **before** quota is reserved, and re-checked by the handler.
 
 ## Handler Options Schemas
 
@@ -246,16 +153,15 @@ import {
   // Types
   type JwtPayload,
   type UserRow,
-  type UsageBucket,
+  type Organization,
   type Env,
   type AuthResult,
   // Schemas
-  JwtPayloadSchema,
-  UserRowSchema,
-  UsageBucketSchema,
-  EnvSchema,
+  ApiKeyTierSchema,
+  BillingStatusSchema,
   CreateApiKeyBodySchema,
-  MeResponseSchema,
+  QuotaCheckResponseSchema,
+  EnvSchema,
 } from '../../lib';
 ```
 
@@ -320,6 +226,7 @@ hmacVerify(secret: string, signature: Uint8Array, message: string): Promise<bool
 
 ## Related Files
 
+- **workers/lib/types/*.ts** — the schema files catalogued above; read the file, not this page, for field-level detail
 - **workers/lib/auth.ts** — Auth0 JWT verification: RS256/ES256 against the tenant's JWKS, `iss`/`aud`/`exp`/`nbf` checks; no HMAC and no HS256 path
 - **workers/lib/api-keys.ts** — API key generation and verification using `hmacSignHex`/`hmacVerify`
 - **workers/lib/crypto.ts** — HMAC-SHA256 sign/verify primitives

@@ -377,7 +377,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR36](#cr36) | P2 | 🔴 open | The **plan-tiered edge rate limiter** is documented as a live pipeline step but was never implemented; the quota DO's per-minute limit is the only ceiling on org routes, and it fails open |
 | [CR37](#cr37) | P1 | 🔴 open | **`/signup` lets the caller choose the plan.** Unauthenticated `tier` → `organizations.current_plan`, which `api-gateway` quota **and** the toolkit receiver's key limit both treat as authoritative. `{"tier":"enterprise"}` = enterprise request quota + unlimited API keys, unpaid |
 | [CR38](#cr38) | P1 | 🔴 open | **`stripe-webhook` never writes `current_plan` in production** — `STRIPE_PRICE_TO_PLAN_JSON` is unbound (measured 2026-09-27), so `priceToPlan` is `{}` and a paid upgrade only flips `billing_status`. Plan changes have been a no-op since go-live |
-| [CR39](#cr39) | P2 | 🔴 open | `/v1/orgs/:id/*` reserves quota and writes a `usage_events` row **before** the membership check; any authenticated identity can burn another org's quota and pollute its ledger with 403s |
+| [CR39](#cr39) | P2 | ✅ **DONE 2026-09-27 — by UA08** | `/v1/orgs/:id/*` reserved quota and wrote a `usage_events` row **before** the membership check. Fixed by UA08 (`61a4e71`): `preVerifyToken` now takes `orgId` and 403s a foreign API key or a JWT with no membership row before `enforceOrgQuota`; fails open only on a DB error, where the handler re-checks |
 | [CR40](#cr40) | P2 | 🔴 open | `/v1/auth0-logs` is an unauthenticated POST inserting with the service-role key; its "Auth0 cannot send a token" rationale is false — HTTP log streams have an Authorization header. Stream is live (CR33), so exposed today |
 | [CR41](#cr41) | P1 | ✅ **DONE 2026-09-27** | `api-gateway-dev` `[env.dev.vars]` pinned `AUTH0_DOMAIN` to the **production** tenant since 2026-07-30 — invisible to `check:env-isolation`, which reads Doppler, never `vars`. Fixed (`d1cdb45`), guarded (`ff8b923`), deployed. Residual: dev has no `API_KEY_HMAC_SECRET` |
 | [CR42](#cr42) | P3 | 🔴 open | `/v1/ingest/events` runs with **no quota, no rate limit, and unbounded `metadata`** — an authenticated member can insert unlimited self-reported rows of any size; `OTEL_MAX_SPANS` is declared and unused |
@@ -2197,18 +2197,18 @@ Production `stripe-webhook` binds exactly three secrets — `STRIPE_WEBHOOK_SECR
 
 ---
 
-### CR39: `/v1/orgs/:id/*` reserves quota and writes a ledger row before checking membership
+### ~~CR39: `/v1/orgs/:id/*` reserves quota and writes a ledger row before checking membership~~ ✅ *closed 2026-09-27 — UA08 had already fixed it*
 
-**Priority:** P2 | **Source:** same review, confirmed in code
-**Estimated:** small
+**Priority:** P2 | **Source:** same review, confirmed in code — then found to duplicate UA08, which a parallel session fixed the same day and which merged in `ac69d02`
+**Estimated:** done
 
-`workers/api-gateway/src/index.ts:205-217`: the dispatcher runs `preVerifyToken` (token authenticity only), then `enforceOrgQuota(orgId, …)` against the org id **from the URL**, then hands off to the route handler — and the handler is where membership is checked (`routes/orgs.ts:141`, `routes/usage.ts:57`). `recordMeteredRequest` (`index.ts` ~222-235) writes the `usage_events` row for the request whatever the handler returned, so a non-member's 403 still lands in the victim org's ledger.
+The gap as reviewed: the dispatcher ran `preVerifyToken` (token authenticity only), then `enforceOrgQuota` against the org id **from the URL**, and membership was checked only inside each handler — so a signed-in non-member could burn another org's per-minute and monthly quota and leave 403-status `usage_events` rows against it. UA08 saw the same thing in production data (a foreign org's key metered as `403` on the victim's ledger).
 
-**Effect:** any authenticated identity can burn another org's per-minute and monthly quota and pollute its `usage_events` / `usage_buckets_daily` with a loop of 403s. `index.test.ts` covers only the unauthenticated case (`not.toHaveBeenCalled` at `:158` / `:180`); there is no non-member test, which is why the gap was invisible.
+**Closed by UA08 (`61a4e71`, "fix(api-gateway): refuse cross-org credentials before quota is consumed").** `preVerifyToken` (`workers/api-gateway/src/lib/helpers.ts:126-175`) now takes `orgId`. An API key whose row's `organization_id` differs is refused 403 with no extra query; a JWT caller is looked up in `organization_memberships` and refused 403 when no row matches — both before `enforceOrgQuota` runs. `index.test.ts` pins it: `describe('UA08: cross-org access refused before quota')` asserts a 403 *without consuming quota* for a foreign API key and for a JWT with no membership.
 
-**Fix:** resolve membership once in the dispatcher — between `preVerifyToken` and `enforceOrgQuota` — and pass the resolved role down to the handlers (removing their per-handler lookups), so a non-member 403s before any quota or ledger effect. Add the test: non-member call → 403, with `enforceOrgQuota` and `recordMeteredRequest` `not.toHaveBeenCalled()`.
+**Residual, by design:** the JWT membership pre-check fails open on a database error (the handler still re-checks and 403s), mirroring `enforceOrgQuota`'s own fail-open. During a Supabase outage a non-member's request can therefore still reserve one unit of quota; it cannot read anything.
 
-**Status:** Open.
+**Status:** ✅ Done — see UA08 in the User Data-Integrity Audit section.
 
 ---
 
