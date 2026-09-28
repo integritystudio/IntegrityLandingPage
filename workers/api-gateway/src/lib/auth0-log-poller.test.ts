@@ -206,7 +206,22 @@ describe('pollAuth0Logs — paging and checkpoint', () => {
     expect(store.get(CHECKPOINT_KEY)).toBe('log-0003');
   });
 
-  it('restarts from the newest page when the API rejects the checkpoint', async () => {
+  it('stores and checkpoints an entry that carries only the legacy _id', async () => {
+    const { kv, store } = fakeKv({ [CHECKPOINT_KEY]: 'log-0001' });
+    const { log_id: _omitted, ...legacyOnly } = entry('log-0003');
+    const calls = stubFetch({ pages: [[entry('log-0002'), { ...legacyOnly, _id: 'log-0003' }]] });
+
+    const result = await pollAuth0Logs(makeEnv(kv));
+
+    expect(result).toEqual({ status: 'ok', inserted: 2, pages: 1 });
+    expect(calls.inserts[0]).toEqual([
+      expect.objectContaining({ log_id: 'log-0002' }),
+      expect.objectContaining({ log_id: 'log-0003' }),
+    ]);
+    expect(store.get(CHECKPOINT_KEY)).toBe('log-0003');
+  });
+
+    it('restarts from the newest page when the API rejects the checkpoint', async () => {
     const { kv, store } = fakeKv({ [CHECKPOINT_KEY]: 'not-a-log-id' });
     const calls = stubFetch({ pages: [400, [entry('log-0009'), entry('log-0008')]] });
 

@@ -108,7 +108,7 @@ function toRows(entries: unknown[]): Auth0LogRow[] {
   const rows: Auth0LogRow[] = [];
   for (const entry of entries) {
     const parsed = Auth0LogSchema.safeParse(entry);
-    const logId = parsed.success ? parsed.data.log_id || parsed.data._id : undefined;
+    const logId = logIdOf(entry);
     if (parsed.success && logId) {
       rows.push(toAuth0LogRow(logId, parsed.data));
     } else {
@@ -118,8 +118,14 @@ function toRows(entries: unknown[]): Auth0LogRow[] {
   return rows;
 }
 
+/**
+ * The entry's id: `log_id`, else the legacy `_id`. On this tenant both are present and equal
+ * on every entry (measured 2026-09-28), so either is a valid `from` checkpoint. Rows and the
+ * checkpoint must read the id the same way, or an entry that stores fine could stall paging.
+ */
 function logIdOf(entry: unknown): string | undefined {
-  const id = (entry as { log_id?: unknown } | null)?.log_id;
+  const { log_id: logId, _id: legacyId } = (entry ?? {}) as { log_id?: unknown; _id?: unknown };
+  const id = typeof logId === 'string' && logId.length > 0 ? logId : legacyId;
   return typeof id === 'string' && id.length > 0 ? id : undefined;
 }
 
