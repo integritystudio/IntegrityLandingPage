@@ -2415,7 +2415,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Decision 2026-09-27: No constraint.** `writeAuditLog` is the only writer (the `create_audit_log_entry` SQL function has no callers per `audit.ts` comment), the vocabulary is 4 actions, and a migration per action is friction with no safety gain beyond what Zod already enforces at the write site.
 
-### TS16: Confirm no external caller sends extra fields to `POST /v1/orgs/:id/api-keys` (review) ⚠️ partially blocked
+### TS16: Confirm no external caller sends extra fields to `POST /v1/orgs/:id/api-keys` (review) ✅ done 2026-09-27
 
 **Priority:** P4 | **Source:** `df174a2` follow-up
 **Estimated:** 30 minutes
@@ -2424,4 +2424,4 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Scope:** grep the dashboard repo's create-key call. If it sends extra fields, drop `.strict()` or trim the payload there.
 
-**Status 2026-09-27:** dashboard repo (observability-toolkit frontend / IntegrityMonitor) is not available locally in any form that has an api-gateway call site for `POST /v1/orgs/:id/api-keys`. Checked `is-internal/IntegrityMonitor/src/` — no results for `orgs.*api-keys` or `v1/orgs`. Confirm by grepping the live dashboard codebase when available.
+**Done 2026-09-27 — no external caller exists; `.strict()` stays.** The dashboard is `observability-toolkit/dashboard` (toolkit `2e98f69b`, dashboard `82b63ac`), not IntegrityMonitor. Neither `dashboard/src` nor `dashboard/worker` references `/v1/orgs/:id/api-keys`, `api-keys`, or any key-creation call; its only `integritystudio.dev` uses are the Auth0 audience and a CORS origin. The toolkit's key minting goes through the Supabase `api-keys-create` edge function (receiver `provision-api-key.ts`, e2e suites), never through api-gateway. A sweep of `~/code` (excluding this repo, `node_modules`, `.venv`) found no other caller. Re-check if a dashboard key-management UI is ever added.
