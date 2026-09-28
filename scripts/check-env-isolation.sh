@@ -134,8 +134,9 @@ SUPABASE_PROJECT_SCOPED=(
   SUPABASE_INTEGRITY_MEMERSHIP_KEY
   SUPABASE_ANON_KEY
   SUPABASE_JWT_SECRET
-  SUPABASE_DB_PASSWORD
 )
+# SUPABASE_DB_PASSWORD was deleted from both configs 2026-09-27 (UA09): it never
+# authenticated (28P01), and while present it overrode the CLI's login-role path.
 
 command -v doppler >/dev/null 2>&1 || { echo "doppler CLI not installed"; exit 2; }
 doppler me >/dev/null 2>&1 || { echo "doppler not authenticated — run 'doppler login'"; exit 2; }
