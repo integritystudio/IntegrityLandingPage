@@ -10,12 +10,10 @@ import {
   RECEIVER_PATHS,
   SERVICE_NAME,
   EMAIL_REGEX,
-  ApiKeyTierSchema,
   DEFAULT_TIER,
   SendRequestSchema,
   CreateCheckoutSessionSchema,
   DEFAULT_APP_BASE_URL,
-  type ApiKeyTier,
   type ErrorCode,
   type Env,
 } from "./types.js";
@@ -94,8 +92,8 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
   const email = req.email;
   const password = req.password;
   const providedName = typeof req.name === "string" && req.name.trim() ? req.name.trim() : null;
-  const tierParsed = ApiKeyTierSchema.safeParse(req.tier);
-  const tier: ApiKeyTier = tierParsed.success ? tierParsed.data : DEFAULT_TIER;
+  // CR37: always start at 'starter' regardless of the caller-supplied tier.
+  // current_plan is set only by stripe-webhook after a successful payment.
   const orgName = providedName ?? `${email.split("@")[0]} (personal)`;
 
   if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID || !env.AUTH0_CLIENT_SECRET || !env.AUTH0_AUDIENCE || !env.AUTH0_CLI_ID || !env.AUTH0_CLI_SECRET) {
@@ -119,7 +117,7 @@ async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Res
     let orgId: string;
     try {
       orgId = await supabaseCreatePersonalOrg(
-        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgName, tier, email,
+        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgName, DEFAULT_TIER, email,
       );
     } catch (err) {
       await auth0DeleteUser(env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET, auth0Sub);
@@ -361,7 +359,6 @@ async function handleSend(env: Env, req: Record<string, unknown>, clientIp?: str
           jwt: data.jwt,
           name: data.name,
           email: data.email,
-          tier: data.tier,
           org_name: data.org_name,
         };
     return await forwardToReceiver(env, outbound, clientIp);

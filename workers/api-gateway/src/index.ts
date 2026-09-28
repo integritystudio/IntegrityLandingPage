@@ -11,6 +11,7 @@ import { handleAuth0Logs } from './routes/auth0-logs';
 import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
 import { preVerifyToken } from './lib/helpers';
+import { checkOrgRateLimit } from './lib/rate-limit';
 import { meteredRoute, recordMeteredRequest } from './lib/usage-ledger';
 import { createSupabaseClient } from '../../lib/supabase';
 
@@ -213,6 +214,26 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
       orgId,
     });
     if (!preAuth.ok) return withSecurityHeaders(preAuth.error);
+
+    // CR36: uniform per-org edge rate limit, applied before the quota DO call.
+    // Provides a per-minute ceiling that survives a DO outage (the DO is fail-open;
+    // without this a DO outage removes the only per-minute limit on org routes).
+    // Uniform rather than plan-tiered: plan-aware limiting would require a Supabase
+    // lookup before the DO call; the DO already enforces plan-tiered limits on
+    // requests that reach it. This layer protects the DO from load.
+    const orgRateLimit = await checkOrgRateLimit(orgId, { RATE_LIMIT_KV: env.RATE_LIMIT_KV });
+    if (!orgRateLimit.allowed) {
+      return withSecurityHeaders(new Response(
+        JSON.stringify({ error: { message: 'Too Many Requests' } }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': String(orgRateLimit.retryAfterSeconds),
+          },
+        },
+      ));
+    }
 
     const quotaOpts = {
       doNamespace: env.QUOTA_DO,

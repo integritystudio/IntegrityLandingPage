@@ -219,14 +219,17 @@ Request → Worker Gateway
   │   JWT: not on the token itself (Auth0 JWTs carry no org data) — resolved via /bootstrap
   │   API key: from api_keys.organization_id
   │
-  ├─ [Step 4] Rate limit — NOT a Cloudflare edge binding (verified 2026-09-23):
-  │   No Cloudflare rate-limit binding exists in any wrangler.toml. Org-scoped
-  │   routes carry no edge throttle at all; their per-minute ceiling is the
-  │   Durable Object's, enforced in Step 5.
+  ├─ [Step 4] Rate limit — KV + per-isolate throttles, NOT a Cloudflare edge binding:
+  │   No Cloudflare rate-limit binding exists in any wrangler.toml.
+  │   Org-scoped routes (/v1/orgs/:id/*): a uniform 300 req / 60s per org
+  │   (ORG_RATE_LIMIT_MAX, CR36, 2026-09-27), keyed on the verified org id and
+  │   applied after Step 3 and before the Step 5 DO call. The DO is fail-open,
+  │   so this is the per-minute ceiling that survives a DO outage. Deliberately
+  │   not plan-tiered: the plan is not known before the DO call, and the DO
+  │   already enforces plan-tiered limits on requests that reach it.
   │   Identity-scoped routes (/v1/me, /v1/orgs, /bootstrap) have no org to meter,
-  │   so they use a KV + per-isolate throttle keyed on the verified JWT subject
+  │   so they use the same throttle keyed on the verified JWT subject
   │   — a uniform 120 req / 60s (IDENTITY_RATE_LIMIT_MAX), not plan-based.
-  │   The plan-tiered edge limiter is designed but unimplemented — see CR36.
   │
   ├─ [Step 5] Quota check (Durable Object, strong consistency):
   │   POST /check { metric_key, quantity }

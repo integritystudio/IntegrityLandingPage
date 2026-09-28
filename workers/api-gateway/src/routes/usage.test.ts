@@ -40,8 +40,8 @@ const GROWTH_PLAN = {
   concurrent_jobs: 5,
   features: { alerts: true, usage_dashboard: true, compliance_summary: true },
 };
-const planRoutes = (planKey = 'growth'): Record<string, RouteResponder> => ({
-  'GET organizations': okRows([{ id: ORG_ID, current_plan: planKey }]),
+const planRoutes = (planKey = 'growth', billingStatus = 'active'): Record<string, RouteResponder> => ({
+  'GET organizations': okRows([{ id: ORG_ID, current_plan: planKey, billing_status: billingStatus }]),
   'GET plans': okRows([{ ...GROWTH_PLAN, key: planKey }]),
 });
 
@@ -271,15 +271,27 @@ describe('GET /v1/orgs/:orgId/entitlements', () => {
     expect(body.entitlements.alerts).toBe(false);
 
     expect(stub.find('GET', 'entitlements')!.url.searchParams.get('organization_id')).toBe(`eq.${ORG_ID}`);
-    expect(stub.find('GET', 'organizations')!.url.searchParams.get('select')).toBe('current_plan');
+    expect(stub.find('GET', 'organizations')!.url.searchParams.get('select')).toBe('current_plan, billing_status');
     expect(stub.find('GET', 'plans')!.url.searchParams.get('key')).toBe('eq.growth');
+  });
+
+  it('projects starter when the stored paid plan has no entitled billing status (CR37)', async () => {
+    const stub = stubSupabase({
+      ...membershipRoute(),
+      ...planRoutes('enterprise', 'inactive'),
+      'GET entitlements': okRows([]),
+    });
+
+    const res = await handleOrgEntitlements(await makeJwtRequest(PATH), ORG_ID, opts);
+    expect(res.status).toBe(200);
+    expect(stub.find('GET', 'plans')!.url.searchParams.get('key')).toBe('eq.starter');
   });
 
   it('falls back to the explicit rows alone when the plan lookup fails', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     stubSupabase({
       ...membershipRoute(),
-      'GET organizations': okRows([{ id: ORG_ID, current_plan: 'growth' }]),
+      'GET organizations': okRows([{ id: ORG_ID, current_plan: 'growth', billing_status: 'trialing' }]),
       'GET plans': httpError(500, 'DB error'),
       'GET entitlements': okRows([
         { organization_id: ORG_ID, feature_key: 'api_keys_max', enabled: true, hard_limit: 10, soft_limit: null },

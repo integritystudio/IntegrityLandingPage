@@ -173,7 +173,11 @@ export class QuotaDurableObject implements DurableObject {
       // Update quota version if it changed (org plan/billing updated).
       // monthlyUsed is intentionally preserved — resetting it would let an org evade
       // its monthly limit by triggering a quota_version bump mid-month.
-      if (quotaVersion > this.quota.quotaVersion) {
+      // A different planKey at the same version also applies: the gateway derives it
+      // server-side (CR37's billing gate changed it for orgs whose version never moved),
+      // and a lower version is still ignored so a stale read cannot roll a plan back.
+      const planChanged = quotaVersion === this.quota.quotaVersion && planKey !== this.quota.planKey;
+      if (quotaVersion > this.quota.quotaVersion || planChanged) {
         const quotaConfig = DEFAULT_QUOTAS[planKey] ?? DEFAULT_QUOTAS.starter;
         this.quota.planKey = planKey;
         this.quota.quotaVersion = quotaVersion;

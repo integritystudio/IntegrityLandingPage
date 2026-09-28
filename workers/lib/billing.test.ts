@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   isEntitled,
+  effectivePlan,
+  UNPAID_PLAN,
   toBillingStatus,
   STRIPE_SUBSCRIPTION_STATUSES,
   type StripeSubscriptionStatus,
@@ -68,6 +70,28 @@ describe('isEntitled', () => {
 // The union, the Zod enum and the pass-through list are three declarations of one fact.
 // Drift between them is silent: a status could parse but never pass through, or vice
 // versa. These pin them together so adding a status to one forces the others.
+describe('effectivePlan (CR37)', () => {
+  it.each([
+    ['growth', 'active', 'growth'],
+    ['enterprise', 'trialing', 'enterprise'],
+    ['starter', 'active', 'starter'],
+  ] as const)('keeps %s while %s', (plan, status, expected) => {
+    expect(effectivePlan(plan, status)).toBe(expected);
+  });
+
+  it.each(['inactive', 'past_due', 'unpaid', 'canceled', 'incomplete', 'paused'] as const)(
+    'holds a paid plan to the unpaid plan while %s',
+    (status) => {
+      expect(effectivePlan('enterprise', status)).toBe(UNPAID_PLAN);
+    },
+  );
+
+  it('falls back to the unpaid plan when either column is missing', () => {
+    expect(effectivePlan(null, 'active')).toBe(UNPAID_PLAN);
+    expect(effectivePlan('growth', undefined)).toBe(UNPAID_PLAN);
+  });
+});
+
 describe('BillingStatus declarations stay in sync', () => {
   it('every Stripe status is accepted by BillingStatusSchema', () => {
     for (const status of STRIPE_SUBSCRIPTION_STATUSES) {

@@ -1,4 +1,4 @@
-import type { BillingStatus } from './types/index';
+import type { ApiKeyTier, BillingStatus } from './types/index';
 
 /**
  * Stripe's subscription lifecycle, verbatim and in Stripe's own order.
@@ -62,6 +62,26 @@ export function toBillingStatus(stripeStatus: string): BillingStatus {
  */
 export function isEntitled(status: BillingStatus): boolean {
   return status === 'active' || status === 'trialing';
+}
+
+/** The plan an org is held to when its stored plan is not paid for. */
+export const UNPAID_PLAN: ApiKeyTier = 'starter';
+
+/**
+ * The plan an org's quota and entitlements follow: its `current_plan` while the org is
+ * entitled, otherwise `UNPAID_PLAN`.
+ *
+ * `current_plan` alone is not evidence of payment (CR37). Until 2026-09-27 two
+ * unauthenticated paths let the caller choose it, and the rows they wrote persist; a
+ * contract-billed enterprise org is entitled only because an operator set its
+ * `billing_status` too. Enforcement reads this; display surfaces keep the raw column.
+ */
+export function effectivePlan(
+  currentPlan: ApiKeyTier | null | undefined,
+  billingStatus: BillingStatus | null | undefined,
+): ApiKeyTier {
+  if (!currentPlan || !billingStatus || !isEntitled(billingStatus)) return UNPAID_PLAN;
+  return currentPlan;
 }
 
 /**

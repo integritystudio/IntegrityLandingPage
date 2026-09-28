@@ -374,9 +374,9 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR33](changelog/1.3/CHANGELOG.md#cr33) | P3 | ✅ **DONE 2026-08-18 — receiver built, stream live** | Auth0 **log streams** — receiver is `POST /v1/auth0-logs` on `api-gateway` (`api.integritystudio.dev`), persisting to Supabase `auth0_logs` (RLS, unique `log_id`, JSONB payload); Auth0 HTTP stream configured and events verified flowing 2026-08-18 00:03Z. Rule that outlives it: **do not point an http stream at the OTLP endpoint** — it rejects every batch |
 | [CR34](changelog/1.3/CHANGELOG.md#cr34) | P2 | ✅ **RESOLVED 2026-08-03 — implicit 2→0, ROPC 3→1** | Strip Auth0 **`implicit` + ROPC** grants (SPA + `AUTH0_MANAGER`). Carved from CR25 items 7–8. Minutes by API, but must verify `sender-worker`'s `password-realm` `/signin` survives; `My App`'s ROPC likely stays until the client gets a refresh flow |
 | [CR35](#cr35) | P3 | 🔴 open — spend | Auth0 **breached-password detection**. Carved from CR25 item 3. Genuinely plan-gated (PATCH 400 "upgrade your subscription"); re-attempt after any plan change |
-| [CR36](#cr36) | P2 | 🔴 open | The **plan-tiered edge rate limiter** is documented as a live pipeline step but was never implemented; the quota DO's per-minute limit is the only ceiling on org routes, and it fails open |
-| [CR37](#cr37) | P1 | 🔴 open | **`/signup` lets the caller choose the plan.** Unauthenticated `tier` → `organizations.current_plan`, which `api-gateway` quota **and** the toolkit receiver's key limit both treat as authoritative. `{"tier":"enterprise"}` = enterprise request quota + unlimited API keys, unpaid |
-| [CR38](#cr38) | P1 | 🔴 open | **`stripe-webhook` never writes `current_plan` in production** — `STRIPE_PRICE_TO_PLAN_JSON` is unbound (measured 2026-09-27), so `priceToPlan` is `{}` and a paid upgrade only flips `billing_status`. Plan changes have been a no-op since go-live |
+| [CR36](#cr36) | P2 | ✅ **DONE 2026-09-27 — uniform, not tiered** | The **plan-tiered edge rate limiter** was documented as a live pipeline step but never implemented. Shipped as a uniform 300 req/min per-org limiter in `api-gateway` (`checkOrgRateLimit`, `RATE_LIMIT_KV` prefix `gw_org_rl:`), applied after auth and before the quota DO — the per-minute ceiling that survives a DO outage. Tiering deliberately dropped: the plan is not known before the DO call, and the DO already enforces plan-tiered limits |
+| [CR37](#cr37) | P1 | ✅ **code done 2026-09-27** — both repos; deploys pending | **`/signup` lets the caller choose the plan.** No path takes a plan from the caller any more (`/signup`, `/send`, receiver first-provision), and both enforcers gate a paid plan on an entitled `billing_status`. Live after: push `main` (sender CI), `deploy:prd` api-gateway, push toolkit `main` (receiver) |
+| [CR38](#cr38) | P1 | ⚠️ code done, binding pending | **`stripe-webhook` never writes `current_plan` in production** — `/health` now reports `priceToPlanEntries` and subscription events warn when map is empty (`1c10221`). `STRIPE_PRICE_TO_PLAN_JSON` still needs to be bound manually (commands in the detail section below) |
 | [CR39](#cr39) | P2 | ✅ **DONE 2026-09-27 — by UA08** | `/v1/orgs/:id/*` reserved quota and wrote a `usage_events` row **before** the membership check. Fixed by UA08 (`61a4e71`): `preVerifyToken` now takes `orgId` and 403s a foreign API key or a JWT with no membership row before `enforceOrgQuota`; fails open only on a DB error, where the handler re-checks |
 | [CR40](#cr40) | P2 | 🔴 open | `/v1/auth0-logs` is an unauthenticated POST inserting with the service-role key; its "Auth0 cannot send a token" rationale is false — HTTP log streams have an Authorization header. Stream is live (CR33), so exposed today |
 | [CR41](#cr41) | P1 | ✅ **DONE 2026-09-27** | `api-gateway-dev` `[env.dev.vars]` pinned `AUTH0_DOMAIN` to the **production** tenant since 2026-07-30 — invisible to `check:env-isolation`, which reads Doppler, never `vars`. Fixed (`d1cdb45`), guarded (`ff8b923`), deployed. Residual: dev has no `API_KEY_HMAC_SECRET` |
@@ -384,6 +384,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR43](#cr43) | P2 | 🔴 open | `usage_buckets_daily` has **two writers**: the ledger trigger increments, then `rollupDailyBucket` overwrites the same row with a recount capped at 10 000 events — an undercount on any day past the cap, and a same-row race on every ingest |
 | [CR44](#cr44) | P3 | 🔴 open | `workers/lib/supabase.ts` builds PostgREST filters from raw values (an `in` list splits on `,`) and `update`/`deleteRows` accept an **empty filter**, which would PATCH/DELETE the whole table. No caller trips either today; `sender-worker` suspicion refuted |
 | [CR45](#cr45) | P3 | 🔴 open | Quota DO `POST /flush-usage` zeroes the monthly counter and persists nothing; `lib/quota.ts` `flushUsage()` has no callers; the DO header said neither existed. Delete, or decide what a flush means |
+| [CR47](#cr47) | P2 | 🔴 open | **Joining an existing starter team org by email domain makes you its owner**, and the receiver never checks `email_verified` |
 | [CR46](#cr46) | P3 | 🔴 open | Grow **one shared CORS allowlist helper** from `workers/cors-utils.ts` + `getAllowedOrigins`, migrate api-gateway / contact-form / sender-worker to it, then retire the root copies. Never `*`; env-driven; `.`-anchored preview suffix |
 
 ~~**Two items are now blocked on code** — [[CR20]] and [[CR21]]…~~ **Superseded 2026-07-31.** [[CR21]] is done and live, and [[CR20]] is not blocked on code at all — its remaining work is monitoring ([[W04]]), since [[CR21]] foreclosed the 5xx option. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). What still needs a decision rather than an implementation: a credential/provisioning call (CR01, CR11, CR12's cross-repo HMAC secret), or an answer about intent (CR13, CR16).
@@ -2149,7 +2150,7 @@ The two mechanisms are disjoint: the routes with a throttle have no quota, and t
 1. Is a *tiered* edge limit actually wanted, or is the DO's per-minute limit the real ceiling and the docs simply wrong? The DO already enforces per-minute per org — an edge limiter would mostly protect the DO from load, which is a different goal than billing tiers.
 2. A plan-aware edge limit needs `current_plan` **before** the DO call. Today the plan is read from Supabase inside `enforceOrgQuota`, so making it edge-available is the bulk of the work, not the limiter itself.
 
-**Status:** Open. Docs corrected 2026-09-23 so they no longer assert the limiter exists; the implementation gap is what remains.
+**Status:** ✅ Done 2026-09-27 — commit `20a1032`. Added `checkOrgRateLimit` (300 req/min/org, uniform) to `workers/api-gateway/src/lib/rate-limit.ts`, wired into `/v1/orgs/:id/*` dispatch after `preVerifyToken` and before `enforceOrgQuota`. The quota DO is fail-open; this limiter provides a per-minute floor that survives a DO outage. Uniform rather than plan-tiered: the DO already enforces plan-tiered per-minute limits; a plan-aware edge limit would require a Supabase lookup before the DO call, adding latency and a second failure point. Uses the existing `RATE_LIMIT_KV` namespace (prefix `gw_org_rl:`) and the same two-tier (in-memory + KV) design as the identity rate limiter. 9 tests added; all 247 api-gateway tests pass.
 
 ---
 
@@ -2173,7 +2174,22 @@ The chain, all verified in code:
 2. Both enforcers gate non-starter plans on an entitled `billing_status` — the plan column alone is not evidence of payment.
 3. Flip the toolkit test at `__tests__/supabase.test.ts:84` (it pins the bug) and add a sender test that `/signup` with `tier: enterprise` produces a `starter` org.
 
-**Status:** Open.
+**Status:** ✅ Code done 2026-09-27, both repos; **not live until the three deploys below.**
+- **`/signup`** (`2076b8e`): always writes `starter`.
+- **`/send`**: `ProvisionApiKeyRequestSchema` no longer has `tier` and the forwarded payload never carries one (`workers/sender-worker/src/types.ts`, `index.ts`). The Flutter app still sends it; Zod strips it.
+- **Receiver** (toolkit `46536e69`): `tier` removed from the payload schema, so a sender that still sends one is stripped too. `ensureTeamOrg` / `ensurePersonalOrg` always insert `UNPAID_PLAN`. The membership role is keyed on the org's **stored** plan from a new `lookupOrgPlan` read, not the payload, and deliberately not the entitled plan: a paid org in dunning must not hand out ownership. `api-keys-create` no longer receives `tier` (it already ignored it). Item 3's pinned test is flipped.
+- **Item 2, both enforcers:** `effectivePlan()` (`workers/lib/billing.ts`) keeps a paid plan only while `isEntitled(billing_status)`, else `starter`. It is applied in `enforceOrgQuota`, `loadOrgPlan`, the dashboard and bootstrap entitlement projections. The receiver's `checkOrgKeyQuota` uses the same rule (`ENTITLED_BILLING_STATUSES`, which mirrors `isEntitled`). Display fields still show the raw `current_plan`.
+- **Quota DO:** it used to apply a new `planKey` only on a `quota_version` bump, so an org whose version never moved would have kept its old limits past the gate. A different `planKey` at the **same** version now applies too; a lower version is still ignored.
+- **Tests:** gateway 246, lib 322, sender 209, receiver 321, all green; `tsc` clean in all four. The gate tests were mutation-checked (removing the gate fails 4).
+
+**Production effect** (read-only, 2026-09-27): exactly one org changes. `home` (stored `enterprise`, `billing_status = inactive`, no subscription, 0 active keys) is held to starter limits. `integrity-studio-ai` (enterprise, `active`, set by hand, no Stripe customer) keeps enterprise, because an operator set `billing_status` as well. **Contract-billed enterprise orgs must have `billing_status = 'active'` set by hand**, or the gate holds them to starter.
+
+**To make it live** (each is outward-facing, so none was run):
+1. `git push` this repo's `main`, which deploys `sender-worker` via CI.
+2. `cd workers/api-gateway && npm run deploy:prd`.
+3. Push `observability-toolkit` `main`, which deploys `api-provisioning-receiver`. Order does not matter: each side accepts the other's old and new shapes.
+
+Found on the way and not fixed here: [CR47](#cr47).
 
 ---
 
@@ -2193,7 +2209,20 @@ Production `stripe-webhook` binds exactly three secrets — `STRIPE_WEBHOOK_SECR
 2. Make absence loud: `/health` reports the map's entry count, and an empty map logs at warn on every subscription event — or the Worker refuses to acknowledge subscription events until the map is present. Decide; silent success is the current failure.
 3. Verify with a real `customer.subscription.updated` in the sandbox and read `current_plan` back.
 
-**Status:** Open.
+**Status:** ⚠️ Partially done 2026-09-27 — code changes in commit `1c10221`. `/health` now reports `priceToPlanEntries`; `customer.subscription.updated` (live and dead-letter) emits `console.warn` with tag `CR38` when the map is empty. **Binding step still required:** run the commands below to bind the secret, then verify at `/health` and in the sandbox. Dev binding also needed (find sandbox price IDs in the Stripe sandbox dashboard). Three things the binding alone does not do:
+- **The `/health` count and the `CR38` warnings are not deployed.** `1c10221` reaches production only with `npm run deploy:prd` from `workers/stripe-webhook`; until then `/health` has no `priceToPlanEntries` field. Binding the secret works without it, because the deployed code already reads the variable.
+- **No backfill.** An existing org's `current_plan` changes only on its next `customer.subscription.updated`. The prd map covers `starter` and `growth` only (no `enterprise` price), so an update never writes or changes an `enterprise` plan; only `customer.subscription.deleted` touches it, and that always downgrades to `starter` without reading the map.
+- **Dev has nothing to invert.** Doppler `dev` holds no `STRIPE_PLAN_TO_PRICE_JSON` (measured 2026-09-27), so the dev map must be built from the sandbox price ids by hand.
+
+```bash
+# Production binding (run once, requires Doppler prd access):
+PLAN_TO_PRICE=$(doppler secrets get STRIPE_PLAN_TO_PRICE_JSON --project integrity-studio --config prd --plain)
+PRICE_TO_PLAN=$(echo "$PLAN_TO_PRICE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({v:k for k,v in d.items()}))")
+printf '%s' "$PRICE_TO_PLAN" | doppler run --project integrity-studio --config prd -- npx wrangler secret put STRIPE_PRICE_TO_PLAN_JSON --name stripe-webhook
+# Verify (priceToPlanEntries must be 2 after binding):
+curl -s https://stripe-webhook.<your-workers-dev-subdomain>.workers.dev/health | python3 -m json.tool
+# Dev binding: substitute sandbox price IDs from Stripe sandbox dashboard
+```
 
 ---
 
@@ -2321,6 +2350,22 @@ A fourth, `workers/lib/http/cors.ts`, defaulted to `Access-Control-Allow-Origin:
 **Goal:** one helper under `workers/lib/http/` grown from `cors-utils.ts` and `http-helpers.ts`'s `getAllowedOrigins`. It takes the env allowlist and an optional anchored preview-suffix rule, returns headers for an allowed origin and a deny signal otherwise, never `*`, always `Vary: Origin`. Migrate the three workers to it, keeping each worker's existing allow/deny tests as the acceptance suite; then delete root `cors-utils.ts` and `http-helpers.ts` (the root-level trio confuses readers of the context pack — `constants.ts` is separate and stays until its consumers move).
 
 **Rules that must survive the consolidation:** no wildcard default anywhere; the allowlist stays env-driven so dev and production origin sets differ (CR02 / CR11); suffix matching anchors on a `.` boundary; api-gateway keeps CORS at the single outer boundary (the pre-CR26 outage was a Worker with no CORS at all).
+
+**Status:** Open.
+
+---
+
+### CR47: joining an existing starter team org makes the joiner its owner — and the email domain that decides membership is never verified
+
+**Priority:** P2 | **Source:** CR37, session 2026-09-27, read in observability-toolkit `services/api-provisioning-receiver/src`
+**Estimated:** small in code; the decision is who may own a domain's org
+
+`handleProvisionApiKey` puts a corporate-domain user into `team-<domain>` via `ensureTeamOrg`, which returns the **existing** org on a 23505. It then adds them with `MEMBERSHIP_ROLE_BY_TIER[plan]`, and `starter → owner`. So every later signup at that domain becomes an **owner** of an org someone else created. That was true before CR37, which only moved the key from the payload to the stored plan. `auth0UserinfoSchema` reads `sub` and `email` only: nothing checks `email_verified`. So membership, and with it ownership, rests on an address the caller may never have proven they control.
+
+**Fix shape:**
+1. Owner only when this call created the org (`ensureTeamOrg` knows); otherwise member, whatever the plan.
+2. Require `email_verified === true` from `/userinfo` before domain-grouping into a team org (or fall back to a personal org).
+3. Audit production for team orgs with more than one owner.
 
 **Status:** Open.
 

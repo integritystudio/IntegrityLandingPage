@@ -59,6 +59,10 @@ async function processEvent(
         break;
 
       case 'customer.subscription.updated':
+        // CR38: warn when the map is absent so the silence does not mask a missing binding.
+        if (Object.keys(priceToPlan).length === 0) {
+          console.warn(`CR38: STRIPE_PRICE_TO_PLAN_JSON is unset — current_plan will not be updated for event ${event.id}`);
+        }
         result = await handleSubscriptionUpdated(event, db, priceToPlan);
         break;
 
@@ -202,6 +206,9 @@ async function runReconciliation(env: Env): Promise<void> {
           result = await handleInvoicePaymentFailed(event, db);
           break;
         case 'customer.subscription.updated':
+          if (Object.keys(priceToPlan).length === 0) {
+            console.warn(`CR38: STRIPE_PRICE_TO_PLAN_JSON is unset — current_plan will not be updated for dead-letter event ${dl.stripe_event_id}`);
+          }
           result = await handleSubscriptionUpdated(event, db, priceToPlan);
           break;
         case 'customer.subscription.deleted':
@@ -245,7 +252,14 @@ export default {
     const { pathname } = new URL(request.url);
 
     if (pathname === '/health' && request.method === 'GET') {
-      return ok({ ok: true, service: 'stripe-webhook' });
+      const priceToPlan = parsePriceToPlan(env.STRIPE_PRICE_TO_PLAN_JSON);
+      const planMapSize = Object.keys(priceToPlan).length;
+      // CR38: an empty map means subscription events cannot write current_plan.
+      // Report the entry count so a missing binding is visible at /health.
+      if (planMapSize === 0) {
+        console.warn('CR38: STRIPE_PRICE_TO_PLAN_JSON is unset or empty — subscription events will not update current_plan');
+      }
+      return ok({ ok: true, service: 'stripe-webhook', priceToPlanEntries: planMapSize });
     }
 
     if (pathname === '/webhook' && request.method === 'POST') {
