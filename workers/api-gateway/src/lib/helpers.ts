@@ -6,6 +6,8 @@ import type { JwtVerificationKey } from '../../../lib/auth';
 import { parseApiKey, verifyApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient } from '../../../lib/supabase';
 import { PLAN_SELECT, type PlanRow } from '../../../lib/entitlements';
+import { effectivePlan } from '../../../lib/billing';
+import type { ApiKeyTier, BillingStatus } from '../../../lib/types';
 import type { SupabaseClient } from '../../../lib/supabase';
 import { AuditActionSchema, type AuditAction } from '../../../lib/types/audit';
 
@@ -280,14 +282,15 @@ export async function loadPlan(sb: SupabaseClient, planKey: string | null | unde
 }
 
 /**
- * `loadPlan` for an org that has not been fetched yet: one read for its `current_plan`.
+ * `loadPlan` for an org that has not been fetched yet: one read for its plan and billing
+ * status, resolved through `effectivePlan` (CR37).
  * A missing org row also resolves to null: every caller has already passed a
  * membership check that 403s/404s an unknown org, so "no row" here is a race with
  * a delete, not a state worth failing the response over.
  */
 export async function loadOrgPlan(sb: SupabaseClient, orgId: string): Promise<PlanRow | null> {
-  const org = await sb.query<{ current_plan: string | null }>('organizations', {
-    select: 'current_plan',
+  const org = await sb.query<{ current_plan: ApiKeyTier | null; billing_status: BillingStatus | null }>('organizations', {
+    select: 'current_plan, billing_status',
     filters: [{ column: 'id', operator: 'eq', value: orgId }],
     single: true,
   });
@@ -295,5 +298,5 @@ export async function loadOrgPlan(sb: SupabaseClient, orgId: string): Promise<Pl
     console.error('[entitlements] organization lookup failed for', orgId, org.error);
     return null;
   }
-  return loadPlan(sb, org.data?.current_plan);
+  return loadPlan(sb, effectivePlan(org.data?.current_plan, org.data?.billing_status));
 }

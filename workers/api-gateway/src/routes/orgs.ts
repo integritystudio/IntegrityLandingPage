@@ -4,6 +4,7 @@ import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase
 import { requireBearerToken, safeParseJson } from '../../../lib/http/request';
 import { parseApiKey } from '../../../lib/api-keys';
 import type { Organization, OrgRole, OrgMembership, Entitlement } from '../../../lib/types';
+import { effectivePlan } from '../../../lib/billing';
 import { resolveJwt, resolveJwtRateLimited, buildEntitlementMap, loadPlan, writeAuditLog, auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
 
 interface OrgsHandlerOptions extends UserTokenOptions {
@@ -156,7 +157,7 @@ export async function handleOrgDashboard(
     sb.query<Entitlement>('entitlements', {
       filters: [{ column: 'organization_id', operator: 'eq', value: orgId }],
     }),
-    loadPlan(sb, org.current_plan),
+    loadPlan(sb, effectivePlan(org.current_plan, org.billing_status)),
   ]);
 
   const entitlements = buildEntitlementMap(entResult.ok ? entResult.data : [], plan);

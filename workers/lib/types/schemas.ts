@@ -43,6 +43,7 @@ export const QuotaFlushResultSchema = z.object({
 // Org plan data fetched from database
 export const OrgPlanRowSchema = z.object({
   current_plan: ApiKeyTierSchema,
+  billing_status: BillingStatusSchema,
   quota_version: z.number().int().nonnegative(),
 });
 

@@ -385,6 +385,40 @@ describe('QuotaDurableObject', () => {
       const body = await res.json() as { remainingMinute: number };
       expect(body.remainingMinute).toBe(29); // 60 - 30 - 1
     });
+
+    it('applies a different planKey at the same quotaVersion (CR37 billing gate)', async () => {
+      const { do_, storage } = makeDO();
+      // Seed: an org initialised on enterprise limits whose version never moved.
+      await seedQuota(storage, {
+        planKey: 'enterprise',
+        quotaVersion: 1,
+        minuteLimit: 6000,
+        monthlyLimit: null,
+        monthlyUsed: 20000,
+        minuteUsedAt: Date.now(),
+      });
+      // The gateway now derives starter for it at the same version.
+      const res = await do_.fetch(checkReq({ planKey: 'starter', quotaVersion: 1 }));
+      const body = await res.json() as { allowed: boolean; reason?: string };
+      expect(body.allowed).toBe(false);
+      expect(body.reason).toBe('monthly_limit');
+    });
+
+    it('ignores a different planKey from a lower quotaVersion (stale read)', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, {
+        planKey: 'growth',
+        quotaVersion: 2,
+        minuteLimit: 600,
+        monthlyLimit: 500000,
+        monthlyUsed: 20000,
+        minuteUsedAt: Date.now(),
+      });
+      const res = await do_.fetch(checkReq({ planKey: 'starter', quotaVersion: 1 }));
+      const body = await res.json() as { allowed: boolean; remainingMonthly: number };
+      expect(body.allowed).toBe(true);
+      expect(body.remainingMonthly).toBe(500000 - 20001);
+    });
   });
 
   describe('/flush-usage', () => {
