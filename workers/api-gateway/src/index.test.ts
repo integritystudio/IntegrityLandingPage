@@ -642,3 +642,30 @@ describe('CR43: ingest leaves usage_buckets_daily to the ledger trigger', () => 
     expect(stub.requests.filter((r) => r.table === BUCKETS_TABLE).map((r) => r.method)).toEqual([]);
   });
 });
+
+describe('CR40: /v1/auth0-logs is dispatched with the stream token', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('refuses a delivery without the token and accepts one with it', async () => {
+    const STREAM_TOKEN = 'stream-token-0123456789abcdef';
+    const stub = createSupabaseFetchStub({ 'POST auth0_logs': createdRows([]) });
+    vi.stubGlobal('fetch', stub.fetch);
+    const body = JSON.stringify([
+      { log_id: 'log-1', data: { date: '2026-09-28T12:00:00.000Z', type: 's' } },
+    ]);
+    const deliver = (authorization?: string) => worker.fetch(
+      makeRequest('POST', '/v1/auth0-logs', {
+        headers: { 'Content-Type': 'application/json', ...(authorization ? { Authorization: authorization } : {}) },
+        body,
+      }),
+      makeEnv({ AUTH0_LOG_STREAM_TOKEN: STREAM_TOKEN }),
+    );
+
+    expect((await deliver()).status).toBe(401);
+    expect(stub.requests).toHaveLength(0);
+    expect((await deliver(`Bearer ${STREAM_TOKEN}`)).status).toBe(200);
+    expect(stub.findAll('POST', 'auth0_logs')).toHaveLength(1);
+  });
+});

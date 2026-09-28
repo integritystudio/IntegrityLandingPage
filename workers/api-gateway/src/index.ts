@@ -60,6 +60,11 @@ export interface Env {
    * per-isolate count rather than switching off.
    */
   RATE_LIMIT_KV?: KVNamespace;
+  /**
+   * Shared secret the Auth0 log stream sends as `Authorization: Bearer <token>` on every
+   * delivery to /v1/auth0-logs (BACKLOG.md CR40). While unbound, that route answers 503.
+   */
+  AUTH0_LOG_STREAM_TOKEN?: string;
 }
 
 const APP_URL_FALLBACK = 'https://app.integritystudio.ai';
@@ -317,6 +322,7 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
     return withSecurityHeaders(await handleAuth0Logs(request, {
       supabaseUrl: env.SUPABASE_URL,
       serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+      streamToken: env.AUTH0_LOG_STREAM_TOKEN,
     }));
   }
 
