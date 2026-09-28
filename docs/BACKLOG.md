@@ -381,7 +381,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR40](#cr40) | P2 | 🔴 open | `/v1/auth0-logs` is an unauthenticated POST inserting with the service-role key; its "Auth0 cannot send a token" rationale is false — HTTP log streams have an Authorization header. Stream is live (CR33), so exposed today |
 | [CR41](#cr41) | P1 | ✅ **DONE 2026-09-27** | `api-gateway-dev` `[env.dev.vars]` pinned `AUTH0_DOMAIN` to the **production** tenant since 2026-07-30 — invisible to `check:env-isolation`, which reads Doppler, never `vars`. Fixed (`d1cdb45`), guarded (`ff8b923`), deployed. Residual: dev has no `API_KEY_HMAC_SECRET` |
 | [CR42](#cr42) | P3 | 🔴 open | `/v1/ingest/events` runs with **no quota, no rate limit, and unbounded `metadata`** — an authenticated member can insert unlimited self-reported rows of any size; `OTEL_MAX_SPANS` is declared and unused |
-| [CR43](#cr43) | P2 | 🔴 open | `usage_buckets_daily` has **two writers**: the ledger trigger increments, then `rollupDailyBucket` overwrites the same row with a recount capped at 10 000 events — an undercount on any day past the cap, and a same-row race on every ingest |
+| [CR43](#cr43) | P2 | ✅ **code done 2026-09-27** — migration `20260927020000` must be applied before `api-gateway` `deploy:prd` | `usage_buckets_daily` had **two writers**. The Worker rollup is deleted; the ledger trigger is the only writer, now with a NULL-safe, sample-weighted latency average and UTC bucket days. Guarded by a source scan and a router-level test |
 | [CR44](#cr44) | P3 | 🔴 open | `workers/lib/supabase.ts` builds PostgREST filters from raw values (an `in` list splits on `,`) and `update`/`deleteRows` accept an **empty filter**, which would PATCH/DELETE the whole table. No caller trips either today; `sender-worker` suspicion refuted |
 | [CR45](#cr45) | P3 | 🔴 open | Quota DO `POST /flush-usage` zeroes the monthly counter and persists nothing; `lib/quota.ts` `flushUsage()` has no callers; the DO header said neither existed. Delete, or decide what a flush means |
 | [CR47](#cr47) | P2 | 🔴 open | **Joining an existing starter team org by email domain makes you its owner**, and the receiver never checks `email_verified` |
@@ -2316,7 +2316,17 @@ Commit `407db84` (2026-07-30) added `[env.dev.vars]` to `workers/api-gateway/wra
 
 **Fix:** one writer. The trigger is transactional and unbounded, so delete `rollupDailyBucket`, its two call sites, and its tests. If a reconciliation pass is wanted, make it nightly, paginated, and assertive (compare and alert) rather than an overwriting upsert. Add a test that no Worker code path writes `usage_buckets_daily` directly.
 
-**Status:** Open.
+**Status:** ✅ Code done 2026-09-27; **not live until both steps below run, in this order.**
+
+**What changed.**
+- `rollupDailyBucket`, its two `waitUntil` call sites in `routes/ingest.ts`, its `waitUntil` parameter and its tests are deleted. `rollupMonthlyBucket` stays; it has no production caller, and it weights latency by `request_count`, which is now the wrong weight if it is ever wired up.
+- **The trigger could not stand alone as written, which the review missed.** Its average, `(avg * request_count + new.latency_ms) / (request_count + 1)`, goes NULL on the first event without a latency and stays NULL; `/v1/ingest/otel` always inserts one. The rollup's overwrite had been hiding it. Migration `20260927020000_usage_buckets_single_writer.sql` adds `latency_sample_count`, replaces the function with a sample-weighted, NULL-safe average, buckets by the UTC day (the old `created_at::date` follows the session timezone), and recomputes every bucket the ledger can vouch for.
+- Tests: `supabase/tests/usage-buckets-single-writer/` (10 assertions on a throwaway Postgres 15; mutants of the average and of the date each fail their own test), a router-level test in `api-gateway/src/index.test.ts` that awaits deferred work and asserts no request touches the table, and `workers/lib/usage-buckets-writer.test.ts`, which scans every package for a non-`.query` reference. Both new Worker tests failed against the old code for the intended reason before the deletion.
+- Production measured first (read-only): trigger present and enabled, 3 events, 1 bucket, matching a recount exactly. No damage to repair; the backfill is for correctness elsewhere (dev, and any day that drifted).
+
+**To make it live, in this order.** Reversing it runs the old NULL-prone average with nothing overwriting it.
+1. Apply `20260927020000` to production (`supabase db push`, or the one-migration route in CLAUDE.md if others are pending).
+2. `cd workers/api-gateway && npm run deploy:prd`.
 
 ---
 
