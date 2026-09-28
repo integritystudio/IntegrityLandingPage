@@ -2477,11 +2477,13 @@ The comment at the `preVerifyToken` call says an invalid token "returns 401 with
 
 `organizations_propagate_tier` runs `AFTER UPDATE OF current_plan`. If `stripe-webhook` never writes `current_plan` in production (CR38), an upgrade or downgrade never reaches `users.tier`. That is no worse than before UA04, but the column now claims to be derived. Propagation on a real production plan change has not been observed: a rolled-back live probe was declined, so only the local suite covers it (T5/T7). **Scope:** after CR38 is fixed, watch the next real plan change and confirm the members' `tier` follows it.
 
-### UA11: Retire the `users.tier` fallbacks now that the column is derived (review)
+### ✅ UA11 — done 2026-09-27: Retire the `users.tier` fallbacks now that the column is derived
 
 **Priority:** P4 | **Source:** UA04, session 2026-09-27
 
 `/v1/me` (`workers/api-gateway/src/routes/me.ts`, `orgPlan ?? user.tier`) and `supabase/functions/api-keys-create/index.ts` (`org?.current_plan ?? user.tier ?? DEFAULT_TIER`) still fall back to `users.tier`. Since UA04 it matches the default org's plan for any user who has one, and all 9 production users do. The fallbacks are now either redundant, or wrong only for users with no default org. **Scope:** decide whether a user with no default org should be an error; if so, remove both fallbacks and update `me.test.ts`'s two fallback tests.
+
+**Implemented 2026-09-27.** Decision: a user with no organization is not an error — `/v1/me` reports `starter`, the same answer `plan_to_api_key_tier` gives an unknown plan — but a failed membership or organization lookup now returns **500** instead of a guess, because reporting a wrong plan to a paying user during an outage is worse than an error the client already handles (the route 500s when the user row fails to load). `me.ts` no longer selects `tier` from `users` at all; `resolveOrgPlan` returns `{ ok, plan }` so the caller can tell "no org" from "lookup failed". `api-keys-create` reads only `organizations.current_plan` (`starter` if the org row is missing or the plan is unknown) and no longer selects `users.tier`. `me.test.ts`: the two fallback tests are replaced — a stored `enterprise` on a no-org user must still read `starter` (mutation-proof: the column is not read), org-lookup failure is 500 — plus a new membership-lookup-failure 500 test; 12 tests in the file, 239 across api-gateway, `tsc` clean. Acceptance grep `user\.tier|users\.tier` over `workers` and `supabase` `*.ts` finds no read path; only the UA04 migration and its SQL tests still name the column. Neither change is on CI: it reaches production only after `npm run deploy:prd` in `workers/api-gateway` and `supabase functions deploy api-keys-create`.
 
 ### ❌ UA12 — won't do (2026-09-27): Doppler prd `SUPABASE_SERVICE_ROLE_KEY` is a third live service-level key, origin unrecorded
 
