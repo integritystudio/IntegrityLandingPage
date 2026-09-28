@@ -2443,13 +2443,15 @@ The comment at the `preVerifyToken` call says an invalid token "returns 401 with
 
 **Scope:** resolve the credential's org during `preVerifyToken` (it already loads the key row; the JWT branch needs the membership lookup the handlers repeat) and refuse a mismatch *before* `enforceOrgQuota`. Keep the handlers' checks — defence in depth — but make the gateway's first gate answer "may this credential act on this org?", not just "is it real?". Acceptance: a valid key for org A hitting org B's URL returns 403, org B's quota counter does not move, and no `usage_events` row appears on org B.
 
-### UA09: The `supabase` CLI cannot reach the production database — every `--linked` command in CLAUDE.md fails
+### UA09: The `supabase` CLI cannot reach the production database — every `--linked` command in CLAUDE.md fails ✅ done 2026-09-27
 
 **Priority:** P3 | **Source:** UA04 production apply, session 2026-09-27
 
 `doppler run -p integrity-studio -c prd -- supabase migration list --linked` returns `LegacyDbConnectError: PgClient: Failed to connect`. `migration list`, `db push`, `db query --linked` and `migration repair` — the whole documented Supabase workflow — share that connection. UA04 was applied through the Management API `/database/query` endpoint instead, with its ledger row inserted by hand into `supabase_migrations.schema_migrations`. That works, but it skips the CLI's checks and is how CR17-style ledger drift happens. Likely the same root cause as the `SUPABASE_DB_PASSWORD` 28P01 failure (CLAUDE.md). **Scope:** reset the DB password and store it, or document the Management API route as the supported one, including the ledger insert.
 
 **Correction 2026-09-27 (same day) — the CLI is not broken; the Doppler password overrides a login that works.** `--debug` shows `Using database password from env var`: `doppler run` injects `SUPABASE_DB_PASSWORD`, which takes precedence and fails 28P01. Without it the CLI uses an access token to mint a temporary login role (`POST /v1/projects/cfrbahzzklwrnmbtqojl/cli/login-role`) and connects. Both plain `supabase migration list --linked` (keychain token) and `doppler run … -- env -u SUPABASE_DB_PASSWORD supabase …` (Doppler token) listed the full ledger, including the hand-inserted `20260927000000`. CLAUDE.md's Supabase commands are corrected. **Remaining:** reset the DB password and store it, or delete the slot so nothing can inject it.
+
+**Done 2026-09-27:** `SUPABASE_DB_PASSWORD` was deleted from Doppler `prd` and `dev` (owner decision), and removed from `SUPABASE_PROJECT_SCOPED` in `scripts/check-env-isolation.sh`. No code in this repo or observability-toolkit read it. After the deletion a bare `doppler run -p integrity-studio -c prd -- supabase migration list --linked` listed the ledger. CLAUDE.md and the runbook are updated. `check:env-isolation` exits 1 on two unrelated names that are identical in both configs (`GOOGLE_TELEMETRY_API_KEY`, `LLM_JUDGE_ANTHROPIC_KEY`, unclassified); it did not flag the password removal.
 
 ### UA10: UA04's tier trigger only fires on a `current_plan` change, so it inherits CR38 (related to CR38)
 

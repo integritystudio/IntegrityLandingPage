@@ -24,7 +24,7 @@ A second dev project, `tumhmtshahktumhqqamk` / `integritystudio-dev`, exists for
 
 ## The DB password saga
 
-🔴 **`SUPABASE_DB_PASSWORD` does not authenticate** (measured 2026-07-31; unchanged). `db push --dry-run` fails `SASL auth (FATAL: password authentication failed for user "postgres" (SQLSTATE 28P01))` against `aws-1-us-east-1.pooler.supabase.com`; `migration list --linked` fails `LegacyDbConnectError` **only because the password overrides the working login-role path** (corrected 2026-09-27; see Access routes). The fix is a Dashboard password reset plus storing the new value, or deleting the slot from both configs so nothing can inject it.
+🔴 **`SUPABASE_DB_PASSWORD` does not authenticate** (measured 2026-07-31; unchanged). `db push --dry-run` fails `SASL auth (FATAL: password authentication failed for user "postgres" (SQLSTATE 28P01))` against `aws-1-us-east-1.pooler.supabase.com`; `migration list --linked` fails `LegacyDbConnectError` **only because the password overrides the working login-role path** (corrected 2026-09-27; see Access routes). **Resolved 2026-09-27: the slot was deleted from both configs** (prd `len=16 sha=13659513`, dev `2017688c` at deletion; recoverable from Doppler's secret history). A bare `doppler run … -- supabase migration list --linked` then listed the ledger. The dead ends below are kept as history.
 
 Four dead ends, so you don't re-derive them:
 
