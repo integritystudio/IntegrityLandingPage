@@ -12,7 +12,9 @@
  * Stripe's test card, a personal org linked to it, and a growth subscription.
  * Cleanup deletes the customer (which cancels the subscription), waits for the
  * resulting `customer.subscription.deleted` to land, then deletes the org —
- * deleting the org first would make the Worker dead-letter that event.
+ * deleting the org first would make the Worker dead-letter that event. If the
+ * Stripe side cannot be removed, or its event does not land in time, the org is
+ * kept (so late events still match it) and the run fails naming the ids.
  *
  * Required env (injected by Doppler `dev`):
  *   STRIPE_SECRET_KEY — the sandbox key; a live-mode key is refused.
@@ -123,15 +125,21 @@ async function readOrg(orgId: string): Promise<OrgRow> {
   return row;
 }
 
-/** Re-read the org until `settled` holds or the timeout passes; returns the last row read either way. */
-async function waitForOrg(orgId: string, settled: (row: OrgRow) => boolean): Promise<OrgRow> {
+interface SettleResult {
+  settled: boolean;
+  /** The last row read, so a timeout still reports the state the org was left in. */
+  row: OrgRow;
+}
+
+/** Re-read the org until `isSettled` holds or WEBHOOK_SETTLE_TIMEOUT_MS passes. */
+async function waitForOrg(orgId: string, isSettled: (row: OrgRow) => boolean): Promise<SettleResult> {
   const deadline = Date.now() + WEBHOOK_SETTLE_TIMEOUT_MS;
   let row = await readOrg(orgId);
-  while (!settled(row) && Date.now() < deadline) {
+  while (!isSettled(row) && Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     row = await readOrg(orgId);
   }
-  return row;
+  return { settled: isSettled(row), row };
 }
 
 describe.skipIf(!HAS_CREDENTIALS)('stripe-webhook live plan sync (CR38)', () => {
@@ -159,7 +167,9 @@ describe.skipIf(!HAS_CREDENTIALS)('stripe-webhook live plan sync (CR38)', () => 
       billing_status: INITIAL_BILLING_STATUS,
       stripe_customer_id: customer.id,
     });
-    orgId = ((await inserted.json()) as Array<{ id: string }>)[0].id;
+    const [org] = (await inserted.json()) as Array<{ id: string }>;
+    if (!org) throw new Error('organizations insert returned no row');
+    orgId = org.id;
 
     const subscription = await stripePost<{ id: string }>('/subscriptions', {
       customer: customer.id,
@@ -169,17 +179,32 @@ describe.skipIf(!HAS_CREDENTIALS)('stripe-webhook live plan sync (CR38)', () => 
   }, TEST_TIMEOUT_MS);
 
   afterEach(async () => {
-    try {
-      if (customerId) {
-        // Deleting the customer cancels its subscription; let that event land before the org goes.
-        await stripeRequest('DELETE', `/customers/${customerId}`);
-        if (orgId) await waitForOrg(orgId, (row) => row.billing_status === CANCELED_STATUS);
+    const [customer, org] = [customerId, orgId];
+    customerId = null;
+    orgId = null;
+
+    // Deleting the customer cancels its subscription. The org goes only once that
+    // event has landed: an org deleted earlier makes the Worker dead-letter it, and one
+    // deleted while Stripe still bills would dead-letter every renewal. Otherwise keep
+    // it — a late event settles it to canceled — and fail with the ids to clean up.
+    if (customer) {
+      try {
+        await stripeRequest('DELETE', `/customers/${customer}`);
+      } catch (error) {
+        throw new Error(`cleanup: sandbox customer ${customer} not deleted; kept dev org ${org}. ${String(error)}`);
       }
-    } finally {
-      if (orgId) await supabaseRequest('DELETE', `organizations?id=eq.${orgId}`);
-      customerId = null;
-      orgId = null;
     }
+    if (!org) return;
+    if (customer) {
+      const cancel = await waitForOrg(org, (row) => row.billing_status === CANCELED_STATUS);
+      if (!cancel.settled) {
+        throw new Error(
+          `cleanup: dev org ${org} still ${cancel.row.billing_status} after ${WEBHOOK_SETTLE_TIMEOUT_MS}ms; ` +
+            'kept it so the late customer.subscription.deleted does not dead-letter. Delete it once canceled.',
+        );
+      }
+    }
+    await supabaseRequest('DELETE', `organizations?id=eq.${org}`);
   }, TEST_TIMEOUT_MS);
 
   it('writes the mapped plan to the org when its subscription is updated', async () => {
@@ -189,8 +214,11 @@ describe.skipIf(!HAS_CREDENTIALS)('stripe-webhook live plan sync (CR38)', () => 
     // invoice.paid only moves billing_status; current_plan is written by customer.subscription.updated alone.
     await stripePost(`/subscriptions/${subscriptionId}`, { 'metadata[plan_sync_probe]': new Date().toISOString() });
 
-    const org = await waitForOrg(orgId as string, (row) => row.current_plan === EXPECTED_PLAN);
-    expect(org).toMatchObject({ current_plan: EXPECTED_PLAN, billing_status: ENTITLED_STATUS });
+    const { row: org } = await waitForOrg(orgId as string, (row) => row.current_plan === EXPECTED_PLAN);
+    expect(org, `org state after waiting up to ${WEBHOOK_SETTLE_TIMEOUT_MS}ms`).toMatchObject({
+      current_plan: EXPECTED_PLAN,
+      billing_status: ENTITLED_STATUS,
+    });
     expect(org.active_subscription_id).not.toBeNull();
   }, TEST_TIMEOUT_MS);
 });
