@@ -92,7 +92,7 @@ SignupPage (/signup?tier=starter)
   └─→ AuthSuccess(jwt, email) → GoRouter /provision
         └─ ProvisionPage: AuthStorage.saveJwt(jwt)
         └─ POST /send (sender-worker)
-              ├─ validates SendRequestSchema {action, jwt, name, email, tier}
+              ├─ validates SendRequestSchema {action, jwt, name, email, org_name?}  (a sent tier is stripped — CR37)
               ├─ HMAC-SHA256 signs {x-timestamp}.{body} with SIGNING_KEYS[ACTIVE_KEY_ID]
               │    (500 SIGNING_KEY_UNRESOLVED, forwarding nothing, if that does not resolve)
               └─ POST api-provisioning-receiver /inbox (via service binding), sending x-key-id
@@ -100,7 +100,7 @@ SignupPage (/signup?tier=starter)
                     ├─ verifies x-timestamp (±5 min) + x-signature constant-time
                     ├─ Auth0 /userinfo (validates JWT live)
                     ├─ Supabase GET /rest/v1/users?auth0_id=eq.{sub} → Supabase UUID
-                    ├─ Supabase POST /rest/v1/organizations {domain, type:"team", current_plan:tier}
+                    ├─ Supabase POST /rest/v1/organizations {domain, type:"team", current_plan:"starter"}  (never from the payload — CR37)
                     ├─ Supabase POST /rest/v1/organization_memberships
                     └─ Supabase Edge Fn POST /functions/v1/api-keys-create
                          └─ returns { token: /obtk_[0-9a-f]{64}/, keyId, prefix, tier }

@@ -33,7 +33,7 @@ Everything is exported from `workers/lib/index.ts`; workers import it by relativ
 ### String-union enums
 
 - **`OrgRole`** — `'owner' | 'admin' | 'member' | 'billing_admin' | 'viewer'`
-- **`BillingStatus`** — Stripe's eight subscription statuses verbatim plus `inactive` ("no subscription exists"): `'inactive' | 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused'`. Several of these grant access; use `isEntitled` from `billing.ts` rather than comparing to `'active'` — that comparison silently excluded trial users for four months (CR27). Zod twin: `BillingStatusSchema`.
+- **`BillingStatus`** — Stripe's eight subscription statuses verbatim plus `inactive` ("no subscription exists"): `'inactive' | 'incomplete' | 'incomplete_expired' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'paused'`. Several of these grant access; use `isEntitled` from `billing.ts` rather than comparing to `'active'` — that comparison silently excluded trial users for four months (CR27). For the plan an org's limits follow, use `effectivePlan(current_plan, billing_status)` from the same file (CR37). Zod twin: `BillingStatusSchema`.
 - **`OrgMembershipStatus`** — `'active' | 'invited' | 'suspended'`
 - **`ApiKeyStatus`** — `'active' | 'revoked' | 'expired'`
 - **`ApiKeyTier`** — `'starter' | 'growth' | 'enterprise'`. Also the organization plan key; there is no separate `PlanKey`. Zod twin: `ApiKeyTierSchema`.

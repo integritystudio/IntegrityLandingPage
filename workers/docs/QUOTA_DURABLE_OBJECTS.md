@@ -28,7 +28,8 @@ API Gateway (api-gateway worker, src/index.ts)
 preVerifyToken()  ← 401 here touches no quota
   ↓
 enforceOrgQuota(orgId)  (src/lib/quota.ts)
-  ├→ Load current_plan + quota_version from Supabase
+  ├→ Load current_plan + billing_status + quota_version from Supabase
+  ├→ planKey = effectivePlan(current_plan, billing_status)  (paid plan only while entitled — CR37)
   ├→ Call Durable Object: checkAndReserve()
   │    ├→ Serialize quota check
   │    ├→ Verify minute and monthly limits
@@ -150,7 +151,7 @@ Returns current quota state for debugging and monitoring.
 
 ### 1. API Gateway Routes — done
 
-`enforceOrgQuota(orgId, opts)` in `src/lib/quota.ts` is the integration. It loads `current_plan` and `quota_version` for the org, calls `checkAndReserve` with `metricKey: 'requests', units: 1`, and returns either `{ ok: true, rateLimitHeaders }` or `{ ok: false, response }` where `response` is a 429 carrying `X-RateLimit-Remaining-Minute` / `X-RateLimit-Remaining-Monthly`. If the DO is unreachable it **fails open** (request allowed, no headers).
+`enforceOrgQuota(orgId, opts)` in `src/lib/quota.ts` is the integration. It loads `current_plan`, `billing_status` and `quota_version` for the org, resolves the plan with `effectivePlan` (a paid plan counts only while `isEntitled(billing_status)`; otherwise starter — CR37), calls `checkAndReserve` with `metricKey: 'requests', units: 1`, and returns either `{ ok: true, rateLimitHeaders }` or `{ ok: false, response }` where `response` is a 429 carrying `X-RateLimit-Remaining-Minute` / `X-RateLimit-Remaining-Monthly`. If the DO is unreachable it **fails open** (request allowed, no headers).
 
 Call sites:
 - `src/index.ts` — every `/v1/orgs/:id/*` request, after `preVerifyToken` and before the route handler
@@ -198,7 +199,7 @@ No job calls `/flush-usage`, and none is planned in this form: the usage ledger 
 When the Stripe webhook updates an org's subscription:
 1. `quota_version = Date.now()` in the database
 2. Next `checkAndReserve()` call detects the version change
-3. DO reloads plan limits; `monthlyUsed` is preserved
+3. DO reloads plan limits; `monthlyUsed` is preserved. A different `planKey` at the **same** version is applied too (CR37: the billing gate changed some orgs' plan without moving their version); a lower version is ignored, so a stale read cannot roll a plan back
 4. No cache invalidation needed — version comparison handles it
 
 ---

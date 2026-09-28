@@ -153,7 +153,6 @@ Future<Map<String, dynamic>> signup(String email, String password) async {
   "action": "provision_api_key",
   "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "name": "flutter-mobile-app",
-  "tier": "starter",
   "sentAt": "2026-03-20T10:15:30.000Z"
 }
 ```
@@ -162,7 +161,7 @@ Future<Map<String, dynamic>> signup(String email, String password) async {
 - **action** (string, required): currently only `"provision_api_key"`.
 - **jwt** (string, required): user's JWT from signup/signin.
 - **name** (string, required): friendly name for the API key.
-- **tier** (string, required): API tier (`starter`/`growth`/`enterprise`); determines rate limits and features.
+- ~~**tier**~~ — removed 2026-09-27 (CR37); stripped if sent. The org's plan, and with it the key's tier and limits, comes from the database.
 - **sentAt** (string, optional): ISO 8601 timestamp; for audit/replay-protection.
 
 **Response (200 OK):**
@@ -244,7 +243,7 @@ class ProvisioningClient {
     await _storage.write(key: _jwtKey, value: result['jwt']);
   }
 
-  Future<String> getApiKey({String name = "flutter-app", String tier = "starter"}) async {
+  Future<String> getApiKey({String name = "flutter-app"}) async {
     final jwt = await _storage.read(key: _jwtKey);
     if (jwt == null) throw Exception('Not authenticated');
     final response = await http.post(
@@ -254,7 +253,6 @@ class ProvisioningClient {
         'action': 'provision_api_key',
         'jwt': jwt,
         'name': name,
-        'tier': tier,
         'sentAt': DateTime.now().toUtc().toIso8601String(),
       }),
     );
@@ -304,7 +302,7 @@ curl -X POST https://sender-worker.alyshia-b38.workers.dev/signup \
 # Provision
 curl -X POST https://sender-worker.alyshia-b38.workers.dev/send \
   -H "Content-Type: application/json" \
-  -d '{"action":"provision_api_key","jwt":"YOUR_JWT_HERE","name":"test","tier":"starter"}'
+  -d '{"action":"provision_api_key","jwt":"YOUR_JWT_HERE","name":"test"}'
 ```
 
 ---

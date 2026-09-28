@@ -80,11 +80,11 @@ Navigate to dashboard (authenticated)
 - ~~Remove `supabaseAdminCreateUser` call from sender-worker; replace with Auth0 Management API call~~ ✅ Done — `auth0CreateUser` now uses client credentials grant
 - ~~Replace `ContactService.submitForm()` in `signup_page.dart` with Auth0 signup~~ ✅ Done — `ProvisioningService.signUp(email, password)` is now called; on `AuthSuccess` routes to `/provision`
 - ~~Forward `name` field from `SignupPage` to sender-worker `/signup` for use in org display name~~ ✅ Done — `ProvisioningService.signUp(name:, tier:)` passes both; sender-worker forwards to `supabaseCreatePersonalOrg`
-- ~~Pass `tier` from `SignupPage` to sender-worker so `supabaseCreatePersonalOrg` sets the correct initial plan~~ ✅ Done — `current_plan` is now set from the request `tier`; invalid/absent values default to `starter`
+- ~~Pass `tier` from `SignupPage` to sender-worker so `supabaseCreatePersonalOrg` sets the correct initial plan~~ ✅ Done — `current_plan` is now set from the request `tier`; invalid/absent values default to `starter`. ⚠️ **Reversed 2026-09-27 (CR37):** an unauthenticated caller could pick `enterprise`. The request `tier` is now ignored, every new org starts on `starter`, and only `stripe-webhook` changes `current_plan`
 - ~~On `AuthError`, error shown inline with no redirect~~ ✅ Done — `AuthError` now navigates to `/request_failure`
 - ~~Store Auth0 JWT in secure storage and route directly to authenticated dashboard post-provision~~ ✅ Done — ROPC exchange in sender-worker `/signup` returns real JWT; `AuthStorage` saves it to `localStorage`; `ProvisionPage` shows "Go to Dashboard" → opens `integritystudio.dev?access_token=JWT`
 - ~~Wire Stripe checkout for `growth` tier post-signup~~ ✅ Done — `POST /create-checkout-session` on sender-worker; `CheckoutPage` redirects to Stripe; `CheckoutSuccessPage` prompts sign-in to activate
-- Wire Stripe checkout for `enterprise` tier — pending (enterprise uses contact-sales flow with no Auth0 signup; requires reworking that path first)
+- ~~Wire Stripe checkout for `enterprise` tier~~ ✅ Priced 2026-09-28 — `price_1UKTwYAwEfePbhfkAS5HUuqk`, $50/user/month with a 6-user minimum; both checkout paths open at 6 seats. The landing page (`content.yaml`) still shows "Custom" / "Contact Sales"
 
 ### Involved Files (target)
 
@@ -104,8 +104,8 @@ Navigate to dashboard (authenticated)
 | Value | Display Name | Notes |
 |-------|-------------|-------|
 | `starter` | Free | Default on signup; no payment required |
-| `growth` | Growth | Paid; requires Stripe checkout |
-| `enterprise` | Enterprise | Custom pricing; requires sales contact |
+| `growth` | Growth | Paid, $79/month; requires Stripe checkout |
+| `enterprise` | Enterprise | Paid, $50/user/month, 6-user minimum (graduated tier: $300 flat for users 1–6). Contract-billed orgs also exist; they need `billing_status = 'active'` set by hand |
 
 Canonical Zod schema: `ApiKeyTierSchema` in `workers/lib/types/schemas.ts`
 
@@ -123,7 +123,7 @@ Stripe → stripe-webhook worker (POST /webhook)
          │    └─ linkStripeCustomer(org, customerId)
          │    └─ upsertSubscription(org, subscriptionId, priceId=null, 'active')
          │
-         ├─ customer.subscription.updated          ← tier is captured here
+         ├─ customer.subscription.updated          ← tier is captured here (needs STRIPE_PRICE_TO_PLAN_JSON bound — CR38)
          │    ├─ priceId = subscription.items[0].price.id
          │    ├─ planKey = priceToPlan[priceId]    ← STRIPE_PRICE_TO_PLAN_JSON mapping
          │    ├─ upsertSubscription(org, subscriptionId, priceId, status)

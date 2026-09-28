@@ -23,11 +23,11 @@ Every schema below lives in `src/types.ts`; the route constants are `ROUTES` in 
 | Method | Route | Body | Notes |
 |---|---|---|---|
 | GET | `/health` | — | `{ ok, service, version, timestamp }` |
-| POST | `/signup` | `{ email, password, tier? }` | Creates the Auth0 user and the Supabase org, user and owner membership inline, then signs in via Auth0 ROPC. `tier` (default `starter`) is written to the org's `current_plan` **unverified** — BACKLOG.md CR37 |
+| POST | `/signup` | `{ email, password, tier? }` | Creates the Auth0 user and the Supabase org, user and owner membership inline, then signs in via Auth0 ROPC. A `tier` in the body is ignored: the org always starts on `starter`, and only `stripe-webhook` changes its plan (CR37) |
 | POST | `/signin` | `{ email, password }` | Auth0 ROPC → `{ jwt, email }` |
 | POST | `/forgot-password` | `{ email }` | Triggers Auth0's change-password email; always 200 so accounts cannot be enumerated |
 | POST | `/send` | `SendRequestSchema` (below) | Signed and forwarded to the receiver |
-| POST | `/create-checkout-session` | `CreateCheckoutSessionSchema`: `{ email, tier }` | Returns `{ checkoutUrl }`. The org is derived server-side from the email — never from the body |
+| POST | `/create-checkout-session` | `CreateCheckoutSessionSchema`: `{ email, tier }` | Returns `{ checkoutUrl }`. The org is derived server-side from the email — never from the body. Enterprise opens at its 6-seat minimum (`PLAN_MIN_SEATS`) |
 
 `/signup` and `/signin` are rate-limited per client IP (`AUTH_RATE_LIMIT_MAX` per `AUTH_RATE_LIMIT_WINDOW_SECONDS`, cross-isolate via the `RATE_LIMIT_KV` binding).
 
@@ -41,12 +41,11 @@ The body is a discriminated union on `action`:
   "jwt": "<Auth0 access token>",
   "name": "My first key",
   "email": "user@example.com",
-  "tier": "starter",
   "org_name": "Example Inc"
 }
 ```
 
-`tier` falls back to `starter` when absent or unrecognised. `org_name` is optional: when it is missing the receiver derives the team org name from the email's registrable domain, which is more accurate than anything a client can send for subdomain addresses. The other action is `sign_in`: `{ "action": "sign_in", "jwt": "…", "email": "…" }`.
+A `tier` field is stripped and never forwarded (CR37); the receiver takes the org's plan from the database. `org_name` is optional: when it is missing the receiver derives the team org name from the email's registrable domain, which is more accurate than anything a client can send for subdomain addresses. The other action is `sign_in`: `{ "action": "sign_in", "jwt": "…", "email": "…" }`.
 
 The JWT is taken from, in order: a base64-wrapped `x-session-data` header, the body's `jwt` field, then an `Authorization: Bearer` header.
 
