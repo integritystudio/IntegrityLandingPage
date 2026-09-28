@@ -2214,12 +2214,24 @@ Production `stripe-webhook` binds exactly three secrets — `STRIPE_WEBHOOK_SECR
 - **No backfill.** An existing org's `current_plan` changes only on its next `customer.subscription.updated`. The prd map covers `starter` and `growth` only (no `enterprise` price), so an update never writes or changes an `enterprise` plan; only `customer.subscription.deleted` touches it, and that always downgrades to `starter` without reading the map.
 - **Dev has nothing to invert.** Doppler `dev` holds no `STRIPE_PLAN_TO_PRICE_JSON` (measured 2026-09-27), so the dev map must be built from the sandbox price ids by hand.
 
+**Enterprise price: created 2026-09-27 (owner decision: $50 per user per month, more than five users).**
+- **Live Stripe:** product `prod_VLAHKmFFGaNWpO` (`observability-toolkit-enterprise`, `metadata.plan_key=enterprise`, unit label `user`) and price `price_1UKTwYAwEfePbhfkAS5HUuqk`. It is USD, monthly, licensed and **graduated-tiered**: $300 flat for users 1–6, then $50 per user. Created through the Stripe MCP connector and read back to confirm the tiers.
+- **Why tiered, not $50 per unit:** the live Customer Portal (`bpc_1Ty2XDAwEfePbhfk9PndBNgW`) allows `quantity` updates with no minimum. A per-unit price could be cut to one seat, or $50. The tier bills the minimum whatever the quantity.
+- **Code:** both checkout paths open enterprise at `PLAN_MIN_SEATS.enterprise` (6), with `adjustable_quantity` minimum 6: sender `/create-checkout-session` and api-gateway `/v1/orgs/:id/checkout-session`. Every other plan still opens at 1.
+- **Migration:** `20260927010000_enterprise_stripe_price.sql` sets `plans.stripe_price_id` for enterprise, which is what makes the gateway sell it. **Not applied to production yet.**
+- **Still to do, in order:**
+  1. `deploy:prd` api-gateway, so the gateway opens at 6 seats. Without it, billing is still right because of the tier, but the recorded quantity reads 1.
+  2. Apply the migration (single-migration route in CLAUDE.md).
+  3. Add `"enterprise": "price_1UKTwYAwEfePbhfkAS5HUuqk"` to Doppler `prd` `STRIPE_PLAN_TO_PRICE_JSON`, then re-put it on `sender-worker`.
+  4. Run the binding above; it then maps 3 prices.
+- **Not changed:** `content.yaml` still shows enterprise as "Custom" / "Contact Sales". No sandbox price exists.
+
 ```bash
 # Production binding (run once, requires Doppler prd access):
 PLAN_TO_PRICE=$(doppler secrets get STRIPE_PLAN_TO_PRICE_JSON --project integrity-studio --config prd --plain)
 PRICE_TO_PLAN=$(echo "$PLAN_TO_PRICE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(json.dumps({v:k for k,v in d.items()}))")
 printf '%s' "$PRICE_TO_PLAN" | doppler run --project integrity-studio --config prd -- npx wrangler secret put STRIPE_PRICE_TO_PLAN_JSON --name stripe-webhook
-# Verify (priceToPlanEntries must be 2 after binding):
+# Verify (priceToPlanEntries must be 3 once enterprise is in the Doppler map, else 2):
 curl -s https://stripe-webhook.<your-workers-dev-subdomain>.workers.dev/health | python3 -m json.tool
 # Dev binding: substitute sandbox price IDs from Stripe sandbox dashboard
 ```
