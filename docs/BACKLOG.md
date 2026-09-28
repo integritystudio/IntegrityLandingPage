@@ -376,7 +376,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR35](#cr35) | P3 | 🔴 open — spend | Auth0 **breached-password detection**. Carved from CR25 item 3. Genuinely plan-gated (PATCH 400 "upgrade your subscription"); re-attempt after any plan change |
 | [CR36](#cr36) | P2 | ✅ **DONE 2026-09-27 — uniform, not tiered** | The **plan-tiered edge rate limiter** was documented as a live pipeline step but never implemented. Shipped as a uniform 300 req/min per-org limiter in `api-gateway` (`checkOrgRateLimit`, `RATE_LIMIT_KV` prefix `gw_org_rl:`), applied after auth and before the quota DO — the per-minute ceiling that survives a DO outage. Tiering deliberately dropped: the plan is not known before the DO call, and the DO already enforces plan-tiered limits |
 | [CR37](#cr37) | P1 | ✅ **code done 2026-09-27** — both repos; deploys pending | **`/signup` lets the caller choose the plan.** No path takes a plan from the caller any more (`/signup`, `/send`, receiver first-provision), and both enforcers gate a paid plan on an entitled `billing_status`. Live after: push `main` (sender CI), `deploy:prd` api-gateway, push toolkit `main` (receiver) |
-| [CR38](#cr38) | P1 | ⚠️ code done, binding pending | **`stripe-webhook` never writes `current_plan` in production** — `/health` now reports `priceToPlanEntries` and subscription events warn when map is empty (`1c10221`). `STRIPE_PRICE_TO_PLAN_JSON` still needs to be bound manually (commands in the detail section below) |
+| [CR38](#cr38) | P1 | ✅ **bound 2026-09-28** — 3 prices incl. enterprise; migration + webhook redeploy pending | **`stripe-webhook` never writes `current_plan` in production** — `/health` now reports `priceToPlanEntries` and subscription events warn when map is empty (`1c10221`). `STRIPE_PRICE_TO_PLAN_JSON` still needs to be bound manually (commands in the detail section below) |
 | [CR39](#cr39) | P2 | ✅ **DONE 2026-09-27 — by UA08** | `/v1/orgs/:id/*` reserved quota and wrote a `usage_events` row **before** the membership check. Fixed by UA08 (`61a4e71`): `preVerifyToken` now takes `orgId` and 403s a foreign API key or a JWT with no membership row before `enforceOrgQuota`; fails open only on a DB error, where the handler re-checks |
 | [CR40](#cr40) | P2 | 🔴 open | `/v1/auth0-logs` is an unauthenticated POST inserting with the service-role key; its "Auth0 cannot send a token" rationale is false — HTTP log streams have an Authorization header. Stream is live (CR33), so exposed today |
 | [CR41](#cr41) | P1 | ✅ **DONE 2026-09-27** | `api-gateway-dev` `[env.dev.vars]` pinned `AUTH0_DOMAIN` to the **production** tenant since 2026-07-30 — invisible to `check:env-isolation`, which reads Doppler, never `vars`. Fixed (`d1cdb45`), guarded (`ff8b923`), deployed. Residual: dev has no `API_KEY_HMAC_SECRET` |
@@ -2186,7 +2186,7 @@ The chain, all verified in code:
 
 **To make it live** (each is outward-facing, so none was run):
 1. `git push` this repo's `main`, which deploys `sender-worker` via CI.
-2. `cd workers/api-gateway && npm run deploy:prd`.
+2. ✅ `cd workers/api-gateway && npm run deploy:prd`: done 2026-09-28 02:10Z, version `8c70b4db`, `/health` 200 ×3. The gateway gate is live.
 3. Push `observability-toolkit` `main`, which deploys `api-provisioning-receiver`. Order does not matter: each side accepts the other's old and new shapes.
 
 Found on the way and not fixed here: [CR47](#cr47).
@@ -2209,7 +2209,7 @@ Production `stripe-webhook` binds exactly three secrets — `STRIPE_WEBHOOK_SECR
 2. Make absence loud: `/health` reports the map's entry count, and an empty map logs at warn on every subscription event — or the Worker refuses to acknowledge subscription events until the map is present. Decide; silent success is the current failure.
 3. Verify with a real `customer.subscription.updated` in the sandbox and read `current_plan` back.
 
-**Status:** ⚠️ Partially done 2026-09-27 — code changes in commit `1c10221`. `/health` now reports `priceToPlanEntries`; `customer.subscription.updated` (live and dead-letter) emits `console.warn` with tag `CR38` when the map is empty. **Binding step still required:** run the commands below to bind the secret, then verify at `/health` and in the sandbox. Dev binding also needed (find sandbox price IDs in the Stripe sandbox dashboard). Three things the binding alone does not do:
+**Status:** ✅ Binding done 2026-09-28 (see the rollout list under the enterprise price below); `1c10221`'s `/health` count and warnings are still undeployed. Originally: ⚠️ Partially done 2026-09-27 — code changes in commit `1c10221`. `/health` now reports `priceToPlanEntries`; `customer.subscription.updated` (live and dead-letter) emits `console.warn` with tag `CR38` when the map is empty. **Binding step still required:** run the commands below to bind the secret, then verify at `/health` and in the sandbox. Dev binding also needed (find sandbox price IDs in the Stripe sandbox dashboard). Three things the binding alone does not do:
 - **The `/health` count and the `CR38` warnings are not deployed.** `1c10221` reaches production only with `npm run deploy:prd` from `workers/stripe-webhook`; until then `/health` has no `priceToPlanEntries` field. Binding the secret works without it, because the deployed code already reads the variable.
 - **No backfill.** An existing org's `current_plan` changes only on its next `customer.subscription.updated`. The prd map covers `starter` and `growth` only (no `enterprise` price), so an update never writes or changes an `enterprise` plan; only `customer.subscription.deleted` touches it, and that always downgrades to `starter` without reading the map.
 - **Dev has nothing to invert.** Doppler `dev` holds no `STRIPE_PLAN_TO_PRICE_JSON` (measured 2026-09-27), so the dev map must be built from the sandbox price ids by hand.
@@ -2219,11 +2219,11 @@ Production `stripe-webhook` binds exactly three secrets — `STRIPE_WEBHOOK_SECR
 - **Why tiered, not $50 per unit:** the live Customer Portal (`bpc_1Ty2XDAwEfePbhfk9PndBNgW`) allows `quantity` updates with no minimum. A per-unit price could be cut to one seat, or $50. The tier bills the minimum whatever the quantity.
 - **Code:** both checkout paths open enterprise at `PLAN_MIN_SEATS.enterprise` (6), with `adjustable_quantity` minimum 6: sender `/create-checkout-session` and api-gateway `/v1/orgs/:id/checkout-session`. Every other plan still opens at 1.
 - **Migration:** `20260927010000_enterprise_stripe_price.sql` sets `plans.stripe_price_id` for enterprise, which is what makes the gateway sell it. **Not applied to production yet.**
-- **Still to do, in order:**
-  1. `deploy:prd` api-gateway, so the gateway opens at 6 seats. Without it, billing is still right because of the tier, but the recorded quantity reads 1.
-  2. Apply the migration (single-migration route in CLAUDE.md).
-  3. Add `"enterprise": "price_1UKTwYAwEfePbhfkAS5HUuqk"` to Doppler `prd` `STRIPE_PLAN_TO_PRICE_JSON`, then re-put it on `sender-worker`.
-  4. Run the binding above; it then maps 3 prices.
+- **Rollout, 2026-09-28 (UTC):**
+  1. ✅ api-gateway `deploy:prd` at 02:10Z, version `8c70b4db`. The gateway opens enterprise at 6 seats.
+  2. ⏳ **Migration not applied.** The dry run listed only `20260927010000`. The confirmed `db push` was refused by the session's permission classifier as a blind apply, so the owner runs `doppler run --project integrity-studio --config prd -- supabase db push` and answers the prompt. Until then the gateway still refuses enterprise checkout.
+  3. ✅ Doppler `prd` `STRIPE_PLAN_TO_PRICE_JSON` now has `enterprise`: keys `enterprise, growth, starter`, sha `13d6da5a2e60`, read back. Re-put on production `sender-worker`, `/health` 200 ×2. The deployed sender is still pre-CR37 code, so it opens enterprise at quantity 1 until `main` is pushed; the tier still bills $300.
+  4. ✅ **CR38 binding done.** `STRIPE_PRICE_TO_PLAN_JSON` (3 entries, the inverse of step 3) is bound to production `stripe-webhook`, verified in `wrangler secret list`. The deployed webhook code already reads it, so plan changes now write `current_plan`. `/health` still has the old shape until `1c10221` ships via `deploy:prd`.
 - **Not changed:** `content.yaml` still shows enterprise as "Custom" / "Contact Sales". No sandbox price exists.
 
 ```bash
