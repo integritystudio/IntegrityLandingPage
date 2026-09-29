@@ -3274,6 +3274,11 @@ Even a tap test would pass a hard-coded `'/contact'` under real content, where t
 
 **Priority:** P4 | **Source:** coverage review 2026-09-29; `supabase/migrations/20260929010000_default_org_from_first_membership.sql`, `supabase/tests/default-org-from-membership/`
 
+**Status:** ✅ **DONE 2026-09-29 for the tests; the behaviour questions need a decision** — **Tie:** the fixture adds two users, each with two active memberships sharing one `created_at`. tie-a's higher id arrives first and tie-b's lower id arrives first, so an order by `created_at` alone gets one of them wrong whichever order it returns. T1f and T1g expect the lower membership id. **Mutants: 2 of 2 killed** (dropping `, id`, and `id desc`). **Invariant:** `assert_invariant(label)` runs at the end of each `begin … rollback` block (T4–T7) and at rest (T8). A default cleared inside a block fails it (checked). Suite: 23 assertions; README updated. ⚠️ **Needs a decision (unchanged):**
+- a deleted or suspended default membership leaves the default on the old org, and `tier` keeps following it;
+- a default set back to null while memberships are active is never refilled;
+- the readers (`custom_access_token_hook`, sender checkout) order by `created_at` alone, so on a tie they are not guaranteed to pick the org the backfill stored. Aligning them means adding `, id` to each: a production function change and a Worker deploy.
+
 - **Tie-break (measured):** dropping `, id` from the backfill's `order by` survives 17 of 17 assertions.
   - Ties are realistic, because `now()` is fixed for a whole transaction.
   - The readers (`custom_access_token_hook`, sender checkout) order by `created_at` alone, so on a tie "the same org as the readers" is not guaranteed either.

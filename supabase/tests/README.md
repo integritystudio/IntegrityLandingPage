@@ -92,18 +92,20 @@ tested too. Port 55435.
 
 | | assertion |
 |---|---|
-| T1 | backfill takes the oldest active membership (age over role); tier follows; a chosen default, an invited-only user and a user with no membership are untouched |
+| T1 | backfill takes the oldest active membership (age over role); tier follows; a chosen default, an invited-only user and a user with no membership are untouched; a `created_at` tie goes to the lower membership id, whichever arrived first |
 | T2 | a new user's first active membership sets the default, and tier derives from it |
 | T3 | a second membership does not move the default |
 | T4 | the org's later plan change reaches the new user |
 | T5 | invited and suspended memberships set nothing; activation does |
 | T6 | a chosen default survives a new active membership |
 | T7 | a writer with no grant on `users` still sets it (security definer) |
-| T8 | invariant: nobody with an active membership is left without a default |
+| T8 | invariant: nobody with an active membership is left without a default — asserted at the end of every block (T4–T7) and again at rest |
 
 Mutation-checked: removing the null guard (T3), SECURITY DEFINER (T7, permission
 denied), the status gate (T5a), the trigger (T2b) or the backfill (T1a), or
-backfilling from the newest membership (T1a), each fails the suite.
+backfilling from the newest membership (T1a), each fails the suite. So does dropping
+the `id` tie-break or reversing it (T1f), and a default cleared inside a block fails
+that block's invariant.
 
 ### `edge-functions/`
 

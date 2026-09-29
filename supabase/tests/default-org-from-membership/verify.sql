@@ -22,12 +22,26 @@ $$;
 create or replace function public.tier_of(user_email text) returns text
 language sql as $$ select tier::text from public.users where email = user_email $$;
 
+-- The CR50 invariant: nobody with an active membership is left without a default. Run
+-- at the end of every block below, so it holds after each change, not just at rest.
+create or replace function public.assert_invariant(label text) returns void
+language sql as $$
+  select public.assert_eq(label || ' invariant: every user with an active membership has a default',
+    (select count(*)::text from public.users u
+      where u.default_organization_id is null
+        and exists (select 1 from public.organization_memberships m
+                     where m.user_id = u.id and m.status = 'active')),
+    '0')
+$$;
+
 -- T1 backfill: oldest active membership, the org every reader already resolves
 select assert_eq('T1a backfill: oldest active membership wins over a newer owner one', default_org_of('nodefault@test'), 'growth-org');
 select assert_eq('T1b backfill: tier follows the backfilled org', tier_of('nodefault@test'), 'growth');
 select assert_eq('T1c backfill: a chosen default is untouched', default_org_of('chosen@test'), 'enterprise-org');
 select assert_eq('T1d backfill: an invited-only user stays null', default_org_of('invited@test'), null);
 select assert_eq('T1e backfill: a user with no membership stays null', default_org_of('orphan@test'), null);
+select assert_eq('T1f backfill: a created_at tie goes to the lower membership id (higher arrived first)', default_org_of('tie-a@test'), 'growth-org');
+select assert_eq('T1g backfill: a created_at tie goes to the lower membership id (lower arrived first)', default_org_of('tie-b@test'), 'free-org');
 
 -- T2 a new user's first active membership sets the default, and tier follows it
 begin;
@@ -46,6 +60,7 @@ select assert_eq('T3 second membership keeps the first default', default_org_of(
 -- T4 the org's later plan change reaches the new user (CR50 acceptance)
 update public.organizations set current_plan = 'growth' where slug = 'enterprise-org';
 select assert_eq('T4 plan change reaches the new user', tier_of('new@test'), 'growth');
+select assert_invariant('T4');
 rollback;
 
 -- T5 an invited membership sets nothing until it becomes active
@@ -59,6 +74,7 @@ select assert_eq('T5b suspended update sets nothing', default_org_of('orphan@tes
 update public.organization_memberships set status = 'active'
  where user_id = '00000000-0000-0000-0000-000000000004';
 select assert_eq('T5c activation sets the default', default_org_of('orphan@test'), 'enterprise-org');
+select assert_invariant('T5');
 rollback;
 
 -- T6 a chosen default survives a new active membership
@@ -66,6 +82,7 @@ begin;
 insert into public.organization_memberships (organization_id, user_id, role)
 values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000002', 'owner');
 select assert_eq('T6 chosen default not overwritten', default_org_of('chosen@test'), 'enterprise-org');
+select assert_invariant('T6');
 rollback;
 
 -- T7 a writer with no privilege on users still sets it (security definer)
@@ -76,12 +93,8 @@ insert into public.organization_memberships (organization_id, user_id, role)
 values ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000004', 'owner');
 reset role;
 select assert_eq('T7 default set independent of caller grants on users', default_org_of('orphan@test'), 'free-org');
+select assert_invariant('T7');
 rollback;
 
--- T8 invariant: nobody with an active membership is left without a default
-select assert_eq('T8 invariant: every user with an active membership has a default',
-  (select count(*)::text from public.users u
-    where u.default_organization_id is null
-      and exists (select 1 from public.organization_memberships m
-                   where m.user_id = u.id and m.status = 'active')),
-  '0');
+-- T8 the invariant at rest, after every block has rolled back
+select assert_invariant('T8');

@@ -45,13 +45,25 @@ insert into public.users (id, email, default_organization_id) values
   ('00000000-0000-0000-0000-000000000001', 'nodefault@test', null),
   ('00000000-0000-0000-0000-000000000002', 'chosen@test',    '00000000-0000-0000-0000-00000000000c'),
   ('00000000-0000-0000-0000-000000000003', 'invited@test',   null),
-  ('00000000-0000-0000-0000-000000000004', 'orphan@test',    null);
+  ('00000000-0000-0000-0000-000000000004', 'orphan@test',    null),
+  -- Two memberships each with one created_at, as a single transaction's now() gives:
+  -- the backfill must break the tie by membership id, whatever order they arrive in.
+  ('00000000-0000-0000-0000-000000000005', 'tie-a@test',     null),
+  ('00000000-0000-0000-0000-000000000006', 'tie-b@test',     null);
 
 insert into public.organization_memberships (organization_id, user_id, role, status, created_at) values
   ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000001', 'member', 'active',  '2026-09-01'),
   ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000001', 'owner',  'active',  '2026-09-02'),
   ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000002', 'owner',  'active',  '2026-09-01'),
   ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000003', 'member', 'invited', '2026-09-01');
+
+-- The tie pairs: tie-a's higher id arrives first, tie-b's lower id arrives first. An
+-- order by created_at alone returns one arrival order for both, so it gets one wrong.
+insert into public.organization_memberships (id, organization_id, user_id, role, status, created_at) values
+  ('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000005', 'owner', 'active', '2026-09-03'),
+  ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000005', 'owner', 'active', '2026-09-03'),
+  ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-000000000006', 'owner', 'active', '2026-09-03'),
+  ('00000000-0000-0000-0000-0000000000b2', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-000000000006', 'owner', 'active', '2026-09-03');
 
 -- A writer that may write memberships but has no grant on users, like a
 -- provisioning path — proves the trigger does not depend on the caller's
