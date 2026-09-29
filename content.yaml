@@ -826,9 +826,11 @@ footer:
         - label: "Features"
           url: "/features"
         - label: "Pricing"
-          url: "#pricing"
+          url: "/pricing"
         - label: "Docs"
           url: "/docs"
+        - label: "API Reference"
+          url: "/api"
 
     - title: "Company"
       links:
@@ -836,6 +838,8 @@ footer:
           url: "/about"
         - label: "Blog"
           url: "/blog"
+        - label: "Sources"
+          url: "/sources"
         - label: "Careers"
           url: "/careers"
         - label: "Contact"
@@ -843,15 +847,12 @@ footer:
 
     - title: "Resources"
       links:
-        - label: "EU AI Act Guide"
-          url: "/eu-ai-act"
-        - label: "API Reference"
-          url: "/api"
-        - label: "Status"
-          url: "https://integritystudio.ai/status"
-          is_external: true
-        - label: "Support"
+        - label: "Help Center"
           url: "/support"
+        - label: "Status"
+          url: "/status"
+        - label: "Security"
+          url: "/security"
 
 # =============================================================================
 # RESOURCES SECTION
