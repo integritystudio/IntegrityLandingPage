@@ -475,8 +475,8 @@ Content-Type: application/json; charset=utf-8
 
 **Sender Implementation:**
 ```typescript
-// workers/http-helpers.ts:4
-export const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
+// workers/lib/http/responses.ts — json() sets it on every JSON response
+const CONTENT_TYPES = { json: 'application/json; charset=utf-8', /* … */ };
 ```
 
 **Receiver Implementation:**
@@ -541,7 +541,7 @@ if (pathname === '/health' && request.method === 'GET') {
 
 **Both Workers Share:**
 - `SHARED_SECRET` — HMAC key (via wrangler secret)
-- `JSON_CONTENT_TYPE` — Constant from `workers/http-helpers.ts`
+- `application/json; charset=utf-8` — set by `json()` in `workers/lib/http/responses.ts`
 - `REPLAY_WINDOW_MS` — Constant from `workers/constants.ts` (5 minutes)
 
 **Sender Environment:**
@@ -745,7 +745,7 @@ The Sender Worker and Receiver Worker are **production-ready** from a contract p
 - Sender Worker: `workers/sender-worker/src/index.ts`
 - Receiver Worker (production): `api-provisioning-receiver` in the `observability-toolkit` repo (`services/api-provisioning-receiver/src/`)
 - Receiver Worker (local stub / test double): `workers/receiver-worker/src/index.ts`
-- Shared Constants: `workers/constants.ts`, `workers/http-helpers.ts`
+- Shared Constants: `workers/constants.ts`; shared HTTP helpers (incl. CORS): `workers/lib/http/`
 - Architecture: `docs/api-provisioning.md`
 - Client Contract: [Part 1](#part-1-flutter-client-contract) above
 - E2E Tests: `test-provisioning-e2e.sh`
