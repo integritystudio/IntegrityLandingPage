@@ -427,28 +427,14 @@ void main() {
     });
 
     group('responsive layout', () {
-      testWidgets('renders on mobile viewport', (tester) async {
-        // Use tablet size instead to avoid badge overflow
-        setTabletSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const DocsObservabilityPage(),
-          ),
-        );
-        await tester.pump();
-        await tester.pump();
-
-        expect(find.byType(DocsObservabilityPage), findsOneWidget);
-        expect(find.text('Observability Guide'), findsWidgets);
-      });
-
-      testWidgets('renders on desktop viewport', (tester) async {
-        await pumpObservabilityPage(tester, mobile: false);
-
-        expect(find.byType(DocsObservabilityPage), findsOneWidget);
-        expect(find.text('Observability Guide'), findsWidgets);
-      });
+      // Mobile skipped: at 375px the hero Row (doc_page_scaffold.dart)
+      // overflows, and setUpOverflowErrorSuppression does not catch it.
+      testResponsiveLayout<DocsObservabilityPage>(
+        pumpObservabilityPage,
+        expectedTitle: 'Observability Guide',
+        includeMobile: false,
+        includeTablet: true,
+      );
 
       testWidgets('renders hero section on tablet', (tester) async {
         setTabletSize(tester);

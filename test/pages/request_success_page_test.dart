@@ -175,6 +175,7 @@ void main() {
       testResponsiveLayout<RequestSuccessPage>(
         pumpRequestSuccessPage,
         expectedTitle: 'Request Received',
+        includeTablet: true,
       );
 
       testWidgets('desktop shows navigation links', (tester) async {
@@ -192,21 +193,6 @@ void main() {
         // Find the SliverAppBar actions area - it should not contain nav links
         final appBar = find.byType(SliverAppBar);
         expect(appBar, findsOneWidget);
-      });
-
-      testWidgets('tablet viewport renders correctly', (tester) async {
-        setTabletSize(tester);
-        clearOverflowExceptions(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const RequestSuccessPage(),
-          ),
-        );
-        await tester.pump();
-        clearOverflowExceptions(tester);
-
-        expect(find.byType(RequestSuccessPage), findsOneWidget);
       });
     });
 

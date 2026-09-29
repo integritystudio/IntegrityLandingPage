@@ -401,14 +401,14 @@ void main() {
     });
 
     group('responsive layout', () {
-      testWidgets('renders on desktop viewport', (tester) async {
-        await pumpPricingPage(tester, mobile: false);
-
-        expect(find.byType(PricingPage), findsOneWidget);
-        expect(find.text('Choose Your Plan'), findsOneWidget);
-      });
-
-      // Note: Mobile viewport test not included due to PricingPage overflow issues
+      // Mobile skipped: at 375px a PricingSection Row (pricing_section.dart)
+      // overflows, and setUpOverflowErrorSuppression does not catch it.
+      testResponsiveLayout<PricingPage>(
+        pumpPricingPage,
+        expectedTitle: 'Choose Your Plan',
+        includeMobile: false,
+        includeTablet: true,
+      );
     });
 
     group('billing toggle interaction', () {

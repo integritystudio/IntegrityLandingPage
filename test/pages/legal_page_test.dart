@@ -43,6 +43,29 @@ void main() {
       await tester.pump();
     }
 
+    /// [PagePumpFunction] for the shared helpers. Goes through the
+    /// [LegalPage.privacy] factory so they also cover its onBack wiring.
+    Future<void> pumpPrivacyPage(
+      WidgetTester tester, {
+      VoidCallback? onBack,
+      VoidCallback? onShowCookieSettings,
+      bool mobile = false,
+    }) async {
+      if (mobile) {
+        setMobileSize(tester);
+      } else {
+        setDesktopSize(tester);
+      }
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: testTheme,
+          home: LegalPage.privacy(onBack: onBack),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
     group('factory constructors', () {
       testWidgets('LegalPage.privacy creates privacy page', (tester) async {
         setDesktopSize(tester);
@@ -282,44 +305,7 @@ void main() {
     });
 
     group('responsive layout', () {
-      testWidgets('renders on mobile viewport', (tester) async {
-        setMobileSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const LegalPage(type: LegalPageType.privacy),
-          ),
-        );
-        await tester.pump();
-
-        expect(find.byType(LegalPage), findsOneWidget);
-      });
-
-      testWidgets('renders on tablet viewport', (tester) async {
-        setTabletSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const LegalPage(type: LegalPageType.privacy),
-          ),
-        );
-        await tester.pump();
-
-        expect(find.byType(LegalPage), findsOneWidget);
-      });
-
-      testWidgets('renders on desktop viewport', (tester) async {
-        setDesktopSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const LegalPage(type: LegalPageType.privacy),
-          ),
-        );
-        await tester.pump();
-
-        expect(find.byType(LegalPage), findsOneWidget);
-      });
+      testResponsiveLayout<LegalPage>(pumpPrivacyPage, includeTablet: true);
     });
 
     group('all page types render without error', () {

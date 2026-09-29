@@ -27,6 +27,21 @@ void main() {
       );
     }
 
+    Future<void> pumpSignupPage(
+      WidgetTester tester, {
+      VoidCallback? onBack,
+      VoidCallback? onShowCookieSettings,
+      bool mobile = false,
+    }) async {
+      if (mobile) {
+        setMobileSize(tester);
+      } else {
+        setDesktopSize(tester);
+      }
+      await tester.pumpWidget(buildSignupPage(onBack: onBack));
+      await tester.pump();
+    }
+
     group('widget structure', () {
       testWidgets('renders SignupPage', (tester) async {
         setLargeViewport(tester);
@@ -161,29 +176,7 @@ void main() {
     });
 
     group('responsive design', () {
-      testWidgets('renders on mobile viewport', (tester) async {
-        setMobileSize(tester);
-        await tester.pumpWidget(buildSignupPage());
-        await tester.pump();
-
-        expect(find.byType(SignupPage), findsOneWidget);
-      });
-
-      testWidgets('renders on tablet viewport', (tester) async {
-        setTabletSize(tester);
-        await tester.pumpWidget(buildSignupPage());
-        await tester.pump();
-
-        expect(find.byType(SignupPage), findsOneWidget);
-      });
-
-      testWidgets('renders on desktop viewport', (tester) async {
-        setDesktopSize(tester);
-        await tester.pumpWidget(buildSignupPage());
-        await tester.pump();
-
-        expect(find.byType(SignupPage), findsOneWidget);
-      });
+      testResponsiveLayout<SignupPage>(pumpSignupPage, includeTablet: true);
     });
 
     group('form validation', () {
