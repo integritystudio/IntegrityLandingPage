@@ -61,10 +61,14 @@ class UsageSummaryPage extends StatefulWidget {
   final UsageSummaryArgs args;
   final VoidCallback? onBack;
 
+  /// The current time, for the reset date; a test passes a fixed one.
+  final DateTime Function() clock;
+
   const UsageSummaryPage({
     super.key,
     required this.args,
     this.onBack,
+    this.clock = DateTime.now,
   });
 
   @override
@@ -226,7 +230,7 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
             summary: _summary,
             isLoading: _isLoading,
             quota: _quota,
-            resetLabel: monthlyResetLabel(DateTime.now()),
+            resetLabel: monthlyResetLabel(widget.clock()),
             onRefresh: _refresh,
             aggregateBuckets: _aggregateBuckets,
             grandTotalQuantity: _grandTotalQuantity,

@@ -158,14 +158,17 @@ void main() {
       }, path: quotaPath);
     }
 
-    Future<void> pumpPage(WidgetTester tester) async {
-      await tester.pumpApp(const UsageSummaryPage(args: args));
+    Future<void> pumpPage(WidgetTester tester, {DateTime Function() clock = DateTime.now}) async {
+      await tester.pumpApp(UsageSummaryPage(args: args, clock: clock));
       // Unmount so the page cancels its polling timer before the test ends.
       addTearDown(() => tester.pumpWidget(const SizedBox()));
     }
 
     int summaryFetches() => adapter.requestLog.where((r) => r.path.endsWith(summaryPath)).length;
     int quotaFetches() => adapter.requestLog.where((r) => r.path.endsWith(quotaPath)).length;
+
+    /// The usage bar by its accessible name; needs semantics on (`tester.ensureSemantics`).
+    Finder usageBar() => find.bySemanticsLabel(RegExp('^Monthly usage, '));
 
     Color? barColor(WidgetTester tester) =>
         tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).valueColor?.value;
@@ -182,12 +185,14 @@ void main() {
     });
 
     testWidgets('shows the bucket total alone when the quota fetch fails', (tester) async {
+      final handle = tester.ensureSemantics();
       adapter.stubJson('GET', {'error': 'Forbidden'}, statusCode: 403, path: quotaPath);
       await pumpPage(tester);
 
       expect(find.text('$bucketUnits units'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(usageBar(), findsNothing);
       expect(find.textContaining('% used'), findsNothing);
+      handle.dispose();
     });
 
     testWidgets('does not read an uninitialised quota (no plan) as unlimited', (tester) async {
@@ -199,19 +204,22 @@ void main() {
     });
 
     testWidgets('says "Unlimited plan" when the plan has no monthly limit', (tester) async {
+      final handle = tester.ensureSemantics();
       stubQuota(limit: null, used: 40, planKey: 'enterprise');
       await pumpPage(tester);
 
       expect(find.text('40 units'), findsOneWidget);
       expect(find.text('Unlimited plan'), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(usageBar(), findsNothing);
+      handle.dispose();
     });
 
     testWidgets('shows when the quota resets, in UTC', (tester) async {
       stubQuota(used: 40);
-      await pumpPage(tester);
+      // Not this month, so a page that ignored the clock would name a different date.
+      await pumpPage(tester, clock: () => DateTime.utc(2026, 3, 15, 12));
 
-      expect(find.text(monthlyResetLabel(DateTime.now())), findsOneWidget);
+      expect(find.text('Resets April 1, 00:00 UTC'), findsOneWidget);
     });
 
     testWidgets('states the warning level in words and raises an alert', (tester) async {
@@ -284,8 +292,9 @@ void main() {
       stubQuota(used: 2400);
       await pumpPage(tester);
 
+      // The same finder the "no bar" tests expect nothing from.
       expect(
-        tester.getSemantics(find.byType(LinearProgressIndicator)),
+        tester.getSemantics(usageBar()),
         isSemantics(label: 'Monthly usage, 2400 of $monthlyLimit units', value: '80'),
       );
       // Not addTearDown: flutter_test checks for undisposed handles before teardowns run.
