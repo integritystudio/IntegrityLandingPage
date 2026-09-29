@@ -24,6 +24,8 @@ const OBJECT_MEDIA_TYPE = 'application/vnd.pgrst.object+json';
 const REST_PREFIX = '/rest/v1/';
 const AUTH_ADMIN_USERS = '/auth/v1/admin/users';
 const KV_PATH = /^\/client\/v4\/accounts\/([^/]+)\/storage\/kv\/namespaces\/([^/]+)\/values\/(.+)$/;
+const KV_LIST_PATH = /^\/client\/v4\/accounts\/([^/]+)\/storage\/kv\/namespaces\/([^/]+)\/keys$/;
+const DEFAULT_KV_LIST_PAGE = 1000;
 
 export interface KvEntry {
   value: string;
@@ -36,6 +38,8 @@ export interface FakeBackendOptions {
   /** The one Cloudflare API token that may write to KV. */
   cloudflareToken: string;
   tables?: Record<string, Row[]>;
+  /** Keys per page when listing KV, so a test can make pagination happen. */
+  kvListPageSize?: number;
 }
 
 /** A way for one kind of request to fail, set per test. */
@@ -64,12 +68,14 @@ export class FakeBackend {
 
   private readonly serviceKeys: Set<string>;
   private readonly cloudflareToken: string;
+  private readonly kvListPageSize: number;
   private readonly failures = new Map<string, { failure: Failure; remaining: number }>();
   private nextId = 1;
 
   constructor(options: FakeBackendOptions) {
     this.serviceKeys = new Set(options.serviceKeys);
     this.cloudflareToken = options.cloudflareToken;
+    this.kvListPageSize = options.kvListPageSize ?? DEFAULT_KV_LIST_PAGE;
     for (const [table, rows] of Object.entries(options.tables ?? {})) {
       this.tables.set(table, rows.map((row) => ({ ...row })));
     }
@@ -77,7 +83,8 @@ export class FakeBackend {
 
   /**
    * Make one kind of request fail from now on, or only the next `times` of them. Targets:
-   * `auth`, `kv`, `select:<table>`, `insert:<table>`.
+   * `auth`, `kv` (writes), `kv-read`, `kv-list`, `select:<table>`, `insert:<table>`,
+   * `update:<table>`.
    */
   fail(target: string, failure: Failure, times = Infinity): void {
     this.failures.set(target, { failure, remaining: times });
@@ -99,6 +106,11 @@ export class FakeBackend {
     return this.kv.get(`${accountId}/${namespaceId}/${key}`);
   }
 
+  /** Put a KV entry in place before the code under test runs. */
+  seedKv(accountId: string, namespaceId: string, key: string, value: string): void {
+    this.kv.set(`${accountId}/${namespaceId}/${key}`, { value, contentType: 'text/plain' });
+  }
+
   /** A `fetch` that routes to this backend. Pass it wherever the code under test takes one. */
   readonly fetch: typeof fetch = async (input, init) => {
     const request = new Request(input, init);
@@ -113,6 +125,10 @@ export class FakeBackend {
     const kvMatch = url.origin === CLOUDFLARE_ORIGIN ? url.pathname.match(KV_PATH) : null;
     if (kvMatch) {
       return this.handleKv(request, kvMatch[1], kvMatch[2], decodeURIComponent(kvMatch[3]));
+    }
+    const kvListMatch = url.origin === CLOUDFLARE_ORIGIN ? url.pathname.match(KV_LIST_PATH) : null;
+    if (kvListMatch) {
+      return this.handleKvList(request, url, kvListMatch[1], kvListMatch[2]);
     }
     throw new Error(`fake backend: unexpected request ${request.method} ${request.url}`);
   };
@@ -161,18 +177,23 @@ export class FakeBackend {
       return this.respondWithRows(inserted, url.searchParams, wantsObject, 201);
     }
 
+    if (request.method === 'PATCH') {
+      const failure = this.takeFailure(`update:${table}`);
+      if (failure) return respondWithFailure(failure, `update:${table}`);
+      const changes = (await request.json()) as Row;
+      const updated = this.rows(table).filter((row) => matches(row, url.searchParams));
+      for (const row of updated) Object.assign(row, changes);
+      const wantsRepresentation = (request.headers.get('Prefer') ?? '').includes('return=representation');
+      if (!wantsRepresentation) return new Response(null, { status: 204 });
+      return this.respondWithRows(updated, url.searchParams, wantsObject);
+    }
+
     throw new Error(`fake backend: unsupported PostgREST method ${request.method} on ${table}`);
   }
 
   /** Apply the `eq` filters, `order` and `limit` a PostgREST GET carries. */
   private select(table: string, params: URLSearchParams): Row[] {
-    let rows = [...this.rows(table)];
-    for (const [key, value] of params) {
-      if (key === 'select' || key === 'limit' || key === 'order') continue;
-      const eq = value.match(/^eq\.(.*)$/);
-      if (!eq) throw new Error(`fake backend: unsupported filter ${key}=${value}`);
-      rows = rows.filter((row) => String(row[key]) === eq[1]);
-    }
+    let rows = this.rows(table).filter((row) => matches(row, params));
     const order = params.get('order');
     if (order) {
       const [column, direction] = order.split('.');
@@ -196,20 +217,73 @@ export class FakeBackend {
     return json(status, projected[0]);
   }
 
-  /** Cloudflare KV "write key-value pair": requires the account's API token. */
+  private unauthorizedForKv(request: Request): Response | null {
+    if (request.headers.get('Authorization') === `Bearer ${this.cloudflareToken}`) return null;
+    return json(403, { success: false, errors: [{ code: 10000, message: 'Authentication error' }] });
+  }
+
+  /**
+   * Cloudflare KV "read key-value pair" (GET, raw value or 404) and "write key-value pair"
+   * (PUT). Both require the account's API token.
+   */
   private async handleKv(request: Request, accountId: string, namespaceId: string, key: string): Promise<Response> {
+    if (request.method === 'GET') {
+      const failure = this.takeFailure('kv-read');
+      if (failure) return respondWithFailure(failure, 'kv-read');
+      const denied = this.unauthorizedForKv(request);
+      if (denied) return denied;
+      const entry = this.kvEntry(accountId, namespaceId, key);
+      if (!entry) return json(404, { success: false, errors: [{ code: 10009, message: "get: 'key not found'" }] });
+      return new Response(entry.value, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } });
+    }
     const failure = this.takeFailure('kv');
     if (failure) return respondWithFailure(failure, 'kv');
     if (request.method !== 'PUT') throw new Error(`fake backend: unsupported KV method ${request.method}`);
-    if (request.headers.get('Authorization') !== `Bearer ${this.cloudflareToken}`) {
-      return json(403, { success: false, errors: [{ code: 10000, message: 'Authentication error' }] });
-    }
+    const denied = this.unauthorizedForKv(request);
+    if (denied) return denied;
     this.kv.set(`${accountId}/${namespaceId}/${key}`, {
       value: await request.text(),
       contentType: request.headers.get('Content-Type'),
     });
     return json(200, { success: true, errors: [], messages: [], result: null });
   }
+
+  /** Cloudflare KV "list keys": names only, `prefix` filter, cursor pagination. */
+  private handleKvList(request: Request, url: URL, accountId: string, namespaceId: string): Response {
+    const failure = this.takeFailure('kv-list');
+    if (failure) return respondWithFailure(failure, 'kv-list');
+    if (request.method !== 'GET') throw new Error(`fake backend: unsupported KV list method ${request.method}`);
+    const denied = this.unauthorizedForKv(request);
+    if (denied) return denied;
+    const scope = `${accountId}/${namespaceId}/`;
+    const prefix = url.searchParams.get('prefix') ?? '';
+    const names = [...this.kv.keys()]
+      .filter((k) => k.startsWith(scope))
+      .map((k) => k.slice(scope.length))
+      .filter((name) => name.startsWith(prefix))
+      .sort();
+    const start = Number(url.searchParams.get('cursor') ?? 0);
+    const page = names.slice(start, start + this.kvListPageSize);
+    const next = start + page.length;
+    return json(200, {
+      success: true,
+      errors: [],
+      messages: [],
+      result: page.map((name) => ({ name })),
+      result_info: { count: page.length, cursor: next < names.length ? String(next) : '' },
+    });
+  }
+}
+
+/** The `eq` filters a PostgREST request carries; `select`, `limit` and `order` are not filters. */
+function matches(row: Row, params: URLSearchParams): boolean {
+  for (const [key, value] of params) {
+    if (key === 'select' || key === 'limit' || key === 'order') continue;
+    const eq = value.match(/^eq\.(.*)$/);
+    if (!eq) throw new Error(`fake backend: unsupported filter ${key}=${value}`);
+    if (String(row[key]) !== eq[1]) return false;
+  }
+  return true;
 }
 
 /** PostgREST column projection for a flat `select=a,b,c` (or `*`). */
