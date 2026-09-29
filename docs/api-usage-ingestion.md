@@ -70,18 +70,19 @@ Authorization: Bearer <jwt_or_api_key>
 |-------|------|-----|-----|---------|-------|
 | `org_id` | UUID | - | - | - | Must be valid UUID; requester must be member |
 | `metric_key` | string | 1 | 128 | - | Alphanumeric + underscore recommended; used as aggregation key |
-| `quantity` | int | 1 | - | 1 | Positive only; prevents zero/negative consumption |
+| `quantity` | int | 1 | 1,000,000 | 1 | Positive only; prevents zero/negative consumption |
 | `source` | enum | - | - | 'api' | Categorizes origin: API call, batch job, etc. |
 | `route` | string | 1 | - | null | Optional path/operation identifier |
 | `status_code` | int | 100 | 599 | null | Optional; useful for tracking error rates |
 | `latency_ms` | int | 0 | 300000 | null | Capped at 5 minutes; null if not measured |
-| `metadata` | object | - | - | {} | Arbitrary JSON; not indexed (use for debugging) |
+| `metadata` | object | - | 50 keys, 8 KiB | {} | Arbitrary JSON; not indexed (use for debugging). At most 50 top-level keys and 8,192 bytes serialized |
 
 ### Validation Rules
 
 - **org_id:** Must be a valid UUID; if using JWT, requester must be active member of organization
 - **metric_key:** Predefined keys recommended (e.g., `api_requests`, `data_retention_days`), but any 1–128 character string is accepted
-- **quantity:** Positive integer only (>= 1)
+- **quantity:** Positive integer, 1–1,000,000
+- **metadata:** At most 50 top-level keys and 8,192 bytes as JSON
 - **source:** Must be one of the 5 predefined enum values
 - **status_code:** If provided, must be 100–599 (valid HTTP range)
 - **latency_ms:** If provided, must be 0–300,000 (0–5 minutes)
@@ -205,11 +206,20 @@ Causes:
 Causes:
 - `org_id` not a valid UUID
 - `metric_key` is empty or > 128 chars
-- `quantity` is 0 or negative
+- `quantity` is 0, negative, or above 1,000,000
 - `status_code` outside 100–599 range
 - `latency_ms` < 0 or > 300,000
 - Unknown `source` enum value
-- `metadata` is not a valid object
+- `metadata` is not a valid object, has more than 50 keys, or exceeds 8,192 bytes as JSON
+
+#### 429 Too Many Requests
+```json
+{
+  "error": { "message": "Too Many Requests", "reason": "minute_limit" }
+}
+```
+
+Every accepted event reserves one request of the organization's quota (per-minute and monthly, by plan), checked after membership. `X-RateLimit-Remaining-Minute` and `X-RateLimit-Remaining-Monthly` are returned on both the 202 and the 429. Added 2026-09-29 (BACKLOG.md CR42); before that this route reserved no quota.
 
 #### 500 Internal Server Error
 ```json

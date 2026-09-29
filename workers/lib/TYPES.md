@@ -71,7 +71,7 @@ The file named next to each schema is the source of truth; field lists are not r
 
 ### Usage and ingest — `types/usage.ts`
 
-- `UsageEventSchema`, `UsageEventIngestionSchema`, `IngestEventRequestSchema`, `IngestEventResponseSchema` — `POST /v1/ingest/events` (no quota or rate limit on that route yet — BACKLOG.md CR42)
+- `UsageEventSchema`, `UsageEventIngestionSchema`, `IngestEventRequestSchema`, `IngestEventResponseSchema` — `POST /v1/ingest/events`, which reserves org quota like `/v1/ingest/otel`; `IngestEventRequestSchema` caps `quantity` (`INGEST_EVENT_MAX_QUANTITY`) and `metadata` (`INGEST_METADATA_MAX_KEYS`, `INGEST_METADATA_MAX_BYTES`) — BACKLOG.md CR42
 - `OtelSpanSchema`, `IngestOtelRequestSchema` (bounded to 1 000 spans), `IngestOtelMetadataSchema`, `IngestOtelResponseSchema` — `POST /v1/ingest/otel`
 - `UsageBucketSchema`, `MonthlyUsageSummarySchema`, `UsageQueryResponseSchema` — `/v1/orgs/{id}/usage/summary`
 - `UsageFlushResultSchema`
