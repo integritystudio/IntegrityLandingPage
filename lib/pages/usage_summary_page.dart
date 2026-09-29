@@ -72,6 +72,11 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
   UsageSummaryData? _summary;
   Timer? _pollTimer;
 
+  /// Monthly units quota fetched from the quota-status endpoint. Stays 0 (no
+  /// reference line) until the fetch resolves. Refreshed on each app resume so
+  /// a plan upgrade is reflected without reopening the page.
+  int _monthlyUnitsQuota = 0;
+
   static const Duration _pollInterval = Duration(seconds: 30);
 
   @override
@@ -80,6 +85,7 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
     WidgetsBinding.instance.addObserver(this);
     AnalyticsService.trackPageView('usage_summary');
     _fetchSummary();
+    _fetchQuota();
     _startPolling();
   }
 
@@ -94,7 +100,22 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _fetchSummary();
+      _fetchQuota();
     }
+  }
+
+  Future<void> _fetchQuota() async {
+    final response = await DashboardService.fetchQuotaStatus(
+      orgId: widget.args.orgId,
+      jwt: widget.args.jwt,
+    );
+    if (!mounted) return;
+    if (response case QuotaStatusSuccess(:final data)) {
+      setState(() {
+        _monthlyUnitsQuota = data.monthlyLimit ?? 0;
+      });
+    }
+    // On error, keep the current value (0 = no quota line).
   }
 
   void _startPolling() {
@@ -176,7 +197,7 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
           _UsageSummaryCard(
             summary: _summary,
             isLoading: _isLoading,
-            monthlyUnitsQuota: widget.args.monthlyUnitsQuota,
+            monthlyUnitsQuota: _monthlyUnitsQuota,
             onRefresh: _fetchSummary,
             aggregateBuckets: _aggregateBuckets,
             grandTotalQuantity: _grandTotalQuantity,
