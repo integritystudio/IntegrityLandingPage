@@ -10,9 +10,12 @@
  * - `Vary: Origin` always, so a cache cannot serve origin A's response to origin B.
  */
 
+// integritystudio.ai stays first: it is the "first allowed" origin sent to unlisted callers.
 export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
   'https://integritystudio.ai',
   'https://www.integritystudio.ai',
+  'https://integritystudio.dev',
+  'https://www.integritystudio.dev',
 ];
 
 const CORS_MAX_AGE_SECONDS = '86400';

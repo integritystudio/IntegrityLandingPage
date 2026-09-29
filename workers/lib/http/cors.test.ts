@@ -36,6 +36,26 @@ describe('parseAllowedOrigins', () => {
   });
 });
 
+describe('DEFAULT_ALLOWED_ORIGINS', () => {
+  it.each([
+    'https://integritystudio.ai',
+    'https://www.integritystudio.ai',
+    'https://integritystudio.dev',
+    'https://www.integritystudio.dev',
+  ])('allows %s with no ALLOWED_ORIGINS_JSON set', (origin) => {
+    expect(isOriginAllowed(origin, {})).toBe(true);
+  });
+
+  it('keeps integritystudio.ai as the first-allowed origin', () => {
+    expect(DEFAULT_ALLOWED_ORIGINS[0]).toBe(PROD);
+  });
+
+  it('does not allow http or a lookalike of the .dev domain', () => {
+    expect(isOriginAllowed('http://integritystudio.dev', {})).toBe(false);
+    expect(isOriginAllowed('https://integritystudio.dev.attacker.com', {})).toBe(false);
+  });
+});
+
 describe('isOriginAllowed', () => {
   it('allows an allowlisted origin and refuses others, including no origin', () => {
     expect(isOriginAllowed(PROD, {})).toBe(true);
