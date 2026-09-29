@@ -17,7 +17,9 @@ create table public.users (
   id uuid primary key,
   email text unique not null,
   tier public.api_key_tier not null default 'starter',
-  default_organization_id uuid references public.organizations(id) on delete set null
+  -- No delete action, as in production (users_default_organization_id_fkey,
+  -- 20260803000000_baseline_deferred_constraints.sql): deleting a default org is refused.
+  default_organization_id uuid references public.organizations(id)
 );
 
 create table public.organization_memberships (
