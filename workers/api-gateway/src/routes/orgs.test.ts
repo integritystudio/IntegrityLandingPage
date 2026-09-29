@@ -5,6 +5,7 @@ import type { Entitlement, Organization, OrgMembership, OrgRole } from '../../..
 import {
   createSupabaseFetchStub,
   createdRows,
+  httpError,
   okRows,
   TEST_SERVICE_ROLE_KEY,
   TEST_SUPABASE_URL,
@@ -134,6 +135,23 @@ describe('GET /v1/orgs', () => {
     expect(body.organizations).toEqual([]);
     // No memberships means the organizations table is never queried.
     expect(stub.find('GET', 'organizations')).toBeUndefined();
+  });
+
+  it('returns 503 when the membership query fails (CR53)', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase({ 'GET organization_memberships': httpError(500) });
+    const res = await handleListOrgs(authedRequest('/v1/orgs', token), opts);
+    expect(res.status).toBe(503);
+  });
+
+  it('returns 503 when the organizations query fails (CR53)', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase({
+      ...membershipRoutes(),
+      'GET organizations': httpError(500),
+    });
+    const res = await handleListOrgs(authedRequest('/v1/orgs', token), opts);
+    expect(res.status).toBe(503);
   });
 });
 
