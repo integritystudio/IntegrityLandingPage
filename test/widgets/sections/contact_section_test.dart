@@ -46,9 +46,12 @@ void main() {
       );
     }
 
+    // The methods heading is content-driven (ContactContent.methodsHeading, since
+    // 032c081); this is only testContent()'s default for it.
+    const kDefaultMethodsHeading = 'Get in touch';
+
     // Static section headings defined in ContactSection widget (not content-driven).
     // If the widget copy changes, update these constants to match.
-    const kSectionGetInTouch = 'Get in touch';
     const kSectionFollowUs = 'Follow us';
     const kSectionSendMessage = 'Send us a message';
     const kSectionLiveDemo = 'Want a Live Demo?';
@@ -69,7 +72,7 @@ void main() {
       String title = 'Contact',
       String subtitle = '',
       String description = '',
-      String methodsHeading = kSectionGetInTouch,
+      String methodsHeading = kDefaultMethodsHeading,
       List<ContactFormFieldContent> formFields = const [],
       List<ContactMethodContent> contactMethods = const [],
       String formSubmitText = 'Submit',
@@ -235,7 +238,7 @@ void main() {
         await tester.pumpWidget(buildTestWidget(content: testContent(methodsHeading: heading)));
 
         expect(find.text(heading), findsOneWidget);
-        expect(find.text(kSectionGetInTouch), findsNothing);
+        expect(find.text(kDefaultMethodsHeading), findsNothing);
       });
 
       testWidgets('renders all section elements', (tester) async {
