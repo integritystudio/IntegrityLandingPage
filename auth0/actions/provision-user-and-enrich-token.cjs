@@ -1,3 +1,24 @@
+// Post-login runs on refresh-token exchanges too; those are not logins (UA02).
+const REFRESH_TOKEN_PROTOCOL = 'oauth2-refresh-token';
+
+/**
+ * Profile columns written to public.users on every run (UA02). `login_count` is Auth0's own
+ * count, so a repeated run cannot inflate it; `last_login` is skipped on a refresh-token
+ * exchange, which is not a login.
+ */
+function profileFields(event) {
+  const { user, stats, transaction } = event;
+  const fields = {
+    name: user.name ?? null,
+    nickname: user.nickname ?? null,
+    picture: user.picture ?? null,
+    email_verified: user.email_verified === true,
+  };
+  if (typeof stats?.logins_count === 'number') fields.login_count = stats.logins_count;
+  if (transaction?.protocol !== REFRESH_TOKEN_PROTOCOL) fields.last_login = new Date().toISOString();
+  return fields;
+}
+
 exports.onExecutePostLogin = async (event, api) => {
   const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = event.secrets;
   const headers = {
@@ -9,12 +30,17 @@ exports.onExecutePostLogin = async (event, api) => {
 
   const auth0Id = event.user.user_id; // e.g. "auth0|abc123"
   const email = event.user.email;
+  const profile = profileFields(event);
+  const byAuth0Id = `${SUPABASE_URL}/rest/v1/users?auth0_id=eq.${encodeURIComponent(auth0Id)}&select=id,email`;
 
-  // 1. Look up existing public.users row by auth0_id
-  let userRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/users?auth0_id=eq.${encodeURIComponent(auth0Id)}&select=id,email&limit=1`,
-    { headers }
-  );
+  // 1. Write the profile onto the row with this auth0_id; the returned row supplies the id,
+  //    so lookup and update are one request. A failed write falls back to a plain read, so
+  //    the claims below never depend on the profile columns.
+  let userRes = await fetch(byAuth0Id, { method: 'PATCH', headers, body: JSON.stringify(profile) });
+  if (!userRes.ok) {
+    console.log(`profile write failed (${userRes.status}); reading the user instead`);
+    userRes = await fetch(`${byAuth0Id}&limit=1`, { headers });
+  }
   let users = await userRes.json();
 
   // 2. If not found by auth0_id, try by email (handles migrated Supabase users)
@@ -26,13 +52,13 @@ exports.onExecutePostLogin = async (event, api) => {
     users = await userRes.json();
 
     if (Array.isArray(users) && users[0]) {
-      // Backfill auth0_id for migrated user
+      // Backfill auth0_id (and the profile) for migrated user
       await fetch(
         `${SUPABASE_URL}/rest/v1/users?id=eq.${users[0].id}`,
         {
           method: 'PATCH',
           headers,
-          body: JSON.stringify({ auth0_id: auth0Id }),
+          body: JSON.stringify({ auth0_id: auth0Id, ...profile }),
         }
       );
     }
@@ -43,7 +69,7 @@ exports.onExecutePostLogin = async (event, api) => {
     const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ auth0_id: auth0Id, email }),
+      body: JSON.stringify({ auth0_id: auth0Id, email, ...profile }),
     });
     const inserted = await insertRes.json();
     users = Array.isArray(inserted) ? inserted : [inserted];
