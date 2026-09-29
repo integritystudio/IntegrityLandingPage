@@ -12,6 +12,7 @@ void loadRealContent() {
 }
 
 Future<void> loadRealContentAsync() async {
-  final yamlString = await rootBundle.loadString('content.yaml');
-  ContentLoader.loadFromString(yamlString);
+  ContentLoader.loadFromString(await readRealContentYaml());
 }
+
+Future<String> readRealContentYaml() => rootBundle.loadString('content.yaml');

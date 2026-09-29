@@ -228,7 +228,7 @@ void main() {
     });
 
     testWidgets('renders link groups from content.yaml', (tester) async {
-      withContent(testContentYaml.replaceFirst(
+      withContent(await realContentWith(
         'label: "$_helpCenterLabel"',
         'label: "$_renamedLinkLabel"',
       ));

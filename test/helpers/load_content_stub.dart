@@ -5,3 +5,7 @@ void loadRealContent() {
 Future<void> loadRealContentAsync() {
   throw UnsupportedError('Stub: no platform implementation available');
 }
+
+Future<String> readRealContentYaml() {
+  throw UnsupportedError('Stub: no platform implementation available');
+}
