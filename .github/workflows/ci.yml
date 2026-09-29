@@ -43,7 +43,11 @@ jobs:
       - name: Analyze code
         run: flutter analyze --no-fatal-infos
 
+      # TS34: runners default to UTC, where a test that must tell the UTC month from
+      # the local one cannot fail. A zone west of UTC lets it.
       - name: Run tests with coverage
+        env:
+          TZ: America/Denver
         run: flutter test --coverage
 
       - name: Generate coverage report

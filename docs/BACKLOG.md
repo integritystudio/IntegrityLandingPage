@@ -3293,6 +3293,8 @@ Even a tap test would pass a hard-coded `'/contact'` under real content, where t
 
 **Priority:** P4 | **Source:** coverage review 2026-09-29; `test/pages/usage_summary_page_test.dart` ("uses the UTC month, not the local one")
 
+**Status:** ✅ **DONE 2026-09-29** — CI's `Run tests with coverage` step now sets `TZ: America/Denver`. Measured before the change: the "reads the local month" mutant **survives** under `TZ=UTC` and is **killed** under `TZ=America/Denver`. The whole Flutter suite passes under Denver: 2960 tests. The test's comment says why CI pins the zone. The alternative, a `skip:` when the offset is zero, was not used: it would only make the gap visible, not close it.
+
 The test only tells UTC from local time on a machine west of UTC. CI runs `flutter test` on `ubuntu-latest` with no `TZ`, which is UTC, so the "reset uses the local month" mutant is caught only on a workstation.
 
 **Scope:** set `TZ: America/Denver` on the CI test step, or `skip:` the test when `DateTime.now().timeZoneOffset == Duration.zero`, so the gap is visible.

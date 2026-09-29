@@ -117,7 +117,8 @@ void main() {
 
     test('uses the UTC month, not the local one', () {
       // Already October in UTC, but still September on any machine west of UTC,
-      // where reading the local month would name October 1.
+      // where reading the local month would name October 1. On a UTC machine it
+      // cannot fail, which is why CI runs the suite with TZ=America/Denver (TS34).
       final instant = DateTime.utc(2026, 10, 1, 2);
       expect(monthlyResetLabel(instant.toLocal()), 'Resets November 1, 00:00 UTC');
     });
