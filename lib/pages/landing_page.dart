@@ -52,18 +52,18 @@ class _LandingPageState extends State<LandingPage> {
 
   // Section IDs for registration with the controller
   static const _sectionIds = [
-    'hero',
-    'features-explorer',
-    'social-proof',
-    'features',
+    SectionIds.hero,
+    SectionIds.featuresExplorer,
+    SectionIds.socialProof,
+    SectionIds.features,
     SectionIds.services,
     SectionIds.about,
-    'team',
+    SectionIds.team,
     SectionIds.resources,
     SectionIds.contact,
-    'status',
-    'pricing',
-    'cta',
+    SectionIds.status,
+    SectionIds.pricing,
+    SectionIds.cta,
   ];
 
   @override
@@ -108,7 +108,7 @@ class _LandingPageState extends State<LandingPage> {
             _buildHeaderNav(context, useCompactNav),
 
             _buildSection(
-              key: _controller.getSectionKey('hero'),
+              key: _controller.getSectionKey(SectionIds.hero),
               label: 'Hero section',
               child: HeroSection(
                 onGetStarted: () => context.go(Routes.signupStarter),
@@ -117,18 +117,18 @@ class _LandingPageState extends State<LandingPage> {
             ),
             // Tabbed feature explorer (AiSDR-inspired interactive tabs)
             _buildSection(
-              key: _controller.getSectionKey('features-explorer'),
+              key: _controller.getSectionKey(SectionIds.featuresExplorer),
               label: 'Feature explorer section',
               child: const TabbedFeaturesSection(),
             ),
             // Social proof section - hidden until we have real testimonials
             // _buildSection(
-            //   key: _controller.getSectionKey('social-proof'),
+            //   key: _controller.getSectionKey(SectionIds.socialProof),
             //   label: 'Social proof section',
             //   child: const SocialProofSection(),
             // ),
             _buildSection(
-              key: _controller.getSectionKey('features'),
+              key: _controller.getSectionKey(SectionIds.features),
               label: 'Features section',
               child: const FeaturesSection(),
             ),
@@ -143,7 +143,7 @@ class _LandingPageState extends State<LandingPage> {
               key: _controller.getSectionKey(SectionIds.about),
               label: 'About section',
               child: AboutSection(
-                teamKey: _controller.getSectionKey('team'),
+                teamKey: _controller.getSectionKey(SectionIds.team),
               ),
             ),
             // Resources section (docs, blog, lead magnets)
@@ -153,7 +153,7 @@ class _LandingPageState extends State<LandingPage> {
               child: const ResourcesSection(),
             ),
             _buildSection(
-              key: _controller.getSectionKey('pricing'),
+              key: _controller.getSectionKey(SectionIds.pricing),
               label: 'Pricing section',
               child: PricingSection(
                 onSelectTier: _handleSelectTier,
@@ -166,12 +166,12 @@ class _LandingPageState extends State<LandingPage> {
               child: const ContactSection(),
             ),
             _buildSection(
-              key: _controller.getSectionKey('status'),
+              key: _controller.getSectionKey(SectionIds.status),
               label: 'Status section',
               child: const StatusSection(),
             ),
             _buildSection(
-              key: _controller.getSectionKey('cta'),
+              key: _controller.getSectionKey(SectionIds.cta),
               label: 'Call to action section',
               child: CTASection(
                 onGetStarted: () => context.go(Routes.signupStarter),
@@ -251,11 +251,11 @@ class _LandingPageState extends State<LandingPage> {
                 color: AppColors.gray800,
                 onSelected: _handleNavItemSelected,
                 itemBuilder: (context) => [
-                  _buildPopupMenuItem('Features', 'features'),
+                  _buildPopupMenuItem('Features', SectionIds.features),
                   _buildPopupMenuItem('About', SectionIds.about),
-                  _buildPopupMenuItem('Team', 'team'),
+                  _buildPopupMenuItem('Team', SectionIds.team),
                   _buildPopupMenuItem('Blog', SectionIds.resources),
-                  _buildPopupMenuItem('Pricing', 'pricing'),
+                  _buildPopupMenuItem('Pricing', SectionIds.pricing),
                   _buildPopupMenuItem('Contact', SectionIds.contact),
                   _buildPopupMenuItem('Docs', Routes.docs),
                   _buildPopupMenuItem(CTAText.logIn, ExternalUrls.dashboardApp),
@@ -270,7 +270,7 @@ class _LandingPageState extends State<LandingPage> {
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                onTap: () => _controller.scrollToSection('features'),
+                onTap: () => _controller.scrollToSection(SectionIds.features),
               ),
               HoverTextLink(
                 text: 'About',
@@ -286,7 +286,7 @@ class _LandingPageState extends State<LandingPage> {
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                onTap: () => _controller.scrollToSection('team'),
+                onTap: () => _controller.scrollToSection(SectionIds.team),
               ),
               HoverTextLink(
                 text: 'Blog',
@@ -302,7 +302,7 @@ class _LandingPageState extends State<LandingPage> {
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                onTap: () => _controller.scrollToSection('pricing'),
+                onTap: () => _controller.scrollToSection(SectionIds.pricing),
               ),
               HoverTextLink(
                 text: 'Contact',
@@ -328,7 +328,7 @@ class _LandingPageState extends State<LandingPage> {
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.md),
                 child: TextButton(
-                  onPressed: () => _controller.scrollToSection('pricing'),
+                  onPressed: () => _controller.scrollToSection(SectionIds.pricing),
                   style: TextButton.styleFrom(
                     backgroundColor: AppColors.blue600,
                     padding: const EdgeInsets.symmetric(
