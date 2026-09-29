@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/theme.dart';
 import 'containers.dart';
 
@@ -34,40 +35,42 @@ class DashboardScaffold extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: onBack != null
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: onBack,
-              )
+            ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: onBack)
             : null,
       ),
       body: GradientBackground(
+        // Scrolls when the content is taller than the viewport; short content
+        // stays centred. Without it the lower cards were clipped on short screens.
         child: Center(
-          child: ResponsiveContainer(
-            maxWidth: 600,
-            additionalPadding:
-                EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: (titleStyle ?? AppTypography.headingLG).copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: AppSpacing.sm),
+          child: SingleChildScrollView(
+            child: ResponsiveContainer(
+              maxWidth: 600,
+              additionalPadding: EdgeInsets.all(
+                isMobile ? AppSpacing.lg : AppSpacing.xl,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    subtitle!,
-                    style: AppTypography.bodyMD.copyWith(
-                      color: AppColors.gray300,
+                    title,
+                    style: (titleStyle ?? AppTypography.headingLG).copyWith(
+                      color: AppColors.textPrimary,
                     ),
                   ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      subtitle!,
+                      style: AppTypography.bodyMD.copyWith(
+                        color: AppColors.gray300,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.lg),
+                  ...children,
                 ],
-                const SizedBox(height: AppSpacing.lg),
-                ...children,
-              ],
+              ),
             ),
           ),
         ),
