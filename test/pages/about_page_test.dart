@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integrity_studio_ai/config/content/constants.dart';
 import 'package:integrity_studio_ai/pages/about_page.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
@@ -62,11 +61,6 @@ void main() {
     });
 
     group('app bar', () {
-      testWidgets('displays company name', (tester) async {
-        await pumpAboutPage(tester);
-        expect(find.text(CompanyInfo.name), findsOneWidget);
-      });
-
       testWidgets('has back arrow button', (tester) async {
         await pumpAboutPage(tester);
         expect(find.byIcon(LucideIcons.arrowLeft), findsOneWidget);

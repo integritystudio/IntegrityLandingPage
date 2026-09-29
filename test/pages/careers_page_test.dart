@@ -51,50 +51,10 @@ void main() {
   group('CareersPage', () {
     group('page structure', () {
       testPageStructure(pumpCareersPage);
-
-      testWidgets('renders company name in app bar', (tester) async {
-        await pumpCareersPage(tester);
-
-        expect(find.text(CompanyInfo.name), findsOneWidget);
-      });
-
-      testWidgets('renders shield icon in app bar', (tester) async {
-        await pumpCareersPage(tester);
-
-        expect(find.byIcon(LucideIcons.shield), findsOneWidget);
-      });
     });
 
     group('navigation', () {
       testBackButtonCallback(pumpCareersPage);
-
-      testWidgets('renders navigation links on desktop', (tester) async {
-        await pumpCareersPage(tester, mobile: false);
-
-        expect(find.text('Features'), findsOneWidget);
-        expect(find.text('Pricing'), findsOneWidget);
-        expect(find.text('About'), findsOneWidget);
-      });
-
-      testWidgets('renders Get Started button on desktop', (tester) async {
-        await pumpCareersPage(tester, mobile: false);
-
-        expect(find.text(CTAText.getStarted), findsOneWidget);
-      });
-
-      testWidgets('hides navigation links on mobile', (tester) async {
-        await pumpCareersPage(tester, mobile: true);
-
-        expect(find.text('Features'), findsNothing);
-        expect(find.text('Pricing'), findsNothing);
-        expect(find.text('About'), findsNothing);
-      });
-
-      testWidgets('hides Get Started button on mobile', (tester) async {
-        await pumpCareersPage(tester, mobile: true);
-
-        expect(find.text(CTAText.getStarted), findsNothing);
-      });
     });
 
     group('hero section', () {
@@ -327,13 +287,6 @@ void main() {
     });
 
     group('icons', () {
-      testWidgets('renders app bar icons', (tester) async {
-        await pumpCareersPage(tester);
-
-        expect(find.byIcon(LucideIcons.arrowLeft), findsOneWidget);
-        expect(find.byIcon(LucideIcons.shield), findsOneWidget);
-      });
-
       testWidgets('renders briefcase icon in no openings section',
           (tester) async {
         await pumpCareersPage(tester);
@@ -384,15 +337,6 @@ void main() {
     });
 
     group('accessibility', () {
-      testWidgets('back button has tooltip', (tester) async {
-        await pumpCareersPage(tester);
-
-        final iconButton = tester.widget<IconButton>(
-          find.widgetWithIcon(IconButton, LucideIcons.arrowLeft),
-        );
-        expect(iconButton.tooltip, equals('Back'));
-      });
-
       testWidgets('text content is selectable', (tester) async {
         await pumpCareersPage(tester);
 

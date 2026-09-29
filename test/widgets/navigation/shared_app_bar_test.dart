@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:integrity_studio_ai/config/content/constants.dart';
 import 'package:integrity_studio_ai/widgets/navigation/shared_app_bar.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../helpers/test_constants.dart';
 import '../../helpers/test_helpers.dart';
 
 Widget _makeApp(SharedAppBar appBar) {
@@ -118,6 +121,86 @@ void main() {
 
       expect(find.bySemanticsLabel(RegExp('Navigate to Features')), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('Navigate to Docs')), findsOneWidget);
+    });
+  });
+
+  // SubPageShell renders SharedAppBar.subPage on every sub-page, so its
+  // behaviour is tested once here rather than per page.
+  group('SharedAppBar.subPage', () {
+    // Page tests pumped desktop (pricing, status) and desktopLarge (careers,
+    // request_failure, request_success); both widths are desktop layout.
+    const desktopSizes = {
+      'desktop': TestScreenSizes.desktop,
+      'desktopLarge': TestScreenSizes.desktopLarge,
+    };
+    const subPageNavLabels = ['Features', 'About', 'Pricing', 'Contact', 'Docs'];
+
+    Finder inAppBar(Finder matching) =>
+        find.descendant(of: find.byType(SliverAppBar), matching: matching);
+
+    Future<void> pumpSubPageAppBar(WidgetTester tester, Size size) async {
+      setScreenSize(tester, size);
+      await tester.pumpWidget(_makeApp(SharedAppBar.subPage()));
+      await tester.pump();
+    }
+
+    for (final entry in desktopSizes.entries) {
+      group('on ${entry.key}', () {
+        testWidgets('renders shield icon and company name in title',
+            (tester) async {
+          await pumpSubPageAppBar(tester, entry.value);
+
+          expect(inAppBar(find.byIcon(LucideIcons.shield)), findsOneWidget);
+          expect(inAppBar(find.text(CompanyInfo.name)), findsOneWidget);
+        });
+
+        testWidgets('renders nav links and Get Started inline, no menu',
+            (tester) async {
+          await pumpSubPageAppBar(tester, entry.value);
+
+          for (final label in subPageNavLabels) {
+            expect(inAppBar(find.text(label)), findsOneWidget, reason: label);
+          }
+          expect(inAppBar(find.text(CTAText.getStarted)), findsOneWidget);
+          expect(inAppBar(find.byIcon(LucideIcons.menu)), findsNothing);
+        });
+
+        testWidgets('uses desktop toolbar height', (tester) async {
+          await pumpSubPageAppBar(tester, entry.value);
+
+          final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
+          expect(appBar.toolbarHeight, equals(kDesktopToolbarHeight));
+        });
+      });
+    }
+
+    group('on mobile', () {
+      testWidgets('replaces nav links and Get Started with a popup menu',
+          (tester) async {
+        await pumpSubPageAppBar(tester, TestScreenSizes.mobile);
+
+        expect(inAppBar(find.byIcon(LucideIcons.menu)), findsOneWidget);
+        for (final label in subPageNavLabels) {
+          expect(inAppBar(find.text(label)), findsNothing, reason: label);
+        }
+        expect(inAppBar(find.text(CTAText.getStarted)), findsNothing);
+      });
+
+      testWidgets('uses mobile toolbar height', (tester) async {
+        await pumpSubPageAppBar(tester, TestScreenSizes.mobile);
+
+        final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
+        expect(appBar.toolbarHeight, equals(kMobileToolbarHeight));
+      });
+    });
+
+    testWidgets('back button has Back tooltip', (tester) async {
+      await pumpSubPageAppBar(tester, TestScreenSizes.desktopLarge);
+
+      final backButton = tester.widget<IconButton>(
+        inAppBar(find.widgetWithIcon(IconButton, LucideIcons.arrowLeft)),
+      );
+      expect(backButton.tooltip, equals('Back'));
     });
   });
 }
