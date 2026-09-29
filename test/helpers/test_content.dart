@@ -299,6 +299,14 @@ footer:
   terms_link: "/terms"
   cookies_link: "/cookies"
   cookie_settings_label: "Cookie Settings"
+  tagline: "Enterprise-grade AI observability platform for monitoring, debugging, and optimizing LLM applications."
+  privacy_label: "Privacy Policy"
+  privacy_label_short: "Privacy"
+  terms_label: "Terms of Service"
+  terms_label_short: "Terms"
+  cookies_label: "Cookie Policy"
+  cookies_label_short: "Cookies"
+  accessibility_label: "Accessibility"
   link_groups:
     - title: "Product"
       links:
@@ -721,6 +729,14 @@ footer:
   terms_link: "/terms"
   cookies_link: "/cookies"
   cookie_settings_label: "Cookie Settings"
+  tagline: "Footer Tagline"
+  privacy_label: "Privacy Label"
+  privacy_label_short: "Privacy Short"
+  terms_label: "Terms Label"
+  terms_label_short: "Terms Short"
+  cookies_label: "Cookies Label"
+  cookies_label_short: "Cookies Short"
+  accessibility_label: "Accessibility Label"
   link_groups:
     - title: "Product"
       links:

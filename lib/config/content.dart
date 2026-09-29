@@ -194,8 +194,8 @@ abstract final class AppContent {
   /// Current footer content
   static FooterContent get footer => FooterContent(
         companyName: ContentLoader.companyName,
-        tagline: ContentLoader.companyTagline,
-        copyright: ContentLoader.companyCopyright,
+        tagline: ContentLoader.footerTagline,
+        copyright: CompanyInfo.copyright,
         linkGroups: ContentLoader.footerLinkGroups.map((group) {
           return FooterLinkGroup(
             title: group['title'] as String? ?? '',
@@ -214,6 +214,13 @@ abstract final class AppContent {
         cookiesLink: ContentLoader.footerCookiesLink,
         accessibilityLink: Routes.accessibility,
         cookieSettingsLabel: ContentLoader.footerCookieSettingsLabel,
+        privacyLabel: ContentLoader.footerPrivacyLabel,
+        privacyLabelShort: ContentLoader.footerPrivacyLabelShort,
+        termsLabel: ContentLoader.footerTermsLabel,
+        termsLabelShort: ContentLoader.footerTermsLabelShort,
+        cookiesLabel: ContentLoader.footerCookiesLabel,
+        cookiesLabelShort: ContentLoader.footerCookiesLabelShort,
+        accessibilityLabel: ContentLoader.footerAccessibilityLabel,
       );
 
   /// Current services section content

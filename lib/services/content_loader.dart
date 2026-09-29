@@ -296,6 +296,14 @@ class ContentLoader {
   static String get footerTermsLink => _getString('footer.terms_link');
   static String get footerCookiesLink => _getString('footer.cookies_link');
   static String get footerCookieSettingsLabel => _getString('footer.cookie_settings_label');
+  static String get footerTagline => _getString('footer.tagline');
+  static String get footerPrivacyLabel => _getString('footer.privacy_label');
+  static String get footerPrivacyLabelShort => _getString('footer.privacy_label_short');
+  static String get footerTermsLabel => _getString('footer.terms_label');
+  static String get footerTermsLabelShort => _getString('footer.terms_label_short');
+  static String get footerCookiesLabel => _getString('footer.cookies_label');
+  static String get footerCookiesLabelShort => _getString('footer.cookies_label_short');
+  static String get footerAccessibilityLabel => _getString('footer.accessibility_label');
 
   // ===========================================================================
   // STATUS

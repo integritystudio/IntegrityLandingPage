@@ -58,7 +58,7 @@ void main() {
 
       // Footer section exists
       expect(find.byType(FooterSection), findsOneWidget);
-      expect(find.text('IntegrityStudio'), findsOneWidget);
+      expect(find.text('Integrity Studio'), findsOneWidget);
 
       // Section headings
       expect(find.text('Product'), findsOneWidget);
