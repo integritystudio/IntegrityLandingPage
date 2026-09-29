@@ -1,5 +1,4 @@
-import { ok, notFound, noContent } from '../../lib/http';
-import { getAllowedOrigins, ALLOWED_ORIGINS } from '../../http-helpers';
+import { ok, notFound, noContent, buildCors } from '../../lib/http';
 import { handleMe } from './routes/me';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal, handleCreateCheckoutSession } from './routes/orgs';
 import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './routes/usage';
@@ -52,7 +51,7 @@ export interface Env {
   PAGERDUTY_INTEGRATION_KEY?: string;
   /**
    * JSON array of browser origins permitted to call this Worker. Falls back to the shared
-   * production defaults in ../../http-helpers when unset or malformed.
+   * production defaults in ../../lib/http/cors when unset or malformed.
    */
   ALLOWED_ORIGINS_JSON?: string;
   /**
@@ -80,7 +79,6 @@ const APP_URL_FALLBACK = 'https://app.integritystudio.ai';
 const CORS_ALLOW_METHODS = 'GET, POST, OPTIONS';
 /** The Flutter app sends a bearer token, and POST bodies are JSON. */
 const CORS_ALLOW_HEADERS = 'Authorization, Content-Type';
-const CORS_MAX_AGE_SECONDS = '86400';
 
 // Emitted at most once per isolate so production logs are not flooded.
 let auth0Warned = false;
@@ -96,26 +94,19 @@ function withSecurityHeaders(res: Response): Response {
 }
 
 /**
- * CORS headers for a browser caller. An origin outside the allowlist is answered with the
- * first allowed origin rather than its own value, so an unknown origin never receives an
- * Access-Control-Allow-Origin that matches it.
+ * CORS headers for a browser caller, from the shared helper (BACKLOG.md CR46). An origin
+ * outside the allowlist is answered with the first allowed origin, never its own.
  *
  * No Access-Control-Allow-Credentials: the Flutter app authenticates with an Authorization
  * header, not cookies, so credentialed mode is unnecessary and would widen exposure.
  */
 function corsHeaders(origin: string | null, env: Env): Record<string, string> {
-  const allowed = getAllowedOrigins(env);
-  // getAllowedOrigins passes an explicit `[]` straight through, which would make allowed[0]
-  // undefined and emit the literal header value "undefined". Fall back to the shared default.
-  const fallbackOrigin = allowed[0] ?? ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': origin && allowed.includes(origin) ? origin : fallbackOrigin,
-    'Access-Control-Allow-Methods': CORS_ALLOW_METHODS,
-    'Access-Control-Allow-Headers': CORS_ALLOW_HEADERS,
-    'Access-Control-Max-Age': CORS_MAX_AGE_SECONDS,
-    // Vary: Origin so a cache cannot serve origin-A's response to origin-B.
-    Vary: 'Origin',
-  };
+  return buildCors(origin, {
+    allowedOriginsJson: env.ALLOWED_ORIGINS_JSON,
+    allowMethods: CORS_ALLOW_METHODS,
+    allowHeaders: CORS_ALLOW_HEADERS,
+    disallowedOriginHeader: 'first-allowed',
+  }).headers;
 }
 
 function withHeaders(res: Response, extra: Record<string, string>): Response {

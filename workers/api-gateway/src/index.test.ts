@@ -123,13 +123,15 @@ describe('api-gateway', () => {
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe(custom);
     });
 
-    // An empty allowlist must not emit the literal string "undefined" as the header value.
-    it('falls back to a real origin when the allowlist is empty', async () => {
+    // An empty allowlist denies every origin (CR46). It used to fall back to the production
+    // origin, so `[]` still admitted integritystudio.ai; it must not emit "undefined" either.
+    it('sends no Allow-Origin at all when the allowlist is empty', async () => {
       const res = await worker.fetch(
         makeRequest('OPTIONS', '/v1/orgs', { headers: { Origin: ALLOWED_ORIGIN } }),
         makeEnv({ ALLOWED_ORIGINS_JSON: '[]' }),
       );
-      expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ALLOWED_ORIGIN);
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
+      expect(res.headers.get('Vary')).toBe('Origin');
     });
 
     it('preserves security headers alongside CORS on routed responses', async () => {
