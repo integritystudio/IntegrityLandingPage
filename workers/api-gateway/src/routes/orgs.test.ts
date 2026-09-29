@@ -137,19 +137,13 @@ describe('GET /v1/orgs', () => {
     expect(stub.find('GET', 'organizations')).toBeUndefined();
   });
 
-  it('returns 503 when the membership query fails (CR53)', async () => {
+  // A failed query is not "no orgs": answering 200 [] sent existing users to /provision.
+  it.each([
+    ['membership', () => ({ 'GET organization_memberships': httpError(500) })],
+    ['organizations', () => ({ ...membershipRoutes(), 'GET organizations': httpError(500) })],
+  ])('returns 503 when the %s query fails (CR53)', async (_query, routes) => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    stubSupabase({ 'GET organization_memberships': httpError(500) });
-    const res = await handleListOrgs(authedRequest('/v1/orgs', token), opts);
-    expect(res.status).toBe(503);
-  });
-
-  it('returns 503 when the organizations query fails (CR53)', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    stubSupabase({
-      ...membershipRoutes(),
-      'GET organizations': httpError(500),
-    });
+    stubSupabase(routes());
     const res = await handleListOrgs(authedRequest('/v1/orgs', token), opts);
     expect(res.status).toBe(503);
   });
