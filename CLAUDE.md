@@ -215,7 +215,7 @@ lib/
 workers/
 ├── lib/              # Shared constants, HTTP utilities, validation, schemas
 │   ├── constants.ts  # Time constants (MS_PER_DAY)
-│   ├── http/         # Request parsing, responses, error handling (CORS is per worker; CR46)
+│   ├── http/         # Request parsing, responses, error handling, shared CORS allowlist (CR46)
 │   ├── types/        # Zod schemas (usage, OTEL, audit, provisioning, Supabase)
 │   └── validation/   # Validation helpers, error formatting
 ├── contact-form/     # Contact form worker (Resend email, KV rate limiting, CSRF)
@@ -234,7 +234,7 @@ test/                 # Unit + widget tests (~94% coverage)
 **Shared Library**
 - [workers/lib/](workers/lib/) — Shared HTTP, validation, and constants (shared test suite)
   - `constants.ts` — Shared time constants (MS_PER_DAY)
-  - `http/` — request parsing (JSON, bearer token, query params, method assertion), response factories, error handling. No CORS helper: each worker runs its own allowlist today, and the shared one is BACKLOG.md CR46
+  - `http/` — request parsing (JSON, bearer token, query params, method assertion), response factories, error handling, and `cors.ts`: the one CORS allowlist every worker uses (CR46). Never `*` (a configured `"*"` is dropped), env-driven via `ALLOWED_ORIGINS_JSON`, `.`-anchored https preview suffix; an explicit `[]` denies every origin
   - `types/` — Zod schemas (usage events, OTEL spans, audit logs, provisioning, Supabase)
   - `validation/` — Typed validation helpers, formatted error responses
 
