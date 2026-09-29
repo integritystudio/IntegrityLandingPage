@@ -82,6 +82,9 @@ SECRETS=(
   VITE_SUPABASE_ANON_KEY
   REACT_APP_SUPABASE_ANON_KEY
   CLOUDFLARE_KV_NAMESPACE_ID
+  # Added 2026-09-29 (UA03). Also pinned to the AUTH namespace per config below;
+  # this row is the independent distinctness check.
+  AUTH_KV_NAMESPACE_ID
   HOME_ORG_ID
   SHARED_SECRET
   STRIPE_SECRET_KEY
@@ -252,6 +255,64 @@ for secret in "${STRIPE_MODED_KEYS[@]}"; do
   fi
 
   printf '%-30s %-14s %-14s %s\n' "$secret" "$base_prefix" "$prod_prefix" "$verdict"
+done
+
+echo
+
+# KV namespace roles (UA03). Distinct hashes cannot catch this one: the same name
+# means different namespaces per config. `KV_NAMESPACE_ID` is AUTH in dev but the
+# quality-metrics dashboard's namespace in prd, and the toolkit's dashboard sync
+# (`dashboard/scripts/sync-to-kv.ts`) reads it, so pointing prd's at AUTH would
+# write metrics into the namespace API keys authenticate against.
+# `AUTH_KV_NAMESPACE_ID` is the unambiguous name for AUTH, and the seed for the
+# api-keys-* functions' `KV_NAMESPACE_ID` function secret.
+#
+# The pins are digests of the `AUTH` ids in observability-toolkit
+# `services/obtool-{api,ingest}/wrangler.toml` (top level = prd, `[env.dev]` =
+# dev). This repo is public, so the ids themselves are not written here.
+# Recompute with: printf '%s' <id> | shasum | cut -d' ' -f1
+AUTH_KV_NAME=AUTH_KV_NAMESPACE_ID
+DASHBOARD_KV_NAMES=(KV_NAMESPACE_ID CLOUDFLARE_KV_NAMESPACE_ID)
+AUTH_KV_PIN_DEV="8f79397441bddc66a136a5c389782aed6f5669ed"
+AUTH_KV_PIN_PRD="b868e6af46574ba46500fe02dce43000dc22afa7"
+
+auth_kv_pin() { case "$1" in dev) printf '%s' "$AUTH_KV_PIN_DEV";; prd) printf '%s' "$AUTH_KV_PIN_PRD";; esac; }
+
+# dev's `KV_NAMESPACE_ID` is AUTH_DEV on purpose (repointed 2026-08-07 so the dev
+# functions write there), which also makes a dashboard sync run under dev write
+# into AUTH_DEV. UA03 leaves it until the sync's readers are confirmed.
+is_kv_known_gap() { [[ "$1:$2" == "dev:KV_NAMESPACE_ID" ]]; }
+
+printf '%-30s %-10s %s\n' "KV NAMESPACE ROLE (UA03)" "CONFIG" "VERDICT"
+printf '%s\n' "----------------------------------------------------------------------"
+
+for config in "$BASE_CONFIG" "$PROD_CONFIG"; do
+  pin="$(auth_kv_pin "$config")"
+  if [[ -z "$pin" ]]; then
+    printf '%-30s %-10s %s\n' "$AUTH_KV_NAME" "$config" "no AUTH pin for this config (not checked)"
+    continue
+  fi
+
+  auth_hash="$(digest "$AUTH_KV_NAME" "$config")"
+  if [[ "$auth_hash" == "$EMPTY_HASH" ]]; then
+    verdict="missing"; ((failures++))
+  elif [[ "$auth_hash" != "$pin" ]]; then
+    verdict="NOT the AUTH namespace"; ((failures++))
+  else
+    verdict="ok (AUTH)"
+  fi
+  printf '%-30s %-10s %s\n' "$AUTH_KV_NAME" "$config" "$verdict"
+
+  for name in "${DASHBOARD_KV_NAMES[@]}"; do
+    if [[ "$(digest "$name" "$config")" != "$pin" ]]; then
+      verdict="ok (not AUTH)"
+    elif is_kv_known_gap "$config" "$name"; then
+      verdict="KNOWN GAP (UA03): AUTH, so a dashboard sync here writes into it"
+    else
+      verdict="POINTS AT AUTH: the dashboard sync would write into it"; ((failures++))
+    fi
+    printf '%-30s %-10s %s\n' "$name" "$config" "$verdict"
+  done
 done
 
 echo
