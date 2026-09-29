@@ -410,18 +410,24 @@ void testBackButtonCallbacks(
 ///   testResponsiveLayout<MyPage>(pumpMyPage);
 /// });
 /// ```
+///
+/// Pass `includeMobile: false` only for a page with a known mobile layout
+/// failure, and say at the call site what fails.
 void testResponsiveLayout<T extends Widget>(
   PagePumpFunction pumpPage, {
   String? expectedTitle,
+  bool includeMobile = true,
   bool includeTablet = false,
 }) {
-  testWidgets('renders on mobile viewport', (tester) async {
-    await pumpPage(tester, mobile: true);
-    expect(find.byType(T), findsOneWidget);
-    if (expectedTitle != null) {
-      expect(find.text(expectedTitle), findsWidgets);
-    }
-  });
+  if (includeMobile) {
+    testWidgets('renders on mobile viewport', (tester) async {
+      await pumpPage(tester, mobile: true);
+      expect(find.byType(T), findsOneWidget);
+      if (expectedTitle != null) {
+        expect(find.text(expectedTitle), findsWidgets);
+      }
+    });
+  }
 
   testWidgets('renders on desktop viewport', (tester) async {
     await pumpPage(tester, mobile: false);
@@ -433,11 +439,20 @@ void testResponsiveLayout<T extends Widget>(
 
   if (includeTablet) {
     testWidgets('renders on tablet viewport', (tester) async {
-      setTabletSize(tester);
-      clearOverflowExceptions(tester);
-      // Need to call pump manually for tablet since pumpPage uses mobile bool
+      // pumpPage sizes the view for its mobile/desktop branch, so a tablet
+      // size set before it is overwritten. Resize after it and rebuild.
       await pumpPage(tester, mobile: false);
+      setTabletSize(tester);
+      await tester.pump();
+
+      expect(
+        MediaQuery.sizeOf(tester.element(find.byType(T))).width,
+        TestScreenSizes.tablet.width,
+      );
       expect(find.byType(T), findsOneWidget);
+      if (expectedTitle != null) {
+        expect(find.text(expectedTitle), findsWidgets);
+      }
     });
   }
 }

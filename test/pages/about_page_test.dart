@@ -16,10 +16,14 @@ void main() {
       WidgetTester tester, {
       VoidCallback? onBack,
       VoidCallback? onShowCookieSettings,
-      bool setSize = true,
+      bool mobile = false,
     }) async {
       clearOverflowExceptions(tester);
-      if (setSize) setDesktopSize(tester);
+      if (mobile) {
+        setMobileSize(tester);
+      } else {
+        setDesktopSize(tester);
+      }
       await tester.pumpWidget(
         MaterialApp(
           theme: testTheme,
@@ -211,21 +215,16 @@ void main() {
     });
 
     group('responsive layout', () {
-      testWidgets('renders on mobile viewport', (tester) async {
-        setMobileSize(tester);
-        await pumpAboutPage(tester, setSize: false);
-        expect(find.byType(AboutPage), findsOneWidget);
-      });
+      testResponsiveLayout<AboutPage>(pumpAboutPage);
 
+      // Not includeTablet: at 768px a Column in about_page.dart overflows,
+      // which this test tolerates and the helper's tablet case does not.
       testWidgets('renders on tablet viewport', (tester) async {
+        await pumpAboutPage(tester);
         setTabletSize(tester);
-        await pumpAboutPage(tester, setSize: false);
-        expect(find.byType(AboutPage), findsOneWidget);
-      });
+        await tester.pump();
+        clearOverflowExceptions(tester);
 
-      testWidgets('renders on desktop viewport', (tester) async {
-        setDesktopSize(tester);
-        await pumpAboutPage(tester, setSize: false);
         expect(find.byType(AboutPage), findsOneWidget);
       });
     });

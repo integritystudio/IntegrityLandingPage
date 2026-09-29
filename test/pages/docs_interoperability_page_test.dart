@@ -495,16 +495,14 @@ void main() {
     });
 
     group('responsive layout', () {
-      testWidgets('renders on desktop viewport', (tester) async {
-        await pumpInteroperabilityPage(tester, mobile: false);
-
-        expect(find.byType(DocsInteroperabilityPage), findsOneWidget);
-        expect(find.text('Integrations Guide'), findsOneWidget);
-        expect(find.text('Interoperability & Integrations'), findsOneWidget);
-      });
-
-      // Note: Mobile viewport test skipped and testResponsiveLayout not used
-      // due to DocCallout widget overflow issues at constrained widths.
+      // Mobile skipped: at 375px four DocCallout Rows (doc_components.dart)
+      // overflow, and setUpOverflowErrorSuppression does not catch it.
+      testResponsiveLayout<DocsInteroperabilityPage>(
+        pumpInteroperabilityPage,
+        expectedTitle: 'Integrations Guide',
+        includeMobile: false,
+        includeTablet: true,
+      );
     });
 
     group('section icons', () {

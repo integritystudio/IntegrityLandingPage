@@ -23,6 +23,21 @@ void main() {
     );
   }
 
+  Future<void> pumpCheckoutSuccessPage(
+    WidgetTester tester, {
+    VoidCallback? onBack,
+    VoidCallback? onShowCookieSettings,
+    bool mobile = false,
+  }) async {
+    if (mobile) {
+      setMobileSize(tester);
+    } else {
+      setDesktopSize(tester);
+    }
+    await tester.pumpWidget(buildPage(onBack: onBack));
+    await tester.pump();
+  }
+
   group('CheckoutSuccessPage', () {
     group('page structure', () {
       testWidgets('renders Scaffold', (tester) async {
@@ -117,21 +132,10 @@ void main() {
     });
 
     group('responsive', () {
-      testWidgets('renders on mobile viewport', (tester) async {
-        setMobileSize(tester);
-        await tester.pumpWidget(buildPage());
-        await tester.pump();
-
-        expect(find.byType(CheckoutSuccessPage), findsOneWidget);
-      });
-
-      testWidgets('renders on desktop viewport', (tester) async {
-        setDesktopSize(tester);
-        await tester.pumpWidget(buildPage());
-        await tester.pump();
-
-        expect(find.byType(CheckoutSuccessPage), findsOneWidget);
-      });
+      testResponsiveLayout<CheckoutSuccessPage>(
+        pumpCheckoutSuccessPage,
+        includeTablet: true,
+      );
     });
   });
 }

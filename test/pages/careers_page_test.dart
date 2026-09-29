@@ -185,6 +185,7 @@ void main() {
       testResponsiveLayout<CareersPage>(
         pumpCareersPage,
         expectedTitle: 'Careers at ${CompanyInfo.name}',
+        includeTablet: true,
       );
 
       testWidgets('desktop shows navigation actions', (tester) async {
@@ -201,21 +202,6 @@ void main() {
         // Mobile should hide nav links and Get Started button
         expect(find.text('Features'), findsNothing);
         expect(find.text(CTAText.getStarted), findsNothing);
-      });
-
-      testWidgets('tablet viewport renders correctly', (tester) async {
-        setTabletSize(tester);
-        clearOverflowExceptions(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const CareersPage(),
-          ),
-        );
-        await tester.pump();
-        clearOverflowExceptions(tester);
-
-        expect(find.byType(CareersPage), findsOneWidget);
       });
     });
 
