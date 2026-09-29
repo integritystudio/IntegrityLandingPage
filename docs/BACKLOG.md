@@ -2472,6 +2472,12 @@ Filed from a read of one paying user (`alyshia@inventoryai.io`, org `team-invent
 - **Revised scope:** leave `prd` `KV_NAMESPACE_ID` alone; add an unambiguous `AUTH_KV_NAMESPACE_ID` (`b5a89aed…` prd, `0b323a37…` dev) for seeding the function secret; rename the dashboard name(s) only once the readers above are confirmed; pin both in `check:env-isolation`.
 - **Still unverified — the deployed function secret.** Reading the production project's function secrets was refused in this session. Owner step, unchanged from the scope: check `KV_NAMESPACE_ID` in the Supabase Dashboard, or compare the digest `supabase secrets list --project-ref cfrbahzzklwrnmbtqojl` prints against `printf b5a89aed33b844ae889d9891724e0731 | shasum -a 256`.
 
+**Investigated 2026-09-29 — the live risk this item describes is not present; what remains is naming.**
+- **The deployed functions write to production `AUTH` (`b5a89aed…`), shown by behaviour.** The secret itself is still unread: Doppler's `SUPABASE_ACCESS_TOKEN` gets `403 missing edge_functions_secrets_read` from `supabase secrets list`, and Doppler `prd` `SUPABASE_MGMT_PAT` gets `401` (a dead token in the store). But the functions share one project-wide secret, only `api-keys-create` writes the JSON record format carrying `keyId` (tracked in git since 2026-08-07), and 8 such records sit in production `AUTH` — none in `DASHBOARD` prd, which holds **zero** `apikey:` records among its 1,000+ keys. Cloudflare KV analytics for 2026-08-30 → 09-29: production `AUTH` took exactly one write (the 2026-09-21 by-hand rotation); `DASHBOARD` takes hundreds a day from the metrics sync. A direct read still needs a token with `edge_functions_secrets_read` (Dashboard → Edge Functions → Secrets, or a new PAT).
+- **The sync job's Doppler project is still unsettled, and can only be read on its host.** `~/code/jobs` `deploy.yml` SSHes to `DEPLOY_HOST` and runs `cd $DEPLOY_PATH && doppler run -c prd -- pm2 start` with no `-p`; the runner's `DOPPLER_TOKEN` configures the runner, not the host, so the project is that host's `doppler setup` scope. Owner step: `doppler configure get project --scope $DEPLOY_PATH` on the host. Today it does not matter which — both `bottleneck/prd` and `integrity-studio/prd` hold `902fc8a4…`, which is where the observed writes land.
+- **Revised scope stands:** leave `prd` `KV_NAMESPACE_ID` alone (it is the dashboard sync's value), add an unambiguous `AUTH_KV_NAMESPACE_ID` (`b5a89aed…` prd, `0b323a37…` dev) as the documented seed for the function secret, and pin both in `check:env-isolation`. Downgrade to P3: nothing is misrouting today.
+- **Found on the way — filed as [[UA13]]:** 92 of the 96 `apikey:` records in production `AUTH` have no `api_keys` row, and 9 of those still authenticate against `obtool-api`/`obtool-ingest`.
+
 ### ✅ UA04 — done 2026-09-27, applied to production: `users.tier` is a legacy column two code paths still fall back to, and it disagreed with the paid plan for seven weeks
 
 **Priority:** P3 | **Source:** audit 2026-09-18; `/v1/me` fixed to read the org plan in `6dc91c2`
@@ -2597,6 +2603,16 @@ The slot CLAUDE.md said "exists in no config" now holds an `sb_secret_` key (41 
 ## Test Suite Review 2026-09-27 (TS01–TS16)
 
 Filed from a nine-area review of every test file, read against the code under test — not from `docs/repomix/tests-compressed.xml`, which strips every `test()`/`it()` body. Full findings, with `path:line` for each, are in [test-suite-review-2026-09-27.md](test-suite-review-2026-09-27.md); section letters below refer to it. Done in the same session and **not** listed here: the ~230 `workers/lib` tests of schemas no request parses were deleted (`bf12226`), `CreateApiKeyBodySchema` was wired into the create-key route (`df174a2`), and `AuditActionSchema` was narrowed to the four emitted actions and enforced at runtime in `writeAuditLog` (`df174a2`, `a3aa746`).
+
+### UA13: production `AUTH` KV holds 92 `apikey:` records with no `api_keys` row; 9 still authenticate
+
+**Priority:** P2 | **Source:** UA03 investigation, 2026-09-29 (read-only: record names and value fields, no secrets printed)
+
+`obtool-api` and `obtool-ingest` authenticate a key from its `AUTH` KV record alone (`services/shared/kv-org.ts`): the record must exist and carry an `organizationId`; nothing checks `api_keys`. Production `AUTH` (`b5a89aed…`) holds 96 `apikey:` records against 6 `api_keys` rows (4 active). Of the 92 without a row, 83 are legacy records with no `organizationId` (refused as `org_unmapped`), and **9 still authenticate**:
+- 1 for `home` (prefix `0c10…`, tier `pro`) — the internal `OBTOOL_API_KEY`, deliberately KV-only ([[UA06]] item 3).
+- **8 for `team-integritystudio.ai`** (2 `growth`, 6 `starter`), all in the `keyId` format only `api-keys-create` writes, none with an `api_keys` row; 6 belong to users that no longer exist. Written between 2026-08-07 and 08-30, which fits the 30 test users deleted 2026-08-22: deleting a user cascades its `api_keys` rows but nothing deletes the KV record, so the key stays valid, invisible and unrevocable from the app.
+
+**Scope:** delete the 8 orphaned `team-integritystudio.ai` records (owner call — confirm none is in use first, e.g. from obtool-api's `last_used_at` write-behind or request logs); decide whether the 83 legacy records go too; then close the gap: revoke KV when an `api_keys` row or its user is deleted (a trigger that enqueues, or revoke-before-delete in the cleanup path), or have the Workers check the row. Acceptance: every `apikey:` record that authenticates maps to an active `api_keys` row, except the documented `home` key.
 
 ### ✅ TS01 — done 2026-09-27: Provisioning `received` is cast to `String` but the receiver contract returns an object
 
