@@ -369,13 +369,18 @@ abstract final class Auth0Service {
     }
   }
 
-  /// Compares every character, so the time taken does not reveal a matching prefix.
+  /// Compares every character, so the time taken does not reveal a matching
+  /// prefix. The length difference is folded into the accumulator and the loop
+  /// runs over the longer input, so the time taken does not reveal whether the
+  /// lengths match either (CR57).
   @visibleForTesting
   static bool constantTimeEquals(String a, String b) {
-    if (a.length != b.length) return false;
-    var result = 0;
-    for (var i = 0; i < a.length; i++) {
-      result |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    final maxLen = a.length > b.length ? a.length : b.length;
+    var result = a.length ^ b.length;
+    for (var i = 0; i < maxLen; i++) {
+      final ca = i < a.length ? a.codeUnitAt(i) : 0;
+      final cb = i < b.length ? b.codeUnitAt(i) : 0;
+      result |= ca ^ cb;
     }
     return result == 0;
   }
