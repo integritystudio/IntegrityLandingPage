@@ -81,10 +81,12 @@ export async function getQuotaStatus(
 /**
  * Middleware helper: fetch org plan from DB, run quota check, return 429 if exceeded.
  * If the quota DO is unavailable, allows the request through (fail-open).
+ * `chargeMonthly: false` (CR58) counts the request toward the minute window only.
  */
 export async function enforceOrgQuota(
   orgId: string,
   opts: OrgQuotaMiddlewareOptions,
+  { chargeMonthly = true }: { chargeMonthly?: boolean } = {},
 ): Promise<{ ok: true; rateLimitHeaders: Record<string, string> } | { ok: false; response: Response }> {
   const sb = createSupabaseClient(opts.supabaseUrl, opts.serviceRoleKey);
 
@@ -113,6 +115,7 @@ export async function enforceOrgQuota(
       requestId,
       planKey,
       quotaVersion,
+      chargeMonthly,
     });
   } catch {
     // Fail-open: if DO is unavailable, allow request through with no rate limit headers

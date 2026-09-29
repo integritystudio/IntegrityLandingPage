@@ -12,7 +12,7 @@ import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
 import { preVerifyToken } from './lib/helpers';
 import { checkOrgRateLimit } from './lib/rate-limit';
-import { meteredRoute, recordMeteredRequest } from './lib/usage-ledger';
+import { chargesMonthlyQuota, meteredRoute, recordMeteredRequest } from './lib/usage-ledger';
 import { createSupabaseClient } from '../../lib/supabase';
 
 export interface Env {
@@ -262,7 +262,10 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
       serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
     };
 
-    const quota = await enforceOrgQuota(orgId, quotaOpts);
+    // CR58: usage and quota reads still take this check, for the per-minute limit and
+    // so the DO applies any month rollover or plan change before /quota/status reads it.
+    const chargeMonthly = chargesMonthlyQuota(request.method, subPath);
+    const quota = await enforceOrgQuota(orgId, quotaOpts, { chargeMonthly });
     if (!quota.ok) return withSecurityHeaders(quota.response);
 
     // UA01: the quota DO reserved one unit for this request; write the same unit
@@ -271,18 +274,20 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
     const ledger = createSupabaseClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
     const requestId = crypto.randomUUID();
     const withRateLimitHeaders = (response: Response): Response => {
-      const write = recordMeteredRequest(ledger, {
-        orgId,
-        route: meteredRoute(request.method, subPath),
-        requestId,
-        statusCode: response.status,
-        latencyMs: Date.now() - startedAt,
-      });
-      // `recordMeteredRequest` never rejects; the catch is a guard so a future edit
-      // inside it cannot turn a lost ledger row into an unhandled rejection here.
-      const guarded = write.catch(() => undefined);
-      if (ctx) ctx.waitUntil(guarded);
-      else void guarded;
+      if (chargeMonthly) {
+        const write = recordMeteredRequest(ledger, {
+          orgId,
+          route: meteredRoute(request.method, subPath),
+          requestId,
+          statusCode: response.status,
+          latencyMs: Date.now() - startedAt,
+        });
+        // `recordMeteredRequest` never rejects; the catch is a guard so a future edit
+        // inside it cannot turn a lost ledger row into an unhandled rejection here.
+        const guarded = write.catch(() => undefined);
+        if (ctx) ctx.waitUntil(guarded);
+        else void guarded;
+      }
       const rl = quota.rateLimitHeaders;
       const headers = new Headers(response.headers);
       headers.set('X-Content-Type-Options', 'nosniff');

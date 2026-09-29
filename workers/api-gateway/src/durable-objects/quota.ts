@@ -25,6 +25,10 @@ interface QuotaCheckRequest {
   requestId: string;
   planKey: string;
   quotaVersion: number;
+  /** False for reads that must not spend the quota they report (CR58): the
+   *  request counts toward the minute window only, and is admitted even when the
+   *  month is exhausted so an org can still see its usage. Defaults to true. */
+  chargeMonthly?: boolean;
 }
 
 interface QuotaCheckResponse {
@@ -115,6 +119,7 @@ export class QuotaDurableObject implements DurableObject {
     try {
       const body = (await request.json()) as QuotaCheckRequest;
       const { orgId, metricKey, units, requestId, planKey, quotaVersion } = body;
+      const chargesMonthly = body.chargeMonthly !== false;
 
       // Validate required fields
       if (!orgId || !metricKey || units == null || units <= 0 || !requestId || !planKey || quotaVersion === undefined) {
@@ -156,13 +161,7 @@ export class QuotaDurableObject implements DurableObject {
         this.quota.seenRequestIds = {};
       }
 
-      // Reset monthly counter when the calendar month rolls over
-      const thisMonth = new Date(now).toISOString().slice(0, 7);
-      const lastResetMonth = new Date(this.quota.lastMonthlyResetAt).toISOString().slice(0, 7);
-      if (thisMonth !== lastResetMonth) {
-        this.quota.monthlyUsed = 0;
-        this.quota.lastMonthlyResetAt = now;
-      }
+      this.rollMonthIfNeeded(now);
 
       // Update quota version if it changed (org plan/billing updated).
       // monthlyUsed is intentionally preserved — resetting it would let an org evade
@@ -223,7 +222,7 @@ export class QuotaDurableObject implements DurableObject {
       }
 
       // Check monthly limit
-      if (this.quota.monthlyLimit !== null && this.quota.monthlyUsed + units > this.quota.monthlyLimit) {
+      if (chargesMonthly && this.quota.monthlyLimit !== null && this.quota.monthlyUsed + units > this.quota.monthlyLimit) {
         const response: QuotaCheckResponse = {
           allowed: false,
           reason: 'monthly_limit',
@@ -237,7 +236,7 @@ export class QuotaDurableObject implements DurableObject {
 
       // Reserve units and record requestId for idempotency
       this.quota.minuteUsed += units;
-      this.quota.monthlyUsed += units;
+      if (chargesMonthly) this.quota.monthlyUsed += units;
       this.quota.seenRequestIds[requestId] = now;
 
       // Periodically persist to storage (eager path: at least every 10 s under load).
@@ -276,6 +275,22 @@ export class QuotaDurableObject implements DurableObject {
     }
   }
 
+  /**
+   * Zero the monthly counter when the UTC calendar month has changed since the
+   * last reset. `/status` calls it too (CR58), so a read on the 1st reports the
+   * new month even before the org's first request of it. Deterministic by month,
+   * so an unpersisted reset is simply re-applied after eviction.
+   */
+  private rollMonthIfNeeded(now: number): void {
+    if (!this.quota) return;
+    const thisMonth = new Date(now).toISOString().slice(0, 7);
+    const lastResetMonth = new Date(this.quota.lastMonthlyResetAt || 0).toISOString().slice(0, 7);
+    if (thisMonth !== lastResetMonth) {
+      this.quota.monthlyUsed = 0;
+      this.quota.lastMonthlyResetAt = now;
+    }
+  }
+
   private async handleStatus(): Promise<Response> {
     await this.initialize();
 
@@ -285,6 +300,10 @@ export class QuotaDurableObject implements DurableObject {
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       );
     }
+
+    // The plan needs the org row, which only the check carries; every org route,
+    // including the uncharged reads, runs that check before this read (CR58).
+    this.rollMonthIfNeeded(Date.now());
 
     return new Response(
       JSON.stringify({

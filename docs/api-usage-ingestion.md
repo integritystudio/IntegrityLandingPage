@@ -369,6 +369,7 @@ Rate limits are enforced per organization via a Durable Object quota manager:
   X-RateLimit-Reset: 1234567890
   ```
 - When limit is exceeded: 429 Too Many Requests
+- `GET /v1/orgs/:id/usage/summary` and `GET /v1/orgs/:id/quota/status` count toward the per-minute limit but not the monthly quota, and stay readable after the monthly quota is exhausted (CR58). Header names above are out of date; see BACKLOG.md CR59.
 
 **Quota Enforcement:** Uses a sliding-window rate limiter in a Durable Object. The quota check is soft (fail-open): if the DO is unreachable, the request is allowed. This ensures availability over strict quota compliance.
 

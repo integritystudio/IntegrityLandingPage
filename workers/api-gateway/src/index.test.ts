@@ -241,7 +241,7 @@ describe('api-gateway', () => {
 
       // JWT passes, quota passes → route executes → Supabase unreachable in test → 500 or similar
       expect([200, 401, 403, 404, 500, 503]).toContain(res.status);
-      expect(quotaLib.enforceOrgQuota).toHaveBeenCalledWith('org-123', expect.any(Object));
+      expect(quotaLib.enforceOrgQuota).toHaveBeenCalledWith('org-123', expect.any(Object), { chargeMonthly: true });
     });
 
     it('allows through (fail-open) when quota DO is unavailable', async () => {
@@ -318,7 +318,7 @@ describe('usage ledger on org routes', () => {
   });
 
   it('records one `requests` unit per admitted org request, matching what the DO reserved', async () => {
-    vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true, rateLimitHeaders: {} });
+    const enforce = vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true, rateLimitHeaders: {} });
     const token = await jwt.sign({ sub: 'auth0|user-123', email: 'user@example.com' });
 
     const res = await worker.fetch(
@@ -328,6 +328,7 @@ describe('usage ledger on org routes', () => {
     );
     await Promise.all(pending);
 
+    expect(enforce).toHaveBeenCalledWith('org-123', expect.anything(), { chargeMonthly: true });
     expect(captured).toHaveLength(1);
     const [row] = captured;
     expect(row.organization_id).toBe('org-123');
@@ -341,6 +342,22 @@ describe('usage ledger on org routes', () => {
     expect(row.status_code).toBe(res.status);
     expect(row.latency_ms).toBeGreaterThanOrEqual(0);
     expect(row.request_id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  // CR58: reading usage or quota must not spend it; the per-minute check still runs.
+  it.each(['/usage/summary', '/quota/status'])('charges no monthly quota and records nothing for GET %s', async (subPath) => {
+    const enforce = vi.spyOn(quotaLib, 'enforceOrgQuota').mockResolvedValue({ ok: true, rateLimitHeaders: {} });
+    const token = await jwt.sign({ sub: 'auth0|user-123', email: 'user@example.com' });
+
+    await worker.fetch(
+      makeRequest('GET', `/v1/orgs/org-123${subPath}`, { headers: { Authorization: `Bearer ${token}` } }),
+      makeEnv(),
+      ctx(),
+    );
+    await Promise.all(pending);
+
+    expect(enforce).toHaveBeenCalledWith('org-123', expect.anything(), { chargeMonthly: false });
+    expect(captured).toHaveLength(0);
   });
 
   it('records nothing when the quota DO refused the request', async () => {

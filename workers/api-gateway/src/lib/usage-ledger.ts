@@ -24,6 +24,20 @@ const UNITS_PER_REQUEST = 1;
 /** Route template with the org id elided, so rows group by route rather than by tenant. */
 const ORG_ROUTE_TEMPLATE = '/v1/orgs/:id';
 
+/**
+ * Org reads that report usage or quota (CR58). Charging them spent the quota they
+ * report: the Usage page polls `/usage/summary` every 30 s, which alone is 2,880
+ * units a day against starter's 10,000 a month. They still pass both per-minute
+ * limits (the edge limiter and the DO's minute window), and they write no ledger
+ * row, because the ledger records what the DO charged against the month.
+ */
+const UNCHARGED_ORG_READS = new Set(['GET /usage/summary', 'GET /quota/status']);
+
+/** Whether an org route is charged against the monthly quota, and so ledgered. */
+export function chargesMonthlyQuota(method: string, subPath: string): boolean {
+  return !UNCHARGED_ORG_READS.has(`${method} ${subPath}`);
+}
+
 export interface MeteredRequest {
   orgId: string;
   /** `meteredRoute(method, subPath)` — e.g. `GET /v1/orgs/:id/dashboard`. */

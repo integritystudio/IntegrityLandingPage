@@ -72,6 +72,8 @@ async function seedQuota(storage: MockStorage, overrides: Partial<QuotaState> = 
 // ---------------------------------------------------------------------------
 
 const BASE = 'http://quota.local';
+/** Always inside an earlier calendar month, whatever today's date. */
+const FORTY_DAYS_MS = 40 * 24 * 60 * 60 * 1000;
 
 function checkReq(overrides: Partial<{
   orgId: string;
@@ -80,6 +82,7 @@ function checkReq(overrides: Partial<{
   requestId: string;
   planKey: string;
   quotaVersion: number;
+  chargeMonthly: boolean;
 }> = {}): Request {
   const body = {
     orgId: 'org-1',
@@ -434,7 +437,57 @@ describe('QuotaDurableObject', () => {
     });
   });
 
+  describe('checkAndReserve — uncharged reads (CR58)', () => {
+    async function statusOf(do_: QuotaDurableObject) {
+      return await (await do_.fetch(statusReq())).json() as {
+        planKey: string; monthlyLimit: number | null; minuteUsed: number; monthlyUsed: number;
+      };
+    }
+
+    it('counts toward the minute window but not the month', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { monthlyUsed: 5 });
+      const res = await do_.fetch(checkReq({ chargeMonthly: false }));
+      expect(res.status).toBe(200);
+      const status = await statusOf(do_);
+      expect(status.minuteUsed).toBe(1);
+      expect(status.monthlyUsed).toBe(5);
+    });
+
+    it('admits the read when the month is exhausted, so the org can still see its usage', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { monthlyUsed: 10000 });
+      expect((await do_.fetch(checkReq({ chargeMonthly: false }))).status).toBe(200);
+      expect((await do_.fetch(checkReq())).status).toBe(429);
+    });
+
+    it('still enforces the minute limit', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { minuteUsed: 60, minuteUsedAt: Date.now() });
+      const res = await do_.fetch(checkReq({ chargeMonthly: false }));
+      expect(res.status).toBe(429);
+      expect((await res.json() as { reason: string }).reason).toBe('minute_limit');
+    });
+
+    it('applies a month rollover and a plan change, so the /status read after it is current', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { monthlyUsed: 9000, lastMonthlyResetAt: Date.now() - FORTY_DAYS_MS });
+      await do_.fetch(checkReq({ chargeMonthly: false, planKey: 'growth', quotaVersion: 2 }));
+      const status = await statusOf(do_);
+      expect(status.monthlyUsed).toBe(0);
+      expect(status.planKey).toBe('growth');
+      expect(status.monthlyLimit).toBe(500000);
+    });
+  });
+
   describe('/status', () => {
+    it('reports the new month on its own, before any request of it (CR58)', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { monthlyUsed: 9000, lastMonthlyResetAt: Date.now() - FORTY_DAYS_MS });
+      const body = await (await do_.fetch(statusReq())).json() as { monthlyUsed: number };
+      expect(body.monthlyUsed).toBe(0);
+    });
+
     it('returns { status: "uninitialized" } before any request', async () => {
       const { do_ } = makeDO();
       const res = await do_.fetch(statusReq());

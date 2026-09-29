@@ -25,6 +25,9 @@ export const QuotaCheckRequestSchema = z.object({
   requestId: z.string(),
   planKey: ApiKeyTierSchema,
   quotaVersion: z.number().int(),
+  // CR58: false for reads that must not spend the quota they report; they count
+  // toward the minute window only. Omitted means charged.
+  chargeMonthly: z.boolean().optional(),
 });
 
 export const QuotaCheckResponseSchema = z.object({

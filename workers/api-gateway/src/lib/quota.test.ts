@@ -143,3 +143,28 @@ describe('enforceOrgQuota — billing gate (CR37)', () => {
     expect(planKeys).toEqual([expected]);
   });
 });
+
+describe('enforceOrgQuota — monthly charge (CR58)', () => {
+  /** DO stub that records the chargeMonthly flag it was sent. */
+  function recordingDO(): { ns: DurableObjectNamespace; flags: unknown[] } {
+    const flags: unknown[] = [];
+    const ns = {
+      idFromName: vi.fn().mockReturnValue('do-id'),
+      get: vi.fn().mockReturnValue({
+        fetch: vi.fn(async (req: Request) => {
+          flags.push(((await req.json()) as { chargeMonthly?: boolean }).chargeMonthly);
+          return new Response(JSON.stringify({ allowed: true }), { status: 200 });
+        }),
+      }),
+    } as unknown as DurableObjectNamespace;
+    return { ns, flags };
+  }
+
+  it('charges the month by default and forwards an explicit false', async () => {
+    stubOrgFetch();
+    const { ns, flags } = recordingDO();
+    await enforceOrgQuota(ORG_ID, makeOpts(ns));
+    await enforceOrgQuota(ORG_ID, makeOpts(ns), { chargeMonthly: false });
+    expect(flags).toEqual([true, false]);
+  });
+});
