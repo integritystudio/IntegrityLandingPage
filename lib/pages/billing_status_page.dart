@@ -41,11 +41,6 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
   String? _errorMessage;
   BillingStatusData? _billingStatus;
 
-  static const List<String> _monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -55,7 +50,7 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
 
   String _formatDate(DateTime dt) {
     final local = dt.toLocal();
-    return '${_monthNames[local.month - 1]} ${local.day}, ${local.year}';
+    return '${CalendarText.monthNames[local.month - 1]} ${local.day}, ${local.year}';
   }
 
   Future<void> _fetchBillingStatus() async {

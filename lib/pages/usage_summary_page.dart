@@ -7,6 +7,7 @@ import '../config/content/constants.dart';
 import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
+import '../widgets/common/alert.dart';
 import '../widgets/common/buttons.dart';
 import '../widgets/common/dashboard_card.dart';
 import '../widgets/common/dashboard_scaffold.dart';
@@ -22,6 +23,15 @@ Map<String, int> aggregateUsageByDate(List<UsageBucket> buckets) {
     daily[b.bucketDate] = (daily[b.bucketDate] ?? 0) + b.totalQuantity;
   }
   return daily;
+}
+
+/// When the monthly quota resets: the gateway's quota counter restarts at the
+/// start of each UTC calendar month, so the label names UTC explicitly.
+@visibleForTesting
+String monthlyResetLabel(DateTime now) {
+  final utc = now.toUtc();
+  final reset = DateTime.utc(utc.year, utc.month + 1);
+  return 'Resets ${CalendarText.monthNames[reset.month - 1]} ${reset.day}, 00:00 UTC';
 }
 
 /// Arguments passed to UsageSummaryPage via GoRouter state.extra.
@@ -68,10 +78,10 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
   UsageSummaryData? _summary;
   Timer? _pollTimer;
 
-  /// Monthly units quota fetched from the quota-status endpoint. Stays 0 (no
-  /// reference line) until the fetch resolves. Refreshed on each app resume so
-  /// a plan upgrade is reflected without reopening the page.
-  int _monthlyUnitsQuota = 0;
+  /// The org's quota as the gateway enforces it. The usage bar reads its
+  /// `monthlyUsed` and `monthlyLimit`, so both come from one meter; the chart and
+  /// per-metric table keep the bucket totals. Null until a fetch succeeds.
+  QuotaStatusData? _quota;
 
   static const Duration _pollInterval = Duration(seconds: 30);
 
@@ -80,8 +90,7 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     AnalyticsService.trackPageView('usage_summary');
-    _fetchSummary();
-    _fetchQuota();
+    _refresh();
     _startPolling();
   }
 
@@ -94,10 +103,24 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _fetchSummary();
-      _fetchQuota();
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _refresh();
+        _startPolling();
+      // Nobody sees a hidden tab or a backgrounded app, and every poll counts
+      // toward the org's per-minute limit, so stop until it is visible again.
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        _stopPolling();
+      case AppLifecycleState.inactive:
+        break;
     }
+  }
+
+  void _refresh() {
+    _fetchSummary();
+    _fetchQuota();
   }
 
   Future<void> _fetchQuota() async {
@@ -106,16 +129,24 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
       jwt: widget.args.jwt,
     );
     if (!mounted) return;
-    if (response case QuotaStatusSuccess(:final data)) {
+    // A quota Durable Object with no state answers without a plan, which would
+    // parse as "no limit"; treat it like an error rather than as unlimited.
+    if (response case QuotaStatusSuccess(:final data) when data.planKey != null) {
       setState(() {
-        _monthlyUnitsQuota = data.monthlyLimit ?? 0;
+        _quota = data;
       });
     }
-    // On error, keep the current value (0 = no quota line).
+    // Otherwise keep the current value; null shows the bucket total, no limit.
   }
 
   void _startPolling() {
-    _pollTimer = Timer.periodic(_pollInterval, (_) => _fetchSummary());
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(_pollInterval, (_) => _refresh());
+  }
+
+  void _stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
   }
 
   Future<void> _fetchSummary() async {
@@ -193,8 +224,9 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
           _UsageSummaryCard(
             summary: _summary,
             isLoading: _isLoading,
-            monthlyUnitsQuota: _monthlyUnitsQuota,
-            onRefresh: _fetchSummary,
+            quota: _quota,
+            resetLabel: monthlyResetLabel(DateTime.now()),
+            onRefresh: _refresh,
             aggregateBuckets: _aggregateBuckets,
             grandTotalQuantity: _grandTotalQuantity,
           ),
@@ -206,7 +238,8 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
 class _UsageSummaryCard extends StatelessWidget {
   final UsageSummaryData? summary;
   final bool isLoading;
-  final int monthlyUnitsQuota;
+  final QuotaStatusData? quota;
+  final String resetLabel;
   final VoidCallback onRefresh;
   final Map<String, _MetricTotal> Function(List<UsageBucket>) aggregateBuckets;
   final int Function(Map<String, _MetricTotal>) grandTotalQuantity;
@@ -214,7 +247,8 @@ class _UsageSummaryCard extends StatelessWidget {
   const _UsageSummaryCard({
     required this.summary,
     required this.isLoading,
-    required this.monthlyUnitsQuota,
+    required this.quota,
+    required this.resetLabel,
     required this.onRefresh,
     required this.aggregateBuckets,
     required this.grandTotalQuantity,
@@ -225,9 +259,6 @@ class _UsageSummaryCard extends StatelessWidget {
     final totals =
         summary != null ? aggregateBuckets(summary!.buckets) : <String, _MetricTotal>{};
     final total = grandTotalQuantity(totals);
-    final quota = monthlyUnitsQuota;
-    final hasQuota = quota > 0;
-    final usageRatio = hasQuota ? (total / quota).clamp(0.0, 1.0) : 0.0;
     final periodLabel = summary?.periodStart.isNotEmpty == true
         ? 'Since ${summary!.periodStart}'
         : 'Current period';
@@ -240,17 +271,17 @@ class _UsageSummaryCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           // Usage bar
           _UsageBar(
-            usedUnits: total,
-            quotaUnits: quota,
-            ratio: usageRatio,
+            quota: quota,
+            bucketTotal: total,
             periodLabel: periodLabel,
+            resetLabel: resetLabel,
           ),
           if (summary!.buckets.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.lg),
             // Daily bar chart
             _DailyBarChart(
               buckets: summary!.buckets,
-              monthlyUnitsQuota: monthlyUnitsQuota,
+              monthlyUnitsQuota: quota?.monthlyLimit ?? 0,
             ),
           ],
           if (totals.isNotEmpty) ...[
@@ -282,31 +313,90 @@ class _UsageSummaryCard extends StatelessWidget {
   }
 }
 
+/// Where the org stands against its monthly limit.
+enum _QuotaLevel { normal, warning, danger, reached }
+
+/// Usage against the monthly limit, read from the quota the gateway enforces.
+///
+/// With no [quota] (the fetch failed) it shows the bucket total alone. Colour
+/// never carries the level by itself: the status line says it in words, and at
+/// the warning threshold and above an [Alert] states what it means.
 class _UsageBar extends StatelessWidget {
-  final int usedUnits;
-  final int quotaUnits;
-  final double ratio;
+  static const double _statusIconSize = 14;
+
+  final QuotaStatusData? quota;
+  final int bucketTotal;
   final String periodLabel;
+  final String resetLabel;
 
   const _UsageBar({
-    required this.usedUnits,
-    required this.quotaUnits,
-    required this.ratio,
+    required this.quota,
+    required this.bucketTotal,
     required this.periodLabel,
+    required this.resetLabel,
   });
 
-  Color _barColor() {
-    if (ratio >= QuotaThresholds.danger) return AppColors.error;
-    if (ratio >= QuotaThresholds.warning) return AppColors.warning;
-    return AppColors.blue500;
+  int get _used => quota?.monthlyUsed ?? bucketTotal;
+
+  /// The monthly limit, or null when unlimited or unknown.
+  int? get _limit {
+    final limit = quota?.monthlyLimit;
+    return limit != null && limit > 0 ? limit : null;
   }
 
-  String _quotaLabel() => quotaUnits > 0
-      ? '$usedUnits / $quotaUnits units'
-      : '$usedUnits units';
+  bool get _isUnlimited => quota != null && quota!.monthlyLimit == null;
+
+  double get _ratio => _limit == null ? 0 : (_used / _limit!).clamp(0.0, 1.0);
+
+  /// Rounded down, so "100% used" never shows before the limit is reached.
+  int get _percent => _limit == null ? 0 : (_used * 100) ~/ _limit!;
+
+  _QuotaLevel get _level {
+    if (_limit == null) return _QuotaLevel.normal;
+    if (_used >= _limit!) return _QuotaLevel.reached;
+    if (_ratio >= QuotaThresholds.danger) return _QuotaLevel.danger;
+    if (_ratio >= QuotaThresholds.warning) return _QuotaLevel.warning;
+    return _QuotaLevel.normal;
+  }
+
+  Color get _levelColor => switch (_level) {
+        _QuotaLevel.reached || _QuotaLevel.danger => AppColors.error,
+        _QuotaLevel.warning => AppColors.warning,
+        _QuotaLevel.normal => AppColors.blue500,
+      };
+
+  String _usageLabel() => _limit != null
+      ? '$_used / $_limit units'
+      : '$_used units';
+
+  String? _statusLabel() {
+    if (_isUnlimited) return 'Unlimited plan';
+    if (_limit == null) return null;
+    if (_level == _QuotaLevel.reached) return 'Monthly limit reached';
+    return '$_percent% used';
+  }
+
+  Widget? _alert() => switch (_level) {
+        _QuotaLevel.reached => Alert(
+            variant: AlertVariant.error,
+            title: 'Monthly limit reached',
+            message: 'New requests are refused until the quota resets. '
+                '$resetLabel.',
+          ),
+        _QuotaLevel.danger || _QuotaLevel.warning => Alert(
+            variant: AlertVariant.warning,
+            title: 'Approaching your monthly limit',
+            message: "You have used $_percent% of this month's $_limit units. "
+                '$resetLabel.',
+          ),
+        _QuotaLevel.normal => null,
+      };
 
   @override
   Widget build(BuildContext context) {
+    final status = _statusLabel();
+    final alert = _alert();
+    final isRaised = _level != _QuotaLevel.normal;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -323,7 +413,7 @@ class _UsageBar extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.sm),
             Text(
-              _quotaLabel(),
+              _usageLabel(),
               style: AppTypography.bodySM.copyWith(
                 color: AppColors.gray300,
                 fontWeight: FontWeight.w500,
@@ -331,17 +421,56 @@ class _UsageBar extends StatelessWidget {
             ),
           ],
         ),
-        if (quotaUnits > 0) ...[
+        if (_limit != null) ...[
           const SizedBox(height: AppSpacing.xs),
           ClipRRect(
             borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
             child: LinearProgressIndicator(
-              value: ratio,
+              value: _ratio,
               minHeight: 6,
               backgroundColor: AppColors.gray700,
-              valueColor: AlwaysStoppedAnimation(_barColor()),
+              valueColor: AlwaysStoppedAnimation(_levelColor),
+              // The progress-bar role takes a number from 0 to 100 as its value,
+              // so the units go in the label.
+              semanticsLabel: 'Monthly usage, $_used of $_limit units',
+              semanticsValue: '$_percent',
             ),
           ),
+        ],
+        if (status != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          // Wraps rather than truncates, so neither line is lost at large text sizes.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isRaised) ...[
+                    Icon(LucideIcons.alertTriangle, size: _statusIconSize, color: _levelColor),
+                    const SizedBox(width: AppSpacing.xs),
+                  ],
+                  Text(
+                    status,
+                    style: AppTypography.bodySM.copyWith(
+                      color: isRaised ? _levelColor : AppColors.gray300,
+                      fontWeight: isRaised ? FontWeight.w600 : null,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                resetLabel,
+                style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+              ),
+            ],
+          ),
+        ],
+        if (alert != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          alert,
         ],
       ],
     );

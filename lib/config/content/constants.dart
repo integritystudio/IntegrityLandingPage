@@ -269,6 +269,13 @@ abstract final class FormMessages {
 ///
 /// Shared by UsageSummaryPage (_UsageBar, _DailyBarChartPainter) and
 /// QuotaStatusPage (_QuotaRow) to ensure consistent color semantics.
+abstract final class CalendarText {
+  static const List<String> monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+}
+
 abstract final class QuotaThresholds {
   /// At or above this ratio, show danger color (e.g. AppColors.error).
   static const double danger = 0.90;
