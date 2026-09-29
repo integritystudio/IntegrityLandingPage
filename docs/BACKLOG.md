@@ -380,10 +380,10 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR39](#cr39) | P2 | ✅ **DONE 2026-09-27 — by UA08** | `/v1/orgs/:id/*` reserved quota and wrote a `usage_events` row **before** the membership check. Fixed by UA08 (`61a4e71`): `preVerifyToken` now takes `orgId` and 403s a foreign API key or a JWT with no membership row before `enforceOrgQuota`; fails open only on a DB error, where the handler re-checks |
 | [CR40](#cr40) | P2 | ✅ **DONE and live 2026-09-28** — gate `834d40d1`, poller `dd6f7aa4` | Route requires `AUTH0_LOG_STREAM_TOKEN` (401 verified live). The plan refuses log streams (`409`), so a `*/15` cron polls `GET /api/v2/logs` with a `read:logs`-only M2M client: first run 20:30Z stored all 23 retained entries. Event stream re-enabled 23:47Z, now authenticated with `AUTH0_LOG_STREAM_TOKEN` and its CloudEvents stored — **live** (`3419b312`, first real event stored 2026-09-29 00:39Z). All 36 failed Aug deliveries redelivered and stored (Auth0 failed list 36 → 0). `AUTH0_LOG_STREAM_SECRET` deleted 2026-09-29. Nothing left. **CR33 never stored a real event** — see the entry |
 | [CR41](#cr41) | P1 | ✅ **DONE 2026-09-27** | `api-gateway-dev` `[env.dev.vars]` pinned `AUTH0_DOMAIN` to the **production** tenant since 2026-07-30 — invisible to `check:env-isolation`, which reads Doppler, never `vars`. Fixed (`d1cdb45`), guarded (`ff8b923`), deployed. Residual: dev has no `API_KEY_HMAC_SECRET` |
-| [CR42](#cr42) | P3 | 🔴 open | `/v1/ingest/events` runs with **no quota, no rate limit, and unbounded `metadata`** — an authenticated member can insert unlimited self-reported rows of any size; `OTEL_MAX_SPANS` is declared and unused |
+| [CR42](#cr42) | P3 | ⚠️ **code done 2026-09-29** (`52d2ed5`) — deploy pending | `/v1/ingest/events` now reserves org quota after the membership check (429 + rate-limit headers, like `/v1/ingest/otel`); schema caps `quantity` ≤ 1,000,000 and `metadata` ≤ 50 keys / 8,192 bytes; dead `OTEL_MAX_SPANS` deleted |
 | [CR43](#cr43) | P2 | ✅ **DONE and live 2026-09-28** — migration `20260927020000` applied, then `api-gateway` `35eb0e18` | `usage_buckets_daily` had **two writers**. The Worker rollup is deleted; the ledger trigger is the only writer, now with a NULL-safe, sample-weighted latency average and UTC bucket days. Guarded by a source scan and a router-level test |
-| [CR44](#cr44) | P3 | 🔴 open | `workers/lib/supabase.ts` builds PostgREST filters from raw values (an `in` list splits on `,`) and `update`/`deleteRows` accept an **empty filter**, which would PATCH/DELETE the whole table. No caller trips either today; `sender-worker` suspicion refuted |
-| [CR45](#cr45) | P3 | 🔴 open | Quota DO `POST /flush-usage` zeroes the monthly counter and persists nothing; `lib/quota.ts` `flushUsage()` has no callers; the DO header said neither existed. Delete, or decide what a flush means |
+| [CR44](#cr44) | P3 | ⚠️ **code done 2026-09-29** (`0144176`) — deploy pending | `in` list members double-quoted (a `,` can no longer split the list); `update`/`deleteRows` return an error for an empty filter instead of writing the whole table; checkout validates `plan` with `ApiKeyTierSchema` before any query |
+| [CR45](#cr45) | P3 | ⚠️ **code done 2026-09-29** (`30b62fd`) — deploy pending | Deleted: the quota DO's `POST /flush-usage`, `flushUsage()`, `QuotaFlushResultSchema`. A POST there now 404s and leaves the counter alone (regression test) |
 | [CR47](#cr47) | P2 | ✅ **DONE and live 2026-09-28** — toolkit `bbdb63ad` pushed and deployed with CR37 step 3 (receiver `3c9b1020`) | Only the call that **creates** a team org makes its caller owner; later joiners are members whatever the plan. Domain grouping requires `email_verified === true`; an unverified corporate address gets a personal org. Production audit: no team org has more than one owner |
 | [CR46](#cr46) | P3 | 🔴 open | Grow **one shared CORS allowlist helper** from `workers/cors-utils.ts` + `getAllowedOrigins`, migrate api-gateway / contact-form / sender-worker to it, then retire the root copies. Never `*`; env-driven; `.`-anchored preview suffix |
 
@@ -2309,7 +2309,7 @@ Commit `407db84` (2026-07-30) added `[env.dev.vars]` to `workers/api-gateway/wra
 
 **Fix:** route it through `enforceOrgQuota` exactly as `/v1/ingest/otel` is; cap `metadata` (serialised byte length and key count) and `quantity` in the schema; delete the dead `OTEL_MAX_SPANS`.
 
-**Status:** Open.
+**Status:** ⚠️ **Code done 2026-09-29** (`52d2ed5`); not live until `api-gateway` `deploy:prd`. The quota block `/v1/ingest/otel` already ran became a shared `reserveQuota` helper; `/v1/ingest/events` calls it **after** `assertOrgAccess`, so a non-member spends no quota (the UA08 ordering), and forwards `X-RateLimit-Remaining-*` on the 202. Caps are named constants in `workers/lib/types/usage.ts`; sized against production, where all 3 events carry `quantity` 1 and empty metadata, and no code outside this repo calls the route. `OTEL_MAX_SPANS` was a dead duplicate of the schema's own `.max(1_000)`. Tests: 8 new; 5 mutations (quota removed, quota-before-membership, each cap removed) each fail at least one.
 
 ---
 
@@ -2351,7 +2351,7 @@ User-controlled values that reach a filter today, all through `eq`: `orgId` from
 
 **Fix:** throw on an empty filter array in `update` and `deleteRows`; quote `in` list members per PostgREST's rules (double-quote wrapping, inner quotes escaped); validate `plan` with `ApiKeyTierSchema` before `orgs.ts:353`. One test for each.
 
-**Status:** Open.
+**Status:** ⚠️ **Code done 2026-09-29** (`0144176`); not live until `api-gateway` `deploy:prd`. `quoteListMember` double-quotes every `in` member and escapes `\` and `"`; the two tests that pinned the unquoted form (`orgs.test.ts`, `bootstrap.test.ts`) were updated. The empty-filter guard returns `{ ok: false }` rather than throwing, matching the client's never-throws contract that every caller already checks. `plan` is rejected with the same `400 Unknown plan` before the `plans` query. Tests: 4 new; each guard mutation-checked.
 
 ---
 
@@ -2366,7 +2366,7 @@ User-controlled values that reach a filter today, all through `eq`: `orgId` from
 
 **Fix:** delete `handleFlushUsage`, the `/flush-usage` route, the `flushUsage()` client, and their tests; then the DO header's claim becomes true. If a monthly reset is wanted, it belongs to a period rollover keyed on the ledger, not a callable reset.
 
-**Status:** Open.
+**Status:** ✅ **Code done 2026-09-29** (`30b62fd`); deleted rather than wired, as the fix said. Not live until `api-gateway` `deploy:prd` (until then the dead route is still in the deployed bundle, still uncalled). The one test that used the route to force a DO save now asserts restore-from-storage directly (monthlyUsed 42 survives a new instance).
 
 ---
 
