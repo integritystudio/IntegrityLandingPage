@@ -134,6 +134,7 @@ abstract final class Routes {
   static const String about = '/about';
   static const String contact = '/contact';
   static const String signup = '/signup';
+  static const String signupStarter = '$signup?tier=${SignupTiers.starter}';
   static const String signupGrowth = '$signup?tier=${SignupTiers.growth}';
   static const String login = '/login';
   static const String app = '/app';

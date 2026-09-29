@@ -234,7 +234,7 @@ abstract final class AppContent {
           );
         }).toList(),
         ctaText: ContentLoader.ctaStartFreeTrial,
-        ctaUrl: Routes.signupGrowth,
+        ctaUrl: Routes.signupStarter,
       );
 
   /// Current about section content
