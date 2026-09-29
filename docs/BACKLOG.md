@@ -3303,6 +3303,8 @@ The test only tells UTC from local time on a machine west of UTC. CI runs `flutt
 
 **Priority:** P4 | **Source:** coverage review 2026-09-29; `scripts/check-env-isolation.sh` (UA03 section)
 
+**Status:** ✅ **DONE 2026-09-29** — The verdicts moved to `scripts/lib/kv-role.sh` (sourced): `kv_auth_verdict`, `kv_dashboard_verdict` and the dev known gap. They take the digest and both configs' pins as arguments. `check-env-isolation.sh` keeps the hard-coded pins and passes them in. **Fixed:** each name is now compared with **both** configs' AUTH pins, so prd's `KV_NAMESPACE_ID` holding dev's AUTH id fails. The known-gap exemption covers only dev's own AUTH. An absent dashboard name reads `missing (not checked)` instead of `ok (not AUTH)`, and is not a failure: a slot nothing holds cannot direct a sync into AUTH. The AUTH slot holding the other config's id is named as such. **Tests:** `scripts/lib/kv-role.test.ts` (vitest + `spawnSync('bash')`, made-up digests) reaches all 9 verdicts. **Mutants: 5 of 5 killed.** `npm run test:scripts` is new, but it runs in no CI workflow. The live check still **PASSES** with the same six KV verdicts. shellcheck is clean.
+
 - **No tests.** None of the six `check-*.sh` scripts has a test. A fake `doppler` on `PATH` would reach only 4 of the KV section's 7 verdicts:
   - `ok (AUTH)`, `KNOWN GAP` and `POINTS AT AUTH` need a value whose digest equals a pin;
   - those ids are deliberately absent from this public repo.

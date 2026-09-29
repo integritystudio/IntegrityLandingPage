@@ -278,10 +278,11 @@ AUTH_KV_PIN_PRD="b868e6af46574ba46500fe02dce43000dc22afa7"
 
 auth_kv_pin() { case "$1" in dev) printf '%s' "$AUTH_KV_PIN_DEV";; prd) printf '%s' "$AUTH_KV_PIN_PRD";; esac; }
 
-# dev's `KV_NAMESPACE_ID` is AUTH_DEV on purpose (repointed 2026-08-07 so the dev
-# functions write there), which also makes a dashboard sync run under dev write
-# into AUTH_DEV. UA03 leaves it until the sync's readers are confirmed.
-is_kv_known_gap() { [[ "$1:$2" == "dev:KV_NAMESPACE_ID" ]]; }
+# The verdicts, the dev known gap included, live in a sourced file so they can be
+# tested without these pins (scripts/lib/kv-role.test.ts). Each name is compared
+# with both configs' AUTH pins: prd's KV_NAMESPACE_ID holding dev's AUTH id fails.
+# shellcheck source-path=SCRIPTDIR source=lib/kv-role.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/kv-role.sh"
 
 printf '%-30s %-10s %s\n' "KV NAMESPACE ROLE (UA03)" "CONFIG" "VERDICT"
 printf '%s\n' "----------------------------------------------------------------------"
@@ -292,25 +293,16 @@ for config in "$BASE_CONFIG" "$PROD_CONFIG"; do
     printf '%-30s %-10s %s\n' "$AUTH_KV_NAME" "$config" "no AUTH pin for this config (not checked)"
     continue
   fi
+  if [[ "$config" == "$BASE_CONFIG" ]]; then other_config="$PROD_CONFIG"; else other_config="$BASE_CONFIG"; fi
+  other_pin="$(auth_kv_pin "$other_config")"
 
-  auth_hash="$(digest "$AUTH_KV_NAME" "$config")"
-  if [[ "$auth_hash" == "$EMPTY_HASH" ]]; then
-    verdict="missing"; ((failures++))
-  elif [[ "$auth_hash" != "$pin" ]]; then
-    verdict="NOT the AUTH namespace"; ((failures++))
-  else
-    verdict="ok (AUTH)"
-  fi
+  verdict="$(kv_auth_verdict "$(digest "$AUTH_KV_NAME" "$config")" "$pin" "$other_config" "$other_pin")" \
+    || ((failures++))
   printf '%-30s %-10s %s\n' "$AUTH_KV_NAME" "$config" "$verdict"
 
   for name in "${DASHBOARD_KV_NAMES[@]}"; do
-    if [[ "$(digest "$name" "$config")" != "$pin" ]]; then
-      verdict="ok (not AUTH)"
-    elif is_kv_known_gap "$config" "$name"; then
-      verdict="KNOWN GAP (UA03): AUTH, so a dashboard sync here writes into it"
-    else
-      verdict="POINTS AT AUTH: the dashboard sync would write into it"; ((failures++))
-    fi
+    verdict="$(kv_dashboard_verdict "$config" "$name" "$(digest "$name" "$config")" "$pin" "$other_config" "$other_pin")" \
+      || ((failures++))
     printf '%-30s %-10s %s\n' "$name" "$config" "$verdict"
   done
 done
@@ -521,4 +513,4 @@ fi
 
 echo "PASS: ${#SECRETS[@]} credentials differ between $BASE_CONFIG and $PROD_CONFIG,"
 echo "      ${#STRIPE_MODED_KEYS[@]} Stripe keys are test-mode in $BASE_CONFIG / live-mode in $PROD_CONFIG,"
-echo "      and the KV namespace role pins hold (AUTH_KV_NAMESPACE_ID is AUTH; no dashboard name points at it beyond the known gap)."
+echo "      and the KV namespace role pins hold (AUTH_KV_NAMESPACE_ID is AUTH; no dashboard name points at either config's AUTH beyond the known gap)."

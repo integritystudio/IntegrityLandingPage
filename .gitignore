@@ -88,7 +88,7 @@ dist/
 !agents/**/*.ts
 
 # Allow scripts/ TypeScript source (runbooks, admin utilities)
-!scripts/*.ts
+!scripts/**/*.ts
 
 # Allow supabase/ Edge Function source
 #
