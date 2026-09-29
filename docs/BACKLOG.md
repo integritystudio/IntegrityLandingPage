@@ -3320,6 +3320,13 @@ The test only tells UTC from local time on a machine west of UTC. CI runs `flutt
 
 **Priority:** P4 | **Source:** coverage review 2026-09-29
 
+**Status:** ✅ **DONE 2026-09-29** — one commit per item:
+- **Stale comment:** `kSectionGetInTouch` is renamed `kDefaultMethodsHeading`, with a comment saying it is `testContent()`'s default for a content-driven heading (`30e701e`).
+- **Usage page:** `UsageSummaryPage` takes a `clock` (defaulting to `DateTime.now`), so the reset-date test asserts `'Resets April 1, 00:00 UTC'` under a fixed March instant. A page that ignores the clock fails it. The "no bar" checks look for the `Monthly usage` semantics label with semantics on. That is the same finder the accessibility test proves finds the bar, so a bar shown without a limit fails. There were **two** `findsNothing` type checks, not three (`2419e28`).
+- **Billing date:** `formatRenewalDate` is extracted and unit-tested at midday UTC (October, January, December). The month-index and day mutants are killed. Dropping `toLocal()` survives by design, because a midday-UTC instant is the same date in any zone the suite runs in (`d471d36`).
+- **CR55 consent gate:** `FacebookPixelService` gained a replaceable `sendEvent` sink and `markInitializedForTesting`, next to its existing `leadCallLog`. Tests pin that nothing is sent before consent or after withdrawal, and that Lead is sent with its email in between. **4 of 4 gate mutants killed** (`4b2b61e`).
+- **Dispose in `addTearDown`:** no change. The end-of-body dispose and its comment stay.
+
 - **Stale comment in `contact_section_test.dart:49`.** It says the section headings are "not content-driven", but `kSectionGetInTouch` has been content-driven since `032c081`. Rename it (e.g. `kDefaultMethodsHeading`) and fix the comment.
 - **`test/pages/usage_summary_page_test.dart`:**
   - The "shows when the quota resets" test computes its expected value with `monthlyResetLabel`, the production function. Inject a clock into the page (a `DateTime Function()` defaulting to `DateTime.now`) and assert a literal.
