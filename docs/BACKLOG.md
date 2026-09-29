@@ -3105,3 +3105,189 @@ The handlers are unit-tested, but the router lines that dispatch to them never e
 **Status:** ✅ **DONE 2026-09-28** — `me.test.ts` "returns starter when default_organization_id points at a missing org row": the organizations lookup succeeds with zero rows, and the route answers 200 with `tier: 'starter'`, having queried `id=eq.<that org>`.
 
 `resolveOrgPlan` returns `plan: null` when `default_organization_id` points at no row (`workers/api-gateway/src/routes/me.ts:81`), so the route reports `starter`. That is the only uncovered branch in the file. **Scope:** one test.
+
+## Coverage Review 2026-09-29 (TS26–TS36)
+
+Filed from a test-coverage review of the production code changed on 2026-09-29 (CR50–CR58, UA03, and the contact-content and `/contact` route migration), run as four read-only reviewers with seeded mutants. Where an item says a mutant **survives**, it was run, not inferred. Closed in the same pass and **not** listed here:
+- **Low-risk fixes** (`918d9dc`…`f72fbbf`):
+  - the stale fail-open comments and the misplaced `QuotaThresholds` doc;
+  - Try again refreshing the quota;
+  - the usage percent capped at 100, a real bug the overage test found;
+  - the rollover-recording test;
+  - the usage threshold table, which kills 6 of 6 threshold mutants;
+  - the `constantTimeEquals` shorter-first cases;
+  - `hasLength(1)` for the CR55 signup event;
+  - the Action stub failing unrouted requests by name;
+  - the fixture FKs matching production.
+- **Consolidations** (`b3a8252`…`456314b`):
+  - one `fakeQuotaDO`;
+  - shared `admittingQuotaDo`/`mapKv`;
+  - one `makeDO`/`statusOf`;
+  - the CR53 `it.each`;
+  - `makeEvent({ user })`;
+  - `supabase/tests/_lib/pg-harness.sh`;
+  - `withContent`, and `testContentYaml` removed in favour of `realContentWith`;
+  - `WidgetTester.pumpPage` for 15 page tests.
+
+### TS26: the CR51 Action tests run in no CI job, and they never check which row or email a request targets
+
+**Priority:** P2 | **Source:** coverage review 2026-09-29; `auth0/actions/provision-user-and-enrich-token.test.ts`
+
+- **Not run in CI.** No workflow runs `npm run test:auth0-actions` (all 9 checked).
+- **The fetch stub routes on column name only.** It matches `<METHOD> <table>?<column>` and never looks at the value, and only `auth0_id`'s value is asserted.
+- **Surviving mutants: 4 of 5.**
+  - a truthy `email_verified` check;
+  - `!== false`;
+  - the backfill PATCH on `id=eq.<auth0Id>`, which re-links the wrong row;
+  - the email lookup by `auth0Id`.
+- **Also untested:**
+  - a user with no email, which violates `users.email not null`;
+  - a `fetch` rejection or non-JSON body. The Action's "fail open" comment says these don't block login, but they throw.
+
+**Scope:**
+- Assert the `id` and `email` filter values in the backfill and lookup tests.
+- Add `it.each([false, undefined, null, 'false', 'true'])` asserting that no `GET users?email` is made.
+- Add the two failure-path cases, and a CI job.
+
+**Acceptance:** all 4 mutants fail.
+
+### TS27: the CR53 503 is tested on one of the five entry points that return it
+
+**Priority:** P3 | **Source:** coverage review 2026-09-29; `workers/api-gateway/src/routes/orgs.ts`
+
+Only `GET /v1/orgs` has 503 tests; they are the two `it.each` rows in `orgs.test.ts`. Turning the propagation in `handleOrgDashboard`, `handleOrgBillingStatus` or `authorizeBillingRequest` into `forbidden(...)` survives, which brings back the old wrong-answer class. `billing-portal` and `checkout-session` go through `authorizeBillingRequest`.
+
+**Scope:** one `it.each` over the four remaining handlers with `'GET organization_memberships': httpError(500)`, expecting 503.
+
+### TS28: Usage page — nothing tests the page after its first fetch
+
+**Priority:** P3 | **Source:** coverage review 2026-09-29; `lib/pages/usage_summary_page.dart`
+
+**Surviving mutants (measured):**
+- The poll timer calls `_fetchSummary` instead of `_refresh`, so the quota figure never refreshes.
+- `_startPolling` without `_pollTimer?.cancel()`: each `inactive`→`resumed` focus toggle adds a second periodic timer, multiplying requests against the per-minute limit.
+
+**Also untested:**
+- the quota being kept when a later fetch fails or returns no `planKey`;
+- every summary error path: the first-load error card, and a background poll failing while data stays shown;
+- the `_isFetching` guard against overlapping fetches;
+- the daily chart's reference line;
+- `inactive` itself, which keeps polling by design.
+
+**Scope:**
+- Count quota fetches in the lifecycle test.
+- Re-stub a 403 after a valid quota and expect the old figure to stay.
+- Add an `inactive`→`resumed` test that expects exactly one extra poll per 30 s.
+- Use `stubDelayedJson` to hold a request open for the `_isFetching` guard.
+
+### TS29: none of the six `contactUrl` call sites has a navigation test
+
+**Priority:** P3 | **Source:** coverage review 2026-09-29; `7e1f3c2`
+
+No test taps:
+- compliance's Contact Us;
+- pricing's Contact Sales;
+- the help center's Contact Support;
+- request-failure's Try Again. Its "tappable" test only finds a `GestureDetector`, under `MaterialApp(home:)` with no router.
+- the docs index's Support quick link;
+- the sub-page app bar's Contact. `shared_app_bar_test` always passes its own `navItems`.
+
+Even a tap test would pass a hard-coded `'/contact'` under real content, where the value is the same. Separately, the contact hero test (`contact_page_test.dart`) cannot tell `contact.hero_headline` from `contact.title`: both are "Get in Touch", and it counts two.
+
+**Scope:**
+- One table test with a `(page, tap finder)` row per site. Run it under `realContentWith('contact: "/contact"', 'contact: "/test-contact"')` with a router that has that route, and assert the resulting location.
+- Render the hero under a distinct `hero_headline` and scope the finder to `MarketingHeroSection`.
+
+### TS30: nothing checks that the production content.yaml has the keys the loader reads, and one is already missing
+
+**Priority:** P3 | **Source:** coverage review 2026-09-29; `lib/services/content_loader.dart`
+
+`_getString` returns `''` for a missing key, and only `_getMap` asserts. The getter tests run against the placeholder fixture, never the real file.
+
+- **Live drift:** `social_proof.testimonials` is **not in content.yaml** (verified: the section has `title`, `stats_headline`, `stats`, `logos`). So `AppContent.socialProof`'s testimonials are empty in production, while `content_loader_test` passes because the fixture has the key. Owner to confirm whether testimonials were removed on purpose.
+- **Table gaps:** 42 of the 121 string getters have no row in the table.
+- **Trivial test:** `contact_content_test`'s new `methodsHeading` assertion only round-trips a required constructor field. The useful place is the non-empty checks at the top of that file.
+
+**Scope:**
+- Make the table's `(name, getter)` pairs a shared list.
+- Add one parameterized test that loads the real content.yaml and expects every getter to be non-empty, as `signup_tier_consistency_test.dart` does for tiers.
+- Fix or remove the testimonials reader.
+
+### TS31: the list of uncharged read routes has no direct test and is written in two places
+
+**Priority:** P3 | **Source:** coverage review 2026-09-29; `workers/api-gateway/src/lib/usage-ledger.ts` `chargesMonthlyQuota`, `src/index.ts`
+
+- **No direct test.** Nothing tests `chargesMonthlyQuota`; ignoring the HTTP method and prefix matching both survive.
+- **Two copies of the route strings.** The predicate and the router's dispatch each spell them out, so they can drift apart.
+- **Ledger claim broken for unrouted paths (read, not measured).** An unrouted org sub-path such as `GET /usage/summary/` is charged by the DO, then falls through to the 404 without a ledger row. So "the ledger equals what the DO charged" does not hold for unrouted paths. This predates CR58.
+- **Two request shapes.** `QuotaCheckRequestSchema.chargeMonthly` is only ever used as a type, and the DO keeps its own interface.
+
+**Scope:**
+- Add a table test (`GET /usage/summary`, `GET /quota/status`, `POST /usage/summary`, `GET /usage/summary/`, `GET /dashboard`, `GET ''`).
+- Derive the uncharged set and the route dispatch from one table.
+- Decide whether unrouted paths should be charged at all.
+
+### TS32: router tests check the `enforceOrgQuota` call instead of the outcome, and some DO edges are unpinned
+
+**Priority:** P4 | **Source:** coverage review 2026-09-29; `workers/api-gateway/src/index.test.ts`, `src/durable-objects/quota.test.ts`
+
+**The router test is structural.** `vi.spyOn(quotaLib, 'enforceOrgQuota')` checks the call carried `{ chargeMonthly: false }`. The promise that matters, "an org whose month is used up can still read `/usage/summary`", is never tested end to end.
+
+**Untested DO edges:**
+- `/status` on legacy stored state with no `lastMonthlyResetAt`. The `|| 0` guard survives; without it, `/status` throws `RangeError`.
+- Whether the check itself did the rollover. The CR58 rollover test reads `/status`, which rolls over on its own; assert the check's `remainingMonthly` instead.
+- A duplicate requestId with `chargeMonthly: false`. Low impact, because the gateway mints a fresh UUID on every call.
+- Which error wins when the minute and the month are both exhausted.
+
+**Scope:**
+- Back `QUOTA_DO` with a real `QuotaDurableObject` over `MockStorage` in one router test. Seed an exhausted month, then expect `GET /usage/summary` to be non-429 and `GET /dashboard` to be 429.
+- Add the four DO cases.
+
+### TS33: CR50 — the tie-break and the invariant under change are untested
+
+**Priority:** P4 | **Source:** coverage review 2026-09-29; `supabase/migrations/20260929010000_default_org_from_first_membership.sql`, `supabase/tests/default-org-from-membership/`
+
+- **Tie-break (measured):** dropping `, id` from the backfill's `order by` survives 17 of 17 assertions.
+  - Ties are realistic, because `now()` is fixed for a whole transaction.
+  - The readers (`custom_access_token_hook`, sender checkout) order by `created_at` alone, so on a tie "the same org as the readers" is not guaranteed either.
+- **T8 is too narrow:** it runs once, on static data.
+- **Unspecified behaviour (owner to confirm):**
+  - A deleted or suspended default membership leaves the default pointing at the old org, and `tier` keeps following it.
+  - A default set back to null while memberships are active is never refilled.
+
+**Scope:** a tie fixture; the invariant asserted inside each `begin … rollback` block; a decision on the two unspecified cases.
+
+### TS34: the UTC reset-date test cannot fail on CI
+
+**Priority:** P4 | **Source:** coverage review 2026-09-29; `test/pages/usage_summary_page_test.dart` ("uses the UTC month, not the local one")
+
+The test only tells UTC from local time on a machine west of UTC. CI runs `flutter test` on `ubuntu-latest` with no `TZ`, which is UTC, so the "reset uses the local month" mutant is caught only on a workstation.
+
+**Scope:** set `TZ: America/Denver` on the CI test step, or `skip:` the test when `DateTime.now().timeZoneOffset == Duration.zero`, so the gap is visible.
+
+### TS35: `check-env-isolation.sh` has no automated tests, and its KV pins compare each name only against its own environment
+
+**Priority:** P4 | **Source:** coverage review 2026-09-29; `scripts/check-env-isolation.sh` (UA03 section)
+
+- **No tests.** None of the six `check-*.sh` scripts has a test. A fake `doppler` on `PATH` would reach only 4 of the KV section's 7 verdicts:
+  - `ok (AUTH)`, `KNOWN GAP` and `POINTS AT AUTH` need a value whose digest equals a pin;
+  - those ids are deliberately absent from this public repo.
+- **Real gap:** each dashboard name is compared only with its own config's pin, so a `prd` `KV_NAMESPACE_ID` holding **dev's** AUTH id passes.
+- **Misleading verdict:** an absent `KV_NAMESPACE_ID` reads `ok (not AUTH)`.
+
+**Scope:**
+- Extract `kv_role_verdict <config> <name> <hash> <pin>` into a sourced `scripts/lib/` file. Test it with vitest and `spawnSync('bash')`, passing pins as arguments; the script keeps its hard-coded pins.
+- Compare each name against both pins.
+- Report an absent name as `missing`.
+
+### TS36: smaller test-quality items from the same review
+
+**Priority:** P4 | **Source:** coverage review 2026-09-29
+
+- **Stale comment in `contact_section_test.dart:49`.** It says the section headings are "not content-driven", but `kSectionGetInTouch` has been content-driven since `032c081`. Rename it (e.g. `kDefaultMethodsHeading`) and fix the comment.
+- **`test/pages/usage_summary_page_test.dart`:**
+  - The "shows when the quota resets" test computes its expected value with `monthlyResetLabel`, the production function. Inject a clock into the page (a `DateTime Function()` defaulting to `DateTime.now`) and assert a literal.
+  - Three `find.byType(LinearProgressIndicator)` … `findsNothing` checks would pass if the bar became a custom widget. Assert that the `Monthly usage` semantics label is absent instead.
+- **Billing page date formatting.** `billing_status_page.dart`'s `_formatDate` is never rendered in a test. Extract `formatRenewalDate` and unit-test it at midday UTC so the result doesn't depend on the time zone.
+- **CR55 consent gate.** The seam records `FacebookPixelService.trackLead` calls before the consent check. That is enough for CR55, but the consent gate on `trackLead` itself is untested.
+- **Reviewer suggestion that doesn't work.** Moving the semantics-handle `dispose()` into `addTearDown` fails: `flutter_test` checks for undisposed handles before teardowns run. The end-of-body dispose stays, with a comment.
