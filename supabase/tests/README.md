@@ -21,6 +21,10 @@ Requires Postgres binaries. On this machine they are keg-only Homebrew:
 `/opt/homebrew/opt/postgresql@15/bin` (auto-detected; override with `PGBIN`).
 `brew install postgresql@15` if missing. There is no Docker dependency.
 
+CI (`.github/workflows/supabase-sql-tests.yml`) runs every `*/run.sh` it finds on the
+Postgres major that production runs, read from `supabase/config.toml`'s `major_version`
+(17 as of 2026-09-28), so a pass there is the one that counts.
+
 ## Why a local cluster and not the linked project
 
 Not for lack of access: prd is reachable (the CLI's login-role path and the
@@ -92,10 +96,11 @@ stored, never on which calls were made.
 cd supabase/tests/edge-functions && npm install && npm test
 ```
 
-Covers `api-keys-create` today (53 tests). Mutation-checked: 12 of 12 seeded defects in
-`handler.ts` are caught. One test is `it.fails`: it pins a known bug (TS19) and turns red
-once the bug is fixed. To type-check a function under Deno from inside this repo:
-`deno check --node-modules-dir=none supabase/functions/<name>/index.ts`.
+Covers `api-keys-create` today. Mutation-checked: 12 of 12 seeded defects in `handler.ts`
+are caught. To type-check a function under Deno from inside this repo (CI does this for
+every `supabase/functions/*/index.ts` in `.github/workflows/edge-function-tests.yml`, as a
+failing step):
+`deno check --no-lock --node-modules-dir=none supabase/functions/<name>/index.ts`.
 
 ## Writing a new suite
 
