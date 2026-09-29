@@ -55,6 +55,10 @@ const kScrollToPricingOffset = Offset(0, -5000);
 /// Scroll offset to reach the CTA section in a full-page scroll view.
 const kScrollToCTAOffset = Offset(0, -6000);
 
+/// Per-scroll delta for scrollUntilVisible() on a full landing page, sized so
+/// the default iteration cap reaches the bottom CTA section.
+const kFullPageScrollDelta = 500.0;
+
 /// Scroll offset to reach the Developer Appendix section on the status page.
 const kScrollToDevAppendixOffset = Offset(0, -800);
 

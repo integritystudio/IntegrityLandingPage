@@ -4,6 +4,7 @@ import 'package:integrity_studio_ai/pages/request_failure_page.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:integrity_studio_ai/widgets/navigation/shared_app_bar.dart';
 import '../helpers/test_helpers.dart';
 
 void main() {
@@ -53,7 +54,13 @@ void main() {
       testWidgets('renders company name in app bar', (tester) async {
         await pumpRequestFailurePage(tester);
 
-        expect(find.text(CompanyInfo.name), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(SharedAppBar),
+            matching: find.text(CompanyInfo.name),
+          ),
+          findsOneWidget,
+        );
       });
 
       testWidgets('renders shield icon in app bar', (tester) async {

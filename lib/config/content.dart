@@ -34,6 +34,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../services/content_loader.dart';
 import 'content/constants.dart';
+import 'content/contact_content.dart';
 import 'content/models.dart';
 import 'content/comparison_content.dart';
 
@@ -98,8 +99,8 @@ abstract final class AppContent {
   static PricingContent get pricing => PricingContent(
         title: ContentLoader.pricingTitle,
         subtitle: ContentLoader.pricingSubtitle,
-        monthlyLabel: 'Monthly',
-        annualLabel: 'Annual',
+        monthlyLabel: PricingConstants.monthlyLabel,
+        annualLabel: PricingConstants.annualLabel,
         annualBadge: ContentLoader.pricingAnnualDiscount,
         tiers: ContentLoader.pricingTiers.map((tier) {
           return PricingTierContent(
@@ -146,11 +147,12 @@ abstract final class AppContent {
   /// Current social proof content
   static SocialProofContent get socialProof => SocialProofContent(
         title: ContentLoader.socialProofTitle,
-        logos: const [
-          CustomerLogoContent(name: 'Enterprise Client', industry: 'Finance'),
-          CustomerLogoContent(name: 'Tech Startup', industry: 'SaaS'),
-          CustomerLogoContent(name: 'Healthcare Co', industry: 'Healthcare'),
-        ],
+        logos: ContentLoader.socialProofLogos.map((l) {
+          return CustomerLogoContent(
+            name: l['name'] as String? ?? '',
+            industry: l['industry'] as String?,
+          );
+        }).toList(),
         testimonials: ContentLoader.socialProofTestimonials.map((t) {
           return TestimonialContent(
             quote: t['quote'] as String? ?? '',
@@ -161,7 +163,7 @@ abstract final class AppContent {
             metricContext: t['metric_context'] as String?,
           );
         }).toList(),
-        statsHeadline: 'Enterprise-Grade Performance',
+        statsHeadline: ContentLoader.socialProofStatsHeadline,
         stats: ContentLoader.socialProofStats,
       );
 
@@ -181,18 +183,19 @@ abstract final class AppContent {
         services: ContentLoader.statusServices.map((s) {
           return StatusServiceContent(
             name: s['name'] as String? ?? '',
-            status: s['status'] as String? ?? 'Operational',
+            status: s['status'] as String? ??
+                StatusServiceContent.operationalStatus,
           );
         }).toList(),
         statusPageUrl: ContentLoader.statusPageUrl,
-        statusPageCta: 'View Full Status Page',
+        statusPageCta: ContentLoader.statusPageCta,
       );
 
   /// Current footer content
   static FooterContent get footer => FooterContent(
         companyName: ContentLoader.companyName,
-        tagline: ContentLoader.companyTagline,
-        copyright: ContentLoader.companyCopyright,
+        tagline: ContentLoader.footerTagline,
+        copyright: CompanyInfo.copyright,
         linkGroups: ContentLoader.footerLinkGroups.map((group) {
           return FooterLinkGroup(
             title: group['title'] as String? ?? '',
@@ -209,13 +212,20 @@ abstract final class AppContent {
         privacyLink: ContentLoader.footerPrivacyLink,
         termsLink: ContentLoader.footerTermsLink,
         cookiesLink: ContentLoader.footerCookiesLink,
-        accessibilityLink: '/accessibility',
-        cookieSettingsLabel: 'Cookie Settings',
+        accessibilityLink: Routes.accessibility,
+        cookieSettingsLabel: ContentLoader.footerCookieSettingsLabel,
+        privacyLabel: ContentLoader.footerPrivacyLabel,
+        privacyLabelShort: ContentLoader.footerPrivacyLabelShort,
+        termsLabel: ContentLoader.footerTermsLabel,
+        termsLabelShort: ContentLoader.footerTermsLabelShort,
+        cookiesLabel: ContentLoader.footerCookiesLabel,
+        cookiesLabelShort: ContentLoader.footerCookiesLabelShort,
+        accessibilityLabel: ContentLoader.footerAccessibilityLabel,
       );
 
   /// Current services section content
   static ServicesContent get services => ServicesContent(
-        sectionId: 'services',
+        sectionId: SectionIds.services,
         title: ContentLoader.servicesTitle,
         subtitle: ContentLoader.servicesSubtitle,
         description: ContentLoader.servicesDescription,
@@ -234,12 +244,12 @@ abstract final class AppContent {
           );
         }).toList(),
         ctaText: ContentLoader.ctaStartFreeTrial,
-        ctaUrl: Routes.signupGrowth,
+        ctaUrl: Routes.signupStarter,
       );
 
   /// Current about section content
   static AboutContent get about => AboutContent(
-        sectionId: 'about',
+        sectionId: SectionIds.about,
         title: ContentLoader.aboutTitle,
         subtitle: ContentLoader.aboutSubtitle,
         missionStatement: ContentLoader.aboutMission,
@@ -267,7 +277,7 @@ abstract final class AppContent {
 
   /// Current resources section content
   static ResourcesContent get resources => ResourcesContent(
-        sectionId: 'resources',
+        sectionId: SectionIds.resources,
         title: ContentLoader.resourcesTitle,
         subtitle: ContentLoader.resourcesSubtitle,
         documentation: ContentLoader.resourcesDocumentation.map((d) {
@@ -304,15 +314,15 @@ abstract final class AppContent {
             requiresEmail: l['requires_email'] as bool? ?? true,
           );
         }).toList(),
-        blogCtaText: 'View All Articles',
-        blogCtaUrl: '/blog',
-        docsCtaText: 'Browse Documentation',
-        docsCtaUrl: '/docs',
+        blogCtaText: ContentLoader.resourcesBlogCtaText,
+        blogCtaUrl: Routes.blog,
+        docsCtaText: ContentLoader.resourcesDocsCtaText,
+        docsCtaUrl: Routes.docs,
       );
 
   /// Current contact section content
   static ContactContent get contact => ContactContent(
-        sectionId: 'contact',
+        sectionId: SectionIds.contact,
         title: ContentLoader.contactTitle,
         subtitle: ContentLoader.contactSubtitle,
         description: ContentLoader.contactDescription,
@@ -321,7 +331,7 @@ abstract final class AppContent {
             name: f['name'] as String? ?? '',
             label: f['label'] as String? ?? '',
             placeholder: f['placeholder'] as String? ?? '',
-            type: f['type'] as String? ?? 'text',
+            type: f['type'] as String? ?? ContactContentVariants.textFieldType,
             required: f['required'] as bool? ?? false,
             options: (f['options'] as List?)?.map((e) => e.toString()).toList(),
           );

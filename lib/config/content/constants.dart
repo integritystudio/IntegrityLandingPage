@@ -121,6 +121,26 @@ abstract final class SignupTiers {
 }
 
 // =============================================================================
+// SECTION IDS
+// =============================================================================
+
+/// Landing page section identifiers used for scroll targets and section keys.
+abstract final class SectionIds {
+  static const String hero = 'hero';
+  static const String featuresExplorer = 'features-explorer';
+  static const String socialProof = 'social-proof';
+  static const String features = 'features';
+  static const String services = 'services';
+  static const String about = 'about';
+  static const String team = 'team';
+  static const String resources = 'resources';
+  static const String contact = 'contact';
+  static const String status = 'status';
+  static const String pricing = 'pricing';
+  static const String cta = 'cta';
+}
+
+// =============================================================================
 // INTERNAL ROUTES
 // =============================================================================
 
@@ -134,6 +154,7 @@ abstract final class Routes {
   static const String about = '/about';
   static const String contact = '/contact';
   static const String signup = '/signup';
+  static const String signupStarter = '$signup?tier=${SignupTiers.starter}';
   static const String signupGrowth = '$signup?tier=${SignupTiers.growth}';
   static const String login = '/login';
   static const String app = '/app';

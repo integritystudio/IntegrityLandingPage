@@ -71,7 +71,7 @@ abstract final class ContactContentVariants {
   static const githubMethodValue = 'integritystudio';
 
   // Contact page content
-  static const sectionId = 'contact';
+  static const sectionId = SectionIds.contact;
   static const contentTitle = 'Get in Touch';
   static const contentSubtitle = "Let's discuss how we can help";
   static const contentDescription =

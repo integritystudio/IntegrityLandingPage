@@ -295,6 +295,15 @@ class ContentLoader {
   static String get footerPrivacyLink => _getString('footer.privacy_link');
   static String get footerTermsLink => _getString('footer.terms_link');
   static String get footerCookiesLink => _getString('footer.cookies_link');
+  static String get footerCookieSettingsLabel => _getString('footer.cookie_settings_label');
+  static String get footerTagline => _getString('footer.tagline');
+  static String get footerPrivacyLabel => _getString('footer.privacy_label');
+  static String get footerPrivacyLabelShort => _getString('footer.privacy_label_short');
+  static String get footerTermsLabel => _getString('footer.terms_label');
+  static String get footerTermsLabelShort => _getString('footer.terms_label_short');
+  static String get footerCookiesLabel => _getString('footer.cookies_label');
+  static String get footerCookiesLabelShort => _getString('footer.cookies_label_short');
+  static String get footerAccessibilityLabel => _getString('footer.accessibility_label');
 
   // ===========================================================================
   // STATUS
@@ -303,6 +312,7 @@ class ContentLoader {
   static String get statusTitle => _getString('status.title');
   static String get statusSubtitle => _getString('status.subtitle');
   static String get statusBadge => _getString('status.status_badge');
+  static String get statusPageCta => _getString('status.status_page_cta');
   static List<Map<String, dynamic>> get statusMetrics => _getMapList('status.metrics');
   static List<Map<String, dynamic>> get statusServices => _getMapList('status.services');
 
@@ -312,6 +322,8 @@ class ContentLoader {
 
   static String get resourcesTitle => _getString('resources.title');
   static String get resourcesSubtitle => _getString('resources.subtitle');
+  static String get resourcesBlogCtaText => _getString('resources.blog_cta_text');
+  static String get resourcesDocsCtaText => _getString('resources.docs_cta_text');
   static List<Map<String, dynamic>> get resourcesDocumentation => _getMapList('resources.documentation');
   static List<Map<String, dynamic>> get resourcesFeaturedPosts => _getMapList('resources.featured_posts');
   static List<Map<String, dynamic>> get resourcesLeadMagnets => _getMapList('resources.lead_magnets');
@@ -321,6 +333,8 @@ class ContentLoader {
   // ===========================================================================
 
   static String get socialProofTitle => _getString('social_proof.title');
+  static String get socialProofStatsHeadline => _getString('social_proof.stats_headline');
+  static List<Map<String, dynamic>> get socialProofLogos => _getMapList('social_proof.logos');
   static Map<String, String> get socialProofStats {
     return _stringMapCache.putIfAbsent('social_proof.stats', () {
       final stats = _getMap('social_proof.stats');
