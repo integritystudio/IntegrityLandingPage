@@ -26,6 +26,15 @@ void main() {
         expect(prefs.essential, isTrue);
       });
 
+      test('sets timestamp to now by default', () {
+        final before = DateTime.now();
+        final prefs = ConsentPreferences(analytics: true, marketing: true);
+        final after = DateTime.now();
+
+        expect(prefs.timestamp.isAfter(before.subtract(const Duration(seconds: 1))), isTrue);
+        expect(prefs.timestamp.isBefore(after.add(const Duration(seconds: 1))), isTrue);
+      });
+
       test('uses provided timestamp', () {
         final timestamp = DateTime(2024, 1, 15, 10, 30);
         final prefs = ConsentPreferences(
@@ -89,7 +98,7 @@ void main() {
         expect(json['essential'], isTrue);
         expect(json['analytics'], isTrue);
         expect(json['marketing'], isFalse);
-        expect(json['timestamp'], equals(timestamp.toIso8601String()));
+        expect(json['timestamp'], equals('2024-01-15T10:30:00.000'));
         expect(json['consentVersion'], equals('1.5'));
       });
 
@@ -122,6 +131,23 @@ void main() {
         expect(prefs.consentVersion, equals('1.0'));
       });
 
+      test('fromJson handles null values', () {
+        final json = <String, dynamic>{
+          'essential': null,
+          'analytics': null,
+          'marketing': null,
+          'timestamp': null,
+          'consentVersion': null,
+        };
+
+        final prefs = ConsentPreferences.fromJson(json);
+
+        expect(prefs.essential, isTrue);
+        expect(prefs.analytics, isFalse);
+        expect(prefs.marketing, isFalse);
+        expect(prefs.consentVersion, equals('1.0'));
+      });
+
       test('round-trip serialization preserves values', () {
         final original = ConsentPreferences(
           analytics: true,
@@ -142,6 +168,24 @@ void main() {
           lessThan(1),
         );
       });
+
+      test('round-trip preserves an explicit timestamp exactly', () {
+        final original = ConsentPreferences(
+          analytics: true,
+          marketing: false,
+          timestamp: DateTime(2024, 6, 15, 10, 30, 0),
+          consentVersion: '2.0',
+        );
+
+        final json = original.toJson();
+        final restored = ConsentPreferences.fromJson(json);
+
+        expect(restored.essential, equals(original.essential));
+        expect(restored.analytics, equals(original.analytics));
+        expect(restored.marketing, equals(original.marketing));
+        expect(restored.timestamp, equals(original.timestamp));
+        expect(restored.consentVersion, equals(original.consentVersion));
+      });
     });
 
     group('toString', () {
@@ -153,6 +197,7 @@ void main() {
 
         final str = prefs.toString();
 
+        expect(str, contains('ConsentPreferences'));
         expect(str, contains('analytics: true'));
         expect(str, contains('marketing: false'));
         expect(str, contains('timestamp:'));
@@ -180,6 +225,13 @@ void main() {
 
       expect(prefs.analytics, isTrue);
       expect(prefs.marketing, isTrue);
+    });
+
+    test('toPreferences creates new instance each time', () {
+      final prefs1 = ConsentLevel.all.toPreferences();
+      final prefs2 = ConsentLevel.all.toPreferences();
+
+      expect(identical(prefs1, prefs2), isFalse);
     });
   });
 }
