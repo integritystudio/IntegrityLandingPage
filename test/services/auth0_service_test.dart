@@ -84,6 +84,9 @@ void main() {
       expect(Auth0Service.constantTimeEquals('abc', 'abc'), isTrue);
       expect(Auth0Service.constantTimeEquals('abc', 'abd'), isFalse);
       expect(Auth0Service.constantTimeEquals('abc', 'ab'), isFalse);
+      // A trailing NUL XORs to zero against the padding, so only the length
+      // check separates these (CR57).
+      expect(Auth0Service.constantTimeEquals('ab\u0000', 'ab'), isFalse);
     });
 
     test('logoutUrl ends the Auth0 session and returns to the given page', () {
