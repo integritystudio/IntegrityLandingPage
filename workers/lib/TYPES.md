@@ -60,7 +60,7 @@ The file named next to each schema is the source of truth; field lists are not r
 
 ### Quota Durable Object contract — `types/schemas.ts`
 
-`QuotaCheckRequestSchema` (`orgId`, `metricKey`, `units`, `requestId`, `planKey`, `quotaVersion`), `QuotaCheckResponseSchema` (`allowed`, `reason`, `remainingMinute`, `remainingMonthly`), `QuotaStatusResponseSchema`, `QuotaFlushResultSchema`, `OrgPlanRowSchema` (`current_plan`, `quota_version`) and `OrgQuotaMiddlewareOptionsSchema`. `workers/api-gateway/src/lib/quota.ts` parses every DO response with these. `QuotaFlushResultSchema` belongs to `flushUsage()`, which has no non-test caller — BACKLOG.md CR45.
+`QuotaCheckRequestSchema` (`orgId`, `metricKey`, `units`, `requestId`, `planKey`, `quotaVersion`), `QuotaCheckResponseSchema` (`allowed`, `reason`, `remainingMinute`, `remainingMonthly`), `QuotaStatusResponseSchema`, `OrgPlanRowSchema` (`current_plan`, `quota_version`) and `OrgQuotaMiddlewareOptionsSchema`. `workers/api-gateway/src/lib/quota.ts` parses every DO response with these.
 
 ### Request bodies and parameters — `types/request-bodies.ts`
 

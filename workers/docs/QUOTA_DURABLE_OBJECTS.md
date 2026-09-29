@@ -12,7 +12,7 @@ Quota management via Cloudflare Durable Objects provides **globally unique, stat
 - Rejecting over-limit requests
 - Exposing `checkAndReserve()` and `/status`
 
-The DO also answers `POST /flush-usage`, and `lib/quota.ts` exports a matching `flushUsage()` client, but **nothing calls either** and the route writes nothing to Supabase. It is dead code; delete-or-wire is tracked as BACKLOG.md CR45. The durable usage record is written elsewhere — see [Integration Points](#integration-points).
+There is no flush route. A `POST /flush-usage` that zeroed the monthly counter, wrote nothing to Supabase and had no caller was deleted with its `flushUsage()` client (BACKLOG.md CR45). The durable usage record is written elsewhere — see [Integration Points](#integration-points).
 
 ---
 
@@ -111,20 +111,6 @@ interface QuotaCheckResponse {
 }
 ```
 
-### flush-usage (dead — CR45)
-
-**Request:** POST `/flush-usage`
-
-The route exists in the DO (`handleFlushUsage`) and `lib/quota.ts` exports `flushUsage()` for it, but no gateway code calls either — only `quota.test.ts` does. When invoked it zeroes the in-memory `monthlyUsed`, persists the DO state, and returns the shape below. It does **not** sync anything to Supabase; the phrase "syncs to database" in earlier versions of this document described a job that was never built. Whether to delete the route or wire it is BACKLOG.md CR45; until then, treat calling it as a way to reset an org's monthly counter, nothing more.
-
-```typescript
-interface QuotaFlushResult {
-  orgId: string;
-  monthlyUsedSinceLastFlush: number; // in-memory counter value at the time of the call
-  flushedAt: string; // ISO 8601 timestamp
-}
-```
-
 ### status
 
 Returns current quota state for debugging and monitoring.
@@ -165,7 +151,7 @@ The unit the DO reserves is written durably by `recordMeteredRequest` (`src/lib/
 
 ### 3. Usage Flush Job — not built, and superseded
 
-No job calls `/flush-usage`, and none is planned in this form: the usage ledger (UA01, above) writes the durable record per request, so there is no batch to hand off. The dead route and client are CR45.
+None is planned: the usage ledger (UA01, above) writes the durable record per request, so there is no batch to hand off. The dead `/flush-usage` route and its client were deleted (CR45).
 
 ---
 
@@ -218,7 +204,7 @@ Coverage includes:
 - Monthly limit enforcement
 - Quota version upgrades
 - Minute window expiration
-- `/flush-usage` (the dead route still has tests)
+- `/flush-usage` answers 404 and leaves the counter alone (CR45 regression test)
 - Status reporting
 - Error handling
 
@@ -258,7 +244,7 @@ Set up alerts for:
 3. ✅ Types and schemas
 4. ✅ **Integrate into API gateway routes** — `enforceOrgQuota` in `src/index.ts` and `routes/ingest.ts`
 5. ✅ **Stripe webhook quota version bump** — `updateOrgBillingStatus(…, true)` sets `quota_version = Date.now()`
-6. ❌ **Usage flush job** — superseded by the per-request usage ledger (UA01); removing the dead `/flush-usage` route is CR45
+6. ❌ **Usage flush job** — superseded by the per-request usage ledger (UA01); the dead `/flush-usage` route was deleted (CR45)
 7. ⏳ **Dashboard** (show usage vs quota to users)
 8. ⏳ **Monitoring** (Grafana dashboard for quota metrics)
 
