@@ -4,6 +4,8 @@ import type { Env } from './index';
 import * as quotaLib from './lib/quota';
 import { createAuth0JwtFixture, TEST_AUTH0_OPTS, TEST_AUTH0_DOMAIN, type Auth0JwtFixture } from '../../lib/test-helpers/auth0-jwt-stub';
 import { createSupabaseFetchStub, createdRows, okRows } from '../../lib/test-helpers/supabase-fetch-stub';
+import { MockStorage, stubDurableObjectState } from '../../lib/test-helpers/durable-object-state-stub';
+import { QuotaDurableObject } from './durable-objects/quota';
 import { ORG_RATE_LIMIT_MAX, ORG_RATE_LIMIT_WINDOW_SECONDS, resetOrgRateLimit } from './lib/rate-limit';
 
 
@@ -423,6 +425,69 @@ describe('usage ledger on org routes', () => {
 
     expect(res.status).not.toBe(429);
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[usage-ledger]'), 'GET /v1/orgs/:id/entitlements', 'for org', 'org-123', expect.anything());
+  });
+});
+
+// TS32: CR58's promise end to end. The tests above check the call into enforceOrgQuota;
+// these run the real quota DO class over in-memory storage, so only Supabase is stubbed.
+describe('an org that has used up its month (real quota DO)', () => {
+  const ORG = 'org-month-used';
+  const USER_ID = 'user-month-used';
+  /** Starter's monthly limit in the DO's DEFAULT_QUOTAS. */
+  const STARTER_MONTHLY_LIMIT = 10000;
+
+  async function exhaustedQuotaDo(): Promise<DurableObjectNamespace> {
+    const storage = new MockStorage();
+    await storage.put('quota', {
+      orgId: ORG, planKey: 'starter', quotaVersion: 1,
+      minuteLimit: 60, monthlyLimit: STARTER_MONTHLY_LIMIT,
+      minuteUsedAt: Date.now(), minuteUsed: 0,
+      monthlyUsed: STARTER_MONTHLY_LIMIT, lastMonthlyResetAt: Date.now(), seenRequestIds: {},
+    });
+    const quotaDo = new QuotaDurableObject(stubDurableObjectState(storage));
+    return { idFromName: (name: string) => name, get: () => quotaDo } as unknown as DurableObjectNamespace;
+  }
+
+  let token: string;
+
+  beforeAll(async () => {
+    token = await jwt.sign({ sub: 'auth0|month-used', email: 'owner@example.com' });
+  });
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    resetOrgRateLimit();
+    const stub = createSupabaseFetchStub({
+      'GET users': okRows([{ id: USER_ID, email: 'owner@example.com' }]),
+      'GET organization_memberships': okRows([
+        { user_id: USER_ID, organization_id: ORG, role: 'owner', status: 'active' },
+      ]),
+      'GET organizations': okRows([{ id: ORG, current_plan: 'starter', quota_version: 1, billing_status: 'active' }]),
+      'GET usage_buckets_daily': okRows([]),
+      'POST usage_events': createdRows([]),
+    });
+    vi.stubGlobal('fetch', jwt.wrap(stub.fetch as typeof fetch));
+  });
+
+  afterEach(() => {
+    resetOrgRateLimit();
+    vi.unstubAllGlobals();
+  });
+
+  const get = async (subPath: string) => worker.fetch(
+    makeRequest('GET', `/v1/orgs/${ORG}${subPath}`, { headers: { Authorization: `Bearer ${token}` } }),
+    makeEnv({ QUOTA_DO: await exhaustedQuotaDo(), RATE_LIMIT_KV: mapKv() }),
+  );
+
+  it('can still read its usage summary', async () => {
+    const res = await get('/usage/summary');
+    expect(res.status).toBe(200);
+  });
+
+  it('is refused a charged route for the month', async () => {
+    const res = await get('/dashboard');
+    expect(res.status).toBe(429);
+    expect((await res.json() as { error: { reason: string } }).error.reason).toBe('monthly_limit');
   });
 });
 

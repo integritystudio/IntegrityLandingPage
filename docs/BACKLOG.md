@@ -3250,6 +3250,14 @@ Even a tap test would pass a hard-coded `'/contact'` under real content, where t
 
 **Priority:** P4 | **Source:** coverage review 2026-09-29; `workers/api-gateway/src/index.test.ts`, `src/durable-objects/quota.test.ts`
 
+**Status:** ✅ **DONE 2026-09-29** — **Router, end to end:** a new `index.test.ts` describe backs `QUOTA_DO` with the real `QuotaDurableObject` over in-memory storage, seeded with starter's month used up. Only Supabase is stubbed. `GET /usage/summary` answers **200**, and `GET /dashboard` answers **429 `monthly_limit`**. It kills the exemption broken at each of three layers (3 of 3): the route table charging `/usage/summary`, `enforceOrgQuota` dropping `chargeMonthly`, and the DO ignoring it. **DO edges (4 of 4 mutants killed):**
+- `/status` on legacy state with no `lastMonthlyResetAt` reads it as an earlier month (removing `|| 0` throws `RangeError`);
+- the CR58 rollover test now asserts the check's own `remainingMonthly` (500000), which kills the rollover being skipped on uncharged checks;
+- a retried uncharged read (same `requestId`) is counted once;
+- with the minute and the month both used up, `minute_limit` is reported, because the minute check runs first. That is pinned as current behaviour.
+
+`MockStorage` moved from `quota.test.ts` into `workers/lib/test-helpers/durable-object-state-stub.ts` with `stubDurableObjectState`, so both suites share it. Gateway: 337 tests; `lint:workers` clean.
+
 **The router test is structural.** `vi.spyOn(quotaLib, 'enforceOrgQuota')` checks the call carried `{ chargeMonthly: false }`. The promise that matters, "an org whose month is used up can still read `/usage/summary`", is never tested end to end.
 
 **Untested DO edges:**

@@ -1,31 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { QuotaDurableObject } from './quota';
-
-// ---------------------------------------------------------------------------
-// Minimal mock for DurableObjectState / DurableObjectStorage
-// ---------------------------------------------------------------------------
-
-class MockStorage {
-  private store: Map<string, unknown> = new Map();
-  scheduledAlarmAt: number | null = null;
-
-  async get<T>(key: string): Promise<T | undefined> {
-    return this.store.get(key) as T | undefined;
-  }
-
-  async put(key: string, value: unknown): Promise<void> {
-    this.store.set(key, value);
-  }
-
-  async delete(key: string): Promise<boolean> {
-    return this.store.delete(key);
-  }
-
-  async setAlarm(timestamp: number): Promise<void> {
-    // Only set if not already armed (mimics Cloudflare: setAlarm replaces any existing alarm).
-    this.scheduledAlarmAt = timestamp;
-  }
-}
+import { MockStorage, stubDurableObjectState } from '../../../lib/test-helpers/durable-object-state-stub';
 
 interface QuotaState {
   orgId: string;
@@ -42,12 +17,7 @@ interface QuotaState {
 
 /** A DO over `storage`; pass a pre-seeded one to simulate a fresh instance loading state. */
 function makeDO(storage = new MockStorage()): { do_: QuotaDurableObject; storage: MockStorage } {
-  const state = {
-    storage,
-    blockConcurrencyWhile: async <T>(fn: () => Promise<T>) => fn(),
-    waitUntil: (_p: Promise<unknown>) => undefined,
-  } as unknown as DurableObjectState;
-  return { do_: new QuotaDurableObject(state), storage };
+  return { do_: new QuotaDurableObject(stubDurableObjectState(storage)), storage };
 }
 
 /** Seed storage with a complete quota state record. */
@@ -247,6 +217,16 @@ describe('QuotaDurableObject', () => {
       expect(body.allowed).toBe(false);
       expect(body.reason).toBe('monthly_limit');
       expect(body.remainingMonthly).toBe(1); // 10000 - 9999
+    });
+
+    // The minute check runs first, so a caller over both limits is told to wait a minute;
+    // the retry after it is then refused for the month.
+    it('reports the minute limit when the minute and the month are both used up', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { minuteUsed: 60, minuteUsedAt: Date.now(), monthlyUsed: 10000 });
+      const res = await do_.fetch(checkReq());
+      expect(res.status).toBe(429);
+      expect((await res.json() as { reason: string }).reason).toBe('minute_limit');
     });
 
     it('resets monthly counter automatically on month boundary', async () => {
@@ -479,6 +459,18 @@ describe('QuotaDurableObject', () => {
       expect((await do_.fetch(checkReq())).status).toBe(429);
     });
 
+    it('does not count a retried read (same requestId) twice', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { monthlyUsed: 5 });
+      const requestId = crypto.randomUUID();
+      await do_.fetch(checkReq({ requestId, chargeMonthly: false }));
+      const retry = await do_.fetch(checkReq({ requestId, chargeMonthly: false }));
+      expect(retry.status).toBe(200);
+      const status = await statusOf(do_);
+      expect(status.minuteUsed).toBe(1);
+      expect(status.monthlyUsed).toBe(5);
+    });
+
     it('still enforces the minute limit', async () => {
       const { do_, storage } = makeDO();
       await seedQuota(storage, { minuteUsed: 60, minuteUsedAt: Date.now() });
@@ -490,7 +482,10 @@ describe('QuotaDurableObject', () => {
     it('applies a month rollover and a plan change, so the /status read after it is current', async () => {
       const { do_, storage } = makeDO();
       await seedQuota(storage, { monthlyUsed: 9000, lastMonthlyResetAt: Date.now() - FORTY_DAYS_MS });
-      await do_.fetch(checkReq({ chargeMonthly: false, planKey: 'growth', quotaVersion: 2 }));
+      const res = await do_.fetch(checkReq({ chargeMonthly: false, planKey: 'growth', quotaVersion: 2 }));
+      // Read from the check's own answer: /status rolls the month over by itself, so it
+      // cannot show that the check did.
+      expect((await res.json() as { remainingMonthly: number }).remainingMonthly).toBe(500000);
       const status = await statusOf(do_);
       expect(status.monthlyUsed).toBe(0);
       expect(status.planKey).toBe('growth');
@@ -567,6 +562,22 @@ describe('QuotaDurableObject', () => {
       const { do_ } = makeDO(storage);
       const res = await do_.fetch(checkReq());
       expect(res.status).toBe(200);
+    });
+
+    // State stored before lastMonthlyResetAt existed reads as an epoch reset: an earlier
+    // month, so the counter starts over, rather than an invalid date that throws.
+    it('/status reads legacy stored state with no lastMonthlyResetAt as an earlier month', async () => {
+      const storage = new MockStorage();
+      await storage.put('quota', {
+        orgId: 'org-1', planKey: 'starter', quotaVersion: 1,
+        minuteLimit: 60, monthlyLimit: 10000,
+        minuteUsedAt: Date.now() - 70_000, minuteUsed: 0, monthlyUsed: 42,
+      });
+      const { do_ } = makeDO(storage);
+
+      const body = await statusOf(do_);
+
+      expect(body.monthlyUsed).toBe(0);
     });
   });
 
