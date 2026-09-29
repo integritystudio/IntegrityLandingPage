@@ -505,7 +505,7 @@ fi
 if (( failures > 0 )); then
   cat <<EOF
 FAIL: $failures check(s) failed across ${#SECRETS[@]} credentials,
-${#STRIPE_MODED_KEYS[@]} Stripe mode assertions, and the full-config sweep.
+${#STRIPE_MODED_KEYS[@]} Stripe mode assertions, the KV namespace role pins, and the full-config sweep.
 
 '--config $BASE_CONFIG' is not a safety boundary. Anything run against it
 reads and writes production state. Do not push these values into the *-dev
@@ -520,4 +520,5 @@ EOF
 fi
 
 echo "PASS: ${#SECRETS[@]} credentials differ between $BASE_CONFIG and $PROD_CONFIG,"
-echo "      and ${#STRIPE_MODED_KEYS[@]} Stripe keys are test-mode in $BASE_CONFIG / live-mode in $PROD_CONFIG."
+echo "      ${#STRIPE_MODED_KEYS[@]} Stripe keys are test-mode in $BASE_CONFIG / live-mode in $PROD_CONFIG,"
+echo "      and the KV namespace role pins hold (AUTH_KV_NAMESPACE_ID is AUTH; no dashboard name points at it beyond the known gap)."
