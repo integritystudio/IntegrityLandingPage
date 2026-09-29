@@ -12,12 +12,14 @@ on:
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
+      - 'supabase/config.toml'
       - '.github/workflows/supabase-sql-tests.yml'
   pull_request:
     branches: [main]
     paths:
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
+      - 'supabase/config.toml'
       - '.github/workflows/supabase-sql-tests.yml'
 
 permissions:
@@ -37,19 +39,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # ubuntu-latest ships PostgreSQL 16 only; 15 is what run.sh defaults to,
-      # so it comes from the PGDG apt repository.
-      - name: Install PostgreSQL 15
+      # Test on the major version production runs. supabase/config.toml's
+      # major_version is kept equal to the hosted project's (17.6 on 2026-09-28),
+      # so it is read here rather than pinned a second time. run.sh defaults to
+      # a local Homebrew 15 keg; that is a workstation convenience, not a target.
+      - name: Resolve PostgreSQL major version
+        run: |
+          major="$(sed -nE 's/^major_version *= *([0-9]+).*/\1/p' supabase/config.toml)"
+          if [ -z "$major" ]; then
+            echo "::error::no major_version in supabase/config.toml"
+            exit 1
+          fi
+          echo "PG_MAJOR=$major" >> "$GITHUB_ENV"
+
+      # ubuntu-latest ships only one PostgreSQL major, so install the target one
+      # from the PGDG apt repository.
+      - name: Install PostgreSQL ${{ env.PG_MAJOR }}
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install -y postgresql-15
+          sudo apt-get install -y "postgresql-$PG_MAJOR"
 
       - name: Run every SQL suite
         env:
-          PGBIN: /usr/lib/postgresql/15/bin
+          PGBIN: /usr/lib/postgresql/${{ env.PG_MAJOR }}/bin
         run: |
+          # run.sh falls back to any initdb on PATH; fail here instead if the
+          # target major is missing, so no suite can run on the wrong version.
+          "$PGBIN/postgres" --version
           shopt -s nullglob
           suites=(supabase/tests/*/run.sh)
           if [ "${#suites[@]}" -eq 0 ]; then
