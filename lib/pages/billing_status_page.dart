@@ -11,6 +11,13 @@ import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
 import '../widgets/common/status_badge.dart';
 
+/// The next renewal as a date in the viewer's local time zone, e.g. "October 15, 2026".
+@visibleForTesting
+String formatRenewalDate(DateTime dt) {
+  final local = dt.toLocal();
+  return '${CalendarText.monthNames[local.month - 1]} ${local.day}, ${local.year}';
+}
+
 /// Arguments passed to BillingStatusPage via GoRouter state.extra.
 class BillingStatusArgs {
   final String orgId;
@@ -46,11 +53,6 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
     super.initState();
     AnalyticsService.trackPageView('billing_status');
     _fetchBillingStatus();
-  }
-
-  String _formatDate(DateTime dt) {
-    final local = dt.toLocal();
-    return '${CalendarText.monthNames[local.month - 1]} ${local.day}, ${local.year}';
   }
 
   Future<void> _fetchBillingStatus() async {
@@ -154,7 +156,7 @@ class _BillingStatusPageState extends State<BillingStatusPage> {
             onManageBilling: _openBillingPortal,
             onStartCheckout: _startCheckout,
             renewalDateLabel: _billingStatus?.nextRenewalDate != null
-                ? _formatDate(_billingStatus!.nextRenewalDate!)
+                ? formatRenewalDate(_billingStatus!.nextRenewalDate!)
                 : null,
           ),
       ],
