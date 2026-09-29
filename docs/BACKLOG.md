@@ -392,6 +392,10 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR51](#cr51) | P2 | 📋 open | The post-login Action's email fallback re-links an existing `users` row to any new Auth0 identity with that email, without checking `email_verified`. |
 | [CR52](#cr52) | P3 | 📋 open | The dashboard hub passes `monthlyUnitsQuota: 0` to Usage, so the quota line never renders. |
 | [CR53](#cr53) | P3 | 📋 open | `/v1/orgs` answers `200 {organizations: []}` when its Supabase queries fail; since CR48 the callback reads that as a new account. |
+| [CR54](#cr54) | P3 | 📋 open (review) | A corporate signup is always unverified at its first provision, so it lands in a personal org — and nothing ever provisions it again to join the team org once verified. |
+| [CR55](#cr55) | P4 | 📋 open | `CallbackPage`'s signup analytics (form submission + lead, new accounts only) have no test. |
+| [CR56](#cr56) | P4 | 📋 open (review) | `/provision`'s **Go to Dashboard** opens integritystudio.dev, not the in-app `/dashboard` where billing and usage live. |
+| [CR57](#cr57) | P4 | 📋 open | `Auth0Service.constantTimeEquals` returns early on a length mismatch (code review, low; no practical leak). |
 
 ~~**Two items are now blocked on code** — [[CR20]] and [[CR21]]…~~ **Superseded 2026-07-31.** [[CR21]] is done and live, and [[CR20]] is not blocked on code at all — its remaining work is monitoring ([[W04]]), since [[CR21]] foreclosed the 5xx option. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). What still needs a decision rather than an implementation: a credential/provisioning call (CR01, CR11, CR12's cross-repo HMAC secret), or an answer about intent (CR13, CR16). **Update 2026-09-28:** CR01, CR11, CR12 and CR13 are closed, and [[W04]] closed 2026-08-09 (1.3 changelog); of this list only CR16 remains, and it is by design.
 
@@ -2512,6 +2516,48 @@ The comment says "0 = disabled until per-org quota is loaded via QuotaStatusPage
 **Priority:** P3 | **Source:** CR48; `workers/api-gateway/src/routes/orgs.ts` `loadUserMemberships` and `loadOrgsForMemberships`
 
 Both return `[]` on `!result.ok`, so a database error reads as "no orgs". Since CR48 the callback routes an empty list to `/provision`, so an existing user caught by a transient error is offered **Generate API Key**. The receiver finds their existing org (`ensurePersonalOrg`/`ensureTeamOrg` are idempotent), so the cost is an extra key, not a second org. **Fix shape:** return `503` when either query fails, and add a test for each.
+
+---
+
+<a id="cr54"></a>
+
+### CR54: corporate signups land in a personal org and are never moved into their team org after verifying (review)
+
+**Priority:** P3 | **Source:** CR48 session 2026-09-29; `lib/pages/callback_page.dart` routing, toolkit receiver `handlers/provision-api-key.ts` (CR47)
+
+CR47 groups by domain only when `/userinfo` says `email_verified === true`, and says an unverified user "joins the team org on a later provision once verified". But a database signup is unverified when it first reaches `/provision` (the verification email has not been clicked), so every corporate signup gets a personal org. After that the callback sees an org and routes to `/dashboard`; `provision_api_key` is sent only from `lib/pages/provision_page.dart`, and the dashboard SPA does not send it, so the "later provision" never happens. (The old sender `/signup` also created users unverified, so this predates CR48; CR48 makes the routing explicit.)
+
+**Fix shape (decide first):** either re-provision on sign-in when the email has become verified and the user has only a personal org (callback or receiver `sign_in`), or accept personal orgs and offer an explicit "join your team" action. Acceptance: a verified `user@acme.com` whose first provision was unverified ends up a member of `team-acme.com`.
+
+---
+
+<a id="cr55"></a>
+
+### CR55: `CallbackPage`'s signup analytics have no test
+
+**Priority:** P4 | **Source:** CR48 session 2026-09-29; `lib/pages/callback_page.dart` (the `OrgListSuccess(orgs: [])` case)
+
+The signup-form submission and the Facebook lead fire only when the redirect began on the signup form **and** the account has no org yet (so an existing user who used the signup screen is not counted). `test/pages/callback_page_test.dart` covers the routing but not this condition. **Fix shape:** a test seam or spy on `AnalyticsService`/`FacebookPixelService`, asserting both fire for a new signup and neither for a returning user or a plain login. The web implementations in `auth0_browser_web.dart` are likewise untested, but that is the chrome-platform gap (#77), not a new item.
+
+---
+
+<a id="cr56"></a>
+
+### CR56: `/provision`'s Go to Dashboard opens integritystudio.dev, not the in-app `/dashboard` (review)
+
+**Priority:** P4 | **Source:** CR48 session 2026-09-29; `lib/pages/provision_page.dart` `_goToDashboard`
+
+Before CR48 the in-app dashboard could not survive a reload, so sending a new user to integritystudio.dev made sense. Now `/dashboard` restores the session and is where billing, usage and quota live, and it links to integritystudio.dev through the Observability card. **Decide:** keep the external link, or go to `/dashboard` (the session is already in hand). Product call, not a defect.
+
+---
+
+<a id="cr57"></a>
+
+### CR57: `Auth0Service.constantTimeEquals` returns early on a length mismatch
+
+**Priority:** P4 | **Source:** code review of `fcc5d97` (low finding); `lib/services/auth0_service.dart` `constantTimeEquals`
+
+The length check returns before the XOR loop, so timing reveals whether the lengths differ. The state is always 43 characters (base64url of 32 bytes), so nothing is learnt in practice. **Fix shape:** fold the length difference into the accumulator and loop over the longer input; keep the existing tests.
 
 ---
 
