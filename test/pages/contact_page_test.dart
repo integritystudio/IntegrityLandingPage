@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/config/content/contact_content.dart';
 import 'package:integrity_studio_ai/pages/contact_page.dart';
+import 'package:integrity_studio_ai/services/content_loader.dart';
 import 'package:integrity_studio_ai/widgets/common/gradient_pill_badge.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import '../helpers/test_constants.dart';
@@ -80,7 +81,7 @@ void main() {
 
       testWidgets('displays headline Get in Touch', (tester) async {
         await pumpContactPage(tester);
-        expect(find.text(ContactContentVariants.heroHeadline), findsNWidgets(2));
+        expect(find.text(ContentLoader.contactHeroHeadline), findsNWidgets(2));
       });
 
       testWidgets('displays subheadline about AI observability', (tester) async {

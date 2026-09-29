@@ -261,6 +261,7 @@ void main() {
           title: 'Test Contact',
           subtitle: 'Test Subtitle',
           description: 'Test Description',
+          methodsHeading: 'Test Methods Heading',
           formFields: [],
           contactMethods: [],
           formSubmitText: 'Submit',
@@ -272,6 +273,7 @@ void main() {
 
         expect(content.sectionId, equals('test-contact'));
         expect(content.title, equals('Test Contact'));
+        expect(content.methodsHeading, equals('Test Methods Heading'));
         expect(content.formFields, isEmpty);
         expect(content.contactMethods, isEmpty);
         expect(content.calendlyUrl, equals('https://calendly.com/test'));

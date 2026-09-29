@@ -216,6 +216,8 @@ contact:
   title: "Get in Touch"
   subtitle: "Let's discuss how we can help"
   description: "Our team is here to help with demos and questions."
+  hero_headline: "Get in Touch"
+  methods_heading: "Get in touch"
   calendly_cta_text: "Schedule a Demo"
   form:
     submit_text: "Send Message"
@@ -293,6 +295,9 @@ contact:
       value: "integrity-studio"
       url: "https://github.com/test"
       is_primary: false
+
+compliance:
+  contact_link_description: "Questions about compliance? Get in touch"
 
 footer:
   privacy_link: "/privacy"
@@ -708,6 +713,8 @@ contact:
   title: "Contact Title"
   subtitle: "Contact Subtitle"
   description: "Contact Description"
+  hero_headline: "Contact Hero Headline"
+  methods_heading: "Contact Methods Heading"
   form:
     fields:
       - name: "email"
@@ -723,6 +730,9 @@ contact:
       value: "test@example.com"
       url: "mailto:test@example.com"
       is_primary: true
+
+compliance:
+  contact_link_description: "Compliance Contact Link Description"
 
 footer:
   privacy_link: "/privacy"

@@ -587,6 +587,7 @@ class ContactContent {
   final String title;
   final String subtitle;
   final String description;
+  final String methodsHeading;
   final List<ContactFormFieldContent> formFields;
   final List<ContactMethodContent> contactMethods;
   final String formSubmitText;
@@ -600,6 +601,7 @@ class ContactContent {
     required this.title,
     required this.subtitle,
     required this.description,
+    required this.methodsHeading,
     required this.formFields,
     required this.contactMethods,
     required this.formSubmitText,

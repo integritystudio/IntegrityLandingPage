@@ -717,6 +717,8 @@ contact:
     Whether you're evaluating AI observability solutions, have questions about
     EU AI Act compliance, or want to see a demo, our team is here to help.
     Reach out and we'll respond within one business day.
+  hero_headline: "Get in Touch"
+  methods_heading: "Get in touch"
 
   form:
     submit_text: "Send Message"
@@ -813,6 +815,9 @@ contact:
 # =============================================================================
 # FOOTER SECTION
 # =============================================================================
+compliance:
+  contact_link_description: "Questions about compliance? Get in touch"
+
 footer:
   privacy_link: "/privacy"
   terms_link: "/terms"

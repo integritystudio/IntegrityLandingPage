@@ -321,7 +321,7 @@ class _ContactSectionState extends State<ContactSection> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Get in touch',
+                _content.methodsHeading,
                 style: AppTypography.headingSM,
               ),
               const SizedBox(height: AppSpacing.lg),

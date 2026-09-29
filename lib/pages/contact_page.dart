@@ -53,7 +53,7 @@ class _ContactPageState extends State<ContactPage> {
           child: MarketingHeroSection(
             isMobile: ResponsiveUtils.isMobile(context),
             badge: const GradientPillBadge(label: ContactContentVariants.heroBadge),
-            headline: ContactContentVariants.heroHeadline,
+            headline: ContentLoader.contactHeroHeadline,
             subheadline: ContactContentVariants.heroSubheadline,
           ),
         ),

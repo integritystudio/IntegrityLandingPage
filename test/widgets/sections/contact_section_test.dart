@@ -69,6 +69,7 @@ void main() {
       String title = 'Contact',
       String subtitle = '',
       String description = '',
+      String methodsHeading = kSectionGetInTouch,
       List<ContactFormFieldContent> formFields = const [],
       List<ContactMethodContent> contactMethods = const [],
       String formSubmitText = 'Submit',
@@ -82,6 +83,7 @@ void main() {
         title: title,
         subtitle: subtitle,
         description: description,
+        methodsHeading: methodsHeading,
         formFields: formFields,
         contactMethods: contactMethods,
         formSubmitText: formSubmitText,
@@ -227,6 +229,15 @@ void main() {
     // ==========================================================================
 
     group('widget structure', () {
+      testWidgets('titles the contact-methods card from its content', (tester) async {
+        const heading = 'Custom Methods Heading';
+        setLargeViewport(tester);
+        await tester.pumpWidget(buildTestWidget(content: testContent(methodsHeading: heading)));
+
+        expect(find.text(heading), findsOneWidget);
+        expect(find.text(kSectionGetInTouch), findsNothing);
+      });
+
       testWidgets('renders all section elements', (tester) async {
         setLargeViewport(tester);
         await tester.pumpWidget(buildTestWidget());
@@ -239,7 +250,7 @@ void main() {
         expect(find.text(AppContent.contact.calendlyCtaText), findsWidgets);
 
         // UI sections
-        expect(find.text(kSectionGetInTouch), findsOneWidget);
+        expect(find.text(AppContent.contact.methodsHeading), findsOneWidget);
         expect(find.text(kSectionFollowUs), findsOneWidget);
         expect(find.text(kSectionSendMessage), findsOneWidget);
         expect(find.text(kSectionLiveDemo), findsOneWidget);

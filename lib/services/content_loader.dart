@@ -278,6 +278,8 @@ class ContentLoader {
   static String get contactTitle => _getString('contact.title');
   static String get contactSubtitle => _getString('contact.subtitle');
   static String get contactDescription => _getString('contact.description');
+  static String get contactHeroHeadline => _getString('contact.hero_headline');
+  static String get contactMethodsHeading => _getString('contact.methods_heading');
   static List<Map<String, dynamic>> get contactFormFields => _getMapList('contact.form.fields');
   static List<Map<String, dynamic>> get contactMethods => _getMapList('contact.contact_methods');
   static String get contactScheduleDemoValue => (contactMethods
@@ -286,6 +288,13 @@ class ContentLoader {
       _scheduleDemoFallback;
   static String get contactSuccessMessage => _getString('contact.form.success_message');
   static String get contactErrorMessage => _getString('contact.form.error_message');
+
+  // ===========================================================================
+  // COMPLIANCE
+  // ===========================================================================
+
+  static String get complianceContactLinkDescription =>
+      _getString('compliance.contact_link_description');
 
   // ===========================================================================
   // FOOTER

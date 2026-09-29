@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../services/content_loader.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/common/info_card.dart';
@@ -313,7 +314,7 @@ class _ComplianceContent extends StatelessWidget {
                   _ResourceLink(
                     icon: LucideIcons.mail,
                     title: 'Contact Us',
-                    description: 'Questions about compliance? Get in touch',
+                    description: ContentLoader.complianceContactLinkDescription,
                     onTap: () => context.go('/contact'),
                   ),
                 ],

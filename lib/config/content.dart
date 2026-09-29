@@ -326,6 +326,7 @@ abstract final class AppContent {
         title: ContentLoader.contactTitle,
         subtitle: ContentLoader.contactSubtitle,
         description: ContentLoader.contactDescription,
+        methodsHeading: ContentLoader.contactMethodsHeading,
         formFields: ContentLoader.contactFormFields.map((f) {
           return ContactFormFieldContent(
             name: f['name'] as String? ?? '',
