@@ -584,6 +584,52 @@ void main() {
   // only that the router did not land on the intended path.
   // ---------------------------------------------------------------------------
 
+  group('dashboard back arrows', () {
+    Future<GoRouter> pumpAt(WidgetTester tester, String path, Object extra) async {
+      final router = await pumpRouterApp(tester, initialLocation: Routes.home);
+      router.go(path, extra: extra);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      clearOverflowExceptions(tester);
+      return router;
+    }
+
+    Future<void> tapBack(WidgetTester tester) async {
+      await tester.tap(find.byIcon(Icons.arrow_back).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      clearOverflowExceptions(tester);
+    }
+
+    final subPages = <String, Object>{
+      Routes.billingStatus: const BillingStatusArgs(jwt: 'test.jwt', orgId: 'org-2'),
+      Routes.usageSummary: const UsageSummaryArgs(jwt: 'test.jwt', orgId: 'org-2', orgName: 'Org Two', monthlyUnitsQuota: 0),
+      Routes.entitlements: const EntitlementsArgs(jwt: 'test.jwt', orgId: 'org-2', orgName: 'Org Two'),
+      Routes.quotaStatus: const QuotaStatusArgs(jwt: 'test.jwt', orgId: 'org-2', orgName: 'Org Two'),
+    };
+
+    for (final entry in subPages.entries) {
+      testWidgets('${entry.key} back arrow returns to the dashboard, not the landing page', (tester) async {
+        final router = await pumpAt(tester, entry.key, entry.value);
+
+        await tapBack(tester);
+
+        expect(router.routerDelegate.currentConfiguration.uri.path, Routes.dashboard);
+        final dashboard = tester.widget<DashboardPage>(find.byType(DashboardPage));
+        expect(dashboard.args.jwt, 'test.jwt');
+        expect(dashboard.args.initialOrgId, 'org-2');
+      });
+    }
+
+    testWidgets('/dashboard back arrow leaves the signed-in area for the landing page', (tester) async {
+      final router = await pumpAt(tester, Routes.dashboard, const DashboardArgs(jwt: 'test.jwt'));
+
+      await tapBack(tester);
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, Routes.home);
+    });
+  });
+
   group('state.extra redirect guards', () {
     /// Navigate to [path] with [extra] on a live router. Returns current path.
     Future<String> navigateTo(

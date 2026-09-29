@@ -46,6 +46,13 @@ import '../pages/checkout_success_page.dart';
 /// Used to avoid repeating `() => context.go(Routes.home)` across every route.
 VoidCallback _goHome(BuildContext context) => () => context.go(Routes.home);
 
+/// Returns a callback that takes a dashboard sub-page back to the dashboard.
+/// The dashboard opens its sub-pages with `go`, so there is nothing to pop, and
+/// `/dashboard` needs its [DashboardArgs] again; they are rebuilt from the
+/// sub-page's own token and org, which also keeps that org selected.
+VoidCallback _backToDashboard(BuildContext context, {required String jwt, required String orgId}) =>
+    () => context.go(Routes.dashboard, extra: DashboardArgs(jwt: jwt, initialOrgId: orgId));
+
 GoRoute _homeRoute(VoidCallback onShowCookieSettings) => GoRoute(
       path: '/',
       builder: (context, state) => LandingPage(
@@ -230,10 +237,13 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
           if (state.extra is! BillingStatusArgs) return Routes.login;
           return null;
         },
-        builder: (context, state) => BillingStatusPage(
-          args: state.extra as BillingStatusArgs,
-          onBack: _goHome(context),
-        ),
+        builder: (context, state) {
+          final args = state.extra as BillingStatusArgs;
+          return BillingStatusPage(
+            args: args,
+            onBack: _backToDashboard(context, jwt: args.jwt, orgId: args.orgId),
+          );
+        },
       ),
       GoRoute(
         path: '/usage',
@@ -241,10 +251,13 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
           if (state.extra is! UsageSummaryArgs) return Routes.login;
           return null;
         },
-        builder: (context, state) => UsageSummaryPage(
-          args: state.extra as UsageSummaryArgs,
-          onBack: _goHome(context),
-        ),
+        builder: (context, state) {
+          final args = state.extra as UsageSummaryArgs;
+          return UsageSummaryPage(
+            args: args,
+            onBack: _backToDashboard(context, jwt: args.jwt, orgId: args.orgId),
+          );
+        },
       ),
       GoRoute(
         path: Routes.entitlements,
@@ -252,10 +265,13 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
           if (state.extra is! EntitlementsArgs) return Routes.login;
           return null;
         },
-        builder: (context, state) => EntitlementsPage(
-          args: state.extra as EntitlementsArgs,
-          onBack: _goHome(context),
-        ),
+        builder: (context, state) {
+          final args = state.extra as EntitlementsArgs;
+          return EntitlementsPage(
+            args: args,
+            onBack: _backToDashboard(context, jwt: args.jwt, orgId: args.orgId),
+          );
+        },
       ),
       GoRoute(
         path: Routes.quotaStatus,
@@ -263,10 +279,13 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
           if (state.extra is! QuotaStatusArgs) return Routes.login;
           return null;
         },
-        builder: (context, state) => QuotaStatusPage(
-          args: state.extra as QuotaStatusArgs,
-          onBack: _goHome(context),
-        ),
+        builder: (context, state) {
+          final args = state.extra as QuotaStatusArgs;
+          return QuotaStatusPage(
+            args: args,
+            onBack: _backToDashboard(context, jwt: args.jwt, orgId: args.orgId),
+          );
+        },
       ),
     ];
 

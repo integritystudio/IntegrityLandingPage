@@ -17,7 +17,21 @@ import 'usage_summary_page.dart';
 class DashboardArgs {
   final String jwt;
 
-  const DashboardArgs({required this.jwt});
+  /// Org to select once the list loads. Set when returning from a sub-page, so
+  /// the user lands back on the org they were viewing rather than the first one.
+  final String? initialOrgId;
+
+  const DashboardArgs({required this.jwt, this.initialOrgId});
+}
+
+/// The org to show first: [preferredOrgId] when the list still contains it,
+/// else the first org, or null for an empty list.
+OrgSummary? pickActiveOrg(List<OrgSummary> orgs, String? preferredOrgId) {
+  if (orgs.isEmpty) return null;
+  return orgs.firstWhere(
+    (org) => org.orgId == preferredOrgId,
+    orElse: () => orgs.first,
+  );
 }
 
 /// Hub page: fetches the authenticated user's org list, provides an org
@@ -63,7 +77,7 @@ class _DashboardPageState extends State<DashboardPage> {
       case OrgListSuccess():
         setState(() {
           _orgs = response.orgs;
-          _activeOrg = response.orgs.isNotEmpty ? response.orgs.first : null;
+          _activeOrg = pickActiveOrg(response.orgs, widget.args.initialOrgId);
           _isLoading = false;
         });
       case OrgListError():
