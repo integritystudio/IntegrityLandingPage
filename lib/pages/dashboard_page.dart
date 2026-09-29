@@ -246,15 +246,12 @@ class _DashboardPageState extends State<DashboardPage> {
             onTap: () {
               final current = _activeOrg;
               if (current == null) return;
-              // monthlyUnitsQuota: quota reference line; 0 = disabled
-              // until per-org quota is loaded via QuotaStatusPage.
               _navigateTo(
                 Routes.usageSummary,
                 UsageSummaryArgs(
                   orgId: current.orgId,
                   orgName: current.name,
                   jwt: widget.args.jwt,
-                  monthlyUnitsQuota: 0,
                 ),
               );
             },

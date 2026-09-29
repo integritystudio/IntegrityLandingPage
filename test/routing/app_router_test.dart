@@ -604,7 +604,7 @@ void main() {
 
     final subPages = <String, Object>{
       Routes.billingStatus: const BillingStatusArgs(jwt: 'test.jwt', orgId: 'org-2'),
-      Routes.usageSummary: const UsageSummaryArgs(jwt: 'test.jwt', orgId: 'org-2', orgName: 'Org Two', monthlyUnitsQuota: 0),
+      Routes.usageSummary: const UsageSummaryArgs(jwt: 'test.jwt', orgId: 'org-2', orgName: 'Org Two'),
       Routes.entitlements: const EntitlementsArgs(jwt: 'test.jwt', orgId: 'org-2', orgName: 'Org Two'),
       Routes.quotaStatus: const QuotaStatusArgs(jwt: 'test.jwt', orgId: 'org-2', orgName: 'Org Two'),
     };
@@ -744,7 +744,7 @@ void main() {
     });
 
     testWidgets('/usage with UsageSummaryArgs extra proceeds to /usage', (tester) async {
-      final args = UsageSummaryArgs(jwt: 'test.jwt', orgId: 'org-1', orgName: 'Test Org', monthlyUnitsQuota: 0);
+      final args = UsageSummaryArgs(jwt: 'test.jwt', orgId: 'org-1', orgName: 'Test Org');
       final path = await navigateTo(tester, Routes.usageSummary, extra: args);
       expect(path, Routes.usageSummary);
     });

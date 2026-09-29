@@ -30,14 +30,10 @@ class UsageSummaryArgs {
   final String orgName;
   final String jwt;
 
-  /// Monthly units quota from entitlements. 0 = unlimited.
-  final int monthlyUnitsQuota;
-
   const UsageSummaryArgs({
     required this.orgId,
     required this.orgName,
     required this.jwt,
-    required this.monthlyUnitsQuota,
   });
 }
 
@@ -317,10 +313,15 @@ class _UsageBar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              periodLabel,
-              style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+            // The period label gives way first, so the usage figure is never cut.
+            Flexible(
+              child: Text(
+                periodLabel,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.bodySM.copyWith(color: AppColors.gray400),
+              ),
             ),
+            const SizedBox(width: AppSpacing.sm),
             Text(
               _quotaLabel(),
               style: AppTypography.bodySM.copyWith(
