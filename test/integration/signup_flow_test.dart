@@ -62,10 +62,9 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      // Verify form fields by label
-      expect(find.textContaining('Full Name'), findsOneWidget);
+      // Verify form fields by label. No password: it is set on Auth0's page.
       expect(find.textContaining('Work Email'), findsOneWidget);
-      expect(find.textContaining('Password'), findsOneWidget);
+      expect(find.textContaining('Password'), findsNothing);
 
       // Verify terms checkbox exists
       expect(find.textContaining('Terms of Service'), findsOneWidget);
@@ -75,7 +74,7 @@ void main() {
       expect(find.text(CTAText.startFreeTrial), findsOneWidget);
     });
 
-    testWidgets('signup form validates empty name', (tester) async {
+    testWidgets('signup form validates empty email', (tester) async {
       setDesktopSize(tester);
 
       await tester.pumpWidget(
@@ -88,13 +87,13 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      // Scroll submit button into view, then tap without filling name
+      // Scroll submit button into view, then tap without filling the email
       await tester.ensureVisible(find.text(CTAText.startFreeTrial));
       await tester.tap(find.text(CTAText.startFreeTrial));
       await pumpFrames(tester, frames: 10);
 
       // Should show validation error
-      expect(find.textContaining('enter your name'), findsOneWidget);
+      expect(find.textContaining('enter your email'), findsOneWidget);
     });
 
     testWidgets('signup form validates email format', (tester) async {
@@ -110,13 +109,8 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      // Fill name first
-      final textFields = find.byType(TextField);
-      await tester.enterText(textFields.at(0), 'John Doe');
-      await pumpFrames(tester, frames: 2);
-
       // Enter invalid email
-      await tester.enterText(textFields.at(1), 'invalid-email');
+      await tester.enterText(find.byType(TextField), 'invalid-email');
       await pumpFrames(tester, frames: 2);
 
       // Check terms checkbox
@@ -145,13 +139,8 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      // Fill all fields but don't check terms
-      final textFields = find.byType(TextField);
-      await tester.enterText(textFields.at(0), 'John Doe');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(1), 'john@example.com');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(2), 'Acme Corp');
+      // Fill the email but don't check terms
+      await tester.enterText(find.byType(TextField), 'john@example.com');
       await pumpFrames(tester, frames: 2);
 
       // Scroll submit button into view, then tap without checking terms
@@ -176,13 +165,8 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      // Fill all fields
-      final textFields = find.byType(TextField);
-      await tester.enterText(textFields.at(0), 'John Doe');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(1), 'john@example.com');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(2), 'Acme Corp');
+      // Fill the email
+      await tester.enterText(find.byType(TextField), 'john@example.com');
       await pumpFrames(tester, frames: 2);
 
       // Check terms
@@ -190,9 +174,7 @@ void main() {
       await pumpFrames(tester, frames: 2);
 
       // Verify input is captured
-      expect(find.text('John Doe'), findsWidgets);
       expect(find.text('john@example.com'), findsWidgets);
-      expect(find.text('Acme Corp'), findsWidgets);
     });
 
     testWidgets('different tiers show correct descriptions', (tester) async {

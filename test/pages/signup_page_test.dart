@@ -1,16 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
+import 'package:integrity_studio_ai/config/content/constants.dart';
 import 'package:integrity_studio_ai/pages/signup_page.dart';
-import 'package:integrity_studio_ai/services/provisioning_service.dart';
+import 'package:integrity_studio_ai/services/auth0_config.dart';
+import 'package:integrity_studio_ai/services/auth0_service.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
 import 'package:integrity_studio_ai/widgets/common/form_fields.dart';
 import 'package:integrity_studio_ai/widgets/common/gradient_page_shell.dart';
+import '../helpers/fake_auth0_browser.dart';
 import '../helpers/test_helpers.dart';
 
-import '../helpers/mock_http_adapter.dart';
-
+/// SignupPage contract: collects the email (and, for enterprise, the company),
+/// validates it and the terms box locally, then hands off to Auth0's sign-up
+/// screen with the tier and company carried as a SignupIntent. No password is
+/// entered on this site.
 void main() {
+  late FakeAuth0Browser browser;
+
+  setUp(() {
+    browser = FakeAuth0Browser();
+    Auth0Service.setForTesting(browser: browser);
+  });
+
+  tearDown(Auth0Service.resetForTesting);
 
   group('SignupPage', () {
     void setLargeViewport(WidgetTester tester) {
@@ -59,8 +71,8 @@ void main() {
         await tester.pumpWidget(buildSignupPage());
         await tester.pump();
 
-        // Should have 3 form fields: name, email, password
-        expect(find.byType(FormTextField), findsNWidgets(3));
+        // Email only: the password is set on Auth0's sign-up screen.
+        expect(find.byType(FormTextField), findsOneWidget);
       });
 
       testWidgets('renders Checkbox for terms agreement', (tester) async {
@@ -107,16 +119,15 @@ void main() {
     });
 
     group('form interaction', () {
-      testWidgets('can enter text in name field', (tester) async {
+      testWidgets('can enter text in the email field', (tester) async {
         setLargeViewport(tester);
         await tester.pumpWidget(buildSignupPage());
         await tester.pump();
 
-        final textFields = find.byType(TextFormField);
-        expect(textFields, findsWidgets);
-
-        await tester.enterText(textFields.first, 'Test User');
+        await tester.enterText(find.byType(TextFormField).first, 'user@example.com');
         await tester.pump();
+
+        expect(find.text('user@example.com'), findsOneWidget);
       });
 
       testWidgets('can toggle terms checkbox', (tester) async {
@@ -229,71 +240,43 @@ void main() {
       });
     });
 
-    // -------------------------------------------------------------------------
-    // Tier-specific form fields
-    // -------------------------------------------------------------------------
-
     group('tier-specific form fields', () {
-      testWidgets('non-enterprise shows password field', (tester) async {
+      testWidgets('shows no password field on any tier', (tester) async {
         setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'starter'));
-        await tester.pump();
+        for (final tier in SignupTiers.all) {
+          await tester.pumpWidget(buildSignupPage(tier: tier));
+          await tester.pump();
 
-        expect(find.text('Password *'), findsOneWidget);
+          expect(find.textContaining('Password'), findsNothing, reason: tier);
+          final obscured = tester
+              .widgetList<EditableText>(find.byType(EditableText))
+              .any((et) => et.obscureText);
+          expect(obscured, isFalse, reason: tier);
+        }
       });
 
       testWidgets('non-enterprise does not show company field', (tester) async {
         setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'starter'));
+        await tester.pumpWidget(buildSignupPage(tier: SignupTiers.starter));
         await tester.pump();
 
         expect(find.text('Company Name'), findsNothing);
       });
 
-      testWidgets('enterprise shows company field', (tester) async {
+      testWidgets('enterprise shows the company field alongside email', (tester) async {
         setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
+        await tester.pumpWidget(buildSignupPage(tier: SignupTiers.enterprise));
         await tester.pump();
 
         expect(find.text('Company Name'), findsOneWidget);
-      });
-
-      testWidgets('enterprise shows password field', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
-        await tester.pump();
-
-        expect(find.text('Password *'), findsOneWidget);
-      });
-
-      testWidgets('enterprise has 4 form fields (name, email, company, password)', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
-        await tester.pump();
-
-        expect(find.byType(FormTextField), findsNWidgets(4));
-      });
-
-      testWidgets('password field is obscured on all tiers', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'starter'));
-        await tester.pump();
-
-        final obscured = tester
-            .widgetList<EditableText>(find.byType(EditableText))
-            .any((et) => et.obscureText);
-        expect(obscured, isTrue);
+        expect(find.byType(FormTextField), findsNWidgets(2));
       });
     });
-
-    // -------------------------------------------------------------------------
-    // Button text
-    // -------------------------------------------------------------------------
 
     group('button text', () {
       testWidgets('non-enterprise shows Start Free Trial', (tester) async {
         setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'starter'));
+        await tester.pumpWidget(buildSignupPage(tier: SignupTiers.starter));
         await tester.pump();
 
         expect(find.text('Start Free Trial'), findsOneWidget);
@@ -301,389 +284,111 @@ void main() {
 
       testWidgets('enterprise shows Create Account', (tester) async {
         setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
+        await tester.pumpWidget(buildSignupPage(tier: SignupTiers.enterprise));
         await tester.pump();
 
         expect(find.text('Create Account'), findsOneWidget);
       });
     });
 
-    // -------------------------------------------------------------------------
-    // Tier-specific validation (local — no service calls)
-    // -------------------------------------------------------------------------
-
-    group('tier-specific validation', () {
-      testWidgets('non-enterprise shows name error when empty', (tester) async {
+    group('validation', () {
+      Future<void> submit(WidgetTester tester, {String email = '', bool agree = false}) async {
         setLargeViewport(tester);
         await tester.pumpWidget(buildSignupPage());
         await tester.pump();
-
+        if (email.isNotEmpty) {
+          await tester.enterText(find.byType(TextFormField).first, email);
+        }
+        if (agree) await tester.tap(find.byType(Checkbox));
+        await tester.pump();
         await tester.tap(find.byType(GradientButton));
         await tester.pump();
+      }
 
-        expect(find.text('Please enter your name'), findsOneWidget);
-      });
-
-      testWidgets('non-enterprise shows email error when empty', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage());
-        await tester.pump();
-
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
+      testWidgets('an empty email is refused before leaving the site', (tester) async {
+        await submit(tester, agree: true);
 
         expect(find.text('Please enter your email'), findsOneWidget);
+        expect(browser.navigations, isEmpty);
       });
 
-      testWidgets('non-enterprise shows email format error', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage());
-        await tester.pump();
-
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'not-an-email');
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
+      testWidgets('a malformed email is refused', (tester) async {
+        await submit(tester, email: 'not-an-email', agree: true);
 
         expect(find.text('Please enter a valid email'), findsOneWidget);
+        expect(browser.navigations, isEmpty);
       });
 
-      testWidgets('non-enterprise shows password required error', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage());
-        await tester.pump();
-
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
-
-        expect(find.text('Please enter a password'), findsOneWidget);
-      });
-
-      testWidgets('non-enterprise shows password too short error', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage());
-        await tester.pump();
-
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
-        await tester.enterText(find.byType(TextFormField).at(2), 'short');
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
-
-        expect(find.text('Password must be at least 8 characters'), findsOneWidget);
-      });
-
-      testWidgets('non-enterprise shows terms error when not agreed', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage());
-        await tester.pump();
-
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
-        await tester.enterText(find.byType(TextFormField).at(2), 'password123');
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
+      testWidgets('the terms must be agreed to', (tester) async {
+        await submit(tester, email: 'user@example.com');
 
         expect(
           find.text('Please agree to the Terms of Service and Privacy Policy'),
           findsOneWidget,
         );
-      });
-
-      testWidgets('enterprise shows name error when empty', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
-        await tester.pump();
-
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
-
-        expect(find.text('Please enter your name'), findsOneWidget);
-      });
-
-      testWidgets('enterprise shows email error when empty', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
-        await tester.pump();
-
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
-
-        expect(find.text('Please enter your email'), findsOneWidget);
-      });
-
-      testWidgets('enterprise shows password required error', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
-        await tester.pump();
-
-        // Fill name, email, company but not password
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
-        await tester.enterText(find.byType(TextFormField).at(2), 'Acme Corp');
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
-
-        expect(find.text('Please enter a password'), findsOneWidget);
-      });
-
-      testWidgets('enterprise shows terms error when not agreed', (tester) async {
-        setLargeViewport(tester);
-        await tester.pumpWidget(buildSignupPage(tier: 'enterprise'));
-        await tester.pump();
-
-        // Enterprise: at(0)=name, at(1)=email, at(2)=company, at(3)=password
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
-        await tester.enterText(find.byType(TextFormField).at(2), 'Acme Corp');
-        await tester.enterText(find.byType(TextFormField).at(3), 'password123');
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
-
-        expect(
-          find.text('Please agree to the Terms of Service and Privacy Policy'),
-          findsOneWidget,
-        );
+        expect(browser.navigations, isEmpty);
       });
     });
 
-    // -------------------------------------------------------------------------
-    // Submission — non-enterprise (GoRouter + mocked ProvisioningService)
-    // -------------------------------------------------------------------------
-
-    group('submission — non-enterprise', () {
-      late MockHttpAdapter adapter;
-
-      setUp(() {
-        adapter = MockHttpAdapter();
-        ProvisioningService.setDioForTesting(dioWithMockAdapter(adapter));
-        ProvisioningService.retryDelay = (_) async {};
-      });
-
-      tearDown(() {
-        ProvisioningService.resetDio();
-        ProvisioningService.resetRetryDelay();
-      });
-
-      testWidgets('routes to /provision on successful signup', (tester) async {
+    group('submission', () {
+      Future<void> fillAndSubmit(
+        WidgetTester tester, {
+        required String tier,
+        String? company,
+      }) async {
         setLargeViewport(tester);
-        adapter.stubJson('POST', 
-          {'jwt': 'test-jwt-123'},
-          statusCode: 201,
-        );
-
-        final router = _makeSignupRouter('starter');
-        await tester.pumpWidget(MaterialApp.router(
-          theme: testTheme,
-          routerConfig: router,
-        ));
+        await tester.pumpWidget(buildSignupPage(tier: tier));
         await tester.pump();
-
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
-        await tester.enterText(find.byType(TextFormField).at(2), 'password123');
+        await tester.enterText(find.byType(TextFormField).at(0), ' user@example.com ');
+        if (company != null) {
+          await tester.enterText(find.byType(TextFormField).at(1), company);
+        }
         await tester.tap(find.byType(Checkbox));
         await tester.pump();
-
         await tester.tap(find.byType(GradientButton));
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
+      }
 
-        expect(find.text('provision_page'), findsOneWidget);
+      SignupIntent? storedIntent() => SignupIntent.tryDecode(
+          browser.stores[BrowserStore.session]!['auth0_signup_intent']);
+
+      testWidgets('opens the Auth0 sign-up screen with the email pre-filled', (tester) async {
+        await fillAndSubmit(tester, tier: SignupTiers.starter);
+
+        final url = browser.lastNavigation!;
+        expect(url.host, Auth0Config.domain);
+        expect(url.path, '/authorize');
+        expect(url.queryParameters['screen_hint'], 'signup');
+        expect(url.queryParameters['login_hint'], 'user@example.com');
       });
 
-      testWidgets('routes to /request_failure on failed signup', (tester) async {
-        setLargeViewport(tester);
-        adapter.stubJson('POST', 
-          {'error': 'Email already in use'},
-          statusCode: 409,
-        );
+      testWidgets('carries the tier across the redirect, with no org name', (tester) async {
+        await fillAndSubmit(tester, tier: SignupTiers.growth);
 
-        final router = _makeSignupRouter('starter');
-        await tester.pumpWidget(MaterialApp.router(
-          theme: testTheme,
-          routerConfig: router,
-        ));
-        await tester.pump();
-
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
-        await tester.enterText(find.byType(TextFormField).at(2), 'password123');
-        await tester.tap(find.byType(Checkbox));
-        await tester.pump();
-
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
-
-        expect(find.text('request_failure_page'), findsOneWidget);
-        expect(find.text('provision_page'), findsNothing);
+        expect(storedIntent()?.tier, SignupTiers.growth);
+        expect(storedIntent()?.orgName, isNull);
       });
 
-      testWidgets('routes to /checkout for growth tier on success', (tester) async {
-        setLargeViewport(tester);
-        adapter.stubJson('POST', 
-          {'jwt': 'test-jwt-456', 'email': 'user@example.com'},
-          statusCode: 201,
-        );
+      testWidgets('enterprise carries the company as the org name', (tester) async {
+        await fillAndSubmit(tester, tier: SignupTiers.enterprise, company: ' Acme Corp ');
 
-        final router = _makeSignupRouterWithCheckout('growth');
-        await tester.pumpWidget(MaterialApp.router(
-          theme: testTheme,
-          routerConfig: router,
-        ));
-        await tester.pump();
-
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'user@example.com');
-        await tester.enterText(find.byType(TextFormField).at(2), 'password123');
-        await tester.tap(find.byType(Checkbox));
-        await tester.pump();
-
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
-
-        expect(find.text('checkout_page'), findsOneWidget);
-        expect(find.text('provision_page'), findsNothing);
-      });
-    });
-
-    // -------------------------------------------------------------------------
-    // Submission — enterprise (GoRouter + mocked ProvisioningService)
-    // -------------------------------------------------------------------------
-
-    group('submission — enterprise', () {
-      late MockHttpAdapter adapter;
-
-      setUp(() {
-        adapter = MockHttpAdapter();
-        ProvisioningService.setDioForTesting(dioWithMockAdapter(adapter));
-        ProvisioningService.retryDelay = (_) async {};
+        expect(storedIntent()?.tier, SignupTiers.enterprise);
+        expect(storedIntent()?.orgName, 'Acme Corp');
       });
 
-      tearDown(() {
-        ProvisioningService.resetDio();
-        ProvisioningService.resetRetryDelay();
+      testWidgets('enterprise without a company leaves the name to the receiver', (tester) async {
+        await fillAndSubmit(tester, tier: SignupTiers.enterprise);
+
+        expect(storedIntent()?.orgName, isNull);
       });
 
-      testWidgets('routes to /checkout on successful enterprise signup', (tester) async {
-        setLargeViewport(tester);
-        adapter.stubJson('POST', 
-          {'jwt': 'test-jwt-789', 'email': 'corp@bigco.com'},
-          statusCode: 201,
-        );
+      testWidgets('disables the button once the redirect has started', (tester) async {
+        await fillAndSubmit(tester, tier: SignupTiers.starter);
 
-        final router = _makeSignupRouterWithCheckout('enterprise');
-        await tester.pumpWidget(MaterialApp.router(
-          theme: testTheme,
-          routerConfig: router,
-        ));
-        await tester.pump();
-
-        // Enterprise: at(0)=name, at(1)=email, at(2)=company, at(3)=password
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'corp@bigco.com');
-        await tester.enterText(find.byType(TextFormField).at(2), 'Big Co Inc');
-        await tester.enterText(find.byType(TextFormField).at(3), 'password123');
-        await tester.tap(find.byType(Checkbox));
-        await tester.pump();
-
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
-
-        expect(find.text('checkout_page'), findsOneWidget);
-        expect(find.text('provision_page'), findsNothing);
-      });
-
-      testWidgets('routes to /request_failure on failed enterprise signup', (tester) async {
-        setLargeViewport(tester);
-        adapter.stubJson('POST', 
-          {'error': 'Email already in use'},
-          statusCode: 409,
-        );
-
-        final router = _makeSignupRouterWithCheckout('enterprise');
-        await tester.pumpWidget(MaterialApp.router(
-          theme: testTheme,
-          routerConfig: router,
-        ));
-        await tester.pump();
-
-        await tester.enterText(find.byType(TextFormField).at(0), 'Test User');
-        await tester.enterText(find.byType(TextFormField).at(1), 'corp@bigco.com');
-        await tester.enterText(find.byType(TextFormField).at(2), 'Big Co Inc');
-        await tester.enterText(find.byType(TextFormField).at(3), 'password123');
-        await tester.tap(find.byType(Checkbox));
-        await tester.pump();
-
-        await tester.tap(find.byType(GradientButton));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
-
-        expect(find.text('request_failure_page'), findsOneWidget);
-        expect(find.text('checkout_page'), findsNothing);
+        final button = tester.widget<GradientButton>(find.byType(GradientButton));
+        expect(button.onPressed, isNull);
+        expect(find.text('Redirecting...'), findsOneWidget);
       });
     });
   });
 }
-
-// -----------------------------------------------------------------------------
-// Router factory for submission tests
-// -----------------------------------------------------------------------------
-
-GoRouter _makeSignupRouter(String tier) => GoRouter(
-      routes: [
-        GoRoute(
-          path: '/',
-          builder: (_, _) => SignupPage(tier: tier, onBack: () {}),
-        ),
-        GoRoute(
-          path: '/provision',
-          builder: (_, _) => const Scaffold(body: Text('provision_page')),
-        ),
-        GoRoute(
-          path: '/request_success',
-          builder: (_, _) => const Scaffold(body: Text('request_success_page')),
-        ),
-        GoRoute(
-          path: '/request_failure',
-          builder: (_, _) => const Scaffold(body: Text('request_failure_page')),
-        ),
-      ],
-    );
-
-GoRouter _makeSignupRouterWithCheckout(String tier) => GoRouter(
-      routes: [
-        GoRoute(
-          path: '/',
-          builder: (_, _) => SignupPage(tier: tier, onBack: () {}),
-        ),
-        GoRoute(
-          path: '/provision',
-          builder: (_, _) => const Scaffold(body: Text('provision_page')),
-        ),
-        GoRoute(
-          path: '/checkout',
-          builder: (_, _) => const Scaffold(body: Text('checkout_page')),
-        ),
-        GoRoute(
-          path: '/request_success',
-          builder: (_, _) => const Scaffold(body: Text('request_success_page')),
-        ),
-        GoRoute(
-          path: '/request_failure',
-          builder: (_, _) => const Scaffold(body: Text('request_failure_page')),
-        ),
-      ],
-    );

@@ -89,25 +89,4 @@ void main() {
     });
   });
 
-  group('PasswordPolicy', () {
-    test('minLength is less than half of maxLength', () {
-      expect(PasswordPolicy.minLength, lessThan(PasswordPolicy.maxLength / 2));
-    });
-
-    test('maxLength is greater than minLength', () {
-      expect(PasswordPolicy.maxLength, greaterThan(PasswordPolicy.minLength));
-    });
-
-    test('maxLength is reasonable (< 256)', () {
-      expect(PasswordPolicy.maxLength, lessThan(256));
-    });
-
-    test('minLength is 8 for DOS protection', () {
-      expect(PasswordPolicy.minLength, equals(8));
-    });
-
-    test('maxLength is 128 to prevent password field DoS', () {
-      expect(PasswordPolicy.maxLength, equals(128));
-    });
-  });
 }

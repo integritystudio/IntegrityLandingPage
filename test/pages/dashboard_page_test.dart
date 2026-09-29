@@ -1,8 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/pages/dashboard_page.dart';
+import 'package:integrity_studio_ai/services/auth0_config.dart';
+import 'package:integrity_studio_ai/services/auth0_service.dart';
 import 'package:integrity_studio_ai/services/dashboard_service.dart';
 
+import '../helpers/fake_auth0_browser.dart';
 import '../helpers/mock_http_adapter.dart';
 import '../helpers/test_helpers.dart';
 
@@ -72,6 +75,34 @@ void main() {
       await tester.pump();
 
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('Sign out', () {
+    late FakeAuth0Browser browser;
+
+    setUp(() {
+      browser = FakeAuth0Browser();
+      browser.write(BrowserStore.local, 'auth0_refresh_token', 'refresh-1');
+      Auth0Service.setForTesting(browser: browser);
+      DashboardService.setDioForTesting(dioWithMockAdapter(
+          MockHttpAdapter()..stubJson('GET', {'organizations': []}, path: '/v1/orgs')));
+    });
+
+    tearDown(() {
+      Auth0Service.resetForTesting();
+      DashboardService.resetDio();
+    });
+
+    testWidgets('forgets the session and ends the shared Auth0 session', (tester) async {
+      await tester.pumpApp(const DashboardPage(args: DashboardArgs(jwt: 'test.jwt')));
+
+      await tester.tap(find.text('Sign out'));
+      await tester.pump();
+
+      expect(Auth0Service.hasSession, isFalse);
+      expect(browser.lastNavigation?.host, Auth0Config.domain);
+      expect(browser.lastNavigation?.path, '/v2/logout');
     });
   });
 }

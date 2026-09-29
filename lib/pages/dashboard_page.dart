@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/content/constants.dart';
 import '../services/analytics.dart';
+import '../services/auth0_service.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/cards.dart';
@@ -183,6 +184,15 @@ class _DashboardPageState extends State<DashboardPage> {
       title: 'Dashboard',
       titleStyle: AppTypography.headingMD,
       onBack: widget.onBack,
+      actions: [
+        // Ends the Auth0 session too, so integritystudio.dev is signed out as well.
+        TextButton.icon(
+          onPressed: Auth0Service.logout,
+          icon: const Icon(LucideIcons.logOut, size: 16),
+          label: const Text('Sign out'),
+          style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+        ),
+      ],
       children: [
         if (_isLoading)
           const Center(child: CircularProgressIndicator())

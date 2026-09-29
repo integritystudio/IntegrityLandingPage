@@ -236,13 +236,8 @@ void main() {
       );
       await pumpFrames(tester, frames: 20);
 
-      // Fill form
-      final textFields = find.byType(TextField);
-      await tester.enterText(textFields.at(0), 'Test User');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(1), 'test@company.com');
-      await pumpFrames(tester, frames: 2);
-      await tester.enterText(textFields.at(2), 'Test Company');
+      // Fill form: the email is the only field; the password is set on Auth0.
+      await tester.enterText(find.byType(TextField), 'test@company.com');
       await pumpFrames(tester, frames: 2);
 
       // Check terms
@@ -250,7 +245,6 @@ void main() {
       await pumpFrames(tester, frames: 2);
 
       // Verify input
-      expect(find.text('Test User'), findsWidgets);
       expect(find.text('test@company.com'), findsWidgets);
     });
   });

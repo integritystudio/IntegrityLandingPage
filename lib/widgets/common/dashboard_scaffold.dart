@@ -16,6 +16,9 @@ class DashboardScaffold extends StatelessWidget {
   final TextStyle? titleStyle;
   final List<Widget> children;
 
+  /// Trailing app bar actions, e.g. the dashboard's sign-out button.
+  final List<Widget>? actions;
+
   const DashboardScaffold({
     super.key,
     required this.title,
@@ -23,6 +26,7 @@ class DashboardScaffold extends StatelessWidget {
     required this.children,
     this.onBack,
     this.titleStyle,
+    this.actions,
   });
 
   @override
@@ -37,6 +41,7 @@ class DashboardScaffold extends StatelessWidget {
         leading: onBack != null
             ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: onBack)
             : null,
+        actions: actions,
       ),
       body: GradientBackground(
         // Scrolls when the content is taller than the viewport; short content

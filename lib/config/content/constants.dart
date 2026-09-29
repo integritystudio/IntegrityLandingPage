@@ -139,6 +139,7 @@ abstract final class Routes {
   static const String app = '/app';
   static const String forgotPassword = '/forgot-password';
   static const String provision = '/provision';
+  static const String callback = '/callback';
   static const String checkout = '/checkout';
   static const String checkoutSuccess = '/checkout-success';
   static const String senderHealth = '/health';
@@ -258,16 +259,6 @@ abstract final class FormMessages {
       'Something went wrong. Please try again or email us directly at ${CompanyInfo.email}';
   static const String subscribeSuccess = 'Thanks for subscribing!';
   static const String subscribeError = 'Could not subscribe. Please try again.';
-}
-
-// =============================================================================
-// AUTHENTICATION CONSTRAINTS
-// =============================================================================
-
-/// Password validation constraints shared by client UI and auth logic.
-abstract final class PasswordPolicy {
-  static const int minLength = 8;
-  static const int maxLength = 128;
 }
 
 // =============================================================================

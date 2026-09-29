@@ -12,6 +12,10 @@ import 'package:integrity_studio_ai/services/provisioning_service.dart';
 /// Mark tests as skip when prerequisites aren't met (e.g., Stripe not configured on staging).
 const _liveTestsEnabled = bool.fromEnvironment('LIVE_TESTS');
 
+/// An Auth0 access token for the tests that need a signed-in user. Sign in through
+/// /login, then copy `accessToken` from the `auth0_session` sessionStorage entry.
+const _liveAccessToken = String.fromEnvironment('LIVE_ACCESS_TOKEN');
+
 void main() {
   // Skip all tests in this file if LIVE_TESTS is not enabled
   if (!_liveTestsEnabled) {
@@ -51,72 +55,13 @@ void main() {
       });
     });
 
-    group('signUp', () {
-      test(
-        'returns AuthSuccess with valid JWT structure',
-        skip: 'unskipping would create a real Auth0 user in the production tenant; '
-            'run manually with --dart-define=SENDER_WORKER_URL=<dev> only when testing signup flow',
-        () async {
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final testEmail = 'live-test-flutter-$timestamp@integritystudio-test.invalid';
-
-          // Act
-          final result = await ProvisioningService.signUp(
-            testEmail,
-            'TempPassword123!@#',
-            name: 'Live Test User',
-          );
-
-          // Assert
-          expect(result, isA<AuthSuccess>());
-          final authSuccess = result as AuthSuccess;
-          expect(authSuccess.jwt, isNotEmpty);
-          // JWT structure: base64.base64.base64
-          expect(authSuccess.jwt.split('.'), hasLength(3));
-        },
-      );
-
-      test('invalid email returns AuthError', () async {
-        final result = await ProvisioningService.signUp(
-          'not-an-email',
-          'password123',
-        );
-
-        expect(result, isA<AuthError>());
-      });
-    });
-
-    group('signIn', () {
-      // TS05: /signin exists on the worker. Invalid credentials return AuthError
-      // (wrong password) rather than 404. Updated from the stale "404 not implemented"
-      // assertion that contradicted the actual route.
-      test('returns AuthError with invalid credentials', () async {
-        final result = await ProvisioningService.signIn(
-          'test@example.com',
-          'password123',
-        );
-
-        expect(result, isA<AuthError>());
-      });
-    });
-
     group('sendEvent', () {
       test(
         'returns ProvisioningSuccess with valid JWT',
         skip: 'sender-worker-dev has no SIGNING_KEYS/ACTIVE_KEY_ID bound — /send returns 500; '
             'provision signing keys on dev before unskipping (BACKLOG CR29, never copy prd keys to dev)',
         () async {
-          // Requires valid JWT from signUp
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final testEmail = 'live-test-flutter-event-$timestamp@integritystudio-test.invalid';
-
-          // Sign up to get JWT
-          final authResult = await ProvisioningService.signUp(
-            testEmail,
-            'TempPassword123!@#',
-          );
-          expect(authResult, isA<AuthSuccess>());
-          final jwt = (authResult as AuthSuccess).jwt;
+          expect(_liveAccessToken, isNotEmpty, reason: 'LIVE_ACCESS_TOKEN not set');
 
           // Act: send provisioning event
           const event = ProvisioningEvent(
@@ -126,7 +71,7 @@ void main() {
             tier: 'starter',
           );
 
-          final result = await ProvisioningService.sendEvent(event, jwt: jwt);
+          final result = await ProvisioningService.sendEvent(event, jwt: _liveAccessToken);
 
           // Assert
           expect(result, isA<ProvisioningSuccess>());
@@ -169,16 +114,12 @@ void main() {
     group('bootstrap', () {
       test(
         'returns BootstrapSuccess with org and entitlements',
-        skip: 'requires a valid JWT from a real signIn call; '
-            'pass --dart-define=BOOTSTRAP_TOKEN=<jwt> to run this test manually',
+        skip: 'requires a signed-in user; '
+            'pass --dart-define=LIVE_ACCESS_TOKEN=<token> to run this test manually',
         () async {
-          // This requires a valid Auth0 session token
-          // Skipped in CI unless BOOTSTRAP_TOKEN is set
-          const bootstrapToken = String.fromEnvironment('BOOTSTRAP_TOKEN');
+          expect(_liveAccessToken, isNotEmpty, reason: 'LIVE_ACCESS_TOKEN not set');
 
-          expect(bootstrapToken, isNotEmpty, reason: 'BOOTSTRAP_TOKEN not set');
-
-          final result = await ProvisioningService.bootstrap(jwt: bootstrapToken);
+          final result = await ProvisioningService.bootstrap(jwt: _liveAccessToken);
 
           expect(result, isA<BootstrapSuccess>());
           final success = result as BootstrapSuccess;
