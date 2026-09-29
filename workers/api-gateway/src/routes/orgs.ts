@@ -5,6 +5,7 @@ import { requireBearerToken, safeParseJson } from '../../../lib/http/request';
 import { parseApiKey } from '../../../lib/api-keys';
 import type { Organization, OrgRole, OrgMembership, Entitlement, ApiKeyTier } from '../../../lib/types';
 import { effectivePlan, PLAN_MIN_SEATS, DEFAULT_CHECKOUT_SEATS } from '../../../lib/billing';
+import { ApiKeyTierSchema } from '../../../lib/types/schemas';
 import { resolveJwt, resolveJwtRateLimited, buildEntitlementMap, loadPlan, writeAuditLog, auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
 
 interface OrgsHandlerOptions extends UserTokenOptions {
@@ -326,6 +327,8 @@ export async function handleCreateCheckoutSession(
       : {};
   const plan = typeof payload.plan === 'string' ? payload.plan.trim() : '';
   if (!plan) return badRequest('Missing required field: plan');
+  // Checked against the known tiers before it reaches a query filter (CR44).
+  if (!ApiKeyTierSchema.safeParse(plan).success) return badRequest(`Unknown plan: ${plan}`);
 
   const orgResult = await sb.query<{ id: string; stripe_customer_id: string | null }>(
     'organizations',

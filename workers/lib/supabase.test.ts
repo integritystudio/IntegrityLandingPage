@@ -117,4 +117,36 @@ describe('supabase client write paths', () => {
       expect(result).toEqual({ ok: true, data: null });
     });
   });
+
+  describe('filters that could widen a write or a list (CR44)', () => {
+    it('refuses an update with no filters, without a request', async () => {
+      const sb = createSupabaseClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+      const result = await sb.update('api_keys', { status: 'revoked' }, []);
+
+      expect(result.ok).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('refuses a delete with no filters, without a request', async () => {
+      const sb = createSupabaseClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+      const result = await sb.deleteRows('api_keys', []);
+
+      expect(result.ok).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('quotes in-list members so a comma or quote cannot split the list', async () => {
+      fetchMock.mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
+      const sb = createSupabaseClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+      await sb.query('organizations', {
+        filters: [{ column: 'id', operator: 'in', value: ['org-1', 'a,b', 'say "hi"', 'back\\slash'] }],
+      });
+
+      expect(lastRequest(fetchMock).url.searchParams.get('id'))
+        .toBe('in.("org-1","a,b","say \\"hi\\"","back\\\\slash")');
+    });
+  });
 });

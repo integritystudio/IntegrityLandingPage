@@ -26,6 +26,23 @@ const REPRESENTATION: SupabaseReturning = 'representation';
 type OkResult<T> = { ok: true; data: T };
 type ErrResult = { ok: false; error: string };
 
+/**
+ * One member of a PostgREST `in` list, double-quoted with `\` and `"` escaped. Unquoted,
+ * a member containing `,` or `)` would split or end the list (CR44).
+ */
+function quoteListMember(value: unknown): string {
+  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  return `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * A PATCH or DELETE with no filter applies to every row in the table. Nothing sends one
+ * today; this makes the mistake an error instead of a table-wide write (CR44).
+ */
+function refuseUnfiltered(method: 'PATCH' | 'DELETE', table: string): ErrResult {
+  return { ok: false, error: `Refusing ${method} on ${table} with no filters: it would affect every row` };
+}
+
 function serializeFilters(
   url: URL,
   filters: QueryFilter[],
@@ -33,7 +50,7 @@ function serializeFilters(
   for (const { column, operator, value } of filters) {
     let serialized: string;
     if (Array.isArray(value)) {
-      serialized = `(${value.join(',')})`;
+      serialized = `(${value.map(quoteListMember).join(',')})`;
     } else if (typeof value === 'string') {
       serialized = value;
     } else {
@@ -148,6 +165,7 @@ export function createSupabaseClient(
     filters: QueryFilter[],
     options?: UpdateOptions,
   ): Promise<OkResult<T[] | null> | ErrResult> {
+    if (filters.length === 0) return refuseUnfiltered('PATCH', table);
     try {
       const url = new URL(`${supabaseUrl}/rest/v1/${table}`);
       const returning = options?.returning ?? REPRESENTATION;
@@ -252,6 +270,7 @@ export function createSupabaseClient(
     table: string,
     filters: import('./types/supabase').QueryFilter[],
   ): Promise<OkResult<null> | ErrResult> {
+    if (filters.length === 0) return refuseUnfiltered('DELETE', table);
     try {
       const url = new URL(`${supabaseUrl}/rest/v1/${table}`);
       serializeFilters(url, filters);

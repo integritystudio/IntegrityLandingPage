@@ -332,7 +332,7 @@ describe('POST /bootstrap', () => {
 
     // The foreign id must never reach the database as a filter value.
     const orgQuery = stub.find('GET', 'organizations')!;
-    expect(orgQuery.url.searchParams.get('id')).toBe('in.(org-1)');
+    expect(orgQuery.url.searchParams.get('id')).toBe('in.("org-1")');
     expect(orgQuery.url.toString()).not.toContain('org-someone-else');
   });
 

@@ -119,7 +119,7 @@ describe('GET /v1/orgs', () => {
 
     // PostgREST `in` takes a parenthesised, comma-joined list — assert the wire format.
     const params = stub.find('GET', 'organizations')!.url.searchParams;
-    expect(params.get('id')).toBe(`in.(${ORG_ID},${OTHER_ORG_ID})`);
+    expect(params.get('id')).toBe(`in.("${ORG_ID}","${OTHER_ORG_ID}")`);
 
     const body = await res.json() as { organizations: Array<Organization & { role: OrgRole }> };
     expect(body.organizations.map((o) => o.role)).toEqual(['owner', 'admin']);
@@ -519,6 +519,18 @@ describe('POST /v1/orgs/:id/checkout-session', () => {
       makeCheckoutOpts(),
     );
     expect(res.status).toBe(400);
+  });
+
+  it('rejects a plan outside the known tiers before it reaches a query (CR44)', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    const stub = stubSupabase(checkoutRoutes(null, []));
+    const res = await handleCreateCheckoutSession(
+      checkoutRequest(token, { plan: 'growth,enterprise' }),
+      ORG_ID,
+      makeCheckoutOpts(),
+    );
+    expect(res.status).toBe(400);
+    expect(stub.findAll('GET', 'plans')).toHaveLength(0);
   });
 
   // A null stripe_price_id is the catalogue's marker for a contract-billed plan (enterprise
