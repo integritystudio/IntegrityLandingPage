@@ -1052,4 +1052,43 @@ void main() {
       }
     });
   });
+
+  // Marketing consent initialises the pixel; withdrawing it disables tracking. Only a
+  // pixel in both states may send the Lead event CR55 fires at signup and on contact.
+  group('FacebookPixelService.trackLead consent gate', () {
+    late List<(String, Map<String, dynamic>?)> sent;
+
+    setUp(() {
+      FacebookPixelService.resetForTesting();
+      sent = [];
+      FacebookPixelService.sendEvent = (name, [params]) => sent.add((name, params));
+    });
+
+    tearDown(FacebookPixelService.resetForTesting);
+
+    test('sends nothing before marketing consent initialises the pixel', () {
+      FacebookPixelService.trackLead(email: 'lead@example.com');
+
+      expect(sent, isEmpty);
+    });
+
+    test('sends the Lead event with the email once consent is given', () {
+      FacebookPixelService.markInitializedForTesting();
+
+      FacebookPixelService.trackLead(email: 'lead@example.com');
+
+      expect(sent, hasLength(1));
+      expect(sent.single.$1, 'Lead');
+      expect(sent.single.$2, {'email': 'lead@example.com'});
+    });
+
+    test('sends nothing after consent is withdrawn', () {
+      FacebookPixelService.markInitializedForTesting();
+      FacebookPixelService.disable();
+
+      FacebookPixelService.trackLead(email: 'lead@example.com');
+
+      expect(sent, isEmpty);
+    });
+  });
 }

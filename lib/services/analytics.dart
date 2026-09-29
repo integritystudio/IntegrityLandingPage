@@ -575,19 +575,33 @@ class FacebookPixelService {
     return leadCallLog!;
   }
 
+  /// Where events go once past the consent gate; a test replaces it to see what
+  /// was sent. [resetForTesting] restores it.
+  @visibleForTesting
+  static void Function(String eventName, [Map<String, dynamic>? parameters]) sendEvent =
+      TrackingWeb.sendFBEvent;
+
+  /// Stand-in for [initialize] on a non-web test platform, where it returns early:
+  /// the state marketing consent leaves the pixel in.
+  @visibleForTesting
+  static void markInitializedForTesting() {
+    _initialized = true;
+  }
+
   /// Disable the lead call log and reset state for testing.
   @visibleForTesting
   static void resetForTesting() {
     leadCallLog = null;
     _initialized = false;
     _enabled = true;
+    sendEvent = TrackingWeb.sendFBEvent;
   }
 
   /// Track lead (form submission).
   static void trackLead({String? email}) {
     leadCallLog?.add(email);
     if (!isReady) return;
-    TrackingWeb.sendFBEvent('Lead', email != null ? {'email': email} : null);
+    sendEvent('Lead', email != null ? {'email': email} : null);
     _log('Lead event sent');
   }
 
@@ -597,14 +611,14 @@ class FacebookPixelService {
     final params = <String, dynamic>{};
     if (email != null) params['email'] = email;
     if (name != null) params['content_name'] = name;
-    TrackingWeb.sendFBEvent('Contact', params.isNotEmpty ? params : null);
+    sendEvent('Contact', params.isNotEmpty ? params : null);
     _log('Contact event sent');
   }
 
   /// Track view content.
   static void trackViewContent(String contentType) {
     if (!isReady) return;
-    TrackingWeb.sendFBEvent('ViewContent', {'content_type': contentType});
+    sendEvent('ViewContent', {'content_type': contentType});
   }
 
   static void _log(String message) {
