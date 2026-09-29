@@ -301,6 +301,12 @@ verify_jwt = true
 [functions.api-keys-rotate]
 verify_jwt = true
 
+[functions.api-keys-set-status]
+# Operator-only: callers present a service-level key, which is not a JWT, so platform
+# verification stays off; the handler requires that key on every request (the same
+# Auth-admin capability check as api-keys-create) and answers 401 otherwise.
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
