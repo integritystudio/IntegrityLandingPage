@@ -149,12 +149,25 @@ void main() {
         'footerPrivacyLink': (() => ContentLoader.footerPrivacyLink, '/privacy'),
         'footerTermsLink': (() => ContentLoader.footerTermsLink, '/terms'),
         'footerCookiesLink': (() => ContentLoader.footerCookiesLink, '/cookies'),
+        'footerCookieSettingsLabel': (() => ContentLoader.footerCookieSettingsLabel, 'Cookie Settings'),
+        'footerTagline': (() => ContentLoader.footerTagline, 'Footer Tagline'),
+        'footerPrivacyLabel': (() => ContentLoader.footerPrivacyLabel, 'Privacy Label'),
+        'footerPrivacyLabelShort': (() => ContentLoader.footerPrivacyLabelShort, 'Privacy Short'),
+        'footerTermsLabel': (() => ContentLoader.footerTermsLabel, 'Terms Label'),
+        'footerTermsLabelShort': (() => ContentLoader.footerTermsLabelShort, 'Terms Short'),
+        'footerCookiesLabel': (() => ContentLoader.footerCookiesLabel, 'Cookies Label'),
+        'footerCookiesLabelShort': (() => ContentLoader.footerCookiesLabelShort, 'Cookies Short'),
+        'footerAccessibilityLabel': (() => ContentLoader.footerAccessibilityLabel, 'Accessibility Label'),
         'statusTitle': (() => ContentLoader.statusTitle, 'Status Title'),
         'statusSubtitle': (() => ContentLoader.statusSubtitle, 'Status Subtitle'),
         'statusBadge': (() => ContentLoader.statusBadge, 'All Operational'),
+        'statusPageCta': (() => ContentLoader.statusPageCta, 'Status Page CTA'),
         'resourcesTitle': (() => ContentLoader.resourcesTitle, 'Resources Title'),
         'resourcesSubtitle': (() => ContentLoader.resourcesSubtitle, 'Resources Subtitle'),
+        'resourcesBlogCtaText': (() => ContentLoader.resourcesBlogCtaText, 'Blog CTA'),
+        'resourcesDocsCtaText': (() => ContentLoader.resourcesDocsCtaText, 'Docs CTA'),
         'socialProofTitle': (() => ContentLoader.socialProofTitle, 'Social Proof Title'),
+        'socialProofStatsHeadline': (() => ContentLoader.socialProofStatsHeadline, 'Stats Headline'),
         'disclaimerEuAiAct': (() => ContentLoader.disclaimerEuAiAct, 'EU AI Act disclaimer'),
         'disclaimerEuAiActShort': (() => ContentLoader.disclaimerEuAiActShort, 'Short disclaimer'),
         'disclaimerSecurity': (() => ContentLoader.disclaimerSecurity, 'Security disclaimer'),
@@ -263,6 +276,12 @@ void main() {
         final testimonials = ContentLoader.socialProofTestimonials;
         expect(testimonials[0]['quote'], equals('Great product!'));
         expect(testimonials[0]['author'], equals('Jane Doe'));
+      });
+
+      test('socialProofLogos returns correct structure', () {
+        final logos = ContentLoader.socialProofLogos;
+        expect(logos[0]['name'], equals('Test Logo'));
+        expect(logos[0]['industry'], equals('Test Industry'));
       });
     });
 

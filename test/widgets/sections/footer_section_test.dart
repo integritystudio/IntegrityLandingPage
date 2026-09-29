@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/common/hover_text_link.dart';
+import 'package:integrity_studio_ai/services/content_loader.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
+import '../../helpers/test_content.dart';
 import '../../helpers/test_helpers.dart';
 
 // Desktop footer link labels — single source of truth for desktop-layout tests.
 // Mobile bottom bar uses abbreviated labels ('Privacy', 'Terms', 'Cookies').
-const _productLabels = ['Features', 'Pricing', 'Documentation', 'API Reference'];
+const _productLabels = ['Features', 'Pricing', 'Docs', 'API Reference'];
 const _companyLabels = ['About', 'Blog', 'Sources', 'Careers', 'Contact'];
-const _resourceLabels = ['Help Center', 'Status', 'Security'];
+const _helpCenterLabel = 'Help Center';
+const _renamedLinkLabel = 'Knowledge Base';
+const _resourceLabels = [_helpCenterLabel, 'Status', 'Security'];
 final _navLabels = [..._productLabels, ..._companyLabels, ..._resourceLabels];
 const _legalLabels = [
   'Privacy Policy',
@@ -54,7 +58,7 @@ void main() {
 
       // Footer section exists
       expect(find.byType(FooterSection), findsOneWidget);
-      expect(find.text('IntegrityStudio'), findsOneWidget);
+      expect(find.text('Integrity Studio'), findsOneWidget);
 
       // Section headings
       expect(find.text('Product'), findsOneWidget);
@@ -222,6 +226,20 @@ void main() {
 
       // App should remain stable
       expect(find.byType(FooterSection), findsOneWidget);
+    });
+
+    testWidgets('renders link groups from content.yaml', (tester) async {
+      ContentLoader.loadFromString(testContentYaml.replaceFirst(
+        'label: "$_helpCenterLabel"',
+        'label: "$_renamedLinkLabel"',
+      ));
+      addTearDown(initializeTestContentAsync);
+      setDesktopSize(tester);
+      await tester.pumpWidget(testableSection(const FooterSection()));
+      await tester.pumpAndSettleWithTimeout();
+
+      expect(find.text(_renamedLinkLabel), findsOneWidget);
+      expect(find.text(_helpCenterLabel), findsNothing);
     });
   });
 }

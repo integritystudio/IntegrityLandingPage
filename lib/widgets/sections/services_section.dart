@@ -38,8 +38,8 @@ class ServicesSection extends StatelessWidget {
       subtitle: 'Comprehensive AI Observability for Enterprise',
       description: '',
       services: [],
-      ctaText: 'Start Free Trial',
-      ctaUrl: Routes.signupGrowth,
+      ctaText: CTAText.startFreeTrial,
+      ctaUrl: Routes.signupStarter,
     ),
   });
 

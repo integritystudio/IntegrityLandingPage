@@ -298,24 +298,52 @@ footer:
   privacy_link: "/privacy"
   terms_link: "/terms"
   cookies_link: "/cookies"
+  cookie_settings_label: "Cookie Settings"
+  tagline: "Enterprise-grade AI observability platform for monitoring, debugging, and optimizing LLM applications."
+  privacy_label: "Privacy Policy"
+  privacy_label_short: "Privacy"
+  terms_label: "Terms of Service"
+  terms_label_short: "Terms"
+  cookies_label: "Cookie Policy"
+  cookies_label_short: "Cookies"
+  accessibility_label: "Accessibility"
   link_groups:
     - title: "Product"
       links:
         - label: "Features"
           url: "/features"
         - label: "Pricing"
-          url: "#pricing"
+          url: "/pricing"
+        - label: "Docs"
+          url: "/docs"
+        - label: "API Reference"
+          url: "/api"
     - title: "Company"
       links:
         - label: "About"
           url: "/about"
+        - label: "Blog"
+          url: "/blog"
+        - label: "Sources"
+          url: "/sources"
+        - label: "Careers"
+          url: "/careers"
         - label: "Contact"
           url: "/contact"
+    - title: "Resources"
+      links:
+        - label: "Help Center"
+          url: "/support"
+        - label: "Status"
+          url: "/status"
+        - label: "Security"
+          url: "/security"
 
 status:
   title: "Platform Status"
   subtitle: "Real-time operational health"
   status_badge: "All Systems Operational"
+  status_page_cta: "View Full Status Page"
   metrics:
     - label: "Uptime"
       value: "99.9%"
@@ -332,7 +360,7 @@ status:
 resources:
   title: "Resources"
   subtitle: "Guides, Documentation & Insights"
-  blog_cta_text: "View All Posts"
+  blog_cta_text: "View All Articles"
   blog_cta_url: "/blog"
   docs_cta_text: "Browse Documentation"
   docs_cta_url: "/docs"
@@ -388,6 +416,14 @@ resources:
 
 social_proof:
   title: "Trusted by AI Teams"
+  stats_headline: "Enterprise-Grade Performance"
+  logos:
+    - name: "Enterprise Client"
+      industry: "Finance"
+    - name: "Tech Startup"
+      industry: "SaaS"
+    - name: "Healthcare Co"
+      industry: "Healthcare"
   stats:
     traces_processed: "10M+"
     uptime: "99.9%"
@@ -692,6 +728,15 @@ footer:
   privacy_link: "/privacy"
   terms_link: "/terms"
   cookies_link: "/cookies"
+  cookie_settings_label: "Cookie Settings"
+  tagline: "Footer Tagline"
+  privacy_label: "Privacy Label"
+  privacy_label_short: "Privacy Short"
+  terms_label: "Terms Label"
+  terms_label_short: "Terms Short"
+  cookies_label: "Cookies Label"
+  cookies_label_short: "Cookies Short"
+  accessibility_label: "Accessibility Label"
   link_groups:
     - title: "Product"
       links:
@@ -705,6 +750,7 @@ status:
   title: "Status Title"
   subtitle: "Status Subtitle"
   status_badge: "All Operational"
+  status_page_cta: "Status Page CTA"
   metrics:
     - label: "Uptime"
       value: "99.9%"
@@ -716,6 +762,8 @@ status:
 resources:
   title: "Resources Title"
   subtitle: "Resources Subtitle"
+  blog_cta_text: "Blog CTA"
+  docs_cta_text: "Docs CTA"
   documentation:
     - icon: "book-open"
       title: "Getting Started"
@@ -743,6 +791,10 @@ resources:
 
 social_proof:
   title: "Social Proof Title"
+  stats_headline: "Stats Headline"
+  logos:
+    - name: "Test Logo"
+      industry: "Test Industry"
   stats:
     uptime: "99.9%"
     traces: "10M+"

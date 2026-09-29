@@ -925,6 +925,48 @@ void main() {
         }
       });
 
+      testWidgets('hero Start Free Trial navigates to the starter tier',
+          (tester) async {
+        await pumpWithSignupGoRouter(tester);
+
+        await tester.tap(find.descendant(
+          of: find.byType(HeroSection),
+          matching: find.byType(GradientButton),
+        ));
+        await tester.pump();
+        await tester.pump(kNavigationSettle);
+
+        expect(find.text('Signup: ${SignupTiers.starter}'), findsOneWidget);
+      });
+
+      testWidgets('CTA section Start Free Trial navigates to the starter tier',
+          (tester) async {
+        await pumpWithSignupGoRouter(tester);
+
+        final ctaButton = find.descendant(
+          of: find.byType(CTASection),
+          matching: find.text(CTAText.startFreeTrial),
+        );
+        await tester.scrollUntilVisible(
+          ctaButton,
+          kFullPageScrollDelta,
+          scrollable: find
+              .descendant(
+                of: find.byType(CustomScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        await tester.ensureVisible(ctaButton);
+        await tester.pump();
+
+        await tester.tap(ctaButton);
+        await tester.pump();
+        await tester.pump(kNavigationSettle);
+
+        expect(find.text('Signup: ${SignupTiers.starter}'), findsOneWidget);
+      });
+
       testWidgets(
           'replacing widget after tier selection tap does not crash',
           (tester) async {

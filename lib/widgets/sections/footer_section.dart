@@ -52,7 +52,7 @@ class FooterSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMobile = ResponsiveUtils.isMobile(context);
-    final currentYear = DateTime.now().year;
+    final content = AppContent.footer;
 
     return Container(
       color: AppColors.gray900,
@@ -62,50 +62,59 @@ class FooterSection extends StatelessWidget {
         ),
         child: Column(
           children: [
-            if (isMobile) _buildMobileLayout(context) else _buildDesktopLayout(context),
+            if (isMobile)
+              _buildMobileLayout(context, content)
+            else
+              _buildDesktopLayout(context, content),
             const SizedBox(height: AppSpacing.xl),
             const Divider(color: AppColors.gray700),
             const SizedBox(height: AppSpacing.lg),
             // Compliance disclaimer (legal requirement)
             _buildComplianceDisclaimer(isMobile),
             const SizedBox(height: AppSpacing.lg),
-            _buildBottomBar(currentYear, isMobile),
+            _buildBottomBar(content, isMobile),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDesktopLayout(BuildContext context) {
+  Widget _buildDesktopLayout(
+    BuildContext context,
+    FooterContent content,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Brand column
         Expanded(
           flex: 2,
-          child: _buildBrandColumn(),
+          child: _buildBrandColumn(content),
         ),
         // Link columns
-        ..._linkSections.map((section) => Expanded(
-              child: _buildLinkColumn(context, section),
+        ...content.linkGroups.map((group) => Expanded(
+              child: _buildLinkColumn(context, group),
             )),
       ],
     );
   }
 
-  Widget _buildMobileLayout(BuildContext context) {
+  Widget _buildMobileLayout(
+    BuildContext context,
+    FooterContent content,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildBrandColumn(),
+        _buildBrandColumn(content),
         const SizedBox(height: AppSpacing.xl),
         Wrap(
           spacing: AppSpacing.xl,
           runSpacing: AppSpacing.lg,
-          children: _linkSections.map((section) {
+          children: content.linkGroups.map((group) {
             return SizedBox(
               width: AppSpacing.footerMobileLinkColumnWidth,
-              child: _buildLinkColumn(context, section),
+              child: _buildLinkColumn(context, group),
             );
           }).toList(),
         ),
@@ -113,12 +122,12 @@ class FooterSection extends StatelessWidget {
     );
   }
 
-  Widget _buildBrandColumn() {
+  Widget _buildBrandColumn(FooterContent content) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'IntegrityStudio',
+          content.companyName,
           style: AppTypography.headingSM.copyWith(
             color: AppColors.textPrimary,
           ),
@@ -127,7 +136,7 @@ class FooterSection extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: AppSpacing.footerBrandColumnMaxWidth),
           child: Text(
-            'Enterprise-grade AI observability platform for monitoring, debugging, and optimizing LLM applications.',
+            content.tagline,
             style: AppTypography.bodySM,
           ),
         ),
@@ -137,13 +146,13 @@ class FooterSection extends StatelessWidget {
             _SocialLink(
               icon: LucideIcons.briefcase,
               url: ExternalUrls.linkedIn,
-              label: 'LinkedIn',
+              label: ContactContentVariants.linkedinMethodLabel,
             ),
             const SizedBox(width: AppSpacing.md),
             _SocialLink(
               icon: LucideIcons.code,
               url: ExternalUrls.github,
-              label: 'GitHub',
+              label: ContactContentVariants.githubMethodLabel,
             ),
           ],
         ),
@@ -151,22 +160,22 @@ class FooterSection extends StatelessWidget {
     );
   }
 
-  Widget _buildLinkColumn(BuildContext context, _LinkSection section) {
+  Widget _buildLinkColumn(BuildContext context, FooterLinkGroup group) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          section.title,
+          group.title,
           style: AppTypography.bodyMD.copyWith(
             fontWeight: FontWeight.w600,
             color: AppColors.textPrimary,
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        ...section.links.map((link) => Padding(
+        ...group.links.map((link) => Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: HoverTextLink(
-                text: link.text,
+                text: link.label,
                 defaultColor: AppColors.gray400,
                 hoverColor: AppColors.textPrimary,
                 style: AppTypography.bodySM,
@@ -216,14 +225,14 @@ class FooterSection extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomBar(int year, bool isMobile) {
+  Widget _buildBottomBar(FooterContent content, bool isMobile) {
     return Builder(
       builder: (context) {
         if (isMobile) {
           return Column(
             children: [
               Text(
-                '\u00A9 $year Integrity Studio. All rights reserved.',
+                content.copyright,
                 style: AppTypography.caption,
                 textAlign: TextAlign.center,
               ),
@@ -234,35 +243,35 @@ class FooterSection extends StatelessWidget {
                 runSpacing: AppSpacing.xs,
                 children: [
                   HoverTextLink(
-                    text: 'Privacy',
+                    text: content.privacyLabelShort,
                     defaultColor: AppColors.gray400,
                     hoverColor: AppColors.textPrimary,
                     style: AppTypography.bodySM,
-                    onTap: () => context.go(Routes.privacy),
+                    onTap: () => context.go(content.privacyLink),
                   ),
                   HoverTextLink(
-                    text: 'Terms',
+                    text: content.termsLabelShort,
                     defaultColor: AppColors.gray400,
                     hoverColor: AppColors.textPrimary,
                     style: AppTypography.bodySM,
-                    onTap: () => context.go(Routes.terms),
+                    onTap: () => context.go(content.termsLink),
                   ),
                   HoverTextLink(
-                    text: 'Cookies',
+                    text: content.cookiesLabelShort,
                     defaultColor: AppColors.gray400,
                     hoverColor: AppColors.textPrimary,
                     style: AppTypography.bodySM,
-                    onTap: () => context.go(Routes.cookies),
+                    onTap: () => context.go(content.cookiesLink),
                   ),
                   HoverTextLink(
-                    text: 'Accessibility',
+                    text: content.accessibilityLabel,
                     defaultColor: AppColors.gray400,
                     hoverColor: AppColors.textPrimary,
                     style: AppTypography.bodySM,
-                    onTap: () => context.go(Routes.accessibility),
+                    onTap: () => context.go(content.accessibilityLink),
                   ),
                   HoverTextLink(
-                    text: 'Cookie Settings',
+                    text: content.cookieSettingsLabel,
                     defaultColor: AppColors.gray400,
                     hoverColor: AppColors.textPrimary,
                     style: AppTypography.bodySM,
@@ -281,7 +290,7 @@ class FooterSection extends StatelessWidget {
           runSpacing: AppSpacing.sm,
           children: [
             Text(
-              '\u00A9 $year Integrity Studio. All rights reserved.',
+              content.copyright,
               style: AppTypography.caption,
             ),
             Wrap(
@@ -289,35 +298,35 @@ class FooterSection extends StatelessWidget {
               runSpacing: AppSpacing.sm,
               children: [
                 HoverTextLink(
-                  text: 'Privacy Policy',
+                  text: content.privacyLabel,
                   defaultColor: AppColors.gray400,
                   hoverColor: AppColors.textPrimary,
                   style: AppTypography.bodySM,
-                  onTap: () => context.go(Routes.privacy),
+                  onTap: () => context.go(content.privacyLink),
                 ),
                 HoverTextLink(
-                  text: 'Terms of Service',
+                  text: content.termsLabel,
                   defaultColor: AppColors.gray400,
                   hoverColor: AppColors.textPrimary,
                   style: AppTypography.bodySM,
-                  onTap: () => context.go(Routes.terms),
+                  onTap: () => context.go(content.termsLink),
                 ),
                 HoverTextLink(
-                  text: 'Cookie Policy',
+                  text: content.cookiesLabel,
                   defaultColor: AppColors.gray400,
                   hoverColor: AppColors.textPrimary,
                   style: AppTypography.bodySM,
-                  onTap: () => context.go(Routes.cookies),
+                  onTap: () => context.go(content.cookiesLink),
                 ),
                 HoverTextLink(
-                  text: 'Accessibility',
+                  text: content.accessibilityLabel,
                   defaultColor: AppColors.gray400,
                   hoverColor: AppColors.textPrimary,
                   style: AppTypography.bodySM,
-                  onTap: () => context.go(Routes.accessibility),
+                  onTap: () => context.go(content.accessibilityLink),
                 ),
                 HoverTextLink(
-                  text: 'Cookie Settings',
+                  text: content.cookieSettingsLabel,
                   defaultColor: AppColors.gray400,
                   hoverColor: AppColors.textPrimary,
                   style: AppTypography.bodySM,
@@ -361,52 +370,3 @@ class _SocialLink extends StatelessWidget {
     );
   }
 }
-
-class _LinkSection {
-  final String title;
-  final List<_LinkItem> links;
-
-  const _LinkSection({
-    required this.title,
-    required this.links,
-  });
-}
-
-class _LinkItem {
-  final String text;
-  final String url;
-  const _LinkItem({
-    required this.text,
-    required this.url,
-  });
-}
-
-const _linkSections = <_LinkSection>[
-  _LinkSection(
-    title: 'Product',
-    links: [
-      _LinkItem(text: 'Features', url: Routes.features),
-      _LinkItem(text: 'Pricing', url: Routes.pricing),
-      _LinkItem(text: 'Documentation', url: Routes.docs),
-      _LinkItem(text: 'API Reference', url: Routes.api),
-    ],
-  ),
-  _LinkSection(
-    title: 'Company',
-    links: [
-      _LinkItem(text: 'About', url: Routes.about),
-      _LinkItem(text: 'Blog', url: Routes.blog),
-      _LinkItem(text: 'Sources', url: Routes.sources),
-      _LinkItem(text: 'Careers', url: Routes.careers),
-      _LinkItem(text: 'Contact', url: Routes.contact),
-    ],
-  ),
-  _LinkSection(
-    title: 'Resources',
-    links: [
-      _LinkItem(text: 'Help Center', url: '/support'),
-      _LinkItem(text: 'Status', url: Routes.status),
-      _LinkItem(text: 'Security', url: Routes.security),
-    ],
-  ),
-];

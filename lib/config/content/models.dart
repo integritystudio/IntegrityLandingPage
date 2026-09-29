@@ -216,12 +216,14 @@ class StatusServiceContent {
   final String name;
   final String status;
 
+  static const String operationalStatus = 'Operational';
+
   const StatusServiceContent({
     required this.name,
     required this.status,
   });
 
-  bool get isOperational => status == 'Operational';
+  bool get isOperational => status == operationalStatus;
 }
 
 /// Status section content.
@@ -292,6 +294,13 @@ class FooterContent {
   final String cookiesLink;
   final String accessibilityLink;
   final String cookieSettingsLabel;
+  final String privacyLabel;
+  final String privacyLabelShort;
+  final String termsLabel;
+  final String termsLabelShort;
+  final String cookiesLabel;
+  final String cookiesLabelShort;
+  final String accessibilityLabel;
 
   const FooterContent({
     required this.companyName,
@@ -303,6 +312,13 @@ class FooterContent {
     required this.cookiesLink,
     required this.accessibilityLink,
     required this.cookieSettingsLabel,
+    required this.privacyLabel,
+    required this.privacyLabelShort,
+    required this.termsLabel,
+    required this.termsLabelShort,
+    required this.cookiesLabel,
+    required this.cookiesLabelShort,
+    required this.accessibilityLabel,
   });
 }
 

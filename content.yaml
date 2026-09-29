@@ -526,8 +526,17 @@ social_proof:
     uptime: *uptime
     setup_time: *setup_time
 
-  # Placeholder logos (to be replaced with real customers)
-  # TODO: Uncomment when customer logos are approved for use
+  # Generic placeholder logos (to be replaced with real customers)
+  logos:
+    - name: "Enterprise Client"
+      industry: "Finance"
+    - name: "Tech Startup"
+      industry: "SaaS"
+    - name: "Healthcare Co"
+      industry: "Healthcare"
+
+  # TODO: Replace the placeholder logos above with these when customer logos
+  # are approved for use
   # logos:
   #   - name: "Granica.ai"
   #     industry: "Cutting Edge Data Services"
@@ -810,6 +819,14 @@ footer:
   cookies_link: "/cookies"
   accessibility_link: "/accessibility"
   cookie_settings_label: "Cookie Settings"
+  tagline: "Enterprise-grade AI observability platform for monitoring, debugging, and optimizing LLM applications."
+  privacy_label: "Privacy Policy"
+  privacy_label_short: "Privacy"
+  terms_label: "Terms of Service"
+  terms_label_short: "Terms"
+  cookies_label: "Cookie Policy"
+  cookies_label_short: "Cookies"
+  accessibility_label: "Accessibility"
 
   link_groups:
     - title: "Product"
@@ -817,9 +834,11 @@ footer:
         - label: "Features"
           url: "/features"
         - label: "Pricing"
-          url: "#pricing"
-        - label: "Documentation"
+          url: "/pricing"
+        - label: "Docs"
           url: "/docs"
+        - label: "API Reference"
+          url: "/api"
 
     - title: "Company"
       links:
@@ -827,6 +846,8 @@ footer:
           url: "/about"
         - label: "Blog"
           url: "/blog"
+        - label: "Sources"
+          url: "/sources"
         - label: "Careers"
           url: "/careers"
         - label: "Contact"
@@ -834,15 +855,12 @@ footer:
 
     - title: "Resources"
       links:
-        - label: "EU AI Act Guide"
-          url: "/eu-ai-act"
-        - label: "API Reference"
-          url: "/api"
-        - label: "Status"
-          url: "https://integritystudio.ai/status"
-          is_external: true
-        - label: "Support"
+        - label: "Help Center"
           url: "/support"
+        - label: "Status"
+          url: "/status"
+        - label: "Security"
+          url: "/security"
 
 # =============================================================================
 # RESOURCES SECTION
