@@ -31,6 +31,35 @@ function stubOrgFetch(plan = 'starter', billingStatus = 'inactive'): void {
   vi.stubGlobal('fetch', stub.fetch);
 }
 
+/** One quota-DO reply: a Response is returned, an Error is thrown (the DO is unavailable). */
+type QuotaDOReply = () => Response | Error;
+
+const reply = (body: Record<string, unknown>, status = 200): QuotaDOReply => () =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+/** Quota DO namespace stub that records every check-and-reserve body it is sent. */
+function fakeQuotaDO(answer: QuotaDOReply = reply({ allowed: true })): {
+  ns: DurableObjectNamespace;
+  bodies: Record<string, unknown>[];
+} {
+  const bodies: Record<string, unknown>[] = [];
+  const ns = {
+    idFromName: vi.fn().mockReturnValue('do-id'),
+    get: vi.fn().mockReturnValue({
+      fetch: vi.fn(async (req: Request) => {
+        bodies.push((await req.json()) as Record<string, unknown>);
+        const result = answer();
+        if (result instanceof Error) throw result;
+        return result;
+      }),
+    }),
+  } as unknown as DurableObjectNamespace;
+  return { ns, bodies };
+}
+
+const minuteLimited = (remainingMonthly: number) =>
+  reply({ allowed: false, reason: 'minute_limit', remainingMinute: 0, remainingMonthly }, 429);
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -39,14 +68,9 @@ afterEach(() => {
 describe('enforceOrgQuota — fail-open (TS04)', () => {
   it('returns ok with empty headers when the quota DO throws (fail-open)', async () => {
     stubOrgFetch();
-    const mockDO = {
-      idFromName: vi.fn().mockReturnValue('do-id'),
-      get: vi.fn().mockReturnValue({
-        fetch: vi.fn().mockRejectedValue(new Error('DO unavailable')),
-      }),
-    } as unknown as DurableObjectNamespace;
+    const { ns } = fakeQuotaDO(() => new Error('DO unavailable'));
 
-    const result = await enforceOrgQuota(ORG_ID, makeOpts(mockDO));
+    const result = await enforceOrgQuota(ORG_ID, makeOpts(ns));
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -58,24 +82,9 @@ describe('enforceOrgQuota — fail-open (TS04)', () => {
 describe('enforceOrgQuota — 429 mapping (TS04)', () => {
   it('returns ok:false with a 429 Response when quota is exceeded', async () => {
     stubOrgFetch();
-    const mockDO = {
-      idFromName: vi.fn().mockReturnValue('do-id'),
-      get: vi.fn().mockReturnValue({
-        fetch: vi.fn().mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              allowed: false,
-              reason: 'minute_limit',
-              remainingMinute: 0,
-              remainingMonthly: 100,
-            }),
-            { status: 429, headers: { 'Content-Type': 'application/json' } },
-          ),
-        ),
-      }),
-    } as unknown as DurableObjectNamespace;
+    const { ns } = fakeQuotaDO(minuteLimited(100));
 
-    const result = await enforceOrgQuota(ORG_ID, makeOpts(mockDO));
+    const result = await enforceOrgQuota(ORG_ID, makeOpts(ns));
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -87,24 +96,9 @@ describe('enforceOrgQuota — 429 mapping (TS04)', () => {
 
   it('sets X-RateLimit-Remaining-Minute header on 429 when the DO supplies it', async () => {
     stubOrgFetch();
-    const mockDO = {
-      idFromName: vi.fn().mockReturnValue('do-id'),
-      get: vi.fn().mockReturnValue({
-        fetch: vi.fn().mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              allowed: false,
-              reason: 'minute_limit',
-              remainingMinute: 0,
-              remainingMonthly: 50,
-            }),
-            { status: 429, headers: { 'Content-Type': 'application/json' } },
-          ),
-        ),
-      }),
-    } as unknown as DurableObjectNamespace;
+    const { ns } = fakeQuotaDO(minuteLimited(50));
 
-    const result = await enforceOrgQuota(ORG_ID, makeOpts(mockDO));
+    const result = await enforceOrgQuota(ORG_ID, makeOpts(ns));
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -115,21 +109,6 @@ describe('enforceOrgQuota — 429 mapping (TS04)', () => {
 });
 
 describe('enforceOrgQuota — billing gate (CR37)', () => {
-  /** DO stub that records the planKey it was asked to enforce. */
-  function recordingDO(): { ns: DurableObjectNamespace; planKeys: string[] } {
-    const planKeys: string[] = [];
-    const ns = {
-      idFromName: vi.fn().mockReturnValue('do-id'),
-      get: vi.fn().mockReturnValue({
-        fetch: vi.fn(async (req: Request) => {
-          planKeys.push(((await req.json()) as { planKey: string }).planKey);
-          return new Response(JSON.stringify({ allowed: true }), { status: 200 });
-        }),
-      }),
-    } as unknown as DurableObjectNamespace;
-    return { ns, planKeys };
-  }
-
   it.each([
     ['growth', 'active', 'growth'],
     ['growth', 'trialing', 'growth'],
@@ -138,33 +117,18 @@ describe('enforceOrgQuota — billing gate (CR37)', () => {
     ['growth', 'canceled', 'starter'],
   ])('current_plan %s with billing_status %s enforces %s', async (plan, status, expected) => {
     stubOrgFetch(plan, status);
-    const { ns, planKeys } = recordingDO();
+    const { ns, bodies } = fakeQuotaDO();
     await enforceOrgQuota(ORG_ID, makeOpts(ns));
-    expect(planKeys).toEqual([expected]);
+    expect(bodies.map((b) => b.planKey)).toEqual([expected]);
   });
 });
 
 describe('enforceOrgQuota — monthly charge (CR58)', () => {
-  /** DO stub that records the chargeMonthly flag it was sent. */
-  function recordingDO(): { ns: DurableObjectNamespace; flags: unknown[] } {
-    const flags: unknown[] = [];
-    const ns = {
-      idFromName: vi.fn().mockReturnValue('do-id'),
-      get: vi.fn().mockReturnValue({
-        fetch: vi.fn(async (req: Request) => {
-          flags.push(((await req.json()) as { chargeMonthly?: boolean }).chargeMonthly);
-          return new Response(JSON.stringify({ allowed: true }), { status: 200 });
-        }),
-      }),
-    } as unknown as DurableObjectNamespace;
-    return { ns, flags };
-  }
-
   it('charges the month by default and forwards an explicit false', async () => {
     stubOrgFetch();
-    const { ns, flags } = recordingDO();
+    const { ns, bodies } = fakeQuotaDO();
     await enforceOrgQuota(ORG_ID, makeOpts(ns));
     await enforceOrgQuota(ORG_ID, makeOpts(ns), { chargeMonthly: false });
-    expect(flags).toEqual([true, false]);
+    expect(bodies.map((b) => b.chargeMonthly)).toEqual([true, false]);
   });
 });
