@@ -766,8 +766,12 @@ describe('TS23: all registered routes are dispatched (not 404)', () => {
     expect(await isRouterFallThrough(res)).toBe(true);
   });
 
+  // Every fixed route in ORG_ROUTES (org-routes.ts) has a row, plus the revoke pattern.
   it.each([
+    ['GET',  `/v1/orgs/${ORG}/dashboard`],
+    ['GET',  `/v1/orgs/${ORG}/billing-status`],
     ['GET',  `/v1/orgs/${ORG}/usage/summary`],
+    ['GET',  `/v1/orgs/${ORG}/entitlements`],
     ['GET',  `/v1/orgs/${ORG}/quota/status`],
     ['POST', `/v1/orgs/${ORG}/billing-portal`],
     ['POST', `/v1/orgs/${ORG}/checkout-session`],

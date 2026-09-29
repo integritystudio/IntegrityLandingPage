@@ -12,7 +12,8 @@ import { QuotaDurableObject } from './durable-objects/quota';
 import { enforceOrgQuota } from './lib/quota';
 import { preVerifyToken } from './lib/helpers';
 import { checkOrgRateLimit } from './lib/rate-limit';
-import { chargesMonthlyQuota, meteredRoute, recordMeteredRequest } from './lib/usage-ledger';
+import { meteredRoute, recordMeteredRequest } from './lib/usage-ledger';
+import { chargesMonthlyQuota, matchOrgRoute } from './lib/org-routes';
 import { createSupabaseClient } from '../../lib/supabase';
 
 export interface Env {
@@ -296,39 +297,35 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
       return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
     };
 
-    if (subPath === '/dashboard' && request.method === 'GET') {
-      return withRateLimitHeaders(await handleOrgDashboard(request, orgId, routeOpts));
-    }
-    if (subPath === '/billing-status' && request.method === 'GET') {
-      return withRateLimitHeaders(await handleOrgBillingStatus(request, orgId, routeOpts));
-    }
-    if (subPath === '/usage/summary' && request.method === 'GET') {
-      return withRateLimitHeaders(await handleUsageSummary(request, orgId, machineRouteOpts));
-    }
-    if (subPath === '/entitlements' && request.method === 'GET') {
-      return withRateLimitHeaders(await handleOrgEntitlements(request, orgId, machineRouteOpts));
-    }
-    if (subPath === '/quota/status' && request.method === 'GET') {
-      return withRateLimitHeaders(await handleQuotaStatus(request, orgId, { ...machineRouteOpts, doNamespace: env.QUOTA_DO }));
-    }
-    if (subPath === '/billing-portal' && request.method === 'POST') {
-      return withRateLimitHeaders(await handleBillingPortal(request, orgId, {
-        ...routeOpts,
-        stripeSecretKey: env.STRIPE_SECRET_KEY,
-        returnUrl: `${env.APP_URL ?? APP_URL_FALLBACK}/#/billing`,
-        waitUntil: ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
-      }));
-    }
-    if (subPath === '/checkout-session' && request.method === 'POST') {
-      return withRateLimitHeaders(await handleCreateCheckoutSession(request, orgId, {
-        ...routeOpts,
-        stripeSecretKey: env.STRIPE_SECRET_KEY,
-        appBaseUrl: env.APP_URL ?? APP_URL_FALLBACK,
-        waitUntil: ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
-      }));
-    }
-    if (subPath === '/api-keys' && request.method === 'POST') {
-      return withRateLimitHeaders(await handleCreateApiKey(request, orgId, machineRouteOpts));
+    switch (matchOrgRoute(request.method, subPath)) {
+      case 'dashboard':
+        return withRateLimitHeaders(await handleOrgDashboard(request, orgId, routeOpts));
+      case 'billingStatus':
+        return withRateLimitHeaders(await handleOrgBillingStatus(request, orgId, routeOpts));
+      case 'usageSummary':
+        return withRateLimitHeaders(await handleUsageSummary(request, orgId, machineRouteOpts));
+      case 'entitlements':
+        return withRateLimitHeaders(await handleOrgEntitlements(request, orgId, machineRouteOpts));
+      case 'quotaStatus':
+        return withRateLimitHeaders(await handleQuotaStatus(request, orgId, { ...machineRouteOpts, doNamespace: env.QUOTA_DO }));
+      case 'billingPortal':
+        return withRateLimitHeaders(await handleBillingPortal(request, orgId, {
+          ...routeOpts,
+          stripeSecretKey: env.STRIPE_SECRET_KEY,
+          returnUrl: `${env.APP_URL ?? APP_URL_FALLBACK}/#/billing`,
+          waitUntil: ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
+        }));
+      case 'checkoutSession':
+        return withRateLimitHeaders(await handleCreateCheckoutSession(request, orgId, {
+          ...routeOpts,
+          stripeSecretKey: env.STRIPE_SECRET_KEY,
+          appBaseUrl: env.APP_URL ?? APP_URL_FALLBACK,
+          waitUntil: ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
+        }));
+      case 'createApiKey':
+        return withRateLimitHeaders(await handleCreateApiKey(request, orgId, machineRouteOpts));
+      case undefined:
+        break;
     }
 
     const revokeMatch = subPath.match(/^\/api-keys\/([^/]+)\/revoke$/);
