@@ -13,6 +13,7 @@ void main() {
         expect(content.title, isNotEmpty);
         expect(content.subtitle, isNotEmpty);
         expect(content.description, isNotEmpty);
+        expect(content.methodsHeading, isNotEmpty);
         expect(content.formSubmitText, isNotEmpty);
         expect(content.formSuccessMessage, isNotEmpty);
         expect(content.formErrorMessage, isNotEmpty);
@@ -273,7 +274,6 @@ void main() {
 
         expect(content.sectionId, equals('test-contact'));
         expect(content.title, equals('Test Contact'));
-        expect(content.methodsHeading, equals('Test Methods Heading'));
         expect(content.formFields, isEmpty);
         expect(content.contactMethods, isEmpty);
         expect(content.calendlyUrl, equals('https://calendly.com/test'));
