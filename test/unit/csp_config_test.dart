@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:integrity_studio_ai/services/auth0_config.dart';
 
 /// Tests for Content Security Policy configuration in web/index.html
 /// and web/_headers.
@@ -82,6 +83,17 @@ void main() {
         isTrue,
         reason: 'connect-src should allow Sentry ingest for error reporting',
       );
+    });
+
+    // Sign-in exchanges and refreshes tokens with XHRs to the Auth0 tenant; the
+    // /authorize redirect is a top-level navigation and needs no entry.
+    test('connect-src allows the Auth0 token endpoint of both tenants', () {
+      final connectSrc = RegExp(r'connect-src\s+([^\n;]+)').firstMatch(indexHtml)!.group(1)!;
+      final sources = connectSrc.split(RegExp(r'\s+'));
+      expect(sources, contains('https://${Auth0Config.domain}'),
+          reason: 'the default (production) tenant');
+      expect(sources, contains('https://dev-njjmghdzm23uy0p7.us.auth0.com'),
+          reason: 'the dev tenant, selected with --dart-define=AUTH0_DOMAIN for local runs');
     });
 
     test('has strict base-uri directive', () {

@@ -22,29 +22,6 @@ const _apiGatewayUrl = String.fromEnvironment(
   defaultValue: 'https://api.integritystudio.dev',
 );
 
-/// Authentication API response.
-sealed class AuthResponse {
-  const AuthResponse();
-}
-
-/// Successful authentication response with JWT.
-class AuthSuccess extends AuthResponse {
-  final String jwt;
-  final String email;
-
-  const AuthSuccess({
-    required this.jwt,
-    required this.email,
-  });
-}
-
-/// Authentication error response.
-class AuthError extends AuthResponse {
-  final String error;
-
-  const AuthError({required this.error});
-}
-
 /// Provisioning API response.
 sealed class ProvisioningResponse {
   const ProvisioningResponse();
@@ -96,23 +73,6 @@ class BootstrapError extends BootstrapResponse {
   const BootstrapError({required this.error});
 }
 
-
-/// Forgot-password API response.
-sealed class ForgotPasswordResponse {
-  const ForgotPasswordResponse();
-}
-
-/// Successful forgot-password response — reset email dispatched.
-class ForgotPasswordSuccess extends ForgotPasswordResponse {
-  const ForgotPasswordSuccess();
-}
-
-/// Forgot-password error response.
-class ForgotPasswordError extends ForgotPasswordResponse {
-  final String error;
-
-  const ForgotPasswordError({required this.error});
-}
 
 /// Checkout API response.
 sealed class CheckoutResponse {
@@ -182,127 +142,6 @@ class ProvisioningService {
   @visibleForTesting
   static void resetRetryDelay() {
     retryDelay = Future.delayed;
-  }
-
-  /// Sign up with email and password.
-  ///
-  /// Returns AuthSuccess (201) with JWT token or AuthError.
-  static Future<AuthResponse> signUp(
-    String email,
-    String password, {
-    String? name,
-    String tier = 'starter',
-  }) async {
-    try {
-      final response = await _dio.post(
-        '$_senderWorkerUrl/signup',
-        data: jsonEncode({
-          'email': email,
-          'password': password,
-          if (name != null && name.isNotEmpty) 'name': name,
-          'tier': tier.toLowerCase(),
-        }),
-        options: Options(
-          headers: {'Content-Type': 'application/json'},
-          validateStatus: (status) => status != null,
-        ),
-      );
-
-      final data = response.data is Map<String, dynamic>
-          ? response.data as Map<String, dynamic>
-          : const <String, dynamic>{};
-
-      if (response.statusCode == 201) {
-        final jwt = data['jwt'] as String?;
-        if (jwt == null || jwt.isEmpty) {
-          return const AuthError(error: 'Signup succeeded but no JWT returned');
-        }
-        return AuthSuccess(
-          jwt: jwt,
-          email: data['email'] as String? ?? email,
-        );
-      }
-
-      return AuthError(
-        error: data['error'] as String? ?? _errorUnexpected,
-      );
-    } catch (e, stackTrace) {
-      await ErrorTrackingService.captureException(e,
-          stackTrace: stackTrace);
-      return const AuthError(error: _errorUnexpected);
-    }
-  }
-
-  /// Sign in with email and password.
-  ///
-  /// Returns AuthSuccess (200) with JWT token or AuthError.
-  static Future<AuthResponse> signIn(String email, String password) async {
-    try {
-      final response = await _dio.post(
-        '$_senderWorkerUrl/signin',
-        data: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
-        options: Options(
-          headers: {'Content-Type': 'application/json'},
-          validateStatus: (status) => status != null,
-        ),
-      );
-
-      final data = response.data is Map<String, dynamic>
-          ? response.data as Map<String, dynamic>
-          : const <String, dynamic>{};
-
-      if (response.statusCode == 200 && data['jwt'] != null) {
-        return AuthSuccess(
-          jwt: data['jwt'] as String,
-          email: email,
-        );
-      }
-
-      return AuthError(
-        error: data['error'] as String? ?? _errorUnexpected,
-      );
-    } catch (e, stackTrace) {
-      await ErrorTrackingService.captureException(e,
-          stackTrace: stackTrace);
-      return const AuthError(error: _errorUnexpected);
-    }
-  }
-
-  /// Send a self-service password reset email via Auth0.
-  ///
-  /// Always returns [ForgotPasswordSuccess] on HTTP 200. Auth0's
-  /// `/dbconnections/change_password` endpoint returns 200 even for
-  /// unregistered addresses, so success here means "the request was accepted",
-  /// not "an account exists for that email" — callers must not reveal the
-  /// distinction to the end user.
-  static Future<ForgotPasswordResponse> forgotPassword(String email) async {
-    try {
-      final response = await _dio.post(
-        '$_senderWorkerUrl/forgot-password',
-        data: jsonEncode({'email': email}),
-        options: Options(
-          headers: {'Content-Type': 'application/json'},
-          validateStatus: (status) => status != null,
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        return const ForgotPasswordSuccess();
-      }
-
-      final data = response.data is Map<String, dynamic>
-          ? response.data as Map<String, dynamic>
-          : const <String, dynamic>{};
-      return ForgotPasswordError(
-        error: data['error'] as String? ?? _errorUnexpected,
-      );
-    } catch (e, stackTrace) {
-      await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
-      return const ForgotPasswordError(error: _errorUnexpected);
-    }
   }
 
   /// Create a Stripe checkout session for a paid tier.

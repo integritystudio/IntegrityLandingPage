@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/content/constants.dart';
 import '../services/analytics.dart';
-import '../services/auth_storage.dart';
+import '../services/auth0_service.dart';
 import '../services/provisioning_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/alert.dart';
@@ -11,18 +12,29 @@ import '../widgets/common/containers.dart';
 import '../utils/security_utils.dart';
 import '../widgets/common/copyable_code_field.dart';
 
+/// Arguments passed to ProvisionPage via GoRouter state.extra.
+class ProvisionArgs {
+  final Auth0Session session;
+
+  /// Set when the user arrived from the signup form; a paid tier continues to
+  /// checkout once the key (and with it the org) exists.
+  final SignupIntent? signup;
+
+  const ProvisionArgs({required this.session, this.signup});
+}
+
 /// Provision API key page.
 ///
-/// Displays user email and a button to provision an API key using
-/// the authenticated JWT. Shows the generated API key in a copyable
-/// code block.
+/// Reached from the Auth0 callback when the signed-in user has no org yet.
+/// Generating the first key creates their org; the key is shown once, in a
+/// copyable code block.
 class ProvisionPage extends StatefulWidget {
-  final AuthSuccess auth;
+  final ProvisionArgs args;
   final VoidCallback? onBack;
 
   const ProvisionPage({
     super.key,
-    required this.auth,
+    required this.args,
     this.onBack,
   });
 
@@ -52,23 +64,25 @@ class _ProvisionPageState extends State<ProvisionPage> {
       _errorMessage = null;
     });
 
-    final email = widget.auth.email.toLowerCase().trim();
+    // Sent exactly as Auth0 returned it: the receiver compares it byte for byte
+    // with /userinfo, so normalising it here would fail as an email mismatch.
+    final session = widget.args.session;
     final event = ProvisioningEvent(
       action: 'provision_api_key',
-      name: email.split('@')[0],
-      email: email,
+      name: session.email.split('@')[0],
+      email: session.email,
+      orgName: widget.args.signup?.orgName,
     );
 
     final response = await ProvisioningService.sendEvent(
       event,
-      jwt: widget.auth.jwt,
+      jwt: session.accessToken,
     );
 
     if (!mounted) return;
 
     switch (response) {
       case ProvisioningSuccess():
-        AuthStorage.saveJwt(widget.auth.jwt);
         setState(() {
           _apiKey = response.apiKey;
           _isLoading = false;
@@ -102,8 +116,17 @@ class _ProvisionPageState extends State<ProvisionPage> {
     }
   }
 
+  /// Paid tiers pay only now that the org exists, so the checkout session can be
+  /// attributed to it (a checkout opened before provisioning was never linked).
+  void _goToCheckout(SignupIntent signup) {
+    context.go(
+      Routes.checkout,
+      extra: CheckoutArgs(email: widget.args.session.email, tier: signup.tier),
+    );
+  }
+
   Future<void> _loadBootstrap() async {
-    final result = await ProvisioningService.bootstrap(jwt: widget.auth.jwt);
+    final result = await ProvisioningService.bootstrap(jwt: widget.args.session.accessToken);
     if (!mounted) return;
     switch (result) {
       case BootstrapSuccess():
@@ -172,6 +195,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final signup = widget.args.signup;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
@@ -228,7 +252,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Text(
-                        SecurityUtils.sanitizeUserInput(widget.auth.email),
+                        SecurityUtils.sanitizeUserInput(widget.args.session.email),
                         style: AppTypography.bodySM.copyWith(
                           color: AppColors.textPrimary,
                         ),
@@ -253,10 +277,16 @@ class _ProvisionPageState extends State<ProvisionPage> {
                     _buildOrgContextCard(_bootstrapResult!),
                   ],
                   const SizedBox(height: AppSpacing.lg),
-                  GradientButton(
-                    onPressed: _goToDashboard,
-                    text: 'Go to Dashboard',
-                  ),
+                  if (signup != null && signup.isPaidTier)
+                    GradientButton(
+                      onPressed: () => _goToCheckout(signup),
+                      text: 'Continue to Checkout',
+                    )
+                  else
+                    GradientButton(
+                      onPressed: _goToDashboard,
+                      text: 'Go to Dashboard',
+                    ),
                 ] else ...[
                   // Provision button
                   GradientButton(

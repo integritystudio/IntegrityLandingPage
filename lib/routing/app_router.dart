@@ -10,6 +10,7 @@ import '../pages/legal_page.dart';
 import '../pages/about_page.dart';
 import '../pages/signup_page.dart';
 import '../pages/auth_page.dart';
+import '../pages/callback_page.dart';
 import '../pages/provision_page.dart';
 import '../pages/sender_health_page.dart';
 import '../pages/billing_status_page.dart';
@@ -159,10 +160,13 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) => AuthPage(
-          mode: AuthMode.signIn,
-          onBack: _goHome(context),
-        ),
+        builder: (context, state) => AuthPage(onBack: _goHome(context)),
+      ),
+      // Auth0 Universal Login returns here with ?code=&state= (both SPA clients
+      // list <origin>/callback as an allowed callback URL).
+      GoRoute(
+        path: Routes.callback,
+        builder: (context, state) => CallbackPage(uri: state.uri),
       ),
       // /app is the customer-facing vanity URL; AuthPage is mounted once, at
       // Routes.login. Kept as a redirect so existing links keep working.
@@ -170,26 +174,22 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
         path: Routes.app,
         redirect: (context, state) => Routes.login,
       ),
+      // Password reset lives on the Auth0 login page; kept so old links still land.
       GoRoute(
         path: Routes.forgotPassword,
-        builder: (context, state) => AuthPage(
-          mode: AuthMode.signIn,
-          onBack: _goHome(context),
-          initialForgotPassword: true,
-        ),
+        redirect: (context, state) => Routes.login,
       ),
       GoRoute(
         path: '/provision',
         redirect: (context, state) {
-          // JWT must arrive via state.extra from an in-app auth flow.
-          // Query-parameter fallback was removed: accepting a JWT from
-          // the URL allows login-CSRF (attacker deep-links victim into
-          // an attacker-controlled session).
-          if (state.extra is AuthSuccess) return null;
+          // The session must arrive via state.extra from the Auth0 callback.
+          // Never accept a token from the URL: that allows login-CSRF (an
+          // attacker deep-links the victim into an attacker-controlled session).
+          if (state.extra is ProvisionArgs) return null;
           return Routes.login;
         },
         builder: (context, state) => ProvisionPage(
-          auth: state.extra as AuthSuccess,
+          args: state.extra as ProvisionArgs,
           onBack: _goHome(context),
         ),
       ),
@@ -214,16 +214,14 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
           );
         },
       ),
+      // Without in-app args (a reload, a bookmark, a new tab) the stored Auth0
+      // session is restored, which re-enters this route with args or goes to login.
       GoRoute(
         path: Routes.dashboard,
-        redirect: (context, state) {
-          if (state.extra is! DashboardArgs) return Routes.login;
-          return null;
+        builder: (context, state) => switch (state.extra) {
+          final DashboardArgs args => DashboardPage(args: args, onBack: _goHome(context)),
+          _ => const SessionRestorePage(),
         },
-        builder: (context, state) => DashboardPage(
-          args: state.extra as DashboardArgs,
-          onBack: _goHome(context),
-        ),
       ),
       GoRoute(
         path: '/health',
@@ -234,7 +232,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: '/billing',
         redirect: (context, state) {
-          if (state.extra is! BillingStatusArgs) return Routes.login;
+          if (state.extra is! BillingStatusArgs) return Routes.dashboard;
           return null;
         },
         builder: (context, state) {
@@ -248,7 +246,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: '/usage',
         redirect: (context, state) {
-          if (state.extra is! UsageSummaryArgs) return Routes.login;
+          if (state.extra is! UsageSummaryArgs) return Routes.dashboard;
           return null;
         },
         builder: (context, state) {
@@ -262,7 +260,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: Routes.entitlements,
         redirect: (context, state) {
-          if (state.extra is! EntitlementsArgs) return Routes.login;
+          if (state.extra is! EntitlementsArgs) return Routes.dashboard;
           return null;
         },
         builder: (context, state) {
@@ -276,7 +274,7 @@ List<GoRoute> _authRoutes(VoidCallback onShowCookieSettings) => [
       GoRoute(
         path: Routes.quotaStatus,
         redirect: (context, state) {
-          if (state.extra is! QuotaStatusArgs) return Routes.login;
+          if (state.extra is! QuotaStatusArgs) return Routes.dashboard;
           return null;
         },
         builder: (context, state) {

@@ -304,12 +304,14 @@ Both rules are enforced by `workers/lib/deploy-environments.test.ts`.
 
 **Pointing the Flutter app at the dev workers**
 ```bash
-flutter run -d chrome \
+flutter run -d web-server --release --web-hostname localhost --web-port 8080 \
   --dart-define=SENDER_WORKER_URL=https://sender-worker-dev.alyshia-b38.workers.dev \
   --dart-define=API_GATEWAY_URL=https://api-gateway-dev.alyshia-b38.workers.dev \
-  --dart-define=CONTACT_API_URL=https://integrity-studio-contact-dev.alyshia-b38.workers.dev
+  --dart-define=CONTACT_API_URL=https://integrity-studio-contact-dev.alyshia-b38.workers.dev \
+  --dart-define=AUTH0_DOMAIN=dev-njjmghdzm23uy0p7.us.auth0.com \
+  --dart-define=AUTH0_CLIENT_ID=w4KMCpBAhSCnKjRlF7bWAycefJGwetya
 ```
-Without these the app uses the compile-time defaults in `lib/services/`, which point at the **production** workers — including in `ci.yml`, which builds with no `--dart-define`.
+Without these the app uses the compile-time defaults in `lib/services/`, which point at the **production** workers and the **production** Auth0 tenant — including in `ci.yml`, which builds with no `--dart-define`. The Auth0 pair must move with the workers: `api-gateway-dev` trusts only the dev tenant, so a prod-tenant token gets 401 there. Sign-in is Auth0 Universal Login (CR48), and the dev SPA client allows only `http://localhost:8080/callback` (and `:5173` for the dashboard repo), hence the fixed port; `--release` because debug mode injects inline scripts the CSP blocks.
 
 **Environment isolation** (status 2026-08-03; proofs and holdings in [docs/runbooks/cloudflare-deploy-notes.md](docs/runbooks/cloudflare-deploy-notes.md)):
 - Doppler `dev` is data-isolated from `prd` — its own Supabase project (`tumhmtshahktumhqqamk`), Auth0 tenant (`dev-njjmghdzm23uy0p7`), HMAC secret, and Stripe sandbox. Verify with `npm run check:env-isolation` (PASSES; re-run rather than trust). Since W09 (2026-08-08) it checks a named list (24 names on 2026-09-28) *and* classifies every name byte-identical across both configs, failing on any it cannot account for — that sweep immediately found five more, including a `dp.st.prd.` Doppler service token sitting in `dev`, which reads the whole production store. ⚠️ **Eleven names are ACCEPTED on the 2026-09-28 run**: nine Cloudflare/wrangler credentials that cannot be environment-scoped at all (D1, Workers Scripts, R2 and Pages have no per-resource selector; wrangler OAuth is per-user), and two production smoke-test logins kept in both configs by owner decision. They are recorded per name in code with a reason and printed every run — not silently excluded.

@@ -1,6 +1,13 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integrity_studio_ai/models/dashboard_models.dart';
 import 'package:integrity_studio_ai/pages/dashboard_page.dart';
+import 'package:integrity_studio_ai/services/auth0_config.dart';
+import 'package:integrity_studio_ai/services/auth0_service.dart';
+import 'package:integrity_studio_ai/services/dashboard_service.dart';
+
+import '../helpers/fake_auth0_browser.dart';
+import '../helpers/mock_http_adapter.dart';
+import '../helpers/test_helpers.dart';
 
 void main() {
   group('pickActiveOrg', () {
@@ -23,6 +30,79 @@ void main() {
 
     test('returns null for an empty list', () {
       expect(pickActiveOrg(const [], 'org-1'), isNull);
+    });
+  });
+
+  group('Observability card', () {
+    setUp(() {
+      final adapter = MockHttpAdapter()
+        ..stubJson('GET', {
+          'organizations': [
+            {'id': 'org-1', 'name': 'Org One'},
+          ],
+        }, path: '/v1/orgs');
+      DashboardService.setDioForTesting(dioWithMockAdapter(adapter));
+    });
+
+    tearDown(DashboardService.resetDio);
+
+    testWidgets('appears after the other cards with its title and subtitle', (tester) async {
+      await tester.pumpApp(const DashboardPage(args: DashboardArgs(jwt: 'test.jwt')));
+
+      expect(find.text('Observability'), findsOneWidget);
+      expect(find.text('View your traces, logs, metrics, and evaluations'), findsOneWidget);
+      final entitlementsTop = tester.getTopLeft(find.text('Entitlements')).dy;
+      expect(tester.getTopLeft(find.text('Observability')).dy, greaterThan(entitlementsTop));
+    });
+
+    testWidgets('is reachable on a short screen: the page scrolls rather than clipping', (tester) async {
+      tester.view.physicalSize = const Size(400, 500);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpApp(const DashboardPage(args: DashboardArgs(jwt: 'test.jwt')));
+
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('Observability'));
+      expect(tester.getRect(find.text('Observability')).bottom, lessThanOrEqualTo(500));
+    });
+
+    testWidgets('tapping it does not throw when the URL cannot be opened', (tester) async {
+      await tester.pumpApp(const DashboardPage(args: DashboardArgs(jwt: 'test.jwt')));
+
+      await tester.ensureVisible(find.text('Observability'));
+      await tester.tap(find.text('Observability'));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('Sign out', () {
+    late FakeAuth0Browser browser;
+
+    setUp(() {
+      browser = FakeAuth0Browser();
+      browser.write(BrowserStore.local, 'auth0_refresh_token', 'refresh-1');
+      Auth0Service.setForTesting(browser: browser);
+      DashboardService.setDioForTesting(dioWithMockAdapter(
+          MockHttpAdapter()..stubJson('GET', {'organizations': []}, path: '/v1/orgs')));
+    });
+
+    tearDown(() {
+      Auth0Service.resetForTesting();
+      DashboardService.resetDio();
+    });
+
+    testWidgets('forgets the session and ends the shared Auth0 session', (tester) async {
+      await tester.pumpApp(const DashboardPage(args: DashboardArgs(jwt: 'test.jwt')));
+
+      await tester.tap(find.text('Sign out'));
+      await tester.pump();
+
+      expect(Auth0Service.hasSession, isFalse);
+      expect(browser.lastNavigation?.host, Auth0Config.domain);
+      expect(browser.lastNavigation?.path, '/v2/logout');
     });
   });
 }

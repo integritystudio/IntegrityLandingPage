@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../config/content/constants.dart';
 import '../services/analytics.dart';
+import '../services/auth0_service.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
 import '../widgets/common/cards.dart';
@@ -92,6 +94,22 @@ class _DashboardPageState extends State<DashboardPage> {
     context.go(route, extra: extra);
   }
 
+  /// Opens the observability dashboard, a separate Auth0 app that signs the user
+  /// in itself: no token is handed over (CR04). A launcher failure is reported,
+  /// not thrown, as on the provision page.
+  Future<void> _openObservability() async {
+    try {
+      await launchUrl(Uri.parse(ExternalUrls.dashboardApp));
+    } catch (e, stackTrace) {
+      ErrorTrackingService.captureException(
+        e,
+        stackTrace: stackTrace,
+        context: 'dashboard._openObservability',
+        extra: {'url': ExternalUrls.dashboardApp},
+      );
+    }
+  }
+
   Widget _buildOrgSwitcher() {
     return DropdownButton<String>(
       value: _activeOrg?.orgId,
@@ -166,6 +184,15 @@ class _DashboardPageState extends State<DashboardPage> {
       title: 'Dashboard',
       titleStyle: AppTypography.headingMD,
       onBack: widget.onBack,
+      actions: [
+        // Ends the Auth0 session too, so integritystudio.dev is signed out as well.
+        TextButton.icon(
+          onPressed: Auth0Service.logout,
+          icon: const Icon(LucideIcons.logOut, size: 16),
+          label: const Text('Sign out'),
+          style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+        ),
+      ],
       children: [
         if (_isLoading)
           const Center(child: CircularProgressIndicator())
@@ -267,6 +294,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               );
             },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildNavCard(
+            label: 'Observability',
+            icon: LucideIcons.activity,
+            description: 'View your traces, logs, metrics, and evaluations',
+            onTap: _openObservability,
           ),
         ],
       ],

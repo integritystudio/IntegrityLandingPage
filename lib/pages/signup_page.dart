@@ -10,13 +10,15 @@ import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
 import '../widgets/common/form_fields.dart';
 import '../widgets/common/gradient_page_shell.dart';
+import '../services/auth0_service.dart';
 import '../services/content_loader.dart';
-import '../services/provisioning_service.dart';
 
 /// Signup page with tier selection.
 ///
-/// Displays a signup form pre-populated with the selected pricing tier.
-/// On successful signup, redirects to Calendly for onboarding.
+/// Collects the tier, the email and (enterprise) the company name, then opens
+/// Auth0's sign-up screen; the password is set there, never on this site. The
+/// tier and company ride the redirect as a [SignupIntent] that the callback uses
+/// to provision the org and, for a paid tier, continue to checkout.
 class SignupPage extends StatefulWidget {
   final String tier;
   final VoidCallback? onBack;
@@ -34,8 +36,6 @@ class SignupPage extends StatefulWidget {
 class _SignupPageState extends State<SignupPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _nameController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _companyController = TextEditingController();
 
   bool get _isEnterprise => widget.tier.toLowerCase() == SignupTiers.enterprise;
@@ -55,8 +55,6 @@ class _SignupPageState extends State<SignupPage> {
   @override
   void dispose() {
     _emailController.dispose();
-    _nameController.dispose();
-    _passwordController.dispose();
     _companyController.dispose();
     super.dispose();
   }
@@ -150,16 +148,6 @@ class _SignupPageState extends State<SignupPage> {
               const SizedBox(height: AppSpacing.lg),
             ],
 
-            // Name field
-            FormTextField(
-              label: 'Full Name',
-              value: _nameController.text,
-              onChanged: (value) => _nameController.text = value,
-              required: true,
-              errorText: _fieldErrors['name'],
-            ),
-            const SizedBox(height: AppSpacing.md),
-
             // Email field
             FormTextField(
               label: 'Work Email',
@@ -171,7 +159,7 @@ class _SignupPageState extends State<SignupPage> {
             ),
             const SizedBox(height: AppSpacing.md),
 
-            // Enterprise: company name + password; others: password only
+            // Enterprise names its org after the company.
             if (_isEnterprise) ...[
               FormTextField(
                 label: 'Company Name',
@@ -181,16 +169,7 @@ class _SignupPageState extends State<SignupPage> {
               ),
               const SizedBox(height: AppSpacing.md),
             ],
-            FormTextField(
-              label: 'Password',
-              value: _passwordController.text,
-              onChanged: (value) => _passwordController.text = value,
-              obscureText: true,
-              required: true,
-              autofillHint: AutofillHints.newPassword,
-              errorText: _fieldErrors['password'],
-            ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.sm),
 
             // Terms checkbox
             InkWell(
@@ -241,7 +220,7 @@ class _SignupPageState extends State<SignupPage> {
             // Submit button
             GradientButton(
               text: _isSubmitting
-                  ? 'Creating Account...'
+                  ? 'Redirecting...'
                   : ContentLoader.signupCta(widget.tier),
               icon: _isSubmitting ? null : LucideIcons.arrowRight,
               onPressed: _isSubmitting ? null : _handleSubmit,
@@ -283,7 +262,7 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  Future<void> _handleSubmit() async {
+  void _handleSubmit() {
     // Clear previous errors
     setState(() {
       _fieldErrors.clear();
@@ -292,26 +271,13 @@ class _SignupPageState extends State<SignupPage> {
 
     // Validate fields
     bool hasError = false;
+    final email = _emailController.text.trim();
 
-    if (_nameController.text.trim().isEmpty) {
-      _fieldErrors['name'] = 'Please enter your name';
-      hasError = true;
-    }
-
-    if (_emailController.text.trim().isEmpty) {
+    if (email.isEmpty) {
       _fieldErrors['email'] = 'Please enter your email';
       hasError = true;
-    } else if (!ContactService.isValidEmail(_emailController.text)) {
+    } else if (!ContactService.isValidEmail(email)) {
       _fieldErrors['email'] = 'Please enter a valid email';
-      hasError = true;
-    }
-
-    if (_passwordController.text.isEmpty) {
-      _fieldErrors['password'] = 'Please enter a password';
-      hasError = true;
-    } else if (_passwordController.text.length < PasswordPolicy.minLength) {
-      _fieldErrors['password'] =
-          'Password must be at least ${PasswordPolicy.minLength} characters';
       hasError = true;
     }
 
@@ -327,44 +293,13 @@ class _SignupPageState extends State<SignupPage> {
 
     setState(() => _isSubmitting = true);
 
-    await _handleAuthSubmit();
-  }
-
-  Future<void> _handleAuthSubmit() async {
-    // Enterprise orgs use company name; others use personal name.
-    final orgName = _isEnterprise
-        ? _companyController.text.trim()
-        : _nameController.text.trim();
-
-    final result = await ProvisioningService.signUp(
-      _emailController.text.trim(),
-      _passwordController.text,
-      name: orgName.isNotEmpty ? orgName : _nameController.text.trim(),
-      tier: widget.tier,
+    final company = _companyController.text.trim();
+    Auth0Service.login(
+      loginHint: email,
+      signup: SignupIntent(
+        tier: widget.tier,
+        orgName: _isEnterprise && company.isNotEmpty ? company : null,
+      ),
     );
-
-    if (!mounted) return;
-    setState(() => _isSubmitting = false);
-
-    switch (result) {
-      case AuthSuccess():
-        // Track success events only after the request confirms signup succeeded.
-        AnalyticsService.trackFormSubmission(formType: 'signup_form', success: true);
-        FacebookPixelService.trackLead(email: _emailController.text);
-        _routeAfterSignup(result);
-      case AuthError():
-        context.go('/request_failure', extra: result.error);
-    }
   }
-
-  /// Route to appropriate page based on tier after successful signup.
-  void _routeAfterSignup(AuthSuccess result) {
-    final tierLower = widget.tier.toLowerCase();
-    if (tierLower == SignupTiers.growth || tierLower == SignupTiers.enterprise) {
-      context.go(Routes.checkout, extra: CheckoutArgs(email: result.email, tier: widget.tier));
-    } else {
-      context.go(Routes.provision, extra: result);
-    }
-  }
-
 }

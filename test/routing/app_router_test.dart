@@ -1,11 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:integrity_studio_ai/routing/app_router.dart';
 import 'package:integrity_studio_ai/routing/cookie_shell.dart';
 import 'package:integrity_studio_ai/config/content/constants.dart';
-import 'package:integrity_studio_ai/services/provisioning_service.dart';
+import 'package:integrity_studio_ai/services/auth0_service.dart';
+import 'package:integrity_studio_ai/services/dashboard_service.dart';
+import 'package:integrity_studio_ai/pages/callback_page.dart';
 import 'package:integrity_studio_ai/pages/dashboard_page.dart';
+import 'package:integrity_studio_ai/pages/provision_page.dart';
 import 'package:integrity_studio_ai/pages/billing_status_page.dart';
 import 'package:integrity_studio_ai/pages/usage_summary_page.dart';
 import 'package:integrity_studio_ai/pages/entitlements_page.dart';
@@ -30,6 +35,8 @@ import 'package:integrity_studio_ai/pages/docs_quickstart_page.dart';
 import 'package:integrity_studio_ai/pages/docs_alerts_page.dart';
 import 'package:integrity_studio_ai/pages/compliance_page.dart';
 import 'package:integrity_studio_ai/pages/eu_ai_act_page.dart';
+import '../helpers/fake_auth0_browser.dart';
+import '../helpers/mock_http_adapter.dart';
 import '../helpers/test_helpers.dart';
 
 /// Routes with back buttons that should navigate to home
@@ -576,12 +583,6 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // state.extra redirect guards
-  //
-  // Protected routes require a typed extra argument. Without it the router
-  // redirects to /login (auth-required routes) or /home (checkout). These tests
-  // prove the guard fires — they do NOT check the page that renders on redirect,
-  // only that the router did not land on the intended path.
   // ---------------------------------------------------------------------------
 
   group('dashboard back arrows', () {
@@ -630,7 +631,25 @@ void main() {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // state.extra redirect guards
+  //
+  // Protected routes require a typed extra argument. Without it /provision goes
+  // to /login, /checkout to home, and /dashboard restores the stored Auth0
+  // session (landing on /login when there is none); the dashboard's sub-pages go
+  // through /dashboard, so a signed-out visit ends on /login too.
+  // ---------------------------------------------------------------------------
+
   group('state.extra redirect guards', () {
+    late FakeAuth0Browser browser;
+
+    setUp(() {
+      browser = FakeAuth0Browser();
+      Auth0Service.setForTesting(browser: browser);
+    });
+
+    tearDown(Auth0Service.resetForTesting);
+
     /// Navigate to [path] with [extra] on a live router. Returns current path.
     Future<String> navigateTo(
       WidgetTester tester,
@@ -658,20 +677,48 @@ void main() {
       return router.routerDelegate.currentConfiguration.uri.path;
     }
 
-    testWidgets('/provision without AuthSuccess extra redirects to /login', (tester) async {
+    testWidgets('/provision without ProvisionArgs extra redirects to /login', (tester) async {
       final path = await navigateTo(tester, Routes.provision);
       expect(path, Routes.login);
     });
 
-    testWidgets('/provision with AuthSuccess extra proceeds to /provision', (tester) async {
-      final auth = AuthSuccess(jwt: 'test.jwt', email: 'user@example.com');
-      final path = await navigateTo(tester, Routes.provision, extra: auth);
+    testWidgets('/provision with ProvisionArgs extra proceeds to /provision', (tester) async {
+      final args = ProvisionArgs(
+        session: Auth0Session(accessToken: 'test.jwt', email: 'user@example.com', expiresAt: DateTime.utc(2030)),
+      );
+      final path = await navigateTo(tester, Routes.provision, extra: args);
       expect(path, Routes.provision);
     });
 
-    testWidgets('/dashboard without DashboardArgs extra redirects to /login', (tester) async {
+    testWidgets('/callback hands the query string to the callback page', (tester) async {
+      final path = await navigateTo(tester, '${Routes.callback}?code=c1&state=s1');
+      // No login started in this tab, so the exchange is refused and the page
+      // stays put with a retry, rather than routing anywhere.
+      expect(path, Routes.callback);
+      final page = tester.widget<CallbackPage>(find.byType(CallbackPage));
+      expect(page.uri.queryParameters, {'code': 'c1', 'state': 's1'});
+    });
+
+    testWidgets('/dashboard without DashboardArgs and no session goes to /login', (tester) async {
       final path = await navigateTo(tester, Routes.dashboard);
       expect(path, Routes.login);
+    });
+
+    testWidgets('/dashboard without DashboardArgs restores a stored session', (tester) async {
+      final session = Auth0Session(accessToken: 'stored.jwt', email: 'user@example.com', expiresAt: DateTime.utc(2030));
+      browser.write(BrowserStore.session, 'auth0_session', jsonEncode(session.toJson()));
+      // The restored dashboard fetches its orgs; answer at once so no timer outlives the test.
+      DashboardService.setDioForTesting(
+          dioWithMockAdapter(MockHttpAdapter()..stubJson('GET', {'organizations': []})));
+      addTearDown(DashboardService.resetDio);
+
+      final path = await navigateTo(tester, Routes.dashboard);
+
+      expect(path, Routes.dashboard);
+      expect(tester.widget<DashboardPage>(find.byType(DashboardPage)).args.jwt, 'stored.jwt');
+      // The dashboard mounts a frame later than in the other tests (after the
+      // restore resolves), so give its org fetch one more frame to finish.
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     testWidgets('/dashboard with DashboardArgs extra proceeds to /dashboard', (tester) async {
@@ -680,7 +727,7 @@ void main() {
       expect(path, Routes.dashboard);
     });
 
-    testWidgets('/billing without BillingStatusArgs extra redirects to /login', (tester) async {
+    testWidgets('/billing without BillingStatusArgs extra ends on /login when signed out', (tester) async {
       final path = await navigateTo(tester, Routes.billingStatus);
       expect(path, Routes.login);
     });
@@ -691,7 +738,7 @@ void main() {
       expect(path, Routes.billingStatus);
     });
 
-    testWidgets('/usage without UsageSummaryArgs extra redirects to /login', (tester) async {
+    testWidgets('/usage without UsageSummaryArgs extra ends on /login when signed out', (tester) async {
       final path = await navigateTo(tester, Routes.usageSummary);
       expect(path, Routes.login);
     });
@@ -702,7 +749,7 @@ void main() {
       expect(path, Routes.usageSummary);
     });
 
-    testWidgets('/entitlements without EntitlementsArgs extra redirects to /login', (tester) async {
+    testWidgets('/entitlements without EntitlementsArgs extra ends on /login when signed out', (tester) async {
       final path = await navigateTo(tester, Routes.entitlements);
       expect(path, Routes.login);
     });
@@ -713,7 +760,7 @@ void main() {
       expect(path, Routes.entitlements);
     });
 
-    testWidgets('/quota without QuotaStatusArgs extra redirects to /login', (tester) async {
+    testWidgets('/quota without QuotaStatusArgs extra ends on /login when signed out', (tester) async {
       final path = await navigateTo(tester, Routes.quotaStatus);
       expect(path, Routes.login);
     });

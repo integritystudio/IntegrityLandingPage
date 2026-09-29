@@ -385,7 +385,13 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR44](#cr44) | P3 | ✅ **DONE and live 2026-09-29** — `api-gateway` `51324cf4` | `in` list members double-quoted (a `,` can no longer split the list); `update`/`deleteRows` return an error for an empty filter instead of writing the whole table; checkout validates `plan` with `ApiKeyTierSchema` before any query |
 | [CR45](#cr45) | P3 | ✅ **DONE and live 2026-09-29** — `api-gateway` `51324cf4` | Deleted: the quota DO's `POST /flush-usage`, `flushUsage()`, `QuotaFlushResultSchema`. A POST there now 404s and leaves the counter alone (regression test) |
 | [CR47](#cr47) | P2 | ✅ **DONE and live 2026-09-28** — toolkit `bbdb63ad` pushed and deployed with CR37 step 3 (receiver `3c9b1020`) | Only the call that **creates** a team org makes its caller owner; later joiners are members whatever the plan. Domain grouping requires `email_verified === true`; an unverified corporate address gets a personal org. Production audit: no team org has more than one owner |
-| [CR46](#cr46) | P3 | ⚠️ **live on api-gateway** (`51324cf4`); contact-form `deploy:prd` + sender CI pending | `workers/lib/http/cors.ts` (`buildCors`) is the one CORS helper; api-gateway, contact-form and sender-worker use it, and root `cors-utils.ts` / `http-helpers.ts` are deleted. Live after `deploy:prd` of api-gateway and contact-form and a `main` push (sender CI) |
+| [CR46](#cr46) | P3 | ✅ **DONE and live 2026-09-29** — api-gateway `51324cf4`, contact-form `065e8b4a`, sender-worker `e1bba9b8` (CI, `b2f88e6`) | `workers/lib/http/cors.ts` (`buildCors`) is the one CORS helper; api-gateway, contact-form and sender-worker use it, and root `cors-utils.ts` / `http-helpers.ts` are deleted. Live after `deploy:prd` of api-gateway and contact-form and a `main` push (sender CI) |
+| [CR48](#cr48) | P2 | ⚠️ **live 2026-09-29** — `b2f88e6` on Pages, all CI green; owner's sign-in check pending | integritystudio.ai signs in through **Auth0 Universal Login** (authorization code + PKCE) with the `integritystudio-dashboard` SPA client, so it shares one Auth0 session with integritystudio.dev and the Observability card opens without a second login. The ROPC form is gone. |
+| [CR49](#cr49) | P2 | 📋 blocked on CR48 being live | Retire sender `/signin`, `/signup`, `/forgot-password` and the "My App" `password` grant — nothing in the app calls them after CR48. |
+| [CR50](#cr50) | P3 | 📋 open | New users get no `users.default_organization_id` (1 of 10 in production: the 2026-09-29 smoke-test account), so `users.tier` never follows their org's plan. |
+| [CR51](#cr51) | P2 | 📋 open | The post-login Action's email fallback re-links an existing `users` row to any new Auth0 identity with that email, without checking `email_verified`. |
+| [CR52](#cr52) | P3 | 📋 open | The dashboard hub passes `monthlyUnitsQuota: 0` to Usage, so the quota line never renders. |
+| [CR53](#cr53) | P3 | 📋 open | `/v1/orgs` answers `200 {organizations: []}` when its Supabase queries fail; since CR48 the callback reads that as a new account. |
 
 ~~**Two items are now blocked on code** — [[CR20]] and [[CR21]]…~~ **Superseded 2026-07-31.** [[CR21]] is done and live, and [[CR20]] is not blocked on code at all — its remaining work is monitoring ([[W04]]), since [[CR21]] foreclosed the 5xx option. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). What still needs a decision rather than an implementation: a credential/provisioning call (CR01, CR11, CR12's cross-repo HMAC secret), or an answer about intent (CR13, CR16). **Update 2026-09-28:** CR01, CR11, CR12 and CR13 are closed, and [[W04]] closed 2026-08-09 (1.3 changelog); of this list only CR16 remains, and it is by design.
 
@@ -2387,7 +2393,7 @@ A fourth, `workers/lib/http/cors.ts`, defaulted to `Access-Control-Allow-Origin:
 
 **Rules that must survive the consolidation:** no wildcard default anywhere; the allowlist stays env-driven so dev and production origin sets differ (CR02 / CR11); suffix matching anchors on a `.` boundary; api-gateway keeps CORS at the single outer boundary (the pre-CR26 outage was a Worker with no CORS at all).
 
-**Status:** ⚠️ **Live on `api-gateway` 2026-09-29** (`51324cf4`: preflights from both `.ai` and both `.dev` origins reflected, an unlisted origin answered `https://integritystudio.ai`, `Vary: Origin` throughout); still pending: `contact-form` `deploy:prd` and a `main` push (CI deploys `sender-worker`). The defaults also gained `https://integritystudio.dev` and `https://www.integritystudio.dev` (`e4aec20`). Commits: helper `a7e2706`, api-gateway `6edacd2`, contact-form `416a572`, sender-worker `0a8feb3`, root files deleted `a0c3cf5`.
+**Status:** ⚠️ **Live on `api-gateway` 2026-09-29** (`51324cf4`: preflights from both `.ai` and both `.dev` origins reflected, an unlisted origin answered `https://integritystudio.ai`, `Vary: Origin` throughout); ✅ **`contact-form` live 2026-09-29 08:05Z** (`065e8b4a`, 100%): preflights from `.ai`, `www.ai` and `.dev` reflected, an unlisted origin answered `https://integritystudio.ai`, and a POST from an unlisted origin refused `403 unauthorized origin` while `.dev` reached the CSRF check (sampled twice). ✅ **`sender-worker` live 2026-09-29 08:05Z** (`e1bba9b8`, 100%, deployed by CI from `b2f88e6`, the first push carrying `0a8feb3` and `e4aec20`): `.ai` and `.dev` preflights reflected, an unlisted origin gets no `Access-Control-Allow-Origin` (sampled twice). **Nothing pending.** The defaults also gained `https://integritystudio.dev` and `https://www.integritystudio.dev` (`e4aec20`). Commits: helper `a7e2706`, api-gateway `6edacd2`, contact-form `416a572`, sender-worker `0a8feb3`, root files deleted `a0c3cf5`.
 - **The helper** (`buildCors(origin, policy)` → `{ allowed, headers }`): exact allowlist from `ALLOWED_ORIGINS_JSON` (non-string members fall back to the defaults; a `"*"` entry is dropped, so a wildcard cannot be configured in), an optional `.`-anchored https `previewHostSuffix` (a suffix without its dot matches nothing), `Vary: Origin` always, credentials only for an allowed origin and only when asked. `disallowedOriginHeader: 'first-allowed' | 'omit'` keeps each worker's answer to an unlisted origin: api-gateway and contact-form send the first allowed origin, sender-worker none. Refusing the request (contact-form's and sender's 403) stays in each worker.
 - **One behaviour changed:** an explicit `ALLOWED_ORIGINS_JSON = "[]"` on api-gateway used to fall back to `https://integritystudio.ai`, so `[]` still admitted production; it now denies every origin, as contact-form's already did. Production api-gateway binds no `ALLOWED_ORIGINS_JSON`, so nothing live changes. sender-worker's actual responses now also carry `Vary: Origin` and the allow-methods/headers set, not just Allow-Origin.
 - **Also removed:** sender-worker's dead `corsPreflightResponse()` (only its tests called it) and `CORS_HEADERS`.
@@ -2414,6 +2420,97 @@ A fourth, `workers/lib/http/cors.ts`, defaulted to `Access-Control-Allow-Origin:
 3. **Production audit (read-only, 2026-09-27):** 2 team orgs, each with exactly 1 owner (one has 6 active members). Nothing to repair.
 
 Tests: receiver 324 green, `tsc` clean. Mutation-checked: making every joiner an owner fails the 3 joiner cases; ignoring `email_verified` fails both unverified cases. The 5 integration fixtures for `user@acme.com` now carry `email_verified: true`, which is what they always meant.
+
+---
+
+<a id="cr48"></a>
+
+### CR48: integritystudio.ai signs in through Auth0 Universal Login, sharing one session with integritystudio.dev
+
+**Priority:** P2 | **Source:** session 2026-09-29, the Observability card (`d20b1d9`) sent signed-in users to integritystudio.dev, which asked them to log in again
+**Estimated:** done in code; remaining work is verification and the push
+
+**Why:** `/login` and `/signup` exchanged the password server-side (sender `/signin`, `/signup`, Auth0 `password` grant on "My App"). That never creates an Auth0 browser session, so integritystudio.dev's SPA had nothing to reuse. Signing in on Auth0's own page with the SPA client integritystudio.dev already uses gives both sites one session.
+
+**Deployed 2026-09-29:** `b2f88e6` pushed to `main`; every workflow green, including Deploy to Cloudflare Pages. Both `integritystudio.ai` and `www.` serve a `main.dart.js` carrying the production client id (and not the dev one), the CSP allows `dev-68gg87ow4mg4kzyo.us.auth0.com`, and `/callback` loads.
+
+**What changed:**
+- `lib/services/auth0_service.dart` (+ `auth0_browser{,_web,_stub}.dart`, `auth0_config.dart`): authorization code + PKCE S256, single-use state/verifier in sessionStorage, rotating refresh token in localStorage, one in-flight refresh at a time, `/v2/logout` on sign-out. Prod defaults; `--dart-define=AUTH0_DOMAIN/AUTH0_CLIENT_ID` selects the dev tenant.
+- `/callback` (`CallbackPage`): exchanges the code, then `GET /v1/orgs` — no orgs → `/provision`, otherwise `/dashboard`. This is the route a new account never had.
+- `/login` is a "Continue to Sign In" hand-off; `/forgot-password` redirects to it (reset is on Auth0's page). `/signup` keeps tier, email, company and terms, drops the password, and carries `{tier, orgName}` across the redirect.
+- `/provision` sends the email exactly as Auth0 returns it (the receiver compares it byte for byte with `/userinfo`) and the enterprise company as `org_name`. A paid tier goes to checkout **after** provisioning, so the checkout session resolves to an org that exists.
+- `/dashboard` without in-app args restores the stored session (reload, bookmark, new tab); its sub-pages route through it. The dashboard has a **Sign out** button that also ends the integritystudio.dev session.
+- Removed: `ProvisioningService.signIn/signUp/forgotPassword`, `AuthSuccess/AuthError`, `AuthStorage`, `PasswordPolicy`. CSP `connect-src` allows both tenants' token endpoints.
+- Tests: 2780 green, `flutter analyze` clean. Mutation-checked: dropping the refresh memo, the state comparison, or the refuse-vs-network distinction each fails its own test.
+
+**Auth0 changes (applied 2026-09-29, additive, re-read after PATCH):** prod `integritystudio-dashboard` gained `https://www.integritystudio.ai/callback`, logout `https://www.integritystudio.ai/`, and web/allowed origins `https://integritystudio.ai` + `https://www.integritystudio.ai` (the existing `https://integritystudio.ai/` entries carry a trailing slash, which never equals an `Origin` header). Dev `integritystudio-dashboard-dev` gained `http://localhost:8080` (callback, logout, origins). Probed without credentials: every origin's `/authorize` returns 302 to `/u/login` (`/u/signup` with `screen_hint`), and `/oauth/token` returns its `Access-Control-Allow-Origin`; an unlisted origin gets 403 and no CORS header.
+
+**Remaining:**
+1. Click-through on the local release build against the dev tenant and dev Workers: sign up → `/callback` → `/provision` issues a key → dashboard lists the org; sign out → sign in → `/dashboard`; reload `/dashboard` stays signed in; growth signup → provision → checkout (sandbox) → the dev webhook updates the plan.
+2. ~~Push `main`~~ ✅ done (above). Production, owner to check: sign in at integritystudio.ai, open **Observability** → integritystudio.dev loads **without** a login prompt; `alwaysrunningfast@gmail.com` signs in through Universal Login.
+
+**Known limits:**
+- Refresh-token rotation `leeway` is `0` on both SPA clients. Two tabs refreshing the same token at the same instant counts as reuse, and Auth0 revokes the family (both tabs signed out). In-tab calls are serialised; cross-tab is not. Setting a small `leeway` on the client would absorb it, but the client is shared with integritystudio.dev, so decide there.
+- The old flow's `auth_jwt` localStorage key is no longer written or read, and is not cleared; it expires with its token.
+
+---
+
+<a id="cr49"></a>
+
+### CR49: retire the sender's ROPC endpoints and the "My App" `password` grant
+
+**Priority:** P2 | **Source:** CR48 | **Blocked on:** CR48 live in production
+
+After CR48 nothing in the app calls sender `/signin`, `/signup` or `/forgot-password`, and CR25's rule "do not strip the survivor" (`My App` keeps `password` because `/signin` uses it) stops applying — but only once no traffic reaches them.
+
+**Fix shape:**
+1. After CR48 is deployed, confirm from sender-worker logs that `/signin` and `/signup` see no requests for a week (old tabs and bookmarks drain).
+2. Delete the three routes, their handlers and tests; update sender `test:live`/`test:e2e` and CLAUDE.md's route list.
+3. Remove `password` from `My App`'s `grant_types` (look the full client id up first; listings truncate it). Then ROPC is 0 clients in production.
+
+---
+
+<a id="cr50"></a>
+
+### CR50: new users get no `users.default_organization_id`, so `users.tier` never follows their org's plan
+
+**Priority:** P3 | **Source:** CR48 provisioning trace, measured 2026-09-29
+
+9 of 10 production `users` rows have a `default_organization_id`, set by paths that no longer run; the one without is the newest (2026-09-29, the smoke-test signup). Nothing in this repo or the receiver writes the column. Readers: the `users_derive_tier` / `organizations_propagate_tier` triggers (so a new user's `users.tier` never tracks their org's plan), `custom_access_token_hook`, `/v1/me`, and sender checkout org resolution, which all fall back to the oldest active membership.
+
+**Fix shape:** set it when null on the first successful `provision_api_key` (receiver), or with a trigger on a user's first active owner membership; backfill the one row.
+
+---
+
+<a id="cr51"></a>
+
+### CR51: the post-login Action re-links a `users` row to any identity with the same email, without checking `email_verified`
+
+**Priority:** P2 | **Source:** CR48 provisioning trace; `auth0/actions/provision-user-and-enrich-token.cjs` step 2
+
+When no row matches `auth0_id`, the Action looks the user up **by email** and writes the new `auth0_id` onto that row, carrying its memberships and roles to the new identity. It never checks `event.user.email_verified`. Today the Username-Password connection keeps emails unique, so the path opens only when a row's original Auth0 user is gone (deleted, then the address re-registered, unverified) or when a second connection (social, enterprise) is enabled for any client. Either way, whoever registers the address inherits the old row.
+
+**Fix shape:** only re-link when `email_verified === true`; otherwise create a new row (or deny and log). Add the unverified case to `provision-user-and-enrich-token.test.ts`, deploy the Action, re-read the deployed version.
+
+---
+
+<a id="cr52"></a>
+
+### CR52: the dashboard hub passes `monthlyUnitsQuota: 0` to Usage, so the quota line never renders
+
+**Priority:** P3 | **Source:** CR48 review; `lib/pages/dashboard_page.dart` Usage card
+
+The comment says "0 = disabled until per-org quota is loaded via QuotaStatusPage", but nothing ever loads it on this path. **Fix shape:** have Usage fetch the org's monthly quota itself (it already has `orgId` and the token), or pass it from the hub once entitlements are loaded.
+
+---
+
+<a id="cr53"></a>
+
+### CR53: `/v1/orgs` answers `200 {organizations: []}` when its Supabase queries fail
+
+**Priority:** P3 | **Source:** CR48; `workers/api-gateway/src/routes/orgs.ts` `loadUserMemberships` and `loadOrgsForMemberships`
+
+Both return `[]` on `!result.ok`, so a database error reads as "no orgs". Since CR48 the callback routes an empty list to `/provision`, so an existing user caught by a transient error is offered **Generate API Key**. The receiver finds their existing org (`ensurePersonalOrg`/`ensureTeamOrg` are idempotent), so the cost is an extra key, not a second org. **Fix shape:** return `503` when either query fails, and add a test for each.
 
 ---
 

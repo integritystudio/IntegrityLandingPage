@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:integrity_studio_ai/config/content/constants.dart';
 import 'package:integrity_studio_ai/pages/provision_page.dart';
+import 'package:integrity_studio_ai/services/auth0_service.dart';
 import 'package:integrity_studio_ai/services/provisioning_service.dart';
 import 'package:integrity_studio_ai/widgets/common/alert.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
@@ -14,10 +16,12 @@ import '../helpers/test_helpers.dart';
 
 /// ProvisionPage contract:
 /// - Shows the authenticated email and a Generate API Key button.
-/// - Generate sends a provision_api_key event derived from the auth email
-///   (lowercased, trimmed, name = local part) with the JWT attached.
-/// - Success shows the key in a copyable field, swaps Generate for
-///   Go to Dashboard, and loads org context via bootstrap.
+/// - Generate sends a provision_api_key event with the email exactly as Auth0
+///   returned it (name = local part), the signup's company as org_name, and the
+///   access token attached.
+/// - Success shows the key in a copyable field, swaps Generate for Go to
+///   Dashboard (or Continue to Checkout for a paid signup), and loads org
+///   context via bootstrap.
 /// - Failure shows a sanitized error and keeps Generate available.
 /// - Go to Dashboard opens the external dashboard SPA; a launcher failure
 ///   is reported, never thrown (#55 pattern).
@@ -58,17 +62,39 @@ void main() {
     return launched;
   }
 
-  const auth = AuthSuccess(jwt: 'test-jwt', email: 'user@example.com');
+  Auth0Session sessionFor(String email) => Auth0Session(
+        accessToken: 'test-jwt',
+        email: email,
+        expiresAt: DateTime.utc(2030),
+      );
+
+  /// The CheckoutArgs the page navigated with, if it went to checkout.
+  CheckoutArgs? checkoutArgs;
 
   Future<void> pumpProvisionPage(
     WidgetTester tester, {
-    AuthSuccess auth = auth,
+    String email = 'user@example.com',
+    SignupIntent? signup,
     VoidCallback? onBack,
   }) async {
     setDesktopSize(tester);
-    await tester.pumpWidget(MaterialApp(
+    checkoutArgs = null;
+    final args = ProvisionArgs(session: sessionFor(email), signup: signup);
+    await tester.pumpWidget(MaterialApp.router(
       theme: testTheme,
-      home: ProvisionPage(auth: auth, onBack: onBack),
+      routerConfig: GoRouter(routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => ProvisionPage(args: args, onBack: onBack),
+        ),
+        GoRoute(
+          path: Routes.checkout,
+          builder: (_, state) {
+            checkoutArgs = state.extra as CheckoutArgs;
+            return const Text('checkout');
+          },
+        ),
+      ]),
     ));
     await tester.pump();
     clearOverflowExceptions(tester);
@@ -142,14 +168,13 @@ void main() {
 
   group('provisioning request', () {
     testWidgets(
-        'sends provision_api_key event derived from the auth email with JWT',
+        'sends the email exactly as Auth0 returned it, with the access token',
         (tester) async {
       stubProvisionSuccess();
       stubBootstrapSuccess();
-      await pumpProvisionPage(
-        tester,
-        auth: const AuthSuccess(jwt: 'test-jwt', email: ' User@Example.COM '),
-      );
+      // The receiver compares this byte for byte with /userinfo, so lowercasing
+      // it here would turn into an email-mismatch failure.
+      await pumpProvisionPage(tester, email: 'User@Example.com');
 
       await generateKey(tester);
 
@@ -157,12 +182,29 @@ void main() {
           adapter.requestLog.singleWhere((r) => r.path.endsWith('/send'));
       final body = jsonDecode(sendRequest.data as String);
       expect(body['action'], equals('provision_api_key'));
-      expect(body['email'], equals('user@example.com'));
-      expect(body['name'], equals('user'));
+      expect(body['email'], equals('User@Example.com'));
+      expect(body['name'], equals('User'));
+      expect(body, isNot(contains('org_name')));
       expect(
         sendRequest.headers['x-session-data'],
         equals(base64Encode(utf8.encode('test-jwt'))),
       );
+    });
+
+    testWidgets('names the org after the company an enterprise signup entered',
+        (tester) async {
+      stubProvisionSuccess();
+      stubBootstrapSuccess();
+      await pumpProvisionPage(
+        tester,
+        signup: const SignupIntent(tier: SignupTiers.enterprise, orgName: 'Acme Corp'),
+      );
+
+      await generateKey(tester);
+
+      final sendRequest =
+          adapter.requestLog.singleWhere((r) => r.path.endsWith('/send'));
+      expect(jsonDecode(sendRequest.data as String)['org_name'], 'Acme Corp');
     });
 
     testWidgets('disables the button while the request is in flight',
@@ -289,6 +331,41 @@ void main() {
 
       expect(find.byType(Alert), findsNothing);
       expect(find.text('isk_retry_ok'), findsOneWidget);
+    });
+  });
+
+  group('paid signup', () {
+    testWidgets('continues to checkout once the key, and so the org, exists',
+        (tester) async {
+      stubProvisionSuccess();
+      stubBootstrapSuccess();
+      await pumpProvisionPage(
+        tester,
+        signup: const SignupIntent(tier: SignupTiers.growth),
+      );
+
+      await generateKey(tester);
+      expect(find.widgetWithText(GradientButton, 'Go to Dashboard'), findsNothing);
+
+      await tester.tap(find.widgetWithText(GradientButton, 'Continue to Checkout'));
+      await tester.pumpAndSettle();
+
+      expect(checkoutArgs, const CheckoutArgs(email: 'user@example.com', tier: SignupTiers.growth));
+    });
+
+    testWidgets('a starter signup goes to the dashboard, not checkout',
+        (tester) async {
+      stubProvisionSuccess();
+      stubBootstrapSuccess();
+      await pumpProvisionPage(
+        tester,
+        signup: const SignupIntent(tier: SignupTiers.starter),
+      );
+
+      await generateKey(tester);
+
+      expect(find.widgetWithText(GradientButton, 'Go to Dashboard'), findsOneWidget);
+      expect(find.widgetWithText(GradientButton, 'Continue to Checkout'), findsNothing);
     });
   });
 

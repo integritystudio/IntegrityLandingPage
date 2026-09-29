@@ -12,7 +12,7 @@ import 'package:integrity_studio_ai/main.dart';
 
 // Services - platform-specific stubs/web
 // ignore: unused_import
-import 'package:integrity_studio_ai/services/auth_storage_stub.dart';
+import 'package:integrity_studio_ai/services/auth0_browser_stub.dart';
 // ignore: unused_import
 import 'package:integrity_studio_ai/services/tracking.dart';
 // ignore: unused_import
