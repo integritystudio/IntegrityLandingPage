@@ -2763,6 +2763,8 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Priority:** P3 | **Source:** UA04, session 2026-09-27
 
+**Status:** ✅ **DONE 2026-09-28** — `.github/workflows/supabase-sql-tests.yml` installs PostgreSQL 15 from the PGDG repository and runs every `supabase/tests/*/run.sh` it finds by glob, so a new suite is enrolled without editing the workflow; zero suites found fails the job. All three suites pass locally against Postgres 15. Like `migration-replay-check.yml` it triggers only on `main` (push or PR), so its first real run is the PR that adds it.
+
 `organization-hierarchy/run.sh` and the new `users-tier-derivation/run.sh` (16 assertions, mutation-checked) run only by hand; no file in `.github/workflows/` references `supabase/tests`. A later migration that breaks the tier triggers or the ancestor-walk policy would pass CI. **Scope:** add a job that installs Postgres 15 and runs every `supabase/tests/*/run.sh`. No Docker or credentials needed. It can sit beside `migration-replay-check.yml`.
 
 ### TS18: `supabase/tests/README.md` says `SUPABASE_ACCESS_TOKEN` is empty in both Doppler configs ✅ done 2026-09-27
@@ -2781,13 +2783,15 @@ Filed from a coverage audit of the production behaviour touched on 2026-09-27 (C
 
 **Priority:** P2 | **Source:** coverage audit 2026-09-28 — reproduced by `api-keys-create.test.ts` ("still returns the token, with a warning, when KV is unreachable", marked `it.fails`)
 
-**Status:** ✅ **DONE 2026-09-28** — the KV `fetch` is wrapped, so a thrown network error takes the same 201-with-`warning` path as an HTTP error and the caller keeps its token. The `it.fails` is now a plain `it` regression test (53/53 pass). Ships with the next `supabase functions deploy api-keys-create`.
+**Status:** ✅ **DONE 2026-09-28** — the KV `fetch` is wrapped, so a thrown network error takes the same 201-with-`warning` path as an HTTP error and the caller keeps its token. The `it.fails` is now a plain `it` regression test (53/53 pass). **Live 2026-09-28** — deployed from `main` `f6f92d5` as production `api-keys-create` v36 (20:21Z; bundle `3ba20e73…`, `verify_jwt` still false), read back with `supabase functions list`.
 
 The KV sync `fetch` (`supabase/functions/api-keys-create/handler.ts:236`) is not guarded. An HTTP error from KV is handled — 201 with a `warning` — but a network failure throws **after** the `api_keys` row is inserted. The caller gets a runtime 500 with no token, and an `active` key row exists that nobody holds and that has no KV record. The receiver may retry and mint a second one. **Scope:** wrap the KV call so a thrown error takes the same path as `!kvRes.ok`. Acceptance: flip the `it.fails` to `it`, and it passes.
 
 ### TS20: `api-keys-create` turns database failures into wrong answers instead of errors
 
 **Priority:** P3 | **Source:** coverage audit 2026-09-28
+
+**Status:** ✅ **DONE 2026-09-28** — a `users` lookup answers 404 only for PostgREST's no-rows code (`PGRST116`) and 503 for any other error; a failed `organizations` lookup answers 503 instead of minting at `starter`. Found in review, same class: all three `organization_memberships` lookups (requested org, default org, oldest-membership fallback) ignored their error, so an outage read as a 403 — or, for the default org, fell through to minting into another org. Each now answers 503. All five 503 paths are tested to mint nothing, and each test fails when its check is removed (the default-org test fails only the first membership query, via the fake backend's new `fail(…, times)`). **Live 2026-09-28** — deployed from `main` `f6f92d5` as production `api-keys-create` v36 (20:21Z; bundle `3ba20e73…`, `verify_jwt` still false), read back with `supabase functions list`.
 
 Two paths read a Supabase error as data:
 1. A failed `users` lookup answers **404 "User not found."** (`handler.ts:144`). The receiver cannot tell an outage from a bad `userId`, so it cannot know to retry.
@@ -2799,6 +2803,8 @@ Both fail closed on access, which is why they are P3, not P2. **Scope:** return 
 
 **Priority:** P3 | **Source:** coverage audit 2026-09-28
 
+**Status:** ✅ **DONE 2026-09-28** — decided as the rest of the system does: (1) with no `organizationId`, use `users.default_organization_id` when the user holds an active membership there, else the oldest active membership (`order created_at asc`); (2) `current_plan` is lower-cased before the tier check; (3) a whitespace-only `name` becomes `Default`. Each is pinned by a test that fails against the previous handler (5 tests). **Live 2026-09-28** — deployed from `main` `f6f92d5` as production `api-keys-create` v36 (20:21Z; bundle `3ba20e73…`, `verify_jwt` still false), read back with `supabase functions list`.
+
 1. **Org choice.** With no `organizationId`, it takes `organization_memberships … status=active limit 1` with **no order** (`handler.ts:169`). That ignores `users.default_organization_id` and is nondeterministic for a multi-org user. The gateway and `custom_access_token_hook` both prefer the default org, then the oldest active membership.
 2. **Plan case.** `VALID_TIERS.has(candidate)` (`handler.ts:188`) is case-sensitive, while the UA04 trigger's `plan_to_api_key_tier` lower-cases. A `current_plan` of `Growth` mints a `starter` key while `users.tier` derives `growth`.
 3. **Blank name.** A whitespace-only `name` is truthy, trims to `""`, and is stored empty instead of defaulting to `Default` (`handler.ts:121`).
@@ -2809,17 +2815,23 @@ Both fail closed on access, which is why they are P3, not P2. **Scope:** return 
 
 **Priority:** P3 | **Source:** coverage audit 2026-09-28 (same shape as TS17)
 
+**Status:** ✅ **DONE 2026-09-28** — `.github/workflows/edge-function-tests.yml` installs and runs the suite (64 tests) on `main` pushes and PRs touching `supabase/functions/**` or the suite. The optional `deno check` was **not** added: Deno is not installed here, so it could not be proven to pass, and a warn-only step would be a green that checks nothing. Add it as a failing step once `deno check` is verified clean on each `index.ts`.
+
 `supabase/tests/edge-functions/` runs only by hand (`npm install && npm test`). A change to `api-keys-create` that breaks its trust boundary would pass CI. **Scope:** a CI job that installs and runs it. It needs no credentials, no Docker and no Deno. Consider adding `deno check --node-modules-dir=none` on each function's `index.ts` in the same job. Do it alongside TS17.
 
 ### TS23: most `/v1/orgs/:id/*` sub-routes, `/bootstrap` and `/v1/auth0-logs` are never dispatched in tests
 
 **Priority:** P3 | **Source:** coverage audit 2026-09-28
 
+**Status:** ✅ **DONE 2026-09-28** — `index.test.ts` "TS23" block sends each of the eight method+path pairs through `worker.fetch` and asserts the answer is not the router's fall-through 404, matched on body `error.message === 'Not found'`; two positive controls pin that an unregistered path does get the fall-through. Mutation-checked: breaking each of the eight route strings in `index.ts` fails the block (8/8). ⚠️ The first version compared the whole `error` object to the string, so it could never fail — the same eight mutations all passed until the controls were added.
+
 The handlers are unit-tested, but the router lines that dispatch to them never execute. That covers `/checkout-session`, `/billing-portal`, `/quota/status`, `/usage/summary`, `POST /api-keys`, `/api-keys/:id/revoke`, `/bootstrap` and `/v1/auth0-logs` (`workers/api-gateway/src/index.ts`, zero-hit under coverage). A typo in a path string or method would ship green. CR38's seat minimum goes through `/checkout-session`, and CR40's open route is `/v1/auth0-logs`. **Scope:** one parameterised router test asserting each path and method reaches its handler, for example by a handler-specific status or body. The CR36 block in `index.test.ts` shows the fakes to reuse.
 
 ### TS24: rate-limiter memory bounds are untested, and one CR36 test duplicates another
 
 **Priority:** P4 | **Source:** coverage audit 2026-09-28
+
+**Status:** ✅ **DONE 2026-09-28** — duplicate deleted. A `describe.each` over both limiters tests (a) expired windows are deleted and live ones survive every miss up to exactly the cap, and (b) the map clears once it exceeds the cap. The caps are now exported (`MAX_TRACKED_IDENTITIES`, `MAX_TRACKED_ORGS`) so the tests use them rather than a literal. Mutation-checked, 8/8 killed per run: no delete, no clear, clear above 1, and clear at `>=` the cap, for each limiter. ⚠️ The first version asserted that an expired window is allowed again, which holds whether or not pruning ran — a leak passed it.
 
 1. `pruneExpired` and `pruneOrgExpired` (`workers/api-gateway/src/lib/rate-limit.ts:56`, `:159`) never delete an expired window or hit the 10,000-entry cap in any test. A leak, or a clear that wipes live windows, would pass.
 2. "provides a floor independent of the quota DO" (`rate-limit.test.ts:243`) has the same body as "still limits per isolate when RATE_LIMIT_KV is unbound" and never touches the DO its name describes. The router-level CR36 tests now back that claim, so delete it.
@@ -2829,5 +2841,7 @@ The handlers are unit-tested, but the router lines that dispatch to them never e
 ### TS25: `/v1/me` has no test for a default org whose row is missing
 
 **Priority:** P4 | **Source:** coverage audit 2026-09-28
+
+**Status:** ✅ **DONE 2026-09-28** — `me.test.ts` "returns starter when default_organization_id points at a missing org row": the organizations lookup succeeds with zero rows, and the route answers 200 with `tier: 'starter'`, having queried `id=eq.<that org>`.
 
 `resolveOrgPlan` returns `plan: null` when `default_organization_id` points at no row (`workers/api-gateway/src/routes/me.ts:81`), so the route reports `starter`. That is the only uncovered branch in the file. **Scope:** one test.

@@ -1,0 +1,50 @@
+# TS22: Run the supabase/tests/edge-functions/ vitest suite in CI.
+# The suite runs against an in-memory fake backend; no credentials, Docker or
+# Deno are required — PR-safe, including from forks.
+name: Edge Function Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/tests/edge-functions/**'
+      - '.github/workflows/edge-function-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/tests/edge-functions/**'
+      - '.github/workflows/edge-function-tests.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "edge-function-tests-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  vitest:
+    name: Edge function vitest suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: supabase/tests/edge-functions/package.json
+
+      - name: Install dependencies
+        working-directory: supabase/tests/edge-functions
+        run: npm install
+
+      - name: Run vitest suite
+        working-directory: supabase/tests/edge-functions
+        run: npm test

@@ -229,15 +229,15 @@ describe('api-keys-create: request validation', () => {
     expectNothingMinted(backend);
   });
 
-  // The status is a finding (a database outage reads as "user not found"); what this pins
-  // is that the failure mints nothing.
-  it('mints nothing when the user lookup fails', async () => {
+  // TS20: a database failure must surface as 5xx, not 404, so the receiver can
+  // distinguish an outage from a genuinely missing user and choose to retry.
+  it('answers 503 and mints nothing when the user lookup fails with a database error', async () => {
     const { backend, post } = setup();
     backend.fail('select:users', { kind: 'http', status: 500, body: { message: 'db down' } });
 
     const res = await post({ userId: USER_ID });
 
-    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBe(503);
     expectNothingMinted(backend);
   });
 });
@@ -315,6 +315,98 @@ describe('api-keys-create: organization resolution', () => {
   });
 });
 
+describe('api-keys-create: organization resolution (TS21)', () => {
+  it('prefers users.default_organization_id over the first active membership', async () => {
+    const tables = baseTables();
+    tables.users = [{ id: USER_ID, email: 'owner@example.com', tier: 'enterprise', default_organization_id: ENTERPRISE_ORG }];
+    tables.organization_memberships = [
+      { user_id: USER_ID, organization_id: GROWTH_ORG, status: 'active' },
+      { user_id: USER_ID, organization_id: ENTERPRISE_ORG, status: 'active' },
+    ];
+    const { backend, post } = setup({ tables });
+
+    const res = await post({ userId: USER_ID });
+
+    expect(res.status).toBe(201);
+    expect(backend.rows('api_keys')).toEqual([expect.objectContaining({ organization_id: ENTERPRISE_ORG })]);
+  });
+
+  it('falls back to the oldest active membership when default_organization_id is absent', async () => {
+    const tables = baseTables();
+    tables.organization_memberships = [
+      { user_id: USER_ID, organization_id: ENTERPRISE_ORG, status: 'active', created_at: '2020-06-01T00:00:00Z' },
+      { user_id: USER_ID, organization_id: STARTER_ORG, status: 'active', created_at: '2020-01-01T00:00:00Z' },
+    ];
+    tables.organizations = [
+      { id: STARTER_ORG, current_plan: 'starter' },
+      { id: ENTERPRISE_ORG, current_plan: 'enterprise' },
+    ];
+    const { backend, post } = setup({ tables });
+
+    const res = await post({ userId: USER_ID });
+
+    expect(res.status).toBe(201);
+    // STARTER_ORG has the earliest created_at so it must win
+    expect(backend.rows('api_keys')).toEqual([expect.objectContaining({ organization_id: STARTER_ORG })]);
+  });
+
+  it('falls back past an inactive default_organization_id to the oldest active membership', async () => {
+    const tables = baseTables();
+    tables.users = [{ id: USER_ID, email: 'owner@example.com', tier: 'enterprise', default_organization_id: ENTERPRISE_ORG }];
+    tables.organization_memberships = [
+      { user_id: USER_ID, organization_id: GROWTH_ORG, status: 'active', created_at: '2020-01-01T00:00:00Z' },
+      { user_id: USER_ID, organization_id: ENTERPRISE_ORG, status: 'suspended' },
+    ];
+    const { backend, post } = setup({ tables });
+
+    const res = await post({ userId: USER_ID });
+
+    expect(res.status).toBe(201);
+    expect(backend.rows('api_keys')).toEqual([expect.objectContaining({ organization_id: GROWTH_ORG })]);
+  });
+
+  // TS20: a failed membership query is an outage, not "no membership", so it must not
+  // become a 403 or silently fall through to another org.
+  const MEMBERSHIPS_DOWN = { kind: 'http', status: 500, body: { message: 'db down' } } as const;
+
+  it('answers 503 and mints nothing when the requested organization\'s membership lookup fails', async () => {
+    const { backend, post } = setup();
+    backend.fail('select:organization_memberships', MEMBERSHIPS_DOWN);
+
+    const res = await post({ userId: USER_ID, organizationId: GROWTH_ORG });
+
+    expect(res.status).toBe(503);
+    expectNothingMinted(backend);
+  });
+
+  it('answers 503 rather than falling back to another org when the default org\'s membership lookup fails', async () => {
+    const tables = baseTables();
+    tables.users = [{ id: USER_ID, email: 'owner@example.com', tier: 'enterprise', default_organization_id: ENTERPRISE_ORG }];
+    tables.organization_memberships = [
+      { user_id: USER_ID, organization_id: GROWTH_ORG, status: 'active', created_at: '2020-01-01T00:00:00Z' },
+      { user_id: USER_ID, organization_id: ENTERPRISE_ORG, status: 'active' },
+    ];
+    const { backend, post } = setup({ tables });
+    // Only the default-org query fails; the fallback query would succeed with GROWTH_ORG.
+    backend.fail('select:organization_memberships', MEMBERSHIPS_DOWN, 1);
+
+    const res = await post({ userId: USER_ID });
+
+    expect(res.status).toBe(503);
+    expectNothingMinted(backend);
+  });
+
+  it('answers 503 and mints nothing when the oldest-membership fallback lookup fails', async () => {
+    const { backend, post } = setup();
+    backend.fail('select:organization_memberships', MEMBERSHIPS_DOWN);
+
+    const res = await post({ userId: USER_ID });
+
+    expect(res.status).toBe(503);
+    expectNothingMinted(backend);
+  });
+});
+
 describe('api-keys-create: tier', () => {
   it.each([
     ['growth', GROWTH_ORG],
@@ -375,6 +467,35 @@ describe('api-keys-create: tier', () => {
 
     expect(res.status).toBe(201);
     expect(((await res.json()) as CreatedKey).tier).toBe('starter');
+  });
+
+  // TS20: a database failure on the org lookup must surface as 5xx rather than
+  // silently downgrading the key to starter tier.
+  it('answers 503 and mints nothing when the organizations lookup fails', async () => {
+    const { backend, post } = setup();
+    backend.fail('select:organizations', { kind: 'http', status: 500, body: { message: 'db down' } });
+
+    const res = await post({ userId: USER_ID });
+
+    expect(res.status).toBe(503);
+    expectNothingMinted(backend);
+  });
+
+  // TS21: current_plan comparison is case-insensitive; stripe-webhook writes the
+  // plan as-is, but the UA04 trigger lower-cases before writing users.tier, so a
+  // "Growth" or "ENTERPRISE" value in the DB must still produce the right tier.
+  it.each([
+    ['Growth', 'growth'],
+    ['ENTERPRISE', 'enterprise'],
+    ['STARTER', 'starter'],
+  ])('treats a mixed-case plan "%s" as "%s"', async (plan, expectedTier) => {
+    const tables = baseTables();
+    tables.organizations = [{ id: GROWTH_ORG, current_plan: plan }];
+    const { post } = setup({ tables });
+
+    const res = await post({ userId: USER_ID });
+
+    expect(((await res.json()) as CreatedKey).tier).toBe(expectedTier);
   });
 });
 
@@ -442,6 +563,9 @@ describe('api-keys-create: key name', () => {
   it.each([
     ['absent', undefined, DEFAULT_NAME],
     ['not a string', 7, DEFAULT_NAME],
+    // TS21: a whitespace-only name is truthy but trims to ""; fall back to "Default"
+    // rather than storing an empty string.
+    ['whitespace-only', '   ', DEFAULT_NAME],
     ['padded with spaces', '  deploy bot  ', 'deploy bot'],
     ['exactly the maximum length', 'n'.repeat(MAX_NAME_LENGTH), 'n'.repeat(MAX_NAME_LENGTH)],
     ['one past the maximum length', 'n'.repeat(MAX_NAME_LENGTH + 1), 'n'.repeat(MAX_NAME_LENGTH)],

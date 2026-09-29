@@ -679,3 +679,125 @@ describe('scheduled: the Auth0 log poller', () => {
     ).rejects.toThrow('AUTH0_LOG_READER_CLIENT_ID/SECRET not bound');
   });
 });
+
+// TS23: router-level dispatch test. Each of these paths had zero hits under
+// coverage — the handlers were unit-tested in isolation but the routing lines
+// in index.ts were never exercised. A typo in a path string or method would
+// silently ship green.
+//
+// Strategy: every request here is authenticated (JWT + user + membership for
+// org routes; none for /v1/auth0-logs, which answers 503 here because makeEnv
+// binds no AUTH0_LOG_STREAM_TOKEN — still not the fall-through). The quota DO is faked to admit
+// everything. The assertion is that the response is not the router's
+// fall-through 404 — that proves dispatch reached the handler without requiring
+// each handler to return a predictable result against an unreachable Supabase /
+// Stripe. The fall-through is matched on body `error.message`, and a positive
+// control pins that shape.
+describe('TS23: all registered routes are dispatched (not 404)', () => {
+  const ORG = 'org-dispatch-test';
+
+  /** Fake quota DO that admits every request. */
+  const admitAll: DurableObjectNamespace = {
+    idFromName: (name: string) => name as unknown as DurableObjectId,
+    get: () => ({
+      fetch: async () => new Response(
+        JSON.stringify({ allowed: true, remainingMinute: 100, remainingMonthly: null }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    }),
+  } as unknown as DurableObjectNamespace;
+
+  /** KV that never holds a rate-limit entry. */
+  function emptyKv(): KVNamespace {
+    const store = new Map<string, string>();
+    return {
+      get: async (key: string) => store.get(key) ?? null,
+      put: async (key: string, value: string) => { store.set(key, value); },
+    } as unknown as KVNamespace;
+  }
+
+  let token: string;
+
+  beforeAll(async () => {
+    token = await jwt.sign({ sub: 'auth0|dispatch-user', email: 'member@example.com' });
+  });
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    resetOrgRateLimit();
+    const stub = createSupabaseFetchStub({
+      'GET users': okRows([{ id: 'user-dispatch', email: 'member@example.com' }]),
+      'GET organization_memberships': okRows([
+        { user_id: 'user-dispatch', organization_id: ORG, role: 'owner', status: 'active' },
+      ]),
+    });
+    vi.stubGlobal('fetch', jwt.wrap(stub.fetch as typeof fetch));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    resetOrgRateLimit();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const authHeader = () => ({ Authorization: `Bearer ${token}` });
+  const env = () => makeEnv({ QUOTA_DO: admitAll, RATE_LIMIT_KV: emptyKv() });
+
+  /** The router's fall-through answer (`index.ts`); every handler 404 carries its own message. */
+  const ROUTER_NOT_FOUND_MESSAGE = 'Not found';
+
+  async function isRouterFallThrough(res: Response): Promise<boolean> {
+    const body = await res.clone().json().catch(() => ({})) as { error?: { message?: unknown } };
+    return res.status === 404 && body.error?.message === ROUTER_NOT_FOUND_MESSAGE;
+  }
+
+  // Positive control: without it, a change to the fall-through's shape or message
+  // would make every assertion below pass without testing anything.
+  it.each([
+    ['GET',  `/v1/orgs/${ORG}/not-a-route`],
+    ['POST', '/not-a-route'],
+  ] as const)('control: unregistered %s %s gets the router fall-through', async (method, path) => {
+    const res = await worker.fetch(makeRequest(method, path, { headers: authHeader() }), env());
+    expect(await isRouterFallThrough(res)).toBe(true);
+  });
+
+  it.each([
+    ['GET',  `/v1/orgs/${ORG}/usage/summary`],
+    ['GET',  `/v1/orgs/${ORG}/quota/status`],
+    ['POST', `/v1/orgs/${ORG}/billing-portal`],
+    ['POST', `/v1/orgs/${ORG}/checkout-session`],
+    ['POST', `/v1/orgs/${ORG}/api-keys`],
+    ['POST', `/v1/orgs/${ORG}/api-keys/key-abc123/revoke`],
+  ] as const)('%s %s reaches a handler, not the terminal 404', async (method, path) => {
+    const res = await worker.fetch(
+      makeRequest(method, path, { headers: authHeader() }),
+      env(),
+    );
+    // A handler 404 ("API key not found", etc.) is a successful dispatch.
+    expect(await isRouterFallThrough(res)).toBe(false);
+  });
+
+  it('POST /bootstrap reaches its handler, not the terminal 404', async () => {
+    const res = await worker.fetch(
+      makeRequest('POST', '/bootstrap', {
+        headers: { ...authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'new@example.com' }),
+      }),
+      env(),
+    );
+    expect(await isRouterFallThrough(res)).toBe(false);
+  });
+
+  it('POST /v1/auth0-logs reaches its handler, not the terminal 404', async () => {
+    const res = await worker.fetch(
+      makeRequest('POST', '/v1/auth0-logs', {
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify([]),
+      }),
+      env(),
+    );
+    expect(await isRouterFallThrough(res)).toBe(false);
+  });
+});
