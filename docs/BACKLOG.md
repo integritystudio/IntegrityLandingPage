@@ -2600,10 +2600,6 @@ The slot CLAUDE.md said "exists in no config" now holds an `sb_secret_` key (41 
 
 **Won't do (owner decision 2026-09-27):** this is a service key, not an application access key. Holding it in `prd` alongside the others is intended, so there is nothing to consolidate or revoke.
 
-## Test Suite Review 2026-09-27 (TS01–TS16)
-
-Filed from a nine-area review of every test file, read against the code under test — not from `docs/repomix/tests-compressed.xml`, which strips every `test()`/`it()` body. Full findings, with `path:line` for each, are in [test-suite-review-2026-09-27.md](test-suite-review-2026-09-27.md); section letters below refer to it. Done in the same session and **not** listed here: the ~230 `workers/lib` tests of schemas no request parses were deleted (`bf12226`), `CreateApiKeyBodySchema` was wired into the create-key route (`df174a2`), and `AuditActionSchema` was narrowed to the four emitted actions and enforced at runtime in `writeAuditLog` (`df174a2`, `a3aa746`).
-
 ### UA13: production `AUTH` KV holds 92 `apikey:` records with no `api_keys` row; 9 still authenticate
 
 **Priority:** P2 | **Source:** UA03 investigation, 2026-09-29 (read-only: record names and value fields, no secrets printed)
@@ -2613,6 +2609,10 @@ Filed from a nine-area review of every test file, read against the code under te
 - **8 for `team-integritystudio.ai`** (2 `growth`, 6 `starter`), all in the `keyId` format only `api-keys-create` writes, none with an `api_keys` row; 6 belong to users that no longer exist. Written between 2026-08-07 and 08-30, which fits the 30 test users deleted 2026-08-22: deleting a user cascades its `api_keys` rows but nothing deletes the KV record, so the key stays valid, invisible and unrevocable from the app.
 
 **Scope:** delete the 8 orphaned `team-integritystudio.ai` records (owner call — confirm none is in use first, e.g. from obtool-api's `last_used_at` write-behind or request logs); decide whether the 83 legacy records go too; then close the gap: revoke KV when an `api_keys` row or its user is deleted (a trigger that enqueues, or revoke-before-delete in the cleanup path), or have the Workers check the row. Acceptance: every `apikey:` record that authenticates maps to an active `api_keys` row, except the documented `home` key.
+
+## Test Suite Review 2026-09-27 (TS01–TS16)
+
+Filed from a nine-area review of every test file, read against the code under test — not from `docs/repomix/tests-compressed.xml`, which strips every `test()`/`it()` body. Full findings, with `path:line` for each, are in [test-suite-review-2026-09-27.md](test-suite-review-2026-09-27.md); section letters below refer to it. Done in the same session and **not** listed here: the ~230 `workers/lib` tests of schemas no request parses were deleted (`bf12226`), `CreateApiKeyBodySchema` was wired into the create-key route (`df174a2`), and `AuditActionSchema` was narrowed to the four emitted actions and enforced at runtime in `writeAuditLog` (`df174a2`, `a3aa746`).
 
 ### ✅ TS01 — done 2026-09-27: Provisioning `received` is cast to `String` but the receiver contract returns an object
 
