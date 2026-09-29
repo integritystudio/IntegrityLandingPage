@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/pages/usage_summary_page.dart';
 import 'package:integrity_studio_ai/services/dashboard_service.dart';
+import 'package:integrity_studio_ai/theme/theme.dart';
 import 'package:integrity_studio_ai/widgets/common/alert.dart';
 
 import '../helpers/mock_http_adapter.dart';
@@ -162,6 +163,10 @@ void main() {
     }
 
     int summaryFetches() => adapter.requestLog.where((r) => r.path.endsWith(summaryPath)).length;
+    int quotaFetches() => adapter.requestLog.where((r) => r.path.endsWith(quotaPath)).length;
+
+    Color? barColor(WidgetTester tester) =>
+        tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).valueColor?.value;
 
     testWidgets('shows the enforced monthlyUsed against the limit, not the bucket total', (tester) async {
       stubQuota(used: 40);
@@ -216,29 +221,60 @@ void main() {
       expect(find.textContaining("You have used 80% of this month's $monthlyLimit units."), findsOneWidget);
     });
 
-    testWidgets('states the danger level in words', (tester) async {
-      stubQuota(used: 2700); // 90%
+    // QuotaThresholds: warning from 75%, danger from 90%, reached at the limit. Danger
+    // shares warning's words and alert, so the bar colour is what tells them apart.
+    const approachingTitle = 'Approaching your monthly limit';
+    const reachedLabel = 'Monthly limit reached';
+    final belowLimit = <({String name, int used, String status, String? alert, Color color})>[
+      (name: 'normal, well under', used: 40, status: '1% used', alert: null, color: AppColors.blue500),
+      (name: 'normal, one unit under 75%', used: 2249, status: '74% used', alert: null, color: AppColors.blue500),
+      (name: 'warning at exactly 75%', used: 2250, status: '75% used', alert: approachingTitle, color: AppColors.warning),
+      (name: 'warning, one unit under 90%', used: 2699, status: '89% used', alert: approachingTitle, color: AppColors.warning),
+      (name: 'danger at exactly 90%', used: 2700, status: '90% used', alert: approachingTitle, color: AppColors.error),
+      (name: 'danger one unit short: never "100% used"', used: 2999, status: '99% used', alert: approachingTitle, color: AppColors.error),
+    ];
+    for (final level in belowLimit) {
+      testWidgets('level ${level.name}', (tester) async {
+        stubQuota(used: level.used);
+        await pumpPage(tester);
+
+        expect(find.text(level.status), findsOneWidget);
+        expect(find.text(approachingTitle), level.alert == null ? findsNothing : findsOneWidget);
+        expect(find.text(reachedLabel), findsNothing);
+        expect(barColor(tester), level.color);
+      });
+    }
+
+    for (final used in [monthlyLimit, monthlyLimit + 500]) {
+      testWidgets('level reached at $used units: status, alert and a full red bar', (tester) async {
+        stubQuota(used: used);
+        await pumpPage(tester);
+
+        expect(find.text('$used / $monthlyLimit units'), findsOneWidget);
+        // The status line and the alert title.
+        expect(find.text(reachedLabel), findsNWidgets(2));
+        expect(find.textContaining('New requests are refused until the quota resets.'), findsOneWidget);
+        expect(barColor(tester), AppColors.error);
+        expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value, 1.0);
+      });
+    }
+
+    testWidgets('Try again refetches the quota as well as the summary', (tester) async {
+      // Retries of the 500 would otherwise leave delay timers pending at the end.
+      DashboardService.retryDelay = (_) async {};
+      addTearDown(DashboardService.resetRetryDelay);
+      stubQuota(used: 40);
+      adapter.stubJson('GET', {'error': 'unavailable'}, statusCode: 500, path: summaryPath);
       await pumpPage(tester);
+      final quotaBefore = quotaFetches();
+      final summaryBefore = summaryFetches();
 
-      expect(find.text('90% used'), findsOneWidget);
-      expect(find.text('Approaching your monthly limit'), findsOneWidget);
-    });
+      await tester.tap(find.text('Try again'));
+      await tester.pump(const Duration(seconds: 1));
 
-    testWidgets('never says 100% before the limit is reached', (tester) async {
-      stubQuota(used: 2999);
-      await pumpPage(tester);
-
-      expect(find.text('99% used'), findsOneWidget);
-      expect(find.text('Monthly limit reached'), findsNothing);
-    });
-
-    testWidgets('shows a limit-reached state and alert at the limit', (tester) async {
-      stubQuota(used: monthlyLimit);
-      await pumpPage(tester);
-
-      // The status line and the alert title.
-      expect(find.text('Monthly limit reached'), findsNWidgets(2));
-      expect(find.textContaining('New requests are refused until the quota resets.'), findsOneWidget);
+      // The summary 500 is retried by DashboardService, so only "fetched again" is stable.
+      expect(summaryFetches(), greaterThan(summaryBefore));
+      expect(quotaFetches(), quotaBefore + 1);
     });
 
     testWidgets('gives the bar an accessible name and value', (tester) async {
@@ -250,6 +286,7 @@ void main() {
         tester.getSemantics(find.byType(LinearProgressIndicator)),
         isSemantics(label: 'Monthly usage, 2400 of $monthlyLimit units', value: '80'),
       );
+      // Not addTearDown: flutter_test checks for undisposed handles before teardowns run.
       handle.dispose();
     });
 

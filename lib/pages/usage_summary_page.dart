@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show min;
 
 import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:flutter/material.dart';
@@ -218,7 +219,7 @@ class _UsageSummaryPageState extends State<UsageSummaryPage>
         if (_errorMessage != null)
           ErrorCard(
             message: _errorMessage!,
-            onRetry: _fetchSummary,
+            onRetry: _refresh,
           )
         else
           _UsageSummaryCard(
@@ -348,8 +349,10 @@ class _UsageBar extends StatelessWidget {
 
   double get _ratio => _limit == null ? 0 : (_used / _limit!).clamp(0.0, 1.0);
 
-  /// Rounded down, so "100% used" never shows before the limit is reached.
-  int get _percent => _limit == null ? 0 : (_used * 100) ~/ _limit!;
+  /// Rounded down, so "100% used" never shows before the limit is reached, and
+  /// capped at 100: usage can exceed a limit that a plan downgrade lowered, and the
+  /// progress-bar semantics value must stay within 0-100.
+  int get _percent => _limit == null ? 0 : min((_used * 100) ~/ _limit!, 100);
 
   _QuotaLevel get _level {
     if (_limit == null) return _QuotaLevel.normal;
