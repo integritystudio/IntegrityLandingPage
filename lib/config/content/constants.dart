@@ -121,6 +121,18 @@ abstract final class SignupTiers {
 }
 
 // =============================================================================
+// SECTION IDS
+// =============================================================================
+
+/// Landing page section identifiers used for scroll targets and section keys.
+abstract final class SectionIds {
+  static const String services = 'services';
+  static const String about = 'about';
+  static const String resources = 'resources';
+  static const String contact = 'contact';
+}
+
+// =============================================================================
 // INTERNAL ROUTES
 // =============================================================================
 

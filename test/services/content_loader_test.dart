@@ -269,6 +269,12 @@ void main() {
         expect(testimonials[0]['quote'], equals('Great product!'));
         expect(testimonials[0]['author'], equals('Jane Doe'));
       });
+
+      test('socialProofLogos returns correct structure', () {
+        final logos = ContentLoader.socialProofLogos;
+        expect(logos[0]['name'], equals('Test Logo'));
+        expect(logos[0]['industry'], equals('Test Industry'));
+      });
     });
 
     group('map getters', () {

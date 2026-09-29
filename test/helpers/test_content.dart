@@ -391,6 +391,13 @@ resources:
 social_proof:
   title: "Trusted by AI Teams"
   stats_headline: "Enterprise-Grade Performance"
+  logos:
+    - name: "Enterprise Client"
+      industry: "Finance"
+    - name: "Tech Startup"
+      industry: "SaaS"
+    - name: "Healthcare Co"
+      industry: "Healthcare"
   stats:
     traces_processed: "10M+"
     uptime: "99.9%"
@@ -751,6 +758,9 @@ resources:
 social_proof:
   title: "Social Proof Title"
   stats_headline: "Stats Headline"
+  logos:
+    - name: "Test Logo"
+      industry: "Test Industry"
   stats:
     uptime: "99.9%"
     traces: "10M+"

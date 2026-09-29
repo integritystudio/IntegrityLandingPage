@@ -216,12 +216,14 @@ class StatusServiceContent {
   final String name;
   final String status;
 
+  static const String operationalStatus = 'Operational';
+
   const StatusServiceContent({
     required this.name,
     required this.status,
   });
 
-  bool get isOperational => status == 'Operational';
+  bool get isOperational => status == operationalStatus;
 }
 
 /// Status section content.

@@ -326,6 +326,7 @@ class ContentLoader {
 
   static String get socialProofTitle => _getString('social_proof.title');
   static String get socialProofStatsHeadline => _getString('social_proof.stats_headline');
+  static List<Map<String, dynamic>> get socialProofLogos => _getMapList('social_proof.logos');
   static Map<String, String> get socialProofStats {
     return _stringMapCache.putIfAbsent('social_proof.stats', () {
       final stats = _getMap('social_proof.stats');
