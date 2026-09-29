@@ -7,7 +7,7 @@ import '../../helpers/test_helpers.dart';
 
 // Desktop footer link labels — single source of truth for desktop-layout tests.
 // Mobile bottom bar uses abbreviated labels ('Privacy', 'Terms', 'Cookies').
-const _productLabels = ['Features', 'Pricing', 'Documentation', 'API Reference'];
+const _productLabels = ['Features', 'Pricing', 'Docs', 'API Reference'];
 const _companyLabels = ['About', 'Blog', 'Sources', 'Careers', 'Contact'];
 const _resourceLabels = ['Help Center', 'Status', 'Security'];
 final _navLabels = [..._productLabels, ..._companyLabels, ..._resourceLabels];

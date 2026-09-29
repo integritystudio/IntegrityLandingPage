@@ -387,7 +387,7 @@ const _linkSections = <_LinkSection>[
     links: [
       _LinkItem(text: 'Features', url: Routes.features),
       _LinkItem(text: 'Pricing', url: Routes.pricing),
-      _LinkItem(text: 'Documentation', url: Routes.docs),
+      _LinkItem(text: 'Docs', url: Routes.docs),
       _LinkItem(text: 'API Reference', url: Routes.api),
     ],
   ),
