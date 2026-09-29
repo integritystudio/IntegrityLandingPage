@@ -25,7 +25,7 @@ import '../common/form_fields.dart';
 /// Usage:
 /// ```dart
 /// ContactSection(
-///   content: ContactContent.current, // or AppContent.contact
+///   content: AppContent.contact, // the default when omitted
 ///   onFormSubmit: (data) => submitToBackend(data),
 /// )
 /// ```
