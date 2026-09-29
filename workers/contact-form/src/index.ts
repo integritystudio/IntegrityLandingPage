@@ -21,8 +21,7 @@ import {
   MIN_KV_TTL_SECONDS,
   RESEND_API_TIMEOUT_MS,
 } from '../../constants';
-import { getAllowedOrigins } from '../../http-helpers';
-import { buildCorsHeaders, isOriginAllowedWithEnv } from '../../cors-utils';
+import { buildCors } from '../../lib/http/cors';
 import { validateContactForm, type ContactFormData } from './schemas';
 
 interface Env {
@@ -259,13 +258,24 @@ async function validateCsrfToken(
 }
 
 
+const CORS_ALLOW_METHODS = 'GET, POST, OPTIONS';
+const CORS_ALLOW_HEADERS = 'Content-Type, X-CSRF-Token, X-Idempotency-Key, X-Request-ID';
+
 /**
  * Get CORS headers for a request.
  * Returns null if the origin is not allowed (for non-preflight requests).
  */
 function getCorsHeaders(request: Request, env: Env): Record<string, string> | null {
   const origin = request.headers.get('Origin') || '';
-  const allowed = isOriginAllowedWithEnv(origin, env);
+  // Credentials only for an allowed origin; a preflight from any other origin is answered
+  // with the first allowed origin, never its own (shared helper, CR46).
+  const { allowed, headers } = buildCors(origin, {
+    allowedOriginsJson: env.ALLOWED_ORIGINS_JSON,
+    allowMethods: CORS_ALLOW_METHODS,
+    allowHeaders: CORS_ALLOW_HEADERS,
+    allowCredentials: true,
+    disallowedOriginHeader: 'first-allowed',
+  });
 
   // For non-preflight requests from disallowed origins, return null to signal rejection
   if (!allowed && request.method !== 'OPTIONS') {
@@ -280,15 +290,7 @@ function getCorsHeaders(request: Request, env: Env): Record<string, string> | nu
     return null;
   }
 
-  // For preflight, use first allowed origin if Origin doesn't match
-  const allowedOrigin = allowed ? origin : getAllowedOrigins(env)[0];
-
-  return buildCorsHeaders(
-    allowedOrigin,
-    'GET, POST, OPTIONS',
-    'Content-Type, X-CSRF-Token, X-Idempotency-Key, X-Request-ID',
-    env,
-  );
+  return headers;
 }
 
 
