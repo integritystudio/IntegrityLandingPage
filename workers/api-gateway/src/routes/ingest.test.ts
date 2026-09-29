@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { handleIngestEvent, handleIngestOtel } from './ingest';
+import {
+  INGEST_EVENT_MAX_QUANTITY,
+  INGEST_METADATA_MAX_BYTES,
+  INGEST_METADATA_MAX_KEYS,
+} from '../../../lib/types/usage';
 import { hashApiKeySecret } from '../../../lib/api-keys';
 import { MS_PER_DAY } from '../../../lib/constants';
 import {
@@ -210,6 +215,83 @@ const makeOtelRequest = (body: unknown, token: string) =>
 // API_KEY_HMAC_SECRET has never been bound in production (BACKLOG.md CR12), and the Env type
 // now says so. These pin the consequences: API-key auth degrades to a clean 503 instead of
 // throwing on an undefined HMAC key, and — the part that matters — JWT auth keeps working.
+/** A quota DO that answers every check-and-reserve with `body` at `status`. */
+function quotaDo(body: Record<string, unknown>, status = 200) {
+  const fetch = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }),
+  );
+  const namespace = {
+    idFromName: vi.fn().mockReturnValue('do-id'),
+    get: vi.fn().mockReturnValue({ fetch }),
+  } as unknown as DurableObjectNamespace;
+  return { namespace, fetch };
+}
+
+describe('POST /v1/ingest/events — quota and payload caps (CR42)', () => {
+  it('answers 429 and stores nothing when the org is over quota', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    const stub = stubSupabase(jwtRoutes());
+    const { namespace } = quotaDo({ allowed: false, reason: 'minute_limit', remainingMinute: 0, remainingMonthly: 10 }, 429);
+
+    const res = await handleIngestEvent(makeRequest(validBody(), token), { ...opts, doNamespace: namespace });
+
+    expect(res.status).toBe(429);
+    expect(stub.findAll('POST', 'usage_events')).toHaveLength(0);
+  });
+
+  it('checks membership before reserving quota, so a non-member spends none', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(jwtRoutes([]));
+    const { namespace, fetch } = quotaDo({ allowed: true, remainingMinute: 1, remainingMonthly: 1 });
+
+    const res = await handleIngestEvent(makeRequest(validBody(), token), { ...opts, doNamespace: namespace });
+
+    expect(res.status).toBe(403);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('reserves quota for an accepted event and returns its rate-limit headers', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(jwtRoutes());
+    const { namespace, fetch } = quotaDo({ allowed: true, remainingMinute: 42, remainingMonthly: 999 });
+
+    const res = await handleIngestEvent(makeRequest(validBody(), token), { ...opts, doNamespace: namespace });
+
+    expect(res.status).toBe(202);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(res.headers.get('X-RateLimit-Remaining-Minute')).toBe('42');
+    expect(res.headers.get('X-RateLimit-Remaining-Monthly')).toBe('999');
+  });
+
+  const keys = (n: number) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`k${i}`, i]));
+
+  it.each([
+    ['metadata with one key too many', { metadata: keys(INGEST_METADATA_MAX_KEYS + 1) }],
+    ['metadata over the size cap', { metadata: { blob: 'x'.repeat(INGEST_METADATA_MAX_BYTES) } }],
+    ['a quantity above the cap', { quantity: INGEST_EVENT_MAX_QUANTITY + 1 }],
+  ])('answers 422 and stores nothing for %s', async (_label, overrides) => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    const stub = stubSupabase(jwtRoutes());
+
+    const res = await handleIngestEvent(makeRequest({ ...validBody(), ...overrides }, token), opts);
+
+    expect(res.status).toBe(422);
+    expect(stub.findAll('POST', 'usage_events')).toHaveLength(0);
+  });
+
+  it('accepts metadata exactly at the key cap and a quantity exactly at its cap', async () => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase(jwtRoutes());
+
+    const res = await handleIngestEvent(
+      makeRequest({ ...validBody(), quantity: INGEST_EVENT_MAX_QUANTITY, metadata: keys(INGEST_METADATA_MAX_KEYS) }, token),
+      opts,
+    );
+
+    expect(res.status).toBe(202);
+  });
+});
+
 describe('unbound API_KEY_HMAC_SECRET', () => {
   const noSecretOpts = { ...opts, hmacSecret: undefined };
 

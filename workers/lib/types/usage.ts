@@ -44,18 +44,38 @@ export const UsageEventIngestionSchema = z.object({
 export type UsageEventIngestion = z.infer<typeof UsageEventIngestionSchema>;
 
 /**
+ * Caps on one self-reported usage event (BACKLOG.md CR42). Every production event so far
+ * carries `quantity` 1 and empty metadata, so these bound abuse without touching real use.
+ */
+export const INGEST_EVENT_MAX_QUANTITY = 1_000_000;
+export const INGEST_METADATA_MAX_KEYS = 50;
+export const INGEST_METADATA_MAX_BYTES = 8_192;
+
+const ENCODER = new TextEncoder();
+
+const IngestMetadataSchema = z.record(z.string(), z.unknown())
+  .refine(
+    (metadata) => Object.keys(metadata).length <= INGEST_METADATA_MAX_KEYS,
+    `metadata may have at most ${INGEST_METADATA_MAX_KEYS} keys`,
+  )
+  .refine(
+    (metadata) => ENCODER.encode(JSON.stringify(metadata)).length <= INGEST_METADATA_MAX_BYTES,
+    `metadata may be at most ${INGEST_METADATA_MAX_BYTES} bytes as JSON`,
+  );
+
+/**
  * Ingest request payload with organization context
  * Used by POST /v1/ingest/events endpoint
  */
 export const IngestEventRequestSchema = z.object({
   org_id: z.string().uuid(),
   metric_key: z.string().min(1).max(128),
-  quantity: z.number().int().positive().default(1),
+  quantity: z.number().int().positive().max(INGEST_EVENT_MAX_QUANTITY).default(1),
   source: UsageEventSourceSchema.default('api'),
   route: z.string().min(1).optional(),
   status_code: z.number().int().min(100).max(599).optional(),
   latency_ms: z.number().int().min(0).max(300_000).optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: IngestMetadataSchema.optional(),
 });
 
 export type IngestEventRequest = z.infer<typeof IngestEventRequestSchema>;

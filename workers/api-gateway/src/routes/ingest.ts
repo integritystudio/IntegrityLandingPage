@@ -17,8 +17,25 @@ interface IngestHandlerOptions extends UserTokenOptions {
   hmacSecret?: string;
   supabaseUrl: string;
   serviceRoleKey: string;
-  /** Durable Object namespace for quota enforcement. Required for /v1/ingest/otel. */
+  /**
+   * Durable Object namespace for quota enforcement on both ingest routes. The router always
+   * binds it; it is absent only in unit tests, where quota fails open.
+   */
   doNamespace?: DurableObjectNamespace;
+}
+
+type QuotaReservation =
+  | { ok: true; rateLimitHeaders: Record<string, string> }
+  | { ok: false; response: Response };
+
+/** Reserve one request of the org's quota; a 429 comes back as `response`. */
+async function reserveQuota(orgId: string, opts: IngestHandlerOptions): Promise<QuotaReservation> {
+  if (!opts.doNamespace) return { ok: true, rateLimitHeaders: {} };
+  return enforceOrgQuota(orgId, {
+    doNamespace: opts.doNamespace,
+    supabaseUrl: opts.supabaseUrl,
+    serviceRoleKey: opts.serviceRoleKey,
+  });
 }
 
 async function resolveAuth(
@@ -100,6 +117,11 @@ export async function handleIngestEvent(
   const access = await assertOrgAccess(auth, body.org_id, sb);
   if (!access.ok) return access.error;
 
+  // Membership before quota, so a caller cannot spend an org's quota it does not belong
+  // to (the UA08 ordering). Before CR42 this route reserved no quota at all.
+  const quota = await reserveQuota(body.org_id, opts);
+  if (!quota.ok) return quota.response;
+
   const requestId = crypto.randomUUID();
   const now = new Date().toISOString();
 
@@ -122,12 +144,14 @@ export async function handleIngestEvent(
     return serverError('Failed to store usage event');
   }
 
-  return json({ ok: true, request_id: requestId }, { status: 202 });
+  return applyRateLimitHeaders(
+    json({ ok: true, request_id: requestId }, { status: 202 }),
+    quota.rateLimitHeaders,
+  );
 }
 
 export const OTEL_INGEST_ROUTE = '/v1/ingest/otel';
 const OTEL_METRIC_KEY = 'otel_events';
-const OTEL_MAX_SPANS = 1_000;
 
 /**
  * POST /v1/ingest/otel — OpenTelemetry span ingestion (API key auth only)
@@ -164,17 +188,8 @@ export async function handleIngestOtel(
   const { spans } = parsed.data;
   const orgId = keyResult.organizationId;
 
-  // Enforce org quota before writing. Fail-open when doNamespace is absent (e.g., tests).
-  let rateLimitHeaders: Record<string, string> = {};
-  if (opts.doNamespace) {
-    const quota = await enforceOrgQuota(orgId, {
-      doNamespace: opts.doNamespace,
-      supabaseUrl: opts.supabaseUrl,
-      serviceRoleKey: opts.serviceRoleKey,
-    });
-    if (!quota.ok) return quota.response;
-    rateLimitHeaders = quota.rateLimitHeaders;
-  }
+  const quota = await reserveQuota(orgId, opts);
+  if (!quota.ok) return quota.response;
 
   const requestId = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -200,7 +215,7 @@ export async function handleIngestOtel(
 
   return applyRateLimitHeaders(
     json({ ok: true, request_id: requestId, span_count: spans.length }, { status: 202 }),
-    rateLimitHeaders,
+    quota.rateLimitHeaders,
   );
 }
 

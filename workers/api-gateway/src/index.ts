@@ -209,7 +209,7 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
   if (pathname === '/v1/ingest/events' && request.method === 'POST') {
     return withSecurityHeaders(await handleIngestEvent(
       request,
-      { ...machineRouteOpts },
+      { ...machineRouteOpts, doNamespace: env.QUOTA_DO },
     ));
   }
 
