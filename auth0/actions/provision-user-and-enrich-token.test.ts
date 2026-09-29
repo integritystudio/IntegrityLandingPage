@@ -130,6 +130,33 @@ describe('post-login Action — profile write (UA02)', () => {
     expect(backfill?.body).toMatchObject({ auth0_id: AUTH0_ID, name: 'User One', login_count: LOGINS_COUNT });
   });
 
+  it('provisions a fresh row without an email lookup when email_verified is false (CR51)', async () => {
+    // An unverified user matching by email must NOT inherit the existing row's memberships.
+    const calls = stubFetch({
+      'PATCH users?auth0_id': rows([]),
+      // No 'GET users?email' route — it must not be called.
+      'POST users': rows([{ id: APP_USER_ID }], 201),
+      ...noRoles,
+    });
+    const event = {
+      ...makeEvent(),
+      user: { ...makeEvent().user, email_verified: false },
+    };
+    const { api, accessClaims } = makeApi();
+
+    await onExecutePostLogin(event, api);
+
+    // Email lookup must be skipped entirely.
+    expect(calls.some((c) => c.method === 'GET' && c.url.pathname.endsWith('/users'))).toBe(false);
+    // A new row must be provisioned (step 3).
+    expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({
+      auth0_id: AUTH0_ID,
+      email: EMAIL,
+      email_verified: false,
+    });
+    expect(accessClaims[`${CLAIM}app_user_id`]).toBe(APP_USER_ID);
+  });
+
   it('provisions a new user with the profile', async () => {
     const calls = stubFetch({
       'PATCH users?auth0_id': rows([]),

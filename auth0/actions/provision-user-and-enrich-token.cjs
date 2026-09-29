@@ -43,24 +43,31 @@ exports.onExecutePostLogin = async (event, api) => {
   }
   let users = await userRes.json();
 
-  // 2. If not found by auth0_id, try by email (handles migrated Supabase users)
+  // 2. If not found by auth0_id, try by email — but only when the email is verified (CR51).
+  //    An unverified address can be registered by anyone; re-linking without verification
+  //    lets whoever registers the address inherit an existing row's memberships and roles.
+  //    Skip the lookup when unverified: step 3 provisions a fresh row instead.
   if (!Array.isArray(users) || !users[0]) {
-    userRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=id,email&limit=1`,
-      { headers }
-    );
-    users = await userRes.json();
-
-    if (Array.isArray(users) && users[0]) {
-      // Backfill auth0_id (and the profile) for migrated user
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/users?id=eq.${users[0].id}`,
-        {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify({ auth0_id: auth0Id, ...profile }),
-        }
+    if (event.user.email_verified === true) {
+      userRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=id,email&limit=1`,
+        { headers }
       );
+      users = await userRes.json();
+
+      if (Array.isArray(users) && users[0]) {
+        // Backfill auth0_id (and the profile) for migrated user
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/users?id=eq.${users[0].id}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ auth0_id: auth0Id, ...profile }),
+          }
+        );
+      }
+    } else {
+      console.log(`email not verified for ${email}; skipping email-based re-link (CR51)`);
     }
   }
 
