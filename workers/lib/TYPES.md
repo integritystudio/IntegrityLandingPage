@@ -82,7 +82,7 @@ The file named next to each schema is the source of truth; field lists are not r
 
 ### Auth0 log stream — `types/auth0.ts`
 
-`Auth0LogSchema` (one stream entry), `IngestAuth0LogRequestSchema` and `IngestAuth0LogResponseSchema` for `POST /v1/auth0-logs` (a route that is currently unauthenticated — BACKLOG.md CR40), and the `Auth0LogRow` type.
+`Auth0LogSchema` (one log entry), `Auth0LogStreamEventSchema` (the `{log_id, data}` wrapper a log stream delivers), `IngestAuth0LogRequestSchema` (a batch of those) and `IngestAuth0LogResponseSchema` for `POST /v1/auth0-logs` (bearer-token gated by `AUTH0_LOG_STREAM_TOKEN` — BACKLOG.md CR40), and the `Auth0LogRow` type.
 
 ### Supabase client contract — `types/supabase.ts`
 

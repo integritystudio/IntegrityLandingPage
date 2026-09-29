@@ -56,3 +56,13 @@ export async function hmacVerify(
     return false;
   }
 }
+
+/**
+ * Compare a presented secret with the expected one in constant time. Both sides are
+ * HMAC'd under the expected secret and compared by `crypto.subtle.verify`, so neither
+ * a differing byte nor a differing length is revealed through timing.
+ */
+export async function secretsEqual(expected: string, presented: string): Promise<boolean> {
+  const expectedMac = new Uint8Array(await hmacSign(expected, expected));
+  return hmacVerify(expected, expectedMac, presented);
+}

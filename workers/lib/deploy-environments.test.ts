@@ -352,4 +352,13 @@ describe('worker deploy environments (CR02)', () => {
     expect((config.triggers as Record<string, unknown>).crons).toBeTruthy();
     expect((config.env!.dev.triggers as Record<string, unknown>).crons).toBe('[]');
   });
+
+  it('api-gateway dev does not run the Auth0 log poller cron', () => {
+    // The poller's credentials are production-only; dev inheriting the schedule would
+    // run a cron that fails every 15 minutes.
+    const config = loadConfig('api-gateway');
+
+    expect((config.triggers as Record<string, unknown>).crons).toBeTruthy();
+    expect((config.env!.dev.triggers as Record<string, unknown>).crons).toBe('[]');
+  });
 });

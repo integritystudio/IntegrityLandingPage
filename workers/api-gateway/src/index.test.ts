@@ -643,13 +643,51 @@ describe('CR43: ingest leaves usage_buckets_daily to the ledger trigger', () => 
   });
 });
 
+describe('CR40: /v1/auth0-logs is dispatched with the stream token', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('refuses a delivery without the token and accepts one with it', async () => {
+    const STREAM_TOKEN = 'stream-token-0123456789abcdef';
+    const stub = createSupabaseFetchStub({ 'POST auth0_logs': createdRows([]) });
+    vi.stubGlobal('fetch', stub.fetch);
+    const body = JSON.stringify([
+      { log_id: 'log-1', data: { date: '2026-09-28T12:00:00.000Z', type: 's' } },
+    ]);
+    const deliver = (authorization?: string) => worker.fetch(
+      makeRequest('POST', '/v1/auth0-logs', {
+        headers: { 'Content-Type': 'application/json', ...(authorization ? { Authorization: authorization } : {}) },
+        body,
+      }),
+      makeEnv({ AUTH0_LOG_STREAM_TOKEN: STREAM_TOKEN }),
+    );
+
+    expect((await deliver()).status).toBe(401);
+    expect(stub.requests).toHaveLength(0);
+    expect((await deliver(`Bearer ${STREAM_TOKEN}`)).status).toBe(200);
+    expect(stub.findAll('POST', 'auth0_logs')).toHaveLength(1);
+  });
+});
+
+describe('scheduled: the Auth0 log poller', () => {
+  it('throws when the poller fails, so the cron invocation records an error', async () => {
+    const ctx = { waitUntil: () => {}, passThroughOnException: () => {} } as unknown as ExecutionContext;
+
+    await expect(
+      worker.scheduled({} as ScheduledEvent, makeEnv(), ctx),
+    ).rejects.toThrow('AUTH0_LOG_READER_CLIENT_ID/SECRET not bound');
+  });
+});
+
 // TS23: router-level dispatch test. Each of these paths had zero hits under
 // coverage — the handlers were unit-tested in isolation but the routing lines
 // in index.ts were never exercised. A typo in a path string or method would
 // silently ship green.
 //
 // Strategy: every request here is authenticated (JWT + user + membership for
-// org routes; nothing for /v1/auth0-logs). The quota DO is faked to admit
+// org routes; none for /v1/auth0-logs, which answers 503 here because makeEnv
+// binds no AUTH0_LOG_STREAM_TOKEN — still not the fall-through). The quota DO is faked to admit
 // everything. The assertion is that the response is not the router's
 // fall-through 404 — that proves dispatch reached the handler without requiring
 // each handler to return a predictable result against an unreachable Supabase /

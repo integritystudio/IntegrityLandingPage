@@ -1,107 +1,89 @@
-import { ok, badRequest } from '../../../lib/http';
-import { Auth0LogSchema, type Auth0LogRow } from '../../../lib/types';
+import { ok, badRequest, unauthorized, serviceUnavailable, getBearerToken } from '../../../lib/http';
+import { secretsEqual } from '../../../lib/crypto';
+import { Auth0CloudEventSchema, Auth0LogStreamEventSchema, type Auth0LogRow } from '../../../lib/types';
+import {
+  cloudEventToAuth0LogRow,
+  insertAuth0LogRows,
+  toAuth0LogRow,
+  type Auth0LogStoreEnv,
+} from '../lib/auth0-log-store';
 
-interface Auth0LogsEnv {
-  supabaseUrl: string;
-  serviceRoleKey: string;
+const LOG_PREFIX = '[auth0-logs]';
+
+interface Auth0LogsEnv extends Auth0LogStoreEnv {
+  /** Shared secret the stream sends as `Authorization: Bearer <token>` (AUTH0_LOG_STREAM_TOKEN). */
+  streamToken?: string;
 }
 
 /**
- * POST /v1/auth0-logs — Auth0 HTTP log stream endpoint
+ * POST /v1/auth0-logs — receiver for the Auth0 custom-webhook log stream (CR33, CR40).
  *
- * Auth0 sends log entries via HTTP POST to configured log streams. This handler
- * receives them, validates the payload, and persists to the auth0_logs table.
+ * Two senders, two formats, one table:
+ * - the event stream `est_uRZqNG2BECcHmc1G2nrXpn` posts one CloudEvent per delivery for
+ *   user/organization/group lifecycle changes, stored with `log_id` = the event id;
+ * - a log stream would post `{log_id, data}` batches. The tenant's plan refuses log streams
+ *   (`409`, 2026-09-28), so the tenant log arrives through the scheduled poller in
+ *   `lib/auth0-log-poller.ts` instead; that branch is kept for a plan upgrade.
  *
- * This endpoint has NO authentication (BACKLOG.md CR40). The original rationale was
- * that Auth0 cannot send a bearer token and that service_role is write-only; neither
- * holds. Auth0 HTTP log streams take a configurable Authorization header, and
- * service_role bypasses RLS entirely — the insert below runs with full write access.
- * What actually bounds the exposure today:
- * 1. Duplicate log_id entries are rejected (UNIQUE constraint)
- * 2. Only `auth0_logs` is written, with columns chosen by this handler
- * 3. The row is schema-validated, but `details` stores the caller's whole entry as
- *    JSONB — so anyone on the internet can insert unbounded rows of attacker-chosen
- *    content under any log_id not yet seen, and nothing rate-limits them.
- * The fix is a shared secret in the stream's Authorization header, checked here.
+ * Authentication: every delivery carries `Authorization: Bearer <AUTH0_LOG_STREAM_TOKEN>`,
+ * set as the event stream's `webhook_authorization` (a log stream's `httpAuthorization`). The token is checked in constant time before the
+ * body is read. The insert below runs with the service-role key, which bypasses RLS, so
+ * this check is the route's only gate: an unbound secret answers 503 to everyone rather
+ * than reopening the route, and a missing or wrong token answers 401.
  *
- * Auth0 retries on anything other than 200/204, so we must return success even if
- * insertion fails (after logging the error), to avoid Auth0 backing off the stream.
+ * Body: one event, or a JSON array of them; each is read as a log-stream event, else as a
+ * CloudEvent. An event that is neither is skipped and logged, but a batch in which none
+ * validate is a 400. That keeps a format mismatch visible as failed deliveries in Auth0. CR33's receiver expected a flat entry, which Auth0 never
+ * sends, and stored no real event from 2026-08-17 until this change.
+ *
+ * A failed insert still answers 200, so a database outage cannot get the stream
+ * suspended; the error is logged instead.
  */
 export async function handleAuth0Logs(
   request: Request,
   env: Auth0LogsEnv,
 ): Promise<Response> {
-  if (request.method !== 'POST') {
-    return badRequest('Method not allowed');
+  if (!env.streamToken) {
+    console.error(`${LOG_PREFIX} AUTH0_LOG_STREAM_TOKEN is not bound; rejecting delivery`);
+    return serviceUnavailable('Log stream receiver is not configured');
+  }
+  const presented = getBearerToken(request);
+  if (!presented || !(await secretsEqual(env.streamToken, presented))) {
+    return unauthorized('Invalid log stream token');
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch (e) {
-    console.error('[auth0-logs] Failed to parse JSON:', e);
+    console.error(`${LOG_PREFIX} Failed to parse JSON:`, e);
     return badRequest('Invalid JSON');
   }
 
-  // Parse & validate Auth0 log entry
-  const parseResult = Auth0LogSchema.safeParse(body);
-  if (!parseResult.success) {
-    console.warn('[auth0-logs] Validation failed:', parseResult.error.issues);
-    return badRequest('Invalid log entry');
+  const events = Array.isArray(body) ? body : [body];
+  const rows: Auth0LogRow[] = [];
+  for (const event of events) {
+    const row = toRow(event);
+    if (row) rows.push(row);
+  }
+  if (rows.length === 0) {
+    return badRequest('No valid log events');
   }
 
-  const logEntry = parseResult.data;
-  const logId = logEntry.log_id || logEntry._id;
-  if (!logId) {
-    console.warn('[auth0-logs] Missing log_id and _id');
-    return badRequest('Missing log identifier');
+  const result = await insertAuth0LogRows(env, rows);
+  if (!result.ok) {
+    console.error(`${LOG_PREFIX} ${result.error}`);
+    return ok({ message: 'Logged (insert failed but acknowledged)' });
   }
+  return ok({ message: 'Log events persisted' });
+}
 
-  // Convert Auth0 log to database row format
-  const row: Auth0LogRow = {
-    log_id: logId,
-    event_type: logEntry.type,
-    event_name: logEntry.name || null,
-    client_id: logEntry.client_id || null,
-    client_name: logEntry.client_name || null,
-    user_id: logEntry.user_id || null,
-    user_name: logEntry.user_name || null,
-    email: logEntry.email || null,
-    ip_address: logEntry.ip || null,
-    user_agent: logEntry.user_agent || null,
-    scope: logEntry.scope || null,
-    description: logEntry.description || null,
-    details: { ...logEntry }, // Store full entry for audit/debugging
-  };
-
-  try {
-    // Insert into auth0_logs table
-    const response = await fetch(`${env.supabaseUrl}/rest/v1/auth0_logs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.serviceRoleKey}`,
-        'apikey': env.serviceRoleKey, // Supabase REST API requires apikey header
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal', // Don't echo back the inserted row
-      },
-      body: JSON.stringify(row),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error(`[auth0-logs] Supabase insert failed: ${response.status} ${text}`);
-
-      // Return 200 anyway so Auth0 doesn't retry (log is already validated)
-      // The error is logged for debugging but won't jam Auth0's delivery
-      return ok({ message: 'Logged (Supabase insert failed but acknowledged)' });
-    }
-
-    return ok({ message: 'Log entry persisted' });
-  } catch (e) {
-    console.error('[auth0-logs] Insert error:', e);
-    // Return 200 — Auth0 retries on error, but we've already validated
-    // and logged. Retrying identical data risks duplicate PK constraint
-    // violations, so acknowledge receipt even on DB error.
-    return ok({ message: 'Logged (DB error but acknowledged)' });
-  }
+/** A log-stream event or an event-stream CloudEvent as a row; null (logged) for anything else. */
+function toRow(event: unknown): Auth0LogRow | null {
+  const logEvent = Auth0LogStreamEventSchema.safeParse(event);
+  if (logEvent.success) return toAuth0LogRow(logEvent.data.log_id, logEvent.data.data);
+  const cloudEvent = Auth0CloudEventSchema.safeParse(event);
+  if (cloudEvent.success) return cloudEventToAuth0LogRow(cloudEvent.data);
+  console.warn(`${LOG_PREFIX} Skipping event that is neither a log-stream event nor a CloudEvent:`, logEvent.error.issues);
+  return null;
 }

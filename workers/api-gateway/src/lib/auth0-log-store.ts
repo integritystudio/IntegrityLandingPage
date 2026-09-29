@@ -1,0 +1,78 @@
+import type { Auth0CloudEvent, Auth0Log, Auth0LogRow } from '../../../lib/types';
+
+/** Upsert on the UNIQUE `log_id`, so an entry delivered or fetched twice is stored once. */
+const INSERT_PATH = '/rest/v1/auth0_logs?on_conflict=log_id';
+
+export interface Auth0LogStoreEnv {
+  supabaseUrl: string;
+  serviceRoleKey: string;
+}
+
+export type InsertResult = { ok: true } | { ok: false; error: string };
+
+export function toAuth0LogRow(logId: string, entry: Auth0Log): Auth0LogRow {
+  return {
+    log_id: logId,
+    event_type: entry.type,
+    event_name: entry.name || null,
+    client_id: entry.client_id || null,
+    client_name: entry.client_name || null,
+    user_id: entry.user_id || null,
+    user_name: entry.user_name || null,
+    email: entry.email || null,
+    ip_address: entry.ip || null,
+    user_agent: entry.user_agent || null,
+    scope: entry.scope || null,
+    description: entry.description || null,
+    details: { ...entry }, // Store full entry for audit/debugging
+  };
+}
+
+/**
+ * An event-stream CloudEvent as an `auth0_logs` row. Its `type` (`user.deleted`) cannot
+ * collide with a log entry's short code (`s`, `seccft`), so one table holds both.
+ */
+export function cloudEventToAuth0LogRow(event: Auth0CloudEvent): Auth0LogRow {
+  const object = event.data?.object ?? {};
+  return {
+    log_id: event.id,
+    event_type: event.type,
+    event_name: null,
+    client_id: null,
+    client_name: null,
+    user_id: stringOrNull(object.user_id),
+    user_name: null,
+    email: stringOrNull(object.email),
+    ip_address: null,
+    user_agent: null,
+    scope: null,
+    description: null,
+    details: { ...event }, // The whole envelope, a0tenant and a0stream included
+  };
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/** Insert rows into `auth0_logs`, ignoring any `log_id` already stored. Never throws. */
+export async function insertAuth0LogRows(env: Auth0LogStoreEnv, rows: Auth0LogRow[]): Promise<InsertResult> {
+  try {
+    const response = await fetch(`${env.supabaseUrl}${INSERT_PATH}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.serviceRoleKey}`,
+        'apikey': env.serviceRoleKey, // Supabase REST API requires apikey header
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=ignore-duplicates,return=minimal',
+      },
+      body: JSON.stringify(rows),
+    });
+    if (!response.ok) {
+      return { ok: false, error: `Supabase insert failed: ${response.status} ${await response.text()}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: `Insert error: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}

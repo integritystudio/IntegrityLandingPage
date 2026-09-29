@@ -68,6 +68,13 @@ AUTH0_AUDIENCE = "https://api.integritystudio.dev"
 binding = "RATE_LIMIT_KV"
 id = "766332ec6de3462fb29777aa1b6bc9d3"        # AUTH_RATE_LIMIT_KV
 
+# Auth0 log poller (BACKLOG.md CR40): pulls GET /api/v2/logs into auth0_logs, because the
+# tenant's plan refuses log streams. Retention is about a day, so 15 minutes is wide margin.
+# Its checkpoint and cached token live in RATE_LIMIT_KV under `auth0_logs:`. `triggers` IS
+# inherited by a named environment, so [env.dev] empties it explicitly below.
+[triggers]
+crons = ["*/15 * * * *"]
+
 # Durable Objects
 [[durable_objects.bindings]]
 name = "QUOTA_DO"
@@ -116,6 +123,11 @@ enabled = true
 name = "api-gateway-dev"
 routes = []
 
+# No Auth0 log poller in dev: it holds no read:logs client, and the dev tenant's log is not
+# worth a cron. Without this line dev would inherit production's schedule.
+[env.dev.triggers]
+crons = []
+
 # The DEV tenant — the same value as Doppler `dev` AUTH0_DOMAIN, which is where
 # sender-worker-dev mints its tokens. From 2026-07-30 to 2026-09-27 this block was
 # a verbatim copy of [vars] above, so api-gateway-dev verified JWTs against the
@@ -156,3 +168,4 @@ enabled = true
 # STRIPE_SECRET_KEY
 # APP_URL (optional; defaults to https://app.integritystudio.ai)
 # PAGERDUTY_INTEGRATION_KEY (optional; when set, fires PagerDuty trigger on unhealthy /health responses)
+# AUTH0_LOG_STREAM_TOKEN (the Auth0 log stream's bearer token; /v1/auth0-logs answers 503 while unbound — CR40)

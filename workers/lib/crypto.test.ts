@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hmacSign, hmacSignHex, hmacVerify, sha256Hex } from './crypto';
+import { hmacSign, hmacSignHex, hmacVerify, secretsEqual, sha256Hex } from './crypto';
 
 const SECRET = 'test-secret-key';
 const MESSAGE = 'hello.world';
@@ -85,5 +85,24 @@ describe('sha256Hex', () => {
     const digest = await sha256Hex(MESSAGE);
     const hmac = await hmacSignHex('any-key', MESSAGE);
     expect(digest).not.toBe(hmac);
+  });
+});
+
+describe('secretsEqual', () => {
+  it('accepts the expected secret', async () => {
+    expect(await secretsEqual(SECRET, SECRET)).toBe(true);
+  });
+
+  it('rejects a secret differing in one character', async () => {
+    expect(await secretsEqual(SECRET, 'test-secret-kez')).toBe(false);
+  });
+
+  it('rejects a prefix of the secret and the secret with a suffix', async () => {
+    expect(await secretsEqual(SECRET, SECRET.slice(0, -1))).toBe(false);
+    expect(await secretsEqual(SECRET, `${SECRET}x`)).toBe(false);
+  });
+
+  it('rejects an empty presented secret', async () => {
+    expect(await secretsEqual(SECRET, '')).toBe(false);
   });
 });
