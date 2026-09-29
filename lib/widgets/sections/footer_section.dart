@@ -53,6 +53,7 @@ class FooterSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final isMobile = ResponsiveUtils.isMobile(context);
     final currentYear = DateTime.now().year;
+    final linkGroups = AppContent.footer.linkGroups;
 
     return Container(
       color: AppColors.gray900,
@@ -62,7 +63,10 @@ class FooterSection extends StatelessWidget {
         ),
         child: Column(
           children: [
-            if (isMobile) _buildMobileLayout(context) else _buildDesktopLayout(context),
+            if (isMobile)
+              _buildMobileLayout(context, linkGroups)
+            else
+              _buildDesktopLayout(context, linkGroups),
             const SizedBox(height: AppSpacing.xl),
             const Divider(color: AppColors.gray700),
             const SizedBox(height: AppSpacing.lg),
@@ -76,7 +80,10 @@ class FooterSection extends StatelessWidget {
     );
   }
 
-  Widget _buildDesktopLayout(BuildContext context) {
+  Widget _buildDesktopLayout(
+    BuildContext context,
+    List<FooterLinkGroup> linkGroups,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -86,14 +93,17 @@ class FooterSection extends StatelessWidget {
           child: _buildBrandColumn(),
         ),
         // Link columns
-        ..._linkSections.map((section) => Expanded(
-              child: _buildLinkColumn(context, section),
+        ...linkGroups.map((group) => Expanded(
+              child: _buildLinkColumn(context, group),
             )),
       ],
     );
   }
 
-  Widget _buildMobileLayout(BuildContext context) {
+  Widget _buildMobileLayout(
+    BuildContext context,
+    List<FooterLinkGroup> linkGroups,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -102,10 +112,10 @@ class FooterSection extends StatelessWidget {
         Wrap(
           spacing: AppSpacing.xl,
           runSpacing: AppSpacing.lg,
-          children: _linkSections.map((section) {
+          children: linkGroups.map((group) {
             return SizedBox(
               width: AppSpacing.footerMobileLinkColumnWidth,
-              child: _buildLinkColumn(context, section),
+              child: _buildLinkColumn(context, group),
             );
           }).toList(),
         ),
@@ -151,22 +161,22 @@ class FooterSection extends StatelessWidget {
     );
   }
 
-  Widget _buildLinkColumn(BuildContext context, _LinkSection section) {
+  Widget _buildLinkColumn(BuildContext context, FooterLinkGroup group) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          section.title,
+          group.title,
           style: AppTypography.bodyMD.copyWith(
             fontWeight: FontWeight.w600,
             color: AppColors.textPrimary,
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        ...section.links.map((link) => Padding(
+        ...group.links.map((link) => Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: HoverTextLink(
-                text: link.text,
+                text: link.label,
                 defaultColor: AppColors.gray400,
                 hoverColor: AppColors.textPrimary,
                 style: AppTypography.bodySM,
@@ -361,52 +371,3 @@ class _SocialLink extends StatelessWidget {
     );
   }
 }
-
-class _LinkSection {
-  final String title;
-  final List<_LinkItem> links;
-
-  const _LinkSection({
-    required this.title,
-    required this.links,
-  });
-}
-
-class _LinkItem {
-  final String text;
-  final String url;
-  const _LinkItem({
-    required this.text,
-    required this.url,
-  });
-}
-
-const _linkSections = <_LinkSection>[
-  _LinkSection(
-    title: 'Product',
-    links: [
-      _LinkItem(text: 'Features', url: Routes.features),
-      _LinkItem(text: 'Pricing', url: Routes.pricing),
-      _LinkItem(text: 'Docs', url: Routes.docs),
-      _LinkItem(text: 'API Reference', url: Routes.api),
-    ],
-  ),
-  _LinkSection(
-    title: 'Company',
-    links: [
-      _LinkItem(text: 'About', url: Routes.about),
-      _LinkItem(text: 'Blog', url: Routes.blog),
-      _LinkItem(text: 'Sources', url: Routes.sources),
-      _LinkItem(text: 'Careers', url: Routes.careers),
-      _LinkItem(text: 'Contact', url: Routes.contact),
-    ],
-  ),
-  _LinkSection(
-    title: 'Resources',
-    links: [
-      _LinkItem(text: 'Help Center', url: '/support'),
-      _LinkItem(text: 'Status', url: Routes.status),
-      _LinkItem(text: 'Security', url: Routes.security),
-    ],
-  ),
-];
