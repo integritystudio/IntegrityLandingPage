@@ -1,6 +1,7 @@
-# TS22: Run the supabase/tests/edge-functions/ vitest suite in CI.
-# The suite runs against an in-memory fake backend; no credentials, Docker or
-# Deno are required — PR-safe, including from forks.
+# TS22: Run the supabase/tests/edge-functions/ vitest suite in CI, then
+# type-check every function under Deno, the runtime it actually ships on.
+# The suite runs against an in-memory fake backend; no credentials or Docker
+# are required — PR-safe, including from forks.
 name: Edge Function Tests
 
 on:
@@ -48,3 +49,14 @@ jobs:
       - name: Run vitest suite
         working-directory: supabase/tests/edge-functions
         run: npm test
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # A failing gate, not a warning: vitest imports handler.ts through Node, so
+      # it never sees index.ts or a type error only Deno's resolver reports.
+      # Functions are discovered by glob, so a new one is checked the day it lands.
+      - name: Type-check every function
+        run: deno check --no-lock --node-modules-dir=none supabase/functions/*/index.ts
