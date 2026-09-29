@@ -150,29 +150,22 @@ void main() {
     });
 
     group('responsive layout', () {
-      testWidgets('renders CTAs in row on desktop', (tester) async {
-        setDesktopSize(tester);
+      testWidgets('stacks CTAs vertically on mobile without overflow',
+          (tester) async {
+        setMobileSize(tester);
 
         await tester.pumpWidget(
           testableSection(const HeroSection()),
         );
         await tester.pump(kNavigationSettle);
 
-        // Both CTAs should be present
-        expect(find.text(CTAText.startFreeTrial), findsOneWidget);
-        expect(find.text(CTAText.requestDemo), findsOneWidget);
-      });
-
-      testWidgets('renders on larger screens', (tester) async {
-        // Use a large screen to avoid overflow issues
-        setScreenSize(tester, const Size(1920, 1080));
-
-        await tester.pumpWidget(
-          testableSection(const HeroSection()),
+        expect(
+          tester.getTopLeft(find.text(CTAText.requestDemo)).dy,
+          greaterThan(
+            tester.getBottomLeft(find.text(CTAText.startFreeTrial)).dy,
+          ),
         );
-        await tester.pump(kNavigationSettle);
-
-        expect(find.text(CTAText.startFreeTrial), findsOneWidget);
+        expect(tester.takeException(), isNull);
       });
     });
 
