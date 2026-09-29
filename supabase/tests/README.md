@@ -82,6 +82,29 @@ trigger and backfills existing drift. Port 55433.
 
 Mutation-checked: run against an empty migration, T1a fails.
 
+### `default-org-from-membership/`
+
+Covers `migrations/20260929010000_default_org_from_first_membership.sql` (CR50),
+which sets a user's `default_organization_id` from their first active membership
+when it is null, and backfills it from the oldest active membership. The fixture
+applies the UA04 tier migration first, so `tier` following the new default is
+tested too. Port 55435.
+
+| | assertion |
+|---|---|
+| T1 | backfill takes the oldest active membership (age over role); tier follows; a chosen default, an invited-only user and a user with no membership are untouched |
+| T2 | a new user's first active membership sets the default, and tier derives from it |
+| T3 | a second membership does not move the default |
+| T4 | the org's later plan change reaches the new user |
+| T5 | invited and suspended memberships set nothing; activation does |
+| T6 | a chosen default survives a new active membership |
+| T7 | a writer with no grant on `users` still sets it (security definer) |
+| T8 | invariant: nobody with an active membership is left without a default |
+
+Mutation-checked: removing the null guard (T3), SECURITY DEFINER (T7, permission
+denied), the status gate (T5a), the trigger (T2b) or the backfill (T1a), or
+backfilling from the newest membership (T1a), each fails the suite.
+
 ### `edge-functions/`
 
 Behavioural tests for the Edge Functions, not the migrations — a Node/vitest package, not
