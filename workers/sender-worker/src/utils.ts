@@ -2,7 +2,6 @@ import { json } from "../../lib/http/responses.js";
 import {
   AUTH_RATE_LIMIT_MAX,
   AUTH_RATE_LIMIT_WINDOW_SECONDS,
-  CORS_HEADERS,
   HEADER_NAMES,
   HTTP_STATUS,
   type Env,
@@ -188,11 +187,4 @@ export async function checkAuthRateLimit(
   }
 
   return { allowed: true };
-}
-
-export function corsPreflightResponse(): Response {
-  return new Response(null, {
-    status: HTTP_STATUS.NO_CONTENT,
-    headers: CORS_HEADERS,
-  });
 }

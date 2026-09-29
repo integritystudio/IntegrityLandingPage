@@ -6,7 +6,8 @@ import {
   ERROR_DESCRIPTIONS,
   HEADER_NAMES,
   CONTENT_TYPES,
-  CORS_HEADERS,
+  CORS_ALLOW_METHODS,
+  CORS_ALLOW_HEADERS,
   RECEIVER_PATHS,
   SERVICE_NAME,
   EMAIL_REGEX,
@@ -18,6 +19,7 @@ import {
   type Env,
 } from "./types.js";
 import { json } from "../../lib/http/responses.js";
+import { buildCors } from "../../lib/http/cors.js";
 import { checkAuthRateLimit, errorResponse, resolveOutboundSigningKey, getClientIp } from "./utils.js";
 import { signMessage } from "./crypto.js";
 import {
@@ -39,46 +41,22 @@ import { createStripeCheckoutSession } from "./stripe.js";
 import { VERSION } from "./version.js";
 
 
-const HARDCODED_ALLOWED_ORIGINS = [
-  "https://integritystudio.ai",
-  "https://www.integritystudio.ai",
-];
-
 // Cloudflare Pages preview deployments for the integritystudio-ai project are served at
 // https://<deploy-hash>.integritystudio-ai-c1a.pages.dev (and named-branch aliases). These
 // hostnames are owned exclusively by this account's Pages project, so matching the suffix is
 // safe and lets preview builds exercise the live sender without per-deploy ALLOWED_ORIGINS_JSON
-// edits. The leading dot enforces a subdomain boundary (the bare alias and lookalike hosts such
-// as `…pages.dev.attacker.com` do not match), and only https origins are accepted.
+// edits. The shared helper anchors on the leading dot (the bare alias and lookalike hosts such
+// as `…pages.dev.attacker.com` do not match) and accepts only https origins.
 const PAGES_PREVIEW_HOST_SUFFIX = ".integritystudio-ai-c1a.pages.dev";
 
-function getAllowedOrigins(env: Env): string[] {
-  if (env.ALLOWED_ORIGINS_JSON) {
-    try {
-      const parsed: unknown = JSON.parse(env.ALLOWED_ORIGINS_JSON);
-      if (Array.isArray(parsed) && parsed.every((v) => typeof v === 'string')) {
-        return parsed as string[];
-      }
-      console.error('[sender] ALLOWED_ORIGINS_JSON must be a JSON array of strings; using defaults');
-    } catch {
-      console.error('[sender] ALLOWED_ORIGINS_JSON is not valid JSON; using defaults');
-    }
-  }
-  return HARDCODED_ALLOWED_ORIGINS;
-}
-
-function isPagesPreviewOrigin(origin: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(origin);
-  } catch {
-    return false;
-  }
-  return url.protocol === "https:" && url.hostname.endsWith(PAGES_PREVIEW_HOST_SUFFIX);
-}
-
-function isOriginAllowed(origin: string, env: Env): boolean {
-  return getAllowedOrigins(env).includes(origin) || isPagesPreviewOrigin(origin);
+/** CORS decision for this Worker: the shared allowlist plus Pages previews; an unlisted origin gets no Allow-Origin. */
+function senderCors(origin: string | null, env: Env) {
+  return buildCors(origin, {
+    allowedOriginsJson: env.ALLOWED_ORIGINS_JSON,
+    previewHostSuffix: PAGES_PREVIEW_HOST_SUFFIX,
+    allowMethods: CORS_ALLOW_METHODS,
+    allowHeaders: CORS_ALLOW_HEADERS,
+  });
 }
 
 async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Response> {
@@ -541,26 +519,22 @@ function withSecurityHeaders(res: Response): Response {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get("origin");
-    const originAllowed = origin !== null && isOriginAllowed(origin, env);
+    const cors = senderCors(origin, env);
 
     if (request.method === HTTP_METHODS.OPTIONS) {
-      const headers: Record<string, string> = { ...CORS_HEADERS };
-      if (originAllowed) {
-        headers["access-control-allow-origin"] = origin;
-      }
-      return new Response(null, { status: HTTP_STATUS.NO_CONTENT, headers });
+      return new Response(null, { status: HTTP_STATUS.NO_CONTENT, headers: cors.headers });
     }
 
-    if (origin !== null && !originAllowed) {
+    if (origin !== null && !cors.allowed) {
       return withSecurityHeaders(errorResponse("forbidden", ERROR_CODE.FORBIDDEN, HTTP_STATUS.FORBIDDEN));
     }
 
     const res = await routeRequest(request, env);
 
-    if (originAllowed) {
+    if (cors.allowed) {
       const secured = withSecurityHeaders(res);
       const headers = new Headers(secured.headers);
-      headers.set("access-control-allow-origin", origin);
+      for (const [name, value] of Object.entries(cors.headers)) headers.set(name, value);
       return new Response(secured.body, { status: secured.status, statusText: secured.statusText, headers });
     }
 

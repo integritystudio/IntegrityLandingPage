@@ -106,11 +106,8 @@ export const ERROR_DESCRIPTIONS: Partial<Record<ErrorCode, string>> = {
     "Receiver does not implement the requested action. Verify the action field matches a supported value (provision_api_key, sign_in).",
 } as const;
 
-export const CORS_HEADERS = {
-  "access-control-allow-methods": "GET, POST, OPTIONS",
-  "access-control-allow-headers": "content-type, authorization, x-session-data",
-  "access-control-max-age": "86400",
-} as const;
+export const CORS_ALLOW_METHODS = "GET, POST, OPTIONS";
+export const CORS_ALLOW_HEADERS = "content-type, authorization, x-session-data";
 
 export const AUTH0_PATHS = {
   TOKEN: "/oauth/token",

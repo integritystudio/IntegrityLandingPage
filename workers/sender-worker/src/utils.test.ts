@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { errorResponse, corsPreflightResponse, resolveOutboundSigningKey } from './utils';
+import { errorResponse, resolveOutboundSigningKey } from './utils';
 import { HTTP_STATUS, CONTENT_TYPES, type Env } from './types';
 
 describe('errorResponse()', () => {
@@ -118,30 +118,6 @@ describe('resolveOutboundSigningKey()', () => {
       expect(error).not.toHaveBeenCalledWith(expect.stringContaining('other-secret'));
       error.mockRestore();
     });
-  });
-});
-
-describe('corsPreflightResponse()', () => {
-  it('returns 204 No Content', () => {
-    const res = corsPreflightResponse();
-    expect(res.status).toBe(HTTP_STATUS.NO_CONTENT);
-  });
-
-  it('body is null (empty)', async () => {
-    const res = corsPreflightResponse();
-    const text = await res.text();
-    expect(text).toBe('');
-  });
-
-  it('includes CORS allow-methods header', () => {
-    const res = corsPreflightResponse();
-    expect(res.headers.get('access-control-allow-methods')).toContain('POST');
-  });
-
-  it('includes CORS allow-headers header', () => {
-    const res = corsPreflightResponse();
-    const allowedHeaders = res.headers.get('access-control-allow-headers');
-    expect(allowedHeaders).toContain('content-type');
   });
 });
 
