@@ -32,7 +32,8 @@ export type BillingStatus =
   | 'unpaid'
   | 'paused';
 export type OrgMembershipStatus = 'active' | 'invited' | 'suspended';
-export type ApiKeyStatus = 'active' | 'revoked' | 'expired';
+/** 'inactive' is a reversible suspension (api-keys-set-status); 'revoked' is permanent. */
+export type ApiKeyStatus = 'active' | 'inactive' | 'revoked' | 'expired';
 export type ApiKeyTier = 'starter' | 'growth' | 'enterprise';
 
 export interface Organization extends Record<string, unknown> {

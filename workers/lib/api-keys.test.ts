@@ -165,6 +165,27 @@ describe('api-keys', () => {
       expect(result.ok).toBe(false);
     });
 
+    it('refuses an inactive key and says so', async () => {
+      const secret = 'validsecret32charsminimum00000000';
+      const hash = await hashApiKeySecret(secret, TEST_HMAC_SECRET);
+      const apiKey = makeApiKey({ hash, status: 'inactive' });
+
+      const mockSb = {
+        query: vi.fn().mockResolvedValue({ ok: true, data: [apiKey] }),
+        insert: vi.fn(),
+        update: vi.fn(),
+        rpc: vi.fn(),
+      };
+
+      const result = await verifyApiKey(
+        `int_live_abc12345_${secret}`,
+        TEST_HMAC_SECRET,
+        mockSb as any,
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(await result.error.text()).toContain('API key is inactive');
+    });
+
     it('returns error when key is expired', async () => {
       const secret = 'validsecret32charsminimum00000000';
       const hash = await hashApiKeySecret(secret, TEST_HMAC_SECRET);

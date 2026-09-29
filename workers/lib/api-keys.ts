@@ -134,8 +134,11 @@ export async function verifyApiKey(
 
   const apiKey = result.data[0];
 
-  if (apiKey.status !== 'active' || apiKey.revoked_at !== null) {
+  if (apiKey.revoked_at !== null || apiKey.status === 'revoked') {
     return { ok: false, error: unauthorized('API key is revoked') };
+  }
+  if (apiKey.status !== 'active') {
+    return { ok: false, error: unauthorized(`API key is ${apiKey.status}`) };
   }
 
   if (apiKey.expires_at !== null && new Date(apiKey.expires_at) < new Date()) {
