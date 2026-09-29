@@ -390,12 +390,14 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR49](#cr49) | P2 | 📋 blocked on CR48 being live | Retire sender `/signin`, `/signup`, `/forgot-password` and the "My App" `password` grant — nothing in the app calls them after CR48. |
 | [CR50](#cr50) | P3 | ✅ **live 2026-09-29** — migration `20260929010000` (`bdcad7c`) applied by `supabase db push`; post-check: 0 users without a default org, 0 tier mismatches, trigger enabled, ledger row present. The trigger's first live firing (a new signup) is not yet observed | New users get no `users.default_organization_id` (1 of 10 in production: the 2026-09-29 smoke-test account), so `users.tier` never follows their org's plan. |
 | [CR51](#cr51) | P2 | ✅ **live 2026-09-29** — Action **v10** (`44f65b19…`) deployed from `03e8941`, deployed code digest equals the repo file's; rollback target v9 `ff8dbac8…`. A post-deploy sign-in has not been exercised yet | The post-login Action's email fallback re-links an existing `users` row to any new Auth0 identity with that email, without checking `email_verified`. |
-| [CR52](#cr52) | P3 | ⚠️ code done (`c76f5d8`) — live on push to `main`; Usage fetches its own quota, the dead `monthlyUnitsQuota` arg is gone, and the usage-bar row no longer overflows once a quota renders | The dashboard hub passes `monthlyUnitsQuota: 0` to Usage, so the quota line never renders. |
+| [CR52](#cr52) | P3 | ⚠️ code done (`c76f5d8`) — live on push to `main`; Usage fetches its own quota, the dead `monthlyUnitsQuota` arg is gone, and the usage-bar row no longer overflows once a quota renders. **Follow-ups 2026-09-29** (best-practice review; see [CR58](#cr58), [CR59](#cr59)): the bar reads the enforced `monthlyUsed` (chart and table keep bucket totals), states its level in words with a threshold `Alert`, has a screen-reader name and value, shows the UTC reset date, says "Unlimited plan", and has a limit-reached state | The dashboard hub passes `monthlyUnitsQuota: 0` to Usage, so the quota line never renders. |
 | [CR53](#cr53) | P3 | ✅ **live 2026-09-29** — `api-gateway` `cf663fae` (`8b4d726`); `/health` healthy after deploy. The 503 path itself is unit-tested, not probed live | `/v1/orgs` answers `200 {organizations: []}` when its Supabase queries fail; since CR48 the callback reads that as a new account. |
 | [CR54](#cr54) | P3 | 📋 open (review) | A corporate signup is always unverified at its first provision, so it lands in a personal org — and nothing ever provisions it again to join the team org once verified. |
 | [CR55](#cr55) | P4 | ✅ done (`8bfe535`, tests only) | `CallbackPage`'s signup analytics (form submission + lead, new accounts only) have no test. |
 | [CR56](#cr56) | P4 | 📋 open (review) | `/provision`'s **Go to Dashboard** opens integritystudio.dev, not the in-app `/dashboard` where billing and usage live. |
 | [CR57](#cr57) | P4 | ⚠️ code done (`25856d4`) — live on push to `main` | `Auth0Service.constantTimeEquals` returns early on a length mismatch (code review, low; no practical leak). |
+| [CR58](#cr58) | P2 | ⚠️ code done — `api-gateway` needs `deploy:prd`; the page change goes live on push to `main` | Reading usage or quota spent the quota: every `/v1/orgs/:id/*` call, including `/usage/summary` and `/quota/status`, reserved a monthly unit, and the Usage page polled every 30 s, even while hidden. |
+| [CR59](#cr59) | P4 | 📋 open (investigated) | The gateway's quota headers are non-standard, undocumented as sent, and unreadable from a browser. |
 
 ~~**Two items are now blocked on code** — [[CR20]] and [[CR21]]…~~ **Superseded 2026-07-31.** [[CR21]] is done and live, and [[CR20]] is not blocked on code at all — its remaining work is monitoring ([[W04]]), since [[CR21]] foreclosed the 5xx option. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). What still needs a decision rather than an implementation: a credential/provisioning call (CR01, CR11, CR12's cross-repo HMAC secret), or an answer about intent (CR13, CR16). **Update 2026-09-28:** CR01, CR11, CR12 and CR13 are closed, and [[W04]] closed 2026-08-09 (1.3 changelog); of this list only CR16 remains, and it is by design.
 
@@ -2509,6 +2511,27 @@ When no row matches `auth0_id`, the Action looks the user up **by email** and wr
 
 The comment says "0 = disabled until per-org quota is loaded via QuotaStatusPage", but nothing ever loads it on this path. **Fix shape:** have Usage fetch the org's monthly quota itself (it already has `orgId` and the token), or pass it from the hub once entitlements are loaded.
 
+**Follow-ups 2026-09-29 (best-practice review).**
+- **One meter.** The usage bar used to divide the sum of every metric's `total_quantity` by the DO's limit. The DO counts one unit per request, while `/v1/ingest/events` records whatever quantity the caller sends, so the numerator could run far ahead of what was enforced.
+  - The bar now reads `monthlyUsed` and `monthlyLimit` from `/quota/status`.
+  - The chart and per-metric table keep the bucket totals.
+  - A quota reply with no `planKey` (the DO's `uninitialized` answer) is treated as unknown, not as unlimited.
+- **Accessibility.**
+  - The bar has `semanticsLabel` "Monthly usage, N of M units" and a numeric `semanticsValue`: Flutter's progress-bar role requires a number from 0 to 100, and 3.47.5 has no `meter` role.
+  - The level is stated in words ("80% used", rounded down so it never says 100% early) with an icon.
+  - At the warning threshold (75%) and above, a shared `Alert` (a live region) says what it means.
+  - The status row wraps rather than truncates.
+- **Dashboard conventions.**
+  - The reset date is shown in UTC ("Resets October 1, 00:00 UTC", `monthlyResetLabel`).
+  - A plan without a monthly limit says "Unlimited plan".
+  - At the limit, the status and an error `Alert` say "Monthly limit reached".
+  - Month names moved to `CalendarText.monthNames`, shared with the billing page.
+- **Tests.** 20 in `usage_summary_page_test.dart`. Eight seeded mutations each fail a named test.
+  - The UTC reset test only discriminates on a machine west of UTC. It does here (-0600); CI in UTC passes it either way.
+- **Not done.**
+  - Threshold notifications outside the page (email): that needs a sender, a recipient rule and per-month de-duplication.
+  - The daily chart's dashed reference line still compares bucket totals with the enforced limit's daily average.
+
 ---
 
 <a id="cr53"></a>
@@ -2560,6 +2583,62 @@ Before CR48 the in-app dashboard could not survive a reload, so sending a new us
 **Priority:** P4 | **Source:** code review of `fcc5d97` (low finding); `lib/services/auth0_service.dart` `constantTimeEquals`
 
 The length check returns before the XOR loop, so timing reveals whether the lengths differ. The state is always 43 characters (base64url of 32 bytes), so nothing is learnt in practice. **Fix shape:** fold the length difference into the accumulator and loop over the longer input; keep the existing tests.
+
+---
+
+<a id="cr58"></a>
+
+### CR58: reading usage or quota spends the quota it reports
+
+**Priority:** P2 | **Source:** CR52 best-practice review, 2026-09-29; `workers/api-gateway/src/index.ts` (the org-route prelude), `lib/pages/usage_summary_page.dart`
+
+Every `/v1/orgs/:id/*` call ran `enforceOrgQuota`, which reserved one monthly unit, and wrote a ledger row. `GET /usage/summary` and `GET /quota/status` were no exception. The Usage page polls every 30 s and kept polling in a hidden tab (Chrome throttles that to about once a minute). One open tab spent 2,880 units a day visible, or about 1,440 hidden, against starter's 10,000 a month, so it exhausted a starter org in roughly 3.5 to 7 days. The bar also rose while being watched, and an exhausted org got 429 on the page that would have told it why. GitHub's `GET /rate_limit` is the usual precedent: checking the limit does not count against it.
+
+**Implemented 2026-09-29:**
+- **Gateway.** `chargesMonthlyQuota(method, subPath)` in `lib/usage-ledger.ts` names the two reads.
+  - They still take the quota check, so both per-minute limits hold: the CR36 edge limiter and the DO's plan-tiered minute window.
+  - They pass `chargeMonthly: false`. The DO then skips the monthly check and increment, so an exhausted org can still read its usage.
+  - They write no ledger row, so the ledger keeps recording exactly what the DO charged (UA01).
+- **Stale quota numbers, the risk of stopping the charge.** The DO applied the month rollover and plan changes only inside the check.
+  - The uncharged reads still run that check, and before `/quota/status` reads.
+  - `/status` now also applies the rollover itself (`rollMonthIfNeeded`), so the 1st of a month reads zero even before any request.
+  - A plan change needs the org row, which only the check carries; the index comment says so.
+- **Page.**
+  - Polling stops on `hidden`/`paused`/`detached`. It resumes on `resumed`, with an immediate refresh.
+  - Every refresh (poll, resume, Refresh button) fetches both the summary and the quota.
+- **Tests.**
+  - DO: charged versus uncharged, admitted when exhausted, minute limit kept, rollover and plan applied, `/status` rollover.
+  - `enforceOrgQuota`: forwards the flag.
+  - Router: both reads send `chargeMonthly: false` and write no ledger row, while `/entitlements` and `/dashboard` stay charged.
+  - Widget: no polls while hidden, refresh on return, polling resumes.
+  - Gateway 314 tests, Flutter 2,797 tests, `lint:workers` and `flutter analyze` all clean.
+
+**To go live:** `cd workers/api-gateway && npm run deploy:prd`. The page change goes out on the next push to `main`, and the gateway change should ship first or together. The page change is harmless before the deploy: it only polls less.
+
+---
+
+<a id="cr59"></a>
+
+### CR59: the gateway's quota headers are non-standard, and nothing can read them
+
+**Priority:** P4 | **Source:** CR52 review item 6, investigated 2026-09-29 (read-only)
+
+- **Nobody reads them.** The gateway sends `X-RateLimit-Remaining-Minute` / `-Monthly` (`lib/quota.ts`).
+  - No code in this repo, the toolkit, or its dashboard SPA reads them.
+  - No worker sets `Access-Control-Expose-Headers` (verified: 0 matches in `workers/`), so a browser cannot read them cross-origin. The same applies to `Retry-After`.
+  - Unverified side finding: `lib/services/contact_service.dart:370` reads `retry-after` from a cross-origin workers.dev response, so it probably always sees null in the browser.
+- **Docs drift.** `docs/api-usage-ingestion.md`'s **Rate Limiting** section documents `X-RateLimit-Limit/Remaining/Reset`, which are never sent. It also gives an hourly Growth limit that does not exist.
+- **Quota 429 gaps.** A quota 429 has no `Retry-After`, and each 429 carries only one of the two headers.
+- **Standard.** The IETF standard for these headers, draft-ietf-httpapi-ratelimit-headers, is at version 11 (2026-05-23) and is still an Internet-Draft, not an RFC.
+  - Syntax: `RateLimit-Policy: "minute";q=60;w=60, "month";q=10000` and `RateLimit: "minute";r=48;t=40, "month";r=1000;t=<seconds to 00:00 UTC on the 1st>`.
+  - `w` is left off the month, because months run 28 to 31 days.
+  - There is no way to say "unlimited", so enterprise has no month item.
+  - Of the major APIs, only Cloudflare's sends the draft fields. GitHub and OpenAI send `x-ratelimit-*`, and Anthropic sends its own headers.
+- **Fix shape, if wanted.**
+  - Send both the draft fields and the old headers, add the expose-headers list to `buildCors`, and give each 429 a `Retry-After` for its window.
+  - Fix the doc section.
+  - Remove the `X-` pair after a deprecation note.
+  - Risk is low, because nothing reads the current headers.
 
 ---
 
