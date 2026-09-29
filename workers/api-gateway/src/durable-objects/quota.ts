@@ -11,13 +11,11 @@
  *
  * Nothing here writes to Supabase: the durable usage record is written per
  * request by the gateway's usage ledger (lib/usage-ledger.ts, UA01) via
- * ctx.waitUntil. A `POST /flush-usage` route does exist (handleFlushUsage): it
- * zeroes the in-memory monthly counter, persists that zero to DO storage and
- * returns the count it discarded — it syncs nothing anywhere. Its only client,
- * `flushUsage()` in lib/quota.ts, has no callers, so the route is unreachable in
- * production; wired up as-is it would reset an org's monthly usage without a
- * trace. Delete-or-wire is BACKLOG.md CR45. (An earlier version of this header
- * said there was no flush method at all — wrong in the other direction.)
+ * ctx.waitUntil. There is no flush route: a `POST /flush-usage` that zeroed the
+ * monthly counter, persisted nothing and had no caller was deleted (BACKLOG.md
+ * CR45), because wired up it would have forgiven an org's month of usage while
+ * the ledger kept the truth. A monthly reset, if ever wanted, belongs to a period
+ * rollover keyed on the ledger, not a callable reset.
  */
 
 interface QuotaCheckRequest {
@@ -102,10 +100,6 @@ export class QuotaDurableObject implements DurableObject {
 
     if (url.pathname === '/check-and-reserve' && request.method === 'POST') {
       return this.handleCheckAndReserve(request);
-    }
-
-    if (url.pathname === '/flush-usage' && request.method === 'POST') {
-      return this.handleFlushUsage();
     }
 
     if (url.pathname === '/status' && request.method === 'GET') {
@@ -280,35 +274,6 @@ export class QuotaDurableObject implements DurableObject {
         { status: 400, headers: { 'Content-Type': 'application/json' } },
       );
     }
-  }
-
-  private async handleFlushUsage(): Promise<Response> {
-    await this.initialize();
-
-    if (!this.quota) {
-      return new Response(
-        JSON.stringify({ error: 'No quota state' }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } },
-      );
-    }
-
-    const monthlyUsed = this.quota.monthlyUsed;
-
-    // Reset monthly counter
-    this.quota.monthlyUsed = 0;
-
-    // Persist to storage
-    await this.state.storage.put('quota', this.quota);
-    this.lastSavedAt = Date.now();
-
-    return new Response(
-      JSON.stringify({
-        orgId: this.quota.orgId,
-        monthlyUsedSinceLastFlush: monthlyUsed,
-        flushedAt: new Date().toISOString(),
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } },
-    );
   }
 
   private async handleStatus(): Promise<Response> {

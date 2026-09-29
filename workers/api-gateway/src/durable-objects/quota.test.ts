@@ -421,30 +421,16 @@ describe('QuotaDurableObject', () => {
     });
   });
 
-  describe('/flush-usage', () => {
-    it('returns 404 when called before any quota state is initialised', async () => {
-      const { do_ } = makeDO();
+  describe('/flush-usage (removed, CR45)', () => {
+    it('is not a route: it answers 404 and leaves the monthly counter alone', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { monthlyUsed: 5 });
+
       const res = await do_.fetch(flushReq());
+
       expect(res.status).toBe(404);
-    });
-
-    it('returns the monthly delta and resets the monthly counter', async () => {
-      const { do_, storage } = makeDO();
-      await seedQuota(storage, { monthlyUsed: 5 });
-      const res = await do_.fetch(flushReq());
-      expect(res.status).toBe(200);
-      const body = await res.json() as { orgId: string; monthlyUsedSinceLastFlush: number; flushedAt: string };
-      expect(body.orgId).toBe('org-1');
-      expect(body.monthlyUsedSinceLastFlush).toBe(5);
-      expect(typeof body.flushedAt).toBe('string');
-    });
-
-    it('resets monthlyUsed to 0 after flush', async () => {
-      const { do_, storage } = makeDO();
-      await seedQuota(storage, { monthlyUsed: 5 });
-      await do_.fetch(flushReq());
       const status = await (await do_.fetch(statusReq())).json() as { monthlyUsed: number };
-      expect(status.monthlyUsed).toBe(0);
+      expect(status.monthlyUsed).toBe(5);
     });
   });
 
@@ -488,22 +474,21 @@ describe('QuotaDurableObject', () => {
         waitUntil: (_p: Promise<unknown>) => undefined,
       } as unknown as DurableObjectState);
 
-      // First instance seeds and flushes (flush always persists to storage).
-      const do1 = new QuotaDurableObject(makeState());
+      // State persisted by an earlier instance (the flush route that used to force a
+      // save here was deleted, CR45).
       await storage.put('quota', {
         orgId: 'org-1', planKey: 'starter', quotaVersion: 1,
         minuteLimit: 60, monthlyLimit: 10000,
         minuteUsedAt: Date.now() - 70_000, minuteUsed: 0,
         monthlyUsed: 42, lastMonthlyResetAt: Date.now(), seenRequestIds: {},
       });
-      await do1.fetch(flushReq()); // saves with monthlyUsed reset to 0
 
-      // Second instance should load flushed (persisted) state.
+      // A fresh instance should load it rather than start empty.
       const do2 = new QuotaDurableObject(makeState());
       const res = await do2.fetch(statusReq());
       const body = await res.json() as { monthlyUsed: number; orgId: string };
       expect(body.orgId).toBe('org-1');
-      expect(body.monthlyUsed).toBe(0);
+      expect(body.monthlyUsed).toBe(42);
     });
 
     it('backfills missing fields on legacy stored state', async () => {

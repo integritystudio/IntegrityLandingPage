@@ -6,7 +6,6 @@ import { createSupabaseClient } from '../../../lib/supabase';
 import { effectivePlan } from '../../../lib/billing';
 import {
   QuotaCheckResponseSchema,
-  QuotaFlushResultSchema,
   QuotaStatusResponseSchema,
 } from '../../../lib/types/schemas';
 import type {
@@ -14,7 +13,6 @@ import type {
   OrgQuotaMiddlewareOptions,
   QuotaCheckRequest,
   QuotaCheckResponse,
-  QuotaFlushResult,
   QuotaStatusResponse,
 } from '../../../lib/types/schemas';
 
@@ -24,7 +22,6 @@ export type {
   OrgQuotaMiddlewareOptions,
   QuotaCheckRequest,
   QuotaCheckResponse,
-  QuotaFlushResult,
   QuotaStatusResponse,
 };
 
@@ -59,28 +56,6 @@ export async function checkAndReserve(
   }
 
   return QuotaCheckResponseSchema.parse(raw);
-}
-
-export async function flushUsage(
-  doNamespace: DurableObjectNamespace,
-  orgId: string,
-): Promise<QuotaFlushResult> {
-  const id = doNamespace.idFromName(orgId);
-  const obj = doNamespace.get(id);
-
-  const response = await obj.fetch(
-    new Request('http://quota.local/flush-usage', {
-      method: 'POST',
-    }),
-  );
-
-  const raw = await response.json();
-
-  if (!response.ok) {
-    throw new Error(`Flush failed: ${extractErrorMessage(raw, response.statusText)}`);
-  }
-
-  return QuotaFlushResultSchema.parse(raw);
 }
 
 export async function getQuotaStatus(

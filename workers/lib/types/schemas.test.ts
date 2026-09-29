@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   ApiKeyTierSchema,
   QuotaCheckResponseSchema,
-  QuotaFlushResultSchema,
   QuotaStatusResponseSchema,
 } from './schemas';
 
@@ -34,16 +33,6 @@ describe('QuotaCheckResponseSchema', () => {
 
   it('rejects invalid reason', () => {
     expect(QuotaCheckResponseSchema.safeParse({ allowed: false, reason: 'bad_reason' }).success).toBe(false);
-  });
-});
-
-describe('QuotaFlushResultSchema', () => {
-  it('accepts valid flush result', () => {
-    expect(QuotaFlushResultSchema.safeParse({
-      orgId: '550e8400-e29b-41d4-a716-446655440001',
-      monthlyUsedSinceLastFlush: 50,
-      flushedAt: '2024-01-01T00:00:00.000Z',
-    }).success).toBe(true);
   });
 });
 

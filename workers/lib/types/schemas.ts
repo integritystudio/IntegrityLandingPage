@@ -34,12 +34,6 @@ export const QuotaCheckResponseSchema = z.object({
   remainingMonthly: z.number().int().nullable().optional(),
 });
 
-export const QuotaFlushResultSchema = z.object({
-  orgId: z.string().uuid(),
-  monthlyUsedSinceLastFlush: z.number().int(),
-  flushedAt: z.string().datetime(),
-});
-
 // Org plan data fetched from database
 export const OrgPlanRowSchema = z.object({
   current_plan: ApiKeyTierSchema,
@@ -81,6 +75,5 @@ export type QuotaStatusResponse = z.infer<typeof QuotaStatusResponseSchema>;
 // Type inference for quota types
 export type QuotaCheckRequest = z.infer<typeof QuotaCheckRequestSchema>;
 export type QuotaCheckResponse = z.infer<typeof QuotaCheckResponseSchema>;
-export type QuotaFlushResult = z.infer<typeof QuotaFlushResultSchema>;
 export type OrgPlanRow = z.infer<typeof OrgPlanRowSchema>;
 export type OrgQuotaMiddlewareOptions = z.infer<typeof OrgQuotaMiddlewareOptionsSchema>;
