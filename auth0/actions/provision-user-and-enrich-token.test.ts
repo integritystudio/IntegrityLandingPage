@@ -157,6 +157,24 @@ describe('post-login Action — profile write (UA02)', () => {
     expect(accessClaims[`${CLAIM}app_user_id`]).toBe(APP_USER_ID);
   });
 
+  it('grants no app claims when an unverified identity shares an existing row\'s email (CR51)', async () => {
+    // users_email_key rejects the insert, so nothing links the new identity to the old row.
+    const calls = stubFetch({
+      'PATCH users?auth0_id': rows([]),
+      'GET users?email': rows([{ id: APP_USER_ID, email: EMAIL }]),
+      'POST users': rows({ code: '23505', message: 'duplicate key value violates unique constraint "users_email_key"' }, 409),
+      ...noRoles,
+    });
+    const event = { ...makeEvent(), user: { ...makeEvent().user, email_verified: false } };
+    const { api, accessClaims, idClaims } = makeApi();
+
+    await onExecutePostLogin(event, api);
+
+    expect(calls.some((c) => c.url.searchParams.has('id'))).toBe(false);
+    expect(accessClaims).toEqual({});
+    expect(idClaims).toEqual({});
+  });
+
   it('provisions a new user with the profile', async () => {
     const calls = stubFetch({
       'PATCH users?auth0_id': rows([]),

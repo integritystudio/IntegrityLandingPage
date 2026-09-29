@@ -46,7 +46,9 @@ exports.onExecutePostLogin = async (event, api) => {
   // 2. If not found by auth0_id, try by email — but only when the email is verified (CR51).
   //    An unverified address can be registered by anyone; re-linking without verification
   //    lets whoever registers the address inherit an existing row's memberships and roles.
-  //    Skip the lookup when unverified: step 3 provisions a fresh row instead.
+  //    Skip the lookup when unverified. Step 3 then inserts a fresh row; if a row already
+  //    holds this email, `users_email_key` rejects the insert and the Action returns with
+  //    no app claims, so the new identity inherits nothing.
   if (!Array.isArray(users) || !users[0]) {
     if (event.user.email_verified === true) {
       userRes = await fetch(
