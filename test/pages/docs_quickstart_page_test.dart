@@ -16,21 +16,8 @@ void main() {
     VoidCallback? onBack,
     VoidCallback? onShowCookieSettings,
     bool mobile = false,
-  }) async {
-    if (mobile) {
-      setMobileSize(tester);
-    } else {
-      setDesktopSize(tester);
-    }
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: testTheme,
-        home: DocsQuickstartPage(onBack: onBack),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-  }
+  }) =>
+      tester.pumpPage(DocsQuickstartPage(onBack: onBack), mobile: mobile);
 
   group('DocsQuickstartPage', () {
     group('page structure', () {

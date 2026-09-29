@@ -79,6 +79,26 @@ extension WidgetTesterX on WidgetTester {
     await pumpAndSettleWithTimeout();
   }
 
+  /// Pumps [page] as the home of a MaterialApp with [testTheme], the shape most page
+  /// tests share: a phone size when [mobile], else [desktopSize]; then [frames]
+  /// frames. With [clearOverflow], layout-overflow exceptions are cleared before
+  /// and after, as the pages that overflow in tests need.
+  Future<void> pumpPage(
+    Widget page, {
+    bool mobile = false,
+    Size desktopSize = TestScreenSizes.desktop,
+    int frames = 2,
+    bool clearOverflow = false,
+  }) async {
+    if (clearOverflow) clearOverflowExceptions(this);
+    setScreenSize(this, mobile ? TestScreenSizes.mobile : desktopSize);
+    await pumpWidget(MaterialApp(theme: testTheme, home: page));
+    for (var i = 0; i < frames; i++) {
+      await pump();
+    }
+    if (clearOverflow) clearOverflowExceptions(this);
+  }
+
   /// Pump section widget with scroll support.
   Future<void> pumpSection(Widget section) async {
     await pumpWidget(testableSection(section));

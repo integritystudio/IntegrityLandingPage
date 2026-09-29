@@ -13,20 +13,8 @@ void main() {
     VoidCallback? onBack,
     VoidCallback? onShowCookieSettings,
     bool mobile = false,
-  }) async {
-    if (mobile) {
-      setMobileSize(tester);
-    } else {
-      setDesktopSize(tester);
-    }
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: testTheme,
-        home: ApiToolkitPage(onBack: onBack),
-      ),
-    );
-    await tester.pump();
-  }
+  }) =>
+      tester.pumpPage(ApiToolkitPage(onBack: onBack), mobile: mobile, frames: 1);
 
   group('ApiToolkitPage', () {
     group('page structure', () {

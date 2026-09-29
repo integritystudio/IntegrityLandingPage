@@ -20,26 +20,12 @@ void main() {
     VoidCallback? onBack,
     VoidCallback? onShowCookieSettings,
     bool mobile = false,
-  }) async {
-    clearOverflowExceptions(tester);
-    if (mobile) {
-      setMobileSize(tester);
-    } else {
-      setDesktopSize(tester);
-    }
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: testTheme,
-        home: StatusPage(
-          onBack: onBack,
-          onShowCookieSettings: onShowCookieSettings,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    clearOverflowExceptions(tester);
-  }
+  }) =>
+      tester.pumpPage(
+        StatusPage(onBack: onBack, onShowCookieSettings: onShowCookieSettings),
+        mobile: mobile,
+        clearOverflow: true,
+      );
 
   Future<void> pumpStatusPageWithRouter(
     WidgetTester tester, {

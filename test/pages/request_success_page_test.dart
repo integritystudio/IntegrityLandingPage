@@ -17,28 +17,13 @@ void main() {
     VoidCallback? onBack,
     VoidCallback? onShowCookieSettings,
     bool mobile = false,
-  }) async {
-    clearOverflowExceptions(tester);
-
-    if (mobile) {
-      setMobileSize(tester);
-    } else {
-      setScreenSize(tester, TestScreenSizes.desktopLarge);
-    }
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: testTheme,
-        home: RequestSuccessPage(
-          onBack: onBack,
-          onShowCookieSettings: onShowCookieSettings,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    clearOverflowExceptions(tester);
-  }
+  }) =>
+      tester.pumpPage(
+        RequestSuccessPage(onBack: onBack, onShowCookieSettings: onShowCookieSettings),
+        mobile: mobile,
+        desktopSize: TestScreenSizes.desktopLarge,
+        clearOverflow: true,
+      );
 
   /// Helper to scroll and clear overflow exceptions
   Future<void> scrollDown(WidgetTester tester, double offset) async {

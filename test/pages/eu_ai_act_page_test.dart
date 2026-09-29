@@ -14,23 +14,8 @@ void main() {
     VoidCallback? onBack,
     VoidCallback? onShowCookieSettings,
     bool mobile = false,
-  }) async {
-    clearOverflowExceptions(tester);
-    if (mobile) {
-      setMobileSize(tester);
-    } else {
-      setDesktopSize(tester);
-    }
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: testTheme,
-        home: EuAiActPage(onBack: onBack),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    clearOverflowExceptions(tester);
-  }
+  }) =>
+      tester.pumpPage(EuAiActPage(onBack: onBack), mobile: mobile, clearOverflow: true);
 
   group('EuAiActPage', () {
     group('page structure', () {

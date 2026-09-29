@@ -16,24 +16,11 @@ void main() {
     VoidCallback? onBack,
     VoidCallback? onShowCookieSettings,
     bool mobile = false,
-  }) async {
-    if (mobile) {
-      setMobileSize(tester);
-    } else {
-      setDesktopSize(tester);
-    }
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: testTheme,
-        home: PricingPage(
-          onBack: onBack,
-          onShowCookieSettings: onShowCookieSettings,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-  }
+  }) =>
+      tester.pumpPage(
+        PricingPage(onBack: onBack, onShowCookieSettings: onShowCookieSettings),
+        mobile: mobile,
+      );
 
   group('PricingPage', () {
     group('page structure', () {
