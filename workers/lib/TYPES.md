@@ -86,7 +86,7 @@ The file named next to each schema is the source of truth; field lists are not r
 
 ### Supabase client contract — `types/supabase.ts`
 
-`FilterOperatorSchema`, `QueryFilterSchema`, `QueryOptionsSchema`, `InsertOptionsSchema`, `UpdateOptionsSchema`, `RpcOptionsSchema`, `SupabaseQueryResultSchema`, `SupabaseRpcResultSchema`, `SupabaseRowSchema`. These describe what `workers/lib/supabase.ts` accepts and returns; note that `update` and `deleteRows` accept an empty filter list — BACKLOG.md CR44.
+`FilterOperatorSchema`, `QueryFilterSchema`, `QueryOptionsSchema`, `InsertOptionsSchema`, `UpdateOptionsSchema`, `RpcOptionsSchema`, `SupabaseQueryResultSchema`, `SupabaseRpcResultSchema`, `SupabaseRowSchema`. These describe what `workers/lib/supabase.ts` accepts and returns. `update` and `deleteRows` refuse an empty filter list with an error result rather than writing the whole table, and `in` list members are double-quoted (BACKLOG.md CR44).
 
 ## API Responses
 
