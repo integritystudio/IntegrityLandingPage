@@ -3157,6 +3157,8 @@ Filed from a test-coverage review of the production code changed on 2026-09-29 (
 
 **Priority:** P3 | **Source:** coverage review 2026-09-29; `workers/api-gateway/src/routes/orgs.ts`
 
+**Status:** ✅ **DONE 2026-09-29** — `orgs.test.ts` has one `it.each` over dashboard, billing-status, billing-portal and checkout-session with `'GET organization_memberships': httpError(500)`, each expecting 503. **Mutants: 3 of 3 killed.** Each turned the propagation into `forbidden(...)`, in `handleOrgDashboard`, `handleOrgBillingStatus` and `authorizeBillingRequest`. Gateway suite: 319 tests.
+
 Only `GET /v1/orgs` has 503 tests; they are the two `it.each` rows in `orgs.test.ts`. Turning the propagation in `handleOrgDashboard`, `handleOrgBillingStatus` or `authorizeBillingRequest` into `forbidden(...)` survives, which brings back the old wrong-answer class. `billing-portal` and `checkout-session` go through `authorizeBillingRequest`.
 
 **Scope:** one `it.each` over the four remaining handlers with `'GET organization_memberships': httpError(500)`, expecting 503.

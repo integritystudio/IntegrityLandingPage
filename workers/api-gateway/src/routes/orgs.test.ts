@@ -686,3 +686,26 @@ describe('POST /v1/orgs/:id/checkout-session', () => {
     expect(res.status).toBe(500);
   });
 });
+
+// A failed membership query is an outage, not "not a member": a 403 tells a real member they
+// have no access (CR53). GET /v1/orgs has its own rows above; the two billing POSTs share
+// authorizeBillingRequest but each has a row, so neither can drop the propagation alone.
+describe('org routes when the membership query fails (CR53)', () => {
+  it.each([
+    ['dashboard', (token: string) =>
+      handleOrgDashboard(authedRequest(`/v1/orgs/${ORG_ID}/dashboard`, token), ORG_ID, opts)],
+    ['billing-status', (token: string) =>
+      handleOrgBillingStatus(authedRequest(`/v1/orgs/${ORG_ID}/billing-status`, token), ORG_ID, opts)],
+    ['billing-portal', (token: string) =>
+      handleBillingPortal(authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST'), ORG_ID, makePortalOpts())],
+    ['checkout-session', (token: string) =>
+      handleCreateCheckoutSession(checkoutRequest(token), ORG_ID, makeCheckoutOpts())],
+  ])('%s returns 503', async (_route, call) => {
+    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+    stubSupabase({ 'GET organization_memberships': httpError(500) });
+
+    const res = await call(token);
+
+    expect(res.status).toBe(503);
+  });
+});
