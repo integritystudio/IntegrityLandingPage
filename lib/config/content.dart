@@ -161,7 +161,7 @@ abstract final class AppContent {
             metricContext: t['metric_context'] as String?,
           );
         }).toList(),
-        statsHeadline: 'Enterprise-Grade Performance',
+        statsHeadline: ContentLoader.socialProofStatsHeadline,
         stats: ContentLoader.socialProofStats,
       );
 
@@ -185,7 +185,7 @@ abstract final class AppContent {
           );
         }).toList(),
         statusPageUrl: ContentLoader.statusPageUrl,
-        statusPageCta: 'View Full Status Page',
+        statusPageCta: ContentLoader.statusPageCta,
       );
 
   /// Current footer content
@@ -210,7 +210,7 @@ abstract final class AppContent {
         termsLink: ContentLoader.footerTermsLink,
         cookiesLink: ContentLoader.footerCookiesLink,
         accessibilityLink: Routes.accessibility,
-        cookieSettingsLabel: 'Cookie Settings',
+        cookieSettingsLabel: ContentLoader.footerCookieSettingsLabel,
       );
 
   /// Current services section content
@@ -304,9 +304,9 @@ abstract final class AppContent {
             requiresEmail: l['requires_email'] as bool? ?? true,
           );
         }).toList(),
-        blogCtaText: 'View All Articles',
+        blogCtaText: ContentLoader.resourcesBlogCtaText,
         blogCtaUrl: Routes.blog,
-        docsCtaText: 'Browse Documentation',
+        docsCtaText: ContentLoader.resourcesDocsCtaText,
         docsCtaUrl: Routes.docs,
       );
 

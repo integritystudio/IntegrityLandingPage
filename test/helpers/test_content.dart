@@ -298,6 +298,7 @@ footer:
   privacy_link: "/privacy"
   terms_link: "/terms"
   cookies_link: "/cookies"
+  cookie_settings_label: "Cookie Settings"
   link_groups:
     - title: "Product"
       links:
@@ -316,6 +317,7 @@ status:
   title: "Platform Status"
   subtitle: "Real-time operational health"
   status_badge: "All Systems Operational"
+  status_page_cta: "View Full Status Page"
   metrics:
     - label: "Uptime"
       value: "99.9%"
@@ -332,7 +334,7 @@ status:
 resources:
   title: "Resources"
   subtitle: "Guides, Documentation & Insights"
-  blog_cta_text: "View All Posts"
+  blog_cta_text: "View All Articles"
   blog_cta_url: "/blog"
   docs_cta_text: "Browse Documentation"
   docs_cta_url: "/docs"
@@ -388,6 +390,7 @@ resources:
 
 social_proof:
   title: "Trusted by AI Teams"
+  stats_headline: "Enterprise-Grade Performance"
   stats:
     traces_processed: "10M+"
     uptime: "99.9%"
@@ -692,6 +695,7 @@ footer:
   privacy_link: "/privacy"
   terms_link: "/terms"
   cookies_link: "/cookies"
+  cookie_settings_label: "Cookie Settings"
   link_groups:
     - title: "Product"
       links:
@@ -705,6 +709,7 @@ status:
   title: "Status Title"
   subtitle: "Status Subtitle"
   status_badge: "All Operational"
+  status_page_cta: "Status Page CTA"
   metrics:
     - label: "Uptime"
       value: "99.9%"
@@ -716,6 +721,8 @@ status:
 resources:
   title: "Resources Title"
   subtitle: "Resources Subtitle"
+  blog_cta_text: "Blog CTA"
+  docs_cta_text: "Docs CTA"
   documentation:
     - icon: "book-open"
       title: "Getting Started"
@@ -743,6 +750,7 @@ resources:
 
 social_proof:
   title: "Social Proof Title"
+  stats_headline: "Stats Headline"
   stats:
     uptime: "99.9%"
     traces: "10M+"
