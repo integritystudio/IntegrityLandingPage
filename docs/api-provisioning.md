@@ -599,7 +599,7 @@ The Sender Worker validates the request `Origin` against `ALLOWED_ORIGINS_JSON` 
 
 ### Origins
 
-- **Production:** `https://integritystudio.ai`, `https://www.integritystudio.ai`
+- **Production:** `https://integritystudio.ai`, `https://www.integritystudio.ai`, `https://integritystudio.dev`, `https://www.integritystudio.dev`
 - **Development:** add `http://localhost:<port>` to `ALLOWED_ORIGINS_JSON` in the **dev** Doppler config
 
 > The `Access-Control-Allow-Origin` header is NOT a security boundary — it only controls browser CORS preflight.

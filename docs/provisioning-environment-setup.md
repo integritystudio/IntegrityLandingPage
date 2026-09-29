@@ -343,7 +343,7 @@ No fixed cadence is enforced. Priorities:
 ## Implementation Reference
 
 ### CORS (Environment-Aware)
-- Production origins: `https://integritystudio.ai`, `https://www.integritystudio.ai`
+- Production origins: `https://integritystudio.ai`, `https://www.integritystudio.ai`, `https://integritystudio.dev`, `https://www.integritystudio.dev` (defaults in `workers/lib/http/cors.ts`)
 - Development origins: `http://localhost:<port>` (configurable)
 - Configurable via the `ALLOWED_ORIGINS_JSON` environment variable
 - Proper OPTIONS preflight handling; 403 rejection for disallowed origins

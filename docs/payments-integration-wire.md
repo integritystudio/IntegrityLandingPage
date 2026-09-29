@@ -372,7 +372,7 @@ Response: `{ token: /^obtk_[0-9a-f]{64}$/, keyId, prefix, tier }`
 **9. Response** — transparent proxy
 - Sender reads `receiverRes.text()`, re-emits same status + `content-type`
 - No parsing or transformation
-- CORS: `access-control-allow-origin` added if origin in `ALLOWED_ORIGINS_JSON` (fallback: `integritystudio.ai`, `www.integritystudio.ai`); 403 for others
+- CORS: `access-control-allow-origin` added if origin in `ALLOWED_ORIGINS_JSON` (fallback: `integritystudio.ai`, `www.integritystudio.ai`, `integritystudio.dev`, `www.integritystudio.dev`); 403 for others
 - Error paths:
 
 | Condition | Response |
