@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/common/hover_text_link.dart';
-import 'package:integrity_studio_ai/services/content_loader.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import '../../helpers/test_content.dart';
 import '../../helpers/test_helpers.dart';
@@ -229,11 +228,10 @@ void main() {
     });
 
     testWidgets('renders link groups from content.yaml', (tester) async {
-      ContentLoader.loadFromString(testContentYaml.replaceFirst(
+      withContent(testContentYaml.replaceFirst(
         'label: "$_helpCenterLabel"',
         'label: "$_renamedLinkLabel"',
       ));
-      addTearDown(initializeTestContentAsync);
       setDesktopSize(tester);
       await tester.pumpWidget(testableSection(const FooterSection()));
       await tester.pumpAndSettleWithTimeout();

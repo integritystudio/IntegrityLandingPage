@@ -4,6 +4,7 @@
 /// to render without requiring actual asset loading.
 library;
 
+import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/services/content_loader.dart';
 import 'load_content_stub.dart'
     if (dart.library.io) 'load_content_native.dart'
@@ -515,6 +516,13 @@ void initializeTestContent() {
 /// Loads content.yaml from Flutter assets via rootBundle.
 Future<void> initializeTestContentAsync() async {
   await platform.loadRealContentAsync();
+}
+
+/// Loads [yaml] for the rest of the current test, and restores the real
+/// content.yaml when it ends (web-safe), so no other test sees the fixture.
+void withContent(String yaml) {
+  ContentLoader.loadFromString(yaml);
+  addTearDown(initializeTestContentAsync);
 }
 
 /// Reset content state after tests.
