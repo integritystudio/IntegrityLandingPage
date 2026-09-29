@@ -28,6 +28,36 @@ function makeRequest(method: string, path: string, init: RequestInit = {}): Requ
   return new Request(`https://api.integritystudio.ai${path}`, { method, ...init });
 }
 
+/** Quota DO that admits every request; `onReserve` sees each check-and-reserve body. */
+function admittingQuotaDo(onReserve?: (body: { orgId: string; units: number }) => void): DurableObjectNamespace {
+  return {
+    idFromName: (name: string) => name,
+    get: () => ({
+      fetch: async (request: Request) => {
+        onReserve?.((await request.json()) as { orgId: string; units: number });
+        return new Response(JSON.stringify({ allowed: true, remainingMinute: 1000, remainingMonthly: null }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      },
+    }),
+  } as unknown as DurableObjectNamespace;
+}
+
+/** KV namespace over a Map, honouring the `json` read type the rate limiter uses. */
+function mapKv(store = new Map<string, string>()): KVNamespace {
+  return {
+    get: async (key: string, type?: string) => {
+      const raw = store.get(key);
+      if (raw === undefined) return null;
+      return type === 'json' ? JSON.parse(raw) : raw;
+    },
+    put: async (key: string, value: string) => {
+      store.set(key, value);
+    },
+  } as unknown as KVNamespace;
+}
+
 describe('api-gateway', () => {
   describe('GET /health', () => {
     // TS02: stub fetch so the DB check fails immediately rather than waiting up
@@ -484,37 +514,11 @@ describe('CR36: per-org edge rate limit on org routes', () => {
   const jsonRows = (rows: unknown[]) =>
     new Response(JSON.stringify(rows), { status: 200, headers: { 'Content-Type': 'application/json' } });
 
-  function makeKv(): KVNamespace {
-    return {
-      get: async (key: string, type?: string) => {
-        const raw = kvStore.get(key);
-        if (raw === undefined) return null;
-        return type === 'json' ? JSON.parse(raw) : raw;
-      },
-      put: async (key: string, value: string) => {
-        kvStore.set(key, value);
-      },
-    } as unknown as KVNamespace;
-  }
-
-  /** Admits everything and remembers how many units each org reserved. */
-  function makeQuotaDo(): DurableObjectNamespace {
-    return {
-      idFromName: (name: string) => name,
-      get: () => ({
-        fetch: async (request: Request) => {
-          const body = (await request.json()) as { orgId: string; units: number };
-          reserved.set(body.orgId, (reserved.get(body.orgId) ?? 0) + body.units);
-          return new Response(JSON.stringify({ allowed: true, remainingMinute: 1000, remainingMonthly: null }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        },
-      }),
-    } as unknown as DurableObjectNamespace;
-  }
-
-  const env = () => makeEnv({ RATE_LIMIT_KV: makeKv(), QUOTA_DO: makeQuotaDo() });
+  /** An env whose quota DO admits everything and records the units each org reserved. */
+  const env = () => makeEnv({
+    RATE_LIMIT_KV: mapKv(kvStore),
+    QUOTA_DO: admittingQuotaDo((body) => reserved.set(body.orgId, (reserved.get(body.orgId) ?? 0) + body.units)),
+  });
 
   function send(orgId: string, authorization: string | null, sharedEnv: Env): Promise<Response> {
     const headers: Record<string, string> = { Origin: ORIGIN };
@@ -715,26 +719,6 @@ describe('scheduled: the Auth0 log poller', () => {
 describe('TS23: all registered routes are dispatched (not 404)', () => {
   const ORG = 'org-dispatch-test';
 
-  /** Fake quota DO that admits every request. */
-  const admitAll: DurableObjectNamespace = {
-    idFromName: (name: string) => name as unknown as DurableObjectId,
-    get: () => ({
-      fetch: async () => new Response(
-        JSON.stringify({ allowed: true, remainingMinute: 100, remainingMonthly: null }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
-    }),
-  } as unknown as DurableObjectNamespace;
-
-  /** KV that never holds a rate-limit entry. */
-  function emptyKv(): KVNamespace {
-    const store = new Map<string, string>();
-    return {
-      get: async (key: string) => store.get(key) ?? null,
-      put: async (key: string, value: string) => { store.set(key, value); },
-    } as unknown as KVNamespace;
-  }
-
   let token: string;
 
   beforeAll(async () => {
@@ -762,7 +746,7 @@ describe('TS23: all registered routes are dispatched (not 404)', () => {
   });
 
   const authHeader = () => ({ Authorization: `Bearer ${token}` });
-  const env = () => makeEnv({ QUOTA_DO: admitAll, RATE_LIMIT_KV: emptyKv() });
+  const env = () => makeEnv({ QUOTA_DO: admittingQuotaDo(), RATE_LIMIT_KV: mapKv() });
 
   /** The router's fall-through answer (`index.ts`); every handler 404 carries its own message. */
   const ROUTER_NOT_FOUND_MESSAGE = 'Not found';
