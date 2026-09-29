@@ -563,8 +563,29 @@ class FacebookPixelService {
     TrackingWeb.sendFBPageView();
   }
 
+  /// Spy for testing: records each [trackLead] call's email (null when no email
+  /// was passed). Populated only when enabled via [enableLeadCallLog].
+  @visibleForTesting
+  static List<String?>? leadCallLog;
+
+  /// Enable the lead call-log spy for testing. Returns the log list.
+  @visibleForTesting
+  static List<String?> enableLeadCallLog() {
+    leadCallLog = [];
+    return leadCallLog!;
+  }
+
+  /// Disable the lead call log and reset state for testing.
+  @visibleForTesting
+  static void resetForTesting() {
+    leadCallLog = null;
+    _initialized = false;
+    _enabled = true;
+  }
+
   /// Track lead (form submission).
   static void trackLead({String? email}) {
+    leadCallLog?.add(email);
     if (!isReady) return;
     TrackingWeb.sendFBEvent('Lead', email != null ? {'email': email} : null);
     _log('Lead event sent');

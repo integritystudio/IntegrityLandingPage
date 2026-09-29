@@ -7,6 +7,7 @@ import 'package:integrity_studio_ai/config/content/constants.dart';
 import 'package:integrity_studio_ai/pages/callback_page.dart';
 import 'package:integrity_studio_ai/pages/dashboard_page.dart';
 import 'package:integrity_studio_ai/pages/provision_page.dart';
+import 'package:integrity_studio_ai/services/analytics.dart';
 import 'package:integrity_studio_ai/services/auth0_service.dart';
 import 'package:integrity_studio_ai/services/dashboard_service.dart';
 import 'package:integrity_studio_ai/widgets/common/alert.dart';
@@ -44,6 +45,8 @@ void main() {
     Auth0Service.resetForTesting();
     DashboardService.resetDio();
     DashboardService.resetRetryDelay();
+    AnalyticsService.resetForTesting();
+    FacebookPixelService.resetForTesting();
     tearDownOverflowErrorSuppression();
   });
 
@@ -176,5 +179,69 @@ void main() {
     expect(find.byType(Alert), findsOneWidget);
     expect(provisionExtra, isNull, reason: 'an error must not read as "no orgs yet"');
     expect(dashboardExtra, isNull);
+  });
+
+  testWidgets(
+      'fires signup analytics when a new account completes with a signup intent (CR55)',
+      (tester) async {
+    final analyticsLog = AnalyticsService.enableCallLog();
+    final leadLog = FacebookPixelService.enableLeadCallLog();
+    final state = startLogin(signup: const SignupIntent(tier: SignupTiers.growth));
+    stubTokens();
+    stubOrgs([]);
+
+    await pumpCallback(tester, {'code': 'c1', 'state': state});
+
+    expect(find.text('provision'), findsOneWidget);
+    final formEvents = analyticsLog
+        .where((e) => e.event == AnalyticsEvent.formSubmission)
+        .toList();
+    expect(formEvents, isNotEmpty, reason: 'signup_form submission must be tracked');
+    expect(formEvents.first.params['form_type'], 'signup_form');
+    expect(formEvents.first.params['success'], isTrue);
+    expect(leadLog, ['user@example.com'],
+        reason: 'Facebook lead must fire with the signup email');
+  });
+
+  testWidgets(
+      'does not fire signup analytics for a returning user with orgs (CR55)',
+      (tester) async {
+    final analyticsLog = AnalyticsService.enableCallLog();
+    final leadLog = FacebookPixelService.enableLeadCallLog();
+    final state = startLogin(signup: const SignupIntent(tier: SignupTiers.growth));
+    stubTokens();
+    stubOrgs([
+      {'id': 'org-1', 'name': 'Acme'},
+    ]);
+
+    await pumpCallback(tester, {'code': 'c1', 'state': state});
+
+    expect(find.text('dashboard'), findsOneWidget);
+    final formEvents = analyticsLog
+        .where((e) => e.event == AnalyticsEvent.formSubmission)
+        .toList();
+    expect(formEvents, isEmpty, reason: 'returning user must not be counted as a signup');
+    expect(leadLog, isEmpty, reason: 'Facebook lead must not fire for a returning user');
+  });
+
+  testWidgets(
+      'does not fire signup analytics when a new account has no signup intent (plain login) (CR55)',
+      (tester) async {
+    final analyticsLog = AnalyticsService.enableCallLog();
+    final leadLog = FacebookPixelService.enableLeadCallLog();
+    final state = startLogin(); // no signup intent
+    stubTokens();
+    stubOrgs([]);
+
+    await pumpCallback(tester, {'code': 'c1', 'state': state});
+
+    expect(find.text('provision'), findsOneWidget);
+    final formEvents = analyticsLog
+        .where((e) => e.event == AnalyticsEvent.formSubmission)
+        .toList();
+    expect(formEvents, isEmpty,
+        reason: 'plain login with no orgs must not count as a signup form submission');
+    expect(leadLog, isEmpty,
+        reason: 'plain login must not fire a Facebook lead event');
   });
 }
