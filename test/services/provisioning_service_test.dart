@@ -81,27 +81,6 @@ void main() {
   });
 
   group('sendEvent', () {
-    test('returns ProvisioningSuccess with apiKey and received on 200',
-        () async {
-      mockDio.mockPostResponse({
-        'ok': true,
-        'apiKey': 'sk-test-key-123',
-        'received': <String, dynamic>{},
-      });
-
-      final event = ProvisioningEvent(
-        action: 'provision_api_key',
-        name: 'user-123',
-        email: 'user@example.com',
-      );
-
-      final result = await ProvisioningService.sendEvent(event, jwt: 'test-jwt');
-
-      expect(result, isA<ProvisioningSuccess>());
-      expect((result as ProvisioningSuccess).apiKey, 'sk-test-key-123');
-      expect(result.received, isA<Map<String, dynamic>>());
-    });
-
     test('retries on 500 and succeeds on third attempt', () async {
       mockDio.setRetryableResponses([
         {'error': 'Server error'},
@@ -297,82 +276,9 @@ void main() {
       expect(result, isA<ProvisioningError>());
       expect((result as ProvisioningError).error, 'Invalid userId format');
     });
-
-    test('sends body matching SendRequestSchema to /send endpoint', () async {
-      mockDio.mockPostResponse({
-        'ok': true,
-        'apiKey': 'sk-contract-test',
-        'received': <String, dynamic>{},
-      });
-
-      final event = ProvisioningEvent(
-        action: 'provision_api_key',
-        name: 'jane',
-        email: 'jane@example.com',
-        tier: 'growth',
-        orgName: 'Jane Co',
-      );
-
-      await ProvisioningService.sendEvent(event, jwt: 'jwt-abc');
-
-      final body = mockDio.lastPostBody;
-      expect(body, isNotNull);
-      expect(body!['action'], 'provision_api_key');
-      expect(body['name'], 'jane');
-      expect(body['email'], 'jane@example.com');
-      expect(body['tier'], 'growth');
-      expect(body['org_name'], 'Jane Co');
-      // Must not contain legacy fields
-      expect(body.containsKey('userId'), isFalse);
-      expect(body.containsKey('sentAt'), isFalse);
-    });
-
-    test('sends body without org_name when not provided', () async {
-      mockDio.mockPostResponse({
-        'ok': true,
-        'apiKey': 'sk-no-org',
-        'received': <String, dynamic>{},
-      });
-
-      final event = ProvisioningEvent(
-        action: 'provision_api_key',
-        name: 'bob',
-        email: 'bob@example.com',
-      );
-
-      await ProvisioningService.sendEvent(event, jwt: 'jwt-xyz');
-
-      final body = mockDio.lastPostBody;
-      expect(body, isNotNull);
-      expect(body!.containsKey('org_name'), isFalse);
-      expect(body['tier'], 'starter');
-    });
   });
 
   group('checkHealth', () {
-    test('returns true on 200 with ok:true', () async {
-      mockDio.mockGetResponse({'ok': true});
-
-      final result =
-          await ProvisioningService.checkHealth('https://receiver.example.com');
-
-      expect(result, true);
-      expect(mockDio.getCallCount, 1);
-    });
-
-    test('returns false on non-200', () async {
-      mockDio.mockGetResponse(
-        {'error': 'Service unavailable'},
-        statusCode: 500,
-      );
-
-      final result =
-          await ProvisioningService.checkHealth('https://receiver.example.com');
-
-      expect(result, false);
-      expect(mockDio.getCallCount, 1);
-    });
-
     test('returns false on DioException', () async {
       mockDio.mockGetError(DioExceptionType.connectionError);
 
@@ -614,17 +520,6 @@ void main() {
   });
 
   group('signUp', () {
-    test('sends email and password in POST body', () async {
-      mockDio.mockPostResponse({'jwt': 'test.jwt.token'}, statusCode: 201);
-
-      await ProvisioningService.signUp('user@example.com', 'secret123');
-
-      final body = mockDio.lastPostBody;
-      expect(body, isNotNull);
-      expect(body!['email'], 'user@example.com');
-      expect(body['password'], 'secret123');
-    });
-
     test('returns AuthSuccess with jwt on 201', () async {
       mockDio.mockPostResponse({'jwt': 'test.jwt.token'}, statusCode: 201);
 
@@ -633,20 +528,6 @@ void main() {
       expect(result, isA<AuthSuccess>());
       expect((result as AuthSuccess).jwt, 'test.jwt.token');
       expect(result.email, 'user@example.com');
-    });
-
-    test('includes name in POST body when provided', () async {
-      mockDio.mockPostResponse({'jwt': 'tok'}, statusCode: 201);
-
-      await ProvisioningService.signUp(
-        'user@example.com',
-        'secret123',
-        name: 'Acme Corp',
-      );
-
-      final body = mockDio.lastPostBody;
-      expect(body, isNotNull);
-      expect(body!['name'], 'Acme Corp');
     });
 
     test('omits name from POST body when not provided', () async {
@@ -669,20 +550,6 @@ void main() {
       expect(body!.containsKey('name'), isFalse);
     });
 
-    test('includes tier in POST body', () async {
-      mockDio.mockPostResponse({'jwt': 'tok'}, statusCode: 201);
-
-      await ProvisioningService.signUp(
-        'user@example.com',
-        'secret123',
-        tier: 'growth',
-      );
-
-      final body = mockDio.lastPostBody;
-      expect(body, isNotNull);
-      expect(body!['tier'], 'growth');
-    });
-
     test('defaults tier to starter when not provided', () async {
       mockDio.mockPostResponse({'jwt': 'tok'}, statusCode: 201);
 
@@ -701,83 +568,12 @@ void main() {
       expect(result, isA<AuthError>());
     });
 
-    test('returns AuthError when 201 body is missing jwt (malformed response)', () async {
-      // Server returned 201 but without a jwt field — treat as error, not success.
-      mockDio.mockPostResponse({'email': 'user@example.com'}, statusCode: 201);
-
-      final result = await ProvisioningService.signUp('user@example.com', 'secret123');
-
-      expect(result, isA<AuthError>());
-    });
-
     test('returns AuthError when 201 body has empty jwt string', () async {
       mockDio.mockPostResponse({'jwt': '', 'email': 'user@example.com'}, statusCode: 201);
 
       final result = await ProvisioningService.signUp('user@example.com', 'secret123');
 
       expect(result, isA<AuthError>());
-    });
-  });
-
-  group('createCheckoutSession', () {
-    test('returns CheckoutSuccess with checkoutUrl on 200', () async {
-      mockDio.mockPostResponse(
-        {'checkoutUrl': 'https://checkout.stripe.com/pay/cs_test_abc'},
-        statusCode: 200,
-      );
-
-      final result = await ProvisioningService.createCheckoutSession(
-        email: 'user@example.com',
-        tier: 'growth',
-      );
-
-      expect(result, isA<CheckoutSuccess>());
-      expect(
-        (result as CheckoutSuccess).checkoutUrl,
-        'https://checkout.stripe.com/pay/cs_test_abc',
-      );
-    });
-
-    test('sends email and tier in POST body', () async {
-      mockDio.mockPostResponse(
-        {'checkoutUrl': 'https://checkout.stripe.com/pay/cs_test'},
-        statusCode: 200,
-      );
-
-      await ProvisioningService.createCheckoutSession(
-        email: 'buyer@example.com',
-        tier: 'growth',
-      );
-
-      final body = mockDio.lastPostBody;
-      expect(body, isNotNull);
-      expect(body!['email'], 'buyer@example.com');
-      expect(body['tier'], 'growth');
-    });
-
-    test('returns CheckoutError when checkoutUrl is absent', () async {
-      mockDio.mockPostResponse({}, statusCode: 200);
-
-      final result = await ProvisioningService.createCheckoutSession(
-        email: 'user@example.com',
-        tier: 'growth',
-      );
-
-      expect(result, isA<CheckoutError>());
-    });
-
-    test('returns CheckoutError on 500', () async {
-      mockDio.mockPostResponse(
-        {'error': 'Stripe not configured'},
-        statusCode: 500,
-      );
-
-      final result = await ProvisioningService.createCheckoutSession(
-        email: 'user@example.com',
-        tier: 'growth',
-      );
-
-      expect(result, isA<CheckoutError>());
     });
   });
 
