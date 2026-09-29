@@ -127,7 +127,11 @@ failing step):
 
 ## Writing a new suite
 
-Copy the three-file shape: `fixture.sql`, `verify.sql`, `run.sh`. Four traps
+Copy the three-file shape: `fixture.sql`, `verify.sql`, `run.sh`. A `run.sh` is only
+its header comment (lines 2-12 are its `--help`), `set -euo pipefail`, and `HERE`,
+`MIGRATION`, `PORT` (unique per suite) and `RUN_PREFIX`, then
+`source "$HERE/../_lib/pg-harness.sh" "$@"`, which does the rest. `_lib/` holds no
+`run.sh` on purpose: CI runs every `supabase/tests/*/run.sh`. Four traps
 account for every false-pass encountered while building the first suite — all
 four produce a green run that proves nothing.
 
