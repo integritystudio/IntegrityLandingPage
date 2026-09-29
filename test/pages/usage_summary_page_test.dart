@@ -131,18 +131,19 @@ void main() {
     const summaryPath = '/usage/summary';
     const quotaPath = '/quota/status';
     const args = UsageSummaryArgs(orgId: 'org-1', orgName: 'Org One', jwt: 'test.jwt');
+    const pollInterval = Duration(seconds: 30);
+    const summaryBody = {
+      'org_id': 'org-1',
+      'period_start': '2026-09-01',
+      'buckets': [
+        {'bucket_date': '2026-09-01', 'metric_key': 'requests', 'total_quantity': bucketUnits, 'request_count': 1},
+      ],
+    };
 
     late MockHttpAdapter adapter;
 
     setUp(() {
-      adapter = MockHttpAdapter()
-        ..stubJson('GET', {
-          'org_id': 'org-1',
-          'period_start': '2026-09-01',
-          'buckets': [
-            {'bucket_date': '2026-09-01', 'metric_key': 'requests', 'total_quantity': bucketUnits, 'request_count': 1},
-          ],
-        }, path: summaryPath);
+      adapter = MockHttpAdapter()..stubJson('GET', summaryBody, path: summaryPath);
       DashboardService.setDioForTesting(dioWithMockAdapter(adapter));
     });
 
@@ -293,20 +294,94 @@ void main() {
     testWidgets('stops polling while hidden and refreshes on return', (tester) async {
       stubQuota(used: 40);
       await pumpPage(tester);
-      final afterLoad = summaryFetches();
+      final summaryAfterLoad = summaryFetches();
+      final quotaAfterLoad = quotaFetches();
 
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       await tester.pump(const Duration(minutes: 2));
-      expect(summaryFetches(), afterLoad, reason: 'no polls while hidden');
+      expect(summaryFetches(), summaryAfterLoad, reason: 'no polls while hidden');
+      expect(quotaFetches(), quotaAfterLoad, reason: 'no polls while hidden');
 
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump(const Duration(seconds: 1));
-      expect(summaryFetches(), afterLoad + 1, reason: 'refreshes on return');
+      expect(summaryFetches(), summaryAfterLoad + 1, reason: 'refreshes on return');
+      expect(quotaFetches(), quotaAfterLoad + 1, reason: 'refreshes on return');
 
-      await tester.pump(const Duration(seconds: 30));
-      expect(summaryFetches(), afterLoad + 2, reason: 'polling resumes');
+      await tester.pump(pollInterval);
+      expect(summaryFetches(), summaryAfterLoad + 2, reason: 'polling resumes');
+      expect(quotaFetches(), quotaAfterLoad + 2, reason: 'each poll refreshes the quota too');
+    });
+
+    testWidgets('keeps polling while inactive, and resuming replaces the timer rather than adding one', (tester) async {
+      stubQuota(used: 40);
+      await pumpPage(tester);
+      // Move out of phase with the first timer, so a leaked one would fire on its own beat.
+      await tester.pump(const Duration(seconds: 20));
+      final afterLoad = quotaFetches();
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump(const Duration(seconds: 15));
+      expect(quotaFetches(), afterLoad + 1, reason: 'inactive (e.g. a focus change) keeps polling');
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump(const Duration(seconds: 1));
+      expect(quotaFetches(), afterLoad + 2, reason: 'resuming refreshes once');
+
+      await tester.pump(pollInterval);
+      expect(quotaFetches(), afterLoad + 3, reason: 'one poll per interval, not one per resume');
+    });
+
+    final quotaFailures = <({String name, void Function() restub})>[
+      (name: 'is refused', restub: () => adapter.stubJson('GET', {'error': 'Forbidden'}, statusCode: 403, path: quotaPath)),
+      (name: 'has no plan', restub: () => stubQuota(limit: null, planKey: null)),
+    ];
+    for (final failure in quotaFailures) {
+      testWidgets('keeps the last quota when a later fetch ${failure.name}', (tester) async {
+        stubQuota(used: 40);
+        await pumpPage(tester);
+        final before = quotaFetches();
+
+        failure.restub();
+        await tester.pump(pollInterval);
+
+        expect(quotaFetches(), before + 1);
+        expect(find.text('40 / $monthlyLimit units'), findsOneWidget);
+      });
+    }
+
+    testWidgets('keeps the summary on screen when a background poll fails', (tester) async {
+      // Retries of the 500 would otherwise leave delay timers pending at the end.
+      DashboardService.retryDelay = (_) async {};
+      addTearDown(DashboardService.resetRetryDelay);
+      stubQuota(used: 40);
+      await pumpPage(tester);
+      final before = summaryFetches();
+
+      adapter.stubJson('GET', {'error': 'unavailable'}, statusCode: 500, path: summaryPath);
+      await tester.pump(pollInterval);
+
+      expect(summaryFetches(), greaterThan(before));
+      expect(find.text('Try again'), findsNothing);
+      expect(find.text('$bucketUnits'), findsOneWidget);
+    });
+
+    testWidgets('does not start a second summary request while one is in flight', (tester) async {
+      stubQuota(used: 40);
+      final firstLoad = adapter.stubDelayedJson('GET', summaryBody, path: summaryPath);
+      // Not pumpApp: its settle would time out on the loading spinner.
+      await tester.pumpPage(const UsageSummaryPage(args: args));
+      addTearDown(() => tester.pumpWidget(const SizedBox()));
+
+      await tester.pump(pollInterval);
+      expect(quotaFetches(), 2, reason: 'the poll ran');
+      expect(summaryFetches(), 1, reason: 'but skipped the summary still in flight');
+
+      firstLoad.complete();
+      await tester.pump();
+      await tester.pump(pollInterval);
+      expect(summaryFetches(), 2);
     });
   });
 }

@@ -3167,6 +3167,15 @@ Only `GET /v1/orgs` has 503 tests; they are the two `it.each` rows in `orgs.test
 
 **Priority:** P3 | **Source:** coverage review 2026-09-29; `lib/pages/usage_summary_page.dart`
 
+**Status:** ✅ **DONE 2026-09-29** — Added to `usage_summary_page_test.dart`:
+- the lifecycle test counts quota fetches as well as summary fetches;
+- a test where `inactive` keeps polling and `resumed` replaces the timer, run out of phase with the first timer so a leaked timer fires on its own beat;
+- the last quota is kept when a later fetch is refused (403) or has no plan;
+- the summary stays on screen when a background poll fails;
+- a first load held open with `stubDelayedJson`, which proves a poll skips the summary still in flight. `stubDelayedJson` gained the same `path:` narrowing `stubJson` has.
+
+**Mutants: 6 of 6 killed:** the poll calling `_fetchSummary`, `_startPolling` without `cancel`, dropping the quota on failure, the error card on a background failure, no `_isFetching` guard, and `inactive` stopping the poll. The first-load error card is already covered by the Try again test. **Not done:** the daily chart's reference line, which stays with the chart reference-line mismatch in the CR52 follow-ups.
+
 **Surviving mutants (measured):**
 - The poll timer calls `_fetchSummary` instead of `_refresh`, so the quota figure never refreshes.
 - `_startPolling` without `_pollTimer?.cancel()`: each `inactive`→`resumed` focus toggle adds a second periodic timer, multiplying requests against the per-minute limit.

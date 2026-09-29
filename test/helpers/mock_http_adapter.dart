@@ -53,13 +53,15 @@ class MockHttpAdapter implements HttpClientAdapter {
       path == null ? method.toUpperCase() : '${method.toUpperCase()} $path';
 
   /// Respond to [method] only after the returned completer is completed.
+  /// [path] narrows the stub as in [stubJson].
   Completer<void> stubDelayedJson(
     String method,
     Map<String, dynamic> data, {
     int statusCode = 200,
+    String? path,
   }) {
     final gate = Completer<void>();
-    _stubs[method.toUpperCase()] =
+    _stubs[_key(method, path)] =
         _Stub(data: data, statusCode: statusCode, gate: gate);
     return gate;
   }
