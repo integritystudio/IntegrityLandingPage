@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/config/content/contact_content.dart';
 import 'package:integrity_studio_ai/pages/contact_page.dart';
-import 'package:integrity_studio_ai/services/content_loader.dart';
 import 'package:integrity_studio_ai/widgets/common/gradient_pill_badge.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
+import 'package:integrity_studio_ai/widgets/sections/marketing_hero_section.dart';
 import '../helpers/test_constants.dart';
+import '../helpers/test_content.dart';
 import '../helpers/test_helpers.dart';
 
 void main() {
@@ -65,9 +66,16 @@ void main() {
         expect(find.text(ContactContentVariants.heroBadge), findsOneWidget);
       });
 
-      testWidgets('displays headline Get in Touch', (tester) async {
+      // contact.title is "Get in Touch" too, so the hero is rendered under a headline of
+      // its own; counting "Get in Touch" cannot tell which key the hero reads.
+      testWidgets('headlines the hero with contact.hero_headline', (tester) async {
+        const heroHeadline = 'Talk to Us';
+        withContent(await realContentWith('hero_headline: "Get in Touch"', 'hero_headline: "$heroHeadline"'));
         await pumpContactPage(tester);
-        expect(find.text(ContentLoader.contactHeroHeadline), findsNWidgets(2));
+        expect(
+          find.descendant(of: find.byType(MarketingHeroSection), matching: find.text(heroHeadline)),
+          findsOneWidget,
+        );
       });
 
       testWidgets('displays subheadline about AI observability', (tester) async {

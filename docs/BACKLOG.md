@@ -3197,6 +3197,8 @@ Only `GET /v1/orgs` has 503 tests; they are the two `it.each` rows in `orgs.test
 
 **Priority:** P3 | **Source:** coverage review 2026-09-29; `7e1f3c2`
 
+**Status:** ✅ **DONE 2026-09-29** — `test/pages/contact_url_navigation_test.dart` is one table, with a `(page, link)` row per call site, run under `realContentWith('contact: "/contact"', 'contact: "/test-contact"')` with a router that serves only `/test-contact`. Each row scrolls to its link, taps it, and expects the destination. Pricing's link is scoped to its `GradientButton`, because the enterprise tier card also says Contact Sales. The app-bar row uses `SharedAppBar.subPage()` with its default items. **Mutants: 6 of 6 killed.** Hard-coding `'/contact'` at any one site fails exactly that site's row. The contact hero test now renders a distinct `hero_headline` and scopes its finder to `MarketingHeroSection`. Swapping the hero to `contact.title` fails it; the old count-of-two test passed that swap.
+
 No test taps:
 - compliance's Contact Us;
 - pricing's Contact Sales;
