@@ -41,10 +41,14 @@ function stubFetch(routes: Record<string, Responder>) {
   return calls;
 }
 
-function makeEvent(overrides: { protocol?: string; stats?: unknown } = {}) {
+/** `user` fields are merged over a verified default user, e.g. `{ user: { email_verified: false } }`. */
+function makeEvent(overrides: { protocol?: string; stats?: unknown; user?: Record<string, unknown> } = {}) {
   return {
     secrets: { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY: 'service-role-key' },
-    user: { user_id: AUTH0_ID, email: EMAIL, name: 'User One', nickname: 'user', picture: 'https://pic.example/u.png', email_verified: true },
+    user: {
+      user_id: AUTH0_ID, email: EMAIL, name: 'User One', nickname: 'user', picture: 'https://pic.example/u.png', email_verified: true,
+      ...overrides.user,
+    },
     stats: 'stats' in overrides ? overrides.stats : { logins_count: LOGINS_COUNT },
     transaction: { protocol: overrides.protocol ?? 'oidc-basic-profile' },
   };
@@ -144,13 +148,9 @@ describe('post-login Action — profile write (UA02)', () => {
       'POST users': rows([{ id: APP_USER_ID }], 201),
       ...noRoles,
     });
-    const event = {
-      ...makeEvent(),
-      user: { ...makeEvent().user, email_verified: false },
-    };
     const { api, accessClaims } = makeApi();
 
-    await onExecutePostLogin(event, api);
+    await onExecutePostLogin(makeEvent({ user: { email_verified: false } }), api);
 
     // Email lookup must be skipped entirely.
     expect(calls.some((c) => c.method === 'GET' && c.url.pathname.endsWith('/users'))).toBe(false);
@@ -171,10 +171,9 @@ describe('post-login Action — profile write (UA02)', () => {
       'POST users': rows({ code: '23505', message: 'duplicate key value violates unique constraint "users_email_key"' }, 409),
       ...noRoles,
     });
-    const event = { ...makeEvent(), user: { ...makeEvent().user, email_verified: false } };
     const { api, accessClaims, idClaims } = makeApi();
 
-    await onExecutePostLogin(event, api);
+    await onExecutePostLogin(makeEvent({ user: { email_verified: false } }), api);
 
     expect(calls.some((c) => c.url.searchParams.has('id'))).toBe(false);
     expect(accessClaims).toEqual({});
