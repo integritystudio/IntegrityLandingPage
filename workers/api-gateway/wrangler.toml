@@ -140,6 +140,10 @@ crons = []
 [env.dev.vars]
 AUTH0_DOMAIN = "dev-njjmghdzm23uy0p7.us.auth0.com"
 AUTH0_AUDIENCE = "https://api.integritystudio.dev"
+# Local development: the Flutter app served at localhost:8080 signs in against the dev
+# Workers, so dev (and only dev) allows that origin. An explicit list replaces the
+# production defaults in workers/lib/http/cors.ts; production binds no such var.
+ALLOWED_ORIGINS_JSON = '["http://localhost:8080"]'
 
 [[env.dev.kv_namespaces]]
 binding = "RATE_LIMIT_KV"

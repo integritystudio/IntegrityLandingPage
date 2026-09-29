@@ -154,3 +154,10 @@ preview_id = "46a717cd692a4cc2969bff9504bcc87b" # dev-RATE_LIMIT_KV
 #   STRIPE_SECRET_KEY          — Stripe secret key (sk_live_... or sk_test_...)
 #   STRIPE_PLAN_TO_PRICE_JSON  — JSON map of plan → Stripe price ID, e.g. {"growth":"price_xxx","enterprise":"price_yyy"}
 #   APP_BASE_URL               — Base URL for Stripe success/cancel redirects (optional; defaults to https://integritystudio.ai)
+
+# Local development: the Flutter app served at localhost:8080 signs in against the dev
+# Workers, so dev (and only dev) allows that origin. An explicit list replaces the
+# production defaults in workers/lib/http/cors.ts; production binds no such var.
+# `vars` is non-inheritable and production defines none, so this block is dev-only.
+[env.dev.vars]
+ALLOWED_ORIGINS_JSON = '["http://localhost:8080"]'
