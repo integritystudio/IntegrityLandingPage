@@ -136,11 +136,17 @@ describe('post-login Action — profile write (UA02)', () => {
 
     await onExecutePostLogin(makeEvent(), makeApi().api);
 
+    const lookup = calls.find((c) => c.method === 'GET' && c.url.searchParams.has('email'));
+    expect(lookup?.url.searchParams.get('email')).toBe(`eq.${EMAIL}`);
     const backfill = calls.find((c) => c.method === 'PATCH' && c.url.searchParams.has('id'));
+    expect(backfill?.url.searchParams.get('id')).toBe(`eq.${APP_USER_ID}`);
     expect(backfill?.body).toMatchObject({ auth0_id: AUTH0_ID, name: 'User One', login_count: LOGINS_COUNT });
   });
 
-  it('provisions a fresh row without an email lookup when email_verified is false (CR51)', async () => {
+  // Only a literal `true` counts as verified: a missing flag or a string is not verification.
+  it.each([false, undefined, null, 'false', 'true'])(
+    'provisions a fresh row without an email lookup when email_verified is %j (CR51)',
+    async (emailVerified) => {
     // An unverified user matching by email must NOT inherit the existing row's memberships.
     const calls = stubFetch({
       'PATCH users?auth0_id': rows([]),
@@ -150,7 +156,7 @@ describe('post-login Action — profile write (UA02)', () => {
     });
     const { api, accessClaims } = makeApi();
 
-    await onExecutePostLogin(makeEvent({ user: { email_verified: false } }), api);
+    await onExecutePostLogin(makeEvent({ user: { email_verified: emailVerified } }), api);
 
     // Email lookup must be skipped entirely.
     expect(calls.some((c) => c.method === 'GET' && c.url.pathname.endsWith('/users'))).toBe(false);
@@ -161,7 +167,8 @@ describe('post-login Action — profile write (UA02)', () => {
       email_verified: false,
     });
     expect(accessClaims[`${CLAIM}app_user_id`]).toBe(APP_USER_ID);
-  });
+  },
+  );
 
   it('grants no app claims when an unverified identity shares an existing row\'s email (CR51)', async () => {
     // users_email_key rejects the insert, so nothing links the new identity to the old row.
@@ -225,5 +232,29 @@ describe('post-login Action — claims (unchanged from v8)', () => {
 
     await expect(onExecutePostLogin(makeEvent(), api)).resolves.toBeUndefined();
     expect(accessClaims).toEqual({});
+  });
+
+  it('sets no claims and does not throw for a user with no email, which users.email rejects', async () => {
+    const calls = stubFetch({
+      'PATCH users?auth0_id': rows([]),
+      'GET users?email': rows([]),
+      'POST users': rows({ code: '23502', message: 'null value in column "email" violates not-null constraint' }, 400),
+    });
+    const { api, accessClaims } = makeApi();
+
+    await expect(onExecutePostLogin(makeEvent({ user: { email: undefined } }), api)).resolves.toBeUndefined();
+    expect(calls.find((c) => c.method === 'POST')?.body).not.toHaveProperty('email');
+    expect(accessClaims).toEqual({});
+  });
+
+  // Fail-open covers only an unresolved user. A transport failure throws, and Auth0 fails the
+  // login; whether it should fail open instead is an owner decision (TS26).
+  it.each([
+    ['fetch rejects', () => { throw new TypeError('fetch failed'); }],
+    ['Supabase answers with a non-JSON body', () => new Response('<html>Bad Gateway</html>', { status: 502 })],
+  ])('throws, so the login fails, when %s', async (_case, responder: Responder) => {
+    stubFetch({ 'PATCH users?auth0_id': responder, 'GET users?auth0_id': responder });
+
+    await expect(onExecutePostLogin(makeEvent(), makeApi().api)).rejects.toThrow();
   });
 });

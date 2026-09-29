@@ -1,0 +1,42 @@
+# TS26: Run the Auth0 post-login Action's vitest suite (auth0/actions/) in CI.
+# fetch is stubbed, so no credentials are needed — PR-safe, including from forks.
+# vitest runs through npx at the root package.json's declared range rather than a
+# root `npm install`, which would pull wrangler, the Supabase CLI and repomix.
+name: Auth0 Action Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'auth0/**'
+      - '.github/workflows/auth0-action-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'auth0/**'
+      - '.github/workflows/auth0-action-tests.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "auth0-action-tests-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  vitest:
+    name: Auth0 Action vitest suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run vitest suite
+        run: npx --yes "vitest@$(node -p "require('./package.json').devDependencies.vitest")" run --dir auth0

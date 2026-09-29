@@ -3133,6 +3133,8 @@ Filed from a test-coverage review of the production code changed on 2026-09-29 (
 
 **Priority:** P2 | **Source:** coverage review 2026-09-29; `auth0/actions/provision-user-and-enrich-token.test.ts`
 
+**Status:** ✅ **DONE 2026-09-29** — The email-backfill test now asserts the lookup's `email` value and the backfill's `id` value. The unverified case is an `it.each` over `false`, `undefined`, `null`, `'false'` and `'true'`, and any `GET users?email` fails it by name. **Mutants: 4 of 4 killed** (truthy check, `!== false`, backfill on `auth0Id`, lookup by `auth0Id`). Also new: a user with no email (the insert is rejected, no claims, no throw), and a rejected fetch or a non-JSON body, which **throw** and so fail the login. Those are pinned as they behave today. ⚠️ **Needs a decision:** whether a Supabase transport failure should fail open (login with no app claims) or keep failing the login. The code's "fail open" covers only an unresolved user. CI: `.github/workflows/auth0-action-tests.yml` runs the suite on changes under `auth0/**`, using `npx` at the root's declared vitest range, with no root `npm install`. 17 tests.
+
 - **Not run in CI.** No workflow runs `npm run test:auth0-actions` (all 9 checked).
 - **The fetch stub routes on column name only.** It matches `<METHOD> <table>?<column>` and never looks at the value, and only `auth0_id`'s value is asserted.
 - **Surviving mutants: 4 of 5.**

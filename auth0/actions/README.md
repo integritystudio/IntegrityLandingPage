@@ -11,3 +11,5 @@ as uploaded; these files are the reviewed copy, so change them here first and de
 Every production login runs the post-login Action, so a broken version stops logins: run
 `npm run test:auth0-actions` before deploying, and keep the previous version number for a rollback
 (`POST /api/v2/actions/actions/{id}/versions/{versionId}/deploy`).
+CI runs the same suite on any change under `auth0/` (`.github/workflows/auth0-action-tests.yml`); it
+does not deploy.
