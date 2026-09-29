@@ -14,14 +14,9 @@ void main() {
     WidgetTester tester, {
     VoidCallback? onBack,
     List<Widget> slivers = const [],
-    bool mobile = false,
     String? analyticsPageName,
   }) async {
-    if (mobile) {
-      setMobileSize(tester);
-    } else {
-      setDesktopSize(tester);
-    }
+    setDesktopSize(tester);
     await tester.pumpWidget(
       MaterialApp(
         theme: testTheme,
@@ -87,18 +82,6 @@ void main() {
         await tester.pump();
 
         expect(called, isTrue);
-      });
-    });
-
-    group('responsive', () {
-      testWidgets('renders on mobile viewport', (tester) async {
-        await pumpShell(tester, mobile: true);
-        expect(find.byType(SubPageShell), findsOneWidget);
-      });
-
-      testWidgets('renders on desktop viewport', (tester) async {
-        await pumpShell(tester, mobile: false);
-        expect(find.byType(SubPageShell), findsOneWidget);
       });
     });
 

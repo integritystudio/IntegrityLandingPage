@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/blog_page.dart';
 import '../helpers/test_helpers.dart';
@@ -11,6 +10,27 @@ void main() {
   });
 
   group('BlogPage', () {
+    Future<void> pumpBlogPage(
+      WidgetTester tester, {
+      VoidCallback? onBack,
+      VoidCallback? onShowCookieSettings,
+      bool mobile = false,
+    }) async {
+      if (mobile) {
+        setMobileSize(tester);
+      } else {
+        setDesktopSize(tester);
+      }
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: testTheme,
+          home: BlogPage(onBack: onBack),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
     group('BlogPost model', () {
       test('creates with all required fields', () {
         const post = BlogPost(
@@ -302,45 +322,7 @@ void main() {
         expect(find.text('View Articles'), findsOneWidget);
       });
 
-      testWidgets('calls onBack callback when back button pressed',
-          (tester) async {
-        setDesktopSize(tester);
-        var backCalled = false;
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: BlogPage(onBack: () => backCalled = true),
-          ),
-        );
-        await tester.pump();
-        await tester.pump();
-
-        // Tap back button in app bar (LucideIcons.arrowLeft)
-        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
-
-      testWidgets('calls onBack when Back to Home pressed', (tester) async {
-        setDesktopSize(tester);
-        var backCalled = false;
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: BlogPage(onBack: () => backCalled = true),
-          ),
-        );
-        await tester.pump();
-        await tester.pump();
-
-        await tester.tap(find.text(CTAText.backToHome));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
+      testBackButtonCallbacks(pumpBlogPage);
     });
 
     group('responsive design', () {

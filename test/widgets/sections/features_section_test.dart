@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/sections/features_section.dart';
+import 'package:integrity_studio_ai/widgets/common/cards.dart';
 import 'package:integrity_studio_ai/widgets/common/containers.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 import '../../helpers/test_helpers.dart';
@@ -90,7 +91,8 @@ void main() {
     });
 
     group('responsive layout', () {
-      testWidgets('renders on mobile', (tester) async {
+      testWidgets('stacks feature cards in one column on mobile without overflow',
+          (tester) async {
         setMobileSize(tester);
 
         await tester.pumpWidget(
@@ -98,29 +100,13 @@ void main() {
         );
         await tester.pumpAndSettleWithTimeout();
 
-        expect(find.byType(FeaturesSection), findsOneWidget);
-      });
-
-      testWidgets('renders on tablet', (tester) async {
-        setTabletSize(tester);
-
-        await tester.pumpWidget(
-          testableSection(const FeaturesSection()),
-        );
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(FeaturesSection), findsOneWidget);
-      });
-
-      testWidgets('renders on desktop', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(
-          testableSection(const FeaturesSection()),
-        );
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(FeaturesSection), findsOneWidget);
+        final cards = find.byType(FeatureCard);
+        expect(cards, findsAtLeastNWidgets(2));
+        final first = tester.getTopLeft(cards.at(0));
+        final second = tester.getTopLeft(cards.at(1));
+        expect(second.dx, first.dx);
+        expect(second.dy, greaterThan(first.dy));
+        expect(tester.takeException(), isNull);
       });
     });
 

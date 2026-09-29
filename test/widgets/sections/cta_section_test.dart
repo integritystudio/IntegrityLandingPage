@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:integrity_studio_ai/widgets/sections/cta_section.dart';
 import 'package:integrity_studio_ai/widgets/common/containers.dart';
 import 'package:integrity_studio_ai/config/content.dart';
+import 'package:integrity_studio_ai/theme/theme.dart';
 import '../../helpers/test_helpers.dart';
 import '../../helpers/test_constants.dart';
 
@@ -119,7 +120,8 @@ void main() {
     });
 
     group('responsive layout', () {
-      testWidgets('renders on tablet', (tester) async {
+      testWidgets('uses the large headline from the tablet breakpoint up',
+          (tester) async {
         setTabletSize(tester);
 
         await tester.pumpWidget(
@@ -127,18 +129,12 @@ void main() {
         );
         await tester.pump(kNavigationSettle);
 
-        expect(find.text(CTAText.startFreeTrial), findsOneWidget);
-      });
-
-      testWidgets('renders on desktop', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(
-          testableSection(const CTASection()),
+        expectTextStyle(
+          tester,
+          find.text('Ready to Understand Your AI?'),
+          fontSize: AppTypography.headingLG.fontSize,
         );
-        await tester.pump(kNavigationSettle);
-
-        expect(find.text(CTAText.startFreeTrial), findsOneWidget);
+        expect(tester.takeException(), isNull);
       });
     });
 

@@ -8,6 +8,27 @@ import '../helpers/test_helpers.dart';
 void main() {
 
   group('ComparisonPage', () {
+    Future<void> pumpWhyLabsPage(
+      WidgetTester tester, {
+      VoidCallback? onBack,
+      VoidCallback? onShowCookieSettings,
+      bool mobile = false,
+    }) async {
+      if (mobile) {
+        setMobileSize(tester);
+      } else {
+        setDesktopSize(tester);
+      }
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: testTheme,
+          home: ComparisonPage.whylabs(onBack: onBack),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
     group('content models', () {
       test('ComparisonFeature creates with all fields', () {
         const feature = ComparisonFeature(
@@ -338,44 +359,7 @@ void main() {
     // WhyLabs page interaction tests - require fresh state per test
     // =========================================================================
     group('WhyLabs page interaction tests', () {
-      testWidgets('calls onBack callback when back button pressed',
-          (tester) async {
-        setDesktopSize(tester);
-        var backCalled = false;
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(onBack: () => backCalled = true),
-          ),
-        );
-        await tester.pump();
-        await tester.pump();
-
-        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
-
-      testWidgets('calls onBack when Back to Home pressed', (tester) async {
-        setDesktopSize(tester);
-        var backCalled = false;
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(onBack: () => backCalled = true),
-          ),
-        );
-        await tester.pump();
-        await tester.pump();
-
-        await tester.tap(find.text(CTAText.backToHome));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
+      testBackButtonCallbacks(pumpWhyLabsPage);
     });
 
     // =========================================================================
@@ -420,36 +404,13 @@ void main() {
     });
 
     group('responsive design', () {
-      testWidgets('renders correctly on tablet', (tester) async {
-        setTabletSize(tester);
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
-        );
-        await tester.pump();
-        await tester.pump();
-
-        expect(find.byType(ComparisonPage), findsOneWidget);
-      });
-
-      testWidgets('renders correctly on desktop', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: ComparisonPage.whylabs(),
-          ),
-        );
-        await tester.pump();
-        await tester.pump();
-
-        expect(find.byType(ComparisonPage), findsOneWidget);
-        expect(find.text('WhyLabs Alternative'), findsOneWidget);
-      });
+      // Mobile skipped: at 375px a Row in comparison_page.dart overflows.
+      testResponsiveLayout<ComparisonPage>(
+        pumpWhyLabsPage,
+        expectedTitle: 'WhyLabs Alternative',
+        includeMobile: false,
+        includeTablet: true,
+      );
     });
 
     group('code snippet functionality', () {

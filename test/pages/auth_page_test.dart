@@ -489,21 +489,7 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('responsive layout', () {
-    testWidgets('renders on mobile viewport', (tester) async {
-      setMobileSize(tester);
-      await tester.pumpWidget(buildAuthPage());
-      await tester.pump();
-      clearOverflowExceptions(tester);
-      expect(find.byType(AuthPage), findsOneWidget);
-    });
-
-    testWidgets('renders on desktop viewport', (tester) async {
-      setDesktopSize(tester);
-      await tester.pumpWidget(buildAuthPage());
-      await tester.pump();
-      clearOverflowExceptions(tester);
-      expect(find.byType(AuthPage), findsOneWidget);
-    });
+    testResponsiveLayout<AuthPage>(pumpAuthPage, includeTablet: true);
   });
 
   // ---------------------------------------------------------------------------

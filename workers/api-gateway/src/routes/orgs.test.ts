@@ -291,50 +291,65 @@ const portalRoutes = (
   'POST audit_log': createdRows([]),
 });
 
-describe('POST /v1/orgs/:id/billing-portal', () => {
-  it('returns 401 when no bearer token', async () => {
-    stubSupabase({});
-    const req = new Request(`https://api.test/v1/orgs/${ORG_ID}/billing-portal`, { method: 'POST' });
-    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
-    expect(res.status).toBe(401);
-  });
-
-  it('returns 403 for an API key token rather than an opaque 401', async () => {
-    stubSupabase({});
-    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, API_KEY_TOKEN, 'POST');
-    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
+/**
+ * Authorization gates both billing routes get from `authorizeBillingRequest`.
+ * Call inside each route's describe block: the rows prove that handler is wired to
+ * the gate, and the exact 403 wording proves it passed its own `operation` label.
+ * `makeRequest()` with no token builds the unauthenticated request.
+ */
+function billingGates(
+  operation: string,
+  makeRequest: (token?: string) => Request,
+  callHandler: (req: Request) => Promise<Response>,
+): void {
+  const expectForbidden = async (res: Response, message: string) => {
     expect(res.status).toBe(403);
     const body = await res.json() as { error: { message: string } };
-    expect(body.error.message).toContain('API keys are not accepted');
+    expect(body.error.message).toBe(message);
+  };
+
+  it('returns 401 when no bearer token', async () => {
+    const stub = stubSupabase({});
+    const res = await callHandler(makeRequest());
+    expect(res.status).toBe(401);
+    expect(stub.requests).toHaveLength(0);
+  });
+
+  // Widening parseApiKey (UA07) fixed the obtk_ row: it used to miss the key
+  // check, fall through to resolveJwt and get "Invalid JWT format" instead.
+  it.each([
+    ['a legacy key', API_KEY_TOKEN],
+    ['an obtk_ key', OBTOOL_KEY_TOKEN],
+  ])('returns 403 for %s rather than an opaque 401', async (_label, token) => {
+    const stub = stubSupabase({});
+    const res = await callHandler(makeRequest(token));
+    await expectForbidden(res, `${operation} requires a user session; API keys are not accepted`);
+    expect(stub.requests).toHaveLength(0);
   });
 
   it('returns 403 when user is not a member', async () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(membershipRoutes([]));
-    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
-    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
-    expect(res.status).toBe(403);
-  });
-
-  // Widening parseApiKey (UA07) also fixed this: an obtk_ key used to miss the
-  // key check, fall through to resolveJwt and get "Invalid JWT format" instead.
-  it('rejects an obtk_ key with the same 403 as a legacy key', async () => {
-    const stub = stubSupabase({});
-    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, OBTOOL_KEY_TOKEN, 'POST');
-    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
-    expect(res.status).toBe(403);
-    const body = await res.json() as { error: { message: string } };
-    expect(body.error.message).toContain('API keys are not accepted');
-    expect(stub.requests).toHaveLength(0);
+    const res = await callHandler(makeRequest(token));
+    await expectForbidden(res, 'Not a member of this organization');
   });
 
   it('returns 403 when user role is not owner or billing_admin', async () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     stubSupabase(membershipRoutes([makeMembership(ORG_ID, 'member')]));
-    const req = authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST');
-    const res = await handleBillingPortal(req, ORG_ID, makePortalOpts());
-    expect(res.status).toBe(403);
+    const res = await callHandler(makeRequest(token));
+    await expectForbidden(res, `${operation} requires owner or billing_admin role`);
   });
+}
+
+describe('POST /v1/orgs/:id/billing-portal', () => {
+  billingGates(
+    'Billing portal',
+    (token) => token
+      ? authedRequest(`/v1/orgs/${ORG_ID}/billing-portal`, token, 'POST')
+      : new Request(`https://api.test/v1/orgs/${ORG_ID}/billing-portal`, { method: 'POST' }),
+    (req) => handleBillingPortal(req, ORG_ID, makePortalOpts()),
+  );
 
   it('returns 404 when org has no stripe_customer_id', async () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
@@ -455,49 +470,16 @@ const checkoutRequest = (token: string, body: unknown = { plan: 'growth' }) =>
   });
 
 describe('POST /v1/orgs/:id/checkout-session', () => {
-  it('returns 401 when no bearer token', async () => {
-    stubSupabase({});
-    const req = new Request(`https://api.test/v1/orgs/${ORG_ID}/checkout-session`, {
-      method: 'POST',
-      body: JSON.stringify({ plan: 'growth' }),
-    });
-    const res = await handleCreateCheckoutSession(req, ORG_ID, makeCheckoutOpts());
-    expect(res.status).toBe(401);
-  });
-
-  it('returns 403 for an API key token rather than an opaque 401', async () => {
-    stubSupabase({});
-    const res = await handleCreateCheckoutSession(
-      checkoutRequest(API_KEY_TOKEN),
-      ORG_ID,
-      makeCheckoutOpts(),
-    );
-    expect(res.status).toBe(403);
-    const body = await res.json() as { error: { message: string } };
-    expect(body.error.message).toContain('API keys are not accepted');
-  });
-
-  it('returns 403 when user is not a member', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    stubSupabase(membershipRoutes([]));
-    const res = await handleCreateCheckoutSession(
-      checkoutRequest(token),
-      ORG_ID,
-      makeCheckoutOpts(),
-    );
-    expect(res.status).toBe(403);
-  });
-
-  it('returns 403 when user role is not owner or billing_admin', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    stubSupabase(membershipRoutes([makeMembership(ORG_ID, 'member')]));
-    const res = await handleCreateCheckoutSession(
-      checkoutRequest(token),
-      ORG_ID,
-      makeCheckoutOpts(),
-    );
-    expect(res.status).toBe(403);
-  });
+  billingGates(
+    'Checkout',
+    (token) => token
+      ? checkoutRequest(token)
+      : new Request(`https://api.test/v1/orgs/${ORG_ID}/checkout-session`, {
+        method: 'POST',
+        body: JSON.stringify({ plan: 'growth' }),
+      }),
+    (req) => handleCreateCheckoutSession(req, ORG_ID, makeCheckoutOpts()),
+  );
 
   it('returns 400 when plan is missing', async () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integrity_studio_ai/config/content/constants.dart';
 import 'package:integrity_studio_ai/pages/about_page.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import 'package:integrity_studio_ai/widgets/common/buttons.dart';
@@ -17,10 +16,14 @@ void main() {
       WidgetTester tester, {
       VoidCallback? onBack,
       VoidCallback? onShowCookieSettings,
-      bool setSize = true,
+      bool mobile = false,
     }) async {
       clearOverflowExceptions(tester);
-      if (setSize) setDesktopSize(tester);
+      if (mobile) {
+        setMobileSize(tester);
+      } else {
+        setDesktopSize(tester);
+      }
       await tester.pumpWidget(
         MaterialApp(
           theme: testTheme,
@@ -62,25 +65,7 @@ void main() {
     });
 
     group('app bar', () {
-      testWidgets('displays company name', (tester) async {
-        await pumpAboutPage(tester);
-        expect(find.text(CompanyInfo.name), findsOneWidget);
-      });
-
-      testWidgets('has back arrow button', (tester) async {
-        await pumpAboutPage(tester);
-        expect(find.byIcon(LucideIcons.arrowLeft), findsOneWidget);
-      });
-
-      testWidgets('back button triggers onBack callback', (tester) async {
-        var backCalled = false;
-        await pumpAboutPage(tester, onBack: () => backCalled = true);
-
-        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
+      testBackButtonCallback(pumpAboutPage);
     });
 
     group('hero section', () {
@@ -217,21 +202,16 @@ void main() {
     });
 
     group('responsive layout', () {
-      testWidgets('renders on mobile viewport', (tester) async {
-        setMobileSize(tester);
-        await pumpAboutPage(tester, setSize: false);
-        expect(find.byType(AboutPage), findsOneWidget);
-      });
+      testResponsiveLayout<AboutPage>(pumpAboutPage);
 
+      // Not includeTablet: at 768px a Column in about_page.dart overflows,
+      // which this test tolerates and the helper's tablet case does not.
       testWidgets('renders on tablet viewport', (tester) async {
+        await pumpAboutPage(tester);
         setTabletSize(tester);
-        await pumpAboutPage(tester, setSize: false);
-        expect(find.byType(AboutPage), findsOneWidget);
-      });
+        await tester.pump();
+        clearOverflowExceptions(tester);
 
-      testWidgets('renders on desktop viewport', (tester) async {
-        setDesktopSize(tester);
-        await pumpAboutPage(tester, setSize: false);
         expect(find.byType(AboutPage), findsOneWidget);
       });
     });

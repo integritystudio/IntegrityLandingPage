@@ -962,11 +962,11 @@ void main() {
     // Mobile Layout Tests
     // ==========================================================================
 
-    // Mobile layout tests skipped due to known overflow issues at mobile viewport
     group('mobile layout', () {
       testWidgets(
-        'renders on mobile viewport',
+        'stacks contact methods above the form without overflow',
         (tester) async {
+          const methodValue = 'test@test.com';
           setMobileViewport(tester);
 
           await tester.pumpWidget(buildTestWidget(
@@ -981,15 +981,17 @@ void main() {
                 ContactMethodContent(
                   icon: Icons.email,
                   label: 'Email',
-                  value: 'test@test.com',
+                  value: methodValue,
                   isPrimary: true,
                 ),
               ],
             ),
           ));
 
-          expect(find.byType(ContactSection), findsOneWidget);
-          expect(find.text('Contact'), findsOneWidget);
+          final methodsBottom = tester.getBottomLeft(find.text(methodValue));
+          final formTop = tester.getTopLeft(find.text(kSectionSendMessage));
+          expect(formTop.dy, greaterThan(methodsBottom.dy));
+          expect(tester.takeException(), isNull);
         },
       );
     });

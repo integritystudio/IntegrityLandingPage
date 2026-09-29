@@ -49,38 +49,10 @@ void main() {
   group('RequestSuccessPage', () {
     group('page structure', () {
       testPageStructure(pumpRequestSuccessPage);
-
-      testWidgets('renders company name in app bar', (tester) async {
-        await pumpRequestSuccessPage(tester);
-
-        expect(find.text(CompanyInfo.name), findsOneWidget);
-      });
-
-      testWidgets('renders shield icon in app bar', (tester) async {
-        await pumpRequestSuccessPage(tester);
-
-        expect(find.byIcon(LucideIcons.shield), findsOneWidget);
-      });
     });
 
     group('navigation', () {
       testBackButtonCallback(pumpRequestSuccessPage);
-
-      testWidgets('renders navigation links on desktop', (tester) async {
-        await pumpRequestSuccessPage(tester, mobile: false);
-
-        // Nav links appear in both app bar and footer
-        expect(find.text('Features'), findsWidgets);
-        expect(find.text('Pricing'), findsWidgets);
-        expect(find.text('About'), findsWidgets);
-      });
-
-      testWidgets('renders popup menu on mobile', (tester) async {
-        await pumpRequestSuccessPage(tester, mobile: true);
-
-        // Mobile uses popup menu instead of inline nav links
-        expect(find.byIcon(LucideIcons.menu), findsOneWidget);
-      });
     });
 
     group('hero section', () {
@@ -203,6 +175,7 @@ void main() {
       testResponsiveLayout<RequestSuccessPage>(
         pumpRequestSuccessPage,
         expectedTitle: 'Request Received',
+        includeTablet: true,
       );
 
       testWidgets('desktop shows navigation links', (tester) async {
@@ -220,21 +193,6 @@ void main() {
         // Find the SliverAppBar actions area - it should not contain nav links
         final appBar = find.byType(SliverAppBar);
         expect(appBar, findsOneWidget);
-      });
-
-      testWidgets('tablet viewport renders correctly', (tester) async {
-        setTabletSize(tester);
-        clearOverflowExceptions(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const RequestSuccessPage(),
-          ),
-        );
-        await tester.pump();
-        clearOverflowExceptions(tester);
-
-        expect(find.byType(RequestSuccessPage), findsOneWidget);
       });
     });
 
@@ -257,13 +215,6 @@ void main() {
     });
 
     group('icons', () {
-      testWidgets('renders app bar icons', (tester) async {
-        await pumpRequestSuccessPage(tester);
-
-        expect(find.byIcon(LucideIcons.arrowLeft), findsOneWidget);
-        expect(find.byIcon(LucideIcons.shield), findsOneWidget);
-      });
-
       testWidgets('renders success checkmark icon', (tester) async {
         await pumpRequestSuccessPage(tester);
 
@@ -287,15 +238,6 @@ void main() {
     });
 
     group('accessibility', () {
-      testWidgets('back button has tooltip', (tester) async {
-        await pumpRequestSuccessPage(tester);
-
-        final iconButton = tester.widget<IconButton>(
-          find.widgetWithIcon(IconButton, LucideIcons.arrowLeft),
-        );
-        expect(iconButton.tooltip, equals('Back'));
-      });
-
       testWidgets('text content is selectable', (tester) async {
         await pumpRequestSuccessPage(tester);
 

@@ -43,6 +43,29 @@ void main() {
       await tester.pump();
     }
 
+    /// [PagePumpFunction] for the shared helpers. Goes through the
+    /// [LegalPage.privacy] factory so they also cover its onBack wiring.
+    Future<void> pumpPrivacyPage(
+      WidgetTester tester, {
+      VoidCallback? onBack,
+      VoidCallback? onShowCookieSettings,
+      bool mobile = false,
+    }) async {
+      if (mobile) {
+        setMobileSize(tester);
+      } else {
+        setDesktopSize(tester);
+      }
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: testTheme,
+          home: LegalPage.privacy(onBack: onBack),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
     group('factory constructors', () {
       testWidgets('LegalPage.privacy creates privacy page', (tester) async {
         setDesktopSize(tester);
@@ -96,23 +119,6 @@ void main() {
 
         expect(find.text('Accessibility Statement'), findsWidgets);
       });
-
-      testWidgets('factory constructors accept onBack callback', (tester) async {
-        var backCalled = false;
-        setDesktopSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: LegalPage.privacy(onBack: () => backCalled = true),
-          ),
-        );
-        await tester.pump();
-
-        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
     });
 
     group('layout', () {
@@ -127,34 +133,7 @@ void main() {
         expect(find.text(CTAText.backToHome), findsOneWidget);
       });
 
-      testWidgets('back button triggers onBack callback', (tester) async {
-        var backCalled = false;
-        await pumpLegalPage(
-          tester,
-          LegalPageType.privacy,
-          onBack: () => backCalled = true,
-        );
-
-        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
-
-      testWidgets('Back to Home button triggers onBack callback',
-          (tester) async {
-        var backCalled = false;
-        await pumpLegalPage(
-          tester,
-          LegalPageType.privacy,
-          onBack: () => backCalled = true,
-        );
-
-        await tester.tap(find.text(CTAText.backToHome));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
+      testBackButtonCallbacks(pumpPrivacyPage);
     });
 
     group('privacy policy page', () {
@@ -282,44 +261,7 @@ void main() {
     });
 
     group('responsive layout', () {
-      testWidgets('renders on mobile viewport', (tester) async {
-        setMobileSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const LegalPage(type: LegalPageType.privacy),
-          ),
-        );
-        await tester.pump();
-
-        expect(find.byType(LegalPage), findsOneWidget);
-      });
-
-      testWidgets('renders on tablet viewport', (tester) async {
-        setTabletSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const LegalPage(type: LegalPageType.privacy),
-          ),
-        );
-        await tester.pump();
-
-        expect(find.byType(LegalPage), findsOneWidget);
-      });
-
-      testWidgets('renders on desktop viewport', (tester) async {
-        setDesktopSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const LegalPage(type: LegalPageType.privacy),
-          ),
-        );
-        await tester.pump();
-
-        expect(find.byType(LegalPage), findsOneWidget);
-      });
+      testResponsiveLayout<LegalPage>(pumpPrivacyPage, includeTablet: true);
     });
 
     group('all page types render without error', () {

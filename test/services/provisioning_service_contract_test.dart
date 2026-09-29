@@ -25,15 +25,15 @@ void main() {
 
   group('SendRequestSchema contract', () {
     /// Links to: workers/sender-worker/src/types.ts:82–92
-    test('sends action, name, email, tier without extras when orgName is null', () async {
+    test('sends action, name, email, default tier without extras when orgName is null', () async {
       mockDio.mockPostResponse({'ok': true, 'apiKey': 'sk-test123', 'received': {}});
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
 
+      // tier is omitted on purpose: the event's default must reach the body.
       const event = ProvisioningEvent(
         action: 'provision_api_key',
         name: 'alice',
         email: 'alice@example.com',
-        tier: 'starter',
       );
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
 
@@ -269,6 +269,7 @@ void main() {
 
       // Assert
       expect(result, true);
+      expect(mockDio.getCallCount, 1);
     });
 
     test('{ ok: false } returns false', () async {
@@ -300,8 +301,10 @@ void main() {
       // Act
       final result = await ProvisioningService.checkHealth('https://receiver.example.com');
 
-      // Assert
+      // Assert: false without retrying — an HTTP error status is an answer, not
+      // a transient failure.
       expect(result, false);
+      expect(mockDio.getCallCount, 1);
     });
   });
 

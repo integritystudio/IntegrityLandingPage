@@ -28,6 +28,9 @@ import 'package:integrity_studio_ai/pages/docs_interoperability_page.dart';
 import 'package:integrity_studio_ai/pages/docs_api_page.dart';
 import 'package:integrity_studio_ai/pages/docs_quickstart_page.dart';
 import 'package:integrity_studio_ai/pages/docs_alerts_page.dart';
+import 'package:integrity_studio_ai/pages/docs_agents_page.dart';
+import 'package:integrity_studio_ai/pages/help_center_page.dart';
+import 'package:integrity_studio_ai/pages/auth_page.dart';
 import 'package:integrity_studio_ai/pages/compliance_page.dart';
 import 'package:integrity_studio_ai/pages/eu_ai_act_page.dart';
 import '../helpers/test_helpers.dart';
@@ -158,6 +161,7 @@ void main() {
 
       expect(router.routerDelegate.currentConfiguration.uri.path,
           equals('/support'));
+      expect(find.byType(HelpCenterPage), findsOneWidget);
     });
 
     testWidgets('/docs/agents navigates to agents page', (tester) async {
@@ -166,6 +170,7 @@ void main() {
 
       expect(router.routerDelegate.currentConfiguration.uri.path,
           equals('/docs/agents'));
+      expect(find.byType(DocsAgentsPage), findsOneWidget);
     });
 
     testWidgets('/docs/security/audit-trails redirects to /docs/tracing',
@@ -175,6 +180,7 @@ void main() {
 
       expect(router.routerDelegate.currentConfiguration.uri.path,
           equals('/docs/tracing'));
+      expect(find.byType(DocsTracingPage), findsOneWidget);
     });
 
     testWidgets('/reports/anything redirects to /docs', (tester) async {
@@ -183,6 +189,17 @@ void main() {
 
       expect(router.routerDelegate.currentConfiguration.uri.path,
           equals('/docs'));
+      expect(find.byType(DocsIndexPage), findsOneWidget);
+    });
+
+    // /app is the customer-facing vanity URL for signing in; AuthPage is
+    // mounted once, at /login, so /app must redirect rather than duplicate.
+    testWidgets('/app redirects to /login', (tester) async {
+      final router = await pumpRouterApp(tester, initialLocation: Routes.app);
+
+      expect(router.routerDelegate.currentConfiguration.uri.path,
+          equals(Routes.login));
+      expect(find.byType(AuthPage), findsOneWidget);
     });
 
     testWidgets('/docs/api redirects to /api', (tester) async {
@@ -208,6 +225,7 @@ void main() {
 
       expect(
           router.routerDelegate.currentConfiguration.uri.path, equals('/'));
+      expect(find.byType(LandingPage), findsOneWidget);
     });
   });
 

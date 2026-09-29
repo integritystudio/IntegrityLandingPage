@@ -2690,7 +2690,7 @@ Filed from a nine-area review of every test file, read against the code under te
 
 **Done 2026-09-27:** All families complete. Sender-worker: 10 tests now assert `code` (MISSING_FIELDS, INVALID_EMAIL, AUTH0_USER_CREATION_FAILED, JSON_PARSE_ERROR). Analytics: `test/services/analytics_test.dart` and `test/unit/services/analytics_service_test.dart` — ~55 `returnsNormally` → callLog assertions on event + params; scroll depth uses callLog filter; disabled group condensed to 2 meaningful tests. Integration: 59 `find.byType(MaterialApp)` across 9 files → page-type finders (LandingPage, BlogPage, ComparisonPage, PricingPage, DocsQuickstartPage etc.); removed `|| find.byType(MaterialApp).evaluate().isNotEmpty` fallbacks; fixed `|| true` always-pass; fixed 4 `if (...isNotEmpty)` guards that silently skipped assertions. All 117 integration tests pass.
 
-### TS11: Merge duplicated test families ⚠️ partial 2026-09-27
+### TS11: Merge duplicated test families ✅ done 2026-09-29
 
 **Priority:** P4 | **Source:** test review 2026-09-27, section D
 **Estimated:** 1 day
@@ -2702,7 +2702,20 @@ Filed from a nine-area review of every test file, read against the code under te
 - `dashboard_service_test` error+network blocks ✅ — `runDashboardErrorSuite<T>` helper inside `main()` replaces 10 group blocks (428 lines → 5 calls + 85-line helper); BillingStatus's separate "retries on 500" test merged into the 500 test via `checkRetryCount: true`
 - api-gateway api-keys create/revoke gates ✅ — `apiKeyGates()` helper replaces 8 duplicate `it()` blocks across the two describe blocks; 503 HMAC test kept inline (unique to create)
 
-**Remaining (open):** consent model, provisioning contract vs unit, `app_test` vs `app_router_test` (24 routes — different test approaches, risky to merge), SharedAppBar per page (~25), viewport and back-button per page, api-gateway portal/checkout gates.
+**Done 2026-09-29 — the six remaining families.** Every deleted test was mapped to a survivor with the same act and an equal-or-stronger assertion, or shown unable to fail; every new, moved or rewritten test was mutation-checked.
+- **Consent model:** 20 duplicates leave `consent_manager_test`; the 4 unique ones move to `consent_preferences_test` (default timestamp, null-valued `fromJson`, an exact round-trip, a new instance per `toPreferences`), and `toJson`'s timestamp is pinned to a literal.
+- **Provisioning:** 13 unit copies deleted in favour of the contract file's full-map assertions. The contract's null-`orgName` test now omits `tier`, so it proves the default reaches the body, and `checkHealth` gains the unit file's call-count checks. Kept: signUp "returns AuthSuccess with jwt on 201", the only test of the `data['email'] ?? email` fallback.
+- **Routes:** `app_test`'s 26 route tests are gone. `app_router_test` gains page assertions for `/`, `/support`, `/docs/agents` and two redirects, plus a new `/app` → `/login` test. One `app_test` routing test stays, now pumping the real `IntegrityStudioApp`: none of the 26 ever did.
+- **SharedAppBar:** ~27 per-page copies become 9 tests in `shared_app_bar_test`, at mobile, desktop and desktopLarge, with exact counts scoped to the `SliverAppBar`.
+- **Viewport:** pages use `testResponsiveLayout`. That helper's tablet case **never rendered at tablet width**, because `pumpPage` reset the view to desktop. The review's own recommendation would therefore have dropped tablet coverage. It now resizes after pumping, asserts a 768px width, and checks the title. `includeMobile` exists for the four pages in [[TS26]]. Widget tests: 9 that could not fail are deleted, and 6 are rewritten to assert layout (width, position, heading size, no exception).
+- **Back button:** pages use `testBackButtonCallback(s)`, and 5 integration duplicates are deleted. Four are kept: `docs_navigation` ×2 (DocsIndexPage has no page test) and `mobile_navigation` ×2 (the only back taps at mobile width).
+- **api-gateway:** a `billingGates()` helper runs the portal and checkout gates, asserting each route's exact 403 wording and no Supabase traffic; checkout gains the `obtk_` row (`orgs.test.ts` 36 → 37).
+
+Verified on the merged branch:
+- `flutter test`: 2825 → 2737, all passed.
+- `flutter analyze`: clean.
+- api-gateway: 299 passed, `tsc` clean.
+- Four independent spot mutations (app-bar toolbar height, a tablet-only throw on ContactPage, `/support`'s page, feature-card columns) each failed exactly one test.
 
 **Scope:** as tabled in section D. Behaviour-preserving; run the suite after each file.
 
@@ -2845,3 +2858,69 @@ The handlers are unit-tested, but the router lines that dispatch to them never e
 **Status:** ✅ **DONE 2026-09-28** — `me.test.ts` "returns starter when default_organization_id points at a missing org row": the organizations lookup succeeds with zero rows, and the route answers 200 with `tier: 'starter'`, having queried `id=eq.<that org>`.
 
 `resolveOrgPlan` returns `plan: null` when `default_organization_id` points at no row (`workers/api-gateway/src/routes/me.ts:81`), so the route reports `starter`. That is the only uncovered branch in the file. **Scope:** one test.
+
+### TS26: six layouts overflow at a real viewport, and their tests skip that size
+
+**Priority:** P3 | **Source:** TS11, 2026-09-29 — found once the viewport tests asserted no overflow instead of draining it
+
+A RenderFlex overflow shows as yellow-and-black stripes and clipped content in a release build. Measured with the test viewports (375px mobile, 768px tablet):
+
+| Where | Viewport | Overflow |
+|---|---|---|
+| `lib/widgets/sections/cta_section.dart:122`: `_CTAButton` Row | 375 | 69px |
+| `lib/widgets/sections/pricing_section.dart:89`: billing-toggle Row (also on the pricing page) | 375 | 71px |
+| `lib/widgets/navigation/doc_page_scaffold.dart:169`: Row (docs_observability) | 375 | 86px |
+| `lib/widgets/docs/doc_components.dart:526`: DocCallout Rows (docs_interoperability, 4 of them) | 375 | varies |
+| `lib/pages/comparison_page.dart:221`: Row | 375 | 285px |
+| `lib/pages/about_page.dart:324`: Column | 768 | 27px |
+
+**How the tests hold the gap:**
+- Four pages pass `includeMobile: false` to `testResponsiveLayout`, each with a comment naming the overflow: comparison, docs_observability, docs_interoperability and pricing.
+- `about_page_test` keeps its own tablet test, which tolerates the overflow.
+- `cta_section_test` checks the headline at 768 rather than 375.
+- `pricing_section_test`'s mobile test drains overflow with `clearOverflowExceptions`.
+
+**Scope:** fix each layout, then move its test to the strict form: remove `includeMobile: false`, and remove the tolerance or drain. **Acceptance:** `grep -rn "includeMobile: false" test` finds only the helper's doc comment. The `pricing_section` mobile test, the `cta_section` headline test (moved to 375), and `about`'s tablet test all assert `tester.takeException()` is null.
+
+### TS27: the SQL suites check each migration alone, so a later migration can break them without failing CI (related to TS17)
+
+**Priority:** P3 | **Source:** TS17/TS22 session 2026-09-29, PR #37
+
+TS17 was filed because "a later migration that breaks the tier triggers or the ancestor-walk policy would pass CI". Adding the CI job did not change that. Each `supabase/tests/*/run.sh` loads its own `fixture.sql` (a hand-written slice of the prd schema), applies **one** named migration, and runs `verify.sql`. A later migration that drops or redefines `users_derive_tier`, `user_ancestor_org_ids()` or the usage-bucket trigger is never applied under those assertions, so the suite stays green. The job catches edits to the three target migrations, to the fixtures or verify files, and Postgres-version behaviour, and nothing else.
+
+**Scope (decision first):**
+- Either run each suite's assertions against the full ledger: `migration-replay-check.yml` already replays every migration onto an empty database, so the verify step could run there with fixture *data* inserted into the replayed schema.
+- Or have each `run.sh` apply every migration from its target onward.
+
+**Acceptance:** a throwaway migration that drops `users_derive_tier` fails CI.
+
+### TS28: `run.sh` defaults to Postgres 15 locally, while production and CI run 17
+
+**Priority:** P4 | **Source:** TS17 session 2026-09-29, PR #37
+
+Each `supabase/tests/*/run.sh` defaults `PGBIN` to `/opt/homebrew/opt/postgresql@15/bin`, and README tells you to `brew install postgresql@15`. Production is 17.6, and `supabase-sql-tests.yml` now installs the major version named by `supabase/config.toml`'s `major_version` (17). A local green is therefore measured on a version nothing runs. **Scope:** derive the default keg from `config.toml` the way CI does, falling back to `PATH`, and change the README's install line. **Acceptance:** a local run prints `PostgreSQL 17.x`.
+
+### TS29: service and routing duplicates the TS11 merge found but left out of its scope
+
+**Priority:** P4 | **Source:** TS11 session 2026-09-29, PR #38 (agent reports)
+
+Each item below was confirmed still present after TS11.
+- `test/services/consent_manager_test.dart` 'Edge cases' (~610–660): three timestamp round-trips (milliseconds, 1970, 2100) test `ConsentPreferences`, not the manager; move them to `test/unit/models/consent_preferences_test.dart`.
+- `consent_manager_test.dart` ~588–602: ConsentLevel count, order and `.name` tests. The review classes them as unnecessary (review §services :21, :374, :1093). Delete, or keep one as the persisted-name contract. (review)
+- `test/services/provisioning_service_contract_test.dart:507` 'Dart service reads error as string' (503) nearly repeats `:444` 'non-200 status returns CheckoutError' (500).
+- `test/services/provisioning_service_test.dart:688` group 'MockProvisioningDio per-attempt response data' tests the mock, not the service (review §services :784–830). TS11 moved `checkHealth`'s call-count check into the contract file, so the group is no longer that check's only guard.
+- `test/routing/app_router_test.dart:149` '/support redirects to /contact' is stale. `/support` renders HelpCenterPage, which `:161` now asserts, and this test checks only `isNotNull`.
+- `app_router_test.dart:283–301`: four `/signup?tier=` tests, and the one with no tier, assert only `SignupPage`, never the tier. Assert `SignupPage.tier`, or merge them into one `for` loop.
+
+**Scope:** delete or merge per item, each mapped to its survivor as TS11 did.
+
+### TS30: app-bar checks still copied in three page files after TS11
+
+**Priority:** P4 | **Source:** TS11 session 2026-09-29, PR #38 (page-family agent heads-up)
+
+TS11 moved `SharedAppBar.subPage` coverage into `test/widgets/navigation/shared_app_bar_test.dart`, but review §page finding B/C copies remain:
+- `test/pages/careers_page_test.dart:207` and `:215` ('desktop shows / mobile hides navigation actions') repeat the new nav and mobile tests.
+- `request_failure_page_test.dart:161` and `request_success_page_test.dart:181` ('desktop shows navigation links') use a weaker `findsWidgets`.
+- `request_failure_page_test.dart:169` and `request_success_page_test.dart:189` ('mobile hides desktop nav links in app bar') assert only that a `SliverAppBar` exists, so they cannot fail.
+
+**Scope:** delete them. **(review)** Also confirm which of the page-review appendix findings B–N in `docs/test-suite-review-2026-09-27.md` (in-file duplicates, "tappable" tests that never tap, constant-literal tests, `findsWidgets` where the count is knowable) TS08/TS10/TS12 actually covered. These remnants show at least some of them were not.

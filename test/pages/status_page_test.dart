@@ -106,18 +106,7 @@ void main() {
     });
 
     group('app bar', () {
-      testWidgets('renders back button icon', (tester) async {
-        await pumpStatusPage(tester);
-        expect(find.byIcon(LucideIcons.arrowLeft), findsOneWidget);
-      });
-
-      testWidgets('back button triggers onBack callback', (tester) async {
-        var called = false;
-        await pumpStatusPage(tester, onBack: () => called = true);
-        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pump();
-        expect(called, isTrue);
-      });
+      testBackButtonCallback(pumpStatusPage);
 
       testWidgets('back button navigates to / when no onBack provided',
           (tester) async {
@@ -139,27 +128,6 @@ void main() {
         await tester.pump();
         await tester.pump();
         expect(find.text('home_page'), findsOneWidget);
-      });
-
-      testWidgets('renders shield icon in app bar title', (tester) async {
-        await pumpStatusPage(tester);
-        expect(find.byIcon(LucideIcons.shield), findsWidgets);
-      });
-
-      testWidgets('renders different toolbar heights on mobile vs desktop',
-          (tester) async {
-        setMobileSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const StatusPage(),
-          ),
-        );
-        await tester.pump();
-        clearOverflowExceptions(tester);
-
-        final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
-        expect(appBar.toolbarHeight, equals(kMobileToolbarHeight));
       });
     });
 
@@ -281,38 +249,6 @@ void main() {
 
     group('responsive layout', () {
       testResponsiveLayout<StatusPage>(pumpStatusPage, includeTablet: true);
-
-      testWidgets('uses mobile toolbar height on narrow viewport',
-          (tester) async {
-        setMobileSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const StatusPage(),
-          ),
-        );
-        await tester.pump();
-        clearOverflowExceptions(tester);
-
-        final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
-        expect(appBar.toolbarHeight, equals(kMobileToolbarHeight));
-      });
-
-      testWidgets('uses desktop toolbar height on wide viewport',
-          (tester) async {
-        setDesktopSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const StatusPage(),
-          ),
-        );
-        await tester.pump();
-        clearOverflowExceptions(tester);
-
-        final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
-        expect(appBar.toolbarHeight, equals(kDesktopToolbarHeight));
-      });
     });
   });
 }

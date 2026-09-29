@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:integrity_studio_ai/widgets/common/cards.dart';
 import 'package:integrity_studio_ai/widgets/modals/demo_modal.dart';
 import '../../helpers/test_helpers.dart';
 
@@ -229,31 +230,11 @@ void main() {
     });
 
     group('responsive layout', () {
-      // Note: Mobile viewport has known overflow issues
-      testWidgets(
-        'renders on mobile viewport',
-        (tester) async {
-          setMobileSize(tester);
-          await tester.pumpWidget(
-            testableWidget(
-              Builder(
-                builder: (context) => ElevatedButton(
-                  onPressed: () => DemoModal.show(context),
-                  child: const Text('Open Modal'),
-                ),
-              ),
-            ),
-          );
-
-          await tester.tap(find.text('Open Modal'));
-          await tester.pumpAndSettleWithTimeout();
-
-          expect(find.byType(DemoModal), findsOneWidget);
-        },
-      );
-
-      testWidgets('renders on tablet viewport', (tester) async {
-        setTabletSize(tester);
+      testWidgets('uses the mobile modal width without overflow',
+          (tester) async {
+        // DemoModal spans 95% of the screen width on mobile, 70% otherwise.
+        const mobileWidthFraction = 0.95;
+        setMobileSize(tester);
         await tester.pumpWidget(
           testableWidget(
             Builder(
@@ -268,7 +249,11 @@ void main() {
         await tester.tap(find.text('Open Modal'));
         await tester.pumpAndSettleWithTimeout();
 
-        expect(find.byType(DemoModal), findsOneWidget);
+        expect(
+          tester.getSize(find.byType(GlassCard)).width,
+          TestScreenSizes.mobile.width * mobileWidthFraction,
+        );
+        expect(tester.takeException(), isNull);
       });
     });
 
@@ -301,21 +286,6 @@ void main() {
   });
 
   group('DemoModal widget direct', () {
-    testWidgets('can be constructed directly', (tester) async {
-      setDesktopSize(tester);
-      await tester.pumpWidget(
-        testableWidget(
-          const Scaffold(
-            body: Dialog(
-              child: DemoModal(),
-            ),
-          ),
-        ),
-      );
-
-      expect(find.byType(DemoModal), findsOneWidget);
-    });
-
     testWidgets('accepts videoId parameter', (tester) async {
       setDesktopSize(tester);
       await tester.pumpWidget(

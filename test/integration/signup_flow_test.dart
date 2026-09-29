@@ -240,31 +240,6 @@ void main() {
       expect(find.text('No credit card required'), findsOneWidget);
       expect(find.text('Cancel anytime'), findsOneWidget);
     });
-
-    testWidgets('back button works', (tester) async {
-      var backPressed = false;
-
-      setDesktopSize(tester);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: SignupPage(
-            tier: 'starter',
-            onBack: () => backPressed = true,
-          ),
-        ),
-      );
-      await pumpFrames(tester, frames: 20);
-
-      // Find and tap back button
-      final iconButtons = find.byType(IconButton);
-      if (iconButtons.evaluate().isNotEmpty) {
-        await tester.tap(iconButtons.first);
-        await pumpFrames(tester, frames: 5);
-      }
-
-      expect(backPressed, isTrue);
-    });
   });
 
   group('Signup Navigation Flow', () {
