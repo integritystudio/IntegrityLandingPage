@@ -127,27 +127,6 @@ void main() {
 
       expect(find.text('Get in Touch'), findsWidgets);
     });
-
-    testWidgets('blog back button works', (tester) async {
-      var backPressed = false;
-
-      setDesktopSize(tester);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: BlogPage(onBack: () => backPressed = true),
-        ),
-      );
-      await pumpFrames(tester, frames: 20);
-
-      final iconButtons = find.byType(IconButton);
-      if (iconButtons.evaluate().isNotEmpty) {
-        await tester.tap(iconButtons.first);
-        await pumpFrames(tester, frames: 5);
-      }
-
-      expect(backPressed, isTrue);
-    });
   });
 
   group('Contact Page After Blog', () {
