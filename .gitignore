@@ -105,5 +105,8 @@ dist/
 # commits, so the tests look present and a fresh clone has none of them (2026-09-28).
 !supabase/tests/**/*.ts
 
+# Allow Auth0 Action tests (the Actions themselves are .cjs, which nothing ignores)
+!auth0/**/*.ts
+
 # Serena (machine-specific config, cache, memories)
 .serena/
