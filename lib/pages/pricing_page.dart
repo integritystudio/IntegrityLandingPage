@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../services/content_loader.dart';
 import '../theme/theme.dart';
 import '../services/analytics.dart';
 import '../widgets/common/buttons.dart';
@@ -309,7 +310,7 @@ class _PricingCTASection extends StatelessWidget {
               GradientButton(
                 text: 'Contact Sales',
                 onPressed: () =>
-                    context.go('/contact'),
+                    context.go(ContentLoader.contactUrl),
               ),
             ],
           ),

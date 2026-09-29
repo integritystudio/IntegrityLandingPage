@@ -167,6 +167,7 @@ class ContentLoader {
   static String get founderLinkedInUrl => _getString('urls.external.founder_linkedin');
   static String get deepDiveUrl => _getString('urls.external.deep_dive');
   static String get addressUrl => _getString('urls.external.address');
+  static String get contactUrl => _getString('urls.internal.contact');
 
   // ===========================================================================
   // CTA TEXT

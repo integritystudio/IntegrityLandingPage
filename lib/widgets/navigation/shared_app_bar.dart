@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../config/content/constants.dart';
+import '../../services/content_loader.dart';
 import '../../services/url_launcher.dart';
 import '../../theme/theme.dart';
 
@@ -269,12 +270,12 @@ class SharedAppBar extends StatelessWidget {
       ];
     } else {
       // Sub-page: route-based nav (Team omitted — About scrolls nearby)
-      return const [
-        NavItem(text: 'Features', route: '/?section=features'),
-        NavItem(text: 'About', route: '/?section=about'),
-        NavItem(text: 'Pricing', route: '/pricing'),
-        NavItem(text: 'Contact', route: '/contact'),
-        NavItem(text: 'Docs', route: Routes.docs),
+      return [
+        const NavItem(text: 'Features', route: '/?section=features'),
+        const NavItem(text: 'About', route: '/?section=about'),
+        const NavItem(text: 'Pricing', route: '/pricing'),
+        NavItem(text: 'Contact', route: ContentLoader.contactUrl),
+        const NavItem(text: 'Docs', route: Routes.docs),
       ];
     }
   }

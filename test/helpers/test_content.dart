@@ -33,6 +33,8 @@ urls:
     founder_linkedin: "https://linkedin.com/in/founder"
     deep_dive: "https://calendly.com/test-deep-dive"
     address: "https://www.google.com/maps/search/?api=1&query=Test+Address"
+  internal:
+    contact: "/contact"
 
 cta_text:
   primary:
@@ -569,6 +571,8 @@ urls:
     founder_linkedin: "https://linkedin.com/in/founder"
     deep_dive: "https://calendly.com/test-deep-dive"
     address: "https://www.google.com/maps/search/?api=1&query=Test+Address"
+  internal:
+    contact: "/test-contact"
 
 cta_text:
   primary:

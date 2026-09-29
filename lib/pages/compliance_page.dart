@@ -315,7 +315,7 @@ class _ComplianceContent extends StatelessWidget {
                     icon: LucideIcons.mail,
                     title: 'Contact Us',
                     description: ContentLoader.complianceContactLinkDescription,
-                    onTap: () => context.go('/contact'),
+                    onTap: () => context.go(ContentLoader.contactUrl),
                   ),
                 ],
               );

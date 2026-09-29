@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../config/content.dart';
 import '../pages/status_result_page.dart';
+import '../services/content_loader.dart';
 
 /// Failure page shown when a contact form submission or signup fails.
 class RequestFailurePage extends StatefulWidget {
@@ -132,7 +133,7 @@ class _RequestFailurePageContent extends StatelessWidget {
         ),
         StatusResultAction(
           text: 'Try Again',
-          onPressed: () => context.go('/contact'),
+          onPressed: () => context.go(ContentLoader.contactUrl),
           isPrimary: true,
         ),
       ],

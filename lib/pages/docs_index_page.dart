@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/content.dart';
+import '../services/content_loader.dart';
 import '../theme/theme.dart';
 import '../widgets/common/containers.dart';
 import '../widgets/navigation/doc_page_scaffold.dart';
@@ -485,7 +486,7 @@ class _QuickLinksSection extends StatelessWidget {
               _QuickLink(
                 icon: LucideIcons.mail,
                 label: 'Support',
-                url: '/contact',
+                url: ContentLoader.contactUrl,
               ),
               _QuickLink(
                 icon: LucideIcons.fileText,

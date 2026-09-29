@@ -110,6 +110,7 @@ void main() {
         'linkedInUrl': (() => ContentLoader.linkedInUrl, 'https://linkedin.com/test'),
         'githubUrl': (() => ContentLoader.githubUrl, 'https://github.com/test'),
         'founderLinkedInUrl': (() => ContentLoader.founderLinkedInUrl, 'https://linkedin.com/in/founder'),
+        'contactUrl': (() => ContentLoader.contactUrl, '/test-contact'),
         'ctaStartFreeTrial': (() => ContentLoader.ctaStartFreeTrial, 'Start Free Trial'),
         'ctaGetStarted': (() => ContentLoader.ctaGetStarted, 'Get Started'),
         'ctaScheduleDemo': (() => ContentLoader.ctaScheduleDemo, 'Schedule Demo'),
