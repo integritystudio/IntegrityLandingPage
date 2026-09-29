@@ -252,6 +252,19 @@ describe('QuotaDurableObject', () => {
     });
   });
 
+  describe('checkAndReserve — monthly counting after a rollover', () => {
+    // Without recording the reset, every request of the new month would zero the counter
+    // again, and no org would ever reach its monthly limit.
+    it('counts every request after the rollover, not just the first', async () => {
+      const { do_, storage } = makeDO();
+      await seedQuota(storage, { monthlyUsed: 9000, lastMonthlyResetAt: Date.now() - FORTY_DAYS_MS });
+      await do_.fetch(checkReq());
+      await do_.fetch(checkReq());
+      const body = await (await do_.fetch(statusReq())).json() as { monthlyUsed: number };
+      expect(body.monthlyUsed).toBe(2);
+    });
+  });
+
   describe('checkAndReserve — enterprise plan (unlimited monthly)', () => {
     it('allows requests when monthly limit is null (enterprise)', async () => {
       const { do_ } = makeDO();
