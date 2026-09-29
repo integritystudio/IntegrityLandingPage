@@ -89,8 +89,9 @@ interface PreVerifyTokenOptions extends UserTokenOptions {
    *
    * API keys: verified by comparing the key's stored organization_id (cheap, no extra DB call).
    * JWTs: verified by querying organization_memberships (one extra DB call). Fails open on
-   * DB errors — the route handlers still enforce membership and will 403 any unauthorized caller,
-   * but only after quota has already been consumed in that failure mode.
+   * DB errors — the route handlers re-check membership and still refuse an unauthorized caller
+   * (403, or 503 on the CR53 org routes when their own query fails too), but only after quota
+   * has already been consumed in that failure mode.
    */
   orgId?: string;
 }
@@ -152,8 +153,8 @@ export async function preVerifyToken(
   if (!jwtResult.ok) return jwtResult;
 
   // UA08: for JWT callers, verify org membership before the quota DO is touched.
-  // Fails open on DB errors — the handler still checks membership and will 403 unauthorized
-  // callers, but only after the quota unit has already been consumed.
+  // Fails open on DB errors — the handler re-checks membership and still refuses unauthorized
+  // callers (403, or 503 on the CR53 org routes), but only after the quota unit is consumed.
   if (opts.orgId !== undefined) {
     const sub = jwtResult.payload.sub;
     if (!sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
@@ -172,7 +173,7 @@ export async function preVerifyToken(
       if (membership.ok && membership.data.length === 0) {
         return { ok: false, error: forbidden('Not a member of this organization') };
       }
-      // membership.ok false (DB error) → fail open; handler re-checks and will 403.
+      // membership.ok false (DB error) → fail open; the handler re-checks (403, or 503 on CR53 routes).
     }
     // user.ok false (DB error) → fail open.
   }

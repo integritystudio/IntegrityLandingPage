@@ -285,10 +285,7 @@ abstract final class FormMessages {
 // QUOTA THRESHOLDS
 // =============================================================================
 
-/// Ratio thresholds for quota/usage progress bar coloring.
-///
-/// Shared by UsageSummaryPage (_UsageBar, _DailyBarChartPainter) and
-/// QuotaStatusPage (_QuotaRow) to ensure consistent color semantics.
+/// English month names, indexed by `DateTime.month - 1`.
 abstract final class CalendarText {
   static const List<String> monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -296,6 +293,10 @@ abstract final class CalendarText {
   ];
 }
 
+/// Ratio thresholds for quota/usage progress bar coloring.
+///
+/// Shared by UsageSummaryPage (_UsageBar, _DailyBarChartPainter) and
+/// QuotaStatusPage (_QuotaRow) to ensure consistent color semantics.
 abstract final class QuotaThresholds {
   /// At or above this ratio, show danger color (e.g. AppColors.error).
   static const double danger = 0.90;
