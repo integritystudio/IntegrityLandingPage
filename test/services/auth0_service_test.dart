@@ -84,6 +84,11 @@ void main() {
       expect(Auth0Service.constantTimeEquals('abc', 'abc'), isTrue);
       expect(Auth0Service.constantTimeEquals('abc', 'abd'), isFalse);
       expect(Auth0Service.constantTimeEquals('abc', 'ab'), isFalse);
+      // The shorter string first: a forged state longer than the stored one must be
+      // rejected, not read past its end.
+      expect(Auth0Service.constantTimeEquals('ab', 'abc'), isFalse);
+      expect(Auth0Service.constantTimeEquals('', 'x'), isFalse);
+      expect(Auth0Service.constantTimeEquals('', ''), isTrue);
       // A trailing NUL XORs to zero against the padding, so only the length
       // check separates these (CR57).
       expect(Auth0Service.constantTimeEquals('ab\u0000', 'ab'), isFalse);

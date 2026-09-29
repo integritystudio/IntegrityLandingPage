@@ -196,7 +196,7 @@ void main() {
     final formEvents = analyticsLog
         .where((e) => e.event == AnalyticsEvent.formSubmission)
         .toList();
-    expect(formEvents, isNotEmpty, reason: 'signup_form submission must be tracked');
+    expect(formEvents, hasLength(1), reason: 'signup_form submission must be tracked exactly once');
     expect(formEvents.first.params['form_type'], 'signup_form');
     expect(formEvents.first.params['success'], isTrue);
     expect(leadLog, ['user@example.com'],

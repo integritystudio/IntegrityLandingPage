@@ -19,7 +19,11 @@ type Responder = (call: Call) => Response;
 
 const rows = (data: unknown, status = 200) => () => Response.json(data, { status });
 
-/** Stubs fetch, routing on "<METHOD> <table>[?<column>]"; every call is recorded. */
+/**
+ * Stubs fetch, routing on "<METHOD> <table>[?<column>]"; every call is recorded. A request
+ * with no route throws, naming it, so a call a test forbids fails by name rather than as a
+ * JSON parse error further on.
+ */
 function stubFetch(routes: Record<string, Responder>) {
   const calls: Call[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string, init: RequestInit = {}) => {
@@ -29,8 +33,10 @@ function stubFetch(routes: Record<string, Responder>) {
     calls.push(call);
     const table = url.pathname.split('/').pop();
     const column = [...url.searchParams.keys()].find((k) => k !== 'select' && k !== 'limit');
-    const responder = routes[`${method} ${table}?${column}`] ?? routes[`${method} ${table}`];
-    return responder ? responder(call) : new Response('unrouted', { status: 501 });
+    const key = `${method} ${table}?${column}`;
+    const responder = routes[key] ?? routes[`${method} ${table}`];
+    if (!responder) throw new Error(`unrouted request: ${key}`);
+    return responder(call);
   }));
   return calls;
 }
