@@ -98,8 +98,8 @@ abstract final class AppContent {
   static PricingContent get pricing => PricingContent(
         title: ContentLoader.pricingTitle,
         subtitle: ContentLoader.pricingSubtitle,
-        monthlyLabel: 'Monthly',
-        annualLabel: 'Annual',
+        monthlyLabel: PricingConstants.monthlyLabel,
+        annualLabel: PricingConstants.annualLabel,
         annualBadge: ContentLoader.pricingAnnualDiscount,
         tiers: ContentLoader.pricingTiers.map((tier) {
           return PricingTierContent(
@@ -209,7 +209,7 @@ abstract final class AppContent {
         privacyLink: ContentLoader.footerPrivacyLink,
         termsLink: ContentLoader.footerTermsLink,
         cookiesLink: ContentLoader.footerCookiesLink,
-        accessibilityLink: '/accessibility',
+        accessibilityLink: Routes.accessibility,
         cookieSettingsLabel: 'Cookie Settings',
       );
 
@@ -305,9 +305,9 @@ abstract final class AppContent {
           );
         }).toList(),
         blogCtaText: 'View All Articles',
-        blogCtaUrl: '/blog',
+        blogCtaUrl: Routes.blog,
         docsCtaText: 'Browse Documentation',
-        docsCtaUrl: '/docs',
+        docsCtaUrl: Routes.docs,
       );
 
   /// Current contact section content
