@@ -29,6 +29,7 @@ dependencies:
   webview_flutter: ^4.8.0
 
   # Utilities
+  crypto: ^3.0.7  # SHA-256 for the Auth0 PKCE code challenge
   url_launcher: ^6.2.2
   yaml: ^3.1.2
 
