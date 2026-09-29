@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../config/content/constants.dart';
 import '../services/analytics.dart';
 import '../services/dashboard_service.dart';
@@ -90,6 +91,22 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _navigateTo(String route, Object extra) {
     context.go(route, extra: extra);
+  }
+
+  /// Opens the observability dashboard, a separate Auth0 app that signs the user
+  /// in itself: no token is handed over (CR04). A launcher failure is reported,
+  /// not thrown, as on the provision page.
+  Future<void> _openObservability() async {
+    try {
+      await launchUrl(Uri.parse(ExternalUrls.dashboardApp));
+    } catch (e, stackTrace) {
+      ErrorTrackingService.captureException(
+        e,
+        stackTrace: stackTrace,
+        context: 'dashboard._openObservability',
+        extra: {'url': ExternalUrls.dashboardApp},
+      );
+    }
   }
 
   Widget _buildOrgSwitcher() {
@@ -267,6 +284,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               );
             },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildNavCard(
+            label: 'Observability',
+            icon: LucideIcons.activity,
+            description: 'View your traces, logs, metrics, and evaluations',
+            onTap: _openObservability,
           ),
         ],
       ],
