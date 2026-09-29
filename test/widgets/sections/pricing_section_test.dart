@@ -61,22 +61,20 @@ void main() {
       expect(find.byType(PricingSection), findsOneWidget);
     });
 
-    testWidgets('renders on mobile viewport', (tester) async {
-      // Suppress overflow errors for mobile test
-      final oldHandler = FlutterError.onError;
-      FlutterError.onError = (details) {
-        if (!details.toString().contains('overflowed')) {
-          oldHandler?.call(details);
-        }
-      };
-
+    testWidgets('stacks pricing cards in one column on mobile', (tester) async {
       setMobileSize(tester);
       await tester.pumpWidget(buildPricingSection());
       await tester.pump(const Duration(milliseconds: 100));
+      // The billing toggle Row overflows at this width; drain overflow errors
+      // only, so any other exception still fails the test.
+      clearOverflowExceptions(tester);
 
-      expect(find.byType(PricingSection), findsOneWidget);
-
-      FlutterError.onError = oldHandler;
+      final cards = find.byType(PricingCard);
+      expect(cards, findsAtLeastNWidgets(2));
+      final first = tester.getTopLeft(cards.at(0));
+      final second = tester.getTopLeft(cards.at(1));
+      expect(second.dx, first.dx);
+      expect(second.dy, greaterThan(first.dy));
     });
 
     testWidgets('callback and custom content work correctly', (tester) async {

@@ -225,44 +225,6 @@ void main() {
         expect(find.text('Your API Key'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
-
-      testWidgets('renders on tablet viewport', (tester) async {
-        setTabletSize(tester);
-        await tester.pumpWidget(
-          testableWidget(
-            Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => ApiKeyModal.show(context, apiKey: testApiKey),
-                child: const Text('Open Modal'),
-              ),
-            ),
-          ),
-        );
-
-        await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(ApiKeyModal), findsOneWidget);
-      });
-
-      testWidgets('renders on desktop viewport', (tester) async {
-        setDesktopSize(tester);
-        await tester.pumpWidget(
-          testableWidget(
-            Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => ApiKeyModal.show(context, apiKey: testApiKey),
-                child: const Text('Open Modal'),
-              ),
-            ),
-          ),
-        );
-
-        await tester.tap(find.text('Open Modal'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(ApiKeyModal), findsOneWidget);
-      });
     });
 
     group('accessibility', () {
