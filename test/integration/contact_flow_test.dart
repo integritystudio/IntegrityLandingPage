@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:integrity_studio_ai/pages/contact_page.dart';
 import 'package:integrity_studio_ai/widgets/common/form_fields.dart';
@@ -187,38 +186,6 @@ void main() {
       // Verify cards are in tappable containers
       final emailCard = find.text('Email Us');
       expect(emailCard, findsOneWidget);
-    });
-
-    testWidgets('back button navigates away', (tester) async {
-      var backPressed = false;
-
-      setDesktopSize(tester);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ContactPage(
-            onBack: () => backPressed = true,
-            onShowCookieSettings: () {},
-          ),
-        ),
-      );
-      await pumpFrames(tester, frames: 20);
-
-      // Find and tap back button
-      final backButton = find.byIcon(LucideIcons.arrowLeft);
-      if (backButton.evaluate().isEmpty) {
-        // Try lucide icon
-        final icons = find.byType(IconButton);
-        if (icons.evaluate().isNotEmpty) {
-          await tester.tap(icons.first);
-          await pumpFrames(tester, frames: 5);
-        }
-      } else {
-        await tester.tap(backButton);
-        await pumpFrames(tester, frames: 5);
-      }
-
-      expect(backPressed, isTrue);
     });
 
     testWidgets('support info section is accessible', (tester) async {

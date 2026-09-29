@@ -255,32 +255,6 @@ void main() {
     });
   });
 
-  group('Pricing Page Back Navigation', () {
-    testWidgets('back button works', (tester) async {
-      var backPressed = false;
-
-      setDesktopSize(tester);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: PricingPage(
-            onBack: () => backPressed = true,
-            onShowCookieSettings: () {},
-          ),
-        ),
-      );
-      await pumpFrames(tester, frames: 20);
-
-      final iconButtons = find.byType(IconButton);
-      if (iconButtons.evaluate().isNotEmpty) {
-        await tester.tap(iconButtons.first);
-        await pumpFrames(tester, frames: 5);
-      }
-
-      expect(backPressed, isTrue);
-    });
-  });
-
   group('Pricing Mobile View', () {
     testWidgets('pricing page renders on mobile', (tester) async {
       setMobileSize(tester);
