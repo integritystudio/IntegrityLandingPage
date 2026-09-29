@@ -119,23 +119,6 @@ void main() {
 
         expect(find.text('Accessibility Statement'), findsWidgets);
       });
-
-      testWidgets('factory constructors accept onBack callback', (tester) async {
-        var backCalled = false;
-        setDesktopSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: LegalPage.privacy(onBack: () => backCalled = true),
-          ),
-        );
-        await tester.pump();
-
-        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
     });
 
     group('layout', () {
@@ -150,34 +133,7 @@ void main() {
         expect(find.text(CTAText.backToHome), findsOneWidget);
       });
 
-      testWidgets('back button triggers onBack callback', (tester) async {
-        var backCalled = false;
-        await pumpLegalPage(
-          tester,
-          LegalPageType.privacy,
-          onBack: () => backCalled = true,
-        );
-
-        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
-
-      testWidgets('Back to Home button triggers onBack callback',
-          (tester) async {
-        var backCalled = false;
-        await pumpLegalPage(
-          tester,
-          LegalPageType.privacy,
-          onBack: () => backCalled = true,
-        );
-
-        await tester.tap(find.text(CTAText.backToHome));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
+      testBackButtonCallbacks(pumpPrivacyPage);
     });
 
     group('privacy policy page', () {

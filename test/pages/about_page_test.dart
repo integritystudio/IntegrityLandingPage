@@ -65,20 +65,7 @@ void main() {
     });
 
     group('app bar', () {
-      testWidgets('has back arrow button', (tester) async {
-        await pumpAboutPage(tester);
-        expect(find.byIcon(LucideIcons.arrowLeft), findsOneWidget);
-      });
-
-      testWidgets('back button triggers onBack callback', (tester) async {
-        var backCalled = false;
-        await pumpAboutPage(tester, onBack: () => backCalled = true);
-
-        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
+      testBackButtonCallback(pumpAboutPage);
     });
 
     group('hero section', () {

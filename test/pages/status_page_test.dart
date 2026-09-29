@@ -92,18 +92,7 @@ void main() {
     });
 
     group('app bar', () {
-      testWidgets('renders back button icon', (tester) async {
-        await pumpStatusPage(tester);
-        expect(find.byIcon(LucideIcons.arrowLeft), findsOneWidget);
-      });
-
-      testWidgets('back button triggers onBack callback', (tester) async {
-        var called = false;
-        await pumpStatusPage(tester, onBack: () => called = true);
-        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pump();
-        expect(called, isTrue);
-      });
+      testBackButtonCallback(pumpStatusPage);
 
       testWidgets('back button navigates to / when no onBack provided',
           (tester) async {

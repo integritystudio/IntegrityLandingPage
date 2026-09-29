@@ -366,43 +366,7 @@ void main() {
     });
 
     group('navigation', () {
-      testWidgets('calls onBack callback when back button pressed', (tester) async {
-        setDesktopSize(tester);
-        var backCalled = false;
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: SourcesPage(onBack: () => backCalled = true),
-          ),
-        );
-        await tester.pump();
-        await tester.pump();
-
-        await tester.tap(find.byIcon(LucideIcons.arrowLeft));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
-
-      testWidgets('calls onBack when Back to Home pressed', (tester) async {
-        setDesktopSize(tester);
-        var backCalled = false;
-
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: SourcesPage(onBack: () => backCalled = true),
-          ),
-        );
-        await tester.pump();
-        await tester.pump();
-
-        await tester.tap(find.text(CTAText.backToHome));
-        await tester.pump();
-
-        expect(backCalled, isTrue);
-      });
+      testBackButtonCallbacks(pumpSourcesPage);
 
       testWidgets('renders app bar with title', (tester) async {
         setDesktopSize(tester);
