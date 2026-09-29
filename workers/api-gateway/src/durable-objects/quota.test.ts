@@ -40,8 +40,8 @@ interface QuotaState {
   seenRequestIds: Record<string, number>;
 }
 
-function makeDO(): { do_: QuotaDurableObject; storage: MockStorage } {
-  const storage = new MockStorage();
+/** A DO over `storage`; pass a pre-seeded one to simulate a fresh instance loading state. */
+function makeDO(storage = new MockStorage()): { do_: QuotaDurableObject; storage: MockStorage } {
   const state = {
     storage,
     blockConcurrencyWhile: async <T>(fn: () => Promise<T>) => fn(),
@@ -106,6 +106,19 @@ function flushReq(): Request {
 
 function statusReq(): Request {
   return new Request(`${BASE}/status`, { method: 'GET' });
+}
+
+interface StatusBody {
+  orgId: string;
+  planKey: string;
+  minuteLimit: number;
+  monthlyLimit: number | null;
+  minuteUsed: number;
+  monthlyUsed: number;
+}
+
+async function statusOf(do_: QuotaDurableObject): Promise<StatusBody> {
+  return await (await do_.fetch(statusReq())).json() as StatusBody;
 }
 
 // ---------------------------------------------------------------------------
@@ -238,11 +251,9 @@ describe('QuotaDurableObject', () => {
 
     it('resets monthly counter automatically on month boundary', async () => {
       const { do_, storage } = makeDO();
-      // Use 40 days ago — guaranteed to be in a prior month regardless of current date.
-      const fortyDaysAgo = Date.now() - 40 * 24 * 60 * 60 * 1000;
       await seedQuota(storage, {
         monthlyUsed: 10000,
-        lastMonthlyResetAt: fortyDaysAgo,
+        lastMonthlyResetAt: Date.now() - FORTY_DAYS_MS,
         minuteUsedAt: Date.now() - 70_000,
       });
       const res = await do_.fetch(checkReq({ units: 1 }));
@@ -260,7 +271,7 @@ describe('QuotaDurableObject', () => {
       await seedQuota(storage, { monthlyUsed: 9000, lastMonthlyResetAt: Date.now() - FORTY_DAYS_MS });
       await do_.fetch(checkReq());
       await do_.fetch(checkReq());
-      const body = await (await do_.fetch(statusReq())).json() as { monthlyUsed: number };
+      const body = await statusOf(do_);
       expect(body.monthlyUsed).toBe(2);
     });
   });
@@ -312,7 +323,7 @@ describe('QuotaDurableObject', () => {
       expect(body.allowed).toBe(true);
 
       // minuteUsed must remain 5 — no double-count.
-      const status = await (await do_.fetch(statusReq())).json() as { minuteUsed: number };
+      const status = await statusOf(do_);
       expect(status.minuteUsed).toBe(5);
     });
 
@@ -331,13 +342,13 @@ describe('QuotaDurableObject', () => {
       // Send a new unique request to trigger cleanup, then confirm minuteUsed state.
       await do_.fetch(checkReq()); // triggers cleanup of old ids; minuteUsed = 6
 
-      const statusBefore = await (await do_.fetch(statusReq())).json() as { minuteUsed: number };
+      const statusBefore = await statusOf(do_);
       const usedBefore = statusBefore.minuteUsed;
 
       // Re-submit the old requestId — should be treated as new (not idempotent).
       await do_.fetch(checkReq({ requestId: oldRequestId }));
 
-      const statusAfter = await (await do_.fetch(statusReq())).json() as { minuteUsed: number };
+      const statusAfter = await statusOf(do_);
       expect(statusAfter.minuteUsed).toBe(usedBefore + 1);
     });
   });
@@ -445,18 +456,12 @@ describe('QuotaDurableObject', () => {
       const res = await do_.fetch(flushReq());
 
       expect(res.status).toBe(404);
-      const status = await (await do_.fetch(statusReq())).json() as { monthlyUsed: number };
+      const status = await statusOf(do_);
       expect(status.monthlyUsed).toBe(5);
     });
   });
 
   describe('checkAndReserve — uncharged reads (CR58)', () => {
-    async function statusOf(do_: QuotaDurableObject) {
-      return await (await do_.fetch(statusReq())).json() as {
-        planKey: string; monthlyLimit: number | null; minuteUsed: number; monthlyUsed: number;
-      };
-    }
-
     it('counts toward the minute window but not the month', async () => {
       const { do_, storage } = makeDO();
       await seedQuota(storage, { monthlyUsed: 5 });
@@ -497,7 +502,7 @@ describe('QuotaDurableObject', () => {
     it('reports the new month on its own, before any request of it (CR58)', async () => {
       const { do_, storage } = makeDO();
       await seedQuota(storage, { monthlyUsed: 9000, lastMonthlyResetAt: Date.now() - FORTY_DAYS_MS });
-      const body = await (await do_.fetch(statusReq())).json() as { monthlyUsed: number };
+      const body = await statusOf(do_);
       expect(body.monthlyUsed).toBe(0);
     });
 
@@ -534,11 +539,6 @@ describe('QuotaDurableObject', () => {
   describe('storage persistence', () => {
     it('restores quota state from storage on second instance', async () => {
       const storage = new MockStorage();
-      const makeState = () => ({
-        storage,
-        blockConcurrencyWhile: async <T>(fn: () => Promise<T>) => fn(),
-        waitUntil: (_p: Promise<unknown>) => undefined,
-      } as unknown as DurableObjectState);
 
       // State persisted by an earlier instance (the flush route that used to force a
       // save here was deleted, CR45).
@@ -550,9 +550,8 @@ describe('QuotaDurableObject', () => {
       });
 
       // A fresh instance should load it rather than start empty.
-      const do2 = new QuotaDurableObject(makeState());
-      const res = await do2.fetch(statusReq());
-      const body = await res.json() as { monthlyUsed: number; orgId: string };
+      const { do_: do2 } = makeDO(storage);
+      const body = await statusOf(do2);
       expect(body.orgId).toBe('org-1');
       expect(body.monthlyUsed).toBe(42);
     });
@@ -565,12 +564,7 @@ describe('QuotaDurableObject', () => {
         minuteLimit: 60, monthlyLimit: 10000,
         minuteUsedAt: Date.now() - 70_000, minuteUsed: 0, monthlyUsed: 0,
       });
-      const state = {
-        storage,
-        blockConcurrencyWhile: async <T>(fn: () => Promise<T>) => fn(),
-        waitUntil: (_p: Promise<unknown>) => undefined,
-      } as unknown as DurableObjectState;
-      const do_ = new QuotaDurableObject(state);
+      const { do_ } = makeDO(storage);
       const res = await do_.fetch(checkReq());
       expect(res.status).toBe(200);
     });
