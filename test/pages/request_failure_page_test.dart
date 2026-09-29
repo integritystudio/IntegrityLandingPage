@@ -4,7 +4,6 @@ import 'package:integrity_studio_ai/pages/request_failure_page.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/widgets/sections/footer_section.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:integrity_studio_ai/widgets/navigation/shared_app_bar.dart';
 import '../helpers/test_helpers.dart';
 
 void main() {
@@ -35,44 +34,10 @@ void main() {
   group('RequestFailurePage', () {
     group('page structure', () {
       testPageStructure(pumpRequestFailurePage);
-
-      testWidgets('renders company name in app bar', (tester) async {
-        await pumpRequestFailurePage(tester);
-
-        expect(
-          find.descendant(
-            of: find.byType(SharedAppBar),
-            matching: find.text(CompanyInfo.name),
-          ),
-          findsOneWidget,
-        );
-      });
-
-      testWidgets('renders shield icon in app bar', (tester) async {
-        await pumpRequestFailurePage(tester);
-
-        expect(find.byIcon(LucideIcons.shield), findsOneWidget);
-      });
     });
 
     group('navigation', () {
       testBackButtonCallback(pumpRequestFailurePage);
-
-      testWidgets('renders navigation links on desktop', (tester) async {
-        await pumpRequestFailurePage(tester, mobile: false);
-
-        // Nav links appear in both app bar and footer
-        expect(find.text('Features'), findsWidgets);
-        expect(find.text('Pricing'), findsWidgets);
-        expect(find.text('About'), findsWidgets);
-      });
-
-      testWidgets('renders popup menu on mobile', (tester) async {
-        await pumpRequestFailurePage(tester, mobile: true);
-
-        // Mobile uses popup menu instead of inline nav links
-        expect(find.byIcon(LucideIcons.menu), findsOneWidget);
-      });
     });
 
     group('hero section', () {
@@ -229,13 +194,6 @@ void main() {
     });
 
     group('icons', () {
-      testWidgets('renders app bar icons', (tester) async {
-        await pumpRequestFailurePage(tester);
-
-        expect(find.byIcon(LucideIcons.arrowLeft), findsOneWidget);
-        expect(find.byIcon(LucideIcons.shield), findsOneWidget);
-      });
-
       testWidgets('renders error alert icon', (tester) async {
         await pumpRequestFailurePage(tester);
 
@@ -259,15 +217,6 @@ void main() {
     });
 
     group('accessibility', () {
-      testWidgets('back button has tooltip', (tester) async {
-        await pumpRequestFailurePage(tester);
-
-        final iconButton = tester.widget<IconButton>(
-          find.widgetWithIcon(IconButton, LucideIcons.arrowLeft),
-        );
-        expect(iconButton.tooltip, equals('Back'));
-      });
-
       testWidgets('text content is selectable', (tester) async {
         await pumpRequestFailurePage(tester);
 

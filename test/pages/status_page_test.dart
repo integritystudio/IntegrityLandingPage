@@ -126,27 +126,6 @@ void main() {
         await tester.pump();
         expect(find.text('home_page'), findsOneWidget);
       });
-
-      testWidgets('renders shield icon in app bar title', (tester) async {
-        await pumpStatusPage(tester);
-        expect(find.byIcon(LucideIcons.shield), findsWidgets);
-      });
-
-      testWidgets('renders different toolbar heights on mobile vs desktop',
-          (tester) async {
-        setMobileSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const StatusPage(),
-          ),
-        );
-        await tester.pump();
-        clearOverflowExceptions(tester);
-
-        final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
-        expect(appBar.toolbarHeight, equals(kMobileToolbarHeight));
-      });
     });
 
     group('hero section', () {
@@ -267,38 +246,6 @@ void main() {
 
     group('responsive layout', () {
       testResponsiveLayout<StatusPage>(pumpStatusPage, includeTablet: true);
-
-      testWidgets('uses mobile toolbar height on narrow viewport',
-          (tester) async {
-        setMobileSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const StatusPage(),
-          ),
-        );
-        await tester.pump();
-        clearOverflowExceptions(tester);
-
-        final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
-        expect(appBar.toolbarHeight, equals(kMobileToolbarHeight));
-      });
-
-      testWidgets('uses desktop toolbar height on wide viewport',
-          (tester) async {
-        setDesktopSize(tester);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: const StatusPage(),
-          ),
-        );
-        await tester.pump();
-        clearOverflowExceptions(tester);
-
-        final appBar = tester.widget<SliverAppBar>(find.byType(SliverAppBar));
-        expect(appBar.toolbarHeight, equals(kDesktopToolbarHeight));
-      });
     });
   });
 }

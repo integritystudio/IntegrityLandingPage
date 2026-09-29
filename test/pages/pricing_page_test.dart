@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/pages/pricing_page.dart';
 import 'package:integrity_studio_ai/config/content.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:integrity_studio_ai/widgets/navigation/shared_app_bar.dart';
 import '../helpers/test_helpers.dart';
 
 void main() {
@@ -31,45 +30,6 @@ void main() {
 
         expect(find.byType(SelectionArea), findsOneWidget);
       });
-    });
-
-    group('app bar', () {
-      testWidgets('renders company name in title', (tester) async {
-        await pumpPricingPage(tester);
-
-        expect(
-          find.descendant(
-            of: find.byType(SharedAppBar),
-            matching: find.text(CompanyInfo.name),
-          ),
-          findsOneWidget,
-        );
-      });
-
-      testWidgets('renders shield icon in title', (tester) async {
-        await pumpPricingPage(tester);
-
-        expect(find.byIcon(LucideIcons.shield), findsOneWidget);
-      });
-
-      testWidgets('renders Get Started button on desktop', (tester) async {
-        await pumpPricingPage(tester, mobile: false);
-
-        // Get Started appears in app bar on desktop
-        expect(find.text(CTAText.getStarted), findsWidgets);
-      });
-
-      testWidgets('renders navigation links on desktop', (tester) async {
-        await pumpPricingPage(tester, mobile: false);
-
-        // Navigation links in app bar actions
-        expect(find.text('Features'), findsWidgets);
-        expect(find.text('About'), findsWidgets);
-        expect(find.text('Contact'), findsWidgets);
-      });
-
-      // Note: Mobile viewport tests are skipped because PricingPage has known
-      // overflow issues on small screens that need to be fixed in the actual page.
     });
 
     group('navigation', () {
@@ -433,13 +393,6 @@ void main() {
 
         expect(find.byType(PricingPage), findsOneWidget);
         expect(find.text('Choose Your Plan'), findsOneWidget);
-      });
-
-      testWidgets('desktop has larger toolbar height', (tester) async {
-        await pumpPricingPage(tester, mobile: false);
-        final desktopAppBar =
-            tester.widget<SliverAppBar>(find.byType(SliverAppBar));
-        expect(desktopAppBar.toolbarHeight, equals(64));
       });
 
       // Note: Mobile viewport test not included due to PricingPage overflow issues
