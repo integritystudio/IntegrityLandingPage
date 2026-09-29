@@ -6,6 +6,7 @@ import '../theme/theme.dart';
 import '../config/content/constants.dart';
 import '../controllers/landing_controller.dart';
 import '../services/analytics.dart';
+import '../services/content_loader.dart';
 import '../widgets/modals/demo_modal.dart';
 import '../widgets/sections/hero_section.dart';
 import '../widgets/sections/tabbed_features_section.dart';
@@ -55,11 +56,11 @@ class _LandingPageState extends State<LandingPage> {
     'features-explorer',
     'social-proof',
     'features',
-    'services',
-    'about',
+    SectionIds.services,
+    SectionIds.about,
     'team',
-    'resources',
-    'contact',
+    SectionIds.resources,
+    SectionIds.contact,
     'status',
     'pricing',
     'cta',
@@ -133,13 +134,13 @@ class _LandingPageState extends State<LandingPage> {
             ),
             // Services section (platform capabilities)
             _buildSection(
-              key: _controller.getSectionKey('services'),
+              key: _controller.getSectionKey(SectionIds.services),
               label: 'Services section',
               child: const ServicesSection(),
             ),
             // About section (company story, values, team)
             _buildSection(
-              key: _controller.getSectionKey('about'),
+              key: _controller.getSectionKey(SectionIds.about),
               label: 'About section',
               child: AboutSection(
                 teamKey: _controller.getSectionKey('team'),
@@ -147,7 +148,7 @@ class _LandingPageState extends State<LandingPage> {
             ),
             // Resources section (docs, blog, lead magnets)
             _buildSection(
-              key: _controller.getSectionKey('resources'),
+              key: _controller.getSectionKey(SectionIds.resources),
               label: 'Resources section',
               child: const ResourcesSection(),
             ),
@@ -160,7 +161,7 @@ class _LandingPageState extends State<LandingPage> {
             ),
             // Contact section (form, contact methods)
             _buildSection(
-              key: _controller.getSectionKey('contact'),
+              key: _controller.getSectionKey(SectionIds.contact),
               label: 'Contact section',
               child: const ContactSection(),
             ),
@@ -251,11 +252,11 @@ class _LandingPageState extends State<LandingPage> {
                 onSelected: _handleNavItemSelected,
                 itemBuilder: (context) => [
                   _buildPopupMenuItem('Features', 'features'),
-                  _buildPopupMenuItem('About', 'about'),
+                  _buildPopupMenuItem('About', SectionIds.about),
                   _buildPopupMenuItem('Team', 'team'),
-                  _buildPopupMenuItem('Blog', 'resources'),
+                  _buildPopupMenuItem('Blog', SectionIds.resources),
                   _buildPopupMenuItem('Pricing', 'pricing'),
-                  _buildPopupMenuItem('Contact', 'contact'),
+                  _buildPopupMenuItem('Contact', SectionIds.contact),
                   _buildPopupMenuItem('Docs', Routes.docs),
                   _buildPopupMenuItem(CTAText.logIn, ExternalUrls.dashboardApp),
                 ],
@@ -277,7 +278,7 @@ class _LandingPageState extends State<LandingPage> {
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                onTap: () => _controller.scrollToSection('about'),
+                onTap: () => _controller.scrollToSection(SectionIds.about),
               ),
               HoverTextLink(
                 text: 'Team',
@@ -293,7 +294,7 @@ class _LandingPageState extends State<LandingPage> {
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                onTap: () => _controller.scrollToSection('resources'),
+                onTap: () => _controller.scrollToSection(SectionIds.resources),
               ),
               HoverTextLink(
                 text: 'Pricing',
@@ -309,7 +310,7 @@ class _LandingPageState extends State<LandingPage> {
                 hoverColor: AppColors.blue400,
                 style: AppTypography.bodySM.copyWith(fontWeight: FontWeight.w500),
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                onTap: () => _controller.scrollToSection('contact'),
+                onTap: () => _controller.scrollToSection(SectionIds.contact),
               ),
               HoverTextLink(
                 text: 'Docs',
@@ -339,7 +340,7 @@ class _LandingPageState extends State<LandingPage> {
                     ),
                   ),
                   child: Text(
-                    'Get Started',
+                    ContentLoader.ctaGetStarted,
                     style: AppTypography.bodySM.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
@@ -435,14 +436,14 @@ class _LandingPageState extends State<LandingPage> {
     DemoModal.show(
       context,
       onScheduleDemo: () {
-        if (mounted) context.go('/demo');
+        if (mounted) context.go(Routes.demo);
       },
     );
   }
 
   void _handleSelectTier(String tier) {
     // PricingSection already tracks analytics; just navigate
-    if (mounted) context.go('/signup?tier=$tier');
+    if (mounted) context.go('${Routes.signup}?tier=$tier');
   }
 }
 
