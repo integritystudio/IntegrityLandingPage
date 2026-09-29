@@ -827,7 +827,7 @@ footer:
           url: "/features"
         - label: "Pricing"
           url: "#pricing"
-        - label: "Documentation"
+        - label: "Docs"
           url: "/docs"
 
     - title: "Company"
