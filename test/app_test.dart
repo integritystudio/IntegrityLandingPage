@@ -2,28 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'helpers/test_helpers.dart';
 import 'package:integrity_studio_ai/app.dart';
 import 'package:integrity_studio_ai/pages/landing_page.dart';
-import 'package:integrity_studio_ai/pages/blog_page.dart';
-import 'package:integrity_studio_ai/pages/comparison_page.dart';
-import 'package:integrity_studio_ai/pages/sources_page.dart';
-import 'package:integrity_studio_ai/pages/about_page.dart';
-import 'package:integrity_studio_ai/pages/signup_page.dart';
-import 'package:integrity_studio_ai/pages/legal_page.dart';
-import 'package:integrity_studio_ai/pages/docs_index_page.dart';
-import 'package:integrity_studio_ai/pages/docs_tracing_page.dart';
-import 'package:integrity_studio_ai/pages/pricing_page.dart';
-import 'package:integrity_studio_ai/pages/careers_page.dart';
-import 'package:integrity_studio_ai/pages/security_page.dart';
-import 'package:integrity_studio_ai/pages/docs_observability_page.dart';
-import 'package:integrity_studio_ai/pages/docs_interoperability_page.dart';
-import 'package:integrity_studio_ai/pages/docs_api_page.dart';
-import 'package:integrity_studio_ai/pages/docs_quickstart_page.dart';
-import 'package:integrity_studio_ai/pages/docs_alerts_page.dart';
-import 'package:integrity_studio_ai/pages/docs_agents_page.dart';
-import 'package:integrity_studio_ai/pages/help_center_page.dart';
-import 'package:integrity_studio_ai/pages/auth_page.dart';
 import 'package:integrity_studio_ai/routing/cookie_shell.dart';
 import 'package:integrity_studio_ai/routing/app_router.dart';
 import 'package:integrity_studio_ai/theme/theme.dart';
@@ -35,25 +15,6 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-  }
-
-  /// Helper to build a test app using the real production router.
-  Widget buildTestApp({String initialLocation = '/'}) {
-    final router = createAppRouter(
-      onConsentGiven: () {},
-      onShowCookieSettings: () {},
-    );
-    router.go(initialLocation);
-
-    return MediaQuery(
-      data: const MediaQueryData(disableAnimations: true),
-      child: MaterialApp.router(
-        title: 'Integrity Studio - Enterprise AI Observability',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
-        routerConfig: router,
-      ),
-    );
   }
 
   group('IntegrityStudioApp', () {
@@ -78,132 +39,18 @@ void main() {
       });
     });
 
+    // Route -> page mapping lives in test/routing/app_router_test.dart, which
+    // builds its own MaterialApp.router. This is the one routing assertion that
+    // needs the real App: it proves IntegrityStudioApp mounts createAppRouter's
+    // router, so '/' renders LandingPage.
     group('routing', () {
       testWidgets('initial route shows landing page', (tester) async {
         setDesktopSize(tester);
 
-        await tester.pumpWidget(buildTestApp());
+        await tester.pumpWidget(const IntegrityStudioApp());
         await tester.pump(const Duration(milliseconds: 100));
 
         expect(find.byType(LandingPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to blog page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/blog'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(BlogPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to whylabs alternative page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/whylabs-alternative'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(ComparisonPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to arize alternative page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/compare/arize-ai-alternative'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(ComparisonPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to sources page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/sources'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(SourcesPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to about page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/about'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(AboutPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to signup page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/signup'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(SignupPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to signup page with tier parameter', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/signup?tier=growth'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(SignupPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to privacy page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/privacy'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(LegalPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to terms page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/terms'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(LegalPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to cookies page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/cookies'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(LegalPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to accessibility page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/accessibility'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(LegalPage), findsOneWidget);
-      });
-
-      testWidgets('unknown routes show landing page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/nonexistent-page'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(LandingPage), findsOneWidget);
-      });
-
-      // Redirect tests
-      testWidgets('redirects /docs/security/audit-trails to /docs/tracing', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/docs/security/audit-trails'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(DocsTracingPage), findsOneWidget);
       });
     });
 
@@ -362,141 +209,6 @@ void main() {
 
       expect(find.byType(CookieBannerShell), findsOneWidget);
       expect(cookieBannerNotifier.value, isFalse);
-    });
-
-    group('all routes', () {
-      testWidgets('navigates to pricing page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/pricing'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(PricingPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to careers page', (tester) async {
-        // Use larger size to avoid layout overflow in CareersPage
-        tester.view.physicalSize = const Size(2560, 1440);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-
-        // Suppress layout overflow errors for this test (pre-existing UI issue)
-        final errors = <FlutterErrorDetails>[];
-        final oldHandler = FlutterError.onError;
-        FlutterError.onError = (details) {
-          if (details.toString().contains('overflowed')) {
-            errors.add(details);
-          } else {
-            oldHandler?.call(details);
-          }
-        };
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/careers'));
-        await tester.pumpAndSettleWithTimeout();
-
-        FlutterError.onError = oldHandler;
-
-        expect(find.byType(CareersPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to security page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/security'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(SecurityPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to docs llm-observability page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester
-            .pumpWidget(buildTestApp(initialLocation: '/docs/llm-observability'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(DocsObservabilityPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to docs integrations page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester
-            .pumpWidget(buildTestApp(initialLocation: '/docs/integrations'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(DocsInteroperabilityPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to api page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/api'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(DocsApiPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to docs quickstart page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester
-            .pumpWidget(buildTestApp(initialLocation: '/docs/quickstart'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(DocsQuickstartPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to docs alerts page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/docs/alerts'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(DocsAlertsPage), findsOneWidget);
-      });
-    });
-
-    group('redirects', () {
-      testWidgets('navigates to docs agents page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/docs/agents'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(DocsAgentsPage), findsOneWidget);
-      });
-
-      testWidgets('navigates to help center page', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/support'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(HelpCenterPage), findsOneWidget);
-      });
-
-      testWidgets('redirects /reports/any-path to /docs', (tester) async {
-        setDesktopSize(tester);
-
-        await tester
-            .pumpWidget(buildTestApp(initialLocation: '/reports/any-report'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(DocsIndexPage), findsOneWidget);
-      });
-
-      // /app is the customer-facing vanity URL for signing in; AuthPage is
-      // mounted once, at /login, so /app must redirect rather than duplicate.
-      testWidgets('redirects /app to /login', (tester) async {
-        setDesktopSize(tester);
-
-        await tester.pumpWidget(buildTestApp(initialLocation: '/app'));
-        await tester.pumpAndSettleWithTimeout();
-
-        expect(find.byType(AuthPage), findsOneWidget);
-      });
     });
   });
 
