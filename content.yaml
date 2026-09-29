@@ -526,8 +526,17 @@ social_proof:
     uptime: *uptime
     setup_time: *setup_time
 
-  # Placeholder logos (to be replaced with real customers)
-  # TODO: Uncomment when customer logos are approved for use
+  # Generic placeholder logos (to be replaced with real customers)
+  logos:
+    - name: "Enterprise Client"
+      industry: "Finance"
+    - name: "Tech Startup"
+      industry: "SaaS"
+    - name: "Healthcare Co"
+      industry: "Healthcare"
+
+  # TODO: Replace the placeholder logos above with these when customer logos
+  # are approved for use
   # logos:
   #   - name: "Granica.ai"
   #     industry: "Cutting Edge Data Services"
