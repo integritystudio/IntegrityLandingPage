@@ -6,9 +6,17 @@ import '../helpers/mock_provisioning_dio.dart';
 /// Contract tests for ProvisioningService.
 ///
 /// Verify that Dart-side request/response shapes match TypeScript Zod schemas
-/// (sender-worker, receiver-worker) without making live HTTP calls.
+/// (sender-worker, receiver-worker) without making live HTTP calls. The success
+/// response is the production receiver's, observability-toolkit
+/// `services/api-provisioning-receiver/src/types.ts` `ProvisionApiKeyResponse`:
+/// the local `workers/receiver-worker` stub is a test double, and pinning the app
+/// to the stub's old `apiKey` field is how every real provision read as an error.
 ///
 /// Uses the same MockProvisioningDio seam as unit tests for zero network overhead.
+/// The production receiver's key namespace and format (`obtk_` + 64 hex; its schemas.ts).
+const _tokenNamespace = 'obtk_';
+final _productionToken = '$_tokenNamespace${'0123456789abcdef' * 4}';
+
 void main() {
   late MockProvisioningDio mockDio;
 
@@ -26,7 +34,7 @@ void main() {
   group('SendRequestSchema contract', () {
     /// Links to: workers/sender-worker/src/types.ts:82–92
     test('sends action, name, email, tier without extras when orgName is null', () async {
-      mockDio.mockPostResponse({'ok': true, 'apiKey': 'sk-test123', 'received': {}});
+      mockDio.mockPostResponse({'ok': true, 'token': 'sk-test123', 'received': {}});
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
 
       const event = ProvisioningEvent(
@@ -53,7 +61,7 @@ void main() {
     });
 
     test('sends org_name in snake_case when provided', () async {
-      mockDio.mockPostResponse({'ok': true, 'apiKey': 'sk-test123', 'received': {}});
+      mockDio.mockPostResponse({'ok': true, 'token': 'sk-test123', 'received': {}});
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
 
       const event = ProvisioningEvent(
@@ -81,7 +89,7 @@ void main() {
     });
 
     test('action is always provision_api_key', () async {
-      mockDio.mockPostResponse({'ok': true, 'apiKey': 'sk-test123', 'received': {}});
+      mockDio.mockPostResponse({'ok': true, 'token': 'sk-test123', 'received': {}});
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
 
       const event = ProvisioningEvent(
@@ -100,7 +108,7 @@ void main() {
     });
 
     test('tier accepts all three valid values: starter, growth, enterprise', () async {
-      mockDio.mockPostResponse({'ok': true, 'apiKey': 'sk-test123', 'received': {}});
+      mockDio.mockPostResponse({'ok': true, 'token': 'sk-test123', 'received': {}});
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
 
@@ -123,7 +131,7 @@ void main() {
     });
 
     test('JWT is sent in x-session-data header as base64', () async {
-      mockDio.mockPostResponse({'ok': true, 'apiKey': 'sk-test123', 'received': {}});
+      mockDio.mockPostResponse({'ok': true, 'token': 'sk-test123', 'received': {}});
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
 
       const event = ProvisioningEvent(
@@ -145,7 +153,7 @@ void main() {
 
     test('Content-Type is application/json', () async {
       // This is implicitly verified by JSON serialization, but we verify here
-      mockDio.mockPostResponse({'ok': true, 'apiKey': 'sk-test123', 'received': {}});
+      mockDio.mockPostResponse({'ok': true, 'token': 'sk-test123', 'received': {}});
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
 
       const event = ProvisioningEvent(
@@ -166,12 +174,15 @@ void main() {
   });
 
   group('Receiver response contract', () {
-    /// Links to: workers/receiver-worker/src/index.ts:52
-    test('{ ok: true, apiKey, received } returns ProvisioningSuccess', () async {
+    /// Links to: observability-toolkit services/api-provisioning-receiver/src/types.ts
+    /// (`ProvisionApiKeyResponse`: `{ ok: true, token, keyId, prefix, tier }`).
+    test('{ ok: true, token, keyId, prefix, tier } returns ProvisioningSuccess', () async {
       mockDio.mockPostResponse({
         'ok': true,
-        'apiKey': 'sk-0123456789abcdef0123456789abcdef',
-        'received': <String, dynamic>{},
+        'token': _productionToken,
+        'keyId': '00000000-0000-4000-8000-000000000001',
+        'prefix': _productionToken.substring(_tokenNamespace.length, _tokenNamespace.length + 8),
+        'tier': 'starter',
       });
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
@@ -187,13 +198,14 @@ void main() {
 
       // Assert
       expect(result, isA<ProvisioningSuccess>());
-      expect((result as ProvisioningSuccess).apiKey, 'sk-0123456789abcdef0123456789abcdef');
+      expect((result as ProvisioningSuccess).apiKey, _productionToken);
     });
 
-    test('missing apiKey returns ProvisioningError', () async {
-      // This guards against regression if receiver-worker reverts to old shape
+    // The stub's old shape: a key under `apiKey` and no `token` is not a success.
+    test('a response with apiKey but no token returns ProvisioningError', () async {
       mockDio.mockPostResponse({
         'ok': true,
+        'apiKey': _productionToken,
         'received': <String, dynamic>{},
       });
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
@@ -212,10 +224,10 @@ void main() {
       expect(result, isA<ProvisioningError>());
     });
 
-    test('empty apiKey returns ProvisioningError', () async {
+    test('empty token returns ProvisioningError', () async {
       mockDio.mockPostResponse({
         'ok': true,
-        'apiKey': '',
+        'token': '',
         'received': {'action': 'provision_api_key'},
       });
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
@@ -234,12 +246,8 @@ void main() {
       expect(result, isA<ProvisioningError>());
     });
 
-    test('apiKey follows sk-<hex> pattern', () async {
-      mockDio.mockPostResponse({
-        'ok': true,
-        'apiKey': 'sk-abcdef0123456789abcdef0123456789',
-        'received': <String, dynamic>{},
-      });
+    test('passes the obtk_ token through unchanged', () async {
+      mockDio.mockPostResponse({'ok': true, 'token': _productionToken, 'tier': 'starter'});
       mockDio.mockGetResponse({'ok': true, 'service': 'receiver-worker'});
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
 
@@ -254,8 +262,7 @@ void main() {
 
       // Assert
       expect(result, isA<ProvisioningSuccess>());
-      final apiKey = (result as ProvisioningSuccess).apiKey;
-      expect(apiKey, startsWith('sk-'));
+      expect((result as ProvisioningSuccess).apiKey, _productionToken);
     });
   });
 

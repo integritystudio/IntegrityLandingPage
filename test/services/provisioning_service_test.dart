@@ -85,7 +85,7 @@ void main() {
         () async {
       mockDio.mockPostResponse({
         'ok': true,
-        'apiKey': 'sk-test-key-123',
+        'token': 'sk-test-key-123',
         'received': <String, dynamic>{},
       });
 
@@ -108,7 +108,7 @@ void main() {
         {'error': 'Server error'},
         {
           'ok': true,
-          'apiKey': 'sk-recovered',
+          'token': 'sk-recovered',
           'received': <String, dynamic>{},
         },
       ], statusCode: 500, successStatusCode: 200);
@@ -151,7 +151,7 @@ void main() {
         {'error': 'Gateway timeout'},
         {
           'ok': true,
-          'apiKey': 'sk-recovered',
+          'token': 'sk-recovered',
           'received': <String, dynamic>{},
         },
       ], statusCode: 504, successStatusCode: 200);
@@ -172,7 +172,7 @@ void main() {
       mockDio.mockPostError(DioExceptionType.connectionTimeout, attemptNumber: 0);
       mockDio.mockPostResponse({
         'ok': true,
-        'apiKey': 'sk-key',
+        'token': 'sk-key',
         'received': <String, dynamic>{},
       });
 
@@ -192,7 +192,7 @@ void main() {
       mockDio.mockPostError(DioExceptionType.receiveTimeout, attemptNumber: 0);
       mockDio.mockPostResponse({
         'ok': true,
-        'apiKey': 'sk-key',
+        'token': 'sk-key',
         'received': <String, dynamic>{},
       });
 
@@ -212,7 +212,7 @@ void main() {
       mockDio.mockPostError(DioExceptionType.connectionError, attemptNumber: 0);
       mockDio.mockPostResponse({
         'ok': true,
-        'apiKey': 'sk-key',
+        'token': 'sk-key',
         'received': <String, dynamic>{},
       });
 
@@ -301,7 +301,7 @@ void main() {
     test('sends body matching SendRequestSchema to /send endpoint', () async {
       mockDio.mockPostResponse({
         'ok': true,
-        'apiKey': 'sk-contract-test',
+        'token': 'sk-contract-test',
         'received': <String, dynamic>{},
       });
 
@@ -330,7 +330,7 @@ void main() {
     test('sends body without org_name when not provided', () async {
       mockDio.mockPostResponse({
         'ok': true,
-        'apiKey': 'sk-no-org',
+        'token': 'sk-no-org',
         'received': <String, dynamic>{},
       });
 
@@ -680,7 +680,7 @@ void main() {
       // Attempt 0: connection error (triggers retry), attempt 1: success
       mockDio.mockPostError(DioExceptionType.connectionTimeout, attemptNumber: 0);
       mockDio.mockPostResponse(
-        {'ok': true, 'apiKey': 'sk-retry-key', 'received': <String, dynamic>{}},
+        {'ok': true, 'token': 'sk-retry-key', 'received': <String, dynamic>{}},
         attemptNumber: 1,
       );
 

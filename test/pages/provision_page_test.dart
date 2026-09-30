@@ -103,7 +103,7 @@ void main() {
   void stubProvisionSuccess({String apiKey = 'isk_test_key_123'}) {
     adapter.stubJson(
       'POST',
-      {'ok': true, 'apiKey': apiKey, 'received': 'ack'},
+      {'ok': true, 'token': apiKey, 'received': 'ack'},
       path: '/send',
     );
   }
@@ -212,7 +212,7 @@ void main() {
       // Gate the response so the request is observably in flight, then release
       // it — stubNever would leave dio's timeout Timer pending at teardown.
       final gate = adapter.stubDelayedJson(
-          'POST', {'ok': true, 'apiKey': 'isk_gated', 'received': 'ack'});
+          'POST', {'ok': true, 'token': 'isk_gated', 'received': 'ack'});
       await pumpProvisionPage(tester);
 
       await tester.tap(find.byType(GradientButton));

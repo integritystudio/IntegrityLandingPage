@@ -21,10 +21,14 @@ export interface HealthResponse {
   service: string;
 }
 
+/** The production receiver's `ProvisionApiKeyResponse` (observability-toolkit), so a
+ *  client built against this stub reads the field production sends. */
 export interface InboxSuccessResponse {
   ok: boolean;
-  apiKey: string;
-  received: Record<string, unknown>;
+  token: string;
+  keyId: string;
+  prefix: string;
+  tier: string;
 }
 
 export interface SignInStubResponse {
@@ -37,6 +41,14 @@ export interface SignInStubResponse {
 export interface ErrorResponse {
   error: string;
 }
+
+/** Production's key format (observability-toolkit receiver): `obtk_` + 32 random bytes as hex. */
+const TOKEN_NAMESPACE = 'obtk_';
+const TOKEN_SECRET_BYTES = 32;
+/** The stored prefix is the secret's first 8 hex characters, not the namespace. */
+const TOKEN_PREFIX_LENGTH = 8;
+/** First provisions are always starter (CR37). */
+const STUB_TIER = 'starter';
 
 const ACTIONS = {
   PROVISION_API_KEY: 'provision_api_key',
@@ -124,8 +136,17 @@ async function handleInbox(request: Request, env: Env): Promise<Response> {
     });
   }
 
-  const apiKey = `sk-${crypto.randomUUID().replace(/-/g, '')}`;
-  return json({ ok: true, apiKey, received: payload });
+  const tokenHex = [...crypto.getRandomValues(new Uint8Array(TOKEN_SECRET_BYTES))]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  const response: InboxSuccessResponse = {
+    ok: true,
+    token: `${TOKEN_NAMESPACE}${tokenHex}`,
+    keyId: crypto.randomUUID(),
+    prefix: tokenHex.slice(0, TOKEN_PREFIX_LENGTH),
+    tier: STUB_TIER,
+  };
+  return json(response);
 }
 
 export default {

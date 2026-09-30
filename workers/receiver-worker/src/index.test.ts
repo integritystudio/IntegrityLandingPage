@@ -97,28 +97,31 @@ describe('Receiver Worker', () => {
   });
 
   describe('POST /inbox — valid requests', () => {
-    it('returns 200 with ok and parsed body when signature is valid', async () => {
+    it('returns 200 with the production provision shape when the signature is valid', async () => {
       const body = JSON.stringify({ action: 'provision_api_key', event: 'test', value: 42 });
       const response = await worker.fetch(await signedInboxRequest(body), testEnv);
 
       expect(response.status).toBe(200);
       const data = await response.json() as InboxSuccessResponse;
+      // The production receiver's ProvisionApiKeyResponse, which the Flutter app reads.
       expect(data.ok).toBe(true);
-      expect(data.apiKey).toMatch(/^sk-[a-f0-9]{32}$/);
-      expect(data.received).toEqual({ action: 'provision_api_key', event: 'test', value: 42 });
+      expect(data.token).toMatch(/^obtk_[0-9a-f]{64}$/);
+      expect(data.prefix).toBe(data.token.slice('obtk_'.length, 'obtk_'.length + 8));
+      expect(data.keyId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(data.tier).toBe('starter');
     });
 
-    it('returns unique apiKey on each call', async () => {
+    it('returns a unique token on each call', async () => {
       async function callInbox(): Promise<string> {
         const body = JSON.stringify({ action: 'provision_api_key', event: 'uniqueness-check' });
         const response = await worker.fetch(await signedInboxRequest(body), testEnv);
         const data = await response.json() as InboxSuccessResponse;
-        return data.apiKey;
+        return data.token;
       }
 
       const [key1, key2] = await Promise.all([callInbox(), callInbox()]);
-      expect(key1).toMatch(/^sk-[a-f0-9]{32}$/);
-      expect(key2).toMatch(/^sk-[a-f0-9]{32}$/);
+      expect(key1).toMatch(/^obtk_[0-9a-f]{64}$/);
+      expect(key2).toMatch(/^obtk_[0-9a-f]{64}$/);
       expect(key1).not.toBe(key2);
     });
 

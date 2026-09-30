@@ -218,7 +218,10 @@ class ProvisioningService {
 
         if (response.statusCode == HttpStatus.ok.code &&
             data['ok'] == true) {
-          final apiKey = data['apiKey'] as String?;
+          // The production receiver (observability-toolkit api-provisioning-receiver,
+          // `ProvisionApiKeyResponse`) sends the key as `token`, beside keyId, prefix
+          // and tier. `apiKey` was only ever the local stub's field.
+          final apiKey = data['token'] as String?;
           // Treat missing or empty apiKey as a data integrity error
           if (apiKey == null || apiKey.isEmpty) {
             return const ProvisioningError(error: _errorUnexpected);
