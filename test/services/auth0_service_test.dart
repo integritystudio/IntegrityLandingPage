@@ -118,6 +118,8 @@ void main() {
       expect(params['code_challenge_method'], 'S256');
       expect(params['login_hint'], 'a@b.co');
       expect(params, isNot(contains('screen_hint')));
+      // A returning user with a live Auth0 session is signed in without a prompt.
+      expect(params, isNot(contains('prompt')));
 
       // The challenge sent is the hash of the verifier kept for the callback.
       final verifier = browser.stores[BrowserStore.session]!['auth0_code_verifier']!;
@@ -130,6 +132,16 @@ void main() {
 
       expect(browser.lastNavigation!.queryParameters['screen_hint'], 'signup');
       expect(browser.stores[BrowserStore.session]!['auth0_signup_intent'], isNotNull);
+    });
+
+    // An existing Auth0 session would otherwise answer silently, signing in whoever the
+    // browser is already logged in as instead of showing the sign-up screen.
+    test('signup forces the prompt past an existing Auth0 session', () {
+      Auth0Service.login(signup: const SignupIntent(tier: 'starter'), loginHint: 'new@b.co');
+
+      final params = browser.lastNavigation!.queryParameters;
+      expect(params['prompt'], 'login');
+      expect(params['login_hint'], 'new@b.co');
     });
 
     test('a plain login drops a signup intent left by an abandoned signup', () {

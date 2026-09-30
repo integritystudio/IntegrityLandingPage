@@ -338,6 +338,10 @@ abstract final class Auth0Service {
         'state': state,
         'code_challenge': codeChallenge,
         'code_challenge_method': 'S256',
+        // Without prompt=login an existing Auth0 session answers /authorize silently:
+        // screen_hint and login_hint are ignored and the browser's current account is
+        // signed in instead of a new one being created. A plain login keeps SSO.
+        if (signup) 'prompt': 'login',
         if (signup) 'screen_hint': 'signup',
         if (loginHint != null && loginHint.isNotEmpty) 'login_hint': loginHint,
       });
