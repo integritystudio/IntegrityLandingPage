@@ -76,8 +76,9 @@ void main() {
     String email = 'user@example.com',
     SignupIntent? signup,
     VoidCallback? onBack,
+    Size screenSize = TestScreenSizes.desktop,
   }) async {
-    setDesktopSize(tester);
+    setScreenSize(tester, screenSize);
     checkoutArgs = null;
     final args = ProvisionArgs(session: sessionFor(email), signup: signup);
     await tester.pumpWidget(MaterialApp.router(
@@ -229,6 +230,24 @@ void main() {
   });
 
   group('provisioning success', () {
+    // Overflow errors are suppressed in this file, so a clipped page would pass every
+    // other test; this one needs the button reachable in a window shorter than the page.
+    testWidgets('scrolls to Go to Dashboard when the page is taller than the window',
+        (tester) async {
+      stubProvisionSuccess();
+      stubBootstrapSuccess();
+      await pumpProvisionPage(tester, screenSize: const Size(375, 400));
+      final page = find.byType(Scrollable).first;
+
+      // Generate is already below the fold in a window this short.
+      await tester.scrollUntilVisible(find.widgetWithText(GradientButton, 'Generate API Key'), 100, scrollable: page);
+      await generateKey(tester);
+      final dashboard = find.widgetWithText(GradientButton, 'Go to Dashboard');
+      await tester.scrollUntilVisible(dashboard, 100, scrollable: page);
+
+      expect(dashboard.hitTestable(), findsOneWidget);
+    });
+
     testWidgets('shows the API key and swaps Generate for Go to Dashboard',
         (tester) async {
       stubProvisionSuccess(apiKey: 'isk_live_abc');

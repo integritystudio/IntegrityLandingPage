@@ -210,92 +210,96 @@ class _ProvisionPageState extends State<ProvisionPage> {
             : null,
       ),
       body: GradientBackground(
+        // Centred while it fits; scrolls once the key and org card make it taller
+        // than the window.
         child: Center(
-          child: ResponsiveContainer(
-            maxWidth: 500,
-            additionalPadding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title
-                Text(
-                  'Provision API Key',
-                  style: AppTypography.headingLG.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-
-                // Subtitle
-                Text(
-                  'Get your API key to start using Integrity',
-                  style: AppTypography.bodyMD.copyWith(
-                    color: AppColors.gray300,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-
-                // Email badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm,
-                  ),
-                  decoration: AppDecorations.card(borderColor: AppColors.gray700),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.check_circle,
-                        color: AppColors.success,
-                        size: 16,
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Text(
-                        SecurityUtils.sanitizeUserInput(widget.args.session.email),
-                        style: AppTypography.bodySM.copyWith(
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-
-                // Error message
-                if (_errorMessage != null)
-                  Alert.error(message: _errorMessage!),
-
-                // API Key display
-                if (_apiKey != null) ...[
-                  CopyableCodeField(
-                    label: 'Your API Key',
-                    code: _apiKey!,
-                  ),
-                  if (_bootstrapResult != null) ...[
-                    const SizedBox(height: AppSpacing.md),
-                    _buildOrgContextCard(_bootstrapResult!),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
-                  if (signup != null && signup.isPaidTier)
-                    GradientButton(
-                      onPressed: () => _goToCheckout(signup),
-                      text: 'Continue to Checkout',
-                    )
-                  else
-                    GradientButton(
-                      onPressed: _goToDashboard,
-                      text: 'Go to Dashboard',
+          child: SingleChildScrollView(
+            child: ResponsiveContainer(
+              maxWidth: 500,
+              additionalPadding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    'Provision API Key',
+                    style: AppTypography.headingLG.copyWith(
+                      color: AppColors.textPrimary,
                     ),
-                ] else ...[
-                  // Provision button
-                  GradientButton(
-                    onPressed: _isLoading ? null : _provisionApiKey,
-                    isLoading: _isLoading,
-                    text: 'Generate API Key',
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+
+                  // Subtitle
+                  Text(
+                    'Get your API key to start using Integrity',
+                    style: AppTypography.bodyMD.copyWith(
+                      color: AppColors.gray300,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // Email badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    decoration: AppDecorations.card(borderColor: AppColors.gray700),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          color: AppColors.success,
+                          size: 16,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          SecurityUtils.sanitizeUserInput(widget.args.session.email),
+                          style: AppTypography.bodySM.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // Error message
+                  if (_errorMessage != null)
+                    Alert.error(message: _errorMessage!),
+
+                  // API Key display
+                  if (_apiKey != null) ...[
+                    CopyableCodeField(
+                      label: 'Your API Key',
+                      code: _apiKey!,
+                    ),
+                    if (_bootstrapResult != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      _buildOrgContextCard(_bootstrapResult!),
+                    ],
+                    const SizedBox(height: AppSpacing.lg),
+                    if (signup != null && signup.isPaidTier)
+                      GradientButton(
+                        onPressed: () => _goToCheckout(signup),
+                        text: 'Continue to Checkout',
+                      )
+                    else
+                      GradientButton(
+                        onPressed: _goToDashboard,
+                        text: 'Go to Dashboard',
+                      ),
+                  ] else ...[
+                    // Provision button
+                    GradientButton(
+                      onPressed: _isLoading ? null : _provisionApiKey,
+                      isLoading: _isLoading,
+                      text: 'Generate API Key',
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
