@@ -831,6 +831,42 @@ describe('TS23: all registered routes are dispatched (not 404)', () => {
     expect(await isRouterFallThrough(res)).toBe(true);
   });
 
+  // TS31: a sub-path no route serves is answered before the quota DO, so it spends nothing
+  // and the DO charges nothing the ledger will not record.
+  it.each([
+    ['GET',  `/v1/orgs/${ORG}/not-a-route`],
+    ['GET',  `/v1/orgs/${ORG}/usage/summary/`],
+    ['GET',  `/v1/orgs/${ORG}`],
+    ['POST', `/v1/orgs/${ORG}/usage/summary`],
+    ['GET',  `/v1/orgs/${ORG}/api-keys/key-abc123/revoke`],
+  ] as const)('%s %s gets the fall-through without reaching the quota DO', async (method, path) => {
+    const reserved: unknown[] = [];
+    const res = await worker.fetch(
+      makeRequest(method, path, { headers: authHeader() }),
+      makeEnv({ QUOTA_DO: admittingQuotaDo((body) => reserved.push(body)), RATE_LIMIT_KV: mapKv() }),
+    );
+
+    expect(await isRouterFallThrough(res)).toBe(true);
+    expect(reserved).toHaveLength(0);
+  });
+
+  // Control for the rows above: the revoke pattern is routed outside ORG_ROUTES, and a
+  // routed request does reach the DO.
+  it('POST .../api-keys/:id/revoke still reaches the quota DO', async () => {
+    const reserved: unknown[] = [];
+    await worker.fetch(
+      makeRequest('POST', `/v1/orgs/${ORG}/api-keys/key-abc123/revoke`, { headers: authHeader() }),
+      makeEnv({ QUOTA_DO: admittingQuotaDo((body) => reserved.push(body)), RATE_LIMIT_KV: mapKv() }),
+    );
+
+    expect(reserved).toHaveLength(1);
+  });
+
+  it('refuses an unauthenticated request to an unrouted sub-path with 401, not 404', async () => {
+    const res = await worker.fetch(makeRequest('GET', `/v1/orgs/${ORG}/not-a-route`), env());
+    expect(res.status).toBe(401);
+  });
+
   // Every fixed route in ORG_ROUTES (org-routes.ts) has a row, plus the revoke pattern.
   it.each([
     ['GET',  `/v1/orgs/${ORG}/dashboard`],

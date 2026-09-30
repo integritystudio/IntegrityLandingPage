@@ -7,10 +7,11 @@ describe('chargesMonthlyQuota', () => {
     ['GET', '/quota/status', false],
     // The method is part of the match: only the reads are exempt.
     ['POST', '/usage/summary', true],
-    // An exact match, not a prefix: a trailing slash is another (unrouted) path.
+    // An exact match, not a prefix: a trailing slash is another path, not an exempt read.
+    // (The router 404s an unrouted path before asking; index.test.ts pins that.)
     ['GET', '/usage/summary/', true],
     ['GET', '/dashboard', true],
-    // The bare org path routes nowhere, and is charged like any unrouted path.
+    // The bare org path is not an exempt read either.
     ['GET', '', true],
   ])('%s %j is charged: %s', (method, subPath, charged) => {
     expect(chargesMonthlyQuota(method, subPath)).toBe(charged);

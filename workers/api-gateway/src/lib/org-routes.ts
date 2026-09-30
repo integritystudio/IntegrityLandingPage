@@ -40,8 +40,9 @@ export function matchOrgRoute(method: string, subPath: string): OrgRouteName | u
 
 /**
  * Whether an org request is charged against the monthly quota, and so ledgered. Only
- * the routes marked `chargesMonthly: false` are exempt; an unrouted sub-path is charged,
- * as it was before this table existed.
+ * the routes marked `chargesMonthly: false` are exempt. The router answers a sub-path
+ * no route serves with 404 before asking (TS31), so the one unlisted path that reaches
+ * here is the revoke pattern, which is charged.
  */
 export function chargesMonthlyQuota(method: string, subPath: string): boolean {
   const name = matchOrgRoute(method, subPath);

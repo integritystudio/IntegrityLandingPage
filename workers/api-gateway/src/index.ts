@@ -75,6 +75,10 @@ export interface Env {
 }
 
 const APP_URL_FALLBACK = 'https://app.integritystudio.ai';
+/** The org sub-path matched by pattern rather than by the ORG_ROUTES table. */
+const REVOKE_API_KEY_PATH = /^\/api-keys\/([^/]+)\/revoke$/;
+/** The router's answer for a path no route serves. */
+const ROUTER_NOT_FOUND_MESSAGE = 'Not found';
 
 /** Every route here is GET or POST; OPTIONS is answered by the preflight branch in fetch(). */
 const CORS_ALLOW_METHODS = 'GET, POST, OPTIONS';
@@ -257,6 +261,15 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
       ));
     }
 
+    // TS31: a sub-path no route serves answers here, before the quota check, so a typo
+    // spends none of the month and the DO never charges a request the ledger will not
+    // record. The edge rate limit above still throttles probing.
+    const route = matchOrgRoute(request.method, subPath);
+    const revokeKeyId = request.method === 'POST' ? subPath.match(REVOKE_API_KEY_PATH)?.[1] : undefined;
+    if (route === undefined && revokeKeyId === undefined) {
+      return withSecurityHeaders(notFound(ROUTER_NOT_FOUND_MESSAGE));
+    }
+
     const quotaOpts = {
       doNamespace: env.QUOTA_DO,
       supabaseUrl: env.SUPABASE_URL,
@@ -297,7 +310,7 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
       return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
     };
 
-    switch (matchOrgRoute(request.method, subPath)) {
+    switch (route) {
       case 'dashboard':
         return withRateLimitHeaders(await handleOrgDashboard(request, orgId, routeOpts));
       case 'billingStatus':
@@ -328,9 +341,8 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
         break;
     }
 
-    const revokeMatch = subPath.match(/^\/api-keys\/([^/]+)\/revoke$/);
-    if (revokeMatch && request.method === 'POST') {
-      return withRateLimitHeaders(await handleRevokeApiKey(request, orgId, revokeMatch[1], machineRouteOpts));
+    if (revokeKeyId !== undefined) {
+      return withRateLimitHeaders(await handleRevokeApiKey(request, orgId, revokeKeyId, machineRouteOpts));
     }
   }
 
@@ -346,7 +358,7 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
     }));
   }
 
-  return withSecurityHeaders(notFound('Not found'));
+  return withSecurityHeaders(notFound(ROUTER_NOT_FOUND_MESSAGE));
 }
 
 export { QuotaDurableObject };
