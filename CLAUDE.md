@@ -82,8 +82,10 @@ supabase migration repair --status applied <version>   # then record just that o
 ```
 Working DDL route — no Docker, no DB password. The CLI's keychain holds a valid `sbp_` personal access token, and the Management API query endpoint runs arbitrary SQL including DDL with it:
 ```bash
-RAW=$(security find-generic-password -s "Supabase CLI" -w)   # go-keyring-base64:<b64>
-TOK=$(printf '%s' "${RAW#*:}" | base64 -d)                    # -> sbp_...
+# -a supabase is required: the CLI reads the item for account `supabase` (a plain sbp_ token).
+# Without -a, `security` returns an older item (account `access-token`, go-keyring-base64)
+# whose token is dead — 401 on every endpoint, measured 2026-10-01.
+TOK=$(security find-generic-password -s "Supabase CLI" -a supabase -w)   # -> sbp_...
 curl -s -X POST "https://api.supabase.com/v1/projects/<ref>/database/query" \
   -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" \
   -d '{"query":"select 1"}'
