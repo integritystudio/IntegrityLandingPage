@@ -128,6 +128,27 @@ so the Supabase admin delete path is tested too. Port 55436.
 
 Mutation-checked: run against a no-op migration, the suite fails at T1a.
 
+### `default-org-set-at/`
+
+Covers `migrations/20261001000000_default_org_set_at.sql`, which stamps
+`users.default_organization_set_at` whenever `default_organization_id` changes. The
+fixture reuses `default-org-from-membership/`'s and applies the CR50 migration, so
+the stamp is tested against the trigger that sets most defaults. Port 55437.
+
+| | assertion |
+|---|---|
+| S1 | existing rows stay null — no invented history |
+| S2 | a default set by the CR50 trigger carries the membership's `created_at` exactly |
+| S3 | changing the default stamps it, and `tier` still follows |
+| S4 | re-writing the same default is not a change; a direct write to the stamp is overwritten, null or set |
+| S5 | clearing the default is stamped |
+| S6 | on insert the stamp follows the default, whatever the writer supplies |
+| S7 | a writer with no grant on `users` still gets the stamp |
+
+Mutation-checked: dropping the keep-old branch (S4b), stamping every insert (S2a),
+leaving the stamp column out of the trigger's column list (S4b), `clock_timestamp()`
+for `now()` (S2c), and `<>` for `is distinct from` (S2c) each fail the suite.
+
 ### `edge-functions/`
 
 Behavioural tests for the Edge Functions, not the migrations — a Node/vitest package, not
