@@ -15,8 +15,9 @@
  *       defaults to true: it reports what would change and writes nothing.
  *
  * The table is the source of truth; KV only ever follows it. obtool-api and obtool-ingest
- * (observability-toolkit) accept a KV record only when its `status` is 'active', and the
- * gateway refuses any key whose row is not 'active'.
+ * (observability-toolkit, `authorizeKvEntry`) accept a KV record only when it carries an
+ * `organizationId` and its `status` is 'active', and the gateway refuses any key whose row
+ * is not 'active'.
  */
 
 export interface HandlerDeps {
