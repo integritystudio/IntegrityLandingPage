@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../config/content/constants.dart';
 import '../services/analytics.dart';
 import '../services/auth0_service.dart';
@@ -11,6 +10,7 @@ import '../widgets/common/buttons.dart';
 import '../widgets/common/containers.dart';
 import '../utils/security_utils.dart';
 import '../widgets/common/copyable_code_field.dart';
+import 'dashboard_page.dart';
 
 /// Arguments passed to ProvisionPage via GoRouter state.extra.
 class ProvisionArgs {
@@ -97,24 +97,14 @@ class _ProvisionPageState extends State<ProvisionPage> {
     }
   }
 
-  Future<void> _goToDashboard() async {
-    // No token is handed over: the dashboard runs its own Auth0 SPA login and
-    // never reads location.hash. Passing the JWT in a fragment only put it in
-    // that origin's address bar and history — and it is GitHub Pages, which
-    // sets no headers, so no CSP or Referrer-Policy can contain it. CR04.
-    // Report rather than throw on failure — an unavailable launcher must not
-    // take down the page (same pattern as landing_page/footer_section, #55).
-    try {
-      await launchUrl(Uri.parse(ExternalUrls.dashboardApp));
-    } catch (e, stackTrace) {
-      ErrorTrackingService.captureException(
-        e,
-        stackTrace: stackTrace,
-        context: 'provision._goToDashboard',
-        extra: {'url': ExternalUrls.dashboardApp},
+  /// The in-app dashboard, where billing, usage and quota live; it links on to
+  /// integritystudio.dev through its Observability card. The session is already
+  /// in hand, so it goes in route args like the callback's — never in a URL
+  /// (CR04). CR56.
+  void _goToDashboard() => context.go(
+        Routes.dashboard,
+        extra: DashboardArgs(jwt: widget.args.session.accessToken),
       );
-    }
-  }
 
   /// Paid tiers pay only now that the org exists, so the checkout session can be
   /// attributed to it (a checkout opened before provisioning was never linked).

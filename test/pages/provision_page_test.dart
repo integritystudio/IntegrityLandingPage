@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:integrity_studio_ai/config/content/constants.dart';
+import 'package:integrity_studio_ai/pages/dashboard_page.dart';
 import 'package:integrity_studio_ai/pages/provision_page.dart';
 import 'package:integrity_studio_ai/services/auth0_service.dart';
 import 'package:integrity_studio_ai/services/provisioning_service.dart';
@@ -23,11 +23,9 @@ import '../helpers/test_helpers.dart';
 ///   Dashboard (or Continue to Checkout for a paid signup), and loads org
 ///   context via bootstrap.
 /// - Failure shows a sanitized error and keeps Generate available.
-/// - Go to Dashboard opens the external dashboard SPA; a launcher failure
-///   is reported, never thrown (#55 pattern).
+/// - Go to Dashboard goes to the in-app /dashboard with the session's token
+///   (CR56), not to the external dashboard SPA.
 void main() {
-  const urlLauncherChannel = MethodChannel('plugins.flutter.io/url_launcher');
-
   late MockHttpAdapter adapter;
 
   setUp(() {
@@ -41,26 +39,8 @@ void main() {
   tearDown(() {
     ProvisioningService.resetDio();
     ProvisioningService.resetRetryDelay();
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(urlLauncherChannel, null);
     tearDownOverflowErrorSuppression();
   });
-
-  /// Records URLs the page asked the platform to open; [fail] makes every
-  /// launch throw instead, exercising the error-capture path.
-  List<String> mockUrlLauncher({bool fail = false}) {
-    final launched = <String>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(urlLauncherChannel, (call) async {
-      if (fail) {
-        throw PlatformException(code: 'LAUNCH_ERROR');
-      }
-      if (call.method == 'canLaunch') return true;
-      launched.add((call.arguments as Map)['url'] as String);
-      return true;
-    });
-    return launched;
-  }
 
   Auth0Session sessionFor(String email) => Auth0Session(
         accessToken: 'test-jwt',
@@ -71,6 +51,9 @@ void main() {
   /// The CheckoutArgs the page navigated with, if it went to checkout.
   CheckoutArgs? checkoutArgs;
 
+  /// The DashboardArgs the page navigated with, if it went to the dashboard.
+  DashboardArgs? dashboardArgs;
+
   Future<void> pumpProvisionPage(
     WidgetTester tester, {
     String email = 'user@example.com',
@@ -80,6 +63,7 @@ void main() {
   }) async {
     setScreenSize(tester, screenSize);
     checkoutArgs = null;
+    dashboardArgs = null;
     final args = ProvisionArgs(session: sessionFor(email), signup: signup);
     await tester.pumpWidget(MaterialApp.router(
       theme: testTheme,
@@ -93,6 +77,13 @@ void main() {
           builder: (_, state) {
             checkoutArgs = state.extra as CheckoutArgs;
             return const Text('checkout');
+          },
+        ),
+        GoRoute(
+          path: Routes.dashboard,
+          builder: (_, state) {
+            dashboardArgs = state.extra as DashboardArgs;
+            return const Text('dashboard');
           },
         ),
       ]),
@@ -389,8 +380,7 @@ void main() {
   });
 
   group('go to dashboard', () {
-    testWidgets('opens the dashboard SPA', (tester) async {
-      final launched = mockUrlLauncher();
+    testWidgets('opens the in-app dashboard with the session token', (tester) async {
       stubProvisionSuccess();
       stubBootstrapSuccess();
       await pumpProvisionPage(tester);
@@ -398,27 +388,10 @@ void main() {
 
       await tester
           .tap(find.widgetWithText(GradientButton, 'Go to Dashboard'));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(launched, [ExternalUrls.dashboardApp]);
-    });
-
-    testWidgets('survives a launcher failure without crashing (#55 pattern)',
-        (tester) async {
-      mockUrlLauncher(fail: true);
-      stubProvisionSuccess(apiKey: 'isk_live_abc');
-      stubBootstrapSuccess();
-      await pumpProvisionPage(tester);
-      await generateKey(tester);
-
-      await tester
-          .tap(find.widgetWithText(GradientButton, 'Go to Dashboard'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
-      // The failure is captured, not thrown: page still standing, key visible.
-      expect(tester.takeException(), isNull);
-      expect(find.text('isk_live_abc'), findsOneWidget);
+      expect(find.text('dashboard'), findsOneWidget);
+      expect(dashboardArgs?.jwt, 'test-jwt');
     });
   });
 }
