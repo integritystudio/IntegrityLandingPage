@@ -14,10 +14,9 @@
  *       which catches records whose row or user was deleted (BACKLOG.md UA13). `dryRun`
  *       defaults to true: it reports what would change and writes nothing.
  *
- * The table is the source of truth; KV only ever follows it. Note that obtool-api and
- * obtool-ingest (observability-toolkit) do not yet read the KV `status` field, so an
- * 'inactive' KV record blocks nothing there until they refuse it. The gateway already
- * refuses any key whose row is not 'active'.
+ * The table is the source of truth; KV only ever follows it. obtool-api and obtool-ingest
+ * (observability-toolkit) accept a KV record only when its `status` is 'active', and the
+ * gateway refuses any key whose row is not 'active'.
  */
 
 export interface HandlerDeps {
