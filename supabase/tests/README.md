@@ -107,6 +107,27 @@ backfilling from the newest membership (T1a), each fails the suite. So does drop
 the `id` tie-break or reversing it (T1f), and a default cleared inside a block fails
 that block's invariant.
 
+### `api-keys-restrict-delete/`
+
+Covers `migrations/20260930000000_api_keys_restrict_delete.sql` (UA13), which turns
+`api_keys`' two foreign keys from `ON DELETE CASCADE` into `RESTRICT`, so deleting a
+user or org can no longer drop key rows while their AUTH KV records keep
+authenticating. The fixture carries production's `auth.users → public.users` CASCADE,
+so the Supabase admin delete path is tested too. Port 55436.
+
+| | assertion |
+|---|---|
+| T1 | both constraints read `confdeltype = 'r'` |
+| T2 | deleting a key-holding user is refused (23503) and no key row is removed |
+| T3 | deleting that user's `auth.users` entry is refused the same way |
+| T4 | deleting an org that holds keys is refused |
+| T5 | a revoked row blocks too — revocation keeps the row |
+| T6 | the supported order works: delete the key rows, then the user; memberships still cascade |
+| T7 | a key-less user and org delete as before (the signup rollback path) |
+| T8 | at rest, every key row is still present |
+
+Mutation-checked: run against a no-op migration, the suite fails at T1a.
+
 ### `edge-functions/`
 
 Behavioural tests for the Edge Functions, not the migrations — a Node/vitest package, not
