@@ -467,48 +467,36 @@ const checkoutRequest = (token: string, body: unknown = { plan: 'growth' }) =>
   });
 
 describe('POST /v1/orgs/:id/checkout-session', () => {
-  it('returns 401 when no bearer token', async () => {
-    stubSupabase({});
-    const req = new Request(`https://api.test/v1/orgs/${ORG_ID}/checkout-session`, {
-      method: 'POST',
-      body: JSON.stringify({ plan: 'growth' }),
-    });
+  // Both billing routes call the same authorizeBillingRequest gate; the portal
+  // describe above is the authoritative test of each gate case. These wiring rows
+  // confirm the gate is reached by handleCreateCheckoutSession without re-testing
+  // every assertion already made above.
+  it.each([
+    ['no bearer token',                    401, async (): Promise<Request> => {
+      stubSupabase({});
+      return new Request(`https://api.test/v1/orgs/${ORG_ID}/checkout-session`, {
+        method: 'POST',
+        body: JSON.stringify({ plan: 'growth' }),
+      });
+    }],
+    ['API key rather than session token',  403, async (): Promise<Request> => {
+      stubSupabase({});
+      return checkoutRequest(API_KEY_TOKEN);
+    }],
+    ['user is not a member',               403, async (): Promise<Request> => {
+      const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+      stubSupabase(membershipRoutes([]));
+      return checkoutRequest(token);
+    }],
+    ['user role is not owner/billing_admin', 403, async (): Promise<Request> => {
+      const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
+      stubSupabase(membershipRoutes([makeMembership(ORG_ID, 'member')]));
+      return checkoutRequest(token);
+    }],
+  ] as [string, number, () => Promise<Request>][])('authorizeBillingRequest gate: %s → %i', async (_, status, makeReq) => {
+    const req = await makeReq();
     const res = await handleCreateCheckoutSession(req, ORG_ID, makeCheckoutOpts());
-    expect(res.status).toBe(401);
-  });
-
-  it('returns 403 for an API key token rather than an opaque 401', async () => {
-    stubSupabase({});
-    const res = await handleCreateCheckoutSession(
-      checkoutRequest(API_KEY_TOKEN),
-      ORG_ID,
-      makeCheckoutOpts(),
-    );
-    expect(res.status).toBe(403);
-    const body = await res.json() as { error: { message: string } };
-    expect(body.error.message).toContain('API keys are not accepted');
-  });
-
-  it('returns 403 when user is not a member', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    stubSupabase(membershipRoutes([]));
-    const res = await handleCreateCheckoutSession(
-      checkoutRequest(token),
-      ORG_ID,
-      makeCheckoutOpts(),
-    );
-    expect(res.status).toBe(403);
-  });
-
-  it('returns 403 when user role is not owner or billing_admin', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    stubSupabase(membershipRoutes([makeMembership(ORG_ID, 'member')]));
-    const res = await handleCreateCheckoutSession(
-      checkoutRequest(token),
-      ORG_ID,
-      makeCheckoutOpts(),
-    );
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(status);
   });
 
   it('returns 400 when plan is missing', async () => {
