@@ -651,36 +651,9 @@ The slot CLAUDE.md said "exists in no config" now holds an `sb_secret_` key (41 
 
 ## Test Suite Review 2026-09-27 (TS01–TS16)
 
-> Finished items from this section moved to [changelog 1.3](changelog/1.3/CHANGELOG.md) on 2026-10-04; only open or partly done items remain below.
+> Finished items from this section moved to [changelog 1.3](changelog/1.3/CHANGELOG.md) on 2026-10-04 (TS11 on 2026-10-05); none remain open.
 
 Filed from a nine-area review of every test file, read against the code under test — not from `docs/repomix/tests-compressed.xml`, which strips every `test()`/`it()` body. Full findings, with `path:line` for each, are in [test-suite-review-2026-09-27.md](test-suite-review-2026-09-27.md); section letters below refer to it. Done in the same session and **not** listed here: the ~230 `workers/lib` tests of schemas no request parses were deleted (`bf12226`), `CreateApiKeyBodySchema` was wired into the create-key route (`df174a2`), and `AuditActionSchema` was narrowed to the four emitted actions and enforced at runtime in `writeAuditLog` (`df174a2`, `a3aa746`).
-
-### TS11: Merge duplicated test families ✅ done 2026-10-05
-
-**Priority:** P4 | **Source:** test review 2026-09-27, section D
-**Estimated:** 1 day
-
-**Context:** the same promises are maintained in two or more places — the two contact-service test files (keep the real-Dio `test/services/` one and port the unit file's unique cases, then delete its 889-line `.mocks.dart`), consent model, provisioning contract vs unit, `app_test` vs `app_router_test` (24 routes), SharedAppBar per page (~25), viewport and back-button tests per page, `dashboard_service_test` error blocks ×6, api-gateway portal/checkout and create/revoke gates.
-
-**Done 2026-09-27:**
-- contact-service merge ✅ (test/unit/services/ deleted, 889-line mocks gone, unique tests ported)
-- `dashboard_service_test` error+network blocks ✅ — `runDashboardErrorSuite<T>` helper inside `main()` replaces 10 group blocks (428 lines → 5 calls + 85-line helper); BillingStatus's separate "retries on 500" test merged into the 500 test via `checkRetryCount: true`
-- api-gateway api-keys create/revoke gates ✅ — `apiKeyGates()` helper replaces 8 duplicate `it()` blocks across the two describe blocks; 503 HMAC test kept inline (unique to create)
-
-**Done 2026-10-04:**
-- consent model ✅ — 4 unique tests (timestamp-now bounds, fromJson null values, exact round-trip, toPreferences new-instance) ported to `consent_preferences_test.dart`; 28-test ConsentPreferences/ConsentLevel/ConsentLevelExtension block (lines 588–807) deleted from `consent_manager_test.dart`
-- api-gateway portal/checkout gates ✅ — 4 duplicate `authorizeBillingRequest` gate tests in `POST /checkout-session` replaced with a single `it.each` wiring table (4 rows); authoritative per-gate assertions remain in `POST /billing-portal`
-- provisioning contract vs unit ✅ — 7 unit tests deleted from `provisioning_service_test.dart` as covered by `provisioning_service_contract_test.dart`. An eighth was deleted too, then restored as `returns false on non-200 without retrying` (`9b480d8f`): the contract copy never asserts the call count, and a mutant that makes `checkHealth` retry on a 500 survived every other test
-
-**Done 2026-10-05** (`d5324b4e`…`3324ac35`; the first five are cherry-picks of an unmerged 2026-09-28 pass left in `.claude/worktrees/agent-{a7a4b737,af454e9b,af5f6fad}*`):
-- `app_test` vs `app_router_test` ✅ — app_test's 'routing', 'all routes' and 'redirects' groups deleted. `app_router_test`'s path-only tests for `/`, `/support`, `/docs/agents`, `/docs/security/audit-trails` and `/reports/*` gained the page-type assertion app_test had, and `/app`→`/login` (only in app_test) moved there. Mutants on the `/app` redirect and the `/support` route both fail it.
-- SharedAppBar per page ✅ — one `SharedAppBar.subPage` group in `shared_app_bar_test.dart` (title, nav links, CTA and menu at both desktop widths and mobile, toolbar heights, Back tooltip; all finders scoped to the `SliverAppBar`); per-page copies deleted from careers, pricing, request_failure, request_success, status, about. Mutants on toolbar height, tooltip and the compact-nav switch all fail it.
-- viewport ✅ — page copies replaced by `testResponsiveLayout`; widget copies replaced by one test per widget asserting what its responsive branch changes (column stacking, modal width fraction, headline size). Mutants on `DemoModal`'s mobile width and `FeaturesSection`'s mobile columns both fail.
-- back-button ✅ — page copies replaced by `testBackButtonCallback(s)`; integration copies deleted where the page test runs the helper, and `DocsIndexPage` (no page test) moved onto `testBackButtonCallbacks` without the vacuous `if (isNotEmpty)` guard. Mutant dropping its `onBack` fails both generated tests.
-- **Found on the way: `testResponsiveLayout(includeTablet: true)` never rendered at tablet size.** `tester.pumpPage` re-sizes the view after the helper's `setTabletSize`, so every "renders on tablet viewport" test ran at 1440 px. The helper now resizes after pumping and asserts the `MediaQuery` width is 768.
-- **Not done, by design:** comparison, pricing, docs_observability and docs_interoperability pass `includeMobile: false`. Their mobile test throws `RenderFlex` overflows of 12–285 px at 375 px that the overflow suppression does not catch (re-measured 2026-10-05). The test font has square glyphs, so this may be test-only; check on a device before treating it as a product bug.
-
-**Scope:** as tabled in section D. Behaviour-preserving; run the suite after each file.
 
 ## Coverage Audit 2026-09-28 (TS19–TS25)
 
