@@ -299,7 +299,12 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.api-keys-rotate]
-verify_jwt = true
+# Server-to-server only since 2026-10-05: the quality-metrics dashboard worker verifies the
+# user's Auth0 token itself and calls with its `dashboard_worker` sb_secret_ key, which is not
+# a JWT, so platform verification stays off. The handler requires a service-level key on every
+# request (the same Auth-admin capability check as api-keys-create) and answers 401 otherwise.
+# It was `true` while the handler read `sub` from an unverified JWT; that path is gone.
+verify_jwt = false
 
 [functions.api-keys-set-status]
 # Operator-only: callers present a service-level key, which is not a JWT, so platform
