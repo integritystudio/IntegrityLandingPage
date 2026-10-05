@@ -298,80 +298,14 @@ void main() {
       expect((result as ProvisioningError).error, 'Invalid userId format');
     });
 
-    test('sends body matching SendRequestSchema to /send endpoint', () async {
-      mockDio.mockPostResponse({
-        'ok': true,
-        'token': 'sk-contract-test',
-        'received': <String, dynamic>{},
-      });
-
-      final event = ProvisioningEvent(
-        action: 'provision_api_key',
-        name: 'jane',
-        email: 'jane@example.com',
-        tier: 'growth',
-        orgName: 'Jane Co',
-      );
-
-      await ProvisioningService.sendEvent(event, jwt: 'jwt-abc');
-
-      final body = mockDio.lastPostBody;
-      expect(body, isNotNull);
-      expect(body!['action'], 'provision_api_key');
-      expect(body['name'], 'jane');
-      expect(body['email'], 'jane@example.com');
-      expect(body['tier'], 'growth');
-      expect(body['org_name'], 'Jane Co');
-      // Must not contain legacy fields
-      expect(body.containsKey('userId'), isFalse);
-      expect(body.containsKey('sentAt'), isFalse);
-    });
-
-    test('sends body without org_name when not provided', () async {
-      mockDio.mockPostResponse({
-        'ok': true,
-        'token': 'sk-no-org',
-        'received': <String, dynamic>{},
-      });
-
-      final event = ProvisioningEvent(
-        action: 'provision_api_key',
-        name: 'bob',
-        email: 'bob@example.com',
-      );
-
-      await ProvisioningService.sendEvent(event, jwt: 'jwt-xyz');
-
-      final body = mockDio.lastPostBody;
-      expect(body, isNotNull);
-      expect(body!.containsKey('org_name'), isFalse);
-      expect(body['tier'], 'starter');
-    });
+    // 'sends body matching SendRequestSchema' and 'sends body without org_name'
+    // deleted: covered by provisioning_service_contract_test.dart L63 and L36
+    // with full-map equality (stricter assertions).
   });
 
   group('checkHealth', () {
-    test('returns true on 200 with ok:true', () async {
-      mockDio.mockGetResponse({'ok': true});
-
-      final result =
-          await ProvisioningService.checkHealth('https://receiver.example.com');
-
-      expect(result, true);
-      expect(mockDio.getCallCount, 1);
-    });
-
-    test('returns false on non-200', () async {
-      mockDio.mockGetResponse(
-        {'error': 'Service unavailable'},
-        statusCode: 500,
-      );
-
-      final result =
-          await ProvisioningService.checkHealth('https://receiver.example.com');
-
-      expect(result, false);
-      expect(mockDio.getCallCount, 1);
-    });
+    // 'returns true on 200 with ok:true' and 'returns false on non-200' deleted:
+    // covered by provisioning_service_contract_test.dart L271 and L301.
 
     test('returns false on DioException', () async {
       mockDio.mockGetError(DioExceptionType.connectionError);
@@ -614,65 +548,11 @@ void main() {
   });
 
   group('createCheckoutSession', () {
-    test('returns CheckoutSuccess with checkoutUrl on 200', () async {
-      mockDio.mockPostResponse(
-        {'checkoutUrl': 'https://checkout.stripe.com/pay/cs_test_abc'},
-        statusCode: 200,
-      );
-
-      final result = await ProvisioningService.createCheckoutSession(
-        email: 'user@example.com',
-        tier: 'growth',
-      );
-
-      expect(result, isA<CheckoutSuccess>());
-      expect(
-        (result as CheckoutSuccess).checkoutUrl,
-        'https://checkout.stripe.com/pay/cs_test_abc',
-      );
-    });
-
-    test('sends email and tier in POST body', () async {
-      mockDio.mockPostResponse(
-        {'checkoutUrl': 'https://checkout.stripe.com/pay/cs_test'},
-        statusCode: 200,
-      );
-
-      await ProvisioningService.createCheckoutSession(
-        email: 'buyer@example.com',
-        tier: 'growth',
-      );
-
-      final body = mockDio.lastPostBody;
-      expect(body, isNotNull);
-      expect(body!['email'], 'buyer@example.com');
-      expect(body['tier'], 'growth');
-    });
-
-    test('returns CheckoutError when checkoutUrl is absent', () async {
-      mockDio.mockPostResponse({}, statusCode: 200);
-
-      final result = await ProvisioningService.createCheckoutSession(
-        email: 'user@example.com',
-        tier: 'growth',
-      );
-
-      expect(result, isA<CheckoutError>());
-    });
-
-    test('returns CheckoutError on 500', () async {
-      mockDio.mockPostResponse(
-        {'error': 'Stripe not configured'},
-        statusCode: 500,
-      );
-
-      final result = await ProvisioningService.createCheckoutSession(
-        email: 'user@example.com',
-        tier: 'growth',
-      );
-
-      expect(result, isA<CheckoutError>());
-    });
+    // 'returns CheckoutSuccess', 'sends email and tier in POST body',
+    // 'returns CheckoutError when checkoutUrl is absent', and
+    // 'returns CheckoutError on 500' deleted: all covered by
+    // provisioning_service_contract_test.dart L317, L349, L336 and L367
+    // with full-map body equality where applicable (stricter assertions).
   });
 
   group('MockProvisioningDio per-attempt response data', () {
