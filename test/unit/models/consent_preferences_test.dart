@@ -171,27 +171,6 @@ void main() {
         expect(restored.timestamp, equals(original.timestamp));
         expect(restored.consentVersion, equals(original.consentVersion));
       });
-
-      test('round-trip serialization preserves values', () {
-        final original = ConsentPreferences(
-          analytics: true,
-          marketing: true,
-          consentVersion: '2.0',
-        );
-
-        final json = original.toJson();
-        final restored = ConsentPreferences.fromJson(json);
-
-        expect(restored.essential, equals(original.essential));
-        expect(restored.analytics, equals(original.analytics));
-        expect(restored.marketing, equals(original.marketing));
-        expect(restored.consentVersion, equals(original.consentVersion));
-        // Timestamps may have slight differences due to parsing
-        expect(
-          restored.timestamp.difference(original.timestamp).inSeconds.abs(),
-          lessThan(1),
-        );
-      });
     });
 
     group('toString', () {

@@ -297,15 +297,21 @@ void main() {
       expect(result, isA<ProvisioningError>());
       expect((result as ProvisioningError).error, 'Invalid userId format');
     });
-
-    // 'sends body matching SendRequestSchema' and 'sends body without org_name'
-    // deleted: covered by provisioning_service_contract_test.dart L63 and L36
-    // with full-map equality (stricter assertions).
   });
 
   group('checkHealth', () {
-    // 'returns true on 200 with ok:true' and 'returns false on non-200' deleted:
-    // covered by provisioning_service_contract_test.dart L271 and L301.
+    test('returns false on non-200 without retrying', () async {
+      mockDio.mockGetResponse(
+        {'error': 'Service unavailable'},
+        statusCode: 500,
+      );
+
+      final result =
+          await ProvisioningService.checkHealth('https://receiver.example.com');
+
+      expect(result, false);
+      expect(mockDio.getCallCount, 1);
+    });
 
     test('returns false on DioException', () async {
       mockDio.mockGetError(DioExceptionType.connectionError);
@@ -545,14 +551,6 @@ void main() {
           'Network error. Please try again.');
       expect(mockDio.postCallCount, 3);
     });
-  });
-
-  group('createCheckoutSession', () {
-    // 'returns CheckoutSuccess', 'sends email and tier in POST body',
-    // 'returns CheckoutError when checkoutUrl is absent', and
-    // 'returns CheckoutError on 500' deleted: all covered by
-    // provisioning_service_contract_test.dart L317, L349, L336 and L367
-    // with full-map body equality where applicable (stricter assertions).
   });
 
   group('MockProvisioningDio per-attempt response data', () {
