@@ -342,6 +342,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR58](changelog/1.3/CHANGELOG.md#cr58) | P2 | ✅ **live 2026-09-29** — gateway `a89bc4b8` (`8f08812`), `/health` 200 after deploy; page via the Pages deploy from `18dc515` | Reading usage or quota spent the quota: every `/v1/orgs/:id/*` call, including `/usage/summary` and `/quota/status`, reserved a monthly unit, and the Usage page polled every 30 s, even while hidden. |
 | [CR59](#cr59) | P4 | 📋 open (investigated) | The gateway's quota headers are non-standard, undocumented as sent, and unreadable from a browser. |
 | [CR60](#cr60) | P4 | 📋 open (measured) | `users.last_login` moves on silent sign-ins that reuse the Auth0 session, which Auth0 does not count as logins; CR48's shared session makes them common. |
+| [CR61](#cr61) | P2 | 📋 open — migration drafted 2026-10-05, not applied | Supabase Auth sign-up is open on production, and three RLS policies let a signed-in account plant its own `users` row and forge or rewrite its own `api_keys` rows. Steps to apply `20261005000000_drop_client_write_policies`. |
 
 ~~**Two items are now blocked on code** — [[CR20]] and [[CR21]]…~~ **Superseded 2026-07-31.** [[CR21]] is done and live, and [[CR20]] is not blocked on code at all — its remaining work is monitoring ([[W04]]), since [[CR21]] foreclosed the 5xx option. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). What still needs a decision rather than an implementation: a credential/provisioning call (CR01, CR11, CR12's cross-repo HMAC secret), or an answer about intent (CR13, CR16). **Update 2026-09-28:** CR01, CR11, CR12 and CR13 are closed, and [[W04]] closed 2026-08-09 (1.3 changelog); of this list only CR16 remains, and it is by design.
 
@@ -632,6 +633,55 @@ CR47 groups by domain only when `/userinfo` says `email_verified === true`, and 
   - Or document the column as "last `/authorize`", not "last login".
   - Add a silent-sign-in case to `provision-user-and-enrich-token.test.ts` either way.
 - **Acceptance.** A silent sign-in leaves `users.last_login` equal to Auth0's `last_login`.
+
+---
+
+<a id="cr61"></a>
+
+### CR61: apply `20261005000000_drop_client_write_policies` — a Supabase Auth account can write `users` and `api_keys` directly
+
+**Priority:** P2 | **Source:** Auth0 Third-Party Auth setup review 2026-10-05; production catalog and auth settings read the same day
+
+- **The hole.** Supabase Auth sign-up is a separate door from Auth0, and it is open on production: `disable_signup` is `false`, the email provider is on with confirmation required, anonymous and phone sign-in are off, and there is no captcha. Three baseline policies then let a signed-in account write through PostgREST:
+  - `users` "Users can insert their own data" (`auth.uid() = id`). The account creates its own row with any `auth0_id` and `email`. `email` is unique and `/signup` does a plain insert (`workers/sender-worker/src/supabase.ts:106`), so a planted row blocks that address from signing up. The `on_user_created` trigger also grants the row `provisioned-dashboard-viewer`.
+  - `api_keys` `users_insert_own_keys` and `users_update_own_keys`. With `auth0_id` set to its own uuid, the account inserts key rows naming any organisation ID it knows, and rewrites every column of its own rows short of handing one to another user. Keys authenticate from the AUTH KV namespace, so no such row becomes a working key; the damage is to the table revocation and org attribution are read from.
+- **Measured where.** The policies, grants, triggers and auth settings were read from production. The path itself was run only on a local Postgres carrying those policies (`supabase/tests/client-write-policies/` against a no-op migration), where every step went through. It was not run on production or dev.
+- **Not known.** Whether an outsider can confirm an email depends on the project's SMTP setup and social providers, which were not read. Who the 12 `auth.users` accounts are, and whether any `users` row is already planted, was not read either.
+- **Not the Auth0 route.** An Auth0 Third-Party Auth token cannot use these policies. `users`' own policies cast the subject to uuid, so every Auth0-shaped request fails with `22P02` (same local run).
+- **Drafted, uncommitted (2026-10-05).** `supabase/migrations/20261005000000_drop_client_write_policies.sql` drops the three policies. The read policies stay and the service role bypasses RLS: `sender-worker`, `api-gateway` and the five `api-keys-*` Edge Functions all write with the service key, and the local checkouts of the dashboard and the toolkit hold no Supabase client. The suite passes on local Postgres 15, and seven mutants each fail it.
+
+**Steps**
+
+1. **Turn sign-up off** (owner, Dashboard): Authentication → Providers → "Allow new users to sign up". While there, note whether custom SMTP is configured (Authentication → Emails) and whether any social provider is enabled, and record both here.
+2. **Look at the existing accounts** (owner, SQL editor). Turning sign-up off does not sign them out.
+   ```sql
+   select created_at::date, email, email_confirmed_at is not null as confirmed,
+          last_sign_in_at::date, raw_app_meta_data->>'provider' as provider
+   from auth.users order by created_at;
+   -- rows a Supabase Auth account created for itself
+   select id, email, created_at from public.users where auth0_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-';
+   ```
+   Delete what should not exist, in [[UA13]]'s order: a row's `api_keys` rows first, then the row.
+3. **Commit** the migration, the suite, the `supabase/tests/README.md` entry and this item. Pushing `main` runs the suite on Postgres 17 (`supabase-sql-tests.yml`); it also deploys `sender-worker` and Pages, as any push does.
+4. **Apply to production** (owner):
+   ```bash
+   supabase migration list --linked     # only 20261005000000 should have a blank remote
+   supabase db push --dry-run
+   supabase db push
+   ```
+   If anything else is pending, apply this one alone: `supabase db query --linked -f supabase/migrations/20261005000000_drop_client_write_policies.sql`, then `supabase migration repair --status applied 20261005000000`.
+5. **Verify on production.** Nothing in CI notices whether this ran: `check-migration-drift.sh` looks only for created tables and functions, and this migration creates none.
+   ```sql
+   select tablename, policyname, cmd from pg_policies
+   where schemaname = 'public' and tablename in ('users', 'api_keys') and cmd <> 'SELECT';
+   -- expect exactly: api_keys service_role_full_access (ALL), users "Users can update own data" (UPDATE)
+   ```
+6. **Apply to dev** (`tumhmtshahktumhqqamk`) with dev's token, through the Management API `/database/query` endpoint or a separate `--workdir`, not the shared link. Dev's ledger ends at `20260930000000` (read 2026-10-05), so `20261001000000_default_org_set_at.sql` is pending there too and goes first. Then sign up and create an API key on dev once, to see the service-role paths unaffected.
+7. **Decide the two neighbours** left out on purpose:
+   - `users` "Users can update own data". After the migration it reaches only rows planted before it. Drop it if step 2 finds any, or regardless.
+   - `user_profiles` "Users can insert own profile" and "Users can update own profile". Same pattern, not traced.
+
+**Acceptance.** `disable_signup` is `true`. Step 5's query returns exactly those two rows on production and on dev. A signup and a key creation on dev succeed afterwards.
 
 ---
 

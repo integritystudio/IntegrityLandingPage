@@ -149,6 +149,31 @@ Mutation-checked: dropping the keep-old branch (S4b), stamping every insert (S2a
 leaving the stamp column out of the trigger's column list (S4b), `clock_timestamp()`
 for `now()` (S2c), and `<>` for `is distinct from` (S2c) each fail the suite.
 
+### `client-write-policies/`
+
+Covers `migrations/20261005000000_drop_client_write_policies.sql`, which drops the three
+policies that let a signed-in caller write `users` and `api_keys` through PostgREST. The
+fixture carries every policy production holds on both tables and the hosted bodies of
+`auth.jwt()`, `auth.uid()` and `auth.role()`, so callers are set up the way PostgREST
+sets them up. Port 55438.
+
+| | assertion |
+|---|---|
+| W1 | a new Supabase Auth account cannot create its own `users` row |
+| W2 | an account planted before the migration cannot insert a key row, even naming a real org |
+| W3 | nor rewrite the key row it holds; the stored row is unchanged |
+| R1 | an account still reads its own `users` row and its own key, and no other |
+| R2 | the `auth_user_links` read path still resolves |
+| S1 | the service role still inserts a user and a key and updates it |
+| C1 | the write policies left on the two tables are exactly `service_role_full_access` and `Users can update own data` |
+| Z1 | at rest, nothing was added or changed |
+
+Mutation-checked: a no-op migration fails W1 — without the migration the insert goes
+through. Dropping only the `users` policy fails W2; leaving
+`users_update_own_keys` fails W3a; also dropping `users_read_own_keys` (R1b),
+`users_view_own_api_keys` (R2) or `Users can update own data` (C1), or revoking the
+service role's insert grant (S1), each fails the suite.
+
 ### `edge-functions/`
 
 Behavioural tests for the Edge Functions, not the migrations — a Node/vitest package, not
