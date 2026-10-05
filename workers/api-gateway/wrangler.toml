@@ -140,10 +140,13 @@ crons = []
 [env.dev.vars]
 AUTH0_DOMAIN = "dev-njjmghdzm23uy0p7.us.auth0.com"
 AUTH0_AUDIENCE = "https://api.integritystudio.dev"
-# Local development: the Flutter app served at localhost:8080 signs in against the dev
-# Workers, so dev (and only dev) allows that origin. An explicit list replaces the
-# production defaults in workers/lib/http/cors.ts; production binds no such var.
-ALLOWED_ORIGINS_JSON = '["http://localhost:8080"]'
+# Dev-only origins. An explicit list replaces the production defaults in
+# workers/lib/http/cors.ts; production binds no such var.
+# - localhost:8080: the Flutter app in local development.
+# - localhost:5173 and quality-metrics-api-dev: the quality-metrics dashboard (Vite dev server
+#   and its dev Worker), whose admin customer view reads these routes with a dev-tenant token
+#   (observability-toolkit dashboard backlog, ADMIN-CV-CORS-AUDIENCE).
+ALLOWED_ORIGINS_JSON = '["http://localhost:8080", "http://localhost:5173", "https://quality-metrics-api-dev.alyshia-b38.workers.dev"]'
 
 [[env.dev.kv_namespaces]]
 binding = "RATE_LIMIT_KV"
