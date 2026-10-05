@@ -667,7 +667,12 @@ Filed from a nine-area review of every test file, read against the code under te
 - `dashboard_service_test` error+network blocks ✅ — `runDashboardErrorSuite<T>` helper inside `main()` replaces 10 group blocks (428 lines → 5 calls + 85-line helper); BillingStatus's separate "retries on 500" test merged into the 500 test via `checkRetryCount: true`
 - api-gateway api-keys create/revoke gates ✅ — `apiKeyGates()` helper replaces 8 duplicate `it()` blocks across the two describe blocks; 503 HMAC test kept inline (unique to create)
 
-**Remaining (open):** consent model, provisioning contract vs unit, `app_test` vs `app_router_test` (24 routes — different test approaches, risky to merge), SharedAppBar per page (~25), viewport and back-button per page, api-gateway portal/checkout gates.
+**Done 2026-10-04:**
+- consent model ✅ — 4 unique tests (timestamp-now bounds, fromJson null values, exact round-trip, toPreferences new-instance) ported to `consent_preferences_test.dart`; 28-test ConsentPreferences/ConsentLevel/ConsentLevelExtension block (lines 588–807) deleted from `consent_manager_test.dart`
+- api-gateway portal/checkout gates ✅ — 4 duplicate `authorizeBillingRequest` gate tests in `POST /checkout-session` replaced with a single `it.each` wiring table (4 rows); authoritative per-gate assertions remain in `POST /billing-portal`
+- provisioning contract vs unit ✅ — 8 unit tests deleted from `provisioning_service_test.dart` whose act+assert pairs are covered by `provisioning_service_contract_test.dart` with equal or stricter (full-map body equality) assertions
+
+**Remaining (open):** `app_test` vs `app_router_test` (24 routes — different test approaches, risky to merge), SharedAppBar per page (~25), viewport and back-button per page.
 
 **Scope:** as tabled in section D. Behaviour-preserving; run the suite after each file.
 
