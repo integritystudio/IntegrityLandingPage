@@ -143,22 +143,7 @@ void main() {
         includeTablet: true,
       );
 
-      testWidgets('desktop shows navigation links', (tester) async {
-        await pumpRequestFailurePage(tester, mobile: false);
 
-        // Nav links appear in both app bar and footer, so expect at least 1
-        expect(find.text('Features'), findsWidgets);
-        expect(find.text('Pricing'), findsWidgets);
-      });
-
-      testWidgets('mobile hides desktop nav links in app bar', (tester) async {
-        await pumpRequestFailurePage(tester, mobile: true);
-
-        // On mobile, app bar nav links are hidden (only footer links show)
-        // Find the SliverAppBar actions area - it should not contain nav links
-        final appBar = find.byType(SliverAppBar);
-        expect(appBar, findsOneWidget);
-      });
     });
 
     group('footer section', () {

@@ -188,21 +188,7 @@ void main() {
         includeTablet: true,
       );
 
-      testWidgets('desktop shows navigation actions', (tester) async {
-        await pumpCareersPage(tester, mobile: false);
 
-        // Desktop should show nav links and Get Started button
-        expect(find.text('Features'), findsOneWidget);
-        expect(find.text(CTAText.getStarted), findsOneWidget);
-      });
-
-      testWidgets('mobile hides navigation actions', (tester) async {
-        await pumpCareersPage(tester, mobile: true);
-
-        // Mobile should hide nav links and Get Started button
-        expect(find.text('Features'), findsNothing);
-        expect(find.text(CTAText.getStarted), findsNothing);
-      });
     });
 
     group('footer section', () {

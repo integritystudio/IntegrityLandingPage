@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:integrity_studio_ai/config/content.dart';
 import 'package:integrity_studio_ai/pages/docs_index_page.dart';
 import 'package:integrity_studio_ai/pages/docs_quickstart_page.dart';
 import 'package:integrity_studio_ai/pages/docs_tracing_page.dart';
@@ -91,49 +90,18 @@ void main() {
       expect(find.text('Quick Links'), findsOneWidget);
     });
 
-    testWidgets('back button works', (tester) async {
-      var backPressed = false;
-
-      setDesktopSize(tester);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DocsIndexPage(onBack: () => backPressed = true),
-        ),
-      );
+    Future<void> pumpDocsIndexPage(
+      WidgetTester tester, {
+      VoidCallback? onBack,
+      VoidCallback? onShowCookieSettings,
+      bool mobile = false,
+    }) async {
+      mobile ? setMobileSize(tester) : setDesktopSize(tester);
+      await tester.pumpWidget(MaterialApp(home: DocsIndexPage(onBack: onBack)));
       await pumpFrames(tester, frames: 20);
+    }
 
-      // Find and tap back button
-      final iconButtons = find.byType(IconButton);
-      if (iconButtons.evaluate().isNotEmpty) {
-        await tester.tap(iconButtons.first);
-        await pumpFrames(tester, frames: 5);
-      }
-
-      expect(backPressed, isTrue);
-    });
-
-    testWidgets('back to home link works', (tester) async {
-      var backPressed = false;
-
-      setDesktopSize(tester);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DocsIndexPage(onBack: () => backPressed = true),
-        ),
-      );
-      await pumpFrames(tester, frames: 20);
-
-      // Find and tap "Back to Home"
-      final backLink = find.text(CTAText.backToHome);
-      if (backLink.evaluate().isNotEmpty) {
-        await tester.tap(backLink);
-        await pumpFrames(tester, frames: 5);
-      }
-
-      expect(backPressed, isTrue);
-    });
+    testBackButtonCallbacks(pumpDocsIndexPage);
   });
 
   group('Docs Pages Navigation', () {

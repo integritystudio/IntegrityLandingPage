@@ -248,54 +248,6 @@ void main() {
     });
   });
 
-  group('Mobile Back Button', () {
-    testWidgets('back button works on mobile contact page', (tester) async {
-      var backPressed = false;
-
-      setMobileSize(tester);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ContactPage(
-            onBack: () => backPressed = true,
-            onShowCookieSettings: () {},
-          ),
-        ),
-      );
-      await pumpFrames(tester, frames: 20);
-
-      // Find and tap back button
-      final iconButtons = find.byType(IconButton);
-      if (iconButtons.evaluate().isNotEmpty) {
-        await tester.tap(iconButtons.first);
-        await pumpFrames(tester, frames: 5);
-      }
-
-      expect(backPressed, isTrue);
-    });
-
-    testWidgets('back button works on mobile docs page', (tester) async {
-      var backPressed = false;
-
-      setMobileSize(tester);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DocsIndexPage(onBack: () => backPressed = true),
-        ),
-      );
-      await pumpFrames(tester, frames: 20);
-
-      final iconButtons = find.byType(IconButton);
-      if (iconButtons.evaluate().isNotEmpty) {
-        await tester.tap(iconButtons.first);
-        await pumpFrames(tester, frames: 5);
-      }
-
-      expect(backPressed, isTrue);
-    });
-  });
-
   group('Mobile Responsive Layout', () {
     testWidgets('content wraps correctly on mobile', (tester) async {
       setMobileSize(tester);
