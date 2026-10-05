@@ -83,8 +83,8 @@ export class FakeBackend {
 
   /**
    * Make one kind of request fail from now on, or only the next `times` of them. Targets:
-   * `auth`, `kv` (writes), `kv-read`, `kv-list`, `select:<table>`, `insert:<table>`,
-   * `update:<table>`.
+   * `auth`, `kv` (writes), `kv-read`, `kv-delete`, `kv-list`, `select:<table>`,
+   * `insert:<table>`, `update:<table>`, `delete:<table>`.
    */
   fail(target: string, failure: Failure, times = Infinity): void {
     this.failures.set(target, { failure, remaining: times });
@@ -188,6 +188,14 @@ export class FakeBackend {
       return this.respondWithRows(updated, url.searchParams, wantsObject);
     }
 
+    if (request.method === 'DELETE') {
+      const failure = this.takeFailure(`delete:${table}`);
+      if (failure) return respondWithFailure(failure, `delete:${table}`);
+      const kept = this.rows(table).filter((row) => !matches(row, url.searchParams));
+      this.tables.set(table, kept);
+      return new Response(null, { status: 204 });
+    }
+
     throw new Error(`fake backend: unsupported PostgREST method ${request.method} on ${table}`);
   }
 
@@ -223,8 +231,9 @@ export class FakeBackend {
   }
 
   /**
-   * Cloudflare KV "read key-value pair" (GET, raw value or 404) and "write key-value pair"
-   * (PUT). Both require the account's API token.
+   * Cloudflare KV "read key-value pair" (GET, raw value or 404), "write key-value pair"
+   * (PUT) and "delete key-value pair" (DELETE, 200 whether or not the key existed). All
+   * require the account's API token.
    */
   private async handleKv(request: Request, accountId: string, namespaceId: string, key: string): Promise<Response> {
     if (request.method === 'GET') {
@@ -235,6 +244,14 @@ export class FakeBackend {
       const entry = this.kvEntry(accountId, namespaceId, key);
       if (!entry) return json(404, { success: false, errors: [{ code: 10009, message: "get: 'key not found'" }] });
       return new Response(entry.value, { status: 200, headers: { 'Content-Type': 'application/octet-stream' } });
+    }
+    if (request.method === 'DELETE') {
+      const failure = this.takeFailure('kv-delete');
+      if (failure) return respondWithFailure(failure, 'kv-delete');
+      const denied = this.unauthorizedForKv(request);
+      if (denied) return denied;
+      this.kv.delete(`${accountId}/${namespaceId}/${key}`);
+      return json(200, { success: true, errors: [], messages: [], result: null });
     }
     const failure = this.takeFailure('kv');
     if (failure) return respondWithFailure(failure, 'kv');
