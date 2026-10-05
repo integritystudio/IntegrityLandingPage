@@ -139,7 +139,7 @@ See [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md) for recen
 
 ### Known Issues
 
-Status for every item — open, done, or waiting on a deploy — lives only in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr35) (the CR table, then the UA and TS sections); read it before working any item. This section keeps only the rules and hazards that outlive their items. Do not copy status, dates, version IDs or counts here — copies of them went stale in both files at once.
+Status for every open item — or one waiting on a deploy — lives only in [docs/BACKLOG.md](docs/BACKLOG.md#code-review-2026-07-26--2026-07-27-cr01cr35) (the CR table, then the UA and TS sections); read it before working any item. Finished items' full sections move to [docs/changelog/1.3/CHANGELOG.md](docs/changelog/1.3/CHANGELOG.md), and the CR table keeps a row for each, linked there. This section keeps only the rules and hazards that outlive their items. Do not copy status, dates, version IDs or counts here — copies of them went stale in both files at once.
 
 **HMAC signing (CR29)**
 - A green `/send` never tests the keyless path, because `resolveOutboundSigningKey` prefers the active key. Sign `/inbox` directly.

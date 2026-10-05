@@ -1,6 +1,6 @@
 # API Provisioning Environment Setup Guide
 
-**Last Updated:** 2026-07-31 (rotation procedure rewritten — correct `SIGNING_KEYS` wire format, receiver-first ordering, split into Procedure A/B; see [CR29](BACKLOG.md#cr29))
+**Last Updated:** 2026-07-31 (rotation procedure rewritten — correct `SIGNING_KEYS` wire format, receiver-first ordering, split into Procedure A/B; see [CR29](changelog/1.3/CHANGELOG.md#cr29))
 **Version:** 2.1
 
 This guide covers HMAC signing-key generation (`SIGNING_KEYS` + `ACTIVE_KEY_ID`; the legacy `SHARED_SECRET` is retired — see below), Flutter app configuration, the implementation/security reference, and troubleshooting for the API provisioning **sender worker**.
@@ -240,7 +240,7 @@ Never use `doppler run` for verification — it can serve a stale value from `~/
 
 > 🔴 **`SHARED_SECRET` is still accepted *in production*, and no rotation below retires it.** The deployed receiver resolves an **absent** `x-key-id` to `SHARED_SECRET`, so it is a second valid credential sitting outside the key-id mechanism — measured against production `POST /inbox` with controls: `v2` + key id → 200, `SHARED_SECRET` + **no** key id → **200**, garbage → 401. Consequences while that is live: rotating `SHARED_SECRET` (Procedure B) leaves `v2` untouched and vice versa, and **removing a key entry from `SIGNING_KEYS` cannot revoke `SHARED_SECRET`, because that key has no id to remove.**
 >
-> ✅ **Fixed in code, not yet deployed** ([BACKLOG.md CR29](BACKLOG.md#cr29) step 2, 2026-08-02). `resolveSigningKey` now returns no secret for an absent header (`miss: "missing_key_id"`) and `/inbox` answers `401`, so `SIGNING_KEYS` is the sole authority and dropping an id from it really revokes. Two caveats: **the measurements above still describe the live receiver** until it ships, and even after it ships `SHARED_SECRET` is only *unread*, not revoked — unbinding it is step 3, gated on `auth.key_unresolved{miss:"missing_key_id"}` staying at zero in deployed traffic. Deploy the **sender** first: it is the side that fails loudly (`500 SIGNING_KEY_UNRESOLVED`, forwarding nothing) where a receiver-first order turns any keyless caller into an ambiguous 401.
+> ✅ **Fixed in code, not yet deployed** ([BACKLOG.md CR29](changelog/1.3/CHANGELOG.md#cr29) step 2, 2026-08-02). `resolveSigningKey` now returns no secret for an absent header (`miss: "missing_key_id"`) and `/inbox` answers `401`, so `SIGNING_KEYS` is the sole authority and dropping an id from it really revokes. Two caveats: **the measurements above still describe the live receiver** until it ships, and even after it ships `SHARED_SECRET` is only *unread*, not revoked — unbinding it is step 3, gated on `auth.key_unresolved{miss:"missing_key_id"}` staying at zero in deployed traffic. Deploy the **sender** first: it is the side that fails loudly (`500 SIGNING_KEY_UNRESOLVED`, forwarding nothing) where a receiver-first order turns any keyless caller into an ambiguous 401.
 
 #### `SIGNING_KEYS` wire format — get this right first
 
@@ -253,7 +253,7 @@ Never use `doppler run` for verification — it can serve a stale value from `~/
 
 > ⚠️ **This document described the wrong format until 2026-07-31** ("JSON array of `{id, secret}`"). Anyone who provisioned from the old text should re-check the live value: the array form is valid JSON, so `keys[ACTIVE_KEY_ID]` is simply `undefined`, and on the receiver the same value 401s any key-id'd request.
 >
-> ✅ **The silent-downgrade half of this is fixed** ([CR29](BACKLOG.md#cr29) step 1, 2026-08-02, unshipped). It used to fail in the worst possible direction — the sender fell back to `SHARED_SECRET` with no `x-key-id` behind nothing but a `console.warn`, so `/send` stayed green while signing with the credential the rotation was meant to replace. `resolveOutboundSigningKey` now returns no secret on all four misses (`active_key_id_unset`, `signing_keys_unset`, `signing_keys_malformed`, `unknown_active_key_id`) and `/send` returns `500 SIGNING_KEY_UNRESOLVED` **without forwarding**. A malformed `SIGNING_KEYS` is therefore now an outage rather than a downgrade — still worth catching with the pre-flight below.
+> ✅ **The silent-downgrade half of this is fixed** ([CR29](changelog/1.3/CHANGELOG.md#cr29) step 1, 2026-08-02, unshipped). It used to fail in the worst possible direction — the sender fell back to `SHARED_SECRET` with no `x-key-id` behind nothing but a `console.warn`, so `/send` stayed green while signing with the credential the rotation was meant to replace. `resolveOutboundSigningKey` now returns no secret on all four misses (`active_key_id_unset`, `signing_keys_unset`, `signing_keys_malformed`, `unknown_active_key_id`) and `/send` returns `500 SIGNING_KEY_UNRESOLVED` **without forwarding**. A malformed `SIGNING_KEYS` is therefore now an outage rather than a downgrade — still worth catching with the pre-flight below.
 
 #### Procedure A — rotate a key-id'd key (the standard path)
 
@@ -327,16 +327,16 @@ Track **every** live key, one entry per id. Set only the date of the key you act
 
 > ⚠️ **A green Sentry state means "a date was updated", not "old keys are dead".** The alert measures the age of a string in this JSON blob, so refreshing a date silences it whether or not the superseded credential was retired. Only Procedure A step 5 — removing the id from `SIGNING_KEYS` on both sides — revokes anything.
 
-**Procedure A step 5 is the only revocation these mechanisms offer, and against the deployed receiver it does not reach `SHARED_SECRET`.** With CR29 step 2 shipped it becomes a real revocation, because every accepted credential then has an id to remove; until then, a completed rotation means "the previous *key-id'd* credential is dead", not "the previous credential is dead". `SHARED_SECRET` itself is retired by an unbind ([CR29](BACKLOG.md#cr29) step 3), never by a rotation.
+**Procedure A step 5 is the only revocation these mechanisms offer, and against the deployed receiver it does not reach `SHARED_SECRET`.** With CR29 step 2 shipped it becomes a real revocation, because every accepted credential then has an id to remove; until then, a completed rotation means "the previous *key-id'd* credential is dead", not "the previous credential is dead". `SHARED_SECRET` itself is retired by an unbind ([CR29](changelog/1.3/CHANGELOG.md#cr29) step 3), never by a rotation.
 
 ### Rotation Cadence
 
 No fixed cadence is enforced. Priorities:
 
 1. **Immediate** if: a Doppler token leaks, or `doppler.json` history-scrub (CR01) is blocked.
-   - 🔴 **"a Worker version with stale code is found carrying live secrets (CR14)" was listed here and is NOT a rotation trigger — removed 2026-08-03.** Rotating cannot fix it. A Worker version is an immutable snapshot of code **and** bindings, so the stale version keeps serving the credential *it* was uploaded with; the new value never reaches it and the old one stays live at that preview URL. The remedy is to disable preview URLs on the script (`preview_urls = false`, plus the no-deploy API flip — which must pass `"enabled":true` or the `workers.dev` hostname goes down). Prescribing rotation here would have burned a rotation cycle and left the exposure exactly where it was. See [CR14](BACKLOG.md#cr14).
+   - 🔴 **"a Worker version with stale code is found carrying live secrets (CR14)" was listed here and is NOT a rotation trigger — removed 2026-08-03.** Rotating cannot fix it. A Worker version is an immutable snapshot of code **and** bindings, so the stale version keeps serving the credential *it* was uploaded with; the new value never reaches it and the old one stays live at that preview URL. The remedy is to disable preview URLs on the script (`preview_urls = false`, plus the no-deploy API flip — which must pass `"enabled":true` or the `workers.dev` hostname goes down). Prescribing rotation here would have burned a rotation cycle and left the exposure exactly where it was. See [CR14](changelog/1.3/CHANGELOG.md#cr14).
 2. ~~**Opportunistic** when provisioning `SIGNING_KEYS`~~ — done 2026-07-30; the zero-downtime path is available now.
-3. **Quarterly.** CR01's history scrub is complete and `SIGNING_KEYS` is provisioned, so both preconditions are met. ⚠️ **A quarterly rotation is not yet a quarterly revocation** — against the deployed receiver each cycle adds a key and retires only the previous key-id'd one, leaving `SHARED_SECRET` valid indefinitely. [CR29](BACKLOG.md#cr29) step 2 fixes that in code but is unshipped; the cadence becomes a real control once the receiver ships and step 3 unbinds the legacy secret.
+3. **Quarterly.** CR01's history scrub is complete and `SIGNING_KEYS` is provisioned, so both preconditions are met. ⚠️ **A quarterly rotation is not yet a quarterly revocation** — against the deployed receiver each cycle adds a key and retires only the previous key-id'd one, leaving `SHARED_SECRET` valid indefinitely. [CR29](changelog/1.3/CHANGELOG.md#cr29) step 2 fixes that in code but is unshipped; the cadence becomes a real control once the receiver ships and step 3 unbinds the legacy secret.
 
 ---
 
@@ -376,7 +376,7 @@ No fixed cadence is enforced. Priorities:
 - ✅ HTTPS-only (enforced by Cloudflare)
 - ✅ Content-Type validation (`application/json`)
 - ✅ Secret rotation mechanism shipped (`SIGNING_KEYS`/`ACTIVE_KEY_ID`/`x-key-id`); cadence/policy tracked as W05
-- ⚠️ **Rotation is not yet a revocation in production** — the deployed receiver accepts a keyless signature, so `SHARED_SECRET` has no rotation handle. Fixed in code, unshipped ([CR29](BACKLOG.md#cr29) steps 1–2); the sender now also fails closed rather than downgrading
+- ⚠️ **Rotation is not yet a revocation in production** — the deployed receiver accepts a keyless signature, so `SHARED_SECRET` has no rotation handle. Fixed in code, unshipped ([CR29](changelog/1.3/CHANGELOG.md#cr29) steps 1–2); the sender now also fails closed rather than downgrading
 - ⚠️ Monitoring and alerting — tracked as W04 in `docs/BACKLOG.md`
 
 ---
