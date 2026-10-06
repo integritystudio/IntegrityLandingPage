@@ -114,14 +114,16 @@ Documentation pages use `DocsPageScaffold` (extracted shared scaffold) with `Doc
 
 ```
 workers/
-├── lib/              # Shared HTTP, validation, and constants (shared test suite)
+├── constants.ts      # Cross-worker constants (replay window, dead-letter retries, rate-limit and CSRF defaults)
+├── lib/              # Shared HTTP, validation, schemas, Auth0 JWT verification, billing/entitlements, API-key formats
 ├── contact-form/     # Resend email delivery, CSRF protection, KV rate limiting
-├── sender-worker/    # Inline Auth0+Supabase signup/signin; HMAC-signs /send events to receiver
+├── sender-worker/    # Inline Auth0+Supabase signup/signin/forgot-password; HMAC-signs /send events to receiver
 ├── receiver-worker/  # Local stub/test double only — NOT deployed (production receiver lives in observability-toolkit repo)
-├── api-gateway/      # Usage ingest, aggregation, auth, quota
-├── stripe-webhook/   # Stripe subscription lifecycle, checkout, dead-letter queue
-└── bootstrap-worker/ # Bootstrap operations
+├── api-gateway/      # Usage ingest, org billing/keys/quota, staff admin reads, POST /bootstrap, Auth0 log poller
+└── stripe-webhook/   # Stripe subscription lifecycle, checkout, dead-letter queue
 ```
+
+`bootstrap-worker/` was deleted 2026-07-31 (CR26); `POST /bootstrap` is a route on `api-gateway`.
 
 ## Testing Structure
 
