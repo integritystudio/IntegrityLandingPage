@@ -338,7 +338,7 @@ class ProvisioningService {
 - Tests follow contact_service.dart patterns
 
 ✅ **Sender Worker** (`workers/sender-worker/src/index.ts`)
-- POST /signup, /signin, /send, /create-checkout-session, GET /health (Zod v4 validation)
+- POST /signup, /signin, /forgot-password, /send, /create-checkout-session, GET /health (Zod v4 validation)
 - Inline Auth0 (M2M create user + ROPC sign-in) + Supabase org/user/membership provisioning on /signup
 - HMAC-SHA256 signature computation (timestamp + body); key rotation via `SIGNING_KEYS`/`ACTIVE_KEY_ID`/`x-key-id`
 - Forwards signed /send events to the receiver via the `RECEIVER` service binding (x-timestamp, x-signature headers)

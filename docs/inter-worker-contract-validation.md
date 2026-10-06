@@ -4,7 +4,7 @@
 
 This document covers two contracts for the provisioning path:
 
-- **[Part 1: Flutter Client Contract](#part-1-flutter-client-contract)** — the external HTTP contract the Flutter app consumes against `sender-worker` (`/signup`, `/signin`, `/send`, `/health`).
+- **[Part 1: Flutter Client Contract](#part-1-flutter-client-contract)** — the external HTTP contract the Flutter app consumes against `sender-worker` (`/signup`, `/signin`, `/send`, `/health`). The Worker also serves `/forgot-password` and `/create-checkout-session`, which this contract predates.
 - **[Part 2: Inter-Worker Validation Report](#part-2-inter-worker-validation-report)** — the internal `sender-worker` ↔ receiver HMAC/timestamp/error contract.
 
 > For the end-to-end provisioning data flow by tier (starter / growth / enterprise) and component boundaries, see [provisioning-environment-setup.md § User Provisioning Workflow](provisioning-environment-setup.md#user-provisioning-workflow).
