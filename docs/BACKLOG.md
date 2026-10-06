@@ -662,6 +662,10 @@ CR47 groups by domain only when `/userinfo` says `email_verified === true`, and 
    select id, email, created_at from public.users where auth0_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-';
    ```
    Delete what should not exist, in [[UA13]]'s order: a row's `api_keys` rows first, then the row.
+   **Measured 2026-10-06 (owner ran the first query; cross-referenced from the catalog):**
+   - **Nothing was planted.** Zero `public.users` rows carry a uuid-shaped `auth0_id`, so the hole was never used, and step 7's first decision has nothing to clean up.
+   - **6 of the 12 are team accounts** (`alyshia@`, `chase@`, `john@`, `chandra@` — unconfirmed since 2025-12-05 — `micah@`, and `alyshialedlie@gmail.com`), each with a `public.users` row from the Auth0 path (same email, `auth0|…` id) and two with `auth_user_links` rows. Keep.
+   - **6 are test leftovers** from when the toolkit e2e ran against production (2025-12-27 to 2026-03-26): `e2e-test@analyticsbot.test`, `test+1774038528@inventoryai.io`, and four `e2e-*@integritystudio.ai`. They reference **nothing** in `public` — no links, users rows, keys, memberships or profiles — so deleting them touches only `auth.*` (identities, sessions cascade). `users.auth_user_id` is null on every row, so no auth delete reaches `public.users` or [[UA13]]'s RESTRICT. Deletion is the owner's: Authentication → Users, or `delete from auth.users where email like 'e2e-%' or email = 'test+1774038528@inventoryai.io'` (6 rows).
 3. **Commit** the migration, the suite, the `supabase/tests/README.md` entry and this item. Pushing `main` runs the suite on Postgres 17 (`supabase-sql-tests.yml`); it also deploys `sender-worker` and Pages, as any push does.
 4. **Apply to production** (owner):
    ```bash
