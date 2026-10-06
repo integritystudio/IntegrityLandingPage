@@ -194,17 +194,19 @@ export async function handleRevokeApiKey(
     return serverError('Failed to revoke API key');
   }
 
-  const fnBody = await fnRes.json().catch(() => ({})) as { revoked?: boolean; warning?: string };
+  // The edge function wrote revoked_at; echo the value it wrote so the audit row
+  // and the response carry the stored timestamp, not a second one minted here.
+  const fnBody = await fnRes.json().catch(() => ({})) as { revoked?: boolean; revokedAt?: string };
+  const revokedAt = typeof fnBody.revokedAt === 'string' ? fnBody.revokedAt : new Date().toISOString();
 
   await writeAuditLog(sb, {
     organization_id: orgId,
     action: 'api_key.revoked',
     target_type: 'api_key',
     target_id: keyId,
-    new_values: { status: 'revoked' },
-    metadata: { actor_auth0_id: auth.sub, kv_warning: fnBody.warning ?? null },
+    new_values: { status: 'revoked', revoked_at: revokedAt },
+    metadata: { actor_auth0_id: auth.sub },
   });
 
-  const revokedAt = new Date().toISOString();
   return ok({ id: keyId, status: 'revoked', revoked_at: revokedAt });
 }

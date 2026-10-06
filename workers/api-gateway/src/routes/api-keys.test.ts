@@ -108,13 +108,16 @@ const createRoutes = (
  * `/functions/v1/` path; the stubbed Supabase prefix ensures it is still
  * routed through the global fetch stub.
  */
+/** The revoked_at the edge function reports having written; the gateway must echo it, not mint its own. */
+const EDGE_REVOKED_AT = '2026-10-06T12:00:00.000Z';
+
 const revokeRoutes = (
   overrides: Record<string, RouteResponder> = {},
 ): Record<string, RouteResponder> => ({
   'GET organization_memberships': okRows([makeMembership()]),
   'GET users': okRows([makeUser()]),
   'GET api_keys': okRows([makeExistingKey()]),
-  'POST /functions/v1/api-keys-revoke': () => new Response(JSON.stringify({ revoked: true, keyId: KEY_ID }), {
+  'POST /functions/v1/api-keys-revoke': () => new Response(JSON.stringify({ revoked: true, keyId: KEY_ID, revokedAt: EDGE_REVOKED_AT }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
   }),
@@ -440,6 +443,8 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
     const body = await res.json() as RevokeApiKeyResponse;
     expect(body.id).toBe(KEY_ID);
     expect(body.status).toBe('revoked');
+    // The stored timestamp, as the edge function reported it.
+    expect(body.revoked_at).toBe(EDGE_REVOKED_AT);
 
     // Gateway no longer calls PATCH api_keys directly (CR64 fix).
     expect(stub.find('PATCH', 'api_keys')).toBeUndefined();
@@ -458,6 +463,7 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
         target_type: 'api_key',
         target_id: KEY_ID,
         organization_id: ORG_ID,
+        new_values: { status: 'revoked', revoked_at: EDGE_REVOKED_AT },
       }),
     ]);
   });

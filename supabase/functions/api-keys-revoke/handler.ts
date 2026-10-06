@@ -67,8 +67,19 @@ export function createApiKeysRevokeHandler(
       return errorResponse("Method not allowed", 405);
     }
 
-    const supabaseUrl = deps.env("SUPABASE_URL")!;
-    const serviceRoleKey = deps.env("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = deps.env("SUPABASE_URL");
+    const serviceRoleKey = deps.env("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !serviceRoleKey) {
+      return errorResponse("Server misconfigured: missing Supabase credentials", 500);
+    }
+    // Checked before any write so a misconfigured deploy fails whole, never with
+    // the row revoked and the KV record still live (the CR64 state this exists to end).
+    const cfAccountId = deps.env("CLOUDFLARE_ACCOUNT_ID");
+    const cfApiToken = deps.env("CLOUDFLARE_API_TOKEN");
+    const kvNamespaceId = deps.env("KV_NAMESPACE_ID");
+    if (!cfAccountId || !cfApiToken || !kvNamespaceId) {
+      return errorResponse("Server misconfigured: missing Cloudflare credentials", 500);
+    }
 
     // Trust boundary: verify_jwt = false in config.toml; the function enforces
     // service-key authentication itself.
@@ -92,45 +103,34 @@ export function createApiKeysRevokeHandler(
       global: { fetch: deps.fetch },
     });
 
-    // Fetch the key to get its hash (needed for KV deletion).
+    // Fetch the key to get its hash (needed for KV deletion) and any earlier revocation time.
     const { data: key, error: keyError } = await supabase
       .from("api_keys")
-      .select("id, hash, status")
+      .select("id, hash, status, revoked_at")
       .eq("id", keyId)
       .single();
 
     if (keyError || !key) {
       return errorResponse("Key not found", 404);
     }
-    if (key.status === "revoked") {
-      // Idempotent: already revoked is a success.
-      return jsonResponse({ revoked: true, keyId: key.id });
-    }
 
-    // Revoke in the database.
-    const { error: updateError } = await supabase
-      .from("api_keys")
-      .update({ status: "revoked", revoked_at: new Date().toISOString() })
-      .eq("id", key.id);
+    // Revoke in the database unless an earlier call already did. The KV delete
+    // below still runs on that path, so a retry after a failed delete finishes
+    // the job instead of reporting success for a key that still authenticates.
+    let revokedAt: string = typeof key.revoked_at === "string" ? key.revoked_at : "";
+    if (key.status !== "revoked" || !revokedAt) {
+      revokedAt = new Date().toISOString();
+      const { error: updateError } = await supabase
+        .from("api_keys")
+        .update({ status: "revoked", revoked_at: revokedAt })
+        .eq("id", key.id);
 
-    if (updateError) {
-      return errorResponse("Failed to revoke key", 500);
+      if (updateError) {
+        return errorResponse("Failed to revoke key", 500);
+      }
     }
 
     // Delete the AUTH KV record so telemetry workers stop accepting this key immediately.
-    const cfAccountId = deps.env("CLOUDFLARE_ACCOUNT_ID");
-    const cfApiToken = deps.env("CLOUDFLARE_API_TOKEN");
-    const kvNamespaceId = deps.env("KV_NAMESPACE_ID");
-
-    if (!cfAccountId || !cfApiToken || !kvNamespaceId) {
-      console.error("api-keys-revoke: missing Cloudflare credentials; DB revoked but KV not cleared");
-      return jsonResponse({
-        revoked: true,
-        keyId: key.id,
-        warning: "Key revoked in DB but KV credentials not configured. Key may still work briefly.",
-      });
-    }
-
     const kvKey = `${KV_KEY_PREFIX}${key.hash}`;
     const kvUrl = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/storage/kv/namespaces/${kvNamespaceId}/values/${encodeURIComponent(kvKey)}`;
     const kvRes = await deps.fetch(kvUrl, {
@@ -138,16 +138,15 @@ export function createApiKeysRevokeHandler(
       headers: { Authorization: `Bearer ${cfApiToken}` },
     }).catch(() => null);
 
-    if (!kvRes?.ok) {
+    // 404 means the record is already gone (expired, or a retry): the goal state.
+    if (!kvRes || (!kvRes.ok && kvRes.status !== 404)) {
       const body = kvRes ? await kvRes.text().catch(() => "") : "network error";
       console.error(`api-keys-revoke: KV delete failed for ${keyId}: ${body}`);
-      return jsonResponse({
-        revoked: true,
-        keyId: key.id,
-        warning: "Key revoked in DB but KV delete failed. Key may still work briefly.",
-      });
+      // 500 on purpose: the row says revoked but the key still authenticates, and the
+      // caller must not report success. Re-calling with the same keyId retries the delete.
+      return errorResponse("Key revoked in database but its KV record could not be deleted; retry", 500);
     }
 
-    return jsonResponse({ revoked: true, keyId: key.id });
+    return jsonResponse({ revoked: true, keyId: key.id, revokedAt });
   };
 }
