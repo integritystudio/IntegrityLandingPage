@@ -46,6 +46,8 @@ function stubFetch(routes: Record<string, Responder>) {
 /**
  * `user` fields are merged over a verified default user, e.g. `{ user: { email_verified: false } }`;
  * `secrets` over the two the Action always has. The default client is not Supabase-bound.
+ * The default connection is `auth0` (the built-in database connection), which is the only
+ * strategy allowed to do email-based re-linking (CR65).
  */
 function makeEvent(overrides: {
   protocol?: string;
@@ -53,10 +55,12 @@ function makeEvent(overrides: {
   user?: Record<string, unknown>;
   secrets?: Record<string, string>;
   clientId?: string;
+  connection?: { strategy: string; name?: string };
 } = {}) {
   return {
     secrets: { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY: 'service-role-key', ...overrides.secrets },
     client: { client_id: overrides.clientId ?? OTHER_CLIENT_ID },
+    connection: overrides.connection ?? { strategy: 'auth0', name: 'Username-Password-Authentication' },
     user: {
       user_id: AUTH0_ID, email: EMAIL, name: 'User One', nickname: 'user', picture: 'https://pic.example/u.png', email_verified: true,
       ...overrides.user,
@@ -69,12 +73,15 @@ function makeEvent(overrides: {
 function makeApi() {
   const idClaims: Record<string, unknown> = {};
   const accessClaims: Record<string, unknown> = {};
+  const denials: string[] = [];
   return {
     idClaims,
     accessClaims,
+    denials,
     api: {
       idToken: { setCustomClaim: (k: string, v: unknown) => { idClaims[k] = v; } },
       accessToken: { setCustomClaim: (k: string, v: unknown) => { accessClaims[k] = v; } },
+      access: { deny: (reason: string) => { denials.push(reason); } },
     },
   };
 }
@@ -199,6 +206,56 @@ describe('post-login Action — profile write (UA02)', () => {
     expect(idClaims).toEqual({});
   });
 
+  // CR65: email-based re-linking is restricted to the `auth0` (database) connection strategy.
+  // Social / enterprise IdPs (Google, GitHub, SAML) assert email_verified on the IdP's word;
+  // allowing re-link from them would let any identity controlling the same email on any IdP
+  // claim an existing row's memberships and API keys.
+  it.each(['google-oauth2', 'github', 'samlp', 'windowslive', 'oidc'])(
+    'skips email re-link for "%s" connection strategy even when email is verified (CR65)',
+    async (strategy) => {
+      const calls = stubFetch({
+        'PATCH users?auth0_id': rows([]),
+        // No 'GET users?email' route — the email lookup must not be called.
+        'POST users': rows([{ id: APP_USER_ID }], 201),
+        ...noRoles,
+      });
+      const { api, accessClaims } = makeApi();
+
+      await onExecutePostLogin(
+        makeEvent({ connection: { strategy, name: `${strategy}-connection` } }),
+        api,
+      );
+
+      // Email lookup is forbidden for non-allowlisted connections.
+      expect(calls.some((c) => c.method === 'GET' && c.url.pathname.endsWith('/users'))).toBe(false);
+      // A new row is provisioned instead (step 3).
+      expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({
+        auth0_id: AUTH0_ID,
+        email: EMAIL,
+      });
+      expect(accessClaims[`${CLAIM}app_user_id`]).toBe(APP_USER_ID);
+    },
+  );
+
+  it('allows email re-link from the auth0 (database) connection when email is verified (CR65)', async () => {
+    // Baseline: confirm the allowlisted connection still re-links correctly.
+    const calls = stubFetch({
+      'PATCH users?auth0_id': rows([]),
+      'GET users?email': rows([{ id: APP_USER_ID, email: EMAIL }]),
+      'PATCH users?id': rows([{ id: APP_USER_ID }]),
+      ...noRoles,
+    });
+
+    await onExecutePostLogin(
+      makeEvent({ connection: { strategy: 'auth0', name: 'Username-Password-Authentication' } }),
+      makeApi().api,
+    );
+
+    expect(calls.some((c) => c.method === 'GET' && c.url.searchParams.has('email'))).toBe(true);
+    expect(calls.find((c) => c.method === 'PATCH' && c.url.searchParams.has('id'))?.body)
+      .toMatchObject({ auth0_id: AUTH0_ID });
+  });
+
   it('provisions a new user with the profile', async () => {
     const calls = stubFetch({
       'PATCH users?auth0_id': rows([]),
@@ -234,29 +291,32 @@ describe('post-login Action — claims (unchanged from v8)', () => {
     expect(accessClaims[`${CLAIM}permissions`]).toEqual(['read', 'write']);
   });
 
-  it('sets no claims and does not throw when no user can be resolved', async () => {
+  it('denies login when Supabase cannot provision a user row (CR69)', async () => {
     stubFetch({
       'PATCH users?auth0_id': rows([]),
       'GET users?email': rows([]),
       'POST users': rows({ message: 'insert failed' }, 409),
     });
-    const { api, accessClaims } = makeApi();
+    const { api, accessClaims, denials } = makeApi();
 
     await expect(onExecutePostLogin(makeEvent(), api)).resolves.toBeUndefined();
     expect(accessClaims).toEqual({});
+    expect(denials).toHaveLength(1);
+    expect(denials[0]).toMatch(/provision user account/i);
   });
 
-  it('sets no claims and does not throw for a user with no email, which users.email rejects', async () => {
+  it('denies login for a user with no email when the insert is rejected (CR69)', async () => {
     const calls = stubFetch({
       'PATCH users?auth0_id': rows([]),
       'GET users?email': rows([]),
       'POST users': rows({ code: '23502', message: 'null value in column "email" violates not-null constraint' }, 400),
     });
-    const { api, accessClaims } = makeApi();
+    const { api, accessClaims, denials } = makeApi();
 
     await expect(onExecutePostLogin(makeEvent({ user: { email: undefined } }), api)).resolves.toBeUndefined();
     expect(calls.find((c) => c.method === 'POST')?.body).not.toHaveProperty('email');
     expect(accessClaims).toEqual({});
+    expect(denials).toHaveLength(1);
   });
 
   // Fail-open covers only an unresolved user. A transport failure throws, and Auth0 fails the

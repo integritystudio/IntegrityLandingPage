@@ -171,27 +171,40 @@ export async function handleRevokeApiKey(
     return notFound('API key not found');
   }
 
-  const revokedAt = new Date().toISOString();
+  // Delegate to the api-keys-revoke edge function, which atomically revokes in
+  // the DB and deletes the AUTH KV record. The gateway cannot write that KV
+  // namespace directly, so without this call a "revoked" key keeps authenticating
+  // to obtool-ingest and obtool-api until the KV record expires (CR64).
+  const fnRes = await fetch(
+    `${opts.supabaseUrl}/functions/v1/api-keys-revoke`,
+    {
+      method: 'POST',
+      headers: {
+        apikey: opts.serviceRoleKey,
+        Authorization: `Bearer ${opts.serviceRoleKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ keyId }),
+    },
+  ).catch(() => null);
 
-  const updateResult = await sb.update(
-    'api_keys',
-    { status: 'revoked', revoked_at: revokedAt },
-    [{ column: 'id', operator: 'eq', value: keyId }],
-    { returning: 'representation' },
-  );
-
-  if (!updateResult.ok) {
+  if (!fnRes?.ok) {
+    const errText = fnRes ? await fnRes.text().catch(() => '') : '';
+    console.error(`[api-keys/revoke] edge function returned ${fnRes?.status ?? 'network error'}: ${errText}`);
     return serverError('Failed to revoke API key');
   }
+
+  const fnBody = await fnRes.json().catch(() => ({})) as { revoked?: boolean; warning?: string };
 
   await writeAuditLog(sb, {
     organization_id: orgId,
     action: 'api_key.revoked',
     target_type: 'api_key',
     target_id: keyId,
-    new_values: { status: 'revoked', revoked_at: revokedAt },
-    metadata: { actor_auth0_id: auth.sub },
+    new_values: { status: 'revoked' },
+    metadata: { actor_auth0_id: auth.sub, kv_warning: fnBody.warning ?? null },
   });
 
+  const revokedAt = new Date().toISOString();
   return ok({ id: keyId, status: 'revoked', revoked_at: revokedAt });
 }

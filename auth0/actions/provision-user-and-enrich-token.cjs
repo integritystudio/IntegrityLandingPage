@@ -62,14 +62,30 @@ exports.onExecutePostLogin = async (event, api) => {
   }
   let users = await userRes.json();
 
-  // 2. If not found by auth0_id, try by email — but only when the email is verified (CR51).
-  //    An unverified address can be registered by anyone; re-linking without verification
-  //    lets whoever registers the address inherit an existing row's memberships and roles.
-  //    Skip the lookup when unverified. Step 3 then inserts a fresh row; if a row already
-  //    holds this email, `users_email_key` rejects the insert and the Action returns with
-  //    no app claims, so the new identity inherits nothing.
+  // 2. If not found by auth0_id, try by email — but only when BOTH of:
+  //    (a) the email is verified (CR51) AND
+  //    (b) the connection is the Auth0 database connection (CR65).
+  //
+  //    (a) An unverified address can be registered by anyone; re-linking without
+  //    verification lets whoever registers the address inherit an existing row's
+  //    memberships and roles. Skip the lookup when unverified. Step 3 then inserts a
+  //    fresh row; if a row already holds this email, `users_email_key` rejects the
+  //    insert and the Action returns with no app claims, so the new identity inherits
+  //    nothing.
+  //
+  //    (b) Social and enterprise connections (Google, GitHub, SAML, …) assert
+  //    email_verified on the IdP's word. If re-linking is permitted from those
+  //    connections, any identity that controls the same email address on ANY IdP can
+  //    claim an existing row's memberships and API keys — account takeover the
+  //    moment a second connection is enabled. Restrict to strategy = 'auth0', the
+  //    built-in database connection, where verification is through an email click
+  //    that the same address must receive. Two `auth0`-strategy identities with the
+  //    same email can still oscillate between re-link calls (each login patches
+  //    auth0_id back to itself); that is the residual risk documented in CR65. The
+  //    full fix requires Auth0 account linking so one subject owns one row.
+  const isAllowedRelinkConnection = event.connection?.strategy === 'auth0';
   if (!Array.isArray(users) || !users[0]) {
-    if (event.user.email_verified === true) {
+    if (event.user.email_verified === true && isAllowedRelinkConnection) {
       userRes = await fetch(
         `${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=id,email&limit=1`,
         { headers }
@@ -87,8 +103,10 @@ exports.onExecutePostLogin = async (event, api) => {
           }
         );
       }
-    } else {
+    } else if (event.user.email_verified !== true) {
       console.log(`email not verified for ${email}; skipping email-based re-link (CR51)`);
+    } else {
+      console.log(`connection strategy "${event.connection?.strategy}" not in re-link allowlist; skipping email-based re-link (CR65)`);
     }
   }
 
@@ -104,7 +122,15 @@ exports.onExecutePostLogin = async (event, api) => {
   }
 
   const appUserId = users[0]?.id;
-  if (!appUserId) return; // fail open — don't block login
+  if (!appUserId) {
+    // Supabase is unreachable or returned an unexpected shape. Deny the login rather than
+    // issuing a token with no app claims — a token without claims passes through the API
+    // as if the user had no memberships, which silently grants or withholds access based
+    // on whatever the previous cached token said (CR69).
+    console.error('auth/provision-user: could not resolve app user id; denying login');
+    api.access.deny('Unable to provision user account. Please try again.');
+    return;
+  }
 
   // 4. Load permissions from user_roles → roles
   const rolesRes = await fetch(

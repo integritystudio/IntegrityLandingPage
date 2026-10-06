@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import * as jose from "npm:jose@5";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -18,12 +19,41 @@ function errorResponse(message: string, status: number): Response {
   return jsonResponse({ error: message }, status);
 }
 
-function getJwtSub(req: Request): string | null {
+/**
+ * Verify the bearer JWT against the Auth0 tenant's JWKS and return its `sub`.
+ *
+ * Callers present Auth0 access tokens (RS256, issued by AUTH0_DOMAIN for
+ * AUTH0_AUDIENCE) and `sub` is the Auth0 subject stored in `users.auth0_id`;
+ * Supabase accepts them through Third-Party Auth, so the project's own JWT
+ * secret never signs them. This replaces the previous `atob`-based read, which
+ * decoded the payload without verifying the signature and was safe only while
+ * `verify_jwt = true` made the platform verify the token first — a fragile,
+ * deployment-dependent guarantee. Verifying here means the function is safe
+ * regardless of how it is deployed.
+ *
+ * The JWKS object is module-level so jose's key cache survives across requests
+ * in the same isolate.
+ */
+let jwks: ReturnType<typeof jose.createRemoteJWKSet> | undefined;
+
+function getJwks(domain: string): ReturnType<typeof jose.createRemoteJWKSet> {
+  jwks ??= jose.createRemoteJWKSet(new URL(`https://${domain}/.well-known/jwks.json`));
+  return jwks;
+}
+
+async function verifyAndGetSub(
+  req: Request,
+  auth0: { domain: string; audience: string },
+): Promise<string | null> {
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return null;
+  const token = auth.slice("Bearer ".length).trim();
   try {
-    const payload = JSON.parse(atob(auth.split(".")[1]));
-    return payload.sub ?? null;
+    const { payload } = await jose.jwtVerify(token, getJwks(auth0.domain), {
+      issuer: `https://${auth0.domain}/`,
+      audience: auth0.audience,
+    });
+    return typeof payload.sub === "string" ? payload.sub : null;
   } catch {
     return null;
   }
@@ -37,7 +67,16 @@ Deno.serve(async (req: Request) => {
     return errorResponse("Method not allowed", 405);
   }
 
-  const sub = getJwtSub(req);
+  // Per-project secrets: the dev project names the dev tenant, production the
+  // production tenant. Fail closed when unset so a deploy without them is loud.
+  const auth0Domain = Deno.env.get("AUTH0_DOMAIN");
+  const auth0Audience = Deno.env.get("AUTH0_AUDIENCE");
+  if (!auth0Domain || !auth0Audience) {
+    console.error("AUTH0_DOMAIN / AUTH0_AUDIENCE not set");
+    return errorResponse("Server configuration error", 500);
+  }
+
+  const sub = await verifyAndGetSub(req, { domain: auth0Domain, audience: auth0Audience });
   if (!sub) {
     return errorResponse("Missing or invalid JWT", 401);
   }

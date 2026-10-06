@@ -100,14 +100,24 @@ const createRoutes = (
   ...overrides,
 });
 
-/** Membership lookup + key lookup + key update + audit log — the revoke happy path. */
+/** Membership lookup + key lookup + edge-function call + audit log — the revoke happy path.
+ *
+ * The gateway no longer calls PATCH api_keys directly. It delegates to the
+ * api-keys-revoke edge function, which handles both the DB update and the AUTH
+ * KV deletion (CR64). The stub intercepts the edge function call at the
+ * `/functions/v1/` path; the stubbed Supabase prefix ensures it is still
+ * routed through the global fetch stub.
+ */
 const revokeRoutes = (
   overrides: Record<string, RouteResponder> = {},
 ): Record<string, RouteResponder> => ({
   'GET organization_memberships': okRows([makeMembership()]),
   'GET users': okRows([makeUser()]),
   'GET api_keys': okRows([makeExistingKey()]),
-  'PATCH api_keys': updatedRows([{ ...makeExistingKey(), status: 'revoked', revoked_at: REVOKED_AT }]),
+  'POST /functions/v1/api-keys-revoke': () => new Response(JSON.stringify({ revoked: true, keyId: KEY_ID }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  }),
   'POST audit_log': createdRows([{ id: 'audit-1' }]),
   ...overrides,
 });
@@ -406,7 +416,7 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
     (token) => makeRevokeRequest(token),
     revokeRoutes,
     (req) => handleRevokeApiKey(req, ORG_ID, KEY_ID, opts),
-    (stub) => expect(stub.find('PATCH', 'api_keys')).toBeUndefined(),
+    (stub) => expect(stub.find('POST', '/functions/v1/api-keys-revoke')).toBeUndefined(),
   );
 
   it('returns 404 when key does not belong to the org', async () => {
@@ -421,7 +431,7 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
     expect(stub.find('PATCH', 'api_keys')).toBeUndefined();
   });
 
-  it('revokes the key and returns 200', async () => {
+  it('revokes the key via the edge function and returns 200', async () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
     const stub = stubSupabase(revokeRoutes());
 
@@ -430,12 +440,18 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
     const body = await res.json() as RevokeApiKeyResponse;
     expect(body.id).toBe(KEY_ID);
     expect(body.status).toBe('revoked');
-    const patch = stub.find('PATCH', 'api_keys')!;
-    expect(patch.body).toEqual(
-      expect.objectContaining({ status: 'revoked', revoked_at: body.revoked_at }),
-    );
-    expect(patch.url.searchParams.get('id')).toBe(`eq.${KEY_ID}`);
-    // Audit log written for revoke
+
+    // Gateway no longer calls PATCH api_keys directly (CR64 fix).
+    expect(stub.find('PATCH', 'api_keys')).toBeUndefined();
+
+    // Edge function called with the key id.
+    const fnCall = stub.find('POST', '/functions/v1/api-keys-revoke')!;
+    expect(fnCall).toBeDefined();
+    expect(fnCall.body).toEqual(expect.objectContaining({ keyId: KEY_ID }));
+    // Called with the service role key, not the user JWT.
+    expect(fnCall.headers['Authorization']).toBe(`Bearer ${TEST_SERVICE_ROLE_KEY}`);
+
+    // Audit log written for revoke.
     expect(stub.find('POST', 'audit_log')!.body).toEqual([
       expect.objectContaining({
         action: 'api_key.revoked',
@@ -446,21 +462,11 @@ describe('POST /v1/orgs/:orgId/api-keys/:keyId/revoke', () => {
     ]);
   });
 
-  it('asks PostgREST for the updated row via the Prefer header, not a query param', async () => {
+  it('returns 500 and skips audit log when the edge function fails', async () => {
     const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    const stub = stubSupabase(revokeRoutes());
-
-    const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
-    expect(res.status).toBe(200);
-
-    const patch = stub.find('PATCH', 'api_keys')!;
-    expect(patch.headers['prefer']).toBe('return=representation');
-    expect(patch.url.searchParams.get('returning')).toBeNull();
-  });
-
-  it('returns 500 when the revoke update fails', async () => {
-    const token = await jwt.sign({ sub: AUTH0_SUB, email: 'u@test.com' });
-    const stub = stubSupabase(revokeRoutes({ 'PATCH api_keys': httpError(500, 'DB error') }));
+    const stub = stubSupabase(revokeRoutes({
+      'POST /functions/v1/api-keys-revoke': httpError(500, 'edge function error'),
+    }));
     const res = await handleRevokeApiKey(makeRevokeRequest(token), ORG_ID, KEY_ID, opts);
     expect(res.status).toBe(500);
     expect(stub.find('POST', 'audit_log')).toBeUndefined();
