@@ -16,6 +16,15 @@ point — the integration being on does not make every login a database credenti
 claim never goes on the access token: Auth0 strips non-namespaced claims there, and the
 Workers that verify access tokens do not read it.
 
+**Deploying rebinds every secret.** `PATCH /api/v2/actions/actions/{id}` *replaces* the `secrets`
+list rather than merging it (measured on the dev tenant 2026-10-06: a PATCH carrying one secret left
+the draft with that one secret), and bound values cannot be read back. So any deploy that touches
+secrets must resend all of them, which means the Action's `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` are rebound from Doppler's values of the same names on every deploy —
+prove that pair answers against the right project first (a `GET /rest/v1/users?limit=1` with the
+key; PostgREST returns 206 to a ranged read, not 200). Production's current version is 11
+(2026-10-06, CR62: the `role` gate with `SUPABASE_TPA_CLIENT_IDS` empty); 10 is the rollback.
+
 `.cjs` because Actions use CommonJS (`exports.onExecutePostLogin`) and this repo's root package is ESM.
 Every production login runs the post-login Action, so a broken version stops logins: run
 `npm run test:auth0-actions` before deploying, and keep the previous version number for a rollback

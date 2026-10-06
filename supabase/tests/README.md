@@ -205,10 +205,12 @@ Covers `migrations/20261007000000_auth0_sub_read_policies.sql` (CR62 step 3), wh
 every `auth.uid()` read policy — 22 policies on 13 tables, plus `user_ancestor_org_ids()` —
 with one policy per table over `current_app_user_id()` (an Auth0 subject via
 `users.auth0_id`, a Supabase Auth uuid via `auth_user_links`) and
-`current_user_org_ids(roles)`. The fixture chains `retire-user-profiles/` with its migration
-applied, adds the nine other tables with production's policies verbatim, and **pre-checks that
-a read under an `auth0|…` subject raises 22P02 before the migration**, so a fixture that is
-not production's shape fails before proving anything. Port 55440.
+`current_user_org_ids(roles)`, together with its follow-up
+`20261007010000_resolvers_revoke_anon_execute.sql` (the harness's `FOLLOWUPS`). The fixture
+chains `retire-user-profiles/` with its migration applied, adds the nine other tables with
+production's policies verbatim, sets the hosted project's default function privileges, and
+**pre-checks that a read under an `auth0|…` subject raises 22P02 before the migration**, so a
+fixture that is not production's shape fails before proving anything. Port 55440.
 
 | | assertion |
 |---|---|
@@ -229,7 +231,10 @@ not production's shape fails before proving anything. Port 55440.
 
 The first run caught a real defect: as a `sql` function the resolver was inlined, the planner
 pulled the claim subquery up and evaluated `sub::uuid` as an init-plan before `CASE` chose an
-arm, so an Auth0 subject still raised 22P02. It is `plpgsql` for that reason.
+arm, so an Auth0 subject still raised 22P02. It is `plpgsql` for that reason. The production
+push then showed what the suite had missed: `anon` still held EXECUTE on both resolvers
+(trap 5 below); the follow-up migration revokes it, and with the default privileges in the
+fixture the first migration alone now fails A7d, as production did.
 
 ### `edge-functions/`
 
@@ -281,6 +286,15 @@ That is the point — it is how `user_ancestor_org_ids()` avoids infinite
 recursion — but it means a definer-backed policy and an inline policy have
 different visibility into inner tables. Trap 3 is easy to miss precisely because
 the definer path keeps working while the inline path goes dark.
+
+**5. Hosted Supabase grants EXECUTE on new functions to `anon`, `authenticated` and
+`service_role` by default privilege, on top of PostgreSQL's grant to `PUBLIC`.** A migration
+that does `revoke … from public; grant … to authenticated, service_role` leaves `anon`'s
+explicit grant in place there, while a bare local cluster has no such default and the
+suite reads "authenticated+service_role" — measured on 2026-10-06 after `20261007000000`
+pushed. A fixture that creates the API roles must also run
+`alter default privileges for role <owner> in schema public grant execute on functions to
+anon, authenticated, service_role`, or every grant assertion is weaker than production.
 
 Prefer assertions that compare against an expected set (`assert_visible`) over
 ones that print rows for a human to eyeball; the latter is how a bypassed-RLS
