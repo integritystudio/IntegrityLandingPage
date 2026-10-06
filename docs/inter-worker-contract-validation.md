@@ -290,19 +290,23 @@ class ProvisioningClient {
 
 ## Testing & Debugging (Client)
 
-```bash
-# Health
-curl https://sender-worker.alyshia-b38.workers.dev/health
+Run these against the **dev** Worker. `sender-worker` without the `-dev` suffix is production: `/signup` there creates a real Auth0 user and Supabase org, user and membership rows.
 
-# Signup
-curl -X POST https://sender-worker.alyshia-b38.workers.dev/signup \
+```bash
+SENDER=https://sender-worker-dev.alyshia-b38.workers.dev
+
+# Health
+curl "$SENDER/health"
+
+# Signup (dev Auth0 tenant + dev Supabase project)
+curl -X POST "$SENDER/signup" \
   -H "Content-Type: application/json" \
   -d '{"email":"test+'"$(date +%s)"'@example.com","password":"TestPass123"}'
 
-# Provision
-curl -X POST https://sender-worker.alyshia-b38.workers.dev/send \
+# Provision (`email` is required by SendRequestSchema)
+curl -X POST "$SENDER/send" \
   -H "Content-Type: application/json" \
-  -d '{"action":"provision_api_key","jwt":"YOUR_JWT_HERE","name":"test"}'
+  -d '{"action":"provision_api_key","jwt":"YOUR_JWT_HERE","name":"test","email":"you@example.com"}'
 ```
 
 ---
