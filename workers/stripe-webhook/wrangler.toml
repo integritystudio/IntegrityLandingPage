@@ -32,9 +32,8 @@ preview_urls = false
 # JSON object of Stripe price id → plan key, e.g. {"price_123":"growth"}. Read by
 # src/index.ts on every webhook and every cron tick. With it unset the map is {}
 # and handlers/subscription.ts never writes `current_plan`, so a paid upgrade
-# changes `billing_status` only. NOT BOUND on production as of 2026-09-27 —
-# `wrangler secret list --name stripe-webhook` shows only the three above.
-# BACKLOG.md CR38.
+# changes `billing_status` only. Bound on production 2026-09-28 (BACKLOG.md CR38);
+# production `/health` reports `priceToPlanEntries` — read that, not this comment.
 
 # Reconciliation cron: retries dead letters and detects missed events every 15 minutes
 # Note: Cloudflare API format requires: cron = "schedule"
@@ -62,10 +61,13 @@ enabled = true
 # Publishes to a separate Worker so a local deploy cannot overwrite the one
 # receiving live Stripe webhooks.
 #
-# `triggers` is non-inheritable, and the empty cron list is deliberate: the
-# dead-letter retry cron must not run in dev. Two Workers both draining
-# `webhook_dead_letters` against the same Supabase project would race each
-# other over production rows every 15 minutes.
+# `triggers` IS inherited by a named environment, so the empty cron list is
+# required, not decorative — without it dev runs production's schedule. The
+# dead-letter retry cron must not run in dev. Since 2026-08-03 dev holds its
+# own Supabase project, so there are no production rows for it to race over;
+# the empty list keeps it that way if dev is ever handed production
+# credentials, when two Workers would drain production's
+# `webhook_dead_letters` every 15 minutes.
 [env.dev]
 name = "stripe-webhook-dev"
 

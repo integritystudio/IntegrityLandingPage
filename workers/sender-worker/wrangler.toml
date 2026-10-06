@@ -151,7 +151,7 @@ preview_id = "46a717cd692a4cc2969bff9504bcc87b" # dev-RATE_LIMIT_KV
 #   AUTH0_CLI_SECRET   — Auth0 M2M app client secret
 #   AUTH0_AUDIENCE             — Auth0 API audience for ROPC tokens
 #   ALLOWED_ORIGINS_JSON       — JSON array of allowed CORS origins (optional; defaults to integritystudio.ai and integritystudio.dev, apex and www — workers/lib/http/cors.ts)
-#   STRIPE_SECRET_KEY          — Stripe secret key (sk_live_... or sk_test_...)
+#   STRIPE_SECRET_KEY          — Stripe API key: prd holds an rk_live_ restricted key, dev a sandbox key
 #   STRIPE_PLAN_TO_PRICE_JSON  — JSON map of plan → Stripe price ID, e.g. {"growth":"price_xxx","enterprise":"price_yyy"}
 #   APP_BASE_URL               — Base URL for Stripe success/cancel redirects (optional; defaults to https://integritystudio.ai)
 
