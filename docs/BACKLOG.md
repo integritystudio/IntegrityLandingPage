@@ -236,7 +236,7 @@ Quota state is lazily persisted to Durable Object storage every 10 seconds (`wor
 - `workers/api-gateway/src/durable-objects/quota.ts` — Adjust save strategy (if needed)
 - `workers/docs/QUOTA_DURABLE_OBJECTS.md` — Document durability guarantees and trade-offs
 
-**Status:** Deferred — Documented but requires risk/latency trade-off decision and monitoring setup.
+**Status:** ✅ **DONE 2026-10-05** — All code-level items complete. Risk decision accepted and documented in `workers/docs/QUOTA_DURABLE_OBJECTS.md` "Durability Guarantee (T28 Decision)". Code: hybrid lazy persistence implemented with eager save every 10 s under load + DO alarm armed on each write (fires ≤10 s after last request) as the sole flush path for sparse traffic; `blockConcurrencyWhile` guards cold-start races. Tests: 39 passing, including 4 dedicated `alarm — flush on eviction` cases. Monitoring (step 4) is ongoing infrastructure work — add a Cloudflare DO metrics dashboard when eviction rate and loss frequency become measurable under real traffic.
 
 ---
 
