@@ -9,14 +9,14 @@ import 'http_status.dart';
 export '../models/provisioning_models.dart';
 
 /// Sender Worker endpoint.
-/// Configurable via --dart-define for staging/development.
+/// Defaults to production; override with --dart-define to target the dev Workers (there is no staging).
 const _senderWorkerUrl = String.fromEnvironment(
   'SENDER_WORKER_URL',
   defaultValue: 'https://sender-worker.alyshia-b38.workers.dev',
 );
 
 /// API Gateway endpoint.
-/// Configurable via --dart-define for staging/development.
+/// Defaults to production; override with --dart-define to target the dev Workers (there is no staging).
 const _apiGatewayUrl = String.fromEnvironment(
   'API_GATEWAY_URL',
   defaultValue: 'https://api.integritystudio.dev',

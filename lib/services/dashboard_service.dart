@@ -10,7 +10,7 @@ import 'http_status.dart';
 export '../models/dashboard_models.dart';
 
 /// API Gateway endpoint.
-/// Configurable via --dart-define for staging/development.
+/// Defaults to production; override with --dart-define to target the dev Workers (there is no staging).
 const _apiGatewayUrl = String.fromEnvironment(
   'API_GATEWAY_URL',
   defaultValue: 'https://api.integritystudio.dev',

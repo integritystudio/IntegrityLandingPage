@@ -9,7 +9,7 @@ import 'http_status.dart';
 export '../models/contact_models.dart';
 
 /// Contact form API endpoint (Cloudflare Worker).
-/// Configurable via --dart-define=CONTACT_API_URL for staging/development.
+/// Defaults to production; override with --dart-define=CONTACT_API_URL to target the dev Worker (there is no staging).
 const _contactApiUrl = String.fromEnvironment(
   'CONTACT_API_URL',
   defaultValue: 'https://integrity-studio-contact.alyshia-b38.workers.dev',
