@@ -325,21 +325,19 @@ This script will:
 
 ## Deployment
 
-After manual testing passes:
+This guide deploys nothing, and the commands that used to stand here must not be run:
+
+- **`workers/receiver-worker/` is never deployed.** Its deploy scripts were removed 2026-09-24: a plain `wrangler deploy` there recreates a Worker deleted from Cloudflare on 2026-06-26, under its old production name, binding nothing and returning mock responses. The production receiver deploys from `observability-toolkit`.
+- **`sender-worker` reaches production through CI on merge to `main`.** A bare `wrangler deploy` in its directory publishes the top-level config — production — ahead of `main`, and the next CI run from a stale `main` rolls it back.
+
+To try a sender change on the dev Worker:
 
 ```bash
-# Deploy receiver-worker
-cd workers/receiver-worker
-wrangler deploy
-
-# Deploy sender-worker
 cd workers/sender-worker
-wrangler secret put SIGNING_KEYS   # JSON {"v2":"<secret>"}, matching the receiver's
-wrangler secret put ACTIVE_KEY_ID  # the id to sign with, e.g. v2
-wrangler deploy
+npm run deploy   # → sender-worker-dev (wrangler --env dev, Doppler dev)
 ```
 
-Then update the Flutter app's `SENDER_WORKER_URL` to point to the deployed sender-worker.
+`sender-worker-dev` already binds its own `SIGNING_KEYS` + `ACTIVE_KEY_ID`, matching `api-provisioning-receiver-dev`. Never copy production's pair into dev (CLAUDE.md, HMAC signing). Point the Flutter app at it with `--dart-define=SENDER_WORKER_URL=https://sender-worker-dev.alyshia-b38.workers.dev`.
 
 ## Last Recorded Results
 
