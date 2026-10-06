@@ -21,9 +21,8 @@ Two authentication methods are supported:
 Authorization: Bearer <jwt_token>
 ```
 
-- Issued by Supabase Auth or Auth0
-- Token must include `sub` (user UUID) claim
-- Issuer URL validated against `SUPABASE_JWT_ISSUER` (if configured)
+- Issued by Auth0 — the tenant in api-gateway's `AUTH0_DOMAIN` var — and verified against that tenant's JWKS, with `aud` checked against `AUTH0_AUDIENCE`
+- Token must include a `sub` claim: the Auth0 user id, mapped to `users.id` through `users.auth0_id`
 - User must be an active member of the target organization
 
 ### API Key (Machine Identity)
@@ -31,9 +30,10 @@ Authorization: Bearer <jwt_token>
 Authorization: Bearer <api_key>
 ```
 
-- Format: `int_live_<prefix>_<secret>` (e.g., `int_live_a1b2c3d4_e5f6g7h8i9j0k1l2m3n4`)
+- Two formats (`workers/lib/api-keys.ts`):
+  - `obtk_<64 hex>` — the format the platform issues (Supabase `api-keys-create`, the provisioning receiver), stored as `sha256(<whole token>)`
+  - `int_live_<prefix>_<secret>` (e.g., `int_live_a1b2c3d4_e5f6g7h8i9j0k1l2m3n4`) — legacy, minted only by api-gateway's `POST /v1/orgs/:id/api-keys`; the secret half is verified via HMAC-SHA256 under `API_KEY_HMAC_SECRET`, and the key works only on this gateway
 - Scoped to a single organization
-- Verified via HMAC-SHA256 against stored hash
 - No user context needed; implies organization membership
 
 **Note:** JWT is preferred for application-initiated requests (user actions), while API keys are preferred for programmatic/automated ingestion (backend jobs, webhooks).
@@ -89,9 +89,11 @@ Authorization: Bearer <jwt_or_api_key>
 
 ### Example Requests
 
+api-gateway serves `api.integritystudio.dev`. `api.integritystudio.ai` is `obtool-api`'s hostname and has no `/v1/ingest/events` route ([api-routing.md](api-routing.md)).
+
 **Minimal (JWT):**
 ```bash
-curl -X POST https://api.integritystudio.ai/v1/ingest/events \
+curl -X POST https://api.integritystudio.dev/v1/ingest/events \
   -H "Authorization: Bearer eyJhbGc..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -102,7 +104,7 @@ curl -X POST https://api.integritystudio.ai/v1/ingest/events \
 
 **Full (API Key):**
 ```bash
-curl -X POST https://api.integritystudio.ai/v1/ingest/events \
+curl -X POST https://api.integritystudio.dev/v1/ingest/events \
   -H "Authorization: Bearer int_live_abcdef12_abcdef1234567890gh" \
   -H "Content-Type: application/json" \
   -d '{
@@ -130,7 +132,7 @@ const events = [
 ];
 
 for (const event of events) {
-  await fetch('https://api.integritystudio.ai/v1/ingest/events', {
+  await fetch('https://api.integritystudio.dev/v1/ingest/events', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}` },
     body: JSON.stringify(event),
@@ -396,7 +398,7 @@ Create custom metrics as needed (e.g., `gpt_tokens`, `email_sends`, `webhook_cal
 import fetch from 'node-fetch';
 
 async function ingestEvent(orgId: string, metricKey: string, quantity = 1) {
-  const response = await fetch('https://api.integritystudio.ai/v1/ingest/events', {
+  const response = await fetch('https://api.integritystudio.dev/v1/ingest/events', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.API_KEY}`,
@@ -429,7 +431,7 @@ import os
 
 def ingest_event(org_id, metric_key, quantity=1):
     response = requests.post(
-        'https://api.integritystudio.ai/v1/ingest/events',
+        'https://api.integritystudio.dev/v1/ingest/events',
         headers={
             'Authorization': f"Bearer {os.getenv('API_KEY')}",
             'Content-Type': 'application/json',
@@ -448,7 +450,7 @@ def ingest_event(org_id, metric_key, quantity=1):
 ### cURL
 
 ```bash
-curl -X POST https://api.integritystudio.ai/v1/ingest/events \
+curl -X POST https://api.integritystudio.dev/v1/ingest/events \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -470,13 +472,15 @@ curl -X POST https://api.integritystudio.ai/v1/ingest/events \
 
 ## Testing
 
+Against a local `npx wrangler dev` in `workers/api-gateway` (default port 8787).
+
 ### Ingest via JWT
 
 ```bash
 # Obtain a valid JWT
 export JWT=$(curl -s "https://auth.example.com/oauth/token" | jq -r '.access_token')
 
-curl -X POST http://localhost:8080/v1/ingest/events \
+curl -X POST http://localhost:8787/v1/ingest/events \
   -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
   -d '{
@@ -491,7 +495,7 @@ curl -X POST http://localhost:8080/v1/ingest/events \
 ```bash
 export API_KEY="int_live_test12345_test1234567890abcd"
 
-curl -X POST http://localhost:8080/v1/ingest/events \
+curl -X POST http://localhost:8787/v1/ingest/events \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
