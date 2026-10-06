@@ -342,7 +342,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR58](changelog/1.3/CHANGELOG.md#cr58) | P2 | ✅ **live 2026-09-29** — gateway `a89bc4b8` (`8f08812`), `/health` 200 after deploy; page via the Pages deploy from `18dc515` | Reading usage or quota spent the quota: every `/v1/orgs/:id/*` call, including `/usage/summary` and `/quota/status`, reserved a monthly unit, and the Usage page polled every 30 s, even while hidden. |
 | [CR59](#cr59) | P4 | 📋 open (investigated) | The gateway's quota headers are non-standard, undocumented as sent, and unreadable from a browser. |
 | [CR60](#cr60) | P4 | 📋 open (measured) | `users.last_login` moves on silent sign-ins that reuse the Auth0 session, which Auth0 does not count as logins; CR48's shared session makes them common. |
-| [CR61](#cr61) | P2 | 📋 open — merged `c075ba92` 2026-10-05, applied to dev the same day; production sign-up off and the six test accounts deleted 2026-10-06, nothing planted; the production migration (steps 4, 5, 7) not done | Supabase Auth sign-up is open on production, and three RLS policies let a signed-in account plant its own `users` row and forge or rewrite its own `api_keys` rows. Steps to apply `20261005000000_drop_client_write_policies`. |
+| [CR61](#cr61) | P2 | 📋 open — merged `c075ba92` 2026-10-05, applied to dev the same day; production sign-up off, the six test accounts deleted, and the migration applied and verified on production 2026-10-06, nothing planted; only step 7 (two neighbouring policies) is undecided | Supabase Auth sign-up is open on production, and three RLS policies let a signed-in account plant its own `users` row and forge or rewrite its own `api_keys` rows. Steps to apply `20261005000000_drop_client_write_policies`. |
 
 ~~**Two items are now blocked on code** — [[CR20]] and [[CR21]]…~~ **Superseded 2026-07-31.** [[CR21]] is done and live, and [[CR20]] is not blocked on code at all — its remaining work is monitoring ([[W04]]), since [[CR21]] foreclosed the 5xx option. [[CR19]] was fixed 2026-07-27 (commits eaaa199, 9741594). What still needs a decision rather than an implementation: a credential/provisioning call (CR01, CR11, CR12's cross-repo HMAC secret), or an answer about intent (CR13, CR16). **Update 2026-09-28:** CR01, CR11, CR12 and CR13 are closed, and [[W04]] closed 2026-08-09 (1.3 changelog); of this list only CR16 remains, and it is by design.
 
@@ -667,14 +667,14 @@ CR47 groups by domain only when `/userinfo` says `email_verified === true`, and 
    - **6 of the 12 are team accounts** (`alyshia@`, `chase@`, `john@`, `chandra@` — unconfirmed since 2025-12-05 — `micah@`, and `alyshialedlie@gmail.com`), each with a `public.users` row from the Auth0 path (same email, `auth0|…` id) and two with `auth_user_links` rows. Keep.
    - **6 were test leftovers** from when the toolkit e2e ran against production (2025-12-27 to 2026-03-26): `e2e-test@analyticsbot.test`, `test+1774038528@inventoryai.io`, and four `e2e-*@integritystudio.ai`. They referenced **nothing** in `public` — no links, users rows, keys, memberships or profiles — and `users.auth_user_id` is null on every row, so no auth delete could reach `public.users` or [[UA13]]'s RESTRICT. ✅ **Deleted by the owner 2026-10-06** (`delete from auth.users where email like 'e2e-%' or email = 'test+1774038528@inventoryai.io'`). Read back: `auth.users` 12 → 6, zero test accounts, one unconfirmed (`chandra@`); `public.users` 10, `auth_user_links` 2, `api_keys` 8 and memberships 21 all unchanged, so the cascade stayed inside `auth.*`.
 3. **Commit** the migration, the suite, the `supabase/tests/README.md` entry and this item. Pushing `main` runs the suite on Postgres 17 (`supabase-sql-tests.yml`); it also deploys `sender-worker` and Pages, as any push does.
-4. **Apply to production** (owner):
+4. ✅ **Applied to production 2026-10-06** (owner, through the login-role path). `migration list --linked` showed 29 matched and only `20261005000000` with a blank remote; `--dry-run` named that one file; the push applied it. Ledger tail read back: `20261005000000 20261001000000`.
    ```bash
    supabase migration list --linked     # only 20261005000000 should have a blank remote
    supabase db push --dry-run
    supabase db push
    ```
    If anything else is pending, apply this one alone: `supabase db query --linked -f supabase/migrations/20261005000000_drop_client_write_policies.sql`, then `supabase migration repair --status applied 20261005000000`.
-5. **Verify on production.** Nothing in CI notices whether this ran: `check-migration-drift.sh` looks only for created tables and functions, and this migration creates none.
+5. ✅ **Verified on production 2026-10-06:** the query below returned exactly the two expected rows, and the five read policies on the two tables are still there. Nothing in CI notices whether this ran: `check-migration-drift.sh` looks only for created tables and functions, and this migration creates none.
    ```sql
    select tablename, policyname, cmd from pg_policies
    where schemaname = 'public' and tablename in ('users', 'api_keys') and cmd <> 'SELECT';
