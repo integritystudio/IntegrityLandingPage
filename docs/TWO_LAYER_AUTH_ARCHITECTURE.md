@@ -37,6 +37,10 @@ POST /bootstrap → { user: { id, email }, organizations: [{ id, slug, name, bil
 
 Code: `lib/services/auth0_service.dart` (`login`, `handleCallback`, `currentSession`, `logout`), `auth0/actions/provision-user-and-enrich-token.cjs`, `workers/api-gateway/src/routes/bootstrap.ts`.
 
+The Action's two guards:
+- **Fail closed (CR69).** If Supabase is unreachable or no app user id resolves, the Action denies the login rather than issuing a token without app claims. A Supabase outage therefore blocks sign-in.
+- **Narrow email re-link (CR51, CR65).** When no row matches `auth0_id`, the Action falls back to matching by email only if the email is verified *and* the connection strategy is `auth0` (the database connection). Social and enterprise logins are never re-linked by email, because their `email_verified` is the IdP's assertion; the Action inserts a fresh row instead, and if a row already holds that email, `users_email_key` rejects the insert and the login is denied by the fail-closed guard above.
+
 The sender's `POST /signup`, `/signin` and `/forgot-password` (Auth0 ROPC) are **legacy**: deployed, called by nothing, and scheduled for deletion by [CR49](BACKLOG.md#cr49). Do not build on them.
 
 ### Tokens
@@ -97,7 +101,7 @@ CREATE TABLE public.api_keys (
 
 Invariants:
 - The full key is never stored; only its hash. Rotation is explicit: `api-keys-rotate` creates and syncs the replacement before revoking the old key.
-- Only `status = 'active'` authenticates, everywhere. api-gateway refuses any other row; the obtool Workers refuse any KV record whose `status` is not `active` or that lacks `organizationId`. `api-keys-set-status` switches a key between `active` and `inactive` in both the table and KV, and can reconcile every KV record from the table. `api-keys-revoke` sets `revoked` and deletes the KV record.
+- Only `status = 'active'` authenticates, everywhere. api-gateway refuses any other row; the obtool Workers refuse any KV record whose `status` is not `active` or that lacks `organizationId`. `api-keys-set-status` switches a key between `active` and `inactive` in both the table and KV, and can reconcile every KV record from the table. `api-keys-revoke` sets `revoked` and deletes the KV record. api-gateway's `POST /v1/orgs/:id/api-keys/:keyId/revoke` delegates to that function rather than updating the row itself (CR64), so a gateway revoke also clears KV; it answers 500 if the function or its KV delete fails.
 - `ON DELETE RESTRICT` on both foreign keys: a user or org that holds keys cannot be deleted until each key is revoked.
 
 ### Verification (api-gateway)
