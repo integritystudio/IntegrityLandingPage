@@ -19,8 +19,8 @@ import type { SupabaseClient } from '../../../lib/supabase';
 export const USAGE_METRIC_REQUESTS = 'requests';
 /** `usage_events.source` value for gateway-served requests (CHECK constraint member). */
 const USAGE_SOURCE_API = 'api';
-/** One reservation per request, matching `units: 1` in `enforceOrgQuota`. */
-const UNITS_PER_REQUEST = 1;
+/** One reservation per request; `enforceOrgQuota` reserves the same amount. */
+export const UNITS_PER_REQUEST = 1;
 /** Route template with the org id elided, so rows group by route rather than by tenant. */
 const ORG_ROUTE_TEMPLATE = '/v1/orgs/:id';
 

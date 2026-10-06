@@ -139,6 +139,24 @@ describe('api-gateway', () => {
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ALLOWED_ORIGIN);
     });
 
+    // CR59: without this list a browser cannot read the quota headers on any cross-origin response.
+    it('exposes the rate-limit headers to browser JS', async () => {
+      const res = await worker.fetch(
+        makeRequest('GET', '/unknown', { headers: { Origin: ALLOWED_ORIGIN } }),
+        makeEnv(),
+      );
+      const exposed = (res.headers.get('Access-Control-Expose-Headers') ?? '')
+        .split(',')
+        .map((name) => name.trim());
+      expect(exposed).toEqual(expect.arrayContaining([
+        'RateLimit-Policy',
+        'RateLimit',
+        'Retry-After',
+        'X-RateLimit-Remaining-Minute',
+        'X-RateLimit-Remaining-Monthly',
+      ]));
+    });
+
     it('does not echo an origin outside the allowlist', async () => {
       const res = await worker.fetch(
         makeRequest('OPTIONS', '/v1/orgs', { headers: { Origin: 'https://evil.example' } }),

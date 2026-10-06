@@ -1195,6 +1195,8 @@ describe('Contact Form Worker', () => {
       const data = await response.json() as ErrorResponse;
       expect(data.error).toContain('Too many requests');
       expect(response.headers.get('Retry-After')).toBeTruthy();
+      // CR59: a cross-origin browser can read Retry-After only if it is exposed.
+      expect(response.headers.get('Access-Control-Expose-Headers')).toContain('Retry-After');
       expect(response.headers.get('X-RateLimit-Remaining')).toBe('0');
     });
 

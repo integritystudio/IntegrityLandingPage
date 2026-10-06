@@ -206,6 +206,38 @@ describe('QuotaDurableObject', () => {
     });
   });
 
+  // CR59: feeds Retry-After and the RateLimit `t=` field.
+  describe('checkAndReserve — minute window reset time', () => {
+    const NOW = Date.UTC(2026, 9, 15, 12, 0, 0);
+
+    async function resetsInAfter(elapsedMs: number, minuteUsed: number): Promise<{ status: number; resetsIn: number }> {
+      const spy = vi.spyOn(Date, 'now').mockReturnValue(NOW);
+      try {
+        const { do_, storage } = makeDO();
+        await seedQuota(storage, { minuteUsed, minuteUsedAt: NOW - elapsedMs });
+        const res = await do_.fetch(checkReq());
+        const body = await res.json() as { minuteWindowResetsIn: number };
+        return { status: res.status, resetsIn: body.minuteWindowResetsIn };
+      } finally {
+        spy.mockRestore();
+      }
+    }
+
+    it('reports the seconds left in the window on a minute_limit 429', async () => {
+      const ELAPSED_MS = 15_000;
+      const { status, resetsIn } = await resetsInAfter(ELAPSED_MS, 60);
+      expect(status).toBe(429);
+      expect(resetsIn).toBe(45);
+    });
+
+    it('rounds a partial second up, so a client never retries early', async () => {
+      const ELAPSED_MS = 20_500; // 39.5 s left
+      const { status, resetsIn } = await resetsInAfter(ELAPSED_MS, 0);
+      expect(status).toBe(200);
+      expect(resetsIn).toBe(40);
+    });
+  });
+
   describe('checkAndReserve — monthly limit', () => {
     it('rejects when monthly limit is exceeded with reason "monthly_limit"', async () => {
       const { do_, storage } = makeDO();

@@ -18,6 +18,16 @@
  * rollover keyed on the ledger, not a callable reset.
  */
 
+import { MS_PER_MINUTE, MS_PER_SECOND, SECONDS_PER_MINUTE } from '../../../lib/constants';
+
+/** Length of the per-minute quota window. */
+export const QUOTA_MINUTE_WINDOW_SECONDS = SECONDS_PER_MINUTE;
+const QUOTA_MINUTE_WINDOW_MS = MS_PER_MINUTE;
+/** Longest a count stays unpersisted: the eager-save threshold and the flush-alarm delay (T28). */
+const PERSIST_INTERVAL_MS = 10 * MS_PER_SECOND;
+/** How long a requestId is remembered, so a retried reservation is not counted twice. */
+const REQUEST_ID_TTL_MS = 5 * MS_PER_MINUTE;
+
 interface QuotaCheckRequest {
   orgId: string;
   metricKey: string; // e.g. "requests", "otel_events", "agent_runs"
@@ -184,10 +194,10 @@ export class QuotaDurableObject implements DurableObject {
         // monthlyUsed NOT reset: preserved so quota evasion via plan cycling is prevented.
       }
 
-      // Purge requestIds older than 5 minutes and check idempotency
-      const fiveMinAgo = now - 5 * 60_000;
+      // Purge requestIds older than the TTL and check idempotency
+      const requestIdCutoff = now - REQUEST_ID_TTL_MS;
       for (const id of Object.keys(this.quota.seenRequestIds)) {
-        if (this.quota.seenRequestIds[id] < fiveMinAgo) {
+        if (this.quota.seenRequestIds[id] < requestIdCutoff) {
           delete this.quota.seenRequestIds[id];
         }
       }
@@ -209,7 +219,7 @@ export class QuotaDurableObject implements DurableObject {
       }
 
       // Check minute window expiration
-      if (now - this.quota.minuteUsedAt >= 60_000) {
+      if (now - this.quota.minuteUsedAt >= QUOTA_MINUTE_WINDOW_MS) {
         this.quota.minuteUsed = 0;
         this.quota.minuteUsedAt = now;
       }
@@ -256,7 +266,7 @@ export class QuotaDurableObject implements DurableObject {
       this.quota.seenRequestIds[requestId] = now;
 
       // Periodically persist to storage (eager path: at least every 10 s under load).
-      if (now - this.lastSavedAt > 10_000) {
+      if (now - this.lastSavedAt > PERSIST_INTERVAL_MS) {
         await this.state.storage.put('quota', this.quota);
         this.lastSavedAt = now;
         this.alarmArmed = false; // persisted in-band; cancel pending alarm intent
@@ -266,7 +276,7 @@ export class QuotaDurableObject implements DurableObject {
       // The alarm fires ≤10 s after the last write, ensuring eviction doesn't
       // lose quota state regardless of request rate.
       if (!this.alarmArmed) {
-        await this.state.storage.setAlarm(now + 10_000);
+        await this.state.storage.setAlarm(now + PERSIST_INTERVAL_MS);
         this.alarmArmed = true;
       }
 
@@ -299,8 +309,8 @@ export class QuotaDurableObject implements DurableObject {
    * IETF RateLimit `t=` field. Rounded up so a client never sleeps too little.
    */
   private minuteWindowResetsIn(now: number): number {
-    if (!this.quota) return 60;
-    return Math.max(0, Math.ceil((this.quota.minuteUsedAt + 60_000 - now) / 1_000));
+    if (!this.quota) return QUOTA_MINUTE_WINDOW_SECONDS;
+    return Math.max(0, Math.ceil((this.quota.minuteUsedAt + QUOTA_MINUTE_WINDOW_MS - now) / MS_PER_SECOND));
   }
 
   /**
@@ -342,7 +352,7 @@ export class QuotaDurableObject implements DurableObject {
         monthlyLimit: this.quota.monthlyLimit,
         minuteUsed: this.quota.minuteUsed,
         monthlyUsed: this.quota.monthlyUsed,
-        minuteWindowExpiresIn: 60_000 - (Date.now() - this.quota.minuteUsedAt),
+        minuteWindowExpiresIn: QUOTA_MINUTE_WINDOW_MS - (Date.now() - this.quota.minuteUsedAt),
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     );

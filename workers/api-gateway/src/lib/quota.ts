@@ -4,6 +4,9 @@
 
 import { createSupabaseClient } from '../../../lib/supabase';
 import { effectivePlan } from '../../../lib/billing';
+import { MS_PER_SECOND } from '../../../lib/constants';
+import { QUOTA_MINUTE_WINDOW_SECONDS } from '../durable-objects/quota';
+import { UNITS_PER_REQUEST, USAGE_METRIC_REQUESTS } from './usage-ledger';
 import {
   QuotaCheckResponseSchema,
   QuotaStatusResponseSchema,
@@ -82,12 +85,13 @@ export async function getQuotaStatus(
  * Seconds from `now` until midnight UTC on the first day of the next calendar month.
  * Used for the monthly `Retry-After` value and the IETF RateLimit `t=` field.
  */
+const FIRST_DAY_OF_MONTH = 1;
+
 export function secondsToMonthReset(now: number = Date.now()): number {
   const d = new Date(now);
-  const nextMonth = d.getUTCMonth() === 11 ? 0 : d.getUTCMonth() + 1;
-  const nextYear = d.getUTCMonth() === 11 ? d.getUTCFullYear() + 1 : d.getUTCFullYear();
-  const reset = Date.UTC(nextYear, nextMonth, 1, 0, 0, 0, 0);
-  return Math.max(0, Math.ceil((reset - now) / 1_000));
+  // Date.UTC rolls month 12 over to January of the next year.
+  const reset = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, FIRST_DAY_OF_MONTH);
+  return Math.max(0, Math.ceil((reset - now) / MS_PER_SECOND));
 }
 
 /**
@@ -100,7 +104,7 @@ export function buildRateLimitPolicyHeader(
   monthlyLimit: number | null | undefined,
 ): string {
   const parts: string[] = [];
-  if (minuteLimit != null) parts.push(`"minute";q=${minuteLimit};w=60`);
+  if (minuteLimit != null) parts.push(`"minute";q=${minuteLimit};w=${QUOTA_MINUTE_WINDOW_SECONDS}`);
   if (monthlyLimit != null) parts.push(`"month";q=${monthlyLimit}`);
   return parts.join(', ');
 }
@@ -119,7 +123,7 @@ export function buildRateLimitHeader(
 ): string {
   const parts: string[] = [];
   if (remainingMinute != null) {
-    const t = minuteWindowResetsIn ?? 60;
+    const t = minuteWindowResetsIn ?? QUOTA_MINUTE_WINDOW_SECONDS;
     parts.push(`"minute";r=${remainingMinute};t=${t}`);
   }
   // Include the month item only when the plan has a finite ceiling. The DO sets
@@ -164,8 +168,8 @@ export async function enforceOrgQuota(
   try {
     quota = await checkAndReserve(opts.doNamespace as DurableObjectNamespace, {
       orgId,
-      metricKey: 'requests',
-      units: 1,
+      metricKey: USAGE_METRIC_REQUESTS,
+      units: UNITS_PER_REQUEST,
       requestId,
       planKey,
       quotaVersion,
@@ -199,7 +203,7 @@ export async function enforceOrgQuota(
 
   if (!quota.allowed) {
     const retryAfter = quota.reason === 'minute_limit'
-      ? (quota.minuteWindowResetsIn ?? 60)
+      ? (quota.minuteWindowResetsIn ?? QUOTA_MINUTE_WINDOW_SECONDS)
       : secondsToMonthReset();
     return {
       ok: false,
