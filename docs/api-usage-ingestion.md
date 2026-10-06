@@ -361,17 +361,31 @@ Streaming/incremental monthly aggregation for high-volume orgs; `usage_events` c
 
 ## Rate Limiting
 
-Rate limits are enforced per organization via a Durable Object quota manager:
+Rate limits are enforced per organization via a Durable Object quota manager. Limits depend on the subscription plan:
 
-- Limit: Depends on subscription plan (e.g., 10,000 requests/hour for Growth, unlimited for Enterprise)
-- Response Headers:
-  ```
-  X-RateLimit-Limit: 10000
-  X-RateLimit-Remaining: 9995
-  X-RateLimit-Reset: 1234567890
-  ```
-- When limit is exceeded: 429 Too Many Requests
-- `GET /v1/orgs/:id/usage/summary` and `GET /v1/orgs/:id/quota/status` count toward the per-minute limit but not the monthly quota, and stay readable after the monthly quota is exhausted (CR58). Header names above are out of date; see BACKLOG.md CR59.
+| Plan | Per-minute | Monthly |
+|------|------------|---------|
+| Starter | 60 | 10,000 |
+| Growth | 600 | 500,000 |
+| Enterprise | 6,000 | unlimited |
+
+**Response headers** (every 200 and 429 that goes through quota enforcement):
+
+```
+RateLimit-Policy: "minute";q=60;w=60, "month";q=10000
+RateLimit: "minute";r=48;t=40, "month";r=9000;t=1339200
+X-RateLimit-Remaining-Minute: 48
+X-RateLimit-Remaining-Monthly: 9000
+```
+
+- `RateLimit-Policy` names each window (`minute` / `month`), its ceiling (`q=`), and its length in seconds (`w=`; omitted for the monthly window because calendar months vary). Enterprise has no `month` item (no ceiling to declare).
+- `RateLimit` gives the current remaining units (`r=`) and seconds until the window resets (`t=`). The monthly `t=` is seconds to midnight UTC on the 1st of the next calendar month.
+- `X-RateLimit-Remaining-Minute` and `X-RateLimit-Remaining-Monthly` are the legacy equivalents; they will be removed after callers migrate.
+- All headers listed above are included in `Access-Control-Expose-Headers`, so browser JS can read them cross-origin.
+
+**On 429:** the response also carries `Retry-After` (seconds), equal to the time until the exceeded window resets.
+
+`GET /v1/orgs/:id/usage/summary` and `GET /v1/orgs/:id/quota/status` count toward the per-minute limit but not the monthly quota, and stay readable after the monthly quota is exhausted (CR58).
 
 **Quota Enforcement:** Uses a sliding-window rate limiter in a Durable Object. The quota check is soft (fail-open): if the DO is unreachable, the request is allowed. This ensures availability over strict quota compliance.
 

@@ -101,6 +101,12 @@ const ROUTER_NOT_FOUND_MESSAGE = 'Not found';
 const CORS_ALLOW_METHODS = 'GET, POST, OPTIONS';
 /** The Flutter app sends a bearer token, and POST bodies are JSON. */
 const CORS_ALLOW_HEADERS = 'Authorization, Content-Type';
+/**
+ * Non-simple response headers that browser JS needs to read (CR59). Includes both the
+ * IETF draft fields and the legacy X-RateLimit-* names kept for backward compatibility.
+ */
+const CORS_EXPOSE_HEADERS =
+  'RateLimit-Policy, RateLimit, Retry-After, X-RateLimit-Remaining-Minute, X-RateLimit-Remaining-Monthly';
 
 // Emitted at most once per isolate so production logs are not flooded.
 let auth0Warned = false;
@@ -127,6 +133,7 @@ function corsHeaders(origin: string | null, env: Env): Record<string, string> {
     allowedOriginsJson: env.ALLOWED_ORIGINS_JSON,
     allowMethods: CORS_ALLOW_METHODS,
     allowHeaders: CORS_ALLOW_HEADERS,
+    exposeHeaders: CORS_EXPOSE_HEADERS,
     disallowedOriginHeader: 'first-allowed',
   }).headers;
 }

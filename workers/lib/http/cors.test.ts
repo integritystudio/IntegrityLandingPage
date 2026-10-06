@@ -116,4 +116,14 @@ describe('buildCors', () => {
     expect(literal.headers['Access-Control-Allow-Origin']).toBe('https://ok.example');
     expect(buildCors(EVIL, policy({ allowedOriginsJson: json })).headers['Access-Control-Allow-Origin']).toBeUndefined();
   });
+
+  it('sends Access-Control-Expose-Headers when exposeHeaders is set (CR59)', () => {
+    const exposed = 'RateLimit-Policy, RateLimit, Retry-After';
+    expect(buildCors(PROD, policy({ exposeHeaders: exposed })).headers['Access-Control-Expose-Headers'])
+      .toBe(exposed);
+  });
+
+  it('omits Access-Control-Expose-Headers when exposeHeaders is not set', () => {
+    expect(buildCors(PROD, policy()).headers['Access-Control-Expose-Headers']).toBeUndefined();
+  });
 });

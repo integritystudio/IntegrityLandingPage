@@ -79,6 +79,57 @@ export async function getQuotaStatus(
 }
 
 /**
+ * Seconds from `now` until midnight UTC on the first day of the next calendar month.
+ * Used for the monthly `Retry-After` value and the IETF RateLimit `t=` field.
+ */
+export function secondsToMonthReset(now: number = Date.now()): number {
+  const d = new Date(now);
+  const nextMonth = d.getUTCMonth() === 11 ? 0 : d.getUTCMonth() + 1;
+  const nextYear = d.getUTCMonth() === 11 ? d.getUTCFullYear() + 1 : d.getUTCFullYear();
+  const reset = Date.UTC(nextYear, nextMonth, 1, 0, 0, 0, 0);
+  return Math.max(0, Math.ceil((reset - now) / 1_000));
+}
+
+/**
+ * IETF draft-ietf-httpapi-ratelimit-headers-11 `RateLimit-Policy` header value.
+ * Enterprise (monthlyLimit null) has no "month" item because there is no limit to declare.
+ * Returns an empty string when no limit information is available.
+ */
+export function buildRateLimitPolicyHeader(
+  minuteLimit: number | null | undefined,
+  monthlyLimit: number | null | undefined,
+): string {
+  const parts: string[] = [];
+  if (minuteLimit != null) parts.push(`"minute";q=${minuteLimit};w=60`);
+  if (monthlyLimit != null) parts.push(`"month";q=${monthlyLimit}`);
+  return parts.join(', ');
+}
+
+/**
+ * IETF draft-ietf-httpapi-ratelimit-headers-11 `RateLimit` header value.
+ * `t=` is the time-to-reset in seconds for each window.
+ * Returns an empty string when no remaining information is available.
+ */
+export function buildRateLimitHeader(
+  remainingMinute: number | null | undefined,
+  minuteWindowResetsIn: number | null | undefined,
+  remainingMonthly: number | null | undefined,
+  monthlyLimit: number | null | undefined,
+  now: number = Date.now(),
+): string {
+  const parts: string[] = [];
+  if (remainingMinute != null) {
+    const t = minuteWindowResetsIn ?? 60;
+    parts.push(`"minute";r=${remainingMinute};t=${t}`);
+  }
+  // Include month item only when we have tracking (remainingMonthly not null = limited plan).
+  if (remainingMonthly != null && monthlyLimit != null) {
+    parts.push(`"month";r=${remainingMonthly};t=${secondsToMonthReset(now)}`);
+  }
+  return parts.join(', ');
+}
+
+/**
  * Middleware helper: fetch org plan from DB, run quota check, return 429 if exceeded.
  * If the quota DO is unavailable, allows the request through (fail-open).
  * `chargeMonthly: false` (CR58) counts the request toward the minute window only.
@@ -123,6 +174,8 @@ export async function enforceOrgQuota(
   }
 
   const rateLimitHeaders: Record<string, string> = {};
+
+  // Legacy X-RateLimit-* headers (kept until callers migrate to the IETF draft fields).
   if (quota.remainingMinute != null) {
     rateLimitHeaders['X-RateLimit-Remaining-Minute'] = String(quota.remainingMinute);
   }
@@ -130,12 +183,33 @@ export async function enforceOrgQuota(
     rateLimitHeaders['X-RateLimit-Remaining-Monthly'] = String(quota.remainingMonthly);
   }
 
+  // IETF draft-ietf-httpapi-ratelimit-headers-11 fields.
+  const policy = buildRateLimitPolicyHeader(quota.minuteLimit, quota.monthlyLimit);
+  if (policy) rateLimitHeaders['RateLimit-Policy'] = policy;
+  const rl = buildRateLimitHeader(
+    quota.remainingMinute,
+    quota.minuteWindowResetsIn,
+    quota.remainingMonthly,
+    quota.monthlyLimit,
+  );
+  if (rl) rateLimitHeaders['RateLimit'] = rl;
+
   if (!quota.allowed) {
+    const retryAfter = quota.reason === 'minute_limit'
+      ? (quota.minuteWindowResetsIn ?? 60)
+      : secondsToMonthReset();
     return {
       ok: false,
       response: new Response(
         JSON.stringify({ error: { message: 'Too Many Requests', reason: quota.reason } }),
-        { status: 429, headers: { 'Content-Type': 'application/json', ...rateLimitHeaders } },
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': String(retryAfter),
+            ...rateLimitHeaders,
+          },
+        },
       ),
     };
   }

@@ -274,6 +274,7 @@ function getCorsHeaders(request: Request, env: Env): Record<string, string> | nu
     allowMethods: CORS_ALLOW_METHODS,
     allowHeaders: CORS_ALLOW_HEADERS,
     allowCredentials: true,
+    exposeHeaders: 'Retry-After',
     disallowedOriginHeader: 'first-allowed',
   });
 

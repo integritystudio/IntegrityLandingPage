@@ -33,6 +33,11 @@ export interface CorsPolicy {
   /** Send `Access-Control-Allow-Credentials: true` to an allowed origin (cookie-based callers). */
   allowCredentials?: boolean;
   /**
+   * Comma-separated list of response-header names the browser JS may read from this origin.
+   * Mapped to `Access-Control-Expose-Headers`. Omit when no extra headers need exposing.
+   */
+  exposeHeaders?: string;
+  /**
    * `Access-Control-Allow-Origin` for a caller that is not allowed: the first allowlisted
    * origin (a real value the browser will not match) or no header. Never the caller's own.
    */
@@ -105,6 +110,7 @@ export function buildCors(origin: string | null, policy: CorsPolicy): CorsDecisi
   // which is what an empty allowlist means.
   if (allowOrigin) headers['Access-Control-Allow-Origin'] = allowOrigin;
   if (allowed && policy.allowCredentials) headers['Access-Control-Allow-Credentials'] = 'true';
+  if (policy.exposeHeaders) headers['Access-Control-Expose-Headers'] = policy.exposeHeaders;
 
   return { allowed, headers };
 }

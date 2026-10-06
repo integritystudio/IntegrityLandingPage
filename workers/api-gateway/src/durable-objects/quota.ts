@@ -36,6 +36,9 @@ interface QuotaCheckResponse {
   reason?: "minute_limit" | "monthly_limit" | "feature_disabled";
   remainingMinute?: number;
   remainingMonthly?: number | null;
+  minuteLimit?: number | null;
+  monthlyLimit?: number | null;
+  minuteWindowResetsIn?: number;
 }
 
 interface OrganizationQuota {
@@ -197,6 +200,9 @@ export class QuotaDurableObject implements DurableObject {
             remainingMonthly: this.quota.monthlyLimit !== null
               ? Math.max(0, this.quota.monthlyLimit - this.quota.monthlyUsed)
               : null,
+            minuteLimit: this.quota.minuteLimit,
+            monthlyLimit: this.quota.monthlyLimit,
+            minuteWindowResetsIn: this.minuteWindowResetsIn(now),
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
@@ -214,6 +220,12 @@ export class QuotaDurableObject implements DurableObject {
           allowed: false,
           reason: 'minute_limit',
           remainingMinute: Math.max(0, this.quota.minuteLimit - this.quota.minuteUsed),
+          remainingMonthly: this.quota.monthlyLimit !== null
+            ? Math.max(0, this.quota.monthlyLimit - this.quota.monthlyUsed)
+            : null,
+          minuteLimit: this.quota.minuteLimit,
+          monthlyLimit: this.quota.monthlyLimit,
+          minuteWindowResetsIn: this.minuteWindowResetsIn(now),
         };
         return new Response(JSON.stringify(response), {
           status: 429,
@@ -226,7 +238,11 @@ export class QuotaDurableObject implements DurableObject {
         const response: QuotaCheckResponse = {
           allowed: false,
           reason: 'monthly_limit',
+          remainingMinute: Math.max(0, this.quota.minuteLimit - this.quota.minuteUsed),
           remainingMonthly: Math.max(0, this.quota.monthlyLimit - this.quota.monthlyUsed),
+          minuteLimit: this.quota.minuteLimit,
+          monthlyLimit: this.quota.monthlyLimit,
+          minuteWindowResetsIn: this.minuteWindowResetsIn(now),
         };
         return new Response(JSON.stringify(response), {
           status: 429,
@@ -260,6 +276,9 @@ export class QuotaDurableObject implements DurableObject {
         remainingMonthly: this.quota.monthlyLimit !== null
           ? Math.max(0, this.quota.monthlyLimit - this.quota.monthlyUsed)
           : null,
+        minuteLimit: this.quota.minuteLimit,
+        monthlyLimit: this.quota.monthlyLimit,
+        minuteWindowResetsIn: this.minuteWindowResetsIn(now),
       };
 
       return new Response(JSON.stringify(response), {
@@ -273,6 +292,15 @@ export class QuotaDurableObject implements DurableObject {
         { status: 400, headers: { 'Content-Type': 'application/json' } },
       );
     }
+  }
+
+  /**
+   * Seconds remaining in the current minute window — used for Retry-After and the
+   * IETF RateLimit `t=` field. Rounded up so a client never sleeps too little.
+   */
+  private minuteWindowResetsIn(now: number): number {
+    if (!this.quota) return 60;
+    return Math.max(0, Math.ceil((this.quota.minuteUsedAt + 60_000 - now) / 1_000));
   }
 
   /**

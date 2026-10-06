@@ -35,6 +35,12 @@ export const QuotaCheckResponseSchema = z.object({
   reason: z.enum(['minute_limit', 'monthly_limit', 'feature_disabled']).optional(),
   remainingMinute: z.number().int().nullable().optional(),
   remainingMonthly: z.number().int().nullable().optional(),
+  /** Quota ceiling for the minute window (null absent from response means unavailable). */
+  minuteLimit: z.number().int().nonnegative().nullable().optional(),
+  /** Quota ceiling for the monthly window; null means unlimited (enterprise). */
+  monthlyLimit: z.number().int().nonnegative().nullable().optional(),
+  /** Seconds until the current minute window resets (for Retry-After / RateLimit t=). */
+  minuteWindowResetsIn: z.number().int().nonnegative().optional(),
 });
 
 // Org plan data fetched from database
