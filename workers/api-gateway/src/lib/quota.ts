@@ -122,7 +122,10 @@ export function buildRateLimitHeader(
     const t = minuteWindowResetsIn ?? 60;
     parts.push(`"minute";r=${remainingMinute};t=${t}`);
   }
-  // Include month item only when we have tracking (remainingMonthly not null = limited plan).
+  // Include the month item only when the plan has a finite ceiling. The DO sets
+  // remainingMonthly=null and monthlyLimit=null for enterprise (unlimited), so both
+  // guards fire together. monthlyLimit is not used in the value itself — it is a
+  // "plan has a monthly ceiling" flag that mirrors why remainingMonthly is non-null.
   if (remainingMonthly != null && monthlyLimit != null) {
     parts.push(`"month";r=${remainingMonthly};t=${secondsToMonthReset(now)}`);
   }
