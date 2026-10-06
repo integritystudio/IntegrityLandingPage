@@ -142,11 +142,14 @@ Identifies the calling system (client app, integration, webhook handler) and tie
 | Type | Lifetime | Minted By | Used By | Revocable |
 |------|----------|-----------|---------|-----------|
 | **Interactive capability key** | Short-lived (JWT expiry) | `/bootstrap` endpoint | Flutter app → API calls | No (revoke via session logout) |
-| **Long-lived integration key** | Days/months/years | `/api/keys/create` (user dashboard) | Webhooks, external APIs, agents | Yes (user revokes in dashboard) |
+| **Long-lived integration key** | Days/months/years | Supabase `api-keys-create` edge function or the provisioning receiver (`obtk_`); api-gateway `POST /v1/orgs/:id/api-keys` (legacy `int_live_`) | Webhooks, external APIs, agents | Yes (user revokes in dashboard) |
 
 ### Key Format
 
-Actual format (`API_KEY_REGEX` in `workers/lib/api-keys.ts`): `^int_live_([A-Za-z0-9]{8,})_([A-Za-z0-9]{16,})$`. The prefix does **not** encode `org_id` — org scoping is looked up from the `api_keys` row matched by prefix, not parsed out of the key string.
+Two formats verify (`parseApiKey` in `workers/lib/api-keys.ts`):
+
+- **`obtk_<64 lowercase hex>`** (`OBTOOL_API_KEY_REGEX`) — what the platform issues: the Supabase `api-keys-create`/`api-keys-rotate` edge functions and the provisioning receiver mint it, and it is the only format `obtool-api`/`obtool-ingest` accept. There is no separable secret: `api_keys.hash` is `sha256(<whole token>)`, `api_keys.prefix` stores the first 8 hex characters for display, and verification looks the row up **by** that digest.
+- **`int_live_<prefix>_<secret>`** (`API_KEY_REGEX`, `^int_live_([A-Za-z0-9]{8,})_([A-Za-z0-9]{16,})$`) — legacy, minted only by api-gateway's `POST /v1/orgs/:id/api-keys` and accepted only by api-gateway. Its layout is below. The prefix does **not** encode `org_id` — org scoping is looked up from the `api_keys` row matched by prefix, not parsed out of the key string.
 
 ```
 int_live_XyZ12abc_9f3k2N7qP1rT8mZaLxYcQe2Vw
@@ -167,7 +170,7 @@ CREATE TABLE public.api_keys (
   organization_id uuid NOT NULL REFERENCES organizations(id),
   user_id uuid NOT NULL REFERENCES public.users(id),
   prefix text NOT NULL,
-  hash text NOT NULL UNIQUE,             -- HMAC-SHA256(hmacSecret, secret) — secret portion only
+  hash text NOT NULL UNIQUE,             -- obtk_: sha256(whole token); int_live_: HMAC-SHA256(hmacSecret, secret half)
   name text NOT NULL,
   tier user_defined NOT NULL,            -- "starter" | "growth" | "enterprise"
   status user_defined NOT NULL,          -- "active" | "revoked" | "rotated"
@@ -181,22 +184,21 @@ CREATE TABLE public.api_keys (
 **Security invariant:** The full key is **never stored**. Only the hash is persisted. This means:
 - Key rotation is explicit (user must generate new key)
 - Leaked DB doesn't expose live keys
-- Key lookup: prefix → record → hash verification
+- Key lookup: `obtk_` by digest; `int_live_` by prefix → record → HMAC verification
 
 ### Usage in API Calls
 
 ```bash
-# Example: POST /api/usage
-curl -H "Authorization: Bearer int_live_XyZ12abc_9f3k2N7qP1rT8mZaLxYcQe2Vw" \
-     -H "X-API-Key-Id: <key-id>" \
-     https://api.integritystudio.ai/usage
+# Example: read an org's entitlements with an API key
+curl -H "Authorization: Bearer obtk_<64 hex>" \
+     https://api.integritystudio.dev/v1/orgs/<org-id>/entitlements
 
 # Worker receives request (see verifyApiKey in workers/lib/api-keys.ts)
-# 1. Parse the token into { prefix, secret } via API_KEY_REGEX
-# 2. Look up prefix in api_keys table → get hash + organization_id
-# 3. HMAC-SHA256 the secret and constant-time-compare against the stored hash
-# 4. Use the row's organization_id → call Durable Object for quota check
-# 5. Proceed with request
+# 1. parseApiKey: obtk_ or int_live_ (anything else falls through to JWT verification)
+# 2. obtk_: look up api_keys by sha256(token); int_live_: look up by prefix
+# 3. int_live_ only: HMAC-SHA256 the secret and constant-time-compare against the stored hash
+# 4. Reject revoked, inactive, expired or cross-org keys
+# 5. Use the row's organization_id → call Durable Object for quota check
 ```
 
 ---
