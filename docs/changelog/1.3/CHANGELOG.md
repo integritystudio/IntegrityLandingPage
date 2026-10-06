@@ -3497,6 +3497,36 @@ The comment at the `preVerifyToken` call says an invalid token "returns 401 with
 
 **Implemented 2026-09-27.** Decision: a user with no organization is not an error — `/v1/me` reports `starter`, the same answer `plan_to_api_key_tier` gives an unknown plan — but a failed membership or organization lookup now returns **500** instead of a guess, because reporting a wrong plan to a paying user during an outage is worse than an error the client already handles (the route 500s when the user row fails to load). `me.ts` no longer selects `tier` from `users` at all; `resolveOrgPlan` returns `{ ok, plan }` so the caller can tell "no org" from "lookup failed". `api-keys-create` reads only `organizations.current_plan` (`starter` if the org row is missing or the plan is unknown) and no longer selects `users.tier`. `me.test.ts`: the two fallback tests are replaced — a stored `enterprise` on a no-org user must still read `starter` (mutation-proof: the column is not read), org-lookup failure is 500 — plus a new membership-lookup-failure 500 test; 12 tests in the file, 239 across api-gateway, `tsc` clean. Acceptance grep `user\.tier|users\.tier` over `workers` and `supabase` `*.ts` finds no read path; only the UA04 migration and its SQL tests still name the column. Neither change is on CI: it reaches production only after `npm run deploy:prd` in `workers/api-gateway` and `supabase functions deploy api-keys-create`.
 
+## [2026-09-27] - Test suite review: tautological, unnecessary, stale, duplicated (TS01–TS16 source)
+
+> Condensed 2026-10-06 from `docs/test-suite-review-2026-09-27.md`, which was then deleted. Only what the TS01–TS16 entries below do not already record is kept here; full per-area reports are in git history (`git log --all -- docs/test-suite-review-2026-09-27.md`).
+
+<a id="test-suite-review-2026-09-27"></a>
+
+**Method.** Nine area reviewers (Flutter services, pages, unit/config, widgets, integration; `workers/lib`; api-gateway; sender + receiver; stripe-webhook + contact-form) each read their files in full against the code under test: 174 files (126 Dart, 48 TypeScript) plus `workers/tests/org-quota-do.test.ts`, which the pack omits. `docs/repomix/tests-compressed.xml` was used only to enumerate files — compression strips every `test()`/`it()` call and assertion, and its include patterns miss `workers/tests/`.
+
+**Size.** 2,760 Dart and 1,255 TS `test`/`it` call sites; about 4,260 tests with loops and `it.each` expanded. Roughly 1,400 were flagged as unable to fail, duplicated, or testing code that does not run (a sum of per-area counts, not an independent measurement). Verdict: the problem was quality, not coverage — dominant patterns were `findsOneWidget` on the widget just pumped, `returnsNormally` on void methods, constructor read-backs, theme constants compared to copies of themselves, and worker tests of Zod schemas no request passes through.
+
+**Section → item map.** A1 TS01, A2 TS06, A5 TS02, A6 TS04, A7 TS03, A8 TS07, A9 TS05, A11 TS12, A12 TS14; B TS08/TS09; C TS10; D TS11; E TS12; G TS13. Fixed in the same session without an item: A3 (`AuditActionSchema` accepted 17 names and none of the four `writeAuditLog` emits; narrowed and enforced, `df174a2`, `a3aa746`) and A4 (`CreateApiKeyBodySchema` ran nowhere; wired into the create-key route, `df174a2`); ~230 `workers/lib` tests of unparsed schemas deleted (`bf12226`).
+
+**Never filed — still open 2026-10-06 (A10, first half).** `test/unit/content/resources_content_test.dart:193-203` pins "5 minutes" for Getting Started (`content.yaml:885`, "under 5 minutes") while `platform_metrics.setup_time` (`content.yaml:147`) says "15 min". The test enforces one side of a content contradiction. (A10's second half, `test/config/contact_content_test.dart`, was deleted under TS08.)
+
+**Verified not problems** — do not re-file:
+- Same-named tests across files that target different schemas, widgets or views (`'has semantics label'` ×7 in doc_components are seven distinct labels Playwright depends on; `'has correct semantic label'` ×4; form_fields, containers, cookie_banner pairs; `'defaults metadata to {}'`, `'rejects unknown action'`).
+- CR29 fixtures: `SHARED_SECRET` differs from the active key in both workers; every keyless-path test asserts rejection; `auth.verified_legacy_key` appears in no test.
+- `workers/constants.ts`, `cors-utils.ts`, `http-helpers.ts` are live imports; `test/coverage_setup.dart` is live; `deploy-environments` `STUB_WORKERS` is intentional; legacy `int_live_` fixtures remain valid alongside `obtk_`.
+- `checkout.ts:24` both branches plus the absent case are tested; `makeMockCtx().flush()` asserts status before flushing `waitUntil`, so CR21 is genuinely tested; the contact-form 429 test correctly omits CSRF (rate limiting precedes it).
+- stripe-webhook `supabase.test.ts` "DB failure" ×10 is per-function wiring, not duplication; api-gateway cross-file 401/403 tests are legitimate because the membership check is copied per route; dashboard_service per-method error blocks are legitimate because production duplicates the mapping per method.
+- `login_nav_test` (5) is fully real; `signup_flow` validation strings match `signup_page.dart`; `content_test` `isNotEmpty` on YAML-backed fields guards key deletion (only hardcoded-const checks were tautological).
+
+**Coverage gaps the review listed that TS13's done note does not name** (not re-verified since; TS23/TS24/TS32 later covered parts of the api-gateway and rate-limiter set):
+- Flutter: PricingSection price swap and `onSelectTier`; `SignupTiers.normalize` through the router; app.dart consent handlers via a real CookieBanner tap; LandingController scroll-depth dedup/reset; `RequestFailurePage` auto-redirect to `/login`; per-page `analyticsPageName`; contact `X-CSRF-Token`/`X-Idempotency-Key`/`X-Request-ID` headers and idempotency-key stability across retries; a computed WCAG contrast check; Dart `TrustIndicators.current` vs YAML.
+- api-gateway: `preVerifyToken` API-key branch (`obtk_` never hits `/v1/ingest/*`); `handleHealthCheck` degraded branch and 5 s timeout; `rollupDailyBucket` invalid date and `MAX_*` warnings; `QuotaDurableObject` `free` alias and cold-start race.
+- `workers/lib`: `crypto.ts` `arrayBufferToBase64Url`; most `supabase.ts` verbs.
+- sender-worker: `checkAuthRateLimit` KV happy path; `/signin` 429 at HTTP level; `getClientIp` `X-Forwarded-For` fallback; e2e checkout never intercepts `/rest/v1/users`, so `metadata[org_id]` is unexercised in workerd; e2e rollback never verifies the Auth0 user delete.
+- contact-form: in-memory rate-limit denial without KV; idempotency KV get/put throw paths; subject CRLF `sanitizeHeader`; email/organization max length.
+- stripe-webhook: `claimEvent` returning `claimed:false`; ignored `abandonDeadLetter` failure; `processEvent` unhandled type never asserts `addDeadLetter` not called.
+
 ## [2026-09-27] - Provisioning `received` is cast to `String` but the receiver contract returns an object (TS01)
 
 > Migrated verbatim from `docs/BACKLOG.md` on 2026-10-04 (`/backlog-migrate`, append-to-1.3 decision). Heading normalised; body unchanged.

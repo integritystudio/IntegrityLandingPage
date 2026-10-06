@@ -620,7 +620,7 @@ The slot CLAUDE.md said "exists in no config" now holds an `sb_secret_` key (41 
 
 > Finished items from this section moved to [changelog 1.3](changelog/1.3/CHANGELOG.md) on 2026-10-04 (TS11 on 2026-10-05); none remain open.
 
-Filed from a nine-area review of every test file, read against the code under test — not from `docs/repomix/tests-compressed.xml`, which strips every `test()`/`it()` body. Full findings, with `path:line` for each, are in [test-suite-review-2026-09-27.md](test-suite-review-2026-09-27.md); section letters below refer to it. Done in the same session and **not** listed here: the ~230 `workers/lib` tests of schemas no request parses were deleted (`bf12226`), `CreateApiKeyBodySchema` was wired into the create-key route (`df174a2`), and `AuditActionSchema` was narrowed to the four emitted actions and enforced at runtime in `writeAuditLog` (`df174a2`, `a3aa746`).
+Filed from a nine-area review of every test file, read against the code under test — not from `docs/repomix/tests-compressed.xml`, which strips every `test()`/`it()` body. The review's summary (method, section → item map, verified-not-problems, unfiled gaps) is in [changelog 1.3](changelog/1.3/CHANGELOG.md#test-suite-review-2026-09-27); the full per-area reports are in git history. Section letters below refer to it. Done in the same session and **not** listed here: the ~230 `workers/lib` tests of schemas no request parses were deleted (`bf12226`), `CreateApiKeyBodySchema` was wired into the create-key route (`df174a2`), and `AuditActionSchema` was narrowed to the four emitted actions and enforced at runtime in `writeAuditLog` (`df174a2`, `a3aa746`).
 
 ## Coverage Audit 2026-09-28 (TS19–TS25)
 
