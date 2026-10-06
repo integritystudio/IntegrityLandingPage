@@ -49,3 +49,27 @@ export function chargesMonthlyQuota(method: string, subPath: string): boolean {
   const route: OrgRoute | undefined = name && ORG_ROUTES[name];
   return route?.chargesMonthly !== false;
 }
+
+/**
+ * The staff twins of the four customer read routes, under `/v1/admin/orgs/:id/*`
+ * (ADMIN-CV-GATEWAY-READ). Same sub-paths and payloads as `ORG_ROUTES`, so the
+ * observability dashboard's admin view reads exactly what the customer reads; GET only,
+ * because the gateway's CORS allows `GET, POST, OPTIONS` and these must never mutate.
+ * They are dispatched outside the `/v1/orgs/:id` branch, so none of them pays the
+ * per-org rate limit, reserves quota, or writes a ledger row.
+ */
+export const ADMIN_ORG_ROUTES = {
+  billingStatus: { method: 'GET', subPath: ORG_ROUTES.billingStatus.subPath },
+  usageSummary: { method: 'GET', subPath: ORG_ROUTES.usageSummary.subPath },
+  entitlements: { method: 'GET', subPath: ORG_ROUTES.entitlements.subPath },
+  quotaStatus: { method: 'GET', subPath: ORG_ROUTES.quotaStatus.subPath },
+} as const satisfies Record<string, OrgRoute>;
+
+export type AdminOrgRouteName = keyof typeof ADMIN_ORG_ROUTES;
+
+/** The staff route for an exact method and sub-path, if there is one. */
+export function matchAdminOrgRoute(method: string, subPath: string): AdminOrgRouteName | undefined {
+  return (Object.keys(ADMIN_ORG_ROUTES) as AdminOrgRouteName[]).find(
+    (name) => ADMIN_ORG_ROUTES[name].method === method && ADMIN_ORG_ROUTES[name].subPath === subPath,
+  );
+}

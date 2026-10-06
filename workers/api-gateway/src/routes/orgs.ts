@@ -6,12 +6,25 @@ import { parseApiKey } from '../../../lib/api-keys';
 import type { Organization, OrgRole, OrgMembership, Entitlement, ApiKeyTier } from '../../../lib/types';
 import { effectivePlan, PLAN_MIN_SEATS, DEFAULT_CHECKOUT_SEATS } from '../../../lib/billing';
 import { ApiKeyTierSchema } from '../../../lib/types/schemas';
-import { resolveJwt, resolveJwtRateLimited, buildEntitlementMap, loadPlan, writeAuditLog, auth0VerifyParams, resolveUserId, type UserTokenOptions } from '../lib/helpers';
+import { resolveJwt, resolveJwtRateLimited, buildEntitlementMap, loadPlan, writeAuditLog, auth0VerifyParams, resolveUserId, type UserTokenOptions, type LoadResult } from '../lib/helpers';
 
 interface OrgsHandlerOptions extends UserTokenOptions {
   supabaseUrl: string;
   serviceRoleKey: string;
 }
+
+/** What `GET /v1/orgs/:id/billing-status` and its staff twin return. */
+export interface BillingStatusPayload {
+  org_id: string;
+  billing_status: Organization['billing_status'];
+  current_plan: Organization['current_plan'];
+  quota_version: number;
+  /** The caller's membership role; `null` for a staff caller, who holds no membership. */
+  role: OrgRole | null;
+  has_billing_account: boolean;
+}
+
+const BILLING_STATUS_SELECT = 'id, billing_status, current_plan, quota_version, stripe_customer_id';
 
 interface BillingPortalHandlerOptions extends OrgsHandlerOptions {
   stripeSecretKey: string;
@@ -184,6 +197,49 @@ export async function handleOrgDashboard(
   });
 }
 
+/**
+ * The billing-status payload for an org. Shared by `GET /v1/orgs/:id/billing-status`
+ * and its staff twin; authorisation is the caller's, and `role` is whatever the caller
+ * established (its membership role, or `null` for staff).
+ */
+export async function loadBillingStatus(
+  sb: SupabaseClient,
+  orgId: string,
+  role: OrgRole | null,
+): Promise<LoadResult<BillingStatusPayload>> {
+  const orgResult = await sb.query<Organization & { stripe_customer_id: string | null }>('organizations', {
+    select: BILLING_STATUS_SELECT,
+    filters: [{ column: 'id', operator: 'eq', value: orgId }],
+    limit: 1,
+  });
+
+  if (!orgResult.ok || orgResult.data.length === 0) {
+    return { ok: false, error: serverError('Failed to load organization') };
+  }
+
+  const org = orgResult.data[0];
+
+  return {
+    ok: true,
+    data: {
+      org_id: orgId,
+      billing_status: org.billing_status,
+      current_plan: org.current_plan,
+      quota_version: org.quota_version,
+      role,
+      /**
+       * Whether a Stripe customer exists for this org. Exposed as a boolean rather
+       * than the customer id, which the client has no use for and which should not
+       * leave the Worker. Without it the client cannot tell a billable org from one
+       * that has never been through checkout, so it offered "Manage Billing"
+       * unconditionally and every such click returned 404 from handleBillingPortal
+       * (20 of 22 orgs on 2026-07-31).
+       */
+      has_billing_account: Boolean(org.stripe_customer_id),
+    },
+  };
+}
+
 export async function handleOrgBillingStatus(
   request: Request,
   orgId: string,
@@ -200,34 +256,8 @@ export async function handleOrgBillingStatus(
   const membership = membershipsResult.data.find((m) => m.organization_id === orgId);
   if (!membership) return forbidden('Not a member of this organization');
 
-  const orgResult = await sb.query<Organization & { stripe_customer_id: string | null }>('organizations', {
-    select: 'id, billing_status, current_plan, quota_version, stripe_customer_id',
-    filters: [{ column: 'id', operator: 'eq', value: orgId }],
-    limit: 1,
-  });
-
-  if (!orgResult.ok || orgResult.data.length === 0) {
-    return serverError('Failed to load organization');
-  }
-
-  const org = orgResult.data[0];
-
-  return ok({
-    org_id: orgId,
-    billing_status: org.billing_status,
-    current_plan: org.current_plan,
-    quota_version: org.quota_version,
-    role: membership.role,
-    /**
-     * Whether a Stripe customer exists for this org. Exposed as a boolean rather
-     * than the customer id, which the client has no use for and which should not
-     * leave the Worker. Without it the client cannot tell a billable org from one
-     * that has never been through checkout, so it offered "Manage Billing"
-     * unconditionally and every such click returned 404 from handleBillingPortal
-     * (20 of 22 orgs on 2026-07-31).
-     */
-    has_billing_account: Boolean(org.stripe_customer_id),
-  });
+  const billing = await loadBillingStatus(sb, orgId, membership.role);
+  return billing.ok ? ok(billing.data) : billing.error;
 }
 
 /**

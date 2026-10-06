@@ -21,6 +21,13 @@ export interface AuditLogEntry {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * A data loader's answer: the payload a route returns as-is, or the error response it
+ * returns instead. The org read routes and their `/v1/admin` twins share one loader per
+ * payload, so the two cannot drift (ADMIN-CV-GATEWAY-READ).
+ */
+export type LoadResult<T> = { ok: true; data: T } | { ok: false; error: Response };
+
 export async function writeAuditLog(sb: SupabaseClient, entry: AuditLogEntry): Promise<void> {
   // The type already rejects unknown actions at compile time; this catches a value that
   // reached here through a cast. Skipping keeps the table's vocabulary closed — the column

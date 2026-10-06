@@ -80,10 +80,17 @@ Hand-rolled dispatch on `pathname` + `method`; a method mismatch falls through t
 | POST | `/v1/orgs/:id/checkout-session` |
 | POST | `/v1/orgs/:id/api-keys` |
 | POST | `/v1/orgs/:id/api-keys/:keyId/revoke` |
+| GET | `/v1/admin/orgs` *(staff only; `routes/admin.ts`)* |
+| GET | `/v1/admin/orgs/:id/billing-status` *(staff only)* |
+| GET | `/v1/admin/orgs/:id/usage/summary` *(staff only)* |
+| GET | `/v1/admin/orgs/:id/entitlements` *(staff only)* |
+| GET | `/v1/admin/orgs/:id/quota/status` *(staff only)* |
 | POST | `/bootstrap` |
 | OPTIONS | *any* — CORS preflight, answered at the outer boundary |
 
 Note API keys are nested under `/v1/orgs/:id/`; there is no top-level `/v1/api-keys`.
+
+The `/v1/admin/*` routes serve the observability dashboard's admin customer view (its backlog, ADMIN-CV-GATEWAY-READ, option A). Access is the `STAFF_USER_IDS` var alone — a copy of the dashboard Worker's list — and the four org routes return the customer routes' payloads from the same loaders (`role` is `null` on billing-status). They are dispatched outside the `/v1/orgs/:id` branch, so a staff read takes no per-org rate limit, reserves no quota and writes no `usage_events` row; it writes one `audit_log` row (`admin.org_viewed`) per org a staff member opens per hour.
 
 ## The surfaces are disjoint
 
@@ -92,7 +99,7 @@ Note API keys are nested under `/v1/orgs/:id/`; there is no top-level `/v1/api-k
 | Owner | Prefixes |
 |---|---|
 | `obtool-api` | `/v1/traces*` `/v1/metrics*` `/v1/logs` `/v1/sessions*` `/v1/cost` `/v1/datasets*` `/v1/evaluations` |
-| `api-gateway` | `/v1/me` `/v1/orgs*` `/v1/ingest/*` `/bootstrap` |
+| `api-gateway` | `/v1/me` `/v1/orgs*` `/v1/admin/orgs*` `/v1/ingest/*` `/bootstrap` |
 
 Disjointness is why a path-split *would* have worked with no code change on either side. It is also why **repointing the wildcard never could** — see below. The chosen answer uses neither: separate hostnames make the question moot, and this table is now the evidence that the two surfaces never needed to share one host in the first place.
 
