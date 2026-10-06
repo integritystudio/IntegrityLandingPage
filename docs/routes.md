@@ -100,12 +100,12 @@ These routes back the signup → provision → dashboard/billing flow. Most are 
 | `/provision` | `ProvisionPage` | Needs `ProvisionArgs` extra from the Auth0 callback; else → `/login`. No URL-token fallback: accepting `?jwt=` allowed login-CSRF |
 | `/checkout` | `CheckoutPage` | Needs `CheckoutArgs` extra; else → `/` |
 | `/checkout-success` | `CheckoutSuccessPage` | None — accepts `?email=` and `?tier=` (default `growth`) |
-| `/dashboard` | `DashboardPage` | Needs `DashboardArgs` extra; else → `/login` |
+| `/dashboard` | `DashboardPage` | Needs `DashboardArgs` extra; without it renders `SessionRestorePage`, which restores the stored Auth0 session (reload, bookmark, new tab) or goes to `/login` |
 | `/health` | `SenderHealthPage` | None (diagnostic page) |
-| `/billing` | `BillingStatusPage` | Needs `BillingStatusArgs` extra; else → `/login` |
-| `/usage` | `UsageSummaryPage` | Needs `UsageSummaryArgs` extra; else → `/login` |
-| `/entitlements` | `EntitlementsPage` | Needs `EntitlementsArgs` extra; else → `/login` |
-| `/quota` | `QuotaStatusPage` | Needs `QuotaStatusArgs` extra; else → `/login` |
+| `/billing` | `BillingStatusPage` | Needs `BillingStatusArgs` extra; else → `/dashboard` (which restores the session) |
+| `/usage` | `UsageSummaryPage` | Needs `UsageSummaryArgs` extra; else → `/dashboard` |
+| `/entitlements` | `EntitlementsPage` | Needs `EntitlementsArgs` extra; else → `/dashboard` |
+| `/quota` | `QuotaStatusPage` | Needs `QuotaStatusArgs` extra; else → `/dashboard` |
 
 Path constants for these live in `Routes` (`lib/config/content/constants.dart`).
 
