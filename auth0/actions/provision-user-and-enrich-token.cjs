@@ -2,6 +2,25 @@
 const REFRESH_TOKEN_PROTOCOL = 'oauth2-refresh-token';
 
 /**
+ * Supabase Third-Party Auth maps a token to the `authenticated` database role only when it
+ * carries a bare `role` claim (CR62). Auth0 strips non-namespaced claims from access tokens,
+ * so it goes on the ID token — and only for the clients named in the SUPABASE_TPA_CLIENT_IDS
+ * secret (comma-separated client ids). Every other client's ID token stays a plain OIDC
+ * token that Supabase rejects, so switching the integration on did not turn every login
+ * into a database credential.
+ */
+const SUPABASE_ROLE_CLAIM = 'role';
+const SUPABASE_AUTHENTICATED_ROLE = 'authenticated';
+const CLIENT_ID_LIST_SEPARATOR = ',';
+
+function supabaseClientIds(secrets) {
+  return (secrets.SUPABASE_TPA_CLIENT_IDS ?? '')
+    .split(CLIENT_ID_LIST_SEPARATOR)
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+/**
  * Profile columns written to public.users on every run (UA02). `login_count` is Auth0's own
  * count, so a repeated run cannot inflate it; `last_login` is skipped on a refresh-token
  * exchange, which is not a login.
@@ -112,4 +131,11 @@ exports.onExecutePostLogin = async (event, api) => {
   api.accessToken.setCustomClaim('https://integritystudio.dev/roles', roleNames);
   api.accessToken.setCustomClaim('https://integritystudio.dev/permissions', [...permissions]);
   api.accessToken.setCustomClaim('https://integritystudio.dev/app_user_id', appUserId);
+
+  // 6. A Supabase-bound client gets the role claim on its ID token, after the row exists:
+  //    the database resolves the subject through users.auth0_id (current_app_user_id()),
+  //    so a token for an unresolved user would authenticate as nobody.
+  if (supabaseClientIds(event.secrets).includes(event.client?.client_id)) {
+    api.idToken.setCustomClaim(SUPABASE_ROLE_CLAIM, SUPABASE_AUTHENTICATED_ROLE);
+  }
 };

@@ -13,6 +13,8 @@ const EMAIL = 'user@example.com';
 const APP_USER_ID = '00000000-0000-4000-8000-000000000001';
 const LOGINS_COUNT = 7;
 const CLAIM = 'https://integritystudio.dev/';
+const SUPABASE_CLIENT_ID = 'client-supabase-spa';
+const OTHER_CLIENT_ID = 'client-native-app';
 
 interface Call { method: string; url: URL; body: Record<string, unknown> | undefined }
 type Responder = (call: Call) => Response;
@@ -41,10 +43,20 @@ function stubFetch(routes: Record<string, Responder>) {
   return calls;
 }
 
-/** `user` fields are merged over a verified default user, e.g. `{ user: { email_verified: false } }`. */
-function makeEvent(overrides: { protocol?: string; stats?: unknown; user?: Record<string, unknown> } = {}) {
+/**
+ * `user` fields are merged over a verified default user, e.g. `{ user: { email_verified: false } }`;
+ * `secrets` over the two the Action always has. The default client is not Supabase-bound.
+ */
+function makeEvent(overrides: {
+  protocol?: string;
+  stats?: unknown;
+  user?: Record<string, unknown>;
+  secrets?: Record<string, string>;
+  clientId?: string;
+} = {}) {
   return {
-    secrets: { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY: 'service-role-key' },
+    secrets: { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY: 'service-role-key', ...overrides.secrets },
+    client: { client_id: overrides.clientId ?? OTHER_CLIENT_ID },
     user: {
       user_id: AUTH0_ID, email: EMAIL, name: 'User One', nickname: 'user', picture: 'https://pic.example/u.png', email_verified: true,
       ...overrides.user,
@@ -256,5 +268,51 @@ describe('post-login Action — claims (unchanged from v8)', () => {
     stubFetch({ 'PATCH users?auth0_id': responder, 'GET users?auth0_id': responder });
 
     await expect(onExecutePostLogin(makeEvent(), makeApi().api)).rejects.toThrow();
+  });
+});
+
+describe('post-login Action — Supabase third-party auth role claim (CR62)', () => {
+  const resolvedUser = { 'PATCH users?auth0_id': rows([{ id: APP_USER_ID }]), ...noRoles };
+  const bound = { SUPABASE_TPA_CLIENT_IDS: ` ${OTHER_CLIENT_ID}, ${SUPABASE_CLIENT_ID} ` };
+
+  it('puts role=authenticated on the ID token, and only there, for a listed client', async () => {
+    stubFetch(resolvedUser);
+    const { api, idClaims, accessClaims } = makeApi();
+
+    await onExecutePostLogin(makeEvent({ secrets: bound, clientId: SUPABASE_CLIENT_ID }), api);
+
+    expect(idClaims.role).toBe('authenticated');
+    expect(accessClaims).not.toHaveProperty('role');
+  });
+
+  it('sets no role claim for a client that is not listed', async () => {
+    stubFetch(resolvedUser);
+    const { api, idClaims } = makeApi();
+
+    await onExecutePostLogin(makeEvent({ secrets: { SUPABASE_TPA_CLIENT_IDS: SUPABASE_CLIENT_ID } }), api);
+
+    expect(idClaims).not.toHaveProperty('role');
+  });
+
+  it('sets no role claim when the secret is absent, whatever the client', async () => {
+    stubFetch(resolvedUser);
+    const { api, idClaims } = makeApi();
+
+    await onExecutePostLogin(makeEvent({ clientId: SUPABASE_CLIENT_ID }), api);
+
+    expect(idClaims).not.toHaveProperty('role');
+  });
+
+  it('sets no role claim when no users row resolved, even for a listed client', async () => {
+    stubFetch({
+      'PATCH users?auth0_id': rows([]),
+      'GET users?email': rows([]),
+      'POST users': rows({ message: 'insert failed' }, 409),
+    });
+    const { api, idClaims } = makeApi();
+
+    await onExecutePostLogin(makeEvent({ secrets: bound, clientId: SUPABASE_CLIENT_ID }), api);
+
+    expect(idClaims).toEqual({});
   });
 });

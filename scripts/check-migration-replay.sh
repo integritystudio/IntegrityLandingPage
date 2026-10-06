@@ -90,6 +90,32 @@ if [[ -n "$offenders" ]]; then
   exit 1
 fi
 
+# Since 20261007000000 (CR62) no policy or function in public calls auth.uid(): it casts
+# the subject to uuid and raises 22P02 for an Auth0 token, which Third-Party Auth now admits.
+# Identity goes through current_app_user_id(); a replay that brings auth.uid() back has
+# re-run a retired file or lost the rewrite.
+uid_refs="$(psql "$DB_URL" -tA -c "
+  select string_agg(ref, ', ' order by ref)
+  from (
+    select tablename || '.' || policyname as ref from pg_policies
+     where schemaname = 'public'
+       and (coalesce(qual, '') like '%auth.uid()%' or coalesce(with_check, '') like '%auth.uid()%')
+    union all
+    select proname || '()' from pg_proc
+     where pronamespace = 'public'::regnamespace and prosrc like '%auth.uid()%'
+  ) refs;")"
+
+if [[ -n "$uid_refs" ]]; then
+  echo "FAIL: auth.uid() is back in public after replay: $uid_refs"
+  exit 1
+fi
+
+resolver="$(psql "$DB_URL" -tA -c "select to_regprocedure('public.current_app_user_id()') is not null;")"
+if [[ "$resolver" != "t" ]]; then
+  echo "FAIL: public.current_app_user_id() missing after replay"
+  exit 1
+fi
+
 enums="$(psql "$DB_URL" -tA -c "
   select count(*) from pg_type t
   join pg_namespace n on n.oid = t.typnamespace
