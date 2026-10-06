@@ -38,7 +38,7 @@ POST /bootstrap → { user: { id, email }, organizations: [{ id, slug, name, bil
 Code: `lib/services/auth0_service.dart` (`login`, `handleCallback`, `currentSession`, `logout`), `auth0/actions/provision-user-and-enrich-token.cjs`, `workers/api-gateway/src/routes/bootstrap.ts`.
 
 The Action's two guards:
-- **Fail closed (CR69).** If Supabase is unreachable or no app user id resolves, the Action denies the login rather than issuing a token without app claims. A Supabase outage therefore blocks sign-in.
+- **Fail closed (CR69).** If no app user id resolves (Supabase answers with an error or an unexpected shape), the Action denies the login rather than issuing a token without app claims. A network failure is not caught, so the Action throws, which also fails the login. Either way a Supabase outage blocks sign-in. A failed profile write alone does not: the Action falls back to a plain read.
 - **Narrow email re-link (CR51, CR65).** When no row matches `auth0_id`, the Action falls back to matching by email only if the email is verified *and* the connection strategy is `auth0` (the database connection). Social and enterprise logins are never re-linked by email, because their `email_verified` is the IdP's assertion; the Action inserts a fresh row instead, and if a row already holds that email, `users_email_key` rejects the insert and the login is denied by the fail-closed guard above.
 
 The sender's `POST /signup`, `/signin` and `/forgot-password` (Auth0 ROPC) are **legacy**: deployed, called by nothing, and scheduled for deletion by [CR49](BACKLOG.md#cr49). Do not build on them.
@@ -107,7 +107,8 @@ Invariants:
 ### Verification (api-gateway)
 
 ```typescript
-// verifyApiKey, workers/lib/api-keys.ts
+// verifyApiKey, workers/lib/api-keys.ts (simplified: lookups are pseudocode, and the
+// revoked and non-active checks are separate branches with their own messages)
 const parsed = parseApiKey(token);                       // obtk_ or int_live_, else 401
 const record = parsed.format === 'obtool'
   ? lookupByHash(await hashApiKeyToken(token))            // unique digest: no candidate row, no timing channel
