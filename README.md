@@ -98,7 +98,7 @@ npx vitest run                    # Tests
 - [Routes](docs/routes.md) — GoRouter configuration, 45 routes
 - [API Provisioning](docs/api-provisioning.md) — inter-worker HMAC-SHA256 auth, Flutter service layer, security model
 - [Provisioning Manual Test Guide](docs/PROVISIONING_MANUAL_TEST.md) — 7 test cases, step-by-step instructions, last recorded results
-- [Changelog](docs/changelog/1.3/CHANGELOG.md) — version history
+- [Changelog](docs/changelog/1.4/CHANGELOG.md) — version history
 - [BACKLOG](docs/BACKLOG.md) — open, deferred, blocked items
 - [Token Tree](docs/repomix/token-tree.txt) — file tree with token counts
 
