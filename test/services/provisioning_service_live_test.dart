@@ -61,8 +61,9 @@ void main() {
     group('sendEvent', () {
       test(
         'returns ProvisioningSuccess with valid JWT',
-        skip: 'sender-worker-dev has no SIGNING_KEYS/ACTIVE_KEY_ID bound — /send returns 500; '
-            'provision signing keys on dev before unskipping (BACKLOG CR29, never copy prd keys to dev)',
+        skip: 'requires a dev-tenant signed-in user; '
+            'pass --dart-define=LIVE_ACCESS_TOKEN=<token> to run this test manually '
+            '(sender-worker-dev binds its own SIGNING_KEYS/ACTIVE_KEY_ID — never copy prd keys to dev)',
         () async {
           expect(_liveAccessToken, isNotEmpty, reason: 'LIVE_ACCESS_TOKEN not set');
 
@@ -79,7 +80,8 @@ void main() {
           // Assert
           expect(result, isA<ProvisioningSuccess>());
           final success = result as ProvisioningSuccess;
-          expect(success.apiKey, startsWith('sk-'));
+          // The receiver mints obtk_ keys (workers/lib/api-keys.ts).
+          expect(success.apiKey, startsWith('obtk_'));
         },
       );
     });
