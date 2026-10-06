@@ -2,7 +2,7 @@
 
 Operational history moved out of CLAUDE.md on 2026-08-03. Dates inline are when each fact was measured; re-run the suites and `npm audit` rather than trusting counts.
 
-## Snapshot (2026-10-05)
+## Snapshot (2026-10-06)
 
 1,282 worker tests (`lib` 352, contact-form 81, api-gateway 422, sender-worker 206, receiver-worker 33, stripe-webhook 188) via `npm run test:workers`; sender-worker `test:e2e` 49/49. Flutter count and coverage not re-measured. **No longer aligned:** sender-worker declares `wrangler ^4.145.0`, `@cloudflare/workers-types ^5.20261001.1`, `typescript ^6.0.3` and `zod ^4.6.5`; the other five declare `@cloudflare/workers-types ^5.20260923.1` and `typescript ^6.0.2`, the four of them that use wrangler declare `^4.131.0`, and `lib` declares `zod ^4.4.3`. `npm audit` not re-run.
 

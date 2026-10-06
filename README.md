@@ -6,7 +6,7 @@
 Enterprise AI Observability Platform landing page built with Flutter Web.
 
 **Production**: https://integritystudio.ai
-**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, ~3,017 Flutter (unit+contract+integration, 2026-07-31) + **1,282 worker tests** (verified 2026-10-05 via `npm run test:workers`)
+**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, ~3,017 Flutter (unit+contract+integration, 2026-07-31) + **1,282 worker tests** (verified 2026-10-06 via `npm run test:workers`)
 
 ## Quick Start
 
@@ -119,7 +119,7 @@ flutter test test/services/provisioning_service_live_test.dart \
 
 # Workers — or run every package at once from the repo root:
 #   npm run test:workers   (1,282 tests)   npm run lint:workers   (tsc --noEmit x6; there is no ESLint here)
-# Per-package counts measured 2026-10-05:
+# Per-package counts measured 2026-10-06:
 cd workers/lib && npm test              # Shared lib tests (352 passing)
 cd workers/contact-form && npm test     # Contact form worker tests (81 passing)
 cd workers/api-gateway && npm test      # API Gateway worker tests (422 passing)
@@ -128,7 +128,7 @@ cd workers/sender-worker && npm test    # Sender worker tests (206 passing)
 cd workers/stripe-webhook && npm test   # Stripe webhook tests (188 passing)
 # (bootstrap-worker was deleted 2026-07-31 — POST /bootstrap is now a route on api-gateway)
 
-# Opt-in worker suites (e2e 49/49 on 2026-10-05; the two live suites last recorded 2026-07-29,
+# Opt-in worker suites (e2e 49/49 on 2026-10-06; the two live suites last recorded 2026-07-29,
 # before stripe-webhook's gained the CR38 plan-sync case)
 cd workers/sender-worker && npm run test:e2e    # workerd runtime, outbound mocked, no credentials — but runs under doppler run --config dev (49/49)
 cd workers/sender-worker && npm run test:live   # real Auth0 Management API, --config prd (9 passed/3 skipped)

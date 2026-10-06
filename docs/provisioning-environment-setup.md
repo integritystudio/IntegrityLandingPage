@@ -1,6 +1,6 @@
 # API Provisioning Environment Setup Guide
 
-**Last Updated:** 2026-10-05 (post-CR29 cleanup: the passages describing `SHARED_SECRET` as live and Procedure B removed, stale line references refreshed). Previous: 2026-07-31 (rotation procedure rewritten — correct `SIGNING_KEYS` wire format, receiver-first ordering, split into Procedure A/B; see [CR29](changelog/1.3/CHANGELOG.md#cr29))
+**Last Updated:** 2026-10-06 (post-CR29 cleanup: the passages describing `SHARED_SECRET` as live and Procedure B removed, stale line references refreshed). Previous: 2026-07-31 (rotation procedure rewritten — correct `SIGNING_KEYS` wire format, receiver-first ordering, split into Procedure A/B; see [CR29](changelog/1.3/CHANGELOG.md#cr29))
 **Version:** 2.1
 
 This guide covers HMAC signing-key generation (`SIGNING_KEYS` + `ACTIVE_KEY_ID`; the legacy `SHARED_SECRET` is retired — see below), Flutter app configuration, the implementation/security reference, and troubleshooting for the API provisioning **sender worker**.
@@ -282,7 +282,7 @@ Use this for scheduled rotation. **Deploy the receiver first**; the sequence is 
 
 #### Procedure B — removed
 
-The `SHARED_SECRET` rotation procedure that stood here was removed 2026-10-05. The credential is unbound from both Workers and deleted from both Doppler configs, so there is nothing to rotate, and binding it again would recreate the keyless second credential CR29 closed. If a signing secret is disclosed, use Procedure A and remove the disclosed id.
+The `SHARED_SECRET` rotation procedure that stood here was removed 2026-10-06. The credential is unbound from both Workers and deleted from both Doppler configs, so there is nothing to rotate, and binding it again would recreate the keyless second credential CR29 closed. If a signing secret is disclosed, use Procedure A and remove the disclosed id.
 
 #### `KEY_ROTATION_DATES` (receiver only)
 

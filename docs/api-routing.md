@@ -1,6 +1,6 @@
 # API routing — which worker serves which hostname
 
-**Measured 2026-08-08** (previously 2026-08-03; the `api-gateway` route table re-read from source 2026-10-05). Every table below is live state or source, not intent. Re-measure with the commands in [Keeping this in sync](#keeping-this-in-sync) before relying on it; tracked by [BACKLOG.md CR31](changelog/1.3/CHANGELOG.md#cr31) and [CR13](changelog/1.3/CHANGELOG.md#cr13).
+**Measured 2026-08-08** (previously 2026-08-03; the `api-gateway` route table re-read from source 2026-10-06). Every table below is live state or source, not intent. Re-measure with the commands in [Keeping this in sync](#keeping-this-in-sync) before relying on it; tracked by [BACKLOG.md CR31](changelog/1.3/CHANGELOG.md#cr31) and [CR13](changelog/1.3/CHANGELOG.md#cr13).
 
 ## The one-line answer
 
