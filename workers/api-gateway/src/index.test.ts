@@ -6,7 +6,9 @@ import { createAuth0JwtFixture, TEST_AUTH0_OPTS, TEST_AUTH0_DOMAIN, type Auth0Jw
 import { createSupabaseFetchStub, createdRows, okRows } from '../../lib/test-helpers/supabase-fetch-stub';
 import { MockStorage, stubDurableObjectState } from '../../lib/test-helpers/durable-object-state-stub';
 import { QuotaDurableObject } from './durable-objects/quota';
-import { ORG_RATE_LIMIT_MAX, ORG_RATE_LIMIT_WINDOW_SECONDS, resetOrgRateLimit } from './lib/rate-limit';
+import { ORG_RATE_LIMIT_MAX, ORG_RATE_LIMIT_WINDOW_SECONDS, resetIdentityRateLimit, resetOrgRateLimit } from './lib/rate-limit';
+import { resetAdminViewAudit } from './lib/admin-view-audit';
+import { ADMIN_ORG_ROUTES } from './lib/org-routes';
 
 
 const makeEnv = (overrides: Partial<Env> = {}): Env => ({
@@ -907,5 +909,176 @@ describe('TS23: all registered routes are dispatched (not 404)', () => {
       env(),
     );
     expect(await isRouterFallThrough(res)).toBe(false);
+  });
+
+  // ADMIN-CV-GATEWAY-READ: the staff directory and the four staff twins are dispatched.
+  it.each([
+    ['GET', '/v1/admin/orgs'],
+    ...Object.values(ADMIN_ORG_ROUTES).map((r) => [r.method, `/v1/admin/orgs/${ORG}${r.subPath}`] as const),
+  ] as const)('%s %s reaches a handler, not the terminal 404', async (method, path) => {
+    const res = await worker.fetch(makeRequest(method, path, { headers: authHeader() }), env());
+    expect(await isRouterFallThrough(res)).toBe(false);
+  });
+
+  it.each([
+    ['GET', `/v1/admin/orgs/${ORG}/not-a-route`],
+    ['GET', `/v1/admin/orgs/${ORG}`],
+    ['POST', `/v1/admin/orgs/${ORG}/usage/summary`],
+    ['POST', '/v1/admin/orgs'],
+  ] as const)('%s %s gets the router fall-through', async (method, path) => {
+    const res = await worker.fetch(makeRequest(method, path, { headers: authHeader() }), env());
+    expect(await isRouterFallThrough(res)).toBe(true);
+  });
+});
+
+/**
+ * ADMIN-CV-GATEWAY-READ's hard requirements, at the router: a staff read of an org reserves
+ * no quota, takes no per-org rate limit, writes no `usage_events` row, and a non-staff
+ * caller — an org owner included — gets 403 with none of that touched either.
+ */
+describe('ADMIN-CV-GATEWAY-READ: staff reads are unmetered', () => {
+  const ORG = 'org-admin-read';
+  const STAFF_SUB = 'auth0|staff-user';
+  const STAFF_USER_ID = 'user-staff';
+  const OWNER_SUB = 'auth0|owner-user';
+  const OWNER_USER_ID = 'user-owner';
+
+  let staffToken: string;
+  let ownerToken: string;
+  let reserved: unknown[];
+  let ledgerRows: unknown[];
+  let auditRows: Array<{ action: string; target_id: string }>;
+  let pending: Promise<unknown>[];
+
+  const ctx = () => ({
+    waitUntil: (p: Promise<unknown>) => { pending.push(p); },
+    passThroughOnException: () => {},
+  }) as unknown as ExecutionContext;
+
+  const env = () => makeEnv({
+    STAFF_USER_IDS: JSON.stringify([STAFF_USER_ID]),
+    QUOTA_DO: admittingQuotaDo((body) => reserved.push(body)),
+    RATE_LIMIT_KV: mapKv(),
+  });
+
+  beforeAll(async () => {
+    staffToken = await jwt.sign({ sub: STAFF_SUB, email: 'staff@example.com' });
+    ownerToken = await jwt.sign({ sub: OWNER_SUB, email: 'owner@example.com' });
+  });
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    resetOrgRateLimit();
+    resetIdentityRateLimit();
+    resetAdminViewAudit();
+    reserved = [];
+    ledgerRows = [];
+    auditRows = [];
+    pending = [];
+    const stub = createSupabaseFetchStub({
+      'GET users': (req) => {
+        const sub = req.url.searchParams.get('auth0_id');
+        const row = sub === `eq.${STAFF_SUB}` ? { id: STAFF_USER_ID } : sub === `eq.${OWNER_SUB}` ? { id: OWNER_USER_ID } : null;
+        return new Response(JSON.stringify(row ? [row] : []), { status: 200, headers: { 'content-type': 'application/json' } });
+      },
+      'GET organization_memberships': okRows([{ user_id: OWNER_USER_ID, organization_id: ORG, role: 'owner', status: 'active' }]),
+      'GET organizations': okRows([{ id: ORG, name: 'Admin Read Org', slug: 'admin-read', billing_status: 'active', current_plan: 'growth', quota_version: 1, stripe_customer_id: null }]),
+      'GET usage_buckets_daily': okRows([]),
+      'GET entitlements': okRows([]),
+      'GET plans': okRows([]),
+      'POST usage_events': (req) => { ledgerRows.push(req.body); return new Response('[]', { status: 201 }); },
+      'POST audit_log': (req) => { auditRows.push(...(req.body as typeof auditRows)); return new Response('[]', { status: 201 }); },
+    });
+    vi.stubGlobal('fetch', jwt.wrap(stub.fetch as typeof fetch));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    resetOrgRateLimit();
+    resetIdentityRateLimit();
+    resetAdminViewAudit();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const read = (path: string, token: string) =>
+    worker.fetch(makeRequest('GET', path, { headers: { Authorization: `Bearer ${token}` } }), env(), ctx());
+
+  it.each(Object.values(ADMIN_ORG_ROUTES).map((r) => r.subPath))(
+    'a staff read of %s is 200 with no quota reservation, no org rate limit entry and no ledger row',
+    async (subPath) => {
+      const enforce = vi.spyOn(quotaLib, 'enforceOrgQuota');
+      const sharedEnv = env();
+      const kvStore = (sharedEnv.RATE_LIMIT_KV as unknown as { get: (k: string) => Promise<unknown> });
+
+      const res = await worker.fetch(
+        makeRequest('GET', `/v1/admin/orgs/${ORG}${subPath}`, { headers: { Authorization: `Bearer ${staffToken}` } }),
+        sharedEnv,
+        ctx(),
+      );
+      await Promise.all(pending);
+
+      expect(res.status).toBe(200);
+      expect(enforce).not.toHaveBeenCalled();
+      expect(reserved).toHaveLength(0);
+      expect(ledgerRows).toHaveLength(0);
+      expect(await kvStore.get(`gw_org_rl:${ORG}`)).toBeNull();
+      expect(res.headers.get('X-RateLimit-Remaining-Minute')).toBeNull();
+    },
+  );
+
+  it('ten staff reads of one org reserve nothing and write no ledger row', async () => {
+    for (let i = 0; i < 10; i++) {
+      expect((await read(`/v1/admin/orgs/${ORG}/usage/summary`, staffToken)).status).toBe(200);
+    }
+    await Promise.all(pending);
+    expect(reserved).toHaveLength(0);
+    expect(ledgerRows).toHaveLength(0);
+  });
+
+  it('ten staff reads of one org write one audit row', async () => {
+    for (let i = 0; i < 10; i++) await read(`/v1/admin/orgs/${ORG}/usage/summary`, staffToken);
+    await Promise.all(pending);
+    expect(auditRows.filter((r) => r.action === 'admin.org_viewed').map((r) => r.target_id)).toEqual([ORG]);
+  });
+
+  it('refuses the org owner with 403 and touches neither quota nor ledger', async () => {
+    const res = await read(`/v1/admin/orgs/${ORG}/billing-status`, ownerToken);
+    await Promise.all(pending);
+    expect(res.status).toBe(403);
+    expect(reserved).toHaveLength(0);
+    expect(ledgerRows).toHaveLength(0);
+    expect(auditRows).toHaveLength(0);
+  });
+
+  it('refuses everyone when STAFF_USER_IDS is unset', async () => {
+    const res = await worker.fetch(
+      makeRequest('GET', `/v1/admin/orgs/${ORG}/billing-status`, { headers: { Authorization: `Bearer ${staffToken}` } }),
+      makeEnv({ QUOTA_DO: admittingQuotaDo(), RATE_LIMIT_KV: mapKv() }),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  // The dashboard calls these cross-origin with an Authorization header, so the preflight
+  // and the error responses must carry CORS like every other route (ADMIN-CV-CORS-AUDIENCE).
+  it('answers a preflight and carries CORS on a refusal', async () => {
+    const origin = 'https://integritystudio.dev';
+    const preflight = await worker.fetch(
+      makeRequest('OPTIONS', `/v1/admin/orgs/${ORG}/billing-status`, {
+        headers: { Origin: origin, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization' },
+      }),
+      env(),
+    );
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get('Access-Control-Allow-Origin')).toBe(origin);
+
+    const refused = await worker.fetch(
+      makeRequest('GET', `/v1/admin/orgs/${ORG}/billing-status`, { headers: { Origin: origin, Authorization: `Bearer ${ownerToken}` } }),
+      env(),
+    );
+    expect(refused.status).toBe(403);
+    expect(refused.headers.get('Access-Control-Allow-Origin')).toBe(origin);
+    expect(refused.headers.get('Cache-Control')).toBe('no-store');
   });
 });

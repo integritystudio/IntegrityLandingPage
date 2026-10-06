@@ -16,6 +16,8 @@ export const AuditActionSchema = z.enum([
   'api_key.revoked',
   'billing_portal.accessed',
   'checkout_session.created',
+  /** A staff member opened an org's customer view through `/v1/admin/orgs/:id/*` (ADMIN-CV-GATEWAY-READ). */
+  'admin.org_viewed',
 ]);
 
 export type AuditAction = z.infer<typeof AuditActionSchema>;

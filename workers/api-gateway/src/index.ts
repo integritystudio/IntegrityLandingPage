@@ -2,6 +2,13 @@ import { ok, notFound, noContent, buildCors } from '../../lib/http';
 import { handleMe } from './routes/me';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal, handleCreateCheckoutSession } from './routes/orgs';
 import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './routes/usage';
+import {
+  handleAdminListOrgs,
+  handleAdminOrgBillingStatus,
+  handleAdminUsageSummary,
+  handleAdminOrgEntitlements,
+  handleAdminQuotaStatus,
+} from './routes/admin';
 import { handleCreateApiKey, handleRevokeApiKey } from './routes/api-keys';
 import { handleHealthCheck } from './routes/health';
 import { handleIngestEvent, handleIngestOtel, OTEL_INGEST_ROUTE } from './routes/ingest';
@@ -13,7 +20,7 @@ import { enforceOrgQuota } from './lib/quota';
 import { preVerifyToken } from './lib/helpers';
 import { checkOrgRateLimit } from './lib/rate-limit';
 import { meteredRoute, recordMeteredRequest } from './lib/usage-ledger';
-import { chargesMonthlyQuota, matchOrgRoute } from './lib/org-routes';
+import { chargesMonthlyQuota, matchAdminOrgRoute, matchOrgRoute } from './lib/org-routes';
 import { createSupabaseClient } from '../../lib/supabase';
 
 export interface Env {
@@ -72,11 +79,21 @@ export interface Env {
    */
   AUTH0_LOG_READER_CLIENT_ID?: string;
   AUTH0_LOG_READER_CLIENT_SECRET?: string;
+  /**
+   * JSON array of `users.id` UUIDs allowed on the `/v1/admin/*` routes (routes/admin.ts).
+   * A copy of the observability dashboard Worker's `STAFF_USER_IDS`; the two drift unless
+   * changed together. Unset, `[]` or malformed means nobody is staff and every admin route
+   * answers 403.
+   */
+  STAFF_USER_IDS?: string;
 }
 
 const APP_URL_FALLBACK = 'https://app.integritystudio.ai';
 /** The org sub-path matched by pattern rather than by the ORG_ROUTES table. */
 const REVOKE_API_KEY_PATH = /^\/api-keys\/([^/]+)\/revoke$/;
+/** The staff directory and the staff twins of the org read routes (ADMIN-CV-GATEWAY-READ). */
+const ADMIN_ORGS_PATH = '/v1/admin/orgs';
+const ADMIN_ORG_PATH = /^\/v1\/admin\/orgs\/([^/]+)(\/.*)?$/;
 /** The router's answer for a path no route serves. */
 const ROUTER_NOT_FOUND_MESSAGE = 'Not found';
 
@@ -218,6 +235,38 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
 
   if (pathname === '/v1/me' && request.method === 'GET') {
     return withSecurityHeaders(await handleMe(request, routeOpts));
+  }
+
+  // The staff routes sit outside the `/v1/orgs/:id` branch below on purpose: they must
+  // skip its membership pre-check, per-org rate limit, quota reservation and ledger row,
+  // because a staff read must never spend or show up in the customer's own usage. The
+  // handlers enforce staff membership themselves (routes/admin.ts).
+  const adminRouteOpts = {
+    ...routeOpts,
+    staffUserIds: env.STAFF_USER_IDS,
+    waitUntil: ctx ? (p: Promise<unknown>) => ctx.waitUntil(p) : undefined,
+  };
+
+  if (pathname === ADMIN_ORGS_PATH && request.method === 'GET') {
+    return withSecurityHeaders(await handleAdminListOrgs(request, adminRouteOpts));
+  }
+
+  const adminOrgMatch = pathname.match(ADMIN_ORG_PATH);
+  if (adminOrgMatch) {
+    const orgId = adminOrgMatch[1];
+    const route = matchAdminOrgRoute(request.method, adminOrgMatch[2] ?? '');
+    switch (route) {
+      case 'billingStatus':
+        return withSecurityHeaders(await handleAdminOrgBillingStatus(request, orgId, adminRouteOpts));
+      case 'usageSummary':
+        return withSecurityHeaders(await handleAdminUsageSummary(request, orgId, adminRouteOpts));
+      case 'entitlements':
+        return withSecurityHeaders(await handleAdminOrgEntitlements(request, orgId, adminRouteOpts));
+      case 'quotaStatus':
+        return withSecurityHeaders(await handleAdminQuotaStatus(request, orgId, { ...adminRouteOpts, doNamespace: env.QUOTA_DO }));
+      case undefined:
+        return withSecurityHeaders(notFound(ROUTER_NOT_FOUND_MESSAGE));
+    }
   }
 
   if (pathname === '/v1/orgs' && request.method === 'GET') {

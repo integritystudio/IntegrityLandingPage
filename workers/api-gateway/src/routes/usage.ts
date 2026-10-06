@@ -4,8 +4,9 @@ import { verifyJwt } from '../../../lib/auth';
 import { verifyApiKey, parseApiKey } from '../../../lib/api-keys';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
 import type { OrgMembership, Entitlement, UsageBucket as UsageBucketBase } from '../../../lib/types';
-import { buildEntitlementMap, loadOrgPlan, auth0VerifyParams, resolveUserId, requireHmacSecret, type UserTokenOptions } from '../lib/helpers';
-import { getQuotaStatus } from '../lib/quota';
+import type { EntitlementMap } from '../../../lib/entitlements';
+import { buildEntitlementMap, loadOrgPlan, auth0VerifyParams, resolveUserId, requireHmacSecret, type UserTokenOptions, type LoadResult } from '../lib/helpers';
+import { getQuotaStatus, type QuotaStatusResponse } from '../lib/quota';
 import type { AuthResult } from '../../../lib/types/handler-options';
 
 // SupabaseRow requires an index signature; UsageBucketBase does not include one.
@@ -21,6 +22,23 @@ interface QuotaStatusHandlerOptions extends UsageHandlerOptions {
   doNamespace: DurableObjectNamespace;
 }
 
+export interface UsageSummaryPayload {
+  org_id: string;
+  period_start: string;
+  buckets: UsageBucket[];
+}
+
+export interface EntitlementsPayload {
+  org_id: string;
+  entitlements: EntitlementMap;
+}
+
+/** `getQuotaStatus`'s answer, or the fail-open marker when the Durable Object is unavailable. */
+export type QuotaStatusPayload =
+  | ({ org_id: string } & QuotaStatusResponse)
+  | { org_id: string; status: 'uninitialized' };
+
+const USAGE_BUCKET_SELECT = 'organization_id, bucket_date, metric_key, total_quantity, request_count, avg_latency_ms';
 
 async function resolveAuth(
   request: Request,
@@ -84,6 +102,66 @@ async function assertOrgAccess(
   return { ok: true };
 }
 
+/** The first day of the current UTC month, `YYYY-MM-01` — the window every usage read covers. */
+function usageMonthStart(now: Date): string {
+  // TS06: use UTC methods so the boundary is the same regardless of the server's local offset.
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
+}
+
+/**
+ * The month-to-date usage buckets for an org. Shared by `GET /v1/orgs/:id/usage/summary`
+ * and its staff twin; authorisation is the caller's.
+ */
+export async function loadUsageSummary(sb: SupabaseClient, orgId: string): Promise<LoadResult<UsageSummaryPayload>> {
+  const monthStart = usageMonthStart(new Date());
+
+  const result = await sb.query<UsageBucket>('usage_buckets_daily', {
+    select: USAGE_BUCKET_SELECT,
+    filters: [
+      { column: 'organization_id', operator: 'eq', value: orgId },
+      { column: 'bucket_date', operator: 'gte', value: monthStart },
+    ],
+    order: { column: 'bucket_date', ascending: false },
+  });
+
+  if (!result.ok) {
+    return { ok: false, error: serverError('Failed to load usage data') };
+  }
+
+  return { ok: true, data: { org_id: orgId, period_start: monthStart, buckets: result.data } };
+}
+
+/** An org's plan projection overlaid with its explicit `entitlements` rows (UA01). */
+export async function loadEntitlements(sb: SupabaseClient, orgId: string): Promise<LoadResult<EntitlementsPayload>> {
+  const [result, plan] = await Promise.all([
+    sb.query<Entitlement>('entitlements', {
+      filters: [{ column: 'organization_id', operator: 'eq', value: orgId }],
+    }),
+    loadOrgPlan(sb, orgId),
+  ]);
+
+  if (!result.ok) {
+    return { ok: false, error: serverError('Failed to load entitlements') };
+  }
+
+  return { ok: true, data: { org_id: orgId, entitlements: buildEntitlementMap(result.data, plan) } };
+}
+
+/**
+ * The quota Durable Object's `/status` for an org. A read, never a reservation: the
+ * reservation happens in `enforceOrgQuota`, which the router runs for the customer
+ * route and skips for the staff twin.
+ */
+export async function loadQuotaStatus(doNamespace: DurableObjectNamespace, orgId: string): Promise<QuotaStatusPayload> {
+  try {
+    const status = await getQuotaStatus(doNamespace, orgId);
+    return { org_id: orgId, ...status };
+  } catch {
+    // Fail-open: if DO is unavailable, return uninitialized status
+    return { org_id: orgId, status: 'uninitialized' };
+  }
+}
+
 export async function handleUsageSummary(
   request: Request,
   orgId: string,
@@ -97,24 +175,8 @@ export async function handleUsageSummary(
   const access = await assertOrgAccess(auth, orgId, sb);
   if (!access.ok) return access.error;
 
-  const now = new Date();
-  // TS06: use UTC methods so the boundary is the same regardless of the server's local offset.
-  const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
-
-  const result = await sb.query<UsageBucket>('usage_buckets_daily', {
-    select: 'organization_id, bucket_date, metric_key, total_quantity, request_count, avg_latency_ms',
-    filters: [
-      { column: 'organization_id', operator: 'eq', value: orgId },
-      { column: 'bucket_date', operator: 'gte', value: monthStart },
-    ],
-    order: { column: 'bucket_date', ascending: false },
-  });
-
-  if (!result.ok) {
-    return serverError('Failed to load usage data');
-  }
-
-  return ok({ org_id: orgId, period_start: monthStart, buckets: result.data });
+  const summary = await loadUsageSummary(sb, orgId);
+  return summary.ok ? ok(summary.data) : summary.error;
 }
 
 export async function handleOrgEntitlements(
@@ -130,20 +192,8 @@ export async function handleOrgEntitlements(
   const access = await assertOrgAccess(auth, orgId, sb);
   if (!access.ok) return access.error;
 
-  const [result, plan] = await Promise.all([
-    sb.query<Entitlement>('entitlements', {
-      filters: [{ column: 'organization_id', operator: 'eq', value: orgId }],
-    }),
-    loadOrgPlan(sb, orgId),
-  ]);
-
-  if (!result.ok) {
-    return serverError('Failed to load entitlements');
-  }
-
-  const entitlements = buildEntitlementMap(result.data, plan);
-
-  return ok({ org_id: orgId, entitlements });
+  const entitlements = await loadEntitlements(sb, orgId);
+  return entitlements.ok ? ok(entitlements.data) : entitlements.error;
 }
 
 export async function handleQuotaStatus(
@@ -159,11 +209,5 @@ export async function handleQuotaStatus(
   const access = await assertOrgAccess(auth, orgId, sb);
   if (!access.ok) return access.error;
 
-  try {
-    const status = await getQuotaStatus(opts.doNamespace, orgId);
-    return ok({ org_id: orgId, ...status });
-  } catch {
-    // Fail-open: if DO is unavailable, return uninitialized status
-    return ok({ org_id: orgId, status: 'uninitialized' });
-  }
+  return ok(await loadQuotaStatus(opts.doNamespace, orgId));
 }
