@@ -70,8 +70,8 @@ exports.onExecutePostLogin = async (event, api) => {
   //    verification lets whoever registers the address inherit an existing row's
   //    memberships and roles. Skip the lookup when unverified. Step 3 then inserts a
   //    fresh row; if a row already holds this email, `users_email_key` rejects the
-  //    insert and the Action returns with no app claims, so the new identity inherits
-  //    nothing.
+  //    insert, no app user id resolves, and the login is denied (CR69), so the new
+  //    identity inherits nothing.
   //
   //    (b) Social and enterprise connections (Google, GitHub, SAML, …) assert
   //    email_verified on the IdP's word. If re-linking is permitted from those
