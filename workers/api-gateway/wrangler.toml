@@ -154,10 +154,12 @@ AUTH0_AUDIENCE = "https://api.integritystudio.dev"
 #   and its dev Worker), whose admin customer view reads these routes with a dev-tenant token
 #   (observability-toolkit dashboard backlog, ADMIN-CV-CORS-AUDIENCE).
 ALLOWED_ORIGINS_JSON = '["http://localhost:8080", "http://localhost:5173", "https://quality-metrics-api-dev.alyshia-b38.workers.dev"]'
-# Empty for the same reason the dashboard's dev list is: the production ids exist only in
-# project cfrbahzzklwrnmbtqojl, and dev has no staff accounts. To exercise the admin routes
-# against api-gateway-dev, put a dev-project `users.id` here and redeploy with `npm run deploy`.
-STAFF_USER_IDS = "[]"
+# Dev-project (tumhmtshahktumhqqamk) `users.id`s, not production's: the two @integritystudio.ai
+# accounts there on 2026-10-06, dev-test@ and dev-signup-test@. The `test+e2e<timestamp>@`
+# rows the e2e suite leaves behind are deliberately absent — each run mints a fresh one, so
+# listing old ones grants nothing and a reused one would bypass the membership tests. Same
+# list as the dashboard's [env.dev.vars]; change both together. Redeploy with `npm run deploy`.
+STAFF_USER_IDS = '["71226e17-8969-4699-bb77-836ca2351ecf","c93fc459-e2d5-43fb-84b0-6022d32e313f"]'
 
 [[env.dev.kv_namespaces]]
 binding = "RATE_LIMIT_KV"
