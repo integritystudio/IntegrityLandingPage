@@ -639,6 +639,47 @@ CR47 groups by domain only when `/userinfo` says `email_verified === true`, and 
   - Add a silent-sign-in case to `provision-user-and-enrich-token.test.ts` either way.
 - **Acceptance.** A silent sign-in leaves `users.last_login` equal to Auth0's `last_login`.
 
+### ✅ DONE 2026-10-06 — CR64: revoking an `obtk_` key through api-gateway leaves its AUTH KV record live, so telemetry still accepts it
+
+**Priority:** P2 | **Source:** cross-repo auth audit 2026-10-06; `workers/api-gateway/src/routes/api-keys.ts#handleRevokeApiKey`
+
+- **The gap.** `POST /v1/orgs/:id/api-keys/:keyId/revoke` updates the `api_keys` row to `status = 'revoked'`, writes the audit row and answers 200 (`routes/api-keys.ts:176-183`). It never touches the obtool `AUTH` KV namespace, and cannot: only the `api-keys-*` edge functions hold that credential (toolkit `docs/auth-architecture.md`, "the only KV writer"). For an `obtk_` key, the format every service accepts, the KV record `apikey:<sha256>` keeps `status: "active"`, so obtool-ingest and obtool-api go on authenticating the key after the gateway, the dashboard and `/v1/orgs/:id/api-keys` all report it revoked.
+- **Fix.** `handleRevokeApiKey` now delegates to the `api-keys-revoke` edge function (server-to-server, service key). The edge function's `handler.ts` was rewritten to use the same `isServiceCredential` pattern as `api-keys-rotate` (`verify_jwt = false` in config.toml; accepts `{ keyId }` in the body). The gateway handles auth/membership/key-lookup, calls the function, then writes the audit log. Tests updated and a new "edge function called with service key" assertion added.
+- **Acceptance.** The gateway's test asserts the edge function is called with the service role key and the correct `keyId`; the audit log is written only after a successful function response.
+
+### ✅ DONE 2026-10-06 — CR65: the post-login Action re-links any verified email from any connection, and two identities then flip one row between them
+
+**Priority:** P2 (bounded today; becomes account takeover when a second connection is enabled) | **Source:** cross-repo auth audit 2026-10-06; `auth0/actions/provision-user-and-enrich-token.cjs:72-92`
+
+- **The path.** When no row matches `event.user.user_id`, and `event.user.email_verified === true`, the Action finds the row by email and PATCHes its `auth0_id` to the new subject. [[CR51]] added the verified gate. Nothing checks `event.connection`, the IdP, or whether the row's existing subject belongs to the same person.
+- **Today.** Only the database connection is in use, and it sets `email_verified` after an inbox click, so a re-link needs the same proof a password reset needs. That is why this is P2 and not P1.
+- **The day it changes.** Enabling a social or enterprise connection makes `email_verified` the IdP's assertion. A Google account for `alice@acme.com`, or an enterprise IdP whose admin can mint any address, then inherits the existing row's memberships, roles and keys on first login. Auth0's own guidance is that `email_verified` from upstream providers is not uniformly trustworthy.
+- **The second defect.** The PATCH overwrites rather than links. The original identity's next login finds no row by its subject, finds the row by email, and PATCHes `auth0_id` back. Two Auth0 identities oscillate over one `public.users` row, each login flipping it, and both carry the row's claims. Nothing in `users` records that a link happened.
+- **Fix shape (decide first).**
+  - Restrict re-link to an allowlist of connections whose verification is trusted (today: the database connection), read from `event.connection.name` or `strategy`; refuse the rest with `api.access.deny`, which also fixes the fail-open at line 107 for this case.
+  - Or move linking to Auth0 account linking so one row keeps one subject, and drop the email PATCH.
+  - Either way, make a successful re-link one-way: refuse to overwrite an `auth0_id` that is already set.
+- **Tests.** `provision-user-and-enrich-token.test.ts`: a second connection with the same verified email is refused; a re-linked row is not re-linked back on the first identity's next login.
+- **Acceptance.** A verified login from a non-allowlisted connection with an existing user's email gets no claims and no row; `users.auth0_id` never changes once set.
+
+### ✅ DONE 2026-10-06 — Auth0 post-login Action fails open when Supabase cannot resolve a user (CR69)
+
+**Priority:** P2 | **Source:** cross-repo auth audit, 2026-10-06; `auth0/actions/provision-user-and-enrich-token.cjs:125`
+
+When no `public.users` row can be resolved (Supabase down, insert rejected, unexpected body shape), the Action returned without claims — allowing the login with a token that carried no `app_user_id`, no roles, and no permissions. Downstream code treats an absent `app_user_id` as unauthenticated, so the user's own session answered every role-gate check with "not authorized." The silent failure mode meant Supabase degradation looked like an access-control problem to the user, with no observable signal at Auth0.
+
+**Fix:** `api.access.deny('Unable to provision user account. Please try again.')` with a console.error when `appUserId` is falsy after the provision attempt. The login is hard-denied; the error is surfaced to the user through Auth0's login-failure page and to engineers through Auth0 logs. Tests updated: the two "no claims and does not throw" cases now assert `denials.length === 1` with a matching reason string.
+
+**Decision 2026-10-06 (owner): keep the deny.** Reviewed after the fact because the audit filed this as a fragility, not an action item, and the deny changes two behaviours: a Supabase outage now denies every dashboard login instead of issuing claimless tokens, and the CR51 duplicate-email identity (insert rejected by `users_email_key`) is denied instead of logging in with nothing. Both accepted — a visible login failure beats a session that answers 403 everywhere.
+
+### ✅ DONE 2026-10-06 — `api-keys-list` edge function reads JWT sub without verifying the signature (APIKEYLIST-UNVERIFIED-JWT)
+
+**Priority:** P2 | **Source:** cross-repo auth audit, 2026-10-06; `supabase/functions/api-keys-list/index.ts:21`
+
+The function decoded the JWT payload with `atob` to read `sub` without verifying the signature. Its security relied entirely on `verify_jwt = true` in `supabase/config.toml` causing the Supabase platform to verify the token before the handler ran — a fragile, deployment-dependent guarantee. Deploying with `--no-verify-jwt` or removing the `[functions.api-keys-list]` config block would expose the function to forged `sub` values, letting any caller list any user's API keys.
+
+**Fix:** The handler verifies the bearer itself with `jose.jwtVerify` against the Auth0 tenant's JWKS, pinning `issuer` to `https://${AUTH0_DOMAIN}/` and `audience` to `AUTH0_AUDIENCE`, both read from the function's secrets. Callers (the toolkit e2e suite, `services/e2e/api-key-auth.e2e.ts`) present Auth0 RS256 access tokens that Supabase admits through Third-Party Auth, so the project's own `SUPABASE_JWT_SECRET` is the wrong key for them — a first cut verified with it and would have rejected every real caller. The platform verification (`verify_jwt = true`) is kept as defence-in-depth; the function is now safe regardless of how it is deployed. **Deploy step:** `supabase secrets set AUTH0_DOMAIN=<tenant>.us.auth0.com AUTH0_AUDIENCE=https://api.integritystudio.dev --project-ref <ref>` on each project (dev tenant on the dev project, production tenant on production) before `supabase functions deploy api-keys-list`; unset, the function answers 500.
+
 ---
 
 ## User Data-Integrity Audit 2026-09-18 → 2026-09-22 (UA01–UA08)
