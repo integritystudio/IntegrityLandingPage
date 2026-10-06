@@ -191,7 +191,7 @@ Neither?                         → 401
 
 - [Authentication](authentication.md) — the Universal Login flow, session lifetime, Worker token checks
 - [Auth0 Actions](../auth0/actions/README.md) — the post-login Action and its secrets
-- [API Provisioning](api-provisioning.md) — sender → receiver → `api-keys-create`
+- [API reference § Provisioning](api-reference.md#provisioning-sender-worker--api-provisioning-receiver) — sender → receiver → `api-keys-create`
 - [Quota Durable Objects](../workers/docs/QUOTA_DURABLE_OBJECTS.md) — quota implementation detail
-- [API Usage Ingestion](api-usage-ingestion.md) — metering and rate-limit headers
+- [API reference § Usage ingestion](api-reference.md#usage-ingestion) — metering and rate-limit headers
 - observability-toolkit `docs/auth-architecture.md` — every token, every verifier, the Supabase identity schema

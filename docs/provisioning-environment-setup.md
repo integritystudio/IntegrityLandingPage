@@ -399,8 +399,7 @@ Fix: Check [[services]] binding in workers/sender-worker/wrangler.toml
 
 ## References
 
-- [API Provisioning Architecture](api-provisioning.md)
-- [Client & Inter-Worker Contracts](inter-worker-contract-validation.md)
+- [API reference § Provisioning](api-reference.md#provisioning-sender-worker--api-provisioning-receiver)
 - [Provisioning Manual E2E Test Guide](PROVISIONING_MANUAL_TEST.md)
 - [Sender Worker README](../workers/sender-worker/README.md)
 - [Cloudflare Secrets Management](https://developers.cloudflare.com/workers/configuration/secrets/)

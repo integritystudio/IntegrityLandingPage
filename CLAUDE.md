@@ -177,7 +177,7 @@ Status for every open item — or one waiting on a deploy — lives only in [doc
 - GitHub `schedule` runs can fire most of an hour late, so a cron-liveness check needs a window of hours.
 
 **Routing (CR13, CR31)**
-- Do not repoint the `api.integritystudio.ai/*` wildcard — it would 404 every `obtool-api` route. Inventory and probe traps: [docs/api-routing.md](docs/api-routing.md).
+- Do not repoint the `api.integritystudio.ai/*` wildcard — it would 404 every `obtool-api` route. Inventory and probe traps: [docs/api-reference.md](docs/api-reference.md#hostnames).
 - No Workers route or Custom Domain can attach to a domain that is not a Cloudflare zone. Add `routes` only after the zone exists, or `deploy:prd` breaks.
 
 **Auth0 (CR25, CR32, CR33, CR34)**

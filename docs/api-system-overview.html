@@ -1,0 +1,209 @@
+<title>API System Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap">
+<style>
+  /* Layout: one reading column; the diagram may run wider inside its own scroller. */
+  :root {
+    --bg: #f6f7f8;
+    --surface: #ffffff;
+    --region: #eef1f3;
+    --fg: #1b2328;
+    --fg-soft: #4f5d66;
+    --muted: #66737c;
+    --line: #b9c3c9;
+    --accent: #0b6f8a;
+    --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12171a; --surface: #1a2125; --region: #182024; --fg: #e3e8eb;
+      --fg-soft: #a9b6bd; --muted: #8d9aa2; --line: #36434a; --accent: #5cc0dc;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12171a; --surface: #1a2125; --region: #182024; --fg: #e3e8eb;
+    --fg-soft: #a9b6bd; --muted: #8d9aa2; --line: #36434a; --accent: #5cc0dc;
+    color-scheme: dark;
+  }
+
+  body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--sans); }
+  main { max-width: 72rem; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px;
+         display: grid; gap: 28px; }
+  .prose { max-width: 66ch; min-width: 0; }
+  h1 { font: 600 2rem/1.15 var(--display); margin: 0; letter-spacing: .01em; text-wrap: balance; }
+  h2 { font: 600 1.25rem/1.3 var(--display); margin: 0 0 10px; letter-spacing: .02em; }
+  p { margin: 0 0 10px; }
+  .eyebrow { font: 600 .72rem var(--sans); letter-spacing: .1em; text-transform: uppercase;
+             color: var(--muted); margin-bottom: 6px; }
+  code { font: .88em var(--mono); background: var(--region); padding: 1px 5px; border-radius: 3px; }
+
+  figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+           padding-block: 16px; padding-inline: 16px; min-width: 0; }
+  .scroller { overflow-x: auto; }
+  .scroller svg { display: block; width: 100%; min-width: 860px; height: auto; color: var(--fg); }
+  figcaption { margin-top: 12px; color: var(--fg-soft); font-size: .9rem; max-width: 80ch; }
+
+  svg .region { fill: var(--region); stroke: var(--line); stroke-dasharray: 4 4; }
+  svg .node { fill: var(--surface); stroke: var(--fg-soft); stroke-width: 1.2; }
+  svg .nt { fill: var(--fg); font: 600 13px var(--mono); }
+  svg .ns { fill: var(--muted); font: 11px var(--sans); }
+  svg .rl { fill: var(--muted); font: 600 10.5px var(--sans); letter-spacing: .08em; }
+  svg .edge { fill: none; stroke: var(--fg-soft); stroke-width: 1.4; }
+  svg .edge.acc { stroke: var(--accent); stroke-width: 2.4; }
+  svg .el { fill: var(--fg); font: 11px var(--sans); }
+  svg .el.acc { fill: var(--accent); font-weight: 600; }
+  svg .ah { fill: var(--fg-soft); }
+  svg .ah-acc { fill: var(--accent); }
+
+  ul.props { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+  .table-wrap { overflow-x: auto; min-width: 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  th, td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 600 .72rem var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  td:first-child { white-space: nowrap; }
+</style>
+
+<main>
+  <header class="prose">
+    <div class="eyebrow">Integrity Studio · API architecture</div>
+    <h1>API system map</h1>
+    <p>Which Workers serve the product and observability APIs, how a request reaches them, and where API keys and usage data are written. Authentication detail lives in <code>docs/TWO_LAYER_AUTH_ARCHITECTURE.md</code>; contracts and route tables in <code>docs/api-reference.md</code>.</p>
+  </header>
+
+  <figure>
+    <div class="scroller">
+      <svg viewBox="0 0 1120 610" role="img" aria-label="Request paths: the Flutter app calls api-gateway with an access token and sender-worker with POST /send; sender-worker forwards an HMAC-signed request over a service binding to api-provisioning-receiver, which creates keys through the api-keys-create edge function into api_keys and the AUTH KV namespace; customer integrations call api-gateway with an API key and the obtool Workers with an obtk_ key checked against AUTH KV; api-gateway reserves quota in a per-org Durable Object and writes usage_events, which a trigger rolls into usage_buckets_daily.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path class="ah" d="M0,0 L10,5 L0,10 z"/>
+          </marker>
+          <marker id="ah-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path class="ah-acc" d="M0,0 L10,5 L0,10 z"/>
+          </marker>
+        </defs>
+
+        <!-- regions -->
+        <text class="rl" x="20" y="52">CLIENTS</text>
+        <rect class="region" x="270" y="30" width="330" height="325" rx="8"/>
+        <text class="rl" x="284" y="52">THIS REPO · CLOUDFLARE WORKERS</text>
+        <rect class="region" x="650" y="30" width="450" height="325" rx="8"/>
+        <text class="rl" x="664" y="52">OBSERVABILITY-TOOLKIT · CLOUDFLARE</text>
+        <rect class="region" x="270" y="410" width="830" height="190" rx="8"/>
+        <text class="rl" x="284" y="432">SUPABASE</text>
+
+        <!-- clients -->
+        <rect class="node" x="20" y="70" width="170" height="60" rx="6"/>
+        <text class="nt" x="105" y="96" text-anchor="middle">Flutter app</text>
+        <text class="ns" x="105" y="114" text-anchor="middle">integritystudio.ai</text>
+        <rect class="node" x="20" y="200" width="170" height="60" rx="6"/>
+        <text class="nt" x="105" y="226" text-anchor="middle">Customer code</text>
+        <text class="ns" x="105" y="244" text-anchor="middle">server or SDK</text>
+
+        <!-- this repo -->
+        <rect class="node" x="320" y="70" width="230" height="60" rx="6"/>
+        <text class="nt" x="435" y="96" text-anchor="middle">sender-worker</text>
+        <text class="ns" x="435" y="114" text-anchor="middle">*.workers.dev</text>
+        <rect class="node" x="320" y="200" width="230" height="60" rx="6"/>
+        <text class="nt" x="435" y="226" text-anchor="middle">api-gateway</text>
+        <text class="ns" x="435" y="244" text-anchor="middle">api.integritystudio.dev</text>
+        <rect class="node" x="400" y="300" width="150" height="36" rx="6"/>
+        <text class="ns" x="475" y="322" text-anchor="middle">quota DO · one per org</text>
+
+        <!-- observability-toolkit -->
+        <rect class="node" x="700" y="70" width="240" height="60" rx="6"/>
+        <text class="nt" x="820" y="96" text-anchor="middle">api-provisioning-receiver</text>
+        <text class="ns" x="820" y="114" text-anchor="middle">binding only, no public route</text>
+        <rect class="node" x="680" y="200" width="250" height="60" rx="6"/>
+        <text class="nt" x="805" y="226" text-anchor="middle">obtool-api · obtool-ingest</text>
+        <text class="ns" x="805" y="244" text-anchor="middle">api. / ingest.integritystudio.ai</text>
+        <rect class="node" x="700" y="300" width="210" height="36" rx="6"/>
+        <text class="ns" x="805" y="322" text-anchor="middle">AUTH KV · apikey:&lt;sha256&gt;</text>
+
+        <!-- supabase -->
+        <rect class="node" x="320" y="450" width="180" height="50" rx="6"/>
+        <text class="nt" x="410" y="471" text-anchor="middle">usage_events</text>
+        <text class="ns" x="410" y="487" text-anchor="middle">append-only</text>
+        <rect class="node" x="320" y="535" width="180" height="50" rx="6"/>
+        <text class="nt" x="410" y="556" text-anchor="middle">usage_buckets_daily</text>
+        <text class="ns" x="410" y="572" text-anchor="middle">per org · UTC day</text>
+        <rect class="node" x="620" y="450" width="200" height="50" rx="6"/>
+        <text class="nt" x="720" y="471" text-anchor="middle">api_keys</text>
+        <text class="ns" x="720" y="487" text-anchor="middle">hash only</text>
+        <rect class="node" x="860" y="450" width="220" height="50" rx="6"/>
+        <text class="nt" x="970" y="471" text-anchor="middle">api-keys-create</text>
+        <text class="ns" x="970" y="487" text-anchor="middle">edge function</text>
+
+        <!-- edges -->
+        <line class="edge" x1="190" y1="100" x2="318" y2="100" marker-end="url(#ah)"/>
+        <text class="el" x="254" y="92" text-anchor="middle">POST /send</text>
+
+        <line class="edge acc" x1="550" y1="100" x2="698" y2="100" marker-end="url(#ah-acc)"/>
+        <text class="el acc" x="624" y="92" text-anchor="middle">HMAC-signed /inbox</text>
+        <text class="el acc" x="624" y="120" text-anchor="middle">service binding</text>
+
+        <polyline class="edge" points="190,118 250,118 250,215 318,215" marker-end="url(#ah)"/>
+        <text class="el" x="244" y="170" text-anchor="end">access token</text>
+
+        <line class="edge" x1="190" y1="245" x2="318" y2="245" marker-end="url(#ah)"/>
+        <text class="el" x="254" y="262" text-anchor="middle">API key</text>
+
+        <polyline class="edge" points="105,260 105,380 640,380 640,245 678,245" marker-end="url(#ah)"/>
+        <text class="el" x="470" y="374" text-anchor="middle">obtk_ key</text>
+
+        <line class="edge" x1="335" y1="260" x2="335" y2="448" marker-end="url(#ah)"/>
+        <text class="el" x="343" y="398" text-anchor="start">metered unit</text>
+
+        <line class="edge" x1="475" y1="260" x2="475" y2="298" marker-end="url(#ah)"/>
+        <text class="el" x="483" y="284" text-anchor="start">reserve 1 unit</text>
+
+        <line class="edge" x1="410" y1="500" x2="410" y2="533" marker-end="url(#ah)"/>
+        <text class="el" x="418" y="521" text-anchor="start">trigger</text>
+
+        <polyline class="edge" points="940,100 1010,100 1010,448" marker-end="url(#ah)"/>
+        <text class="el" x="1018" y="170" text-anchor="start">create key</text>
+
+        <line class="edge" x1="860" y1="475" x2="822" y2="475" marker-end="url(#ah)"/>
+        <text class="el" x="841" y="467" text-anchor="middle">hash</text>
+
+        <polyline class="edge" points="940,450 940,318 912,318" marker-end="url(#ah)"/>
+        <text class="el" x="948" y="392" text-anchor="start">record</text>
+
+        <line class="edge" x1="805" y1="260" x2="805" y2="298" marker-end="url(#ah)"/>
+        <text class="el" x="813" y="284" text-anchor="start">auth lookup</text>
+      </svg>
+    </div>
+    <figcaption>The highlighted hop is the only point where trust changes hands: the browser never holds a signing key, and <code>sender-worker</code> signs what it forwards to a receiver that has no public route. Keys are minted outside this repo; the telemetry Workers authenticate against the <code>AUTH</code> KV record, while <code>api-gateway</code> verifies keys against <code>api_keys</code> and reads orgs, memberships and plans with the service-role key.</figcaption>
+  </figure>
+
+  <section class="prose">
+    <h2>Properties the layout guarantees</h2>
+    <ul class="props">
+      <li><strong>Two hostnames, two APIs.</strong> The product API (<code>api.integritystudio.dev</code>) and the observability API (<code>api.integritystudio.ai</code>) never share a host, so neither repo's routes have to be mirrored in the other's zone config.</li>
+      <li><strong>No public provisioning hop.</strong> The receiver is reachable only through the <code>RECEIVER</code> service binding; requests without a known key id, a valid signature, a fresh timestamp and an unseen nonce are rejected.</li>
+      <li><strong>Only <code>obtk_</code> keys reach the telemetry Workers.</strong> They are the only keys with an <code>AUTH</code> KV record. Legacy <code>int_live_</code> keys, minted by <code>api-gateway</code>, authenticate there and nowhere else.</li>
+      <li><strong>One writer per usage table.</strong> <code>api-gateway</code> writes <code>usage_events</code>; a database trigger alone maintains <code>usage_buckets_daily</code>.</li>
+      <li><strong>Quota favours availability.</strong> The per-org Durable Object serialises reservations but fails open; the edge throttle in front of org routes is the ceiling that holds when it is unreachable.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Components</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>Repo</th><th>Reached at</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td><code>api-gateway</code></td><td>this repo</td><td><code>api.integritystudio.dev</code></td><td>Account, org, billing and API-key management; usage ingestion; quota</td></tr>
+          <tr><td><code>sender-worker</code></td><td>this repo</td><td><code>*.workers.dev</code></td><td>Browser-facing provisioning proxy; validates, signs and forwards to the receiver</td></tr>
+          <tr><td><code>api-provisioning-receiver</code></td><td>observability-toolkit</td><td><code>RECEIVER</code> binding</td><td>Verifies signed requests; creates keys through <code>api-keys-create</code></td></tr>
+          <tr><td><code>obtool-api</code></td><td>observability-toolkit</td><td><code>api.integritystudio.ai</code></td><td>Observability read API: traces, metrics, logs, sessions</td></tr>
+          <tr><td><code>obtool-ingest</code></td><td>observability-toolkit</td><td><code>ingest.integritystudio.ai</code></td><td>Internal OTLP ingest</td></tr>
+          <tr><td><code>receiver-worker</code></td><td>this repo</td><td>local only</td><td>Test double of the receiver; never deployed</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>

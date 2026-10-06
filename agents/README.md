@@ -170,5 +170,5 @@ ANTHROPIC_API_KEY=sk-ant-... # Required for agent queries
 ## See Also
 
 - `docs/roadmap/payment-processor-research.md` — Full research document
-- `docs/api-provisioning.md` — Provisioning worker architecture
+- `docs/api-reference.md` — Hostnames, gateway routes, ingestion, provisioning contract
 - `README.md` — Project overview

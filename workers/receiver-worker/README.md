@@ -198,12 +198,11 @@ wrangler secret put SIGNING_KEYS   # receiver: {"v2":"<secret>"}
 
 ## Architecture
 
-See [docs/api-provisioning.md](../../docs/api-provisioning.md) for complete architecture overview.
+See [docs/api-reference.md](../../docs/api-reference.md#provisioning-sender-worker--api-provisioning-receiver) for the full provisioning contract.
 
 ## References
 
-- [API Provisioning Architecture](../../docs/api-provisioning.md)
-- [Client & Inter-Worker Contracts](../../docs/inter-worker-contract-validation.md)
+- [API reference § Provisioning](../../docs/api-reference.md#provisioning-sender-worker--api-provisioning-receiver)
 - [Environment Setup Guide](../../docs/provisioning-environment-setup.md)
 - [Sender Worker](../sender-worker/README.md)
 - [Shared Constants](../constants.ts)

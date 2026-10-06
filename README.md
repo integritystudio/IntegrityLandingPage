@@ -96,7 +96,7 @@ npx vitest run                    # Tests
 - [Architecture](docs/architecture.md) — tech stack, patterns, directory structure
 - [Authentication](docs/authentication.md) — Auth0 Universal Login (PKCE), session storage and refresh, sign-up → provision, how the Workers check the token, legacy sender password routes
 - [Routes](docs/routes.md) — GoRouter configuration, 45 routes
-- [API Provisioning](docs/api-provisioning.md) — inter-worker HMAC-SHA256 auth, Flutter service layer, security model
+- [API reference](docs/api-reference.md) — hostnames, api-gateway routes, usage ingestion, sender → receiver provisioning contract
 - [Provisioning Manual Test Guide](docs/PROVISIONING_MANUAL_TEST.md) — 7 test cases, step-by-step instructions, last recorded results
 - [Changelog](docs/changelog/1.4/CHANGELOG.md) — version history
 - [BACKLOG](docs/BACKLOG.md) — open, deferred, blocked items

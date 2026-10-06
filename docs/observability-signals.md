@@ -34,7 +34,8 @@ The companion surface is `npm run dashboard:workers`
 ([`scripts/worker-dashboard.sh`](../scripts/worker-dashboard.sh), W04 step 3):
 the same GraphQL source rendered for reading rather than gating, over a 7-day
 default window, with a resource-headroom panel that turns SIGNAL 3 from lagging
-into leading. Read it when this check fails. It never fails a build.
+into leading. Read it when this check fails. It never fails a build. What to do
+on each breach, and how to prove the alert reaches a person: [Runbook](#runbook).
 
 **It reports a window, not a live state.** The default window is one day, so a
 breach that has already been fixed keeps failing until it ages out — the
@@ -230,6 +231,87 @@ Named so they are not mistaken for covered:
 - **Provisioning latency.** GraphQL exposes wall-time quantiles; no threshold has been chosen, and picking one before there is real traffic would be inventing a number.
 - **Auth0 / Supabase call failures** as distinct from the invocation failing.
 - **Auth 429 rate** on `/signup` and `/signin` — brute-force indicator, now that `RATE_LIMIT_KV` is live (CR03).
+
+---
+
+## Runbook
+
+Daily alerting runs from
+`.github/workflows/worker-signals.yml` at `37 8 * * *`; a failing job sends
+GitHub's notification email to the repo owner. Run it by hand with the commands
+at the top of this file. The CI workflow calls `bash scripts/check-worker-signals.sh`
+directly, which is equivalent.
+
+`check:worker-signals` reads the Cloudflare GraphQL API. The account-owned token
+(`cfat_` prefix) verifies only at `/accounts/<id>/tokens/verify` and needs
+**Account Analytics Read**; a `403` is a scope problem, not an expired token.
+
+### Proving the alert channel
+
+**The alert is a job-*failure* email, so a passing run tells you nothing about
+whether anyone would be told.** Verified end to end on 2026-08-08 by failing it on
+purpose:
+
+1. Set `MIN_SUBREQUEST_RATIO` in `scripts/check-worker-signals.sh` from `0.5` to
+   `99`. `stripe-webhook`'s real ratio is ~1.00, so this breaches exactly once.
+2. `gh workflow run worker-signals.yml` — deterministic, unlike waiting for the
+   schedule.
+3. Confirm it failed for the intended reason:
+   `FAIL: 1 signal(s) breached — stripe-webhook: subrequest ratio 1.00 below 99.00`, exit 1.
+4. Confirm GitHub raised a notification (`gh api notifications`, `ci_activity` /
+   `CheckSuite`). Capture the count before the test, or a new entry is
+   indistinguishable from the backlog.
+5. Confirm a human received the email. The API shows what GitHub created, not what
+   reached an inbox.
+6. **Revert the threshold and verify the revert** (`git diff` empty, check exits 0).
+   A threshold left at 99 fails every run and trains the owner to ignore the alert.
+
+`workflow_dispatch` proves the channel, **not the schedule** (the CR20 conflation).
+Confirm one `schedule`-triggered run in `gh run list --workflow worker-signals.yml`
+(the `event` column) before treating the daily job as live.
+
+### The dashboard
+
+`npm run dashboard:workers` (same credentials, same `SKIPPED` behaviour;
+`DASHBOARD_WINDOW_DAYS=30` widens the default 7-day window). It never exits
+non-zero on an unhealthy reading — 0 rendered or skipped, 2 only if the API call
+failed — because a gate that also tries to be a dashboard accumulates thresholds
+nobody wants to fail a build on.
+
+| Panel | What it answers |
+|---|---|
+| Provisioning path | Is `sender-worker` → `api-provisioning-receiver` healthy end to end? Both on one panel, because a receiver failure looks like a sender failure otherwise. |
+| Other production workers | Invocations, failure %, subrequest ratio, non-`success` status split per Worker. |
+| Daily trend | Sparklines of successes and failures; each row is scaled to its own peak, so compare heights within a row only. |
+| Resource headroom | cpuTime p50/p99 against each Worker's configured `cpu_ms`, memory p99 against the 128 MiB ceiling. |
+
+The resource panel is the point: a Worker killed for CPU never runs handler code,
+so it throws nothing and logs nothing. CPU limits and the observability setting are
+read live from each script's settings endpoint, so they cannot drift from what is
+deployed, and the observability read separates "idle" from "dark".
+
+### What each breach means
+
+- **SIGNAL 1 — `scriptThrewException`.** The caller got a Cloudflare `1101`. Read
+  Workers Logs for the event; every handler logs `worker_uncaught_exception` with
+  the stack. If logs do not settle the cause, wait for a recurrence rather than guess.
+- **SIGNAL 2 — `stripe-webhook` subrequest ratio low.** The cron ran but did not
+  reach Supabase. Check that `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are
+  bound (`GET /accounts/<id>/workers/scripts/stripe-webhook/settings`). Below 75%
+  of the expected 96 invocations a day, the `*/15` cron itself has stopped.
+- **SIGNAL 3 — `exceededResources`.** No handler code ran. Look for a recent change
+  that raised CPU or memory; for `stripe-webhook`'s cron, a large dead-letter queue
+  producing an oversized Supabase response.
+- **SIGNAL 4 — receiver exceptions or exhaustion.** Reported, never fails this
+  build: the receiver deploys from `observability-toolkit`, so file it there. If
+  sustained, key provisioning fails with a `502` or `500` from the sender.
+- **SIGNAL 5 — pending dead letters high.** The cron is not draining. Confirm it runs
+  (SIGNAL 2); if it does, the handler fails after claiming — look for `CRITICAL`
+  lines in `stripe-webhook` logs. Pending rows recover once the cron is healthy.
+- **SIGNAL 5 — abandoned dead letters above zero.** Retries are exhausted. Resend
+  the event from Stripe Dashboard → Developers → Webhooks; if the Worker
+  dead-letters it again, reset the `webhook_dead_letters` row to `status = 'pending'`,
+  `retry_count = 0` for the next `*/15` tick.
 
 ---
 
