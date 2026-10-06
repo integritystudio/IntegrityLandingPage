@@ -156,7 +156,7 @@ import 'analytics.dart';
 import 'http_status.dart';
 
 /// Sender Worker endpoint.
-/// Configurable via --dart-define for staging/development.
+/// Defaults to production; override with --dart-define to target the dev Workers (there is no staging).
 const _senderWorkerUrl = String.fromEnvironment(
   'SENDER_WORKER_URL',
   defaultValue: 'https://sender-worker.alyshia-b38.workers.dev',
