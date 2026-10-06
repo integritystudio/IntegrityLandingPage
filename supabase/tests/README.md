@@ -199,6 +199,38 @@ the trigger and function fails T1c; dropping `users_read_own_keys` fails R1b; re
 service role's insert grant fails S1; adding a client write policy on another table fails C1.
 `drop table … cascade` in place of the explicit view drop is an equivalent mutant and passes.
 
+### `auth0-read-policies/`
+
+Covers `migrations/20261007000000_auth0_sub_read_policies.sql` (CR62 step 3), which replaces
+every `auth.uid()` read policy — 22 policies on 13 tables, plus `user_ancestor_org_ids()` —
+with one policy per table over `current_app_user_id()` (an Auth0 subject via
+`users.auth0_id`, a Supabase Auth uuid via `auth_user_links`) and
+`current_user_org_ids(roles)`. The fixture chains `retire-user-profiles/` with its migration
+applied, adds the nine other tables with production's policies verbatim, and **pre-checks that
+a read under an `auth0|…` subject raises 22P02 before the migration**, so a fixture that is
+not production's shape fails before proving anything. Port 55440.
+
+| | assertion |
+|---|---|
+| A1 | an Auth0 subject reads its own rows on `users`, `api_keys`, `user_roles`, `user_activity`, `organization_memberships`, and no other |
+| A2 | org-scoped tables answer for the active membership only; a suspended membership grants nothing; the ancestor walk reaches the parent org |
+| A3 | role narrowing: an admin reads `audit_log` but not `billing_event_log`; a plain member reads neither |
+| A4 | a Supabase Auth uuid subject still resolves through `auth_user_links` |
+| A5 | a uuid subject with no bridge row resolves to nobody, even when a `users` row carries that uuid as `auth0_id` |
+| A6 | a stranger's token reads no private row on any of the 13 tables and raises nothing; `plans` and `roles` still answer |
+| A7 | `anon` reads only the public tables and cannot execute either resolver |
+| A8 | the write side is as CR61 left it: no update to `users`, no key insert, no membership self-promotion |
+| S1 | the service role still reads everything |
+| C1 | no policy and no function in `public` calls `auth.uid()` — also asserted by `scripts/check-migration-replay.sh` after every replay |
+| C2 | every private read policy is `to authenticated`; the public reads stay public |
+| C3 | the CR61 invariant still holds |
+| C4 | both resolvers are `security definer`, `search_path = ''`, executable by `authenticated` and `service_role` only |
+| Z1 | at rest, nothing was added or changed |
+
+The first run caught a real defect: as a `sql` function the resolver was inlined, the planner
+pulled the claim subquery up and evaluated `sub::uuid` as an init-plan before `CASE` chose an
+arm, so an Auth0 subject still raised 22P02. It is `plpgsql` for that reason.
+
 ### `edge-functions/`
 
 Behavioural tests for the Edge Functions, not the migrations — a Node/vitest package, not

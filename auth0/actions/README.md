@@ -1,11 +1,20 @@
 # Auth0 Actions
 
-Source for the Actions deployed to the production tenant (`dev-68gg87ow4mg4kzyo`). Auth0 runs the code
-as uploaded; these files are the reviewed copy, so change them here first and deploy from them.
+Source for the Actions deployed to both tenants. Auth0 runs the code as uploaded; these files are
+the reviewed copy, so change them here first and deploy from them.
 
 | File | Action | Trigger | Secrets |
 |---|---|---|---|
-| `provision-user-and-enrich-token.cjs` | Provision User and Enrich Token (`e5a1e2ee-bffa-4a80-8559-8fdb81a4bba6`) | `post-login` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
+| `provision-user-and-enrich-token.cjs` | Provision User and Enrich Token — production `dev-68gg87ow4mg4kzyo`: `e5a1e2ee-bffa-4a80-8559-8fdb81a4bba6`; dev `dev-njjmghdzm23uy0p7`: `ff3ac594-3296-4549-939b-3a3dd837402a` (created and bound 2026-10-06, CR62) | `post-login` | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_TPA_CLIENT_IDS` |
+
+`SUPABASE_TPA_CLIENT_IDS` is the comma-separated list of client ids whose **ID tokens** get the
+bare `role = authenticated` claim Supabase Third-Party Auth requires (CR62). It is per tenant, so
+each tenant lists its own clients: dev holds `integrity-dev-ropc` (the e2e suites' password-grant
+client) and `integritystudio-dashboard-dev`; production holds nothing until a client ships. A
+client not listed gets an ordinary OIDC ID token that Supabase rejects with 401, which is the
+point — the integration being on does not make every login a database credential. The `role`
+claim never goes on the access token: Auth0 strips non-namespaced claims there, and the
+Workers that verify access tokens do not read it.
 
 `.cjs` because Actions use CommonJS (`exports.onExecutePostLogin`) and this repo's root package is ESM.
 Every production login runs the post-login Action, so a broken version stops logins: run
