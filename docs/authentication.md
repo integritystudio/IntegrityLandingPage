@@ -1,495 +1,118 @@
-# Authentication Data Flow
+# Authentication
+
+**Last Updated:** 2026-10-06 — rewritten for Auth0 Universal Login ([CR48](BACKLOG.md#cr48), live 2026-09-29). Earlier versions described the `AuthMode` enum and the server-side password flow (sender `/signup` and `/signin` over ROPC); both were removed from the app by CR48, and the sender routes are slated for deletion by [CR49](BACKLOG.md#cr49).
 
 ## Overview
 
-The authentication system uses a **mode-driven approach** with Dart enums and extensions to maintain a single source of truth for auth-related values (routes, text, analytics event names). This document describes the data flow, DRY principles applied, and integration points.
+- **Credentials never touch this site.** Sign-in, sign-up and password reset all happen on Auth0's Universal Login page, reached by a top-level redirect (authorization code + PKCE S256, RFC 7636).
+- **One session for two sites.** The app signs in with the same SPA client integritystudio.dev uses (`integritystudio-dashboard`), so an Auth0 session started on either site is reused by the other: the dashboard's Observability card opens integritystudio.dev without a second login.
+- **The access token is the only credential the app sends.** It is minted for the audience `https://api.integritystudio.dev`; api-gateway verifies it against the tenant's JWKS, and sender `/send` forwards it to the receiver, which checks it against Auth0.
 
----
+## Components
 
-## Core Components
+| File | Role |
+|---|---|
+| `lib/services/auth0_config.dart` | Tenant domain, client id, audience and scope; compile-time defaults are production |
+| `lib/services/auth0_service.dart` | `login`, `handleCallback`, `currentSession` (refresh), `clearSession`, `logout`; `Auth0Session`, `SignupIntent`, `Auth0Exception` |
+| `lib/services/auth0_browser{,_web,_stub}.dart` | Storage and navigation seam: the web build wraps `window`, other platforms are inert, tests inject their own |
+| `lib/pages/auth_page.dart` | `/login`: a "Continue to Sign In" hand-off to Auth0 |
+| `lib/pages/signup_page.dart` | `/signup?tier=`: tier, email, company (enterprise only) and terms, then Auth0's sign-up screen |
+| `lib/pages/callback_page.dart` | `CallbackPage` (`/callback`), `SessionRestorePage` (`/dashboard` without route args) and the shared `AuthProgress` spinner |
+| `lib/pages/provision_page.dart` | `/provision`: the first API key, which creates the org; a paid tier continues to checkout |
+| `lib/pages/dashboard_page.dart` | The **Sign out** button (`Auth0Service.logout`) |
+| `auth0/actions/provision-user-and-enrich-token.cjs` | The post-login Action on both tenants: the `public.users` row and the token claims ([README](../auth0/actions/README.md)) |
 
-### 1. AuthMode Enum
+## Configuration
 
-**Location:** `lib/pages/auth_page.dart:14`
+`Auth0Config` reads four values. The defaults ship in every build that passes no `--dart-define` (including `ci.yml`'s):
 
-```dart
-enum AuthMode { signUp, signIn }
-```
+| Value | `--dart-define` | Default (production) |
+|---|---|---|
+| Tenant domain | `AUTH0_DOMAIN` | `dev-68gg87ow4mg4kzyo.us.auth0.com` — the production tenant despite the `dev-` name (a custom domain is [CR32](BACKLOG.md#cr32)) |
+| SPA client id | `AUTH0_CLIENT_ID` | `CNfd6xPPr2aLmvNyiearhmaLknAYvtnq` (`integritystudio-dashboard`) |
+| Audience | `AUTH0_AUDIENCE` | `https://api.integritystudio.dev` |
+| Scope | — | `openid profile email offline_access` (`offline_access` returns the refresh token) |
 
-Two distinct authentication modes:
-- `AuthMode.signUp` — User registration flow
-- `AuthMode.signIn` — User login flow
+- **Running against the dev tenant:** use the command in CLAUDE.md, "Pointing the Flutter app at the dev workers". The Auth0 pair must move together with the Worker URLs: `api-gateway-dev` trusts only the dev tenant, so a production-tenant token gets 401 there. The dev SPA client (`integritystudio-dashboard-dev`) allows only `http://localhost:8080` (and `:5173` for the dashboard repo), which is why the port is fixed. Use `--release`, because debug mode injects inline scripts the CSP blocks.
+- **CSP:** `connect-src` in `web/index.html` allows both tenants' domains, since the token exchange is a `fetch` from the page.
+- **Adding an origin** (a new hostname, a preview): list it on the SPA client as a callback URL (`<origin>/callback`), a logout URL (`<origin>/`) and an allowed web origin. Web origins must have **no trailing slash**: `/oauth/token` matches the `Origin` header exactly, and the production client's original `https://integritystudio.ai/` entries never matched (CR48).
 
-### 2. AuthModeX Extension
-
-**Location:** `lib/pages/auth_page.dart:16–37`
-
-Centralizes all AuthMode-dependent values to eliminate duplicated conditionals across the codebase.
-
-```dart
-extension AuthModeX on AuthMode {
-  String get routePath => this == AuthMode.signUp ? Routes.signup : Routes.login;
-  String get title => this == AuthMode.signUp ? 'Create Account' : 'Sign In';
-  String get buttonText => this == AuthMode.signUp ? 'Sign Up' : 'Sign In';
-  String get pageViewName => this == AuthMode.signUp ? 'auth_signup' : 'auth_signin';
-  String get pageSubtitle => this == AuthMode.signUp
-      ? 'Get your API key to access the Integrity API'
-      : 'Access your account';
-  String get toggleModePrompt => this == AuthMode.signUp
-      ? "Already have an account? Sign in"
-      : "Don't have an account? Sign up";
-}
-```
-
-**Benefits:**
-- Single definition: each value is defined once per mode
-- Type-safe: Dart compiler ensures all cases are handled
-- Maintainability: update text/routes in one place, changes propagate everywhere
-- Reduces cognitive load: intent is clear (`_mode.title` vs `_mode == AuthMode.signUp ? 'Create Account' : 'Sign In'`)
-
-### 3. Routes Constants
-
-**Location:** `lib/config/content/constants.dart:95–110`
-
-```dart
-abstract final class Routes {
-  static const String home = '/';
-  static const String login = '/login';
-  static const String signup = '/signup';
-  static const String provision = '/provision';
-  // ... other routes
-}
-```
-
-**Key changes (as of latest refactor):**
-- `/login` — formerly `/signin`; primary sign-in route
-- `/signup` — user registration route
-
-### 4. ProvisioningService
-
-**Location:** `lib/services/provisioning_service.dart`
-
-Handles communication with Auth0 and the provisioning worker.
-
-**Auth flows:**
-- `signUp(email, password, name?)` → Creates Auth0 user, returns JWT
-- `signIn(email, password)` → Returns JWT for existing user
-
----
-
-## Data Flow Diagram
+## Sign-in
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      User navigates to /login                    │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  GoRouter matches /login → creates AuthPage(mode: AuthMode.signIn)
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              _AuthPageState initializes                          │
-│  • _mode = AuthMode.signIn                                       │
-│  • didChangeDependencies fires                                   │
-│    AnalyticsService.trackPageView(_mode.pageViewName)           │
-│    → 'auth_signin'                                               │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│         Render AuthPage UI using AuthModeX getters               │
-│  • Page title: _mode.title                                       │
-│    → 'Sign In'                                                   │
-│  • Submit button: _mode.buttonText                               │
-│    → 'Sign In'                                                   │
-│  • Toggle link: _mode.toggleModePrompt                           │
-│    → "Don't have an account? Sign up"                            │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│         User enters email + password, submits form               │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  _submit() → ProvisioningService.signIn(email, password)        │
-│  • POST to sender-worker /signin                                │
-│  • sender-worker exchanges (email, password) for JWT            │
-│    via Auth0 Resource Owner Password Credentials grant          │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-             ┌───────┴───────┐
-             │               │
-        Success          Error
-             │               │
-             ▼               ▼
-     ┌──────────────┐  ┌──────────────┐
-     │  AuthSuccess │  │  AuthError   │
-     │  jwt: ...    │  │  message: .. │
-     │  email: ...  │  └──────────────┘
-     └──────┬───────┘        │
-            │                ▼
-            │        Show error alert
-            │        (Alert widget)
-            │
-            ▼
-    context.go('/provision', extra: AuthSuccess)
-    ↓
-    ProvisionPage displays dashboard/provisioning UI
-    (requires valid JWT to proceed)
+/login (AuthPage) ── "Continue to Sign In" ──▶ Auth0Service.login()
+   sessionStorage ← auth0_code_verifier, auth0_state   (32 random bytes each, base64url)
+   navigate ──▶ https://<tenant>/authorize
+                  ?response_type=code&client_id&redirect_uri=<origin>/callback
+                  &audience&scope&state&code_challenge=S256(verifier)&code_challenge_method=S256
+
+Auth0 Universal Login (password, reset)  ── post-login Action runs ──
+   302 ──▶ <origin>/callback?code=…&state=…
+
+/callback (CallbackPage) ──▶ Auth0Service.handleCallback(uri)
+   read, then delete, auth0_state / auth0_code_verifier / auth0_signup_intent   (single use)
+   compare state in constant time; a missing or mismatched value fails
+   POST https://<tenant>/oauth/token   (form-encoded: authorization_code, code, code_verifier, redirect_uri)
+      access token + email + expiry ──▶ sessionStorage auth0_session
+      refresh token                ──▶ localStorage   auth0_refresh_token
+   GET <api-gateway>/v1/orgs   (Authorization: Bearer <access token>)
+      no orgs     ──▶ /provision   extra: ProvisionArgs(session, signup)
+      any org     ──▶ /dashboard   extra: DashboardArgs(jwt)
+      error       ──▶ inline error and a "Sign in again" button
 ```
 
-### /signup Flow
+- **The post-login Action** finds the `public.users` row by `auth0_id`, re-links by email only when Auth0 says the email is verified ([CR51](changelog/1.3/CHANGELOG.md#cr51)), otherwise inserts one, and writes the profile columns. It adds namespaced `roles`, `permissions` and `app_user_id` claims. The bare `role = authenticated` claim Supabase needs goes on the **ID** token only, and only for the clients in the Action's `SUPABASE_TPA_CLIENT_IDS` secret. The Action also runs on refresh-token exchanges, which it does not count as logins.
+- **The email comes from the ID token's `email` claim**, read without signature verification: the token came straight from Auth0's token endpoint over TLS, and nothing authorises on it. It is kept exactly as Auth0 returned it, because the receiver compares it byte for byte.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              User navigates to /signup?tier=growth               │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  GoRouter matches /signup → creates SignupPage(tier: 'growth')   │
-│  (SignupPage may redirect to AuthPage with AuthMode.signUp)     │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              _AuthPageState initializes                          │
-│  • _mode = AuthMode.signUp                                       │
-│  • didChangeDependencies fires                                   │
-│    AnalyticsService.trackPageView(_mode.pageViewName)           │
-│    → 'auth_signup'                                               │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│         Render AuthPage UI using AuthModeX getters               │
-│  • Page title: _mode.title                                       │
-│    → 'Create Account'                                            │
-│  • Submit button: _mode.buttonText                               │
-│    → 'Sign Up'                                                   │
-│  • Toggle link: _mode.toggleModePrompt                           │
-│    → "Already have an account? Sign in"                          │
-│  • Extra field: password confirmation (signUp-only)             │
-│    Validation: _confirmPassword == _password                    │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  User enters email + password + confirm password, submits form   │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  _submit() → ProvisioningService.signUp(email, password, name?) │
-│                                                                  │
-│  Sender-worker executes (in order):                             │
-│  ┌───────────────────────────────────────────────────────────┐ │
-│  │ 1. M2M Token Exchange (client_credentials grant)          │ │
-│  │    POST /oauth/token                                      │ │
-│  │    Using: AUTH0_CLI_ID + AUTH0_CLI_SECRET                │ │
-│  │    Returns: mgmtToken (for Management API)                │ │
-│  └───────────────────────────────────────────────────────────┘ │
-│  ┌───────────────────────────────────────────────────────────┐ │
-│  │ 2. Create Auth0 User (Management API)                     │ │
-│  │    POST /api/v2/users                                     │ │
-│  │    Auth: Bearer mgmtToken                                 │ │
-│  │    Payload: { email, password, connection, email_verified}
-│  │    Returns: { user_id: "auth0|..." }                      │ │
-│  └───────────────────────────────────────────────────────────┘ │
-│  ┌───────────────────────────────────────────────────────────┐ │
-│  │ 3. ROPC User Sign-In (password grant)                     │ │
-│  │    POST /oauth/token                                      │ │
-│  │    Grant: password (Resource Owner Password Credentials)  │ │
-│  │    Using: AUTH0_CLIENT_ID + AUTH0_CLIENT_SECRET           │ │
-│  │    Payload: { username, password, audience, scope }       │ │
-│  │    Returns: { access_token (JWT), token_type: "Bearer" }  │ │
-│  └───────────────────────────────────────────────────────────┘ │
-│  ┌───────────────────────────────────────────────────────────┐ │
-│  │ 4. Create Supabase User + Personal Org                    │ │
-│  │    POST /rest/v1/organizations                            │ │
-│  │    POST /rest/v1/users                                    │ │
-│  │    POST /rest/v1/organization_memberships                 │ │
-│  │    (using SUPABASE_SERVICE_ROLE_KEY)                      │ │
-│  │    Links auth0_id ↔ supabase user_id                      │ │
-│  └───────────────────────────────────────────────────────────┘ │
-└────────────────────┬────────────────────────────────────────────┘
-                     │
-             ┌───────┴────────────────┐
-             │                        │
-        Success                  Error
-             │                        │
-             ▼                        ▼
-     ┌──────────────────┐    ┌──────────────────┐
-     │   AuthSuccess    │    │   AuthError      │
-     │  jwt: JWT        │    │  message: "user  │
-     │  email: user@... │    │   already        │
-     │  auth0Sub: ..    │    │   exists" | ...  │
-     └────────┬─────────┘    └────────┬─────────┘
-              │                       │
-              │                       ▼
-              │            Show error alert
-              │            (Alert widget)
-              │
-              │            Auto-redirect?
-              │            if (error.contains('already exists'))
-              │              context.go('/login')
-              │
-              ▼
-     context.go('/provision', extra: AuthSuccess)
-     ↓
-     ProvisionPage displays provisioning UI with:
-     • API key generation form (tier: growth)
-     • Organization setup
-     (requires valid JWT + auth0Sub)
-```
+## Sign-up
 
----
+1. `/signup?tier=` (`SignupPage`) validates the email (`ContactService.isValidEmail`) and the terms checkbox. There is no password field.
+2. `Auth0Service.login(loginHint: email, signup: SignupIntent(tier, orgName))` stores the intent in sessionStorage (`auth0_signup_intent`) and adds `screen_hint=signup` and **`prompt=login`** to `/authorize`. Without `prompt=login` an existing Auth0 session answers silently, ignores both hints, and signs in the browser's current account instead of creating a new one.
+3. The user sets a password on Auth0's sign-up screen, and Auth0 returns to `/callback`. A new account has no org, so it goes to `/provision`; the signup analytics (`signup_form` submission, Facebook lead) fire here, once the account exists, not when the form was submitted.
+4. `/provision` sends `provision_api_key` to sender `POST /send` with the email as Auth0 returned it and, for enterprise, the company as `org_name`. The access token travels base64-encoded in the `x-session-data` header. The sender HMAC-signs the event and forwards it to the receiver over the `RECEIVER` service binding. The receiver checks the token against Auth0's `/userinfo`, requires the email to match byte for byte, creates the org at `starter` (CR37: no route takes a plan from the caller), and mints an `obtk_` key, shown once.
+5. A paid tier then offers **Continue to Checkout** (`CheckoutArgs(email, tier)`). Checkout runs after provisioning on purpose: a checkout session opened before the org existed could not be attributed to it.
 
-## AuthMode Usage in Code
+## Session lifetime
 
-### Route Selection
+- **`currentSession()`** returns the stored session while it has more than a minute left, and otherwise exchanges the refresh token (`grant_type=refresh_token`). Refresh tokens rotate, so only one refresh runs at a time; a second request with the same token would count as reuse and revoke the whole token family.
+- **Refused versus unreachable.** When Auth0 answers and refuses (revoked or expired refresh token), the session is cleared and the user is signed out locally. A network failure returns no session but keeps the stored tokens.
+- **Reload, bookmark or new tab:** `/dashboard` without route args renders `SessionRestorePage`, which calls `currentSession()` and opens the dashboard or sends the user to `/login`. `/billing`, `/usage`, `/entitlements` and `/quota` without args redirect to `/dashboard`, so they restore the same way.
+- **Tokens never go in a URL** ([CR04](changelog/1.3/CHANGELOG.md#cr04)). They move between pages in GoRouter `extra` only, and `/provision` refuses to read one from the query string: accepting `?jwt=` allowed login-CSRF.
+- **Known limit (CR48):** refresh-token rotation `leeway` is 0 on both SPA clients, so two tabs refreshing at the same instant count as reuse and both are signed out. In-tab refreshes are serialised; cross-tab ones are not. A small `leeway` would absorb it, but the client is shared with integritystudio.dev, so that decision belongs there.
+- The pre-CR48 `auth_jwt` localStorage key is no longer read or written, and is not cleared; it expires with its token.
 
-```dart
-// lib/routing/app_router.dart (line 169)
-GoRoute(
-  path: '/login',
-  builder: (context, state) => AuthPage(
-    mode: AuthMode.signIn,
-    onBack: _goHome(context),
-  ),
-),
+## Sign-out
 
-GoRoute(
-  path: '/signup',
-  builder: (context, state) => SignupPage(
-    tier: state.uri.queryParameters['tier'] ?? 'starter',
-    onBack: _goHome(context),
-  ),
-),
-```
+**Sign out** on the dashboard calls `Auth0Service.logout()`: it clears both stored tokens and navigates to `https://<tenant>/v2/logout?client_id=…&returnTo=<origin>/`. That ends the Auth0 session itself, so it also signs the user out of integritystudio.dev. `clearSession()` alone forgets the tokens in this browser without leaving the page.
 
-### Test Integration
+## How the Workers check the token
 
-```dart
-// test/pages/auth_page_test.dart (line 60)
-GoRouter makeAuthRouter(AuthMode mode) => GoRouter(
-  initialLocation: mode.routePath,  // Resolves to Routes.signup or Routes.login
-  routes: [
-    GoRoute(path: Routes.signup, builder: (_, __) => const AuthPage(mode: AuthMode.signUp)),
-    GoRoute(path: Routes.login, builder: (_, __) => const AuthPage(mode: AuthMode.signIn)),
-    GoRoute(path: Routes.provision, builder: (_, __) => const Scaffold(...)),
-  ],
-);
-```
+| Worker | Check |
+|---|---|
+| `api-gateway` | `verifyJwt` (`workers/lib/auth.ts`) against `https://<AUTH0_DOMAIN>/.well-known/jwks.json`, issuer `https://<AUTH0_DOMAIN>/`, audience `AUTH0_AUDIENCE`. Both are checked-in `vars`: production's tenant at the top level, the dev tenant under `[env.dev.vars]`. The `sub` claim is the caller, resolved through `users.auth0_id`. A bearer token that parses as an API key (`obtk_` or `int_live_`) is verified as a key instead. |
+| `sender-worker` `/send` | Reads the token from `x-session-data` (base64), else the body's `jwt`, else `Authorization: Bearer`, and checks only that it is JWT-shaped. The receiver does the real check. |
+| `api-provisioning-receiver` (observability-toolkit) | Checks the token against Auth0's `/userinfo` and compares the email byte for byte. |
+| integritystudio.dev (dashboard repo) | Reads Supabase directly with the Auth0 **ID** token through Supabase Third-Party Auth ([CR62](changelog/1.3/CHANGELOG.md#cr62)), which is what the Action's `role` claim is for. |
 
-### Analytics Tracking
+**`SUPABASE_JWT_SECRET` is deliberately unbound on api-gateway.** These tokens are Auth0-issued; verifying them against Supabase is what produced the original `401 Invalid JWT signature` (CR26). Do not bind it to fix a 401.
 
-```dart
-// lib/pages/auth_page.dart (line 78)
-if (!_pageViewTracked) {
-  _pageViewTracked = true;
-  AnalyticsService.trackPageView(_mode.pageViewName);
-  // Resolves to 'auth_signup' or 'auth_signin'
-}
-```
+## Testing
 
----
+- `test/services/auth0_service_test.dart` covers the authorize URL, PKCE, state handling, the refresh memo and refused-versus-network handling. Dropping the memo, the state comparison or that distinction each fails its own test (mutation-checked, CR48).
+- `test/pages/auth_page_test.dart`, `signup_page_test.dart`, `callback_page_test.dart` and `provision_page_test.dart` cover the pages.
+- **Test seam:** `Auth0Service.setForTesting(dio:, browser:, now:, random:)` and `resetForTesting()`. Inject an `Auth0Browser` to control storage and capture navigation; there is no real browser in `flutter test`.
+- **End to end:** run the release build against the dev tenant and dev Workers (above), then sign up, provision, sign out, sign in and reload `/dashboard`. No Flutter test reaches Auth0. The one automated suite that does is sender-worker's `npm run test:live`, which calls the **production** tenant's Management API for the legacy routes below (CLAUDE.md, Commands).
 
-## Shared Validation & Constants
+## Legacy: sender-worker password routes
 
-To maintain a single source of truth across auth flows (AuthPage and SignupPage), the following shared components are reused:
+`sender-worker` still serves the pre-CR48 routes, and **nothing in this app calls them**:
 
-### Email Validation
+| Route | What it does |
+|---|---|
+| `POST /signup` | Creates the Auth0 user through the Management API (M2M client `AUTH0_CLI_*`, `client_credentials`), creates the Supabase org, user and owner membership, then signs in over ROPC and returns `{jwt, auth0Sub, userId, email}` |
+| `POST /signin` | Auth0 ROPC (`grant_type=password`, client `AUTH0_CLIENT_*`, "My App"): `{email, password}` → `{jwt, email}` |
+| `POST /forgot-password` | Auth0 `dbconnections/change_password`; the same 200 whether or not the account exists |
 
-**Location:** `lib/services/contact_service.dart`
+All three share a per-IP rate limit. [CR49](BACKLOG.md#cr49) deletes them, and then removes the `password` grant from "My App", once a week with no production traffic is confirmed. Until CR49 step 3, do not strip `password` from "My App" (CLAUDE.md, Auth0). Do not build anything new on these routes.
 
-```dart
-static bool isValidEmail(String email) {
-  return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email);
-}
-```
-
-**Usage:**
-- `lib/pages/auth_page.dart` — form validation (both signUp and signIn)
-- `lib/pages/signup_page.dart` — form validation (line 352)
-
-**Benefit:** Email validation is consistent across all auth forms; single point of update.
-
-### Password Policy
-
-**Location:** `lib/utils/security_utils.dart`
-
-```dart
-abstract final class PasswordPolicy {
-  static const int minLength = 8;
-  static const int maxLength = 128;
-}
-```
-
-**Usage:**
-- `lib/pages/auth_page.dart` — validates password length (both signUp and signIn)
-- `lib/pages/signup_page.dart` — validates password length (line 359)
-- Signup form error message: `'Password must be at least ${PasswordPolicy.minLength} characters'`
-
-**Benefit:** Password constraints centralized; enforced consistently across all auth flows.
-
-### Routes Constants
-
-**Location:** `lib/config/content/constants.dart` (lines 97–105)
-
-```dart
-abstract final class Routes {
-  static const String home = '/';
-  static const String login = '/login';
-  static const String signup = '/signup';
-  static const String provision = '/provision';
-  static const String checkout = '/checkout';
-  // ... other routes
-}
-```
-
-**Usage:**
-- `lib/routing/app_router.dart` — route definitions
-- `test/pages/auth_page_test.dart` — test router initialization (line 60)
-- `lib/pages/signup_page.dart` — post-signup routing (line 404–409)
-
-**Benefit:** Routes hardcoded in one place; refactoring route paths updates all references automatically.
-
-### Signup Post-Success Routing
-
-**Location:** `lib/pages/signup_page.dart` (lines 403–410)
-
-```dart
-/// Route to appropriate page based on tier after successful signup.
-void _routeAfterSignup(AuthSuccess result) {
-  final tierLower = widget.tier.toLowerCase();
-  if (tierLower == 'growth' || tierLower == 'enterprise') {
-    context.go(Routes.checkout, extra: CheckoutArgs(email: result.email, tier: widget.tier));
-  } else {
-    context.go(Routes.provision, extra: result);
-  }
-}
-```
-
-**Logic:**
-- `growth` or `enterprise` tier → Redirect to Stripe checkout
-- `starter` tier → Redirect to provisioning page (API key generation)
-
-**Benefit:** Tier routing logic isolated in single method; easy to add new tier handling.
-
----
-
-## Auth0 Integration
-
-### M2M (Machine-to-Machine) for User Creation
-
-**Sender Worker** (`workers/sender-worker/src`):
-- Requires `AUTH0_CLI_ID`, `AUTH0_CLI_SECRET`
-- Uses **client_credentials grant** to obtain management tokens
-- The Management API audience is not a configured env var — it's hardcoded as `https://${AUTH0_DOMAIN}/api/v2/`
-- Called during `/signup` to create users in Auth0
-
-### ROPC (Resource Owner Password Credentials) for User Sign-In
-
-**Sender Worker** (`workers/sender-worker/src`):
-- Uses `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_AUDIENCE`
-- Exchanges (email, password) for JWT via **password grant**
-- Called during `/signin` and immediately after `/signup`
-
-### Key Environment Variables
-
-| Variable | Purpose | Grant Type |
-|----------|---------|-----------|
-| `AUTH0_DOMAIN` | Auth0 tenant | Both |
-| `AUTH0_CLIENT_ID` | App client ID | ROPC (password) |
-| `AUTH0_CLIENT_SECRET` | App client secret | ROPC (password) |
-| `AUTH0_AUDIENCE` | API audience | Both |
-| `AUTH0_CLI_ID` | CLI app client ID | M2M (client_credentials) |
-| `AUTH0_CLI_SECRET` | CLI app secret | M2M (client_credentials) |
-
----
-
-## Error Handling
-
-### RequestFailurePage Auto-Redirect
-
-If signup returns "user already exists" error, the app automatically redirects to `/login`:
-
-```dart
-// lib/pages/request_failure_page.dart (line 33)
-if (error?.contains('already exists') ?? false) {
-  context.go('/login');
-}
-```
-
-### Error Message Display
-
-```dart
-// lib/pages/auth_page.dart
-if (result is AuthError) {
-  setState(() {
-    _errorMessage = result.message;
-    _isLoading = false;
-  });
-  Alert.show(context, message: _errorMessage!);
-}
-```
-
----
-
-## Mode Toggle Behavior
-
-```dart
-// lib/pages/auth_page.dart (line 121)
-void _toggleMode() {
-  setState(() {
-    _mode = _mode == AuthMode.signUp ? AuthMode.signIn : AuthMode.signUp;
-    _password = '';         // Clear password
-    _confirmPassword = '';  // Clear confirm password
-    // Email preserved
-  });
-}
-```
-
-The toggle link swaps modes while preserving the email field (user often wants to switch between signup/signin with same email).
-
----
-
-## Summary
-
-**DRY patterns applied:**
-
-1. **AuthMode extension** — Centralizes mode-dependent text and routes
-   - Single definition: each value defined once per mode
-   - Type-safe: Dart compiler ensures all cases handled
-   - Used in: AuthPage (form titles, buttons) and tests
-
-2. **Shared validation** — Email and password rules defined once
-   - `ContactService.isValidEmail()` — reused in AuthPage and SignupPage
-   - `PasswordPolicy.minLength/maxLength` — reused in AuthPage and SignupPage
-   - Ensures consistent validation across all auth flows
-
-3. **Routes constants** — All auth routes defined in one place
-   - `Routes.login`, `Routes.signup`, `Routes.provision`, `Routes.checkout`
-   - Eliminates hardcoded path strings
-   - Single point of update for route refactoring
-
-4. **Signup routing logic** — Tier-based redirect encapsulated
-   - `_routeAfterSignup()` method centralizes post-signup routing
-   - Handles: starter → `/provision`, growth/enterprise → `/checkout`
-   - Easy to extend for new tiers
-
-**Key files:**
-- `lib/pages/auth_page.dart` — AuthMode enum + extension, AuthPage widget, form validation
-- `lib/pages/signup_page.dart` — SignupPage widget, tier-based routing logic
-- `lib/config/content/constants.dart` — Routes constants
-- `lib/utils/security_utils.dart` — PasswordPolicy
-- `lib/services/contact_service.dart` — Email validation
-- `lib/services/provisioning_service.dart` — Auth0 integration
-- `lib/routing/app_router.dart` — Route definitions
-- `workers/sender-worker/src` — M2M + ROPC implementations
+**Removed from the app by CR48 (2026-09-29):** `AuthMode` and its extension, `ProvisioningService.signIn/signUp/forgotPassword`, `AuthSuccess`/`AuthError`, `AuthStorage` and `PasswordPolicy`.
