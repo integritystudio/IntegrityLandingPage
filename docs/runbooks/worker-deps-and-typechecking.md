@@ -2,6 +2,10 @@
 
 Operational history moved out of CLAUDE.md on 2026-08-03. Dates inline are when each fact was measured; re-run the suites and `npm audit` rather than trusting counts.
 
+## Snapshot (2026-10-05)
+
+1,282 worker tests (`lib` 352, contact-form 81, api-gateway 422, sender-worker 206, receiver-worker 33, stripe-webhook 188) via `npm run test:workers`; sender-worker `test:e2e` 49/49. Flutter count and coverage not re-measured. **No longer aligned:** sender-worker declares `wrangler ^4.145.0`, `@cloudflare/workers-types ^5.20261001.1`, `typescript ^6.0.3` and `zod ^4.6.5`; the other five declare `@cloudflare/workers-types ^5.20260923.1` and `typescript ^6.0.2`, the four of them that use wrangler declare `^4.131.0`, and `lib` declares `zod ^4.4.3`. `npm audit` not re-run.
+
 ## Snapshot (2026-08-03)
 
 1,212 worker tests (`lib` 515, contact-form 81, api-gateway 208, sender-worker 203, receiver-worker 33, stripe-webhook 172) and 3,017 Flutter (2026-07-31), coverage ~94%. All six packages aligned: `wrangler ^4.118.0`, `@cloudflare/workers-types ^5.20260801.1`, `vitest` + `@vitest/coverage-v8 ^4.1.10`, `typescript ^5.9.3`; `npm audit` 0 in each (was 8 in receiver-worker, 7 in contact-form, 2 each in lib and sender-worker). Opt-in suites: `sender-worker` `test:e2e` 49/49 (re-run 2026-08-03 on wrangler 4.118 — it boots workerd, so it is what actually exercises a wrangler bump rather than only type-checking against it), `test:live` 9 passed / 3 skipped, `stripe-webhook` `test:live` 5/5 (both 2026-07-29).
