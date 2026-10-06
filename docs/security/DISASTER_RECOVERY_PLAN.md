@@ -416,10 +416,10 @@ Run these **quarterly**:
 
 | Drill | Procedure | Success Criteria |
 |-------|-----------|------------------|
-| **Backup Restore** | Restore nightly backup to staging Supabase | All tables restored, app functional |
+| **Backup Restore** | Restore nightly backup to a throwaway Supabase project — no staging project exists, and restoring production data into dev (`tumhmtshahktumhqqamk`) would break dev's data isolation | All tables restored, app functional |
 | **Webhook Blackout** | Disable webhook endpoint for 1 hr, then re-enable | Reconciliation catches all missed events within 30 min |
-| **Stripe Degraded** | Simulate Stripe API 500s in staging | Customers retain access via grace period |
-| **Full Reconciliation** | Run nuclear reconciliation script on staging | Local DB matches Stripe state 100% |
+| **Stripe Degraded** | Simulate Stripe API 500s against the dev Workers (Stripe sandbox) | Customers retain access via grace period |
+| **Full Reconciliation** | Run nuclear reconciliation script against dev (dev Supabase + Stripe sandbox) | Local DB matches Stripe state 100% |
 
 ---
 
