@@ -1,6 +1,6 @@
 # API routing — which worker serves which hostname
 
-**Measured 2026-08-08** (previously 2026-08-03). Every table below is live state or source, not intent. Re-measure with the commands in [Keeping this in sync](#keeping-this-in-sync) before relying on it; tracked by [BACKLOG.md CR31](changelog/1.3/CHANGELOG.md#cr31) and [CR13](changelog/1.3/CHANGELOG.md#cr13).
+**Measured 2026-08-08** (previously 2026-08-03; the `api-gateway` route table re-read from source 2026-10-05). Every table below is live state or source, not intent. Re-measure with the commands in [Keeping this in sync](#keeping-this-in-sync) before relying on it; tracked by [BACKLOG.md CR31](changelog/1.3/CHANGELOG.md#cr31) and [CR13](changelog/1.3/CHANGELOG.md#cr13).
 
 ## The one-line answer
 
@@ -68,7 +68,7 @@ Hand-rolled dispatch on `pathname` + `method`; a method mismatch falls through t
 |---|---|
 | GET | `/health` |
 | POST | `/v1/ingest/events` |
-| POST | `/v1/ingest/otel` *(`OTEL_INGEST_ROUTE`, `routes/ingest.ts:140`)* |
+| POST | `/v1/ingest/otel` *(`OTEL_INGEST_ROUTE`, `routes/ingest.ts:153`)* |
 | GET | `/v1/me` |
 | GET | `/v1/orgs` |
 | GET | `/v1/orgs/:id/dashboard` |
@@ -86,6 +86,7 @@ Hand-rolled dispatch on `pathname` + `method`; a method mismatch falls through t
 | GET | `/v1/admin/orgs/:id/entitlements` *(staff only)* |
 | GET | `/v1/admin/orgs/:id/quota/status` *(staff only)* |
 | POST | `/bootstrap` |
+| POST | `/v1/auth0-logs` *(Auth0 log-stream push, `routes/auth0-logs.ts`; `503` while `AUTH0_LOG_STREAM_TOKEN` is unbound — the 15-minute cron poller is what fills `auth0_logs`, CR40)* |
 | OPTIONS | *any* — CORS preflight, answered at the outer boundary |
 
 Note API keys are nested under `/v1/orgs/:id/`; there is no top-level `/v1/api-keys`.
@@ -99,7 +100,7 @@ The `/v1/admin/*` routes serve the observability dashboard's admin customer view
 | Owner | Prefixes |
 |---|---|
 | `obtool-api` | `/v1/traces*` `/v1/metrics*` `/v1/logs` `/v1/sessions*` `/v1/cost` `/v1/datasets*` `/v1/evaluations` |
-| `api-gateway` | `/v1/me` `/v1/orgs*` `/v1/admin/orgs*` `/v1/ingest/*` `/bootstrap` |
+| `api-gateway` | `/v1/me` `/v1/orgs*` `/v1/admin/orgs*` `/v1/ingest/*` `/v1/auth0-logs` `/bootstrap` |
 
 Disjointness is why a path-split *would* have worked with no code change on either side. It is also why **repointing the wildcard never could** — see below. The chosen answer uses neither: separate hostnames make the question moot, and this table is now the evidence that the two surfaces never needed to share one host in the first place.
 
