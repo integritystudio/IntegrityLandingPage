@@ -232,9 +232,11 @@ enabled = false
 
 # Use Auth0 as a third-party provider alongside Supabase Auth.
 [auth.third_party.auth0]
-enabled = false
-# tenant = "my-auth0-tenant"
-# tenant_region = "us"
+# Added on production from the Dashboard 2026-10-06 (BACKLOG.md CR62). Kept in sync here so a
+# `config push` cannot switch it back off. The tenant is production's despite the `dev-` name.
+enabled = true
+tenant = "dev-68gg87ow4mg4kzyo"
+tenant_region = "us"
 
 # Use AWS Cognito (Amplify) as a third-party provider alongside Supabase Auth.
 [auth.third_party.aws_cognito]
