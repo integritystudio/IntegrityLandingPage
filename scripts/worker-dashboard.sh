@@ -381,6 +381,6 @@ if notes:
     print()
 
 print("Signal definitions: docs/observability-signals.md")
-print("Runbook:            docs/api-provisioning.md")
+print("Runbook:            docs/observability-signals.md#runbook")
 sys.exit(0)
 PYEOF

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-api-routing.sh — sync guard for docs/api-routing.md (BACKLOG.md CR31)
+# check-api-routing.sh — sync guard for docs/api-reference.md (BACKLOG.md CR31)
 #
 # Three assertions, all runnable in CI without Cloudflare credentials:
 #
@@ -8,7 +8,7 @@
 #      comparison alone would have missed them.
 #
 #   2. Every API-subdomain URL advertised in lib/**/*.dart appears in
-#      docs/api-routing.md. Catches a URL added to docs without a doc update.
+#      docs/api-reference.md. Catches a URL added to docs without a doc update.
 #      Pattern is anchored on `https?://` so sandbox-api.* stays distinct from
 #      api.* — the un-anchored form merged them and hid the status.* defect.
 #
@@ -39,7 +39,7 @@ else
   DIG_AVAILABLE=true
 fi
 
-DOC="$REPO_ROOT/docs/api-routing.md"
+DOC="$REPO_ROOT/docs/api-reference.md"
 TOML="$REPO_ROOT/workers/api-gateway/wrangler.toml"
 
 FAIL=0
@@ -98,7 +98,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Check 2: Every API-subdomain URL appears in api-routing.md
+# Check 2: Every API-subdomain URL appears in api-reference.md
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== Check 2: API routing doc coverage ==="
@@ -123,10 +123,10 @@ else
     esac
 
     if grep -qF "$bare" "$DOC" || { [ -n "$path_part" ] && grep -qF "$path_part" "$DOC"; }; then
-      pass "$url found in api-routing.md"
+      pass "$url found in api-reference.md"
     else
       fail "$url is in lib/**/*.dart but not in $DOC"
-      echo "        Add it to the 'What the documentation advertises' table and mark its status."
+      echo "        Add it to the 'What the Flutter app advertises and calls' table and mark its status."
     fi
   done <<< "$API_URLS"
 fi
