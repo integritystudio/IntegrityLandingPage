@@ -176,6 +176,23 @@ export const IS_LOCAL_DEV = !process.env['BASE_URL'];
 export const SKIP_REASON_CLOUDFLARE_HEADERS =
   'Cloudflare Pages headers only on production';
 
+/**
+ * Skip reason for tests that require Cloudflare Pages routing: `_redirects` rules
+ * (trailing-slash redirects) and pretty URLs (extensionless blog article HTML).
+ * A local static server rewrites these paths to the SPA's index.html instead.
+ */
+export const SKIP_REASON_CLOUDFLARE_ROUTING =
+  'Cloudflare Pages redirects and pretty URLs only on production';
+
+/**
+ * Skip reason for tests expecting dataLayer entries at page load. On production the
+ * Google tag entries (js/config) are present before Flutter starts, but they do not come
+ * from web/index.html; locally only the app's consent-default push arrives, after
+ * waitForFlutter resolves. Measured identical on the pre- and post-upgrade builds.
+ */
+export const SKIP_REASON_EDGE_DATALAYER =
+  'Page-load dataLayer entries only on production';
+
 // ---------------------------------------------------------------------------
 // Consent / Tracking (must match Dart-side values)
 // ---------------------------------------------------------------------------

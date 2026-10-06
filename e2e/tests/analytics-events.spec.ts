@@ -4,6 +4,8 @@ import {
   CONSENT_STORAGE_KEY,
   GTM_CONTAINER_ID,
   GTM_INJECT_SETTLE_MS,
+  IS_LOCAL_DEV,
+  SKIP_REASON_EDGE_DATALAYER,
 } from './constants';
 
 /**
@@ -41,6 +43,8 @@ test.describe('Analytics Event Payload Validation (#112)', () => {
   // -------------------------------------------------------------------------
 
   test.describe('dataLayer structure', () => {
+    test.skip(IS_LOCAL_DEV, SKIP_REASON_EDGE_DATALAYER);
+
     test('dataLayer is initialized with entries after page load', async ({ page }) => {
       await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);
@@ -99,6 +103,8 @@ test.describe('Analytics Event Payload Validation (#112)', () => {
   // -------------------------------------------------------------------------
 
   test.describe('dataLayer events on route change', () => {
+    test.skip(IS_LOCAL_DEV, SKIP_REASON_EDGE_DATALAYER);
+
     test('dataLayer re-initializes after navigating to second route', async ({ page }) => {
       await page.goto('/', { waitUntil: 'domcontentloaded' });
       await waitForFlutter(page);

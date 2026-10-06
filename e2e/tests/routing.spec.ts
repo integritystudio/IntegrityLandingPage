@@ -22,6 +22,9 @@ import {
   SRI_HASH_PREFIX,
   TEST_TIMEOUT_MS,
   VALID_REDIRECT_STATUSES,
+  IS_LOCAL_DEV,
+  SKIP_REASON_CLOUDFLARE_HEADERS,
+  SKIP_REASON_CLOUDFLARE_ROUTING,
 } from './constants';
 
 test.describe('Routing and Redirects', () => {
@@ -109,6 +112,7 @@ test.describe('Routing and Redirects', () => {
     });
 
     test('blog article HTML files are served directly', async ({ request }) => {
+      test.skip(IS_LOCAL_DEV, SKIP_REASON_CLOUDFLARE_ROUTING);
       const response = await request.get(`/blog/${BLOG_ARTICLE_SLUG}`);
       expect(response.status()).toBe(HTTP_OK);
       const html = await response.text();
@@ -142,6 +146,7 @@ test.describe('Routing and Redirects', () => {
     // Regression tests for /blog 308→/ bug (fixed in 0c1b161).
 
     test('/blog redirects to /blog/ (not /)', async ({ request }) => {
+      test.skip(IS_LOCAL_DEV, SKIP_REASON_CLOUDFLARE_ROUTING);
       const response = await request.get(SPA_ROUTE_BLOG, { maxRedirects: 0 });
       expect(VALID_REDIRECT_STATUSES).toContain(response.status());
       expect(response.headers()['location']).toMatch(/\/blog\/$/);
@@ -166,6 +171,7 @@ test.describe('Routing and Redirects', () => {
     });
 
     test('/internship redirects to /internship/ (not /)', async ({ request }) => {
+      test.skip(IS_LOCAL_DEV, SKIP_REASON_CLOUDFLARE_ROUTING);
       const response = await request.get(SPA_ROUTE_INTERNSHIP, { maxRedirects: 0 });
       const location = response.headers()['location'] ?? '';
       expect(VALID_REDIRECT_STATUSES).toContain(response.status());
@@ -221,6 +227,7 @@ test.describe('Routing and Redirects', () => {
 
   test.describe('Security Headers', () => {
     test('CSP header is present with reporting directives', async ({ request }) => {
+      test.skip(IS_LOCAL_DEV, SKIP_REASON_CLOUDFLARE_HEADERS);
       const response = await request.get('/');
       expect(response.status()).toBe(HTTP_OK);
       const html = await response.text();

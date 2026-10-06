@@ -5,6 +5,8 @@ import {
   GTM_CONTAINER_ID,
   GTM_INJECT_SETTLE_MS,
   SCROLL_SETTLE_MS,
+  IS_LOCAL_DEV,
+  SKIP_REASON_EDGE_DATALAYER,
 } from './constants';
 
 /**
@@ -58,10 +60,14 @@ test.describe('Web Platform: Tracking Initialization (#76)', () => {
     test.skip(browserName !== 'chromium', 'Flutter CanvasKit requires Chromium');
   });
 
-  test('dataLayer exists after Flutter loads', async ({ page }) => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await waitForFlutter(page);
-    expect(await getDataLayerLength(page)).toBeGreaterThan(0);
+  test.describe('page-load dataLayer', () => {
+    test.skip(IS_LOCAL_DEV, SKIP_REASON_EDGE_DATALAYER);
+
+    test('dataLayer exists after Flutter loads', async ({ page }) => {
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      await waitForFlutter(page);
+      expect(await getDataLayerLength(page)).toBeGreaterThan(0);
+    });
   });
 
   test('GTM script is NOT injected before consent (GDPR)', async ({ page }) => {
