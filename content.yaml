@@ -492,7 +492,7 @@ services:
       title: "Developer Experience"
       description: >-
         Drop-in SDKs for Python, TypeScript, and Go. OpenTelemetry-native with
-        minimal instrumentation required. Get to value in under 5 minutes.
+        minimal instrumentation required. Get to value in under 15 min.
       cta_text: "Quick Start Guide"
       cta_url: "/docs/quickstart"
       capabilities:
@@ -882,7 +882,7 @@ resources:
   documentation:
     - icon: "book-open"
       title: "Getting Started"
-      description: "Quick start guides and tutorials to get your first traces flowing in under 5 minutes."
+      description: "Quick start guides and tutorials to get your first traces flowing in under 15 min."
       url: "/docs/quickstart"
       popular_topics:
         - "Python SDK Setup"

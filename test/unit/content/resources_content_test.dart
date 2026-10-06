@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:integrity_studio_ai/config/content.dart';
+import 'package:integrity_studio_ai/services/content_loader.dart';
 
 void main() {
 
@@ -190,15 +191,16 @@ void main() {
     });
 
     group('content quality', () {
-      test('getting started mentions 5 minutes setup', () {
+      test('getting started setup time matches platform metric', () {
         final content = AppContent.resources;
         final gettingStarted = content.documentation.firstWhere(
           (d) => d.title.toLowerCase().contains('getting started'),
         );
 
+        expect(ContentLoader.metricsSetupTime, isNotEmpty);
         expect(
-          gettingStarted.description.toLowerCase(),
-          contains('5 minutes'),
+          gettingStarted.description,
+          contains('under ${ContentLoader.metricsSetupTime}'),
         );
       });
 
