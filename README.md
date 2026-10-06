@@ -6,7 +6,7 @@
 Enterprise AI Observability Platform landing page built with Flutter Web.
 
 **Production**: https://integritystudio.ai
-**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, ~3,017 Flutter (unit+contract+integration, 2026-07-31) + **1,212 worker tests** (verified 2026-08-02 via `npm run test:workers`)
+**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, ~3,017 Flutter (unit+contract+integration, 2026-07-31) + **1,282 worker tests** (verified 2026-10-05 via `npm run test:workers`)
 
 ## Quick Start
 
@@ -22,8 +22,9 @@ flutter build web        # Production build
 **Shared Library** (`workers/lib/`)
 - Time constants: MS_PER_DAY
 - HTTP utilities: CORS, request parsing, response factories, error handling
-- Zod schemas: usage events, OTEL spans, audit logs, provisioning, Supabase queries
+- Zod schemas: usage events, OTEL spans, quota/billing, audit logs, Auth0 logs, request bodies, Supabase queries
 - Validation: typed result unions, formatted error responses
+- Billing and entitlements (`effectivePlan`, `isEntitled`, `PLAN_MIN_SEATS`), API-key parsing and verification, Auth0 JWKS verification
 
 ```bash
 cd workers/lib && npm install && npm test
@@ -42,10 +43,14 @@ npx vitest run                    # Tests
 ```
 
 **API Gateway Worker** (`workers/api-gateway/`)
+- Serves `api.integritystudio.dev`
 - Usage event ingest, aggregation, and rollup (daily → monthly)
 - OpenTelemetry span ingestion with quota enforcement
 - Org quota tracking via Durable Objects
-- Tests: 208 passing, ~94% coverage
+- Org routes (`/v1/orgs/:id/*`): dashboard, billing status, usage summary, entitlements, quota status, billing portal, checkout session, API key create/revoke; plus `/v1/me` and `POST /bootstrap`
+- Staff-only admin reads (`/v1/admin/orgs`), gated by `STAFF_USER_IDS`
+- Auth0 log poller (15-minute cron) feeding `auth0_logs`
+- Tests: 422 passing
 
 ```bash
 cd workers/api-gateway
@@ -54,9 +59,9 @@ npx vitest run                    # Tests
 ```
 
 **API Provisioning Workers** (`workers/sender-worker/`, `workers/receiver-worker/`)
-- **Sender** (`api-provisioning-sender`): routes `POST /signup`, `/signin`, `/send`, `/create-checkout-session`, `GET /health` (Zod v4).
-  - *Inline (no receiver):* `/signup` = Auth0 user creation (M2M) + Supabase org/user/membership + ROPC sign-in → returns JWT; `/signin` = direct Auth0 ROPC (`{email,password}` → `{jwt,email}`).
-  - *Forwarded:* `/send` events (`provision_api_key`, `sign_in`) are HMAC-SHA256-signed and sent to the production receiver `api-provisioning-receiver` via a Cloudflare service binding. API-key minting happens on the receiver.
+- **Sender** (`api-provisioning-sender`): routes `POST /signup`, `/signin`, `/forgot-password`, `/send`, `/create-checkout-session`, `GET /health` (Zod v4).
+  - *Inline (no receiver):* `/signup` = Auth0 user creation (M2M) + Supabase org/user/membership + ROPC sign-in → returns JWT; `/signin` = direct Auth0 ROPC (`{email,password}` → `{jwt,email}`); `/forgot-password` = Auth0 reset email, same 200 whether or not the account exists.
+  - *Forwarded:* `/send` events (`provision_api_key`, `sign_in`) are HMAC-SHA256-signed and sent to the production receiver `api-provisioning-receiver` via a Cloudflare service binding. The receiver mints `obtk_` API keys; api-gateway's `POST /v1/orgs/:id/api-keys` mints the legacy `int_live_` format, which only api-gateway accepts.
 - **Receiver**: `workers/receiver-worker/` is a **local stub / test double** (signature verification, replay protection). The production receiver is `api-provisioning-receiver` in the separate `observability-toolkit` repo (persists to Supabase).
 
 ```bash
@@ -75,10 +80,10 @@ npm run test:provisioning         # Interactive test guide
 
 **Stripe Webhook Worker** (`workers/stripe-webhook/`)
 - Stripe event verification and routing
-- Subscription lifecycle (create, update, cancel) and checkout session handling
+- Handles five events: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`
 - Dead-letter queue for failed events with reconciliation
 - Supabase sync: subscriptions, plan mapping via `STRIPE_PRICE_TO_PLAN_JSON`
-- Tests: 172 passing
+- Tests: 188 passing
 
 ```bash
 cd workers/stripe-webhook
@@ -107,24 +112,25 @@ flutter test test/pages/               # Page tests only
 flutter test test/services/provisioning_service_test.dart        # Unit tests (48)
 flutter test test/services/provisioning_service_contract_test.dart # Contract tests (25, Dart ↔ TS schema)
 
-# Flutter: Live integration tests (optional, staging only)
+# Flutter: Live integration tests (optional; against the dev worker — `sender-worker` without -dev is production)
 flutter test test/services/provisioning_service_live_test.dart \
   --dart-define=LIVE_TESTS=true \
-  --dart-define=SENDER_WORKER_URL=https://sender-worker.alyshia-b38.workers.dev
+  --dart-define=SENDER_WORKER_URL=https://sender-worker-dev.alyshia-b38.workers.dev
 
 # Workers — or run every package at once from the repo root:
-#   npm run test:workers   (1,212 tests)   npm run lint:workers   (tsc --noEmit x6; there is no ESLint here)
-# Per-package counts measured 2026-08-02:
-cd workers/lib && npm test              # Shared lib tests (515 passing)
+#   npm run test:workers   (1,282 tests)   npm run lint:workers   (tsc --noEmit x6; there is no ESLint here)
+# Per-package counts measured 2026-10-05:
+cd workers/lib && npm test              # Shared lib tests (352 passing)
 cd workers/contact-form && npm test     # Contact form worker tests (81 passing)
-cd workers/api-gateway && npm test      # API Gateway worker tests (208 passing)
+cd workers/api-gateway && npm test      # API Gateway worker tests (422 passing)
 cd workers/receiver-worker && npm test  # Receiver worker tests (33, local stub)
-cd workers/sender-worker && npm test    # Sender worker tests (203 passing)
-cd workers/stripe-webhook && npm test   # Stripe webhook tests (172 passing)
+cd workers/sender-worker && npm test    # Sender worker tests (206 passing)
+cd workers/stripe-webhook && npm test   # Stripe webhook tests (188 passing)
 # (bootstrap-worker was deleted 2026-07-31 — POST /bootstrap is now a route on api-gateway)
 
-# Opt-in worker suites, all green (e2e 2026-08-02; the two live suites 2026-07-29)
-cd workers/sender-worker && npm run test:e2e    # workerd runtime, outbound mocked, no credentials (49/49)
+# Opt-in worker suites (e2e 49/49 on 2026-10-05; the two live suites last recorded 2026-07-29,
+# before stripe-webhook's gained the CR38 plan-sync case)
+cd workers/sender-worker && npm run test:e2e    # workerd runtime, outbound mocked, no credentials — but runs under doppler run --config dev (49/49)
 cd workers/sender-worker && npm run test:live   # real Auth0 Management API, --config prd (9 passed/3 skipped)
 cd workers/stripe-webhook && npm run test:live  # real Stripe-signed requests (5/5)
 

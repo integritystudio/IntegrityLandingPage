@@ -31,7 +31,9 @@ npm run test:live                 # stripe-webhook: real Stripe-signed requests 
                                   #   vitest.live.config.ts overrides AUTH0_TEST_EMAIL to a disposable identity —
                                   #   the suite DELETES the user at that address, and prd's value is the real
                                   #   test@integritystudio.ai account. Do not remove that override.
-npm run test:e2e                  # sender-worker: workerd runtime, all outbound calls mocked — needs no credentials.
+npm run test:e2e                  # sender-worker: workerd runtime, all outbound calls mocked — needs no credentials,
+                                  #   but the script runs under `doppler run --config dev`, so it needs a Doppler
+                                  #   login; `npx vitest run --config vitest.e2e.config.mts` skips that.
                                   #   Its bindings live in vitest.e2e.config.mts, NOT Doppler — a new required
                                   #   secret must be added there or every /send test 500s.
 ```
@@ -109,7 +111,7 @@ where n.nspname='public' and c.relkind='r' and c.relrowsecurity=false;
 **Phase**: Codebase review remediation (CR01–CR47), user data-integrity audit (UA01–UA12), test-suite and coverage review (TS01–TS25) — canonical status: [docs/BACKLOG.md](docs/BACKLOG.md)
 **Last Updated**: 2026-09-28 (Known Issues cut to rules only, and the env-isolation counts; other lines carry their own dates)
 **Tests**: green across the board as of 2026-08-03 — but counts in docs have drifted by ~100 before, so run the suites rather than reconciling a number: `flutter test --coverage`, per-worker `npm test`, `npm run lint:workers` (= `tsc --noEmit` × the 6 packages; the **only** worker linter — plain `npm run lint` is `flutter analyze`). That now covers every test file in all six packages: `sender-worker`'s tsconfig `exclude` that hid 111 type errors is gone and **must not come back**. Full story, suite snapshot, and the `node`-types / `globalThis` findings: [docs/runbooks/worker-deps-and-typechecking.md](docs/runbooks/worker-deps-and-typechecking.md).
-**Dependencies**: all six worker packages aligned and `npm audit` 0 in each (2026-08-03). Not npm workspaces — audit and bump **per package**. Lockfiles are gitignored, so **declared floors are the only control**: raise them after every `npm update`. The manifest-editing rules (wrangler ≥4.114 forces workers-types v5, vendored nested copies, unpinned `allowScripts`, the disjunct trap): same runbook.
+**Dependencies**: all six worker packages aligned and `npm audit` 0 in each on 2026-08-03; since drifted — `sender-worker` declares newer `wrangler`, `@cloudflare/workers-types`, `typescript` and `zod` floors than the other five (2026-10-05). Not npm workspaces — audit and bump **per package**. Lockfiles are gitignored, so **declared floors are the only control**: raise them after every `npm update`. The manifest-editing rules (wrangler ≥4.114 forces workers-types v5, vendored nested copies, unpinned `allowScripts`, the disjunct trap): same runbook.
 **Database**: Supabase `cfrbahzzklwrnmbtqojl` `ACTIVE_HEALTHY`; ledger replay-proven; RLS enabled on every table in `public`. Dev project: `tumhmtshahktumhqqamk` / `integritystudio-dev`.
 **Deployed**: all four production Workers run current source (the 2026-07-30 redeploy closed a four-month gap — history in [docs/runbooks/cloudflare-deploy-notes.md](docs/runbooks/cloudflare-deploy-notes.md)). `api-gateway` healthy on **`api.integritystudio.dev`** (custom domain bound 2026-08-08, CR13 — `/health` returns 200; the name was already its Auth0 audience, which is an opaque identifier and was under no obligation to resolve). `API_KEY_HMAC_SECRET` **is bound** (CR12, 2026-08-06 — verified in `wrangler secret list`, not inferred). **`SUPABASE_JWT_SECRET` is deliberately unbound — do not re-bind it to "fix" a 401**: `api-gateway` verifies Auth0-issued tokens against **Auth0** JWKS, and verifying them against Supabase JWKS is exactly what produced the original `401 Invalid JWT signature` (CR26). Dev workers hold DEV credentials (2026-08-03); no zone route points at any dev worker.
 **Stripe**: production account `acct_1SN2e7AwEfePbhfk`, sandbox `acct_1SN2eDBWbFuvm1I6` (dev — the one credential family that was always genuinely isolated). Both webhook endpoints pinned to `api_version=2025-09-30.clover` and subscribed to the five implemented events: test-mode `we_1Ty14zBWbFuvm1I6rvLOD5OW` → `stripe-webhook-dev`, live `we_1Ty29dAwEfePbhfkky1OeqQu` → production `stripe-webhook`. `STRIPE_SECRET_KEY` holds an `rk_live_` restricted key (least privilege; the `sk_live_` is retained in Doppler history). The live Customer Portal configuration is `bpc_1Ty2XDAwEfePbhfk9PndBNgW`. ✅ The unused second live key `…B6I8` is revoked and its dead `STRIPE_API_KEY` slot dropped from Doppler `prd` (CR18, 2026-08-06) — `prd` now holds only `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PLAN_TO_PRICE_JSON`. The ordering rule outlives it: revoke at the Dashboard **first**, then clear the slot, because the last-4 is how the Dashboard identifies the key.
@@ -217,14 +219,23 @@ lib/
 └── main.dart         # Entry point
 
 workers/
-├── lib/              # Shared constants, HTTP utilities, validation, schemas
+├── constants.ts      # Cross-worker constants (replay window, dead-letter retries, rate-limit and CSRF defaults)
+├── docs/             # Quota Durable Object and webhook dead-letter architecture
+├── lib/              # Shared library: HTTP, validation, schemas, auth, billing, API keys
 │   ├── constants.ts  # Time constants (MS_PER_DAY)
 │   ├── http/         # Request parsing, responses, error handling, shared CORS allowlist (CR46)
-│   ├── types/        # Zod schemas (usage, OTEL, audit, provisioning, Supabase)
-│   └── validation/   # Validation helpers, error formatting
+│   ├── types/        # Zod schemas (usage + OTEL, quota/billing, audit, Auth0 logs, request bodies, Supabase)
+│   ├── validation/   # Validation helpers, error formatting
+│   ├── test-helpers/ # Auth0 JWT, Supabase fetch and Durable Object state stubs
+│   ├── billing.ts    # effectivePlan(), isEntitled(), PLAN_MIN_SEATS (CR37)
+│   ├── entitlements.ts # Plan → entitlement projection (UA01)
+│   ├── api-keys.ts   # obtk_ / int_live_ key parsing, hashing, verification
+│   ├── auth.ts       # JWT verification against the Auth0 tenant's JWKS
+│   ├── supabase.ts   # Minimal Supabase REST client
+│   └── crypto.ts     # HMAC-SHA256 / SHA-256 helpers
 ├── contact-form/     # Contact form worker (Resend email, KV rate limiting, CSRF)
-├── api-gateway/      # API Gateway worker (ingest, usage aggregation, auth, quota)
-├── sender-worker/    # Provisioning sender: inline /signup + /signin (Auth0+Supabase); HMAC-signs /send events to receiver
+├── api-gateway/      # API Gateway worker (ingest, usage, org billing/keys/quota, staff admin reads, Auth0 log poller)
+├── sender-worker/    # Provisioning sender: inline /signup, /signin, /forgot-password (Auth0+Supabase); HMAC-signs /send events to receiver
 ├── receiver-worker/  # Local stub / test double only (not deployed; production is api-provisioning-receiver in observability-toolkit)
 └── stripe-webhook/   # Stripe event handler (subscription lifecycle, checkout, dead-letter, Supabase sync)
 
@@ -239,18 +250,22 @@ test/                 # Unit + widget tests (~94% coverage)
 - [workers/lib/](workers/lib/) — Shared HTTP, validation, and constants (shared test suite)
   - `constants.ts` — Shared time constants (MS_PER_DAY)
   - `http/` — request parsing (JSON, bearer token, query params, method assertion), response factories, error handling, and `cors.ts`: the one CORS allowlist every worker uses (CR46). Never `*` (a configured `"*"` is dropped), env-driven via `ALLOWED_ORIGINS_JSON`, `.`-anchored https preview suffix; an explicit `[]` denies every origin
-  - `types/` — Zod schemas (usage events, OTEL spans, audit logs, provisioning, Supabase)
+  - `types/` — Zod schemas (usage events, OTEL spans, quota/billing, audit logs, Auth0 logs, request bodies, Supabase). Provisioning schemas live in `sender-worker/src/types.ts` (the `lib` copies were deleted in TS09)
   - `validation/` — Typed validation helpers, formatted error responses
+  - `billing.ts`, `entitlements.ts`, `api-keys.ts`, `auth.ts`, `supabase.ts`, `crypto.ts` — plan and entitlement logic, API-key formats, Auth0 JWKS verification, the REST client and HMAC helpers. Cross-worker constants sit one level up in `workers/constants.ts`
 
 **Workers**
 - [workers/contact-form/](workers/contact-form/) — Cloudflare Worker handling contact form submissions (Resend email, KV rate limiting, CSRF, idempotency)
-- [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker (`api-provisioning-sender`) exposing `POST /signup`, `POST /signin`, `POST /send`, `POST /create-checkout-session`, `GET /health` (Zod v4 validation). Two distinct paths:
-  - **Inline (no receiver):** `/signup` creates the Auth0 user (M2M `AUTH0_CLI_*` → Management API) + Supabase org/user/owner-membership, then signs in via Auth0 ROPC (`AUTH0_CLIENT_*`) and returns `{jwt, auth0Sub, userId, email}`. `/signin` is direct Auth0 ROPC (`{email,password}` → `{jwt,email}`).
+- [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker (`api-provisioning-sender`) exposing `POST /signup`, `POST /signin`, `POST /forgot-password`, `POST /send`, `POST /create-checkout-session`, `GET /health` (Zod v4 validation). Two distinct paths:
+  - **Inline (no receiver):** `/signup` creates the Auth0 user (M2M `AUTH0_CLI_*` → Management API) + Supabase org/user/owner-membership, then signs in via Auth0 ROPC (`AUTH0_CLIENT_*`) and returns `{jwt, auth0Sub, userId, email}`. `/signin` is direct Auth0 ROPC (`{email,password}` → `{jwt,email}`). `/forgot-password` asks Auth0 to send a reset email and answers the same 200 whether or not the account exists; it shares the per-IP auth rate limit with `/signup` and `/signin`.
   - **Plan authority (CR37):** no route takes a plan from the caller. `/signup` and the receiver's first provision always create `starter`, and `/send` strips any `tier`. `current_plan` is written only by `stripe-webhook` and operators, and enforcement reads `effectivePlan()` (`workers/lib/billing.ts`, mirrored in the receiver), where a paid plan counts only while `isEntitled(billing_status)`. **A contract-billed enterprise org needs `billing_status = 'active'` set by hand**, or it is held to starter limits.
-  - **Forwarded to receiver:** `/send` events (`provision_api_key`, `sign_in`) are HMAC-SHA256-signed and forwarded to the production receiver `api-provisioning-receiver` via the `[[services]]` binding; API-key minting happens on the receiver. `resolveOutboundSigningKey` **fails closed on all four misses** — `SIGNING_KEYS` + `ACTIVE_KEY_ID` are the only credential, `x-key-id` is sent unconditionally, and `SHARED_SECRET` is read by nothing. See CR29 above before changing any of that.
+  - **Forwarded to receiver:** `/send` events (`provision_api_key`, `sign_in`) are HMAC-SHA256-signed and forwarded to the production receiver `api-provisioning-receiver` via the `[[services]]` binding; the receiver mints `obtk_` keys (the other format, `int_live_`, is api-gateway's — see below). `resolveOutboundSigningKey` **fails closed on all four misses** — `SIGNING_KEYS` + `ACTIVE_KEY_ID` are the only credential, `x-key-id` is sent unconditionally, and `SHARED_SECRET` is read by nothing. See CR29 above before changing any of that.
   - **`/create-checkout-session` derives the org server-side from the email — never accept an `orgId` from the caller.** The route is origin-gated but *unauthenticated*, and the origin gate is a browser-surface control that origin-less callers (Flutter native, curl) bypass by design — so a client-supplied org id would let any caller attach a subscription to an org they do not own. `supabaseFindOrgIdByEmail` resolves it instead (prefer `default_organization_id`, else oldest active membership, mirroring `custom_access_token_hook`). Resolution is **best-effort by design**: an unknown email or failed lookup logs and proceeds with an unattributed session, because failing checkout to protect a metadata field trades a linking bug for a revenue bug. `stripe-webhook` reads `session.metadata.org_id || session.client_reference_id` to run `linkStripeCustomer` (`workers/stripe-webhook/src/handlers/checkout.ts:24`).
   - ⚠️ **That route is only correct for single-org users.** It resolves an *identity* to an org, so for anyone holding several memberships it silently returns their default org rather than the one being paid for — a real multi-org case would have attached the new subscription to an org that was already paying. **Use it only for the signup flow** (exactly one org, no session yet). Anywhere the caller is authenticated and the org is known, use **`POST /v1/orgs/:id/checkout-session`** on `api-gateway` — the org comes from a membership-checked route parameter, still never from the request body.
   - **Gotcha — mock by URL, not by call order, in `index.test.ts`.** `handleCreateCheckoutSession` makes a Supabase lookup *before* the Stripe call, so `mockResolvedValueOnce`/`mockRejectedValueOnce` bind to the lookup and the Stripe branch under test never runs. Three tests broke this way, two of them only surfacing on the full suite rather than a `-t`-filtered run. Route on `url.includes('/rest/v1/')` instead.
+- [workers/api-gateway/](workers/api-gateway/) — Cloudflare Worker `api-gateway` at `api.integritystudio.dev`. Routes: `GET /health`, `POST /v1/ingest/events`, `POST /v1/ingest/otel`, `GET /v1/me`, `GET /v1/orgs`, `/v1/orgs/:id/*` (dashboard, billing-status, usage/summary, entitlements, quota/status, billing-portal, checkout-session, api-keys, `api-keys/:keyId/revoke` — the table is `src/lib/org-routes.ts`), `POST /bootstrap`, `GET /v1/admin/orgs` and `GET /v1/admin/orgs/:id/*`, `POST /v1/auth0-logs`. A 15-minute cron polls Auth0 logs into `auth0_logs` (CR40); dev has no cron.
+  - **`/v1/admin/*` access is the `STAFF_USER_IDS` var and nothing else** — a JSON array of `users.id`s, copied in `quality-metrics-dashboard/wrangler.toml`. Change both together; dev's list holds dev-project ids.
+  - **Two API-key formats.** `obtk_` (sha256 of the whole token) is minted by the receiver and the Supabase edge functions, and is the only one `obtool-api`/`obtool-ingest` accept. `int_live_` (HMAC under `API_KEY_HMAC_SECRET`) is minted only by this gateway's `POST /v1/orgs/:id/api-keys` and authenticates **only here** (`workers/lib/api-keys.ts`).
 - [workers/receiver-worker/](workers/receiver-worker/) — **Local stub / test double only** (signature verification + replay protection, returns mock responses). The production receiver is `api-provisioning-receiver` in the separate `observability-toolkit` repo, which persists to Supabase. Nothing binds to this stub in production.
 - [workers/stripe-webhook/](workers/stripe-webhook/) — Cloudflare Worker handling Stripe events (subscription lifecycle, checkout sessions, dead-letter queue, Supabase sync)
 
@@ -276,8 +291,11 @@ Flutter Web renders to `<canvas>` via CanvasKit — DOM selectors cannot reach w
 Choose the appropriate file based on the task:
 
 - [token-tree.txt](docs/repomix/token-tree.txt) — file tree with token counts; use for navigation, finding files, estimating scope
-- [docs-compressed.xml](docs/repomix/docs-compressed.xml) — compressed docs, CLAUDE.md, README (~11K tokens); use for broad docs understanding and search
+- [docs-compressed.xml](docs/repomix/docs-compressed.xml) — compressed docs, CLAUDE.md, README (~171K tokens on 2026-10-05 — grep it, don't load it); use for broad docs search
+- [repo-compressed.xml](docs/repomix/repo-compressed.xml) — compressed full source (~117K tokens); use for a structural read of the whole repo
 - [repomix.xml](docs/repomix/repomix.xml) — full lossless source; use only when exact code detail is needed (e.g. line-level edits, debugging)
+- [repomix-docs.xml](docs/repomix/repomix-docs.xml) and [repomix-git-ranked.xml](docs/repomix/repomix-git-ranked.xml) — lossless docs (changelog excluded, ~0.95M tokens) and the whole repo ranked by git change frequency (~1.5M tokens); grep only
+- [gitlog-top20.txt](docs/repomix/gitlog-top20.txt) — git history of the most-changed files
 - [tests-compressed.xml](docs/repomix/tests-compressed.xml) — compressed test suite (Flutter + Workers); use when writing or reviewing tests
 - [repomix-workers.xml](docs/repomix/repomix-workers.xml) — lossless Cloudflare Workers source, wrangler/vitest config, and worker docs (tests excluded); use when changing routes, bindings, schemas, or deploy config
 
@@ -350,8 +368,8 @@ When binding a secret to a Worker, pipe that captured value into `wrangler secre
 | **sender-worker** | Inline signup/signin (Auth0+Supabase); HMAC-signs `/send` events to receiver | `sender-worker` | `sender-worker-dev` | ✓ Yes (main) |
 | **api-provisioning-receiver** | Verifies signed requests, persists to Supabase (production receiver) | `api-provisioning-receiver` | — (separate repo) | ✓ Yes (separate repo) |
 | **stripe-webhook** | Handles Stripe subscription events | `stripe-webhook` | `stripe-webhook-dev` (no cron) | — |
-| **contact-form** | Processes contact form (Resend, KV rate limit) | `integrity-studio-contact` | `integrity-studio-contact-dev` (no KV) | — |
-| **api-gateway** | API gateway (aggregation, quota), plus `POST /bootstrap` | `api-gateway` | `api-gateway-dev` (own DO namespace) | — |
+| **contact-form** | Processes contact form (Resend, KV rate limit) | `integrity-studio-contact` | `integrity-studio-contact-dev` (own KV namespace) | — |
+| **api-gateway** | API gateway: ingest, org billing/keys/quota, staff admin reads, `POST /bootstrap`, Auth0 log poller cron | `api-gateway` | `api-gateway-dev` (own DO namespace, no cron) | — |
 | **receiver-worker** | Local stub / test double — not deployed | — | — (`[env.dev]` names `receiver-worker-dev`, never deployed) | — |
 
 `bootstrap-worker` was removed 2026-07-31 (CR26); a `bootstrap-worker-dev` Worker may still linger in the account with zero secrets bound.
@@ -373,12 +391,12 @@ When binding a secret to a Worker, pipe that captured value into `wrangler secre
 **Before `npm run deploy:prd`**:
 1. Verify branch: `git status` (should be on a feature branch or main)
 2. Run tests: `npm test` or targeted test suite
-3. Set Doppler token: export `DOPPLER_TOKEN=$(doppler --project integrity-studio --config prd token)`
+3. Nothing to export: `deploy:prd` runs `doppler run --project integrity-studio --config prd`, so a Doppler CLI login is enough
 
 **After deploy**:
-1. Verify in Cloudflare Workers dashboard
-2. Run E2E tests: `cd workers/sender-worker && npm run test:e2e`
-3. Check worker logs: `npm run tail` (if available)
+1. Confirm the new version: Cloudflare Workers dashboard, or `npx wrangler deployments list --name <worker>`
+2. Probe `GET /health` — `sender-worker`, `api-gateway` (`https://api.integritystudio.dev/health`) and `stripe-webhook` (expect `priceToPlanEntries` > 0) have one; `contact-form` does not. `npm run test:e2e` is not a deploy check: it runs locally with every outbound call mocked
+3. Check worker logs: `npm run tail` (every deployable worker has it; it tails production, `npm run tail -- --env dev` for dev)
 
 ### Secret Rotation
 
