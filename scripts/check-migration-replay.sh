@@ -50,14 +50,43 @@ missing="$(psql "$DB_URL" -tA -c "
   select string_agg(t, ', ')
   from unnest(array[
     'users','api_keys','roles',
-    'stripe_events','user_activity','user_profiles','user_roles',
+    'stripe_events','user_activity','user_roles',
     'organizations','organization_memberships','subscriptions','entitlements',
-    'plans','auth_user_links','user_details'
+    'plans','auth_user_links'
   ]) t
   where to_regclass('public.' || t) is null;")"
 
 if [[ -n "$missing" ]]; then
   echo "FAIL: replay reported success but these objects do not exist: $missing"
+  exit 1
+fi
+
+# Retired by 20261006000000 (CR61): the legacy profile table and the view that joined it.
+# A baseline-era object that comes back is a replay of the wrong file set, not a schema.
+present="$(psql "$DB_URL" -tA -c "
+  select string_agg(t, ', ')
+  from unnest(array['user_profiles','user_details']) t
+  where to_regclass('public.' || t) is not null;")"
+
+if [[ -n "$present" ]]; then
+  echo "FAIL: retired objects exist after replay: $present"
+  exit 1
+fi
+
+# Since 20261006000000 no write policy in public is usable by a non-service caller: every
+# insert/update/delete goes through a Worker or Edge Function holding the service key.
+# The baseline's client write policies (users insert, api_keys insert/update, user_profiles)
+# were how a Supabase Auth account could plant rows (CR61); this keeps the next one out.
+offenders="$(psql "$DB_URL" -tA -c "
+  select string_agg(tablename || '.' || policyname, ', ' order by tablename, policyname)
+  from pg_policies
+  where schemaname = 'public' and cmd <> 'SELECT'
+    and coalesce(qual, '') not like '%service_role%'
+    and coalesce(with_check, '') not like '%service_role%'
+    and coalesce(qual, '') <> 'false';")"
+
+if [[ -n "$offenders" ]]; then
+  echo "FAIL: write policies usable by a non-service caller: $offenders"
   exit 1
 fi
 
