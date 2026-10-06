@@ -289,16 +289,23 @@ inspector_port = 8083
 verify_jwt = false
 
 [functions.api-keys-list]
-# End-user facing, called with the caller's own JWT. Platform verification is
-# load-bearing: the handler reads `sub` from the token WITHOUT verifying the
-# signature (it base64-decodes the payload), so deploying this with
-# `verify_jwt = false` or `--no-verify-jwt` would let any caller forge a `sub`
-# and list another user's API keys. Do not change this without changing the
-# handler to verify the signature itself.
+# End-user facing, called with the caller's own Auth0 access token (the toolkit
+# e2e suite is the one caller). The handler verifies the token itself against
+# the tenant's JWKS (jose.jwtVerify with issuer + audience from the function
+# secrets AUTH0_DOMAIN / AUTH0_AUDIENCE), so it is safe regardless of whether
+# the platform's verify_jwt runs first. The platform check is kept as a
+# defence-in-depth layer; it must not be the only guard. Set both secrets on
+# each project before deploying, or the function answers 500.
 verify_jwt = true
 
 [functions.api-keys-revoke]
-verify_jwt = true
+# Server-to-server only (CR64): the api-gateway worker verifies org membership
+# before calling here with its service key, which is not a JWT. Platform
+# verification stays off; the handler enforces service-key authentication itself
+# (same Auth-admin capability check as api-keys-create and api-keys-rotate).
+# Was `true` while the handler read `sub` from an unverified JWT and was called
+# by nothing; that path is replaced by the handler.ts service-key path.
+verify_jwt = false
 
 [functions.api-keys-rotate]
 # Server-to-server only since 2026-10-05: the quality-metrics dashboard worker verifies the
