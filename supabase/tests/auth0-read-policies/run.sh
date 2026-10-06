@@ -13,6 +13,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MIGRATION="$HERE/../../migrations/20261007000000_auth0_sub_read_policies.sql"
+FOLLOWUPS=("$HERE/../../migrations/20261007010000_resolvers_revoke_anon_execute.sql")
 PORT=55440
 RUN_PREFIX=auth0readpolicies
 

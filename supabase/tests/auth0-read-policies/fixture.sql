@@ -223,6 +223,12 @@ create role anon;
 grant usage on schema public, auth to anon;
 grant all on all tables in schema public to authenticated, service_role, anon;
 
+-- Hosted Supabase's default privileges: every function the owner creates in public is
+-- EXECUTE-granted to the three API roles explicitly, on top of PostgreSQL's grant to PUBLIC.
+-- Without this a `revoke … from public` looks sufficient here and is not there (README trap 5).
+alter default privileges for role pgtest in schema public
+  grant execute on functions to anon, authenticated, service_role;
+
 -- Seed. The base fixture holds planted ...01 (auth0_id = its own uuid), customer ...02
 -- (auth0|customer), linked ...03 (auth0|linked, bridged to Supabase Auth ...c3), keys
 -- f1-f3 and orgs org-a / org-b. Added here:

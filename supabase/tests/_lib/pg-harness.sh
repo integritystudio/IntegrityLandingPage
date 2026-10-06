@@ -6,6 +6,10 @@
 #   MIGRATION  the migration under test (overridable with --migration)
 #   PORT       the cluster port (overridable with --port)
 #   RUN_PREFIX the mktemp prefix for the throwaway cluster
+# and optionally:
+#   FOLLOWUPS  an array of migrations applied after MIGRATION, in order, so a suite can
+#              assert the state a later fix-up leaves (--migration still swaps only the
+#              migration under test, so mutants of it run with the fix-ups in place).
 # and passes its own arguments through: source .../pg-harness.sh "$@"
 # The caller's `set -euo pipefail` applies here too.
 
@@ -79,6 +83,13 @@ echo "fixture loaded"
 
 psql_run -q -f "$MIGRATION"
 echo "migration applied"
+
+for followup in "${FOLLOWUPS[@]:-}"; do
+  [[ -n "$followup" ]] || continue
+  [[ -f "$followup" ]] || { echo "ERROR: follow-up migration not found: $followup" >&2; exit 1; }
+  psql_run -q -f "$followup"
+  echo "follow-up applied: $(basename "$followup")"
+done
 
 # -P pager=off so a long NOTICE stream never blocks in CI.
 psql_run -P pager=off -f "$HERE/verify.sql"
