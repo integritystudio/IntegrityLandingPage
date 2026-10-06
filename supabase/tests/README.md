@@ -174,6 +174,31 @@ through. Dropping only the `users` policy fails W2; leaving
 `users_view_own_api_keys` (R2) or `Users can update own data` (C1), or revoking the
 service role's insert grant (S1), each fails the suite.
 
+### `retire-user-profiles/`
+
+Covers `migrations/20261006000000_retire_user_profiles.sql` (CR61 step 7), which drops the
+legacy `user_profiles` table, the `handle_new_user` trigger on `auth.users` that fed it, the
+`user_details` view that joined it, and `users`' last client write policy. The fixture
+reuses `client-write-policies/`'s with that migration applied, then adds the four objects as
+production holds them (the trigger function verbatim). Port 55439.
+
+| | assertion |
+|---|---|
+| T1 | table, view, trigger function and trigger are all gone |
+| T2 | an `auth.users` insert still succeeds, with no trigger left on the table |
+| W1 | the account that planted its own `users` row can no longer edit it; the row is unchanged |
+| R1 | an account still reads its own `users` row and its own key, and no other |
+| R2 | the `auth_user_links` read path still resolves |
+| S1 | the service role still inserts a user and a key and updates it |
+| C1 | **the invariant:** no write policy in `public` is usable by a non-service caller — the same query `scripts/check-migration-replay.sh` now runs after every replay |
+| C2 | `users` keeps exactly its three read policies |
+| Z1 | at rest, nothing was added or changed |
+
+Mutation-checked: a no-op migration fails T1a; keeping the `users` policy fails W1a; keeping
+the trigger and function fails T1c; dropping `users_read_own_keys` fails R1b; revoking the
+service role's insert grant fails S1; adding a client write policy on another table fails C1.
+`drop table … cascade` in place of the explicit view drop is an equivalent mutant and passes.
+
 ### `edge-functions/`
 
 Behavioural tests for the Edge Functions, not the migrations — a Node/vitest package, not
