@@ -3,17 +3,20 @@ import 'package:integrity_studio_ai/services/provisioning_service.dart';
 
 /// Integration tests for ProvisioningService.
 ///
-/// These tests make real HTTP calls to staging environment and verify end-to-end behavior.
+/// These tests make real HTTP calls to the dev worker and verify end-to-end behavior.
+/// `sender-worker` without the -dev suffix is production; there is no staging Worker.
 /// Guarded by dart-define: LIVE_TESTS=true
 /// Run: flutter test test/services/provisioning_service_live_test.dart \
 ///        --dart-define=LIVE_TESTS=true \
-///        --dart-define=SENDER_WORKER_URL=https://sender-worker.alyshia-b38.workers.dev
+///        --dart-define=SENDER_WORKER_URL=https://sender-worker-dev.alyshia-b38.workers.dev
 ///
-/// Mark tests as skip when prerequisites aren't met (e.g., Stripe not configured on staging).
+/// Mark tests as skip when prerequisites aren't met (e.g., Stripe not configured on dev).
 const _liveTestsEnabled = bool.fromEnvironment('LIVE_TESTS');
 
 /// An Auth0 access token for the tests that need a signed-in user. Sign in through
 /// /login, then copy `accessToken` from the `auth0_session` sessionStorage entry.
+/// Against the dev worker the token must come from the dev tenant, so sign in on the
+/// app run with the dev `--dart-define`s (CLAUDE.md, "Pointing the Flutter app at the dev workers").
 const _liveAccessToken = String.fromEnvironment('LIVE_ACCESS_TOKEN');
 
 void main() {
