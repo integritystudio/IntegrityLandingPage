@@ -95,7 +95,7 @@ npx vitest run                    # Tests
 
 - [Architecture](docs/architecture.md) — tech stack, patterns, directory structure
 - [Authentication](docs/authentication.md) — auth flows, DRY patterns, AuthMode extension, M2M + ROPC grant types
-- [Routes](docs/routes.md) — GoRouter configuration, 43 routes
+- [Routes](docs/routes.md) — GoRouter configuration, 45 routes
 - [API Provisioning](docs/api-provisioning.md) — inter-worker HMAC-SHA256 auth, Flutter service layer, security model
 - [Provisioning Manual Test Guide](docs/PROVISIONING_MANUAL_TEST.md) — 7 test cases, step-by-step instructions, last recorded results
 - [Changelog](docs/changelog/1.3/CHANGELOG.md) — version history

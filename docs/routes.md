@@ -85,7 +85,8 @@ Navigator.pushNamed(context, '/pricing');
 | Route | Page Widget | Has Cookie Settings |
 |-------|-------------|---------------------|
 | `/signup` | `SignupPage` | No (accepts `?tier=` query param, default `starter`) |
-| `/login` | `AuthPage(mode: AuthMode.signIn)` | No (renamed from `/signin`) |
+| `/login` | `AuthPage` | No (renamed from `/signin`; starts Auth0 Universal Login, CR48) |
+| `/callback` | `CallbackPage` | No (Auth0 Universal Login returns here with `?code=&state=`) |
 | `/request_success` | `RequestSuccessPage` | Yes |
 | `/request_failure` | `RequestFailurePage` | Yes (failure detail passed via `state.extra`; auto-redirects to `/login` on existing-user errors) |
 | `/support` | `HelpCenterPage` | No |
@@ -96,7 +97,7 @@ These routes back the signup → provision → dashboard/billing flow. Most are 
 
 | Route | Page Widget | Guard (redirect when `extra` missing) |
 |-------|-------------|----------------------------------------|
-| `/provision` | `ProvisionPage` | Needs `AuthSuccess` extra **or** `?jwt=` + `?email=` query params; else → `/login` |
+| `/provision` | `ProvisionPage` | Needs `ProvisionArgs` extra from the Auth0 callback; else → `/login`. No URL-token fallback: accepting `?jwt=` allowed login-CSRF |
 | `/checkout` | `CheckoutPage` | Needs `CheckoutArgs` extra; else → `/` |
 | `/checkout-success` | `CheckoutSuccessPage` | None — accepts `?email=` and `?tier=` (default `growth`) |
 | `/dashboard` | `DashboardPage` | Needs `DashboardArgs` extra; else → `/login` |
@@ -150,12 +151,14 @@ Path constants for these live in `Routes` (`lib/config/content/constants.dart`).
 
 ## Redirects
 
-Handled in the `redirect` callback:
+Handled in the top-level `redirect` callback, except the two route-level redirects marked below:
 
 | From | To |
 |------|-----|
 | `/docs/security/audit-trails` | `/docs/tracing` |
 | `/reports/*` | `/docs` |
+| `/app` | `/login` (customer-facing vanity URL; route-level) |
+| `/forgot-password` | `/login` (password reset lives on the Auth0 login page; route-level) |
 
 ## Error Handling
 

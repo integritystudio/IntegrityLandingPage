@@ -203,7 +203,7 @@ lib/
 ├── controllers/      # Business logic controllers
 ├── models/           # Data models
 ├── pages/            # Page widgets (40 pages)
-├── routing/          # GoRouter configuration (43 routes)
+├── routing/          # GoRouter configuration (45 routes)
 ├── services/         # External integrations (analytics, consent, contact, dashboard, provisioning)
 ├── theme/            # Design system (colors, decorations, spacing, typography)
 ├── utils/            # Utility functions
