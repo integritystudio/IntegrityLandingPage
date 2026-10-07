@@ -55,6 +55,11 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   mockito: ^5.4.4
   build_runner: ^2.4.8
+  # build_runner 2.16.1 does not compile against analyzer 14.5.0 (published 2026-10-06:
+  # "The setter 'contextFeatures' isn't defined for the type 'AnalysisOptionsImpl'"),
+  # and pubspec.lock is not committed, so CI resolves the newest. Drop this cap once a
+  # build_runner release builds against 14.5+.
+  analyzer: ">=13.3.0 <14.5.0"
   freezed: ^4.0.0
   json_serializable: ^6.9.0
   shelf: ^1.4.1
