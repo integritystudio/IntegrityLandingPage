@@ -45,7 +45,7 @@ Dispatch is hand-rolled on `pathname` + `method` in `workers/api-gateway/src/ind
 | POST | `/v1/ingest/events` | JWT or API key — [Usage ingestion](#usage-ingestion) |
 | POST | `/v1/ingest/otel` | API key |
 | GET | `/v1/me`, `/v1/orgs` | JWT |
-| GET, POST | `/v1/me/team` | JWT — POST needs a verified email ([CR54](BACKLOG.md#cr54)) |
+| GET, POST | `/v1/me/team` | JWT — POST needs a verified email ([CR54](changelog/1.4/CHANGELOG.md#cr54)) |
 | GET | `/v1/orgs/:id/dashboard`, `/billing-status`, `/usage/summary`, `/entitlements`, `/quota/status` | JWT, active member |
 | POST | `/v1/orgs/:id/billing-portal`, `/checkout-session`, `/api-keys` | JWT, active member |
 | POST | `/v1/orgs/:id/api-keys/:keyId/revoke` | JWT, active member |
@@ -210,7 +210,7 @@ Flutter app ── POST /send (x-session-data: base64 token) ──▶ sender-wo
 | POST | `/send` | `SendRequestSchema` | receiver's response, passed through |
 | POST | `/create-checkout-session` | `{ email, tier }` | `{ checkoutUrl }` |
 
-The Auth0 ROPC routes `/signup`, `/signin` and `/forgot-password` were deleted by [CR49](BACKLOG.md#cr49) and now answer 404.
+The Auth0 ROPC routes `/signup`, `/signin` and `/forgot-password` were deleted by [CR49](changelog/1.4/CHANGELOG.md#cr49) and now answer 404.
 
 `/create-checkout-session` is unauthenticated and resolves the org from the email server-side, which is correct only for a single-org user at sign-up. Authenticated callers with a known org use `POST /v1/orgs/:id/checkout-session` on `api-gateway`, where the org comes from a membership-checked path parameter. Neither route accepts an org id in the body.
 
