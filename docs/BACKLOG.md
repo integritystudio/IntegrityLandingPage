@@ -103,25 +103,6 @@ Sentry `ingest.sentry.io` endpoint shared across staging and prod. CSP allows on
 
 ---
 
-## Deferred: Chrome Platform Tests (#77)
-
-### #77: `flutter test --platform chrome` Hangs Indefinitely
-
-**Severity:** CRITICAL
-**Category:** Test Infrastructure (Platform-Level)
-**File:** N/A — Flutter SDK issue
-**Source:** Session 2026-02-12, validated 2026-02-25
-
-`flutter test --platform chrome` (CanvasKit + headless Chrome) hangs on **exit** after all tests pass. Affects CI pipelines: test suite completes, Chrome stays alive, process never exits until CI timeout.
-
-**Upstream:** [Flutter #162798](https://github.com/flutter/flutter/issues/162798) — OPEN, marked for next stable release.
-
-**Workaround:** N/A effective. Blocking factor.
-
-**Status:** Blocked — re-tested on Flutter **3.44.4** (2026-07-12): `flutter test --platform chrome` still does not complete. It stalled at test loading/compilation for >6 min (observed twice) with headless Chrome + dart processes alive, never self-exiting — had to be killed. The anticipated v3.44 fix (upstream Flutter [#162798](https://github.com/flutter/flutter/issues/162798)) does **not** resolve it in this environment; Chrome platform tests remain non-viable. Mitigation unchanged: the Flutter suite runs on the default (VM) platform in CI.
-
----
-
 ## Deferred: E2E Test Coverage Limitations (Flutter Canvas)
 
 ---
@@ -276,7 +257,7 @@ Started as the open remainder of the 8-area codebase review; CR11–CR15 were fo
 | [CR27](changelog/1.3/CHANGELOG.md#cr27) | P1 | ✅ done | `stripe-webhook` dead-lettered **every** real event for four months — two independent defects. `invoice.paid` read `invoice.subscription`, which Stripe deleted in API 2025-04-30 (schema now accepts both shapes); `customer.subscription.updated` used `ON CONFLICT (organization_id, stripe_subscription_id)` with no matching unique index, failing `42P10` (migration `20260731000000`). Both latent because no real event had ever reached these paths. **Read the misdiagnosis note in the body** — the wrong fix shipped first |
 | [CR28](changelog/1.3/CHANGELOG.md#cr28) | P3 | ✅ done | `resolveBillingStatus` knew 2 of Stripe's 8 subscription statuses and collapsed the rest to `inactive`, so a **trialing** customer read as never having subscribed. Found in the state [[CR27]]'s replay left behind |
 | [CR31](changelog/1.3/CHANGELOG.md#cr31) | P2 | ✅ **DONE 2026-08-08 — all 7 steps** | ✅ **Closed.** 4 docs defects fixed 2026-08-03 (`97ade42`); the sync guard built then and **widened 2026-08-08**; step 5 closed by **supersession** and step 7 done (`f36b813`). ⚠️ **The "4-pattern path-split" recommendation below was SUPERSEDED and never built.** [[CR13]] was decided and executed on 2026-08-08 in favour of option C — `api-gateway` has its own hostname, **`api.integritystudio.dev`**, live and serving. So there is no split to build on `api.integritystudio.ai`, and the hostname step 5's docs fixes need now **exists**, where this row previously recorded it as not yet created. ✅ [`api-reference.md`](api-reference.md#hostnames) was resynced in the same pass (`f36b813`). Everything below is retained as the measurement, which is still accurate about what serves what today. **The published API docs advertise four URLs that resolve to nothing, and the product's own API has no hostname.** Routing inventory captured in [`api-reference.md`](api-reference.md#hostnames) (measured 2026-08-03). `api.integritystudio.ai/*` → `obtool-api` (observability read API); `api-gateway` — account, billing, ingest — is workers.dev-only, and the Flutter client's `API_GATEWAY_URL` default ships that way. Customer-visible right now: `/v1/health` 401s (health is at `/health`; the `/v1/*` middleware catches it first), `POST /v1/alerts` exists on **neither** worker, and both `sandbox-api.integritystudio.ai` and `status.integritystudio.ai` are **NXDOMAIN**. The two route tables are **disjoint** (only `/health` overlaps), so the fix is a 4-pattern path-split, not a repoint — repointing the wildcard would 404 all 13 `obtool-api` routes. Supplies the measurement [[CR13]] was waiting on; the ownership decision stays there. ⚠️ The fourth defect surfaced only after fixing the checker's grep, which had been merging `sandbox-api.…` into `api.…` as a substring — third instance of a green check that had normalised away what it was checking. Needs: fix the 4 docs sites, decide the split, build a sync guard so this document cannot silently rot |
-| [CR32](#cr32) | P3 | ⏸️ **deferred 2026-10-06** (owner) — needs a verified card on Auth0 | Auth0 **custom domain** (login runs on `dev-…auth0.com`). Hostname decided (**`auth.integritystudio.ai`**), DNS confirmed ready (Cloudflare zone reachable, clean slate). **Corrected 2026-08-06 — it IS gated**, just not by plan tier: a real `POST /custom-domains` with a valid body and correctly-scoped token returns `403 "There must be a verified credit card on file"`. The earlier "NOT plan-gated" reading came from an empty-body probe that never reached the billing check. Owner needs to add a verified card in the Auth0 Dashboard; everything after that is scriptable |
+| [CR32](#cr32) | P3 | 📋 **unblocked 2026-10-06** (owner) — can be implemented now | Auth0 **custom domain** (login runs on `dev-…auth0.com`). Hostname decided (**`auth.integritystudio.ai`**), DNS confirmed ready (Cloudflare zone reachable, clean slate). **Corrected 2026-08-06 — it IS gated**, just not by plan tier: a real `POST /custom-domains` with a valid body and correctly-scoped token returns `403 "There must be a verified credit card on file"`. The earlier "NOT plan-gated" reading came from an empty-body probe that never reached the billing check. Owner needs to add a verified card in the Auth0 Dashboard; everything after that is scriptable |
 | [CR33](changelog/1.3/CHANGELOG.md#cr33) | P3 | ✅ **DONE 2026-08-18 — receiver built, stream live** | Auth0 **log streams** — receiver is `POST /v1/auth0-logs` on `api-gateway` (`api.integritystudio.dev`), persisting to Supabase `auth0_logs` (RLS, unique `log_id`, JSONB payload); Auth0 HTTP stream configured and events verified flowing 2026-08-18 00:03Z. Rule that outlives it: **do not point an http stream at the OTLP endpoint** — it rejects every batch |
 | [CR34](changelog/1.3/CHANGELOG.md#cr34) | P2 | ✅ **RESOLVED 2026-08-03 — implicit 2→0, ROPC 3→1** | Strip Auth0 **`implicit` + ROPC** grants (SPA + `AUTH0_MANAGER`). Carved from CR25 items 7–8. Minutes by API, but must verify `sender-worker`'s `password-realm` `/signin` survives; `My App`'s ROPC likely stays until the client gets a refresh flow |
 | [CR35](#cr35) | P3 | ⏸️ **deferred 2026-10-06** (owner) — needs an Auth0 plan upgrade | Auth0 **breached-password detection**. Carved from CR25 item 3. Genuinely plan-gated (PATCH 400 "upgrade your subscription"); re-attempt after any plan change |

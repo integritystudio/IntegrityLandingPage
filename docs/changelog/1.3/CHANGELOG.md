@@ -4854,3 +4854,24 @@ Their Supabase rows went too, and `api_keys`' two `ON DELETE CASCADE` foreign ke
 - **Tests:** 78 across `routes/admin.test.ts`, `lib/admin-view-audit.test.ts` and `index.test.ts` — every gate on every route, the parity rows, ten staff reads reserving nothing and writing no ledger row, the owner refused with nothing touched, preflight and CORS on a refusal.
 
 **To ship:** `npm run deploy:prd` from `workers/api-gateway` (and `npm run deploy` for dev once a dev staff id is set), then the dashboard side (observability-toolkit dashboard, `feat/admin-customer-view`). **Acceptance** as the dashboard epic states it: a staff token reads all five payloads for an org it is not a member of; a non-staff token, an org owner included, gets 403; the customer's `usage_events` count and quota `minuteUsed`/`monthlyUsed` are unchanged across ten admin reads. The first two are unit-tested here; the third is pinned at the router (`enforceOrgQuota` never called, DO never asked to reserve, no `POST usage_events`) **and was read live 2026-10-06 03:03–03:07Z**: with the production dashboard polling org `f4286657…`'s usage and quota for a minute plus its other screens, `usage_events` stayed at 5 rows for that org and gained none anywhere, while `audit_log` holds one `admin.org_viewed` row per org opened (ids 2–8) and none for the polls.
+
+## [2026-10-06] - `flutter test --platform chrome` hangs indefinitely — closed (#77)
+
+<a id="77"></a>
+
+### #77: `flutter test --platform chrome` Hangs Indefinitely
+
+**Severity:** CRITICAL
+**Category:** Test Infrastructure (Platform-Level)
+**File:** N/A — Flutter SDK issue
+**Source:** Session 2026-02-12, validated 2026-02-25
+
+`flutter test --platform chrome` (CanvasKit + headless Chrome) hangs on **exit** after all tests pass. Affects CI pipelines: test suite completes, Chrome stays alive, process never exits until CI timeout.
+
+**Upstream:** [Flutter #162798](https://github.com/flutter/flutter/issues/162798) — OPEN, marked for next stable release.
+
+**Workaround:** N/A effective. Blocking factor.
+
+**Status:** Blocked — re-tested on Flutter **3.44.4** (2026-07-12): `flutter test --platform chrome` still does not complete. It stalled at test loading/compilation for >6 min (observed twice) with headless Chrome + dart processes alive, never self-exiting — had to be killed. The anticipated v3.44 fix (upstream Flutter [#162798](https://github.com/flutter/flutter/issues/162798)) does **not** resolve it in this environment; Chrome platform tests remain non-viable. Mitigation unchanged: the Flutter suite runs on the default (VM) platform in CI.
+
+**Closed 2026-10-06 (owner).** Not fixed: the Flutter suite keeps running on the default (VM) platform, and the web-only code paths that need Chrome stay untested by `flutter test`.
