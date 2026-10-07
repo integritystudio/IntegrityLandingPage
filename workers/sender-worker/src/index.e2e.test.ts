@@ -2,448 +2,20 @@
  * E2E tests for sender-worker — runs in the workerd runtime via @cloudflare/vitest-pool-workers.
  *
  * Uses SELF.fetch() to make real HTTP requests to the worker and fetchMock to
- * intercept outbound calls to Auth0 and Supabase, verifying the full request
- * pipeline including routing, CORS headers, body parsing, and error responses.
+ * intercept outbound calls (Stripe; the Supabase org lookup is left unmocked and
+ * fails best-effort), verifying the full request pipeline including routing,
+ * CORS headers, body parsing, and error responses.
  */
 
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
-import { SELF as WORKER } from "cloudflare:test";
+import { SELF } from "cloudflare:test";
 // `fetchMock` was removed from `cloudflare:test` in the pool's Vitest v4 line;
 // `./e2e-fetch-mock` reimplements the slice of that API this suite uses.
-import { fetchMock, withUniqueClientIp } from "./e2e-fetch-mock";
-
-// Each request gets its own client IP so the per-IP auth rate limiter does not
-// treat the whole suite as one caller. See withUniqueClientIp.
-const SELF = withUniqueClientIp(WORKER);
-
-const AUTH0_DOMAIN = "e2e.auth0.test";
-const SUPABASE_URL = "https://supabase.e2e.test";
+import { fetchMock } from "./e2e-fetch-mock";
 
 // Activate fetchMock once for the suite; reset mocks after each test
 beforeAll(() => fetchMock.activate());
 afterEach(() => fetchMock.assertNoPendingInterceptors());
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function mockTokenExchange(accessToken = "test-mgmt-token"): void {
-  fetchMock
-    .get(`https://${AUTH0_DOMAIN}`)
-    .intercept({ path: "/oauth/token", method: "POST" })
-    .reply(200, JSON.stringify({ access_token: accessToken }), {
-      headers: { "content-type": "application/json" },
-    });
-}
-
-function mockAuth0CreateUser(auth0Sub: string): void {
-  fetchMock
-    .get(`https://${AUTH0_DOMAIN}`)
-    .intercept({ path: "/api/v2/users", method: "POST" })
-    .reply(201, JSON.stringify({ user_id: auth0Sub }), {
-      headers: { "content-type": "application/json" },
-    });
-}
-
-function mockSupabaseOrg(orgId: string): void {
-  fetchMock
-    .get(SUPABASE_URL)
-    .intercept({ path: "/rest/v1/organizations", method: "POST" })
-    .reply(201, JSON.stringify([{ id: orgId }]), {
-      headers: { "content-type": "application/json" },
-    });
-}
-
-function mockSupabaseUsersInsert(): void {
-  fetchMock
-    .get(SUPABASE_URL)
-    .intercept({ path: "/rest/v1/users", method: "POST" })
-    .reply(201, "");
-}
-
-function mockSupabaseOrgMemberships(): void {
-  fetchMock
-    .get(SUPABASE_URL)
-    .intercept({ path: "/rest/v1/organization_memberships", method: "POST" })
-    .reply(201, "");
-}
-
-function mockRopcTokenExchange(accessToken = "test-user-jwt"): void {
-  // Mocks the ROPC /oauth/token call made by auth0UserSignIn after user creation.
-  fetchMock
-    .get(`https://${AUTH0_DOMAIN}`)
-    .intercept({ path: "/oauth/token", method: "POST" })
-    .reply(200, JSON.stringify({ access_token: accessToken }), {
-      headers: { "content-type": "application/json" },
-    });
-}
-
-/**
- * Mocks the compensating rollback signup performs when a Supabase step fails:
- * delete the user row, delete the org row, then delete the Auth0 user — the
- * last of which fetches a fresh management token first.
- */
-function mockSignupRollback(auth0Sub: string): void {
-  fetchMock
-    .get(SUPABASE_URL)
-    .intercept({ path: "/rest/v1/users", method: "DELETE" })
-    .reply(204, "")
-    .optional();
-  fetchMock
-    .get(SUPABASE_URL)
-    .intercept({ path: "/rest/v1/organizations", method: "DELETE" })
-    .reply(204, "")
-    .optional();
-  // Each Management API call fetches its own token, so the rollback's delete
-  // needs one beyond the token signup already consumed.
-  fetchMock
-    .get(`https://${AUTH0_DOMAIN}`)
-    .intercept({ path: "/oauth/token", method: "POST" })
-    .reply(200, JSON.stringify({ access_token: "rollback-mgmt-token" }), {
-      headers: { "content-type": "application/json" },
-    })
-    .optional();
-  fetchMock
-    .get(`https://${AUTH0_DOMAIN}`)
-    .intercept({ path: `/api/v2/users/${encodeURIComponent(auth0Sub)}`, method: "DELETE" })
-    .reply(204, "")
-    .optional();
-}
-
-function mockFullSignupFlow(auth0Sub = "auth0|e2e-user", orgId = "org-e2e-uuid"): void {
-  mockTokenExchange();       // management API client-credentials grant
-  mockAuth0CreateUser(auth0Sub);
-  mockSupabaseOrg(orgId);
-  mockSupabaseUsersInsert();
-  mockSupabaseOrgMemberships();
-  mockRopcTokenExchange();   // ROPC sign-in after provisioning
-}
-
-// ─── POST /signup — success path ────────────────────────────────────────────
-
-describe("POST /signup — success", () => {
-  it("returns 201 with auth0Sub, userId, and email on valid signup", async () => {
-    mockFullSignupFlow("auth0|e2e-abc123", "org-uuid-e2e-1");
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "e2e@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(201);
-    const body = await res.json() as { auth0Sub: string; userId: string; email: string };
-    expect(body.auth0Sub).toBe("auth0|e2e-abc123");
-    expect(body.userId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(body.email).toBe("e2e@example.com");
-  });
-
-  it("auth0Sub differs from userId — Auth0 sub is stored as auth0_id, not the Supabase UUID", async () => {
-    mockFullSignupFlow("auth0|distinct-sub", "org-uuid-e2e-2");
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "e2e2@example.com", password: "S3cur3!pass" }),
-    });
-
-    const body = await res.json() as { auth0Sub: string; userId: string };
-    expect(body.auth0Sub).not.toBe(body.userId);
-    expect(body.auth0Sub).toBe("auth0|distinct-sub");
-  });
-
-  it("response content-type is application/json", async () => {
-    mockFullSignupFlow("auth0|ct-test", "org-uuid-ct");
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "ct@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.headers.get("content-type")).toContain("application/json");
-  });
-});
-
-// ─── POST /signup — token exchange failure ───────────────────────────────────
-
-describe("POST /signup — Auth0 token exchange failure", () => {
-  it("returns 500 when /oauth/token call fails", async () => {
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/oauth/token", method: "POST" })
-      .reply(401, JSON.stringify({ error: "unauthorized_client" }), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "fail@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { error: string };
-    expect(body.error).toBe("signup failed");
-  });
-
-  it("returns 500 when /oauth/token returns no access_token", async () => {
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/oauth/token", method: "POST" })
-      .reply(200, JSON.stringify({}), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "notoken@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { error: string };
-    expect(body.error).toBe("signup failed");
-  });
-});
-
-// ─── POST /signup — Auth0 user create failure ────────────────────────────────
-
-describe("POST /signup — Auth0 user create failure", () => {
-  it("returns 500 when /api/v2/users returns 409 conflict", async () => {
-    mockTokenExchange();
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/api/v2/users", method: "POST" })
-      .reply(409, JSON.stringify({ message: "The user already exists." }), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "dupe@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { error: string };
-    expect(body.error).toBe("signup failed");
-  });
-
-  it("returns 500 when /api/v2/users returns no user_id", async () => {
-    mockTokenExchange();
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/api/v2/users", method: "POST" })
-      .reply(201, JSON.stringify({}), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "noid@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { error: string };
-    expect(body.error).toBe("signup failed");
-  });
-});
-
-// ─── POST /signup — request validation ──────────────────────────────────────
-
-describe("POST /signup — validation", () => {
-  it("returns 400 when email is missing", async () => {
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
-    expect(body.error).toContain("email");
-  });
-
-  it("returns 400 when password is missing", async () => {
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "user@example.com" }),
-    });
-
-    expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
-    expect(body.error).toContain("password");
-  });
-
-  it("returns 400 for malformed email", async () => {
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "not-an-email", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
-    expect(body.error).toContain("email");
-  });
-
-  it("returns 400 for invalid JSON body", async () => {
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "{ bad json",
-    });
-
-    expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
-    expect(body.error).toContain("json");
-  });
-});
-
-// ─── POST /signin — Auth0 ROPC ──────────────────────────────────────────────
-
-describe("POST /signin — Auth0 ROPC", () => {
-  it("returns 200 with the Auth0 JWT and the email on valid credentials", async () => {
-    mockRopcTokenExchange("signed-in-jwt");
-
-    const res = await SELF.fetch("https://worker.test/signin", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "user@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(200);
-    const body = await res.json() as { jwt: string; email: string };
-    expect(body.jwt).toBe("signed-in-jwt");
-    expect(body.email).toBe("user@example.com");
-  });
-
-  it("returns 401 with INVALID_CREDENTIALS when Auth0 rejects the credentials", async () => {
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/oauth/token", method: "POST" })
-      .reply(403, JSON.stringify({ error: "invalid_grant" }), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signin", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "user@example.com", password: "wrong" }),
-    });
-
-    expect(res.status).toBe(401);
-    const body = await res.json() as { error: string; code: string };
-    expect(body.error).toBe("invalid email or password");
-    expect(body.code).toBe("INVALID_CREDENTIALS");
-  });
-
-  it("returns the same neutral 401 for an unknown user as for a wrong password (no enumeration)", async () => {
-    // Auth0 answers invalid_grant for both cases; the two responses must be byte-identical.
-    const responses: Array<{ status: number; body: string }> = [];
-    for (const password of ["wrong-password", "any-password"]) {
-      fetchMock
-        .get(`https://${AUTH0_DOMAIN}`)
-        .intercept({ path: "/oauth/token", method: "POST" })
-        .reply(403, JSON.stringify({ error: "invalid_grant", error_description: "Wrong email or password." }), {
-          headers: { "content-type": "application/json" },
-        });
-      const res = await SELF.fetch("https://worker.test/signin", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: "no-such-user@example.com", password }),
-      });
-      responses.push({ status: res.status, body: await res.text() });
-    }
-
-    expect(responses[0].status).toBe(401);
-    expect(responses[1]).toEqual(responses[0]);
-    // Auth0's error_description must not leak through to the caller.
-    expect(responses[0].body).not.toContain("Wrong email or password");
-  });
-
-  it("still returns 500 with INTERNAL_ERROR when Auth0 fails for a non-credential reason", async () => {
-    // e.g. ROPC grant disabled on the application — a server misconfiguration, not a bad password.
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/oauth/token", method: "POST" })
-      .reply(403, JSON.stringify({ error: "unauthorized_client" }), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signin", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "user@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string };
-    expect(body.code).toBe("INTERNAL_ERROR");
-  });
-
-  it("returns 429 RATE_LIMITED when Auth0 brute-force protection blocks the attempt", async () => {
-    // The password may be correct here, so neither 401 nor 500 is right.
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/oauth/token", method: "POST" })
-      .reply(429, JSON.stringify({ error: "too_many_attempts" }), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signin", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "user@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(429);
-    const body = await res.json() as { code: string };
-    expect(body.code).toBe("RATE_LIMITED");
-  });
-
-  it("returns 500 when Auth0 returns a non-JSON error body", async () => {
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/oauth/token", method: "POST" })
-      .reply(502, "<html>bad gateway</html>", { headers: { "content-type": "text/html" } });
-
-    const res = await SELF.fetch("https://worker.test/signin", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "user@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { code: string };
-    expect(body.code).toBe("INTERNAL_ERROR");
-  });
-
-  it("returns 400 when the password is missing", async () => {
-    const res = await SELF.fetch("https://worker.test/signin", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "user@example.com" }),
-    });
-
-    expect(res.status).toBe(400);
-    const body = await res.json() as { code: string };
-    expect(body.code).toBe("MISSING_FIELDS");
-  });
-
-  it("returns 400 for a malformed email", async () => {
-    const res = await SELF.fetch("https://worker.test/signin", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "not-an-email", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(400);
-    const body = await res.json() as { code: string };
-    expect(body.code).toBe("INVALID_EMAIL");
-  });
-});
 
 // ─── GET /health ─────────────────────────────────────────────────────────────
 
@@ -587,7 +159,7 @@ describe("POST /send — validation", () => {
 
 describe("CORS — OPTIONS preflight", () => {
   it("returns 204 with CORS headers for allowed origin", async () => {
-    const res = await SELF.fetch("https://worker.test/signup", {
+    const res = await SELF.fetch("https://worker.test/send", {
       method: "OPTIONS",
       headers: { origin: "https://integritystudio.ai" },
     });
@@ -598,7 +170,7 @@ describe("CORS — OPTIONS preflight", () => {
   });
 
   it("returns 204 without access-control-allow-origin for disallowed origin", async () => {
-    const res = await SELF.fetch("https://worker.test/signup", {
+    const res = await SELF.fetch("https://worker.test/send", {
       method: "OPTIONS",
       headers: { origin: "https://evil.example.com" },
     });
@@ -612,13 +184,13 @@ describe("CORS — OPTIONS preflight", () => {
 
 describe("CORS — POST from disallowed origin", () => {
   it("returns 403 for POST from disallowed origin", async () => {
-    const res = await SELF.fetch("https://worker.test/signup", {
+    const res = await SELF.fetch("https://worker.test/send", {
       method: "POST",
       headers: {
         "content-type": "application/json",
         origin: "https://evil.example.com",
       },
-      body: JSON.stringify({ email: "x@x.com", password: "pass" }),
+      body: JSON.stringify(validSendPayload),
     });
 
     expect(res.status).toBe(403);
@@ -626,19 +198,17 @@ describe("CORS — POST from disallowed origin", () => {
     expect(body.error).toBe("forbidden");
   });
 
-  it("includes access-control-allow-origin on 201 response for allowed origin", async () => {
-    mockFullSignupFlow("auth0|cors-test", "org-cors-uuid");
-
-    const res = await SELF.fetch("https://worker.test/signup", {
+  it("includes access-control-allow-origin on 200 response for allowed origin", async () => {
+    const res = await SELF.fetch("https://worker.test/send", {
       method: "POST",
       headers: {
         "content-type": "application/json",
         origin: "https://integritystudio.ai",
       },
-      body: JSON.stringify({ email: "cors@example.com", password: "S3cur3!pass" }),
+      body: JSON.stringify(validSendPayload),
     });
 
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.headers.get("access-control-allow-origin")).toBe("https://integritystudio.ai");
   });
 });
@@ -799,169 +369,5 @@ describe("POST /create-checkout-session — Stripe API errors", () => {
     expect(res.status).toBe(500);
     const body = await res.json() as { error: string };
     expect(body.error).toContain("session URL");
-  });
-});
-
-// ─── POST /signup — Error Code Mapping (Integration Tests) ────────────────────
-
-describe("POST /signup — Error Code Mapping (2026-04-03 Session)", () => {
-  it("returns AUTH0_TOKEN_EXCHANGE_FAILED when Auth0 /oauth/token returns 403 unauthorized_client", async () => {
-    // Real error from Auth0 when Client Credentials grant type is not enabled
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/oauth/token", method: "POST" })
-      .reply(403, JSON.stringify({
-        error: "unauthorized_client",
-        error_description: "Grant type 'client_credentials' not allowed for the client.",
-      }), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "grant-error@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string };
-    expect(body.error).toBe("signup failed");
-    expect(body.code).toBe("AUTH0_TOKEN_EXCHANGE_FAILED");
-  });
-
-  it("returns AUTH0_USER_CREATION_FAILED when Auth0 /api/v2/users returns 400", async () => {
-    mockTokenExchange();
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/api/v2/users", method: "POST" })
-      .reply(400, JSON.stringify({
-        statusCode: 400,
-        error: "Bad Request",
-        message: "Invalid password strength.",
-      }), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "weak-pass@example.com", password: "weak" }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string };
-    expect(body.error).toBe("signup failed");
-    expect(body.code).toBe("AUTH0_USER_CREATION_FAILED");
-  });
-
-  it("returns SUPABASE_ORG_CREATION_FAILED when org creation returns error", async () => {
-    mockTokenExchange();
-    mockAuth0CreateUser("auth0|test-user");
-    fetchMock
-      .get(SUPABASE_URL)
-      .intercept({ path: "/rest/v1/organizations", method: "POST" })
-      .reply(400, JSON.stringify({
-        code: "400",
-        message: "Invalid request: tier must be one of: starter, growth, enterprise",
-        details: "tier=invalid_tier",
-      }), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        email: "org-fail@example.com",
-        password: "S3cur3!pass",
-        tier: "invalid_tier",
-      }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string };
-    expect(body.error).toBe("signup failed");
-    expect(body.code).toBe("SUPABASE_ORG_CREATION_FAILED");
-  });
-
-  it("returns SUPABASE_USER_INSERT_FAILED when user insert returns error", async () => {
-    mockTokenExchange();
-    mockAuth0CreateUser("auth0|test-user");
-    mockSupabaseOrg("org-uuid-test");
-    fetchMock
-      .get(SUPABASE_URL)
-      .intercept({ path: "/rest/v1/users", method: "POST" })
-      .reply(409, JSON.stringify({
-        code: "23505",
-        message: "duplicate key value violates unique constraint",
-        details: "Key (auth0_id)=(auth0|test-user) already exists.",
-      }), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "user-dupe@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string };
-    expect(body.error).toBe("signup failed");
-    expect(body.code).toBe("SUPABASE_USER_INSERT_FAILED");
-  });
-
-  it("returns SUPABASE_ORG_MEMBERSHIP_FAILED when org membership insert fails", async () => {
-    mockTokenExchange();
-    mockAuth0CreateUser("auth0|test-user");
-    mockSupabaseOrg("org-uuid-test");
-    mockSupabaseUsersInsert();
-    fetchMock
-      .get(SUPABASE_URL)
-      .intercept({ path: "/rest/v1/organization_memberships", method: "POST" })
-      .reply(400, JSON.stringify({
-        code: "400",
-        message: "Invalid organization ID",
-      }), {
-        headers: { "content-type": "application/json" },
-      });
-    // A failed membership insert triggers compensating rollback: delete the
-    // Supabase user and org, then the Auth0 user (which needs its own
-    // management token). Without these the rollback's own failures mask the
-    // original error and it degrades to INTERNAL_ERROR.
-    mockSignupRollback("auth0|test-user");
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "membership-fail@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string };
-    expect(body.error).toBe("signup failed");
-    expect(body.code).toBe("SUPABASE_ORG_MEMBERSHIP_FAILED");
-  });
-
-  it("maps a failed token exchange to AUTH0_TOKEN_EXCHANGE_FAILED", async () => {
-    fetchMock
-      .get(`https://${AUTH0_DOMAIN}`)
-      .intercept({ path: "/oauth/token", method: "POST" })
-      .reply(500, JSON.stringify({ error: "unknown_server_error" }), {
-        headers: { "content-type": "application/json" },
-      });
-
-    const res = await SELF.fetch("https://worker.test/signup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "unknown@example.com", password: "S3cur3!pass" }),
-    });
-
-    expect(res.status).toBe(500);
-    const body = await res.json() as { error: string; code: string };
-    expect(body.error).toBe("signup failed");
-    // The worker classifies this specifically rather than falling back to
-    // INTERNAL_ERROR, so a 500 from /oauth/token is a *known* pattern.
-    expect(body.code).toBe("AUTH0_TOKEN_EXCHANGE_FAILED");
   });
 });

@@ -82,15 +82,9 @@ Full data flow for user creation and API key provisioning, by tier.
 
 ```
 SignupPage (/signup?tier=starter)
-  └─→ POST /signup (sender-worker)
-        ├─ auth0CreateUser (M2M client credentials → POST /api/v2/users)
-        ├─ supabaseCreatePersonalOrg (POST /rest/v1/organizations, current_plan: "starter")
-        ├─ supabaseInsertUser (POST /rest/v1/users, auth0_id = auth0Sub)
-        ├─ auth0UserSignIn (ROPC → POST /oauth/token, grant_type: password)
-        └─ supabaseAddOrgOwner (POST /rest/v1/organization_memberships, role: "owner")
-             └─ returns { jwt, auth0Sub, userId, email } 201
-  └─→ AuthSuccess(jwt, email) → GoRouter /provision
-        └─ ProvisionPage: AuthStorage.saveJwt(jwt)
+  └─→ Auth0 Universal Login sign-up screen (CR48; see authentication.md)
+        └─ post-login Action inserts the public.users row
+  └─→ /callback → no org yet → GoRouter /provision
         └─ POST /send (sender-worker)
               ├─ validates SendRequestSchema {action, jwt, name, email, org_name?}  (a sent tier is stripped — CR37)
               ├─ HMAC-SHA256 signs {x-timestamp}.{body} with SIGNING_KEYS[ACTIVE_KEY_ID]
@@ -111,9 +105,8 @@ SignupPage (/signup?tier=starter)
 
 ```
 SignupPage (/signup?tier=growth)
-  └─→ POST /signup (sender-worker) — same Auth0 + Supabase steps as starter
-        └─ returns { jwt, auth0Sub, userId, email } 201
-  └─→ AuthSuccess → GoRouter /checkout (CheckoutArgs{email, tier})
+  └─→ same Auth0 sign-up and /provision steps as starter
+  └─→ "Continue to Checkout" → GoRouter /checkout (CheckoutArgs{email, tier})
         └─ CheckoutPage: POST /create-checkout-session (sender-worker)
               ├─ validates CreateCheckoutSessionSchema {email, tier}
               ├─ looks up priceId from STRIPE_PLAN_TO_PRICE_JSON[tier]

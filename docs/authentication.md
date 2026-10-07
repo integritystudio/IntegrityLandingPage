@@ -101,18 +101,10 @@ Auth0 Universal Login (password, reset)  ── post-login Action runs ──
 - `test/services/auth0_service_test.dart` covers the authorize URL, PKCE, state handling, the refresh memo and refused-versus-network handling. Dropping the memo, the state comparison or that distinction each fails its own test (mutation-checked, CR48).
 - `test/pages/auth_page_test.dart`, `signup_page_test.dart`, `callback_page_test.dart` and `provision_page_test.dart` cover the pages.
 - **Test seam:** `Auth0Service.setForTesting(dio:, browser:, now:, random:)` and `resetForTesting()`. Inject an `Auth0Browser` to control storage and capture navigation; there is no real browser in `flutter test`.
-- **End to end:** run the release build against the dev tenant and dev Workers (above), then sign up, provision, sign out, sign in and reload `/dashboard`. No Flutter test reaches Auth0. The one automated suite that does is sender-worker's `npm run test:live`, which calls the **production** tenant's Management API for the legacy routes below (CLAUDE.md, Commands).
+- **End to end:** run the release build against the dev tenant and dev Workers (above), then sign up, provision, sign out, sign in and reload `/dashboard`. No Flutter test reaches Auth0.
 
-## Legacy: sender-worker password routes
+## Removed: sender-worker password routes
 
-`sender-worker` still serves the pre-CR48 routes, and **nothing in this app calls them**:
-
-| Route | What it does |
-|---|---|
-| `POST /signup` | Creates the Auth0 user through the Management API (M2M client `AUTH0_CLI_*`, `client_credentials`), creates the Supabase org, user and owner membership, then signs in over ROPC and returns `{jwt, auth0Sub, userId, email}` |
-| `POST /signin` | Auth0 ROPC (`grant_type=password`, client `AUTH0_CLIENT_*`, "My App"): `{email, password}` → `{jwt, email}` |
-| `POST /forgot-password` | Auth0 `dbconnections/change_password`; the same 200 whether or not the account exists |
-
-All three share a per-IP rate limit. [CR49](BACKLOG.md#cr49) deletes them, and then removes the `password` grant from "My App", once a week with no production traffic is confirmed. Until CR49 step 3, do not strip `password` from "My App" (CLAUDE.md, Auth0). Do not build anything new on these routes.
+[CR49](BACKLOG.md#cr49) deleted `sender-worker`'s pre-CR48 Auth0 ROPC routes `POST /signup`, `/signin` and `/forgot-password`, their per-IP rate limiter and their live suite, after a week with no production traffic. They now answer 404. Removing the `password` grant from "My App" is CR49 step 3.
 
 **Removed from the app by CR48 (2026-09-29):** `AuthMode` and its extension, `ProvisioningService.signIn/signUp/forgotPassword`, `AuthSuccess`/`AuthError`, `AuthStorage` and `PasswordPolicy`.

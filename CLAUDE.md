@@ -26,11 +26,6 @@ npm run test:live                 # stripe-webhook: real Stripe-signed requests 
                                   #   + plan-sync (CR38): creates a sandbox customer/subscription and a dev org,
                                   #   waits for the Worker to write current_plan, then deletes them. Refuses a
                                   #   live Stripe key or a non-dev Supabase project.
-                                  # sender-worker: real Auth0 Management API calls against the PRODUCTION tenant
-                                  #   (--config prd; dev creds cannot mint a management token).
-                                  #   vitest.live.config.ts overrides AUTH0_TEST_EMAIL to a disposable identity —
-                                  #   the suite DELETES the user at that address, and prd's value is the real
-                                  #   test@integritystudio.ai account. Do not remove that override.
 npm run test:e2e                  # sender-worker: workerd runtime, all outbound calls mocked — needs no credentials,
                                   #   but the script runs under `doppler run --config dev`, so it needs a Doppler
                                   #   login; `npx vitest run --config vitest.e2e.config.mts` skips that.
@@ -181,7 +176,7 @@ Status for every open item — or one waiting on a deploy — lives only in [doc
 - No Workers route or Custom Domain can attach to a domain that is not a Cloudflare zone. Add `routes` only after the zone exists, or `deploy:prd` breaks.
 
 **Auth0 (CR25, CR32, CR33, CR34)**
-- Do not strip `password` from `My App`: `sender-worker`'s `/signin` sends `grant_type=password` against it, so removing it is a production login outage.
+- `My App`'s `password` grant has had no caller since CR49 deleted `sender-worker`'s `/signin`. Remove it only once that deploy is live in production (CR49 step 3).
 - Do not re-add `implicit` or `password` to the dashboard SPA (it uses `loginWithRedirect`, auth code + PKCE), or ROPC to `AUTH0_MANAGER`.
 - Client ids are display-truncated in listings. Look the full id up before PATCHing, or you strip grants off the wrong client.
 - Enforcing MFA forces every user to re-enrol — an owner decision, not a config fix.
@@ -235,7 +230,7 @@ workers/
 │   └── crypto.ts     # HMAC-SHA256 / SHA-256 helpers
 ├── contact-form/     # Contact form worker (Resend email, KV rate limiting, CSRF)
 ├── api-gateway/      # API Gateway worker (ingest, usage, org billing/keys/quota, staff admin reads, Auth0 log poller)
-├── sender-worker/    # Provisioning sender: inline /signup, /signin, /forgot-password (Auth0+Supabase); HMAC-signs /send events to receiver
+├── sender-worker/    # Provisioning sender: HMAC-signs /send events to receiver; signup-flow Stripe checkout
 ├── receiver-worker/  # Local stub / test double only (not deployed; production is api-provisioning-receiver in observability-toolkit)
 └── stripe-webhook/   # Stripe event handler (subscription lifecycle, checkout, dead-letter, Supabase sync)
 
@@ -256,9 +251,8 @@ test/                 # Unit + widget tests (~94% coverage)
 
 **Workers**
 - [workers/contact-form/](workers/contact-form/) — Cloudflare Worker handling contact form submissions (Resend email, KV rate limiting, CSRF, idempotency)
-- [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker (`api-provisioning-sender`) exposing `POST /signup`, `POST /signin`, `POST /forgot-password`, `POST /send`, `POST /create-checkout-session`, `GET /health` (Zod v4 validation). Two distinct paths:
-  - **Inline (no receiver):** `/signup` creates the Auth0 user (M2M `AUTH0_CLI_*` → Management API) + Supabase org/user/owner-membership, then signs in via Auth0 ROPC (`AUTH0_CLIENT_*`) and returns `{jwt, auth0Sub, userId, email}`. `/signin` is direct Auth0 ROPC (`{email,password}` → `{jwt,email}`). `/forgot-password` asks Auth0 to send a reset email and answers the same 200 whether or not the account exists; it shares the per-IP auth rate limit with `/signup` and `/signin`.
-  - **Plan authority (CR37):** no route takes a plan from the caller. `/signup` and the receiver's first provision always create `starter`, and `/send` strips any `tier`. `current_plan` is written only by `stripe-webhook` and operators, and enforcement reads `effectivePlan()` (`workers/lib/billing.ts`, mirrored in the receiver), where a paid plan counts only while `isEntitled(billing_status)`. **A contract-billed enterprise org needs `billing_status = 'active'` set by hand**, or it is held to starter limits.
+- [workers/sender-worker/](workers/sender-worker/) — Cloudflare Worker (`api-provisioning-sender`) exposing `POST /send`, `POST /create-checkout-session`, `GET /health` (Zod v4 validation). Its ROPC routes `/signup`, `/signin` and `/forgot-password` were deleted by CR49 — sign-in is Auth0 Universal Login (CR48).
+  - **Plan authority (CR37):** no route takes a plan from the caller. The receiver's first provision always creates `starter`, and `/send` strips any `tier`. `current_plan` is written only by `stripe-webhook` and operators, and enforcement reads `effectivePlan()` (`workers/lib/billing.ts`, mirrored in the receiver), where a paid plan counts only while `isEntitled(billing_status)`. **A contract-billed enterprise org needs `billing_status = 'active'` set by hand**, or it is held to starter limits.
   - **Forwarded to receiver:** `/send` events (`provision_api_key`, `sign_in`) are HMAC-SHA256-signed and forwarded to the production receiver `api-provisioning-receiver` via the `[[services]]` binding; the receiver mints `obtk_` keys (the other format, `int_live_`, is api-gateway's — see below). `resolveOutboundSigningKey` **fails closed on all four misses** — `SIGNING_KEYS` + `ACTIVE_KEY_ID` are the only credential, `x-key-id` is sent unconditionally, and `SHARED_SECRET` is read by nothing. See CR29 above before changing any of that.
   - **`/create-checkout-session` derives the org server-side from the email — never accept an `orgId` from the caller.** The route is origin-gated but *unauthenticated*, and the origin gate is a browser-surface control that origin-less callers (Flutter native, curl) bypass by design — so a client-supplied org id would let any caller attach a subscription to an org they do not own. `supabaseFindOrgIdByEmail` resolves it instead (prefer `default_organization_id`, else oldest active membership, mirroring `custom_access_token_hook`). Resolution is **best-effort by design**: an unknown email or failed lookup logs and proceeds with an unattributed session, because failing checkout to protect a metadata field trades a linking bug for a revenue bug. `stripe-webhook` reads `session.metadata.org_id || session.client_reference_id` to run `linkStripeCustomer` (`workers/stripe-webhook/src/handlers/checkout.ts:24`).
   - ⚠️ **That route is only correct for single-org users.** It resolves an *identity* to an org, so for anyone holding several memberships it silently returns their default org rather than the one being paid for — a real multi-org case would have attached the new subscription to an org that was already paying. **Use it only for the signup flow** (exactly one org, no session yet). Anywhere the caller is authenticated and the org is known, use **`POST /v1/orgs/:id/checkout-session`** on `api-gateway` — the org comes from a membership-checked route parameter, still never from the request body.
@@ -365,7 +359,7 @@ When binding a secret to a Worker, pipe that captured value into `wrangler secre
 
 | Worker | Purpose | Production Worker | Dev Worker (`--env dev`) | CI/CD |
 |--------|---------|-------------------|--------------------------|-------|
-| **sender-worker** | Inline signup/signin (Auth0+Supabase); HMAC-signs `/send` events to receiver | `sender-worker` | `sender-worker-dev` | ✓ Yes (main) |
+| **sender-worker** | HMAC-signs `/send` events to receiver; signup-flow Stripe checkout | `sender-worker` | `sender-worker-dev` | ✓ Yes (main) |
 | **api-provisioning-receiver** | Verifies signed requests, persists to Supabase (production receiver) | `api-provisioning-receiver` | — (separate repo) | ✓ Yes (separate repo) |
 | **stripe-webhook** | Handles Stripe subscription events | `stripe-webhook` | `stripe-webhook-dev` (no cron) | — |
 | **contact-form** | Processes contact form (Resend, KV rate limit) | `integrity-studio-contact` | `integrity-studio-contact-dev` (own KV namespace) | — |

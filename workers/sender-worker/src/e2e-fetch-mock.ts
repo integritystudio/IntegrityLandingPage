@@ -10,8 +10,7 @@
  *
  * Semantics deliberately mirror undici's `MockAgent`:
  * - interceptors are **one-shot**, consumed in registration order, so two
- *   interceptors for the same route serve two sequential calls (the suite
- *   relies on this for the management-token then ROPC `/oauth/token` pair);
+ *   interceptors for the same route serve two sequential calls;
  * - `assertNoPendingInterceptors()` throws if any interceptor went unused;
  * - an unmatched request throws rather than reaching the network, so a missing
  *   mock fails loudly instead of silently escaping the test environment.
@@ -39,8 +38,6 @@ interface Interceptor {
   body: ReplyBody;
   headers: Record<string, string>;
   consumed: boolean;
-  /** Excluded from `assertNoPendingInterceptors()` when true. */
-  optional: boolean;
 }
 
 interface ReplyOptions {
@@ -59,18 +56,6 @@ class InterceptorHandle {
     this.interceptor.headers = opts.headers ?? {};
     return this;
   }
-
-  /**
-   * Serve this route if it is called, but do not require it. Use for
-   * best-effort calls whose count is not part of the contract under test —
-   * signup's compensating rollback, for instance, swallows its own failures and
-   * may retry a delete through nested catch layers, so pinning an exact number
-   * of calls would assert an implementation detail.
-   */
-  optional(): InterceptorHandle {
-    this.interceptor.optional = true;
-    return this;
-  }
 }
 
 /** Handle returned by `get(origin)`, scoping interceptors to one origin. */
@@ -86,7 +71,6 @@ class OriginMock {
       body: '',
       headers: {},
       consumed: false,
-      optional: false,
     };
     interceptors.push(interceptor);
     return new InterceptorHandle(interceptor);
@@ -131,29 +115,6 @@ async function mockedFetch(input: RequestInfo | URL, init?: RequestInit): Promis
   return new Response(body, { status: match.status, headers: match.headers });
 }
 
-/**
- * Wrap a `Fetcher` so every request carries a distinct `CF-Connecting-IP`.
- *
- * `/signup` and `/signin` are rate limited to `AUTH_RATE_LIMIT_MAX` requests per
- * IP per window, and the in-memory counter lives in worker module scope, which
- * the pool shares across every test in a run. Without a unique IP each request
- * keys to `'unknown'`, so the suite's requests exhaust one bucket and every test
- * past the limit sees `429`. Giving each request its own IP isolates them the
- * way separate clients would be in production — the rate limiter still runs and
- * is still exercised by the tests written for it.
- */
-export function withUniqueClientIp(fetcher: Fetcher): Pick<Fetcher, 'fetch'> {
-  let counter = 0;
-  return {
-    fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-      counter += 1;
-      const request = input instanceof Request ? new Request(input, init) : new Request(input as string | URL, init);
-      request.headers.set('CF-Connecting-IP', `203.0.113.${counter % 256}`);
-      return fetcher.fetch(request);
-    },
-  };
-}
-
 export const fetchMock = {
   /** Install the stubbed global `fetch`. Call once per suite, in `beforeAll`. */
   activate(): void {
@@ -186,7 +147,7 @@ export const fetchMock = {
    * one test's leftovers cannot leak into the next. Call in `afterEach`.
    */
   assertNoPendingInterceptors(): void {
-    const pending = interceptors.filter((i) => !i.consumed && !i.optional);
+    const pending = interceptors.filter((i) => !i.consumed);
     interceptors.length = 0;
     if (pending.length > 0) {
       const described = pending.map((i) => `${i.method} ${i.origin}${i.path}`).join(', ');

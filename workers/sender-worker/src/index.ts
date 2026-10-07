@@ -10,8 +10,6 @@ import {
   CORS_ALLOW_HEADERS,
   RECEIVER_PATHS,
   SERVICE_NAME,
-  EMAIL_REGEX,
-  DEFAULT_TIER,
   SendRequestSchema,
   CreateCheckoutSessionSchema,
   DEFAULT_APP_BASE_URL,
@@ -20,23 +18,9 @@ import {
 } from "./types.js";
 import { json } from "../../lib/http/responses.js";
 import { buildCors } from "../../lib/http/cors.js";
-import { checkAuthRateLimit, errorResponse, resolveOutboundSigningKey, getClientIp } from "./utils.js";
+import { errorResponse, resolveOutboundSigningKey, getClientIp } from "./utils.js";
 import { signMessage } from "./crypto.js";
-import {
-  auth0CreateUser,
-  auth0DeleteUser,
-  auth0ForgotPassword,
-  auth0UserSignIn,
-  supabaseCreatePersonalOrg,
-  supabaseDeleteOrg,
-  supabaseInsertUser,
-  supabaseDeleteUser,
-  supabaseAddOrgOwner,
-  supabaseFindOrgIdByEmail,
-  Auth0TokenError,
-  AUTH0_INVALID_GRANT,
-  AUTH0_TOO_MANY_ATTEMPTS,
-} from "./supabase.js";
+import { supabaseFindOrgIdByEmail } from "./supabase.js";
 import { createStripeCheckoutSession } from "./stripe.js";
 import { VERSION } from "./version.js";
 
@@ -57,115 +41,6 @@ function senderCors(origin: string | null, env: Env) {
     allowMethods: CORS_ALLOW_METHODS,
     allowHeaders: CORS_ALLOW_HEADERS,
   });
-}
-
-async function handleSignup(env: Env, req: Record<string, unknown>): Promise<Response> {
-  if (typeof req.email !== 'string' || typeof req.password !== 'string') {
-    return errorResponse("missing email or password", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
-  }
-  if (!EMAIL_REGEX.test(req.email)) {
-    return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
-  }
-
-  const email = req.email;
-  const password = req.password;
-  const providedName = typeof req.name === "string" && req.name.trim() ? req.name.trim() : null;
-  // CR37: always start at 'starter' regardless of the caller-supplied tier.
-  // current_plan is set only by stripe-webhook after a successful payment.
-  const orgName = providedName ?? `${email.split("@")[0]} (personal)`;
-
-  if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID || !env.AUTH0_CLIENT_SECRET || !env.AUTH0_AUDIENCE || !env.AUTH0_CLI_ID || !env.AUTH0_CLI_SECRET) {
-    return errorResponse("Auth0 not configured", ERROR_CODE.AUTH0_UNCONFIGURED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
-
-  // Sequential steps with compensating rollback so a partial failure never
-  // leaves orphaned Auth0 users or Supabase rows. Each step cleans up all
-  // resources created by prior steps before re-throwing the original error.
-  // Step 1 is outside the inner guards — the outer catch handles it directly.
-  const userId = crypto.randomUUID();
-
-  try {
-    // Step 1: create Auth0 user — nothing to clean up on failure.
-    const { auth0Sub } = await auth0CreateUser(
-      env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET,
-      env.AUTH0_AUDIENCE, email, password,
-    );
-
-    // Step 2: create Supabase org — roll back Auth0 user on failure.
-    let orgId: string;
-    try {
-      orgId = await supabaseCreatePersonalOrg(
-        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgName, DEFAULT_TIER, email,
-      );
-    } catch (err) {
-      await auth0DeleteUser(env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET, auth0Sub);
-      throw err;
-    }
-
-    // Step 3: insert Supabase user row — roll back org + Auth0 user on failure.
-    // org membership has FK on users.id so this must precede addOrgOwner.
-    try {
-      await supabaseInsertUser(
-        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId, auth0Sub, email,
-      );
-    } catch (err) {
-      await supabaseDeleteOrg(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId);
-      await auth0DeleteUser(env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET, auth0Sub);
-      throw err;
-    }
-
-    // Step 4: sign in to get JWT — roll back all three resources on failure.
-    let jwt: string;
-    try {
-      jwt = await auth0UserSignIn(
-        env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
-        env.AUTH0_AUDIENCE, email, password,
-      );
-    } catch (err) {
-      await supabaseDeleteUser(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId);
-      await supabaseDeleteOrg(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId);
-      await auth0DeleteUser(env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET, auth0Sub);
-      throw err;
-    }
-
-    // Step 5: add org membership — roll back all resources on failure.
-    try {
-      await supabaseAddOrgOwner(
-        env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId, userId,
-      );
-    } catch (err) {
-      await supabaseDeleteUser(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, userId);
-      await supabaseDeleteOrg(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, orgId);
-      await auth0DeleteUser(env.AUTH0_DOMAIN, env.AUTH0_CLI_ID, env.AUTH0_CLI_SECRET, auth0Sub);
-      throw err;
-    }
-
-    return json({ jwt, auth0Sub, userId, email }, { status: HTTP_STATUS.CREATED });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[signup]", msg);
-
-    let errorCode: ErrorCode = ERROR_CODE.INTERNAL_ERROR;
-    if (msg.includes("Auth0 token exchange failed")) {
-      errorCode = ERROR_CODE.AUTH0_TOKEN_EXCHANGE_FAILED;
-    } else if (msg.includes("Auth0 createUser failed")) {
-      errorCode = ERROR_CODE.AUTH0_USER_CREATION_FAILED;
-    } else if (msg.includes("Supabase org creation failed")) {
-      errorCode = ERROR_CODE.SUPABASE_ORG_CREATION_FAILED;
-    } else if (msg.includes("Supabase user insert failed")) {
-      errorCode = ERROR_CODE.SUPABASE_USER_INSERT_FAILED;
-    } else if (msg.includes("Supabase org membership")) {
-      errorCode = ERROR_CODE.SUPABASE_ORG_MEMBERSHIP_FAILED;
-    }
-
-    const description = ERROR_DESCRIPTIONS[errorCode];
-    const responseBody: Record<string, unknown> = { error: "signup failed", code: errorCode };
-    if (description) responseBody.description = description;
-    return new Response(JSON.stringify(responseBody), {
-      status: HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      headers: { [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON },
-    });
-  }
 }
 
 // Key rotation deployment sequence (deploy receiver FIRST):
@@ -246,63 +121,6 @@ function enrichReceiverErrorBody(status: number, body: string, contentType: stri
   if (!description) return body;
   obj.description = description;
   return JSON.stringify(obj);
-}
-
-async function handleSignIn(env: Env, req: Record<string, unknown>): Promise<Response> {
-  if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID || !env.AUTH0_CLIENT_SECRET || !env.AUTH0_AUDIENCE) {
-    return errorResponse("Auth0 not configured", ERROR_CODE.AUTH0_UNCONFIGURED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
-  if (typeof req.email !== 'string' || typeof req.password !== 'string') {
-    return errorResponse("missing email or password", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
-  }
-  if (!EMAIL_REGEX.test(req.email)) {
-    return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
-  }
-  try {
-    const jwt = await auth0UserSignIn(
-      env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, env.AUTH0_CLIENT_SECRET,
-      env.AUTH0_AUDIENCE, req.email, req.password,
-    );
-    return json({ jwt, email: req.email });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    // A rejected credential is a client error, not a server fault. Auth0 returns `invalid_grant`
-    // both for a wrong password and for an unknown user; both map to the same neutral 401 so the
-    // response cannot be used to enumerate accounts. Anything else (Auth0 5xx, network failure,
-    // ROPC grant disabled on the application) stays a 500 and is logged.
-    if (err instanceof Auth0TokenError && err.auth0Error === AUTH0_INVALID_GRANT) {
-      return errorResponse("invalid email or password", ERROR_CODE.INVALID_CREDENTIALS, HTTP_STATUS.UNAUTHORIZED);
-    }
-    // Auth0 brute-force protection blocked the attempt; the credentials may be correct, so
-    // reporting a server fault would be wrong and would hide the real reason from the user.
-    if (err instanceof Auth0TokenError && err.auth0Error === AUTH0_TOO_MANY_ATTEMPTS) {
-      return errorResponse("too many sign-in attempts", ERROR_CODE.RATE_LIMITED, HTTP_STATUS.TOO_MANY_REQUESTS);
-    }
-    console.error("[signin]", msg);
-    return errorResponse("signin failed", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
-}
-
-async function handleForgotPassword(env: Env, req: Record<string, unknown>): Promise<Response> {
-  if (!env.AUTH0_DOMAIN || !env.AUTH0_CLIENT_ID) {
-    return errorResponse("Auth0 not configured", ERROR_CODE.AUTH0_UNCONFIGURED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
-  if (typeof req.email !== 'string') {
-    return errorResponse("missing email", ERROR_CODE.MISSING_FIELDS, HTTP_STATUS.BAD_REQUEST);
-  }
-  if (!EMAIL_REGEX.test(req.email)) {
-    return errorResponse("invalid email format", ERROR_CODE.INVALID_EMAIL, HTTP_STATUS.BAD_REQUEST);
-  }
-  try {
-    await auth0ForgotPassword(env.AUTH0_DOMAIN, env.AUTH0_CLIENT_ID, req.email);
-    // Mirror Auth0's enumeration-safe behaviour: always return 200 so callers
-    // cannot determine whether an account exists for the given email address.
-    return json({ message: "If that email is registered, a password reset link has been sent." });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[forgot-password]", msg);
-    return errorResponse("password reset failed", ERROR_CODE.AUTH0_FORGOT_PASSWORD_FAILED, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
 }
 
 async function handleSend(env: Env, req: Record<string, unknown>, clientIp?: string): Promise<Response> {
@@ -431,66 +249,6 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
       version: VERSION,
       timestamp: new Date().toISOString(),
     });
-  }
-
-  if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SIGNUP) {
-    const ip = getClientIp(request) ?? 'unknown';
-    const rl = await checkAuthRateLimit(ip, env);
-    if (!rl.allowed) {
-      return new Response(
-        JSON.stringify({ error: 'rate limit exceeded', code: ERROR_CODE.RATE_LIMITED }),
-        {
-          status: HTTP_STATUS.TOO_MANY_REQUESTS,
-          headers: {
-            [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
-            'Retry-After': String(rl.retryAfterSeconds),
-          },
-        },
-      );
-    }
-    const body = await parseJsonBody(request);
-    if (body instanceof Response) return body;
-    return handleSignup(env, body);
-  }
-
-  if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SIGNIN) {
-    const ip = getClientIp(request) ?? 'unknown';
-    const rl = await checkAuthRateLimit(ip, env);
-    if (!rl.allowed) {
-      return new Response(
-        JSON.stringify({ error: 'rate limit exceeded', code: ERROR_CODE.RATE_LIMITED }),
-        {
-          status: HTTP_STATUS.TOO_MANY_REQUESTS,
-          headers: {
-            [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
-            'Retry-After': String(rl.retryAfterSeconds),
-          },
-        },
-      );
-    }
-    const body = await parseJsonBody(request);
-    if (body instanceof Response) return body;
-    return handleSignIn(env, body);
-  }
-
-  if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.FORGOT_PASSWORD) {
-    const ip = getClientIp(request) ?? 'unknown';
-    const rl = await checkAuthRateLimit(ip, env);
-    if (!rl.allowed) {
-      return new Response(
-        JSON.stringify({ error: 'rate limit exceeded', code: ERROR_CODE.RATE_LIMITED }),
-        {
-          status: HTTP_STATUS.TOO_MANY_REQUESTS,
-          headers: {
-            [HEADER_NAMES.CONTENT_TYPE]: CONTENT_TYPES.JSON,
-            'Retry-After': String(rl.retryAfterSeconds),
-          },
-        },
-      );
-    }
-    const body = await parseJsonBody(request);
-    if (body instanceof Response) return body;
-    return handleForgotPassword(env, body);
   }
 
   if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.SEND) {

@@ -59,8 +59,7 @@ npx vitest run                    # Tests
 ```
 
 **API Provisioning Workers** (`workers/sender-worker/`, `workers/receiver-worker/`)
-- **Sender** (`api-provisioning-sender`): routes `POST /signup`, `/signin`, `/forgot-password`, `/send`, `/create-checkout-session`, `GET /health` (Zod v4).
-  - *Inline (no receiver):* `/signup` = Auth0 user creation (M2M) + Supabase org/user/membership + ROPC sign-in → returns JWT; `/signin` = direct Auth0 ROPC (`{email,password}` → `{jwt,email}`); `/forgot-password` = Auth0 reset email, same 200 whether or not the account exists.
+- **Sender** (`api-provisioning-sender`): routes `POST /send`, `/create-checkout-session`, `GET /health` (Zod v4). Its ROPC routes `/signup`, `/signin` and `/forgot-password` were deleted by CR49; sign-in is Auth0 Universal Login (CR48).
   - *Forwarded:* `/send` events (`provision_api_key`, `sign_in`) are HMAC-SHA256-signed and sent to the production receiver `api-provisioning-receiver` via a Cloudflare service binding. The receiver mints `obtk_` API keys; api-gateway's `POST /v1/orgs/:id/api-keys` mints the legacy `int_live_` format, which only api-gateway accepts.
 - **Receiver**: `workers/receiver-worker/` is a **local stub / test double** (signature verification, replay protection). The production receiver is `api-provisioning-receiver` in the separate `observability-toolkit` repo (persists to Supabase).
 

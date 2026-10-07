@@ -1,11 +1,10 @@
 # Sender Worker
 
-Cloudflare Worker (`api-provisioning-sender`, deployed as `sender-worker`) that fronts the Flutter app for account provisioning. It has two distinct paths:
-
-- **Inline (no receiver):** `POST /signup`, `POST /signin` and `POST /forgot-password` talk to Auth0 and Supabase directly.
-- **Forwarded to the receiver:** `POST /send` events are HMAC-SHA256-signed and forwarded to the production receiver `api-provisioning-receiver` over the `RECEIVER` service binding, which is where API keys are minted.
+Cloudflare Worker (`api-provisioning-sender`, deployed as `sender-worker`) that fronts the Flutter app for account provisioning. `POST /send` events are HMAC-SHA256-signed and forwarded to the production receiver `api-provisioning-receiver` over the `RECEIVER` service binding, which is where API keys are minted.
 
 `POST /create-checkout-session` opens a Stripe Checkout session, and `GET /health` reports liveness and the deployed version.
+
+The inline `POST /signup`, `POST /signin` and `POST /forgot-password` routes were removed (CR49); sign-in is Auth0 Universal Login, and those paths now return `404 NOT_FOUND`.
 
 ## Purpose
 
@@ -23,13 +22,8 @@ Every schema below lives in `src/types.ts`; the route constants are `ROUTES` in 
 | Method | Route | Body | Notes |
 |---|---|---|---|
 | GET | `/health` | — | `{ ok, service, version, timestamp }` |
-| POST | `/signup` | `{ email, password, tier? }` | Creates the Auth0 user and the Supabase org, user and owner membership inline, then signs in via Auth0 ROPC. A `tier` in the body is ignored: the org always starts on `starter`, and only `stripe-webhook` changes its plan (CR37) |
-| POST | `/signin` | `{ email, password }` | Auth0 ROPC → `{ jwt, email }` |
-| POST | `/forgot-password` | `{ email }` | Triggers Auth0's change-password email; always 200 so accounts cannot be enumerated |
 | POST | `/send` | `SendRequestSchema` (below) | Signed and forwarded to the receiver |
 | POST | `/create-checkout-session` | `CreateCheckoutSessionSchema`: `{ email, tier }` | Returns `{ checkoutUrl }`. The org is derived server-side from the email — never from the body. Enterprise opens at its 6-seat minimum (`PLAN_MIN_SEATS`) |
-
-`/signup` and `/signin` are rate-limited per client IP (`AUTH_RATE_LIMIT_MAX` per `AUTH_RATE_LIMIT_WINDOW_SECONDS`, cross-isolate via the `RATE_LIMIT_KV` binding).
 
 ### POST /send
 
@@ -109,13 +103,12 @@ recognise, which it rejects with a 401 indistinguishable from a forged signature
 npm test              # unit tests (vitest, mocked fetch)
 npm run test:watch    # watch mode
 npm run test:e2e      # workerd runtime, every outbound call mocked; bindings live in vitest.e2e.config.mts, not Doppler
-npm run test:live     # real Auth0 Management API calls against the PRODUCTION tenant — read CLAUDE.md before running
 ```
 
 The unit and e2e suites verify:
 - Request signing and forwarding, including that `x-key-id` reaches the wire in the real runtime
 - Signature computation matches receiver verification
-- Error handling (network, config, JSON validation, Auth0 and Supabase failures)
+- Error handling (network, config, JSON validation, Stripe failures)
 - Status code pass-through from the receiver
 - The origin gate (preflight, disallowed origin, origin-less passthrough)
 

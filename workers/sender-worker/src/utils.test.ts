@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { errorResponse, resolveOutboundSigningKey } from './utils';
 import { HTTP_STATUS, CONTENT_TYPES, type Env } from './types';
 
@@ -21,12 +21,6 @@ describe('resolveOutboundSigningKey()', () => {
   const BASE_ENV = {
     SHARED_SECRET: 'base-secret',
     RECEIVER: {} as Fetcher,
-    AUTH0_DOMAIN: 'example.auth0.com',
-    AUTH0_CLIENT_ID: 'client-id',
-    AUTH0_CLIENT_SECRET: 'client-secret',
-    AUTH0_CLI_ID: 'cli-id',
-    AUTH0_CLI_SECRET: 'cli-secret',
-    AUTH0_AUDIENCE: 'audience',
     SUPABASE_URL: 'https://supabase.example.com',
     SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
   };
@@ -118,117 +112,5 @@ describe('resolveOutboundSigningKey()', () => {
       expect(error).not.toHaveBeenCalledWith(expect.stringContaining('other-secret'));
       error.mockRestore();
     });
-  });
-});
-
-import { checkAuthRateLimit, clearAuthRateLimitStore } from './utils';
-import { AUTH_RATE_LIMIT_MAX } from './types';
-
-describe('checkAuthRateLimit()', () => {
-  const noKvEnv = {} as Pick<import('./types').Env, 'RATE_LIMIT_KV'>;
-
-  beforeEach(() => { clearAuthRateLimitStore(); });
-
-  it('allows requests up to AUTH_RATE_LIMIT_MAX', async () => {
-    for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
-      const result = await checkAuthRateLimit('192.0.2.1', noKvEnv);
-      expect(result.allowed).toBe(true);
-    }
-  });
-
-  it('denies the request after AUTH_RATE_LIMIT_MAX is reached', async () => {
-    for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
-      await checkAuthRateLimit('192.0.2.2', noKvEnv);
-    }
-    const result = await checkAuthRateLimit('192.0.2.2', noKvEnv);
-    expect(result.allowed).toBe(false);
-    if (!result.allowed) {
-      expect(result.retryAfterSeconds).toBeGreaterThan(0);
-    }
-  });
-
-  it('tracks IPs independently', async () => {
-    for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
-      await checkAuthRateLimit('192.0.2.3', noKvEnv);
-    }
-    // Different IP should still be allowed
-    const result = await checkAuthRateLimit('192.0.2.4', noKvEnv);
-    expect(result.allowed).toBe(true);
-  });
-
-  it('enforces the limit with no KV binding — an unbound namespace degrades accuracy, it does not disable limiting', async () => {
-    // Pins the semantics of the `if (!env.RATE_LIMIT_KV) return { allowed: true }`
-    // early return, which reads like a fail-open but is not one: the in-memory
-    // tier has already counted the request by that point. Guards against the
-    // check being "simplified" into an actual fail-open.
-    for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
-      expect((await checkAuthRateLimit('198.51.100.1', noKvEnv)).allowed).toBe(true);
-    }
-    expect((await checkAuthRateLimit('198.51.100.1', noKvEnv)).allowed).toBe(false);
-  });
-
-  it('warns once per isolate when RATE_LIMIT_KV is unbound, so a misconfigured deploy is visible', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      await checkAuthRateLimit('198.51.100.2', noKvEnv);
-      await checkAuthRateLimit('198.51.100.3', noKvEnv);
-      expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0][0]).toContain('RATE_LIMIT_KV is not bound');
-    } finally {
-      warn.mockRestore();
-    }
-  });
-
-  it('KV read failure degrades to the in-memory count rather than failing open', async () => {
-    const failingKv = {
-      get: vi.fn().mockRejectedValue(new Error('KV unavailable')),
-      put: vi.fn().mockRejectedValue(new Error('KV unavailable')),
-    } as unknown as KVNamespace;
-    const env = { RATE_LIMIT_KV: failingKv } as Pick<import('./types').Env, 'RATE_LIMIT_KV'>;
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    try {
-      for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
-        await checkAuthRateLimit('198.51.100.4', env);
-      }
-      expect((await checkAuthRateLimit('198.51.100.4', env)).allowed).toBe(false);
-    } finally {
-      error.mockRestore();
-    }
-  });
-
-  it('returns 429 and Retry-After header for rate-limited signup requests', async () => {
-    // Annotated `Env`, not `Record<string, unknown>`: the latter is not assignable to the
-    // parameter of `worker.fetch` below, and widening it hid the fact that this literal
-    // really does satisfy every required field. RATE_LIMIT_KV is deliberately absent so
-    // checkAuthRateLimit falls back to its in-memory counter.
-    const env: Env = {
-      SHARED_SECRET: 'test-shared-secret-key',
-      RECEIVER: { fetch: vi.fn() } as unknown as Fetcher,
-      AUTH0_DOMAIN: 'test.auth0.com',
-      AUTH0_CLIENT_ID: 'spa-client',
-      AUTH0_CLIENT_SECRET: 'spa-secret',
-      AUTH0_CLI_ID: 'cli-id',
-      AUTH0_CLI_SECRET: 'cli-secret',
-      AUTH0_AUDIENCE: 'https://test.auth0.com/api/v2/',
-      SUPABASE_URL: 'https://supabase.test',
-      SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
-    };
-
-    // Exhaust the limit
-    for (let i = 0; i < AUTH_RATE_LIMIT_MAX; i++) {
-      await checkAuthRateLimit('10.0.0.1', env);
-    }
-
-    // Import worker via dynamic import to avoid circular reference at module load time
-    const { default: worker } = await import('./index');
-    const request = new Request('https://worker.test/signup', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'CF-Connecting-IP': '10.0.0.1' },
-      body: JSON.stringify({ email: 'rl@example.com', password: 'Pass1234!' }),
-    });
-
-    const response = await worker.fetch(request, env);
-    expect(response.status).toBe(429);
-    expect(response.headers.get('Retry-After')).not.toBeNull();
   });
 });

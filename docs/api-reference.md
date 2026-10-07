@@ -207,9 +207,8 @@ Flutter app ── POST /send (x-session-data: base64 token) ──▶ sender-wo
 | GET | `/health` | — | `{ ok, service: "api-provisioning-sender", version, timestamp }` |
 | POST | `/send` | `SendRequestSchema` | receiver's response, passed through |
 | POST | `/create-checkout-session` | `{ email, tier }` | `{ checkoutUrl }` |
-| POST | `/signup`, `/signin`, `/forgot-password` | email/password | **legacy** Auth0 ROPC; no current caller; scheduled for removal ([CR49](BACKLOG.md#cr49)) |
 
-The legacy auth routes share a per-IP limit of 10 requests per 10 minutes, counted in KV when `RATE_LIMIT_KV` is bound and per isolate otherwise.
+The Auth0 ROPC routes `/signup`, `/signin` and `/forgot-password` were deleted by [CR49](BACKLOG.md#cr49) and now answer 404.
 
 `/create-checkout-session` is unauthenticated and resolves the org from the email server-side, which is correct only for a single-org user at sign-up. Authenticated callers with a known org use `POST /v1/orgs/:id/checkout-session` on `api-gateway`, where the org comes from a membership-checked path parameter. Neither route accepts an org id in the body.
 

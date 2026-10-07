@@ -20,8 +20,11 @@ import { defineConfig } from "vitest/config";
  * credential or deployed service is ever contacted.
  */
 
-/** Must match the hosts `src/index.e2e.test.ts` sets up interceptors for. */
-const E2E_AUTH0_DOMAIN = "e2e.auth0.test";
+/**
+ * Deliberately not intercepted by `src/index.e2e.test.ts`: the checkout route's org lookup
+ * is best-effort, so the unmatched call throws inside the mock and the session proceeds
+ * unattributed.
+ */
 const E2E_SUPABASE_URL = "https://supabase.e2e.test";
 
 /** Compatibility settings mirror wrangler.toml so behaviour matches production. */
@@ -68,12 +71,6 @@ export default defineConfig({
           SHARED_SECRET: "e2e-shared-secret",
           SIGNING_KEYS: E2E_SIGNING_KEYS,
           ACTIVE_KEY_ID: E2E_KEY_ID,
-          AUTH0_DOMAIN: E2E_AUTH0_DOMAIN,
-          AUTH0_CLIENT_ID: "e2e-auth0-client-id",
-          AUTH0_CLIENT_SECRET: "e2e-auth0-client-secret",
-          AUTH0_CLI_ID: "e2e-auth0-cli-id",
-          AUTH0_CLI_SECRET: "e2e-auth0-cli-secret",
-          AUTH0_AUDIENCE: `https://${E2E_AUTH0_DOMAIN}/api/v2/`,
           SUPABASE_URL: E2E_SUPABASE_URL,
           SUPABASE_SERVICE_ROLE_KEY: "e2e-service-role-key",
           STRIPE_SECRET_KEY: "sk_test_e2e",
@@ -86,7 +83,6 @@ export default defineConfig({
           }),
           APP_BASE_URL: "https://app.e2e.test",
         },
-        kvNamespaces: ["RATE_LIMIT_KV"],
         serviceBindings: { RECEIVER: RECEIVER_STUB_NAME },
         workers: [
           {

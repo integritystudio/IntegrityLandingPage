@@ -5,7 +5,7 @@
  * are actually used in the code and that no undefined variables are referenced.
  * 
  * This prevents:
- * - Typos in environment variable names (like AUTHO_CLI_* vs AUTH0_CLI_*)
+ * - Typos in environment variable names
  * - Unused secrets that should be removed
  * - Missing secrets that should be added
  * 
@@ -31,12 +31,6 @@ const EXPECTED_DOPPLER_SECRETS = [
   'ACTIVE_KEY_ID',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
-  'AUTH0_DOMAIN',
-  'AUTH0_CLIENT_ID',
-  'AUTH0_CLIENT_SECRET',
-  'AUTH0_CLI_ID',
-  'AUTH0_CLI_SECRET',
-  'AUTH0_AUDIENCE',
   'ALLOWED_ORIGINS_JSON',
   'STRIPE_SECRET_KEY',
   'STRIPE_PLAN_TO_PRICE_JSON',
@@ -79,38 +73,6 @@ describe('Environment Variable Validation', () => {
     });
   });
 
-  it('types.ts Env interface defines both Regular Web App (ROPC) and M2M (CLI) credentials', () => {
-    const typesPath = resolve(moduleDir, './types.ts');
-    const typesContent = readFileSync(typesPath, 'utf-8');
-
-    expect(typesContent).toContain('AUTH0_CLIENT_ID');
-    expect(typesContent).toContain('AUTH0_CLIENT_SECRET');
-    expect(typesContent).toContain('AUTH0_CLI_ID');
-    expect(typesContent).toContain('AUTH0_CLI_SECRET');
-    expect(typesContent).toContain('AUTH0_AUDIENCE');
-
-    // Ensure typo'd spelling doesn't exist
-    expect(typesContent).not.toContain('AUTHO_CLI_ID');
-    expect(typesContent).not.toContain('AUTHO_CLI_SECRET');
-    expect(typesContent).not.toContain('AUTHO_CLI_AUDIENCE');
-  });
-
-  it('index.ts uses AUTH0_CLI_ID/SECRET for auth0CreateUser and AUTH0_CLIENT_ID/SECRET for ROPC', () => {
-    const indexPath = resolve(moduleDir, './index.ts');
-    const indexContent = readFileSync(indexPath, 'utf-8');
-
-    expect(indexContent).toContain('env.AUTH0_CLI_ID');
-    expect(indexContent).toContain('env.AUTH0_CLI_SECRET');
-    expect(indexContent).toContain('env.AUTH0_CLIENT_ID');
-    expect(indexContent).toContain('env.AUTH0_CLIENT_SECRET');
-    expect(indexContent).toContain('env.AUTH0_AUDIENCE');
-
-    // Ensure typo'd names aren't used
-    expect(indexContent).not.toContain('env.AUTHO_CLI_ID');
-    expect(indexContent).not.toContain('env.AUTHO_CLI_SECRET');
-    expect(indexContent).not.toContain('env.AUTHO_CLI_AUDIENCE');
-  });
-
   it('wrangler.toml comments document all required secrets with correct names', () => {
     const wranglerPath = resolve(moduleDir, '../wrangler.toml');
     const wranglerContent = readFileSync(wranglerPath, 'utf-8');
@@ -122,49 +84,6 @@ describe('Environment Variable Validation', () => {
         wranglerContent.includes(secret),
         `Secret '${secret}' is not documented in wrangler.toml`
       ).toBe(true);
-    });
-
-    // Ensure no typo'd secrets are documented
-    expect(wranglerContent).not.toContain('AUTHO_CLI_ID');
-    expect(wranglerContent).not.toContain('AUTHO_CLI_SECRET');
-    expect(wranglerContent).not.toContain('AUTHO_CLI_AUDIENCE');
-  });
-
-  it('wrangler.toml documents both ROPC and M2M auth flows', () => {
-    const wranglerPath = resolve(moduleDir, '../wrangler.toml');
-    const wranglerContent = readFileSync(wranglerPath, 'utf-8');
-
-    expect(wranglerContent).toContain('AUTH0_CLIENT_ID');
-    expect(wranglerContent).toContain('AUTH0_CLIENT_SECRET');
-    expect(wranglerContent).toContain('AUTH0_CLI_ID');
-    expect(wranglerContent).toContain('AUTH0_CLI_SECRET');
-    expect(wranglerContent).toContain('AUTH0_AUDIENCE');
-    expect(wranglerContent).toContain('client_credentials grant');
-    expect(wranglerContent).toContain('password grant');
-    expect(wranglerContent).toContain('/api/v2/');
-  });
-
-  it('no deprecated AUTHO_CLI_* variable names appear anywhere in codebase', () => {
-    const typesPath = resolve(moduleDir, './types.ts');
-    const indexPath = resolve(moduleDir, './index.ts');
-    const wranglerPath = resolve(moduleDir, '../wrangler.toml');
-
-    const files = [
-      { path: typesPath, name: 'types.ts' },
-      { path: indexPath, name: 'index.ts' },
-      { path: wranglerPath, name: 'wrangler.toml' },
-    ];
-
-    const deprecatedPattern = /AUTHO_CLI_[A-Z_]+/g;
-
-    files.forEach(({ path, name }) => {
-      const content = readFileSync(path, 'utf-8');
-      const matches = content.match(deprecatedPattern) || [];
-
-      expect(
-        matches.length,
-        `File '${name}' contains deprecated AUTHO_CLI_* variables: ${matches.join(', ')}`
-      ).toBe(0);
     });
   });
 });

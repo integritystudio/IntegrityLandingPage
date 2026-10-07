@@ -106,7 +106,7 @@ Documentation pages use `DocsPageScaffold` (extracted shared scaffold) with `Doc
 | `security_utils.dart` | Input sanitization, CSP nonce |
 | `dashboard_service.dart` | Dashboard data fetching from Workers |
 | `oauth_service.dart` | OAuth flow (platform-conditional web/stub) |
-| `provisioning_service.dart` | Signup/signin calls to sender-worker |
+| `provisioning_service.dart` | `provision_api_key` events to sender-worker `/send` |
 | `auth_storage.dart` | JWT/session persistence (platform-conditional web/stub) |
 | `url_launcher.dart` | External URL opening (platform-conditional web/stub) |
 
@@ -117,7 +117,7 @@ workers/
 ├── constants.ts      # Cross-worker constants (replay window, dead-letter retries, rate-limit and CSRF defaults)
 ├── lib/              # Shared HTTP, validation, schemas, Auth0 JWT verification, billing/entitlements, API-key formats
 ├── contact-form/     # Resend email delivery, CSRF protection, KV rate limiting
-├── sender-worker/    # Inline Auth0+Supabase signup/signin/forgot-password; HMAC-signs /send events to receiver
+├── sender-worker/    # HMAC-signs /send events to receiver; signup-flow Stripe checkout
 ├── receiver-worker/  # Local stub/test double only — NOT deployed (production receiver lives in observability-toolkit repo)
 ├── api-gateway/      # Usage ingest, org billing/keys/quota, staff admin reads, POST /bootstrap, Auth0 log poller
 └── stripe-webhook/   # Stripe subscription lifecycle, checkout, dead-letter queue
