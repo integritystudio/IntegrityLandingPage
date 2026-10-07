@@ -1,5 +1,6 @@
 import { ok, notFound, noContent, buildCors } from '../../lib/http';
 import { handleMe } from './routes/me';
+import { handleGetTeam, handleJoinTeam } from './routes/team';
 import { handleListOrgs, handleOrgDashboard, handleOrgBillingStatus, handleBillingPortal, handleCreateCheckoutSession } from './routes/orgs';
 import { handleUsageSummary, handleOrgEntitlements, handleQuotaStatus } from './routes/usage';
 import {
@@ -94,6 +95,8 @@ const REVOKE_API_KEY_PATH = /^\/api-keys\/([^/]+)\/revoke$/;
 /** The staff directory and the staff twins of the org read routes (ADMIN-CV-GATEWAY-READ). */
 const ADMIN_ORGS_PATH = '/v1/admin/orgs';
 const ADMIN_ORG_PATH = /^\/v1\/admin\/orgs\/([^/]+)(\/.*)?$/;
+/** The caller's email-domain team org: discover (GET) and join (POST) (CR54). */
+const ME_TEAM_PATH = '/v1/me/team';
 /** The router's answer for a path no route serves. */
 const ROUTER_NOT_FOUND_MESSAGE = 'Not found';
 
@@ -242,6 +245,14 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
 
   if (pathname === '/v1/me' && request.method === 'GET') {
     return withSecurityHeaders(await handleMe(request, routeOpts));
+  }
+
+  if (pathname === ME_TEAM_PATH && request.method === 'GET') {
+    return withSecurityHeaders(await handleGetTeam(request, routeOpts));
+  }
+
+  if (pathname === ME_TEAM_PATH && request.method === 'POST') {
+    return withSecurityHeaders(await handleJoinTeam(request, routeOpts));
   }
 
   // The staff routes sit outside the `/v1/orgs/:id` branch below on purpose: they must

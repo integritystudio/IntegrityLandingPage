@@ -18,6 +18,8 @@ export const AuditActionSchema = z.enum([
   'checkout_session.created',
   /** A staff member opened an org's customer view through `/v1/admin/orgs/:id/*` (ADMIN-CV-GATEWAY-READ). */
   'admin.org_viewed',
+  /** A user joined their email domain's team org through `POST /v1/me/team` (CR54). */
+  'org.member_joined',
 ]);
 
 export type AuditAction = z.infer<typeof AuditActionSchema>;

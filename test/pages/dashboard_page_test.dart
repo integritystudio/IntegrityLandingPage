@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/pages/dashboard_page.dart';
 import 'package:integrity_studio_ai/services/auth0_config.dart';
@@ -8,6 +8,9 @@ import 'package:integrity_studio_ai/services/dashboard_service.dart';
 import '../helpers/fake_auth0_browser.dart';
 import '../helpers/mock_http_adapter.dart';
 import '../helpers/test_helpers.dart';
+
+/// GET /v1/me/team when no team org exists for the caller's domain (CR54).
+const noTeam = {'domain': 'example.com', 'team': null, 'member': false};
 
 void main() {
   group('pickActiveOrg', () {
@@ -40,7 +43,8 @@ void main() {
           'organizations': [
             {'id': 'org-1', 'name': 'Org One'},
           ],
-        }, path: '/v1/orgs');
+        }, path: '/v1/orgs')
+        ..stubJson('GET', noTeam, path: '/v1/me/team');
       DashboardService.setDioForTesting(dioWithMockAdapter(adapter));
     });
 
@@ -78,6 +82,87 @@ void main() {
     });
   });
 
+  group('Join your team card (CR54)', () {
+    late MockHttpAdapter adapter;
+    const personalOrg = {'id': 'org-personal', 'name': 'dev@acme.com'};
+    const teamOrg = {'id': 'org-team', 'name': 'acme.com'};
+
+    setUp(() {
+      adapter = MockHttpAdapter()
+        ..stubJson('GET', {
+          'organizations': [personalOrg],
+        }, path: '/v1/orgs');
+      DashboardService.setDioForTesting(dioWithMockAdapter(adapter));
+    });
+
+    tearDown(DashboardService.resetDio);
+
+    void stubTeam({required bool member}) => adapter.stubJson('GET', {
+          'domain': 'acme.com',
+          'team': teamOrg,
+          'member': member,
+        }, path: '/v1/me/team');
+
+    testWidgets('is offered when a team org exists and the user is not in it', (tester) async {
+      stubTeam(member: false);
+      await tester.pumpApp(const DashboardPage(args: DashboardArgs(jwt: 'test.jwt')));
+
+      expect(find.text('Join your team'), findsOneWidget);
+      expect(find.text('Join acme.com'), findsOneWidget);
+    });
+
+    testWidgets('is not offered to a member', (tester) async {
+      stubTeam(member: true);
+      await tester.pumpApp(const DashboardPage(args: DashboardArgs(jwt: 'test.jwt')));
+
+      expect(find.text('Join your team'), findsNothing);
+    });
+
+    testWidgets('is not offered when no team org exists', (tester) async {
+      adapter.stubJson('GET', {'domain': 'acme.com', 'team': null, 'member': false}, path: '/v1/me/team');
+      await tester.pumpApp(const DashboardPage(args: DashboardArgs(jwt: 'test.jwt')));
+
+      expect(find.text('Join your team'), findsNothing);
+    });
+
+    testWidgets('joining posts once, hides the card and selects the team org', (tester) async {
+      stubTeam(member: false);
+      adapter.stubJson('POST', {
+        'organizationId': 'org-team',
+        'name': 'acme.com',
+        'role': 'member',
+        'joined': true,
+      }, path: '/v1/me/team');
+      await tester.pumpApp(const DashboardPage(args: DashboardArgs(jwt: 'test.jwt')));
+      adapter.stubJson('GET', {
+        'organizations': [personalOrg, teamOrg],
+      }, path: '/v1/orgs');
+
+      await tester.ensureVisible(find.text('Join acme.com'));
+      await tester.tap(find.text('Join acme.com'));
+      await tester.pumpAndSettle();
+
+      expect(adapter.requestCount('POST'), 1);
+      expect(adapter.requestLog.last.path, endsWith('/v1/orgs'));
+      expect(find.text('Join your team'), findsNothing);
+      final dropdown = tester.widget<DropdownButton<String>>(find.byType(DropdownButton<String>));
+      expect(dropdown.value, 'org-team');
+    });
+
+    testWidgets('a refusal keeps the card and shows why', (tester) async {
+      stubTeam(member: false);
+      adapter.stubJson('POST', {'error': {'message': 'nope'}}, statusCode: 403, path: '/v1/me/team');
+      await tester.pumpApp(const DashboardPage(args: DashboardArgs(jwt: 'test.jwt')));
+
+      await tester.ensureVisible(find.text('Join acme.com'));
+      await tester.tap(find.text('Join acme.com'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Join your team'), findsOneWidget);
+      expect(find.text('Verify your email address, then try again.'), findsOneWidget);
+    });
+  });
+
   group('Sign out', () {
     late FakeAuth0Browser browser;
 
@@ -86,7 +171,9 @@ void main() {
       browser.write(BrowserStore.local, 'auth0_refresh_token', 'refresh-1');
       Auth0Service.setForTesting(browser: browser);
       DashboardService.setDioForTesting(dioWithMockAdapter(
-          MockHttpAdapter()..stubJson('GET', {'organizations': []}, path: '/v1/orgs')));
+          MockHttpAdapter()
+            ..stubJson('GET', {'organizations': []}, path: '/v1/orgs')
+            ..stubJson('GET', noTeam, path: '/v1/me/team')));
     });
 
     tearDown(() {

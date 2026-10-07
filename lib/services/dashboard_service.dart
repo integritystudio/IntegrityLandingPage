@@ -134,6 +134,48 @@ class BillingPortalError extends BillingPortalResponse {
   const BillingPortalError({required this.error});
 }
 
+/// The caller's email-domain team org (GET /v1/me/team, CR54).
+sealed class TeamStatusResponse {
+  const TeamStatusResponse();
+}
+
+/// A team org exists for the caller's domain; [member] is true for an active membership.
+class TeamAvailable extends TeamStatusResponse {
+  final String teamId;
+  final String teamName;
+  final bool member;
+
+  const TeamAvailable({
+    required this.teamId,
+    required this.teamName,
+    required this.member,
+  });
+}
+
+/// No team org for the caller's domain, or the lookup failed. Either way there is nothing to offer.
+class TeamUnavailable extends TeamStatusResponse {
+  const TeamUnavailable();
+}
+
+/// Result of POST /v1/me/team (CR54).
+sealed class JoinTeamResponse {
+  const JoinTeamResponse();
+}
+
+/// The caller is now (or already was) a member of the team org [teamId].
+class JoinTeamSuccess extends JoinTeamResponse {
+  final String teamId;
+
+  const JoinTeamSuccess({required this.teamId});
+}
+
+/// Joining failed; [error] is safe to show.
+class JoinTeamError extends JoinTeamResponse {
+  final String error;
+
+  const JoinTeamError({required this.error});
+}
+
 /// API client for dashboard data endpoints.
 class DashboardService {
   DashboardService._();
@@ -154,6 +196,11 @@ class DashboardService {
       'No billing account found for this organization.';
   static const String _errorCheckoutAlreadyBilled =
       'This organization already has a billing account. Refresh to manage it.';
+  static const String _errorJoinTeamUnverified =
+      'Verify your email address, then try again.';
+  static const String _errorJoinTeamNoTeam = 'No team exists for your email domain.';
+  static const String _errorJoinTeamInactive =
+      'Your membership of this team is not active. Ask a team owner.';
   // Max retry attempts (2 retries = 3 total attempts: initial + 2 retries)
   static const int _maxRetries = 2;
 
@@ -750,5 +797,88 @@ class DashboardService {
     }
 
     return const OrgListError(error: _errorUnexpected);
+  }
+
+  /// Fetch the team org for the caller's email domain (GET /v1/me/team, CR54).
+  ///
+  /// Single attempt: this only decides whether to offer "Join your team", so any
+  /// failure is reported as [TeamUnavailable] and the offer is simply not shown.
+  static Future<TeamStatusResponse> fetchTeamStatus({required String jwt}) async {
+    try {
+      final response = await _dio.get(
+        '$_apiGatewayUrl/v1/me/team',
+        options: Options(
+          headers: {'Authorization': 'Bearer $jwt'},
+          validateStatus: (status) => status != null,
+        ),
+      );
+      final data = response.data;
+      if (response.statusCode != HttpStatus.ok.code || data is! Map<String, dynamic>) {
+        return const TeamUnavailable();
+      }
+      final team = data['team'];
+      if (team is! Map<String, dynamic>) return const TeamUnavailable();
+      final id = team['id'];
+      final name = team['name'];
+      if (id is! String || id.isEmpty || name is! String) {
+        return const TeamUnavailable();
+      }
+      return TeamAvailable(teamId: id, teamName: name, member: data['member'] == true);
+    } on DioException catch (e) {
+      await ErrorTrackingService.captureException(
+        e,
+        stackTrace: e.stackTrace,
+        context: 'DashboardService.fetchTeamStatus',
+      );
+      return const TeamUnavailable();
+    } catch (e, stackTrace) {
+      await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+      return const TeamUnavailable();
+    }
+  }
+
+  /// Join the team org for the caller's verified email domain (POST /v1/me/team, CR54).
+  static Future<JoinTeamResponse> joinTeam({required String jwt}) async {
+    try {
+      final response = await _dio.post(
+        '$_apiGatewayUrl/v1/me/team',
+        options: Options(
+          headers: {'Authorization': 'Bearer $jwt'},
+          validateStatus: (status) => status != null,
+        ),
+      );
+      final data = response.data;
+      if (response.statusCode == HttpStatus.ok.code && data is Map<String, dynamic>) {
+        final id = data['organizationId'];
+        if (id is String && id.isNotEmpty) return JoinTeamSuccess(teamId: id);
+        return const JoinTeamError(error: _errorUnexpected);
+      }
+      return JoinTeamError(error: _joinTeamErrorMessage(response.statusCode));
+    } on DioException catch (e) {
+      await ErrorTrackingService.captureException(
+        e,
+        stackTrace: e.stackTrace,
+        context: 'DashboardService.joinTeam',
+      );
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        return const JoinTeamError(error: _errorTimeout);
+      }
+      return const JoinTeamError(error: _errorNetwork);
+    } catch (e, stackTrace) {
+      await ErrorTrackingService.captureException(e, stackTrace: stackTrace);
+      return const JoinTeamError(error: _errorUnexpected);
+    }
+  }
+
+  static String _joinTeamErrorMessage(int? statusCode) {
+    if (statusCode == HttpStatus.unauthorized.code) return _errorBillingAuth;
+    if (statusCode == HttpStatus.forbidden.code) return _errorJoinTeamUnverified;
+    if (statusCode == HttpStatus.notFound.code) return _errorJoinTeamNoTeam;
+    if (statusCode == HttpStatus.conflict.code) return _errorJoinTeamInactive;
+    if (statusCode != null && statusCode >= HttpStatus.internalServerError.code) {
+      return _errorServer;
+    }
+    return _errorUnexpected;
   }
 }

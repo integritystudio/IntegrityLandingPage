@@ -45,6 +45,7 @@ Dispatch is hand-rolled on `pathname` + `method` in `workers/api-gateway/src/ind
 | POST | `/v1/ingest/events` | JWT or API key — [Usage ingestion](#usage-ingestion) |
 | POST | `/v1/ingest/otel` | API key |
 | GET | `/v1/me`, `/v1/orgs` | JWT |
+| GET, POST | `/v1/me/team` | JWT — POST needs a verified email ([CR54](BACKLOG.md#cr54)) |
 | GET | `/v1/orgs/:id/dashboard`, `/billing-status`, `/usage/summary`, `/entitlements`, `/quota/status` | JWT, active member |
 | POST | `/v1/orgs/:id/billing-portal`, `/checkout-session`, `/api-keys` | JWT, active member |
 | POST | `/v1/orgs/:id/api-keys/:keyId/revoke` | JWT, active member |
@@ -55,6 +56,7 @@ Dispatch is hand-rolled on `pathname` + `method` in `workers/api-gateway/src/ind
 
 - API keys are a sub-resource of an org; there is no top-level `/v1/api-keys`.
 - Every `/v1/orgs/:id/*` request reserves one quota unit and records the same unit in `usage_events`, so what is enforced is what `/usage/summary` reports. `/usage/summary` and `/quota/status` count against the per-minute window only, so an org that has used its month can still read its usage.
+- `/v1/me/team` lets a user join the existing team org for their email domain (`organizations.type = 'team'`, matching `domain`). GET reports the team and whether the caller is an active member, from `users.email`; POST checks the address with Auth0 `/userinfo` (`email_verified === true`, else 403), adds an active `member` row (404 when no team org exists, 409 for a suspended or invited row, idempotent for an active one) and writes an `org.member_joined` audit row. It never creates a team org or touches the personal org.
 - `/v1/admin/*` is dispatched outside the org branch: staff reads take no org throttle, reserve no quota and write no usage row. Each staff view of an org writes an `admin.org_viewed` audit row (at most one per org per hour). `STAFF_USER_IDS` is shared with `quality-metrics-dashboard`.
 
 ### `obtool-api`
@@ -152,7 +154,7 @@ API-key only; the org comes from the key. Accepts `{ spans: [...] }` (1–1,000 
 
 Two layers sit in front of handlers:
 
-1. **Edge throttle** — KV plus per-isolate counters: 300 requests/60 s per org on `/v1/orgs/:id/*`, 120 requests/60 s per JWT subject on `/v1/me`, `/v1/orgs` and `/bootstrap`. This is the ceiling that holds when the quota Durable Object is unreachable.
+1. **Edge throttle** — KV plus per-isolate counters: 300 requests/60 s per org on `/v1/orgs/:id/*`, 120 requests/60 s per JWT subject on `/v1/me`, `/v1/me/team`, `/v1/orgs` and `/bootstrap`. This is the ceiling that holds when the quota Durable Object is unreachable.
 2. **Quota Durable Object** — one per org (`workers/api-gateway/src/durable-objects/quota.ts`), serialising reservations so concurrent requests cannot double-spend. Limits follow the org's **effective** plan: a paid plan applies only while its billing status is entitled; otherwise starter.
 
 | Plan | Per minute | Per month |

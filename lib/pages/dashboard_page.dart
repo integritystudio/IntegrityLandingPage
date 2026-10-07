@@ -7,6 +7,7 @@ import '../services/analytics.dart';
 import '../services/auth0_service.dart';
 import '../services/dashboard_service.dart';
 import '../theme/theme.dart';
+import '../widgets/common/buttons.dart';
 import '../widgets/common/cards.dart';
 import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
@@ -58,6 +59,11 @@ class _DashboardPageState extends State<DashboardPage> {
   List<OrgSummary> _orgs = const [];
   OrgSummary? _activeOrg;
 
+  /// The caller's email-domain team org, set only when they are not yet in it (CR54).
+  TeamAvailable? _joinableTeam;
+  bool _isJoiningTeam = false;
+  String? _joinTeamError;
+
   @override
   void initState() {
     super.initState();
@@ -82,12 +88,104 @@ class _DashboardPageState extends State<DashboardPage> {
           _activeOrg = pickActiveOrg(response.orgs, widget.args.initialOrgId);
           _isLoading = false;
         });
+        _fetchTeamStatus();
       case OrgListError():
         setState(() {
           _errorMessage = response.error;
           _isLoading = false;
         });
     }
+  }
+
+  Future<void> _fetchTeamStatus() async {
+    final status = await DashboardService.fetchTeamStatus(jwt: widget.args.jwt);
+    if (!mounted) return;
+    setState(() {
+      _joinableTeam = switch (status) {
+        TeamAvailable(member: false) => status,
+        _ => null,
+      };
+    });
+  }
+
+  /// Joins the team org, then reloads the org list with the team selected.
+  Future<void> _joinTeam() async {
+    setState(() {
+      _isJoiningTeam = true;
+      _joinTeamError = null;
+    });
+
+    final response = await DashboardService.joinTeam(jwt: widget.args.jwt);
+    if (!mounted) return;
+
+    switch (response) {
+      case JoinTeamSuccess():
+        setState(() {
+          _isJoiningTeam = false;
+          _joinableTeam = null;
+        });
+        await _reloadOrgsSelecting(response.teamId);
+      case JoinTeamError():
+        setState(() {
+          _isJoiningTeam = false;
+          _joinTeamError = response.error;
+        });
+    }
+  }
+
+  Future<void> _reloadOrgsSelecting(String orgId) async {
+    final response = await DashboardService.fetchOrgList(jwt: widget.args.jwt);
+    if (!mounted) return;
+    if (response case OrgListSuccess(:final orgs)) {
+      setState(() {
+        _orgs = orgs;
+        _activeOrg = pickActiveOrg(orgs, orgId);
+      });
+    }
+  }
+
+  Widget _buildJoinTeamCard(TeamAvailable team) {
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.users, color: AppColors.blue500, size: 24),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  'Join your team',
+                  style: AppTypography.bodyMD.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Your colleagues already use the ${team.teamName} organization. '
+            'Join it as a member; your personal organization stays as it is.',
+            style: AppTypography.bodySM.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          GradientButton(
+            text: 'Join ${team.teamName}',
+            onPressed: _isJoiningTeam ? null : _joinTeam,
+            isLoading: _isJoiningTeam,
+          ),
+          if (_joinTeamError != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              _joinTeamError!,
+              style: AppTypography.bodySM.copyWith(color: AppColors.error),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   void _navigateTo(String route, Object extra) {
@@ -205,6 +303,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 .copyWith(color: AppColors.textSecondary),
           )
         else ...[
+          if (_joinableTeam case final team?) ...[
+            _buildJoinTeamCard(team),
+            const SizedBox(height: AppSpacing.xl),
+          ],
           if (_orgs.length > 1) ...[
             Text(
               'Organization',

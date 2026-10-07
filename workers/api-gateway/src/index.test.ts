@@ -947,6 +947,22 @@ describe('TS23: all registered routes are dispatched (not 404)', () => {
     const res = await worker.fetch(makeRequest(method, path, { headers: authHeader() }), env());
     expect(await isRouterFallThrough(res)).toBe(true);
   });
+
+  // CR54: the identity-scoped team routes are dispatched and, like /v1/me, reserve no org quota.
+  it.each(['GET', 'POST'] as const)('%s /v1/me/team reaches a handler without reaching the quota DO', async (method) => {
+    const reserved: unknown[] = [];
+    const res = await worker.fetch(
+      makeRequest(method, '/v1/me/team', { headers: authHeader() }),
+      makeEnv({ QUOTA_DO: admittingQuotaDo((body) => reserved.push(body)), RATE_LIMIT_KV: mapKv() }),
+    );
+    expect(await isRouterFallThrough(res)).toBe(false);
+    expect(reserved).toHaveLength(0);
+  });
+
+  it('PUT /v1/me/team gets the router fall-through', async () => {
+    const res = await worker.fetch(makeRequest('PUT', '/v1/me/team', { headers: authHeader() }), env());
+    expect(await isRouterFallThrough(res)).toBe(true);
+  });
 });
 
 /**
