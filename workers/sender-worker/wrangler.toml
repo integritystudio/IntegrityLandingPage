@@ -127,7 +127,8 @@ enabled = true
 #   SUPABASE_SERVICE_ROLE_KEY  — Supabase service role key
 #   AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, AUTH0_CLI_ID, AUTH0_CLI_SECRET,
 #   AUTH0_AUDIENCE             — no longer read (CR49: the inline /signup, /signin and
-#                                /forgot-password routes were removed). Unbind them.
+#                                /forgot-password routes were removed); unbound from
+#                                sender-worker and sender-worker-dev 2026-10-07.
 #   ALLOWED_ORIGINS_JSON       — JSON array of allowed CORS origins (optional; defaults to integritystudio.ai and integritystudio.dev, apex and www — workers/lib/http/cors.ts)
 #   STRIPE_SECRET_KEY          — Stripe API key: prd holds an rk_live_ restricted key, dev a sandbox key
 #   STRIPE_PLAN_TO_PRICE_JSON  — JSON map of plan → Stripe price ID, e.g. {"growth":"price_xxx","enterprise":"price_yyy"}
