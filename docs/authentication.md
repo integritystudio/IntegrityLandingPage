@@ -105,6 +105,6 @@ Auth0 Universal Login (password, reset)  ── post-login Action runs ──
 
 ## Removed: sender-worker password routes
 
-[CR49](BACKLOG.md#cr49) deleted `sender-worker`'s pre-CR48 Auth0 ROPC routes `POST /signup`, `/signin` and `/forgot-password`, their per-IP rate limiter and their live suite, after a week with no production traffic. They now answer 404. Removing the `password` grant from "My App" is CR49 step 3.
+[CR49](BACKLOG.md#cr49) deleted `sender-worker`'s pre-CR48 Auth0 ROPC routes `POST /signup`, `/signin` and `/forgot-password`, their per-IP rate limiter and their live suite, after a week with no production traffic. They now answer 404, and the `password` grant was removed from "My App" on 2026-10-07, so no production client allows ROPC.
 
 **Removed from the app by CR48 (2026-09-29):** `AuthMode` and its extension, `ProvisioningService.signIn/signUp/forgotPassword`, `AuthSuccess`/`AuthError`, `AuthStorage` and `PasswordPolicy`.

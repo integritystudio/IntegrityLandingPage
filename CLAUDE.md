@@ -176,7 +176,7 @@ Status for every open item — or one waiting on a deploy — lives only in [doc
 - No Workers route or Custom Domain can attach to a domain that is not a Cloudflare zone. Add `routes` only after the zone exists, or `deploy:prd` breaks.
 
 **Auth0 (CR25, CR32, CR33, CR34)**
-- `My App`'s `password` grant has had no caller since CR49 deleted `sender-worker`'s `/signin`. Remove it only once that deploy is live in production (CR49 step 3).
+- `My App`'s `password` grant was removed 2026-10-07 (CR49): production ROPC is on 0 clients. Do not re-add it; sign-in is Universal Login (CR48).
 - Do not re-add `implicit` or `password` to the dashboard SPA (it uses `loginWithRedirect`, auth code + PKCE), or ROPC to `AUTH0_MANAGER`.
 - Client ids are display-truncated in listings. Look the full id up before PATCHing, or you strip grants off the wrong client.
 - Enforcing MFA forces every user to re-enrol — an owner decision, not a config fix.

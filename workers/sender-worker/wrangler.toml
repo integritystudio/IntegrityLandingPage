@@ -80,10 +80,10 @@ invocation_logs = true
 enabled = true
 
 # No KV binding (CR49). RATE_LIMIT_KV backed the per-IP limiter on /signup,
-# /signin and /forgot-password, which were removed with those routes. The
-# namespaces themselves — AUTH_RATE_LIMIT_KV (766332ec6de3462fb29777aa1b6bc9d3)
-# and dev-RATE_LIMIT_KV (46a717cd692a4cc2969bff9504bcc87b) — still exist in the
-# account until deleted there.
+# /signin and /forgot-password, which were removed with those routes. Do NOT
+# delete the namespaces: api-gateway still binds AUTH_RATE_LIMIT_KV
+# (766332ec6de3462fb29777aa1b6bc9d3) and dev-RATE_LIMIT_KV
+# (46a717cd692a4cc2969bff9504bcc87b) for its own rate limiters.
 
 # Secrets (set via wrangler secret put or doppler):
 #   SHARED_SECRET              — RETIRED (BACKLOG.md CR29, closed 2026-08-03). Never read:
