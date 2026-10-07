@@ -1,7 +1,7 @@
 /**
  * Tests for Integrity Studio Sender Worker
  *
- * Tests inter-worker request signing and forwarding to receiver-worker.
+ * Tests inter-worker request signing and forwarding to api-provisioning-receiver.
  * Run with: npm test
  */
 
@@ -90,7 +90,7 @@ const validSendPayload = {
   tier: 'starter',
 };
 
-// Shape returned by receiver-worker after full provisioning (steps 8-9 in wire doc)
+// Shape returned by api-provisioning-receiver after full provisioning (steps 8-9 in wire doc)
 const validApiKeyResponse = {
   ok: true,
   token: `obtk_${'a'.repeat(64)}`,
@@ -268,7 +268,7 @@ describe('Sender Worker', () => {
       expect(forwardedPayload!['org_name']).toBeUndefined();
     });
 
-    it('passes through receiver-worker error responses unchanged', async () => {
+    it('passes through receiver error responses unchanged', async () => {
       mockReceiverResponse({ error: 'invalid signature' }, 401);
 
       const request = makeSendRequest(validSendPayload);
@@ -502,7 +502,7 @@ describe('Sender Worker', () => {
       mockReceiverFetch.mockReset();
     });
 
-    it('returns 502 when receiver-worker is unreachable', async () => {
+    it('returns 502 when the receiver is unreachable', async () => {
       mockReceiverFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
       const request = makeSendRequest(validSendPayload);
       const response = await worker.fetch(request, mockEnv);
