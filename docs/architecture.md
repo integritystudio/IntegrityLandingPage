@@ -103,11 +103,11 @@ Documentation pages use `DocsPageScaffold` (extracted shared scaffold) with `Doc
 | `analytics.dart` | Analytics integration |
 | `tracking.dart` | Platform-conditional tracking (web/none) |
 | `http_status.dart` | HTTP status code constants |
-| `security_utils.dart` | Input sanitization, CSP nonce |
 | `dashboard_service.dart` | Dashboard data fetching from Workers |
-| `oauth_service.dart` | OAuth flow (platform-conditional web/stub) |
 | `provisioning_service.dart` | `provision_api_key` events to sender-worker `/send` |
-| `auth_storage.dart` | JWT/session persistence (platform-conditional web/stub) |
+| `auth0_config.dart` | Auth0 tenant, client id, audience and scope |
+| `auth0_service.dart` | Universal Login: PKCE sign-in, callback, refresh, sign-out ([authentication.md](authentication.md)) |
+| `auth0_browser.dart` | Session storage and navigation seam (platform-conditional web/stub) |
 | `url_launcher.dart` | External URL opening (platform-conditional web/stub) |
 
 ## Backend (Cloudflare Workers)

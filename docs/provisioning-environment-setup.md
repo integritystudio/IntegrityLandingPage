@@ -1,11 +1,11 @@
 # API Provisioning Environment Setup Guide
 
-**Last Updated:** 2026-10-06 (post-CR29 cleanup: the passages describing `SHARED_SECRET` as live and Procedure B removed, stale line references refreshed). Previous: 2026-07-31 (rotation procedure rewritten — correct `SIGNING_KEYS` wire format, receiver-first ordering, split into Procedure A/B; see [CR29](changelog/1.3/CHANGELOG.md#cr29))
+**Last Updated:** 2026-10-07 (duplicates removed: the User Provisioning Workflow and Implementation Reference now live in authentication.md and api-reference.md; post-CR29 cleanup: the passages describing `SHARED_SECRET` as live and Procedure B removed). Previous: 2026-07-31 (rotation procedure rewritten — correct `SIGNING_KEYS` wire format, receiver-first ordering, split into Procedure A/B; see [CR29](changelog/1.3/CHANGELOG.md#cr29))
 **Version:** 2.1
 
-This guide covers HMAC signing-key generation (`SIGNING_KEYS` + `ACTIVE_KEY_ID`; the legacy `SHARED_SECRET` is retired — see below), Flutter app configuration, the implementation/security reference, and troubleshooting for the API provisioning **sender worker**.
+This guide covers HMAC signing-key generation and rotation (`SIGNING_KEYS` + `ACTIVE_KEY_ID`; the legacy `SHARED_SECRET` is retired — see below), Flutter app configuration, the security checklist, and troubleshooting for the API provisioning **sender worker**.
 
-> ℹ️ **Scope note.** The production receiver is **`api-provisioning-receiver`**, which lives in the separate `observability-toolkit` repo and is reached by `sender-worker` via a **service binding** (`service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`), not a URL. The live sender is `sender-worker.alyshia-b38.workers.dev` (no custom worker domains exist). Earlier sections describing a deployable in-repo `receiver-worker`, `RECEIVER_WORKER_URL`, `*.integritystudio.ai` worker hostnames, and `--env staging` deploys described a retired HTTP-based wiring and were removed (consolidated 2026-06-27, `docs/BACKLOG.md` W03). This guide predates the Auth0 ROPC + Supabase flow, so it does **not** cover the required `AUTH0_*` / `SUPABASE_*` sender secrets — see `workers/sender-worker/wrangler.toml` for the current secret list, and the `observability-toolkit` repo for receiver setup.
+> ℹ️ **Scope note.** The production receiver is **`api-provisioning-receiver`**, which lives in the separate `observability-toolkit` repo and is reached by `sender-worker` via a **service binding** (`service = "api-provisioning-receiver"` in `workers/sender-worker/wrangler.toml`), not a URL. The live sender is `sender-worker.alyshia-b38.workers.dev` (no custom worker domains exist). This guide does not cover the sender's other secrets (`SUPABASE_*`, Stripe) — see `workers/sender-worker/wrangler.toml` for the current list, and the `observability-toolkit` repo for receiver setup. The `/send` contract, signed-request format, receiver checks and CORS are in [api-reference.md § Provisioning](api-reference.md#provisioning-sender-worker--api-provisioning-receiver); the sign-up and provisioning flow is in [authentication.md § Sign-up](authentication.md#sign-up).
 
 ---
 
@@ -71,80 +71,6 @@ flutter run -d chrome \
 flutter build web \
   --dart-define=SENDER_WORKER_URL=https://sender-worker.alyshia-b38.workers.dev
 ```
-
----
-
-## User Provisioning Workflow
-
-Full data flow for user creation and API key provisioning, by tier.
-
-### Starter (free, no payment)
-
-```
-SignupPage (/signup?tier=starter)
-  └─→ Auth0 Universal Login sign-up screen (CR48; see authentication.md)
-        └─ post-login Action inserts the public.users row
-  └─→ /callback → no org yet → GoRouter /provision
-        └─ POST /send (sender-worker)
-              ├─ validates SendRequestSchema {action, jwt, name, email, org_name?}  (a sent tier is stripped — CR37)
-              ├─ HMAC-SHA256 signs {x-timestamp}.{body} with SIGNING_KEYS[ACTIVE_KEY_ID]
-              │    (500 SIGNING_KEY_UNRESOLVED, forwarding nothing, if that does not resolve)
-              └─ POST api-provisioning-receiver /inbox (via service binding), sending x-key-id
-                    ├─ resolves x-key-id → SIGNING_KEYS entry; no key id = 401, no fallback
-                    ├─ verifies x-timestamp (±5 min) + x-signature constant-time
-                    ├─ Auth0 /userinfo (validates JWT live)
-                    ├─ Supabase GET /rest/v1/users?auth0_id=eq.{sub} → Supabase UUID
-                    ├─ Supabase POST /rest/v1/organizations {domain, type:"team", current_plan:"starter"}  (never from the payload — CR37)
-                    ├─ Supabase POST /rest/v1/organization_memberships
-                    └─ Supabase Edge Fn POST /functions/v1/api-keys-create
-                         └─ returns { token: /obtk_[0-9a-f]{64}/, keyId, prefix, tier }
-  └─→ "Go to Dashboard" → window.open(integritystudio.dev?access_token=<jwt>)
-```
-
-### Growth (paid, Stripe checkout)
-
-```
-SignupPage (/signup?tier=growth)
-  └─→ same Auth0 sign-up and /provision steps as starter
-  └─→ "Continue to Checkout" → GoRouter /checkout (CheckoutArgs{email, tier})
-        └─ CheckoutPage: POST /create-checkout-session (sender-worker)
-              ├─ validates CreateCheckoutSessionSchema {email, tier}
-              ├─ looks up priceId from STRIPE_PLAN_TO_PRICE_JSON[tier]
-              └─ POST https://api.stripe.com/v1/checkout/sessions
-                    mode: subscription, line_items[0][price]: priceId
-                    success_url: {APP_BASE_URL}/checkout-success?email=...&tier=...
-                    cancel_url:  {APP_BASE_URL}/signup?tier=...
-                    └─ returns { checkoutUrl }
-        └─ window.location.href = checkoutUrl (browser leaves app → Stripe hosted page)
-  └─→ Stripe payment complete → /checkout-success?email=&tier=
-        └─ CheckoutSuccessPage: "Sign In to Activate" → /signin
-  └─→ User signs in → /provision → same provision flow as starter
-        (Stripe webhook separately: checkout.session.completed + customer.subscription.updated
-         → updateOrgBillingStatus(org, "active", "growth", bumpQuota=true)
-         → quota_version bumped → Quota DO resets limits to growth tier on next API request)
-```
-
-### Enterprise (contact sales, no provisioning)
-
-```
-SignupPage (/signup?tier=enterprise)
-  └─→ ContactService.submitForm() → POST contact-form worker
-        ├─ CSRF validation, KV rate limiting, idempotency check
-        └─ Resend API → sends email to sales team
-  └─→ GoRouter /request_success (no Auth0 user, no Supabase row, no API key)
-```
-
-### Key Boundaries
-
-| Concern | Where |
-|---|---|
-| Auth0 user creation | sender-worker `auth0CreateUser` (M2M grant) |
-| Supabase provisioning (signup) | sender-worker `handleSignup` (inline, pre-webhook) |
-| JWT issuance | sender-worker `auth0UserSignIn` (ROPC) |
-| JWT persistence | `AuthStorage.saveJwt` → `localStorage['auth_jwt']` |
-| API key creation | api-provisioning-receiver → Supabase Edge Fn `api-keys-create` |
-| Plan upgrade (Stripe → Supabase) | stripe-webhook worker `updateOrgBillingStatus` |
-| Quota enforcement | api-gateway `enforceOrgQuota` + Quota Durable Object |
 
 ---
 
@@ -312,32 +238,6 @@ No fixed cadence is enforced. Priorities:
 
 ---
 
-## Implementation Reference
-
-### CORS (Environment-Aware)
-- Production origins: `https://integritystudio.ai`, `https://www.integritystudio.ai`, `https://integritystudio.dev`, `https://www.integritystudio.dev` (defaults in `workers/lib/http/cors.ts`)
-- Development origins: `http://localhost:<port>` (configurable)
-- Configurable via the `ALLOWED_ORIGINS_JSON` environment variable
-- Proper OPTIONS preflight handling; 403 rejection for disallowed origins
-
-### HMAC-SHA256 Signing
-- Message format: `{timestamp}.{body}`
-- Hex-encoded signature (lowercase, zero-padded)
-- Constant-time comparison in receiver
-- Shared secret managed via wrangler secrets / Doppler
-
-### Replay Protection
-- 5-minute timestamp window (configurable constant)
-- Validates timestamp freshness on every request (±5 min)
-- Non-numeric timestamp rejection
-
-### Error Handling
-- Consistent error response format: `{ error: string }`
-- Proper HTTP status codes (400, 401, 403, 404, 500, 502)
-- All responses include `Content-Type: application/json; charset=utf-8`
-
----
-
 ## Security Checklist
 
 - ✅ HMAC-SHA256 with 256-bit random secrets
@@ -364,7 +264,7 @@ Fix: Verify both sides hold the same id -> secret pair
   Run the Procedure A step-4 pre-flight to confirm ACTIVE_KEY_ID resolves
   Receiver first when adding a key, receiver last when removing one
 ```
-⚠️ **The same 401 covers an absent, empty, or unknown `x-key-id`** — deliberately byte-identical so key ids cannot be enumerated. Removing the header is not a workaround; there is no fallback credential. Sentry's `auth.key_unresolved` + `miss` is the only thing that distinguishes the cause. (Against the **deployed** receiver a keyless request still succeeds instead — CR29 step 2 is unshipped.)
+⚠️ **The same 401 covers an absent, empty, or unknown `x-key-id`** — deliberately byte-identical so key ids cannot be enumerated. Removing the header is not a workaround; there is no fallback credential. Sentry's `auth.key_unresolved` + `miss` is the only thing that distinguishes the cause.
 
 **2. Stale Timestamp (401 stale or invalid timestamp)**
 ```
@@ -392,7 +292,7 @@ Fix: Check [[services]] binding in workers/sender-worker/wrangler.toml
 ## References
 
 - [API reference § Provisioning](api-reference.md#provisioning-sender-worker--api-provisioning-receiver)
-- [Provisioning Manual E2E Test Guide](PROVISIONING_MANUAL_TEST.md)
+- [Authentication § Sign-up](authentication.md#sign-up)
 - [Sender Worker README](../workers/sender-worker/README.md)
 - [Cloudflare Secrets Management](https://developers.cloudflare.com/workers/configuration/secrets/)
 

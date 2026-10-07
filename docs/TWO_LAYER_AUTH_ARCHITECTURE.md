@@ -41,7 +41,6 @@ The Action's two guards:
 - **Fail closed (CR69).** If no app user id resolves (Supabase answers with an error or an unexpected shape), the Action denies the login rather than issuing a token without app claims. A network failure is not caught, so the Action throws, which also fails the login. Either way a Supabase outage blocks sign-in. A failed profile write alone does not: the Action falls back to a plain read.
 - **Narrow email re-link (CR51, CR65).** When no row matches `auth0_id`, the Action falls back to matching by email only if the email is verified *and* the connection strategy is `auth0` (the database connection). Social and enterprise logins are never re-linked by email, because their `email_verified` is the IdP's assertion; the Action inserts a fresh row instead, and if a row already holds that email, `users_email_key` rejects the insert and the login is denied by the fail-closed guard above.
 
-The sender's Auth0 ROPC routes `POST /signup`, `/signin` and `/forgot-password` were deleted by [CR49](changelog/1.4/CHANGELOG.md#cr49).
 
 ### Tokens
 
@@ -141,18 +140,16 @@ Request → api-gateway
   │   JWT: the users row (by auth0_id) and its active memberships
   │   API key: api_keys.organization_id; a key for another org is refused before quota
   │
-  ├─ [4] Edge throttle — KV + per-isolate counters, not a Cloudflare rate-limit binding
-  │   /v1/orgs/:id/*: 300 req / 60 s per org (ORG_RATE_LIMIT_MAX); the DO is fail-open,
-  │        so this is the per-minute ceiling that survives a DO outage
-  │   /v1/me, /v1/orgs, /bootstrap: 120 req / 60 s per JWT subject (IDENTITY_RATE_LIMIT_MAX)
+  ├─ [4] Edge throttle — KV + per-isolate counters, per org on /v1/orgs/:id/*, per JWT subject
+  │        on /v1/me, /v1/orgs, /bootstrap; the ceiling that survives a quota-DO outage
+  │        (limits: api-reference.md § Rate limits)
   │
   ├─ [5] Quota — Durable Object per org, strong consistency: reserve one unit;
   │        a used-up month answers 429
   │
   ├─ [6] Handle the route; write the metered unit to usage_events via waitUntil
   │
-  └─ [7] Respond with RateLimit-Policy / RateLimit / Retry-After
-         (plus the legacy X-RateLimit-Remaining-Minute / -Monthly), exposed through CORS
+  └─ [7] Respond with the RateLimit headers (api-reference.md § Rate limits)
 ```
 
 `SUPABASE_JWT_SECRET` is deliberately unbound on api-gateway: these are Auth0-issued tokens, and verifying them against Supabase is what produces `401 Invalid JWT signature`.
