@@ -196,12 +196,11 @@
       <table>
         <thead><tr><th>Component</th><th>Repo</th><th>Reached at</th><th>Role</th></tr></thead>
         <tbody>
-          <tr><td><code>api-gateway</code></td><td>this repo</td><td><code>api.integritystudio.dev</code></td><td>Account, org, billing and API-key management; usage ingestion; quota</td></tr>
-          <tr><td><code>sender-worker</code></td><td>this repo</td><td><code>*.workers.dev</code></td><td>Browser-facing provisioning proxy; validates, signs and forwards to the receiver</td></tr>
+          <tr><td><code>api-gateway</code></td><td>integrity-landing-page</td><td><code>api.integritystudio.dev</code></td><td>Account, org, billing and API-key management; usage ingestion; quota</td></tr>
+          <tr><td><code>sender-worker</code></td><td>integrity-landing-page</td><td><code>*.workers.dev</code></td><td>Browser-facing provisioning proxy; validates, signs and forwards to the receiver</td></tr>
           <tr><td><code>api-provisioning-receiver</code></td><td>observability-toolkit</td><td><code>RECEIVER</code> binding</td><td>Verifies signed requests; creates keys through <code>api-keys-create</code></td></tr>
           <tr><td><code>obtool-api</code></td><td>observability-toolkit</td><td><code>api.integritystudio.ai</code></td><td>Observability read API: traces, metrics, logs, sessions</td></tr>
           <tr><td><code>obtool-ingest</code></td><td>observability-toolkit</td><td><code>ingest.integritystudio.ai</code></td><td>Internal OTLP ingest</td></tr>
-          <tr><td><code>receiver-worker</code></td><td>this repo</td><td>local only</td><td>Test double of the receiver; never deployed</td></tr>
         </tbody>
       </table>
     </div>

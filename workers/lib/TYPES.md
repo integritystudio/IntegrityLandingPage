@@ -220,7 +220,6 @@ hmacVerify(secret: string, signature: Uint8Array, message: string): Promise<bool
 | `lib/api-keys.ts` | `hmacSignHex` | Hash API key secret for storage |
 | `lib/api-keys.ts` | `hmacVerify` | Verify API key secret against stored hash |
 | `stripe-webhook/src/verify.ts` | `hmacVerify` | Verify Stripe webhook HMAC signature |
-| `receiver-worker/src/index.ts` | `hmacVerify` | Verify HMAC-signed inter-worker requests (local stub) |
 | `sender-worker/src/crypto.ts` | `hmacSignHex` | Sign requests to the receiver |
 | `contact-form/src/index.ts` | `hmacSign` | Generate and validate CSRF tokens (base64url encoded) |
 

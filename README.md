@@ -6,7 +6,7 @@
 Enterprise AI Observability Platform landing page built with Flutter Web.
 
 **Production**: https://integritystudio.ai
-**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, ~3,017 Flutter (unit+contract+integration, 2026-07-31) + **1,282 worker tests** (verified 2026-10-06 via `npm run test:workers`)
+**Status**: ✅ Sender-Worker UI complete (auth, provision, health pages), API provisioning + ingest + Stripe billing workers live, ~3,017 Flutter (unit+contract+integration, 2026-07-31) + **1,249 worker tests** (2026-10-06: `npm run test:workers` measured 1,282, then the 33-test `receiver-worker` stub was deleted)
 
 ## Quick Start
 
@@ -58,17 +58,13 @@ npm install && npx wrangler dev   # Local dev
 npx vitest run                    # Tests
 ```
 
-**API Provisioning Workers** (`workers/sender-worker/`, `workers/receiver-worker/`)
+**API Provisioning Worker** (`workers/sender-worker/`)
 - **Sender** (`api-provisioning-sender`): routes `POST /send`, `/create-checkout-session`, `GET /health` (Zod v4). Its ROPC routes `/signup`, `/signin` and `/forgot-password` were deleted by CR49; sign-in is Auth0 Universal Login (CR48).
   - *Forwarded:* `/send` events (`provision_api_key`, `sign_in`) are HMAC-SHA256-signed and sent to the production receiver `api-provisioning-receiver` via a Cloudflare service binding. The receiver mints `obtk_` API keys; api-gateway's `POST /v1/orgs/:id/api-keys` mints the legacy `int_live_` format, which only api-gateway accepts.
-- **Receiver**: `workers/receiver-worker/` is a **local stub / test double** (signature verification, replay protection). The production receiver is `api-provisioning-receiver` in the separate `observability-toolkit` repo (persists to Supabase).
+- **Receiver**: the production receiver is `api-provisioning-receiver` in the separate `observability-toolkit` repo (persists to Supabase), reached over the `RECEIVER` service binding.
 
 ```bash
 cd workers/sender-worker
-npm install && npx wrangler dev   # Local dev
-npx vitest run                    # Tests
-
-cd workers/receiver-worker
 npm install && npx wrangler dev   # Local dev
 npx vitest run                    # Tests
 
@@ -117,12 +113,11 @@ flutter test test/services/provisioning_service_live_test.dart \
   --dart-define=SENDER_WORKER_URL=https://sender-worker-dev.alyshia-b38.workers.dev
 
 # Workers — or run every package at once from the repo root:
-#   npm run test:workers   (1,282 tests)   npm run lint:workers   (tsc --noEmit x6; there is no ESLint here)
+#   npm run test:workers   (1,249 tests)   npm run lint:workers   (tsc --noEmit x5; there is no ESLint here)
 # Per-package counts measured 2026-10-06:
 cd workers/lib && npm test              # Shared lib tests (352 passing)
 cd workers/contact-form && npm test     # Contact form worker tests (81 passing)
 cd workers/api-gateway && npm test      # API Gateway worker tests (422 passing)
-cd workers/receiver-worker && npm test  # Receiver worker tests (33, local stub)
 cd workers/sender-worker && npm test    # Sender worker tests (206 passing)
 cd workers/stripe-webhook && npm test   # Stripe webhook tests (188 passing)
 # (bootstrap-worker was deleted 2026-07-31 — POST /bootstrap is now a route on api-gateway)

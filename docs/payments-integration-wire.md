@@ -293,7 +293,7 @@ Signature format: `HMAC-SHA256(secret, "${timestamp}.${bodyString}")` as hex. Th
 | `tier` | `'starter' \| 'growth' \| 'enterprise'` | no | Defaults to `'starter'` |
 | `org_name` | string | no | Falls back to email domain if omitted |
 
-Schema: `inboxPayloadSchema` in the production receiver `api-provisioning-receiver` (`observability-toolkit` repo, `services/api-provisioning-receiver/src/`). The local stub `workers/receiver-worker/src/` mirrors a subset for contract tests only.
+Schema: `inboxPayloadSchema` in the production receiver `api-provisioning-receiver` (`observability-toolkit` repo, `services/api-provisioning-receiver/src/`).
 
 ### `action: 'provision_api_key'` — additional handler checks
 

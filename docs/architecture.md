@@ -118,7 +118,6 @@ workers/
 ├── lib/              # Shared HTTP, validation, schemas, Auth0 JWT verification, billing/entitlements, API-key formats
 ├── contact-form/     # Resend email delivery, CSRF protection, KV rate limiting
 ├── sender-worker/    # HMAC-signs /send events to receiver; signup-flow Stripe checkout
-├── receiver-worker/  # Local stub/test double only — NOT deployed (production receiver lives in observability-toolkit repo)
 ├── api-gateway/      # Usage ingest, org billing/keys/quota, staff admin reads, POST /bootstrap, Auth0 log poller
 └── stripe-webhook/   # Stripe subscription lifecycle, checkout, dead-letter queue
 ```

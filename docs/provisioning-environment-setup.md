@@ -163,7 +163,6 @@ SignupPage (/signup?tier=enterprise)
 # Both signing vars are required: ACTIVE_KEY_ID is sent as x-key-id and the receiver
 # rejects a request without it, so an unset pair means /send returns 500 and forwards
 # nothing (CR29 steps 1-2).
-# For local stub testing, run workers/receiver-worker/ separately (see its README).
 # The production sender reaches the receiver via the RECEIVER service binding.
 ```
 

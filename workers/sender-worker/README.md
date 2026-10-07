@@ -156,6 +156,5 @@ wrangler secret put ALLOWED_ORIGINS_JSON --env dev   # e.g. '["https://staging.e
 
 - [docs/api-reference.md](../../docs/api-reference.md#provisioning-sender-worker--api-provisioning-receiver) — routes, `/send` contract, signed request to the receiver
 - [docs/provisioning-environment-setup.md](../../docs/provisioning-environment-setup.md) — Environment setup guide
-- [workers/receiver-worker/](../receiver-worker/) — Local stub / test double of the receiver (production lives in observability-toolkit)
 - [workers/constants.ts](../constants.ts) — Shared constants (`REPLAY_WINDOW_MS`, dead-letter and rate-limit defaults)
 - [workers/lib/deploy-environments.test.ts](../lib/deploy-environments.test.ts) — The deploy-safety invariants this config must satisfy
