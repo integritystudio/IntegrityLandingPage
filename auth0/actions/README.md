@@ -22,8 +22,11 @@ the draft with that one secret), and bound values cannot be read back. So any de
 secrets must resend all of them, which means the Action's `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` are rebound from Doppler's values of the same names on every deploy —
 prove that pair answers against the right project first (a `GET /rest/v1/users?limit=1` with the
-key; PostgREST returns 206 to a ranged read, not 200). Production's current version is 14
-(2026-10-07, CR60: `last_login` is the latest `event.authentication.methods[].timestamp`, so a
+key; PostgREST returns 206 to a ranged read, not 200). Production's current version is 15
+(2026-10-08, CR65: the email re-link is one-way — it claims only a row whose `auth0_id` is not
+yet an Auth0 subject, by compare-and-set, so a second identity sharing a verified email is denied
+rather than taking the row; deployed by patching `code` only, secrets untouched; dev is version 3
+with the same code); 14 holds CR60 (2026-10-07: `last_login` is the latest `event.authentication.methods[].timestamp`, so a
 silent sign-in keeps the session's login time and is logged as one; deployed by patching `code`
 only, secrets untouched); 13 holds CR69 (deny login when Supabase cannot provision a user row —
 `api.access.deny` when `appUserId` is absent; its live code predates the `930a410b` comment
