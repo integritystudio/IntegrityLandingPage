@@ -252,9 +252,14 @@ export async function resolveJwt(
   });
   if (!jwtResult.ok) return jwtResult;
   if (!jwtResult.payload.sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
-  // verifyJwt accepted `iss` against `params.issuerUrl`, so it is a string from that list.
-  if (typeof jwtResult.payload.iss !== 'string') return { ok: false, error: unauthorized('JWT missing iss claim') };
-  return { ok: true, sub: jwtResult.payload.sub, issuer: jwtResult.payload.iss };
+  // The issuer becomes the host a route may send the caller's token to (team.ts /userinfo), so
+  // it is re-checked against the configured list here rather than trusted to verifyJwt's
+  // contract: the host must be one we configured, never a claim read off the token.
+  const { iss } = jwtResult.payload;
+  if (typeof iss !== 'string' || !params.issuerUrl.includes(iss)) {
+    return { ok: false, error: unauthorized('JWT issuer mismatch') };
+  }
+  return { ok: true, sub: jwtResult.payload.sub, issuer: iss };
 }
 
 /**

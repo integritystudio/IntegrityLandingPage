@@ -74,10 +74,13 @@ async function verifyAndGetSub(req: Request, supabaseUrl: string): Promise<strin
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return null;
   const token = auth.slice("Bearer ".length).trim();
+  // Built outside the try: a throw here is a config fault (malformed SUPABASE_URL / AUTH0_*
+  // values), not a bad token, and must surface as a 500 rather than a silent 401 on every call.
+  const issuers = getIssuers(supabaseUrl);
   try {
     // `iss` is read unverified only to choose the verifier; jwtVerify re-checks it.
     const claimedIssuer = jose.decodeJwt(token).iss;
-    const match = getIssuers(supabaseUrl).find((i) => i.issuer === claimedIssuer);
+    const match = issuers.find((i) => i.issuer === claimedIssuer);
     if (!match) return null;
     const { payload } = await jose.jwtVerify(token, match.jwks, {
       issuer: match.issuer,
