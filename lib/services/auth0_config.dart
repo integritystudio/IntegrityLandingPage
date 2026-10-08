@@ -4,10 +4,14 @@
 /// the same client integritystudio.dev signs in with, which is what lets the two sites
 /// share one Auth0 session. Override them with `--dart-define` to run against the dev
 /// tenant (whose SPA client allows `http://localhost:8080/callback`).
+///
+/// The domain is the tenant's custom domain, not its `dev-68gg87ow4mg4kzyo.us.auth0.com`
+/// hostname (CR32, CR70). Auth0 keeps one session per hostname, so integritystudio.dev's
+/// dashboard must use the same value or the shared sign-in stops being shared.
 abstract final class Auth0Config {
   static const String domain = String.fromEnvironment(
     'AUTH0_DOMAIN',
-    defaultValue: 'dev-68gg87ow4mg4kzyo.us.auth0.com',
+    defaultValue: 'auth.integritystudio.ai',
   );
 
   static const String clientId = String.fromEnvironment(

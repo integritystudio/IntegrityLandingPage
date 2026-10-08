@@ -85,13 +85,15 @@ void main() {
       );
     });
 
-    // Sign-in exchanges and refreshes tokens with XHRs to the Auth0 tenant; the
+    // Sign-in exchanges and refreshes tokens with XHRs to the Auth0 host; the
     // /authorize redirect is a top-level navigation and needs no entry.
-    test('connect-src allows the Auth0 token endpoint of both tenants', () {
+    test('connect-src allows the Auth0 token endpoint of the custom domain and both tenants', () {
       final connectSrc = RegExp(r'connect-src\s+([^\n;]+)').firstMatch(indexHtml)!.group(1)!;
       final sources = connectSrc.split(RegExp(r'\s+'));
       expect(sources, contains('https://${Auth0Config.domain}'),
-          reason: 'the default (production) tenant');
+          reason: 'the default: the production tenant\'s custom domain (CR70)');
+      expect(sources, contains('https://dev-68gg87ow4mg4kzyo.us.auth0.com'),
+          reason: 'the production tenant hostname, selected with --dart-define=AUTH0_DOMAIN');
       expect(sources, contains('https://dev-njjmghdzm23uy0p7.us.auth0.com'),
           reason: 'the dev tenant, selected with --dart-define=AUTH0_DOMAIN for local runs');
     });
