@@ -28,7 +28,7 @@
 
 | Value | `--dart-define` | Default (production) |
 |---|---|---|
-| Tenant domain | `AUTH0_DOMAIN` | `dev-68gg87ow4mg4kzyo.us.auth0.com` — the production tenant despite the `dev-` name (a custom domain is [CR32](BACKLOG.md#cr32)) |
+| Tenant domain | `AUTH0_DOMAIN` | `dev-68gg87ow4mg4kzyo.us.auth0.com` — the production tenant despite the `dev-` name. **Users sign in on its custom domain `auth.integritystudio.ai`** (verified [CR32](BACKLOG.md#cr32), cut over [CR70](BACKLOG.md#cr70), 2026-10-08): the Flutter default and the dashboard's `VITE_AUTH0_DOMAIN` name the custom domain, so tokens carry `iss: https://auth.integritystudio.ai/`; the Workers keep `AUTH0_DOMAIN` for JWKS and accept both issuers |
 | SPA client id | `AUTH0_CLIENT_ID` | `CNfd6xPPr2aLmvNyiearhmaLknAYvtnq` (`integritystudio-dashboard`) |
 | Audience | `AUTH0_AUDIENCE` | `https://api.integritystudio.dev` |
 | Scope | — | `openid profile email offline_access` (`offline_access` returns the refresh token) |
