@@ -25,6 +25,17 @@ function lastAuthenticatedAtMs(event) {
 }
 
 /**
+ * Every Auth0 user_id is `<provider>|<id>` (`auth0|…`, `google-oauth2|…`). A users row whose
+ * auth0_id has that shape belongs to an Auth0 identity, and the email re-link never takes it
+ * from that identity (CR65); anything else is a pre-Auth0 placeholder the re-link may claim once.
+ */
+const AUTH0_SUBJECT_SEPARATOR = '|';
+
+function isAuth0Subject(value) {
+  return typeof value === 'string' && value.includes(AUTH0_SUBJECT_SEPARATOR);
+}
+
+/**
  * Supabase Third-Party Auth maps a token to the `authenticated` database role only when it
  * carries a bare `role` claim (CR62). Auth0 strips non-namespaced claims from access tokens,
  * so it goes on the ID token — and only for the clients named in the SUPABASE_TPA_CLIENT_IDS
@@ -114,29 +125,39 @@ exports.onExecutePostLogin = async (event, api) => {
   //    claim an existing row's memberships and API keys — account takeover the
   //    moment a second connection is enabled. Restrict to strategy = 'auth0', the
   //    built-in database connection, where verification is through an email click
-  //    that the same address must receive. Two `auth0`-strategy identities with the
-  //    same email can still oscillate between re-link calls (each login patches
-  //    auth0_id back to itself); that is the residual risk documented in CR65. The
-  //    full fix requires Auth0 account linking so one subject owns one row.
+  //    that the same address must receive.
+  //
+  //    The re-link is one-way (CR65): it claims only a row whose auth0_id is not yet an
+  //    Auth0 subject. A row that already belongs to another Auth0 identity is left alone,
+  //    so a second identity with the same verified email cannot take it, and the two can
+  //    no longer flip the row between them on alternate logins. That identity falls
+  //    through to step 3, whose insert `users_email_key` rejects, and the login is denied.
+  //    Linking two identities to one row is Auth0 account linking's job, not this one's.
   const isAllowedRelinkConnection = event.connection?.strategy === 'auth0';
   if (!Array.isArray(users) || !users[0]) {
     if (event.user.email_verified === true && isAllowedRelinkConnection) {
       userRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=id,email&limit=1`,
+        `${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}&select=id,email,auth0_id&limit=1`,
         { headers }
       );
-      users = await userRes.json();
+      const byEmail = await userRes.json();
+      const existing = Array.isArray(byEmail) ? byEmail[0] : undefined;
 
-      if (Array.isArray(users) && users[0]) {
-        // Backfill auth0_id (and the profile) for migrated user
-        await fetch(
-          `${SUPABASE_URL}/rest/v1/users?id=eq.${users[0].id}`,
+      if (existing && isAuth0Subject(existing.auth0_id)) {
+        console.log(`users row ${existing.id} already belongs to another Auth0 identity; refusing to re-link it to ${auth0Id} (CR65)`);
+      } else if (existing) {
+        // Claim the placeholder. Filtering on the auth0_id just read makes this a
+        // compare-and-set: if another login claimed the row in between, nothing matches,
+        // no row comes back, and this login falls through to step 3 like any refusal.
+        const claimRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/users?id=eq.${existing.id}&auth0_id=eq.${encodeURIComponent(existing.auth0_id)}`,
           {
             method: 'PATCH',
             headers,
             body: JSON.stringify({ auth0_id: auth0Id, ...profile }),
           }
         );
+        users = claimRes.ok ? await claimRes.json() : [];
       }
     } else if (event.user.email_verified !== true) {
       console.log(`email not verified for ${email}; skipping email-based re-link (CR51)`);

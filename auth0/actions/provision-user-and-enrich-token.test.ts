@@ -15,6 +15,10 @@ const LOGINS_COUNT = 7;
 const CLAIM = 'https://integritystudio.dev/';
 const SUPABASE_CLIENT_ID = 'client-supabase-spa';
 const OTHER_CLIENT_ID = 'client-native-app';
+// A pre-Auth0 subject (a Supabase Auth uuid): the only kind of auth0_id the email re-link may claim (CR65).
+const PLACEHOLDER_SUBJECT = '00000000-0000-4000-8000-0000000000aa';
+const OTHER_AUTH0_ID = 'auth0|user-2';
+const EMAIL_KEY_CONFLICT = { code: '23505', message: 'duplicate key value violates unique constraint "users_email_key"' };
 
 interface Call { method: string; url: URL; body: Record<string, unknown> | undefined }
 type Responder = (call: Call) => Response;
@@ -92,6 +96,7 @@ const noRoles = { 'GET user_roles': rows([]) };
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('post-login Action — profile write (UA02)', () => {
@@ -200,21 +205,25 @@ describe('post-login Action — profile write (UA02)', () => {
     expect(accessClaims[`${CLAIM}app_user_id`]).toBe(APP_USER_ID);
   });
 
-  it('backfills auth0_id and the profile onto a user found by email', async () => {
+  it('backfills auth0_id and the profile onto a placeholder row found by email', async () => {
     const calls = stubFetch({
       'PATCH users?auth0_id': rows([]),
-      'GET users?email': rows([{ id: APP_USER_ID, email: EMAIL }]),
+      'GET users?email': rows([{ id: APP_USER_ID, email: EMAIL, auth0_id: PLACEHOLDER_SUBJECT }]),
       'PATCH users?id': rows([{ id: APP_USER_ID }]),
       ...noRoles,
     });
+    const { api, accessClaims } = makeApi();
 
-    await onExecutePostLogin(makeEvent(), makeApi().api);
+    await onExecutePostLogin(makeEvent(), api);
 
     const lookup = calls.find((c) => c.method === 'GET' && c.url.searchParams.has('email'));
     expect(lookup?.url.searchParams.get('email')).toBe(`eq.${EMAIL}`);
     const backfill = calls.find((c) => c.method === 'PATCH' && c.url.searchParams.has('id'));
     expect(backfill?.url.searchParams.get('id')).toBe(`eq.${APP_USER_ID}`);
+    // Compare-and-set on the subject just read, so a concurrent claim cannot be overwritten (CR65).
+    expect(backfill?.url.searchParams.get('auth0_id')).toBe(`eq.${PLACEHOLDER_SUBJECT}`);
     expect(backfill?.body).toMatchObject({ auth0_id: AUTH0_ID, name: 'User One', login_count: LOGINS_COUNT });
+    expect(accessClaims[`${CLAIM}app_user_id`]).toBe(APP_USER_ID);
   });
 
   // Only a literal `true` counts as verified: a missing flag or a string is not verification.
@@ -249,7 +258,7 @@ describe('post-login Action — profile write (UA02)', () => {
     const calls = stubFetch({
       'PATCH users?auth0_id': rows([]),
       'GET users?email': rows([{ id: APP_USER_ID, email: EMAIL }]),
-      'POST users': rows({ code: '23505', message: 'duplicate key value violates unique constraint "users_email_key"' }, 409),
+      'POST users': rows(EMAIL_KEY_CONFLICT, 409),
       ...noRoles,
     });
     const { api, accessClaims, idClaims } = makeApi();
@@ -296,7 +305,7 @@ describe('post-login Action — profile write (UA02)', () => {
     // Baseline: confirm the allowlisted connection still re-links correctly.
     const calls = stubFetch({
       'PATCH users?auth0_id': rows([]),
-      'GET users?email': rows([{ id: APP_USER_ID, email: EMAIL }]),
+      'GET users?email': rows([{ id: APP_USER_ID, email: EMAIL, auth0_id: PLACEHOLDER_SUBJECT }]),
       'PATCH users?id': rows([{ id: APP_USER_ID }]),
       ...noRoles,
     });
@@ -309,6 +318,82 @@ describe('post-login Action — profile write (UA02)', () => {
     expect(calls.some((c) => c.method === 'GET' && c.url.searchParams.has('email'))).toBe(true);
     expect(calls.find((c) => c.method === 'PATCH' && c.url.searchParams.has('id'))?.body)
       .toMatchObject({ auth0_id: AUTH0_ID });
+  });
+
+  // CR65 one-way guard: a row that already belongs to an Auth0 identity is never re-linked.
+  describe('email re-link is one-way (CR65)', () => {
+    it.each([OTHER_AUTH0_ID, 'google-oauth2|1234'])(
+      'refuses to take a row held by %s and denies the login',
+      async (heldBy) => {
+        const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const calls = stubFetch({
+          'PATCH users?auth0_id': rows([]),
+          'GET users?email': rows([{ id: APP_USER_ID, email: EMAIL, auth0_id: heldBy }]),
+          // No 'PATCH users?id' route — the row must not be patched.
+          'POST users': rows(EMAIL_KEY_CONFLICT, 409),
+          ...noRoles,
+        });
+        const { api, accessClaims, idClaims, denials } = makeApi();
+
+        await onExecutePostLogin(makeEvent(), api);
+
+        expect(calls.some((c) => c.method === 'PATCH' && c.url.searchParams.has('id'))).toBe(false);
+        expect(denials).toHaveLength(1);
+        expect(accessClaims).toEqual({});
+        expect(idClaims).toEqual({});
+        expect(log).toHaveBeenCalledWith(expect.stringContaining('refusing to re-link'));
+      },
+    );
+
+    it('denies the login when another login claimed the placeholder first', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      stubFetch({
+        'PATCH users?auth0_id': rows([]),
+        'GET users?email': rows([{ id: APP_USER_ID, email: EMAIL, auth0_id: PLACEHOLDER_SUBJECT }]),
+        // The compare-and-set matched nothing: the row's auth0_id changed after the read.
+        'PATCH users?id': rows([]),
+        'POST users': rows(EMAIL_KEY_CONFLICT, 409),
+        ...noRoles,
+      });
+      const { api, accessClaims, denials } = makeApi();
+
+      await onExecutePostLogin(makeEvent(), api);
+
+      expect(denials).toHaveLength(1);
+      expect(accessClaims).toEqual({});
+    });
+
+    it('keeps a re-linked row with its first identity across alternate logins', async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      // One users row, filtered the way PostgREST would.
+      const row = { id: APP_USER_ID, email: EMAIL, auth0_id: PLACEHOLDER_SUBJECT };
+      const matches = (url: URL) => [...url.searchParams].every(([column, filter]) =>
+        column === 'select' || column === 'limit' || filter === `eq.${(row as Record<string, string>)[column]}`);
+      stubFetch({
+        'PATCH users?auth0_id': ({ url, body }) => Response.json(matches(url) ? [Object.assign(row, body)] : []),
+        'GET users?email': ({ url }) => Response.json(matches(url) ? [row] : []),
+        'PATCH users?id': ({ url, body }) => Response.json(matches(url) ? [Object.assign(row, body)] : []),
+        'POST users': rows(EMAIL_KEY_CONFLICT, 409),
+        ...noRoles,
+      });
+      const loginAs = async (userId: string) => {
+        const outcome = makeApi();
+        await onExecutePostLogin(makeEvent({ user: { user_id: userId } }), outcome.api);
+        return outcome;
+      };
+
+      const first = await loginAs(AUTH0_ID);
+      const second = await loginAs(OTHER_AUTH0_ID);
+      const firstAgain = await loginAs(AUTH0_ID);
+
+      expect(first.accessClaims[`${CLAIM}app_user_id`]).toBe(APP_USER_ID);
+      expect(second.denials).toHaveLength(1);
+      expect(second.accessClaims).toEqual({});
+      expect(firstAgain.accessClaims[`${CLAIM}app_user_id`]).toBe(APP_USER_ID);
+      expect(row.auth0_id).toBe(AUTH0_ID);
+    });
   });
 
   it('provisions a new user with the profile', async () => {
