@@ -427,7 +427,30 @@ DNS is not the blocker and was confirmed ready in the same pass: `integritystudi
 
 **Permanence, unchanged:** a custom domain makes the tenant permanent — moving or removing it later invalidates existing sessions and bookmarks. That is why it should not be created speculatively, and why this stops here rather than working around the billing gate.
 
-**Status:** ⏸️ **Deferred by the owner 2026-10-06** — blocked on adding a verified card to the Auth0 account (owner, Dashboard-only). Hostname is decided (`auth.integritystudio.ai`), DNS is confirmed ready, and everything from the retried `POST` onward is scriptable from here the moment the card is on file.
+**Status:** ✅ **Verified 2026-10-08 — `auth.integritystudio.ai` is `ready` on the production tenant; no client logs in through it yet.** The same `POST /api/v2/custom-domains {"domain":"auth.integritystudio.ai","type":"auth0_managed_certs"}` that answered 403 on 2026-08-06 answered **201** at 01:45Z, so the card gate is cleared: `cd_0YraPOj6sFk9c3S1`, `primary: true`, `tls_policy: recommended`. The verification CNAME (`auth.integritystudio.ai` → `dev-68gg87ow4mg4kzyo-cd-0yrapoj6sfk9c3s1.edge.tenants.us.auth0.com`, DNS-only) was created in the Cloudflare zone as record `89ea5a394a1a710dca4b4fc9e56412e0` with the new Doppler `prd` secret `CLOUDFLARE_ZONE_TOKEN_INTEGRITYSTUDIO_AI` (Zone → DNS → Edit on this zone; `CLOUDFLARE_API_TOKEN` cannot read the zone's DNS — the 2026-08-06 "reachable" claim was zone-read only). `POST /custom-domains/{id}/verify` stayed `pending_verification` for ~12 minutes after the record was authoritative everywhere — the first verify call preceded propagation and the zone's SOA negative TTL is 1800 s — then answered `ready` at 20:15:50 local; `https://auth.integritystudio.ai/.well-known/openid-configuration` serves 200 with `issuer: https://auth.integritystudio.ai/`.
+
+**What this did not do, and why it is a separate item.** Verifying changes nothing for users — every client still logs in through the tenant hostname. Tokens minted through the custom domain carry `iss: https://auth.integritystudio.ai/` (confirmed from the discovery document above; the tenant's is `https://dev-68gg87ow4mg4kzyo.us.auth0.com/`), and every verifier is pinned to the tenant issuer today: api-gateway (`auth0IssuerFor(AUTH0_DOMAIN)`, `wrangler.toml` top-level), the `api-keys-list` edge function (`AUTH0_DOMAIN` secret), the toolkit's dashboard Worker (JWKS + issuer), and the Supabase Third-Party Auth integration. The Flutter app defaults to the tenant domain in `lib/services/auth0_config.dart`. Moving the login URL is therefore a coordinated cutover across those five plus the client's allowed callback/logout/web-origin URLs, and the permanence caveat below applies from the first user login through it. Tracked as [[CR70]].
+
+*Historical, 2026-10-06: "⏸️ Deferred by the owner — blocked on adding a verified card to the Auth0 account (owner, Dashboard-only). Hostname is decided (`auth.integritystudio.ai`), DNS is confirmed ready, and everything from the retried `POST` onward is scriptable from here the moment the card is on file."*
+
+---
+
+### CR70: cut production login over to `auth.integritystudio.ai` (every verifier is pinned to the tenant issuer)
+
+**Priority:** P3 | **Source:** [[CR32]] verification, 2026-10-08
+
+The custom domain is `ready` but unused. A login through it mints tokens with `iss: https://auth.integritystudio.ai/`; a login through the tenant hostname keeps `https://dev-68gg87ow4mg4kzyo.us.auth0.com/`. Both remain valid issuers for the same keys (the custom domain's JWKS is the tenant's), so the cutover is: make every verifier accept the custom-domain issuer **first**, then move the clients, then (optionally) retire the tenant issuer.
+
+**Verifiers to widen (accept both issuers during the transition):**
+1. `workers/api-gateway` — `auth0IssuerFor(env.AUTH0_DOMAIN)` in `src/lib/helpers.ts`; `team.ts` `fetchVerifiedEmail` and `auth0-log-poller.ts` call the tenant host for `/userinfo` and Management API and can stay on it.
+2. `supabase/functions/api-keys-list` — `issuer: https://${AUTH0_DOMAIN}/` and its JWKS URL.
+3. observability-toolkit `dashboard/worker/index.ts` — `jwtVerify` issuer/JWKS; its `AUTH0_DOMAIN` is a plaintext var per Worker (toolkit CLAUDE.md § Deployment).
+4. Supabase Third-Party Auth (Auth0 provider) — configured with the tenant domain; a second provider entry or a domain change is needed for custom-domain ID tokens to map to `authenticated` (CR62).
+5. Any `aud`/`iss` assertions in the toolkit e2e suites and this repo's worker tests (`TEST_AUTH0_ISSUER`).
+
+**Clients to move:** the dashboard SPA (`CNfd6xPPr2aLmvNyiearhmaLknAYvtnq`) and the Flutter app's `AUTH0_DOMAIN` default; add the custom domain to each client's allowed callback, logout and web-origin lists before flipping. The e2e ROPC client on the dev tenant is unaffected (dev has no custom domain).
+
+**Acceptance.** A dashboard login through `auth.integritystudio.ai` reaches `/v1/me` on api-gateway and a Supabase TPA query with 200; a login through the tenant hostname still works until it is retired on purpose. Users never see a `dev-` hostname.
 
 ---
 
