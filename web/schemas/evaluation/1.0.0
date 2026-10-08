@@ -1,0 +1,10 @@
+file_format: 1.1.0
+schema_url: https://integritystudio.ai/schemas/evaluation/1.0.0
+# Attribute schema for `gen_ai.evaluation.result` records written by the
+# Claude Code hooks (`~/.claude/hooks/lib/quality-signals.ts`) and the
+# observability-toolkit dashboard pipeline (`dashboard/scripts/eval-record.ts`).
+# Format: https://opentelemetry.io/docs/specs/otel/schemas/file_format_v1.1.0/
+# 1.0.0 declares the initial key set; a later version lists the renames that
+# carry records written under this one forward.
+versions:
+  1.0.0:
