@@ -57,6 +57,10 @@ routes = [{ pattern = "api.integritystudio.dev", custom_domain = true }]
 # repeats the block below (same rule as durable_objects, opposite of routes).
 [vars]
 AUTH0_DOMAIN = "dev-68gg87ow4mg4kzyo.us.auth0.com"
+# The tenant's custom domain (CR32, verified 2026-10-08). A token obtained through it carries
+# `https://auth.integritystudio.ai/` as `iss`, signed by the same key set, so it is accepted as
+# a second issuer (CR70). Not repeated in [env.dev.vars]: the dev tenant has no custom domain.
+AUTH0_CUSTOM_DOMAIN = "auth.integritystudio.ai"
 AUTH0_AUDIENCE = "https://api.integritystudio.dev"
 # Who may call the `/v1/admin/*` staff routes (src/routes/admin.ts): a JSON array of
 # `users.id` UUIDs. These routes read any org's billing, usage, quota and entitlements for
