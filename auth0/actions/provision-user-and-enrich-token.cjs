@@ -1,6 +1,29 @@
 // Post-login runs on refresh-token exchanges too; those are not logins (UA02).
 const REFRESH_TOKEN_PROTOCOL = 'oauth2-refresh-token';
 
+// A silent sign-in — an /authorize that reuses the Auth0 session, e.g. opening
+// integritystudio.dev after signing in to integritystudio.ai, which share one session since
+// CR48 — also runs post-login, and Auth0 does not count it as a login (CR60). The event does
+// not say whether the session was reused, but `event.authentication.methods` lists the
+// methods completed during the *session*, each with the time it was used, so the latest
+// timestamp is when Auth0 last authenticated the user: this transaction on a login, the
+// original login on a session reuse. A method older than this is a session reuse, not a
+// slow login: `mfa` is stamped when the challenge completes, and first-party clients show
+// no consent screen after the password step.
+const SILENT_SIGN_IN_MAX_AGE_MS = 60_000;
+
+/** Latest `event.authentication.methods[].timestamp` as epoch ms, or null when absent. */
+function lastAuthenticatedAtMs(event) {
+  const methods = event.authentication?.methods;
+  if (!Array.isArray(methods)) return null;
+  let latest = null;
+  for (const method of methods) {
+    const used = Date.parse(method?.timestamp);
+    if (!Number.isNaN(used) && (latest === null || used > latest)) latest = used;
+  }
+  return latest;
+}
+
 /**
  * Supabase Third-Party Auth maps a token to the `authenticated` database role only when it
  * carries a bare `role` claim (CR62). Auth0 strips non-namespaced claims from access tokens,
@@ -23,7 +46,9 @@ function supabaseClientIds(secrets) {
 /**
  * Profile columns written to public.users on every run (UA02). `login_count` is Auth0's own
  * count, so a repeated run cannot inflate it; `last_login` is skipped on a refresh-token
- * exchange, which is not a login.
+ * exchange, which is not a login, and on any other run it is the time Auth0 last
+ * authenticated the user, so a silent sign-in rewrites the original login time rather than
+ * its own start time (CR60). Only an event with no authentication methods falls back to now.
  */
 function profileFields(event) {
   const { user, stats, transaction } = event;
@@ -34,7 +59,17 @@ function profileFields(event) {
     email_verified: user.email_verified === true,
   };
   if (typeof stats?.logins_count === 'number') fields.login_count = stats.logins_count;
-  if (transaction?.protocol !== REFRESH_TOKEN_PROTOCOL) fields.last_login = new Date().toISOString();
+  if (transaction?.protocol === REFRESH_TOKEN_PROTOCOL) return fields;
+
+  const authenticatedAt = lastAuthenticatedAtMs(event);
+  if (authenticatedAt === null) {
+    fields.last_login = new Date().toISOString();
+    return fields;
+  }
+  fields.last_login = new Date(authenticatedAt).toISOString();
+  if (Date.now() - authenticatedAt > SILENT_SIGN_IN_MAX_AGE_MS) {
+    console.log(`silent sign-in for ${user.user_id}: session authenticated ${fields.last_login}, not counted as a login; last_login kept at that time (CR60)`);
+  }
   return fields;
 }
 

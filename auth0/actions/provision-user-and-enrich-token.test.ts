@@ -56,6 +56,7 @@ function makeEvent(overrides: {
   secrets?: Record<string, string>;
   clientId?: string;
   connection?: { strategy: string; name?: string };
+  authentication?: { methods: Array<{ name: string; timestamp: string }> };
 } = {}) {
   return {
     secrets: { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY: 'service-role-key', ...overrides.secrets },
@@ -67,6 +68,7 @@ function makeEvent(overrides: {
     },
     stats: 'stats' in overrides ? overrides.stats : { logins_count: LOGINS_COUNT },
     transaction: { protocol: overrides.protocol ?? 'oidc-basic-profile' },
+    ...(overrides.authentication ? { authentication: overrides.authentication } : {}),
   };
 }
 
@@ -111,6 +113,59 @@ describe('post-login Action — profile write (UA02)', () => {
       last_login: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
     });
     expect(accessClaims[`${CLAIM}app_user_id`]).toBe(APP_USER_ID);
+  });
+
+  // CR60: a silent sign-in (an /authorize that reuses the Auth0 session) runs post-login too,
+  // and Auth0 does not count it. `event.authentication.methods` carries the session's methods
+  // with the time each was used, so last_login is that time on a login and on a session reuse.
+  describe('last_login follows event.authentication.methods (CR60)', () => {
+    const NOW = new Date('2026-09-30T05:05:36.000Z');
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('writes the latest method timestamp on a login, without a silent sign-in log line', async () => {
+      vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const calls = stubFetch({ 'PATCH users?auth0_id': rows([{ id: APP_USER_ID }]), ...noRoles });
+      const authentication = {
+        methods: [
+          { name: 'pwd', timestamp: '2026-09-30T05:05:30.000Z' },
+          { name: 'mfa', timestamp: '2026-09-30T05:05:34.000Z' },
+        ],
+      };
+
+      await onExecutePostLogin(makeEvent({ authentication }), makeApi().api);
+
+      const body = calls.find((c) => c.method === 'PATCH')?.body;
+      expect(body).toHaveProperty('last_login', '2026-09-30T05:05:34.000Z');
+      expect(log.mock.calls.flat().join('\n')).not.toMatch(/silent sign-in/);
+    });
+
+    it('keeps last_login at the session\'s login time on a silent sign-in, and logs it as one', async () => {
+      // The measured case: login at 05:02:20Z, then a session-reusing /authorize at 05:05:36Z.
+      vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const calls = stubFetch({ 'PATCH users?auth0_id': rows([{ id: APP_USER_ID }]), ...noRoles });
+      const authentication = { methods: [{ name: 'pwd', timestamp: '2026-09-30T05:02:20.000Z' }] };
+
+      await onExecutePostLogin(makeEvent({ authentication }), makeApi().api);
+
+      const body = calls.find((c) => c.method === 'PATCH')?.body;
+      expect(body).toHaveProperty('last_login', '2026-09-30T05:02:20.000Z');
+      expect(log.mock.calls.flat().join('\n')).toMatch(/silent sign-in for auth0\|user-1: session authenticated 2026-09-30T05:02:20.000Z/);
+    });
+
+    it('falls back to now when the event carries no authentication methods', async () => {
+      vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
+      const calls = stubFetch({ 'PATCH users?auth0_id': rows([{ id: APP_USER_ID }]), ...noRoles });
+
+      await onExecutePostLogin(makeEvent({ authentication: { methods: [] } }), makeApi().api);
+
+      const body = calls.find((c) => c.method === 'PATCH')?.body;
+      expect(body).toHaveProperty('last_login', NOW.toISOString());
+    });
   });
 
   it('does not touch last_login on a refresh-token exchange, which is not a login', async () => {
