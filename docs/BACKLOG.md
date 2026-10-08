@@ -439,6 +439,15 @@ DNS is not the blocker and was confirmed ready in the same pass: `integritystudi
 
 **Priority:** P3 | **Source:** [[CR32]] verification, 2026-10-08
 
+**Status 2026-10-08 — step 1 (widen the verifiers) is done in code, not deployed; steps 2–3 untouched.**
+- ✅ `workers/lib/auth.ts`: `VerifyJwtOptions.issuerUrl` takes a list; `iss` must be one of them (an empty list accepts nothing). Tests for both members, a third issuer, no `iss`, and the empty list.
+- ✅ `api-gateway`: new optional var `AUTH0_CUSTOM_DOMAIN` (`auth.integritystudio.ai` in production `[vars]`; absent from `[env.dev.vars]` — `deploy-environments.test.ts` still passes). `auth0VerifyParams` returns both issuers against the tenant JWKS. `resolveJwt` now returns the token's `issuer`, and `POST /v1/me/team` sends `/userinfo` to the issuing host, because Auth0 answers it only there ("tokens obtained via a custom domain must be used on an Auth0 API using the same custom domain"). Three handler tests: custom-domain token accepted and `/userinfo` goes to the custom host; tenant token still goes to the tenant; custom-domain token is 401 without the var.
+- ✅ `supabase/functions/api-keys-list`: optional `AUTH0_CUSTOM_DOMAIN` secret adds the custom-domain issuer, sharing the tenant's remote JWKS. No test harness exists for this function.
+- ✅ observability-toolkit `dashboard/worker/index.ts`: `acceptedIssuers(env)` → `jwtVerify`, production `AUTH0_CUSTOM_DOMAIN` var, `worker/__tests__/auth-issuers.test.ts`.
+- ⏳ **Deploy**: `api-gateway` (`npm run deploy:prd`; dev needs nothing), `api-keys-list` (`supabase functions deploy` + `supabase secrets set AUTH0_CUSTOM_DOMAIN=auth.integritystudio.ai` on `cfrbahzzklwrnmbtqojl`), and the three dashboard Workers. Until then every verifier is tenant-only, which is today's behaviour.
+- ⏳ **Supabase Third-Party Auth**: the production integration (`76edc370…`) is `oidc_issuer_url: https://dev-68gg87ow4mg4kzyo.us.auth0.com`; custom-domain ID tokens need a second integration — `POST /v1/projects/cfrbahzzklwrnmbtqojl/config/auth/third-party-auth {"oidc_issuer_url":"https://auth.integritystudio.ai"}` (the body schema is `oidc_issuer_url` / `jwks_url` / `custom_jwks`; Supabase resolves the JWKS from the issuer's discovery document, which the custom domain serves). `config.toml`'s `[auth.third_party.auth0]` cannot express it.
+- ⏳ Steps 2–3 (client URLs, SPA + Flutter `AUTH0_DOMAIN`) not started.
+
 The custom domain is `ready` but unused. A login through it mints tokens with `iss: https://auth.integritystudio.ai/`; a login through the tenant hostname keeps `https://dev-68gg87ow4mg4kzyo.us.auth0.com/`. Both remain valid issuers for the same keys (the custom domain's JWKS is the tenant's), so the cutover is: make every verifier accept the custom-domain issuer **first**, then move the clients, then (optionally) retire the tenant issuer.
 
 **Verifiers to widen (accept both issuers during the transition):**

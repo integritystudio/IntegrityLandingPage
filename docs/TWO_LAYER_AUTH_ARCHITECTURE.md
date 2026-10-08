@@ -44,7 +44,7 @@ The Action's two guards:
 
 ### Tokens
 
-**Access token** — the only credential the app sends to a Worker. Audience `https://api.integritystudio.dev`, RS256, issuer `https://<AUTH0_DOMAIN>/`. It carries `sub` and nothing else the platform reads: no `email` (a custom-audience access token has none even with `email` in scope, so `/bootstrap` and `/v1/me` read it from the `users` row), no org ids, no plan. Auth0 knows nothing about Supabase orgs, and all mutable state — plan, billing status, usage — is resolved server-side per request.
+**Access token** — the only credential the app sends to a Worker. Audience `https://api.integritystudio.dev`, RS256, issuer `https://<AUTH0_DOMAIN>/` — or `https://auth.integritystudio.ai/` for a token obtained through the custom domain, which every verifier also accepts since CR70 (same key set). It carries `sub` and nothing else the platform reads: no `email` (a custom-audience access token has none even with `email` in scope, so `/bootstrap` and `/v1/me` read it from the `users` row), no org ids, no plan. Auth0 knows nothing about Supabase orgs, and all mutable state — plan, billing status, usage — is resolved server-side per request.
 
 **ID token** — carries `email`, the Action's namespaced claims, and — only for clients listed in the Action's `SUPABASE_TPA_CLIENT_IDS` secret — the bare `role = authenticated` claim that Supabase Third-Party Auth requires. The observability dashboard SPA uses it to read Supabase directly through PostgREST; nothing else consumes it, and Auth0 strips non-namespaced claims from access tokens so the Workers never see `role`.
 
