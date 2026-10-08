@@ -57,6 +57,13 @@ export async function writeAuditLog(sb: SupabaseClient, entry: AuditLogEntry): P
  */
 export interface UserTokenOptions {
   auth0Domain: string;
+  /**
+   * Auth0 custom domain the same tenant also serves logins on, e.g. `auth.integritystudio.ai`
+   * (CR70). A token obtained through it carries that hostname as `iss`, signed by the same key
+   * set, so it is accepted as a second issuer while the tenant's JWKS stays the one key source.
+   * Omit where the tenant has no custom domain (dev).
+   */
+  auth0CustomDomain?: string;
   /** Auth0 API identifier the token must be scoped to. Omit to skip `aud` validation. */
   auth0Audience?: string;
   /**
@@ -77,12 +84,30 @@ export interface UserTokenOptions {
  */
 export function auth0VerifyParams(
   opts: UserTokenOptions,
-): { key: JwtVerificationKey; issuerUrl: string; audience?: string } {
+): { key: JwtVerificationKey; issuerUrl: readonly string[]; audience?: string } {
+  const issuerUrl = [auth0IssuerFor(opts.auth0Domain)];
+  if (opts.auth0CustomDomain) issuerUrl.push(auth0IssuerFor(opts.auth0CustomDomain));
   return {
     key: auth0JwtKey({ auth0Domain: opts.auth0Domain }),
-    issuerUrl: auth0IssuerFor(opts.auth0Domain),
+    issuerUrl,
     audience: opts.auth0Audience,
   };
+}
+
+/** The verified caller of a browser token: its subject, and the issuer it was obtained through. */
+export interface ResolvedJwt {
+  sub: string;
+  /**
+   * The token's `iss`, one of the issuers {@link auth0VerifyParams} accepts. Auth0 answers
+   * `/userinfo` for a token only on the hostname that issued it, so a route that calls Auth0
+   * with the caller's own token must use this host, not `auth0Domain` (CR70).
+   */
+  issuer: string;
+}
+
+/** Bare host of an issuer URL as Auth0 emits it (`https://host/`). */
+export function issuerHost(issuer: string): string {
+  return new URL(issuer).host;
 }
 
 interface PreVerifyTokenOptions extends UserTokenOptions {
@@ -200,7 +225,7 @@ export async function preVerifyToken(
 export async function resolveJwtRateLimited(
   request: Request,
   opts: UserTokenOptions,
-): Promise<{ ok: true; sub: string } | { ok: false; error: Response }> {
+): Promise<({ ok: true } & ResolvedJwt) | { ok: false; error: Response }> {
   const auth = await resolveJwt(request, auth0VerifyParams(opts));
   if (!auth.ok) return auth;
 
@@ -217,8 +242,8 @@ export async function resolveJwtRateLimited(
 
 export async function resolveJwt(
   request: Request,
-  params: { key: JwtVerificationKey; issuerUrl?: string; audience?: string },
-): Promise<{ ok: true; sub: string } | { ok: false; error: Response }> {
+  params: { key: JwtVerificationKey; issuerUrl: readonly string[]; audience?: string },
+): Promise<({ ok: true } & ResolvedJwt) | { ok: false; error: Response }> {
   const tokenResult = requireBearerToken(request);
   if (!tokenResult.ok) return tokenResult;
   const jwtResult = await verifyJwt(tokenResult.token, params.key, {
@@ -227,7 +252,9 @@ export async function resolveJwt(
   });
   if (!jwtResult.ok) return jwtResult;
   if (!jwtResult.payload.sub) return { ok: false, error: unauthorized('JWT missing sub claim') };
-  return { ok: true, sub: jwtResult.payload.sub };
+  // verifyJwt accepted `iss` against `params.issuerUrl`, so it is a string from that list.
+  if (typeof jwtResult.payload.iss !== 'string') return { ok: false, error: unauthorized('JWT missing iss claim') };
+  return { ok: true, sub: jwtResult.payload.sub, issuer: jwtResult.payload.iss };
 }
 
 /**

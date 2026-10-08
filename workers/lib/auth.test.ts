@@ -212,6 +212,38 @@ describe('verifyJwt — iss claim', () => {
     const result = await verifyJwt(token, { jwksUrl: JWKS_URL });
     expect(result.ok).toBe(true);
   });
+
+  // CR70: a tenant that also serves logins on a custom domain issues under two names.
+  describe('issuerUrl as a list', () => {
+    const ISSUERS = ['https://tenant.example/', 'https://auth.custom.example/'] as const;
+
+    it.each(ISSUERS)('accepts a token whose iss is %s, one of the listed issuers', async (iss) => {
+      const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 60, iat: NOW, iss }, esKey);
+      const result = await verifyJwt(token, { jwksUrl: JWKS_URL }, { issuerUrl: ISSUERS });
+      expect(result.ok).toBe(true);
+    });
+
+    it('rejects a token whose iss is in neither listed issuer', async () => {
+      const token = await buildEs256Jwt(
+        { sub: 'u1', exp: NOW + 60, iat: NOW, iss: 'https://attacker.example/' },
+        esKey,
+      );
+      const result = await verifyJwt(token, { jwksUrl: JWKS_URL }, { issuerUrl: ISSUERS });
+      expect(result.ok).toBe(false);
+    });
+
+    it('rejects a token with no iss when a list is given', async () => {
+      const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 60, iat: NOW }, esKey);
+      const result = await verifyJwt(token, { jwksUrl: JWKS_URL }, { issuerUrl: ISSUERS });
+      expect(result.ok).toBe(false);
+    });
+
+    it('rejects every token when the list is empty', async () => {
+      const token = await buildEs256Jwt({ sub: 'u1', exp: NOW + 60, iat: NOW, iss: ISSUERS[0] }, esKey);
+      const result = await verifyJwt(token, { jwksUrl: JWKS_URL }, { issuerUrl: [] });
+      expect(result.ok).toBe(false);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

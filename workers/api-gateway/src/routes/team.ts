@@ -1,6 +1,6 @@
 import { conflict, forbidden, getBearerToken, notFound, ok, serverError, serviceUnavailable, unauthorized } from '../../../lib/http';
 import { createSupabaseClient, type SupabaseClient } from '../../../lib/supabase';
-import { resolveJwtRateLimited, resolveUserId, writeAuditLog, type UserTokenOptions } from '../lib/helpers';
+import { issuerHost, resolveJwtRateLimited, resolveUserId, writeAuditLog, type UserTokenOptions } from '../lib/helpers';
 
 /**
  * "Join your team" (CR54). A corporate signup is unverified at its first provision, so the
@@ -87,11 +87,15 @@ type VerifiedEmail = { ok: true; email: string } | { ok: false; error: Response 
  * The verified address, from Auth0 itself. An access token carries no `email_verified` claim,
  * and `users.email` says nothing about verification, so /userinfo is the authority — the same
  * check the receiver makes before it groups anyone by domain.
+ *
+ * `auth0Host` is the host the token was issued through, not the tenant domain: Auth0 serves
+ * /userinfo for a token only on the hostname in its `iss`, so a token obtained via the custom
+ * domain is refused by the tenant hostname and vice versa (CR70).
  */
-async function fetchVerifiedEmail(auth0Domain: string, token: string): Promise<VerifiedEmail> {
+async function fetchVerifiedEmail(auth0Host: string, token: string): Promise<VerifiedEmail> {
   let res: Response;
   try {
-    res = await fetch(`https://${auth0Domain}${AUTH0_USERINFO_PATH}`, {
+    res = await fetch(`https://${auth0Host}${AUTH0_USERINFO_PATH}`, {
       headers: { authorization: `Bearer ${token}` },
     });
   } catch (err) {
@@ -153,7 +157,7 @@ export async function handleJoinTeam(request: Request, opts: TeamHandlerOptions)
   const user = await resolveUserId(auth.sub, sb);
   if (!user.ok) return user.error;
 
-  const verified = await fetchVerifiedEmail(opts.auth0Domain, token);
+  const verified = await fetchVerifiedEmail(issuerHost(auth.issuer), token);
   if (!verified.ok) return verified.error;
 
   const domain = emailDomain(verified.email);

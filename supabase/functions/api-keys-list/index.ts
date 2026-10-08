@@ -27,7 +27,9 @@ function errorResponse(message: string, status: number): Response {
  *     JWKS endpoint, audience `authenticated`) — what the toolkit e2e suite sends after
  *     `signInWithPassword`;
  *   - the Auth0 tenant (`https://${AUTH0_DOMAIN}/`, audience `AUTH0_AUDIENCE`), admitted
- *     through Third-Party Auth; only when both secrets are set.
+ *     through Third-Party Auth; only when both secrets are set — and, when `AUTH0_CUSTOM_DOMAIN`
+ *     is also set, the same tenant under its custom domain (`https://${AUTH0_CUSTOM_DOMAIN}/`),
+ *     which Auth0 stamps as `iss` on tokens obtained through that hostname; same key set (CR70).
  * The token's `iss` picks the verifier; a token from anywhere else is refused.
  *
  * This replaces the previous `atob`-based read, which decoded the payload without
@@ -55,12 +57,14 @@ function getIssuers(supabaseUrl: string): Issuer[] {
   }];
   const auth0Domain = Deno.env.get("AUTH0_DOMAIN");
   const auth0Audience = Deno.env.get("AUTH0_AUDIENCE");
+  const auth0CustomDomain = Deno.env.get("AUTH0_CUSTOM_DOMAIN");
   if (auth0Domain && auth0Audience) {
-    list.push({
-      issuer: `https://${auth0Domain}/`,
-      audience: auth0Audience,
-      jwks: jose.createRemoteJWKSet(new URL(`https://${auth0Domain}/.well-known/jwks.json`)),
-    });
+    // One key set serves both issuers, so one remote JWKS (and one cache) is shared.
+    const auth0Jwks = jose.createRemoteJWKSet(new URL(`https://${auth0Domain}/.well-known/jwks.json`));
+    list.push({ issuer: `https://${auth0Domain}/`, audience: auth0Audience, jwks: auth0Jwks });
+    if (auth0CustomDomain) {
+      list.push({ issuer: `https://${auth0CustomDomain}/`, audience: auth0Audience, jwks: auth0Jwks });
+    }
   }
   issuers = list;
   return list;

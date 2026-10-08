@@ -45,6 +45,12 @@ export interface Env {
    */
   AUTH0_DOMAIN: string;
   /**
+   * Auth0 custom domain the tenant also serves logins on, e.g. `auth.integritystudio.ai` (CR70).
+   * Tokens obtained through it carry it as `iss`; when set they are accepted as a second issuer,
+   * verified against the same tenant JWKS. Unset on dev, which has no custom domain.
+   */
+  AUTH0_CUSTOM_DOMAIN?: string;
+  /**
    * Auth0 API identifier the token must be scoped to, e.g. `https://api.integritystudio.dev`.
    * When unset, `aud` is not validated — a token minted for any other API of the same
    * tenant would then be accepted, so it should be set in every deployed environment.
@@ -220,6 +226,7 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
     supabaseUrl: env.SUPABASE_URL,
     serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
     auth0Domain: env.AUTH0_DOMAIN,
+    auth0CustomDomain: env.AUTH0_CUSTOM_DOMAIN,
     auth0Audience: env.AUTH0_AUDIENCE,
     rateLimitKv: env.RATE_LIMIT_KV,
   };

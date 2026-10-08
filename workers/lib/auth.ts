@@ -229,6 +229,8 @@ export interface JwtPayload {
   email: string;
   iat: number;
   exp: number;
+  /** RFC 7519 §4.1.1 — Issuer. Optional; validated when VerifyJwtOptions.issuerUrl is set. */
+  iss?: string;
   /** RFC 7519 §4.1.5 — Not Before. Optional; validated when present. */
   nbf?: number;
   /** RFC 7519 §4.1.3 — Audience. Optional; validated when VerifyJwtOptions.audience is set. */
@@ -264,11 +266,15 @@ export function parseJwtPayload(token: string): { ok: true; payload: JwtPayload;
 }
 
 export interface VerifyJwtOptions {
-  /** Expected value of the `iss` (issuer) claim. When provided, tokens from
+  /** Accepted value(s) of the `iss` (issuer) claim. When provided, tokens from
    *  any other issuer are rejected — prevents forgery via attacker-controlled JWTs.
    *  Set to the Auth0 tenant's issuer via {@link auth0IssuerFor}, e.g.
-   *  https://<tenant>.us.auth0.com/ — with the trailing slash Auth0 always emits. */
-  issuerUrl?: string;
+   *  https://<tenant>.us.auth0.com/ — with the trailing slash Auth0 always emits.
+   *  A list accepts any one of them: Auth0 stamps `iss` with whichever hostname the
+   *  token was obtained through, so a tenant that also serves logins on a custom
+   *  domain issues under two names for the same key set (CR70). An empty list
+   *  accepts nothing. */
+  issuerUrl?: string | readonly string[];
   /** Expected value of the `aud` (audience) claim (RFC 7519 §4.1.3).
    *  When provided, tokens missing this audience or containing a different one
    *  are rejected — prevents tokens issued for one service from being replayed
@@ -319,8 +325,11 @@ export async function verifyJwt(
     return { ok: false, error: unauthorized('JWT expired') };
   }
 
-  if (opts.issuerUrl != null && payload.iss !== opts.issuerUrl) {
-    return { ok: false, error: unauthorized('JWT issuer mismatch') };
+  if (opts.issuerUrl != null) {
+    const accepted = typeof opts.issuerUrl === 'string' ? [opts.issuerUrl] : opts.issuerUrl;
+    if (typeof payload.iss !== 'string' || !accepted.includes(payload.iss)) {
+      return { ok: false, error: unauthorized('JWT issuer mismatch') };
+    }
   }
 
   // RFC 7519 §4.1.5 — nbf (Not Before): reject tokens used before their validity window.

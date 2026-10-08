@@ -169,6 +169,52 @@ describe('POST /v1/me/team', () => {
     expect(call.headers['authorization']).toBe(`Bearer ${token}`);
   });
 
+  // CR70: a token obtained through the tenant's custom domain carries that host as `iss`, and
+  // Auth0 answers /userinfo for it only on that host.
+  describe('custom-domain issuer (CR70)', () => {
+    const CUSTOM_DOMAIN = 'auth.test.integritystudio.ai';
+    const CUSTOM_ISSUER = `https://${CUSTOM_DOMAIN}/`;
+    const customOpts = { ...opts, auth0CustomDomain: CUSTOM_DOMAIN };
+    const joinRoutes = {
+      'GET users': userRow,
+      [USERINFO_ROUTE]: verified,
+      'GET organizations': teamRow,
+      'POST organization_memberships': createdRows([{ id: 'm-1' }]),
+      'POST audit_log': createdRows([]),
+    };
+
+    it('accepts the token and sends /userinfo to the custom domain, not the tenant', async () => {
+      const token = await jwt.sign({ sub: SUB, iss: CUSTOM_ISSUER });
+      const s = stub(joinRoutes);
+
+      const res = await handleJoinTeam(makeRequest('POST', token), customOpts);
+
+      expect(res.status).toBe(200);
+      const call = s.find('GET', '/userinfo')!;
+      expect(call.url.host).toBe(CUSTOM_DOMAIN);
+      expect(call.headers['authorization']).toBe(`Bearer ${token}`);
+    });
+
+    it('still sends a tenant-issued token to the tenant host when a custom domain is configured', async () => {
+      const token = await jwt.sign({ sub: SUB });
+      const s = stub(joinRoutes);
+
+      await handleJoinTeam(makeRequest('POST', token), customOpts);
+
+      expect(s.find('GET', '/userinfo')!.url.host).toBe(TEST_AUTH0_OPTS.auth0Domain);
+    });
+
+    it('rejects the custom-domain token with 401 when no custom domain is configured', async () => {
+      const token = await jwt.sign({ sub: SUB, iss: CUSTOM_ISSUER });
+      const s = stub(joinRoutes);
+
+      const res = await handleJoinTeam(makeRequest('POST', token), opts);
+
+      expect(res.status).toBe(401);
+      expect(s.find('GET', '/userinfo')).toBeUndefined();
+    });
+  });
+
   it.each([
     ['email_verified false', { sub: SUB, email: EMAIL, email_verified: false }],
     ['email_verified missing', { sub: SUB, email: EMAIL }],
