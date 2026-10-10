@@ -636,3 +636,87 @@ describe('api-keys-create: downstream failures', () => {
     expect(backend.rows('api_keys')).toHaveLength(1);
   });
 });
+
+// Per-attempt request ids (20261010000000_api_key_requests): the receiver sends one so that,
+// having lost the response, it can abandon the attempt and revoke exactly the key it created.
+describe('api-keys-create: request ids', () => {
+  const REQUEST_ID = '3f2b8c1e-5d4a-4f6b-9c7d-1a2b3c4d5e6f';
+
+  it.each([
+    ['a non-UUID string', 'not-a-uuid'],
+    ['a number', 42],
+    ['an empty string', ''],
+  ])('answers 400 and mints nothing for %s', async (_label, requestId) => {
+    const { backend, post } = setup();
+
+    const res = await post({ userId: USER_ID, requestId });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'requestId must be a UUID' });
+    expectNothingMinted(backend);
+    expect(backend.rows('api_key_requests')).toEqual([]);
+  });
+
+  it('creates through create_api_key_for_request and records which key the request made', async () => {
+    const { backend, post } = setup();
+
+    const res = await post({ userId: USER_ID, requestId: REQUEST_ID });
+    const body = (await res.json()) as CreatedKey;
+
+    expect(res.status).toBe(201);
+    expect(body.token).toMatch(TOKEN_PATTERN);
+    expect(backend.rows('api_keys')).toHaveLength(1);
+    expect(backend.rows('api_key_requests')).toEqual([
+      { request_id: REQUEST_ID, api_key_id: body.keyId, abandoned_at: null },
+    ]);
+    expect(kvRecord(backend, body.token)).toMatchObject({ keyId: body.keyId, status: 'active', organizationId: GROWTH_ORG });
+  });
+
+  it('inserts directly, claiming no request, when no requestId is sent', async () => {
+    const { backend, post } = setup();
+
+    const res = await post({ userId: USER_ID });
+
+    expect(res.status).toBe(201);
+    expect(backend.rows('api_keys')).toHaveLength(1);
+    expect(backend.rows('api_key_requests')).toEqual([]);
+  });
+
+  it('answers 409 and mints nothing when the caller already abandoned the request', async () => {
+    const tables = baseTables();
+    tables.api_key_requests = [{ request_id: REQUEST_ID, api_key_id: null, abandoned_at: '2026-10-10T00:00:00.000Z' }];
+    const { backend, post } = setup({ tables });
+
+    const res = await post({ userId: USER_ID, requestId: REQUEST_ID });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'request abandoned' });
+    expectNothingMinted(backend);
+  });
+
+  it('takes the KV record down and answers 409 when the key is revoked between insert and KV write', async () => {
+    const { backend, post } = setup();
+    backend.onKvPut = () => {
+      for (const row of backend.rows('api_keys')) Object.assign(row, { status: 'revoked', revoked_at: '2026-10-10T00:00:00.000Z' });
+    };
+
+    const res = await post({ userId: USER_ID, requestId: REQUEST_ID });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'key revoked during creation' });
+    expect(backend.kv.size).toBe(0);
+    expect(backend.rows('api_keys')).toMatchObject([{ status: 'revoked' }]);
+  });
+
+  it('still returns the token when the post-write status re-check fails', async () => {
+    const { backend, post } = setup();
+    backend.fail('select:api_keys', { kind: 'http', status: 500, body: { message: 'db down' } });
+
+    const res = await post({ userId: USER_ID, requestId: REQUEST_ID });
+    const body = (await res.json()) as CreatedKey;
+
+    expect(res.status).toBe(201);
+    expect(body.token).toMatch(TOKEN_PATTERN);
+    expect(kvRecord(backend, body.token)).toMatchObject({ keyId: body.keyId });
+  });
+});
