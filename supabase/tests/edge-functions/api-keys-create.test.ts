@@ -708,15 +708,36 @@ describe('api-keys-create: request ids', () => {
     expect(backend.rows('api_keys')).toMatchObject([{ status: 'revoked' }]);
   });
 
-  it('still returns the token when the post-write status re-check fails', async () => {
+  it('answers 503 to a requestId caller when the post-write status re-check fails, so it abandons and revokes', async () => {
     const { backend, post } = setup();
     backend.fail('select:api_keys', { kind: 'http', status: 500, body: { message: 'db down' } });
 
     const res = await post({ userId: USER_ID, requestId: REQUEST_ID });
+
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: 'key status unconfirmed; retry' });
+    expect(backend.rows('api_key_requests')).toMatchObject([{ request_id: REQUEST_ID, abandoned_at: null }]);
+  });
+
+  it('still returns the token to a direct caller when the post-write status re-check fails', async () => {
+    const { backend, post } = setup();
+    backend.fail('select:api_keys', { kind: 'http', status: 500, body: { message: 'db down' } });
+
+    const res = await post({ userId: USER_ID });
     const body = (await res.json()) as CreatedKey;
 
     expect(res.status).toBe(201);
     expect(body.token).toMatch(TOKEN_PATTERN);
     expect(kvRecord(backend, body.token)).toMatchObject({ keyId: body.keyId });
+  });
+
+  it('echoes the requestId in the 201 so the caller can tell its claim was honoured', async () => {
+    const { post } = setup();
+
+    const withId = (await (await post({ userId: USER_ID, requestId: REQUEST_ID })).json()) as Record<string, unknown>;
+    const withoutId = (await (await setup().post({ userId: USER_ID })).json()) as Record<string, unknown>;
+
+    expect(withId.requestId).toBe(REQUEST_ID);
+    expect(withoutId).not.toHaveProperty('requestId');
   });
 });
