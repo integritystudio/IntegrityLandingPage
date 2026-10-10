@@ -82,6 +82,9 @@ async function isServiceCredential(
 
 const VALID_TIERS = new Set(["starter", "growth", "enterprise"]);
 const DEFAULT_TIER = "starter";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Raised by create_api_key_for_request when abandon_api_key_request claimed the id first.
+const REQUEST_ABANDONED = "api_key_request_abandoned";
 // A failed membership query is an outage, not "no membership": answer 5xx so the
 // receiver can retry rather than read it as a 403 (TS20).
 const MEMBERSHIP_LOOKUP_FAILED = "Database error resolving membership.";
@@ -118,6 +121,10 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
     let name = "Default";
     let organizationId: string | null = null;
     let bodyUserId: string | null = null;
+    // Optional per-attempt id (20261010000000_api_key_requests): with it, a caller that loses
+    // the response can abandon the attempt and revoke exactly the key it created.
+    let requestId: string | null = null;
+    let requestIdInvalid = false;
     try {
       const body = await req.json();
       if (body.name && typeof body.name === "string") {
@@ -132,11 +139,21 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
       if (body.userId && typeof body.userId === "string") {
         bodyUserId = body.userId;
       }
+      if (body.requestId !== undefined) {
+        if (typeof body.requestId === "string" && UUID_PATTERN.test(body.requestId)) {
+          requestId = body.requestId;
+        } else {
+          requestIdInvalid = true;
+        }
+      }
     } catch {
       // Empty body is fine — use defaults
     }
     if (!bodyUserId) {
       return errorResponse("userId is required", 400);
+    }
+    if (requestIdInvalid) {
+      return errorResponse("requestId must be a UUID", 400);
     }
 
     const supabase = deps.createClient(supabaseUrl, serviceRoleKey, { global: { fetch: deps.fetch } });
@@ -243,22 +260,44 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
     const hash = await sha256Hex(token);
     const prefix = token.slice(5, 13); // 8 hex chars after "obtk_"
 
-    // Insert API key
-    const { data: apiKey, error: keyError } = await supabase
-      .from("api_keys")
-      .insert({
-        user_id: userId,
-        organization_id: organizationId,
-        prefix,
-        hash,
-        name,
-        tier: userTier,
-        status: "active",
-      })
-      .select("id")
-      .single();
-    if (keyError) {
-      return errorResponse(`Failed to create API key: ${keyError.message}`, 500);
+    // Insert API key. With a requestId the insert goes through create_api_key_for_request,
+    // which claims the id in the same transaction and fails if the caller abandoned it.
+    let keyId: string;
+    if (requestId) {
+      const { data: createdId, error: rpcError } = await supabase.rpc("create_api_key_for_request", {
+        p_request_id: requestId,
+        p_user_id: userId,
+        p_organization_id: organizationId,
+        p_prefix: prefix,
+        p_hash: hash,
+        p_name: name,
+        p_tier: userTier,
+      });
+      if (rpcError) {
+        if (String(rpcError.message ?? "").includes(REQUEST_ABANDONED)) {
+          return errorResponse("request abandoned", 409);
+        }
+        return errorResponse(`Failed to create API key: ${rpcError.message}`, 500);
+      }
+      keyId = createdId as string;
+    } else {
+      const { data: apiKey, error: keyError } = await supabase
+        .from("api_keys")
+        .insert({
+          user_id: userId,
+          organization_id: organizationId,
+          prefix,
+          hash,
+          name,
+          tier: userTier,
+          status: "active",
+        })
+        .select("id")
+        .single();
+      if (keyError) {
+        return errorResponse(`Failed to create API key: ${keyError.message}`, 500);
+      }
+      keyId = apiKey.id;
     }
 
     // Sync to Cloudflare KV
@@ -267,7 +306,7 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
       tier: userTier,
       status: "active",
       userId,
-      keyId: apiKey.id,
+      keyId,
       prefix,
       // Org-scoped multi-tenancy P3: obtool-ingest resolves the telemetry
       // keyspace (org/<orgId>/...) from this field, and obtool-api scopes
@@ -297,7 +336,7 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
       console.error(`KV sync failed: ${kvFailure}`);
       return jsonResponse({
         token,
-        keyId: apiKey.id,
+        keyId,
         prefix,
         tier: userTier,
         name,
@@ -305,6 +344,34 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
       }, 201);
     }
 
-    return jsonResponse({ token, keyId: apiKey.id, prefix, tier: userTier, name }, 201);
+    // api-keys-revoke deletes the KV record after marking the row revoked. If that ran
+    // between the insert and the PUT above (the caller abandoned the attempt), the PUT just
+    // brought the credential back, so re-read the row and take it down again.
+    const { data: current, error: recheckError } = await supabase
+      .from("api_keys")
+      .select("status")
+      .eq("id", keyId)
+      .maybeSingle();
+    if (recheckError) {
+      // Unknown status: hand the token over rather than orphan a key that is probably live.
+      console.error(`api-keys-create: status re-check failed for ${keyId}: ${recheckError.message}`);
+    } else if (current?.status === "revoked") {
+      await deleteKvRecord(deps.fetch, kvUrl, cfApiToken, keyId);
+      return errorResponse("key revoked during creation", 409);
+    }
+
+    return jsonResponse({ token, keyId, prefix, tier: userTier, name }, 201);
   };
+}
+
+/** DELETE a KV record; 404 means already gone. Failure is logged: the caller has nothing to retry. */
+async function deleteKvRecord(fetchFn: typeof fetch, kvUrl: string, cfApiToken: string, keyId: string): Promise<void> {
+  try {
+    const res = await fetchFn(kvUrl, { method: "DELETE", headers: { Authorization: `Bearer ${cfApiToken}` } });
+    if (!res.ok && res.status !== 404) {
+      console.error(`api-keys-create: KV delete for revoked key ${keyId} failed: ${await res.text()}`);
+    }
+  } catch (err) {
+    console.error(`api-keys-create: KV delete for revoked key ${keyId} failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }

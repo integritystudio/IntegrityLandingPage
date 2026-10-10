@@ -22,6 +22,7 @@ const CLOUDFLARE_ORIGIN = 'https://api.cloudflare.com';
 
 const OBJECT_MEDIA_TYPE = 'application/vnd.pgrst.object+json';
 const REST_PREFIX = '/rest/v1/';
+const RPC_PREFIX = 'rpc/';
 const AUTH_ADMIN_USERS = '/auth/v1/admin/users';
 const KV_PATH = /^\/client\/v4\/accounts\/([^/]+)\/storage\/kv\/namespaces\/([^/]+)\/values\/(.+)$/;
 const KV_LIST_PATH = /^\/client\/v4\/accounts\/([^/]+)\/storage\/kv\/namespaces\/([^/]+)\/keys$/;
@@ -72,6 +73,12 @@ export class FakeBackend {
   private readonly failures = new Map<string, { failure: Failure; remaining: number }>();
   private nextId = 1;
 
+  /**
+   * Runs after every successful KV write, with the written key, so a test can change the
+   * world between a function's KV PUT and whatever it does next (e.g. revoke the key).
+   */
+  onKvPut: ((key: string) => void) | null = null;
+
   constructor(options: FakeBackendOptions) {
     this.serviceKeys = new Set(options.serviceKeys);
     this.cloudflareToken = options.cloudflareToken;
@@ -84,7 +91,7 @@ export class FakeBackend {
   /**
    * Make one kind of request fail from now on, or only the next `times` of them. Targets:
    * `auth`, `kv` (writes), `kv-read`, `kv-delete`, `kv-list`, `select:<table>`,
-   * `insert:<table>`, `update:<table>`, `delete:<table>`.
+   * `insert:<table>`, `update:<table>`, `delete:<table>`, `rpc:<function>`.
    */
   fail(target: string, failure: Failure, times = Infinity): void {
     this.failures.set(target, { failure, remaining: times });
@@ -154,6 +161,7 @@ export class FakeBackend {
     }
 
     const table = url.pathname.slice(REST_PREFIX.length);
+    if (table.startsWith(RPC_PREFIX)) return this.handleRpc(request, table.slice(RPC_PREFIX.length));
     const wantsObject = (request.headers.get('Accept') ?? '').includes(OBJECT_MEDIA_TYPE);
 
     if (request.method === 'GET') {
@@ -197,6 +205,51 @@ export class FakeBackend {
     }
 
     throw new Error(`fake backend: unsupported PostgREST method ${request.method} on ${table}`);
+  }
+
+  /**
+   * PostgREST `POST /rpc/<fn>` for the SQL functions the edge functions call, with the
+   * semantics their migrations define (20261010000000_api_key_requests). A scalar result
+   * is answered as bare JSON; a `raise exception` as PostgREST's 400 with code P0001.
+   */
+  private async handleRpc(request: Request, fn: string): Promise<Response> {
+    const failure = this.takeFailure(`rpc:${fn}`);
+    if (failure) return respondWithFailure(failure, `rpc:${fn}`);
+    if (request.method !== 'POST') throw new Error(`fake backend: unsupported RPC method ${request.method} on ${fn}`);
+    const args = (await request.json()) as Row;
+    const requests = this.rows('api_key_requests');
+    const claim = requests.find((row) => row.request_id === args.p_request_id);
+
+    if (fn === 'create_api_key_for_request') {
+      if (claim) {
+        return json(400, { code: 'P0001', details: null, hint: null, message: 'api_key_request_abandoned' });
+      }
+      const keyId = `api_keys-${this.nextId++}`;
+      this.tables.set('api_keys', [...this.rows('api_keys'), {
+        id: keyId,
+        created_at: new Date().toISOString(),
+        user_id: args.p_user_id,
+        organization_id: args.p_organization_id,
+        prefix: args.p_prefix,
+        hash: args.p_hash,
+        name: args.p_name,
+        tier: args.p_tier,
+        status: 'active',
+      }]);
+      this.tables.set('api_key_requests', [...requests, { request_id: args.p_request_id, api_key_id: keyId, abandoned_at: null }]);
+      return json(200, keyId);
+    }
+
+    if (fn === 'abandon_api_key_request') {
+      if (claim) {
+        claim.abandoned_at ??= new Date().toISOString();
+        return json(200, claim.api_key_id ?? null);
+      }
+      this.tables.set('api_key_requests', [...requests, { request_id: args.p_request_id, api_key_id: null, abandoned_at: new Date().toISOString() }]);
+      return json(200, null);
+    }
+
+    throw new Error(`fake backend: unsupported RPC ${fn}`);
   }
 
   /** Apply the `eq` filters, `order` and `limit` a PostgREST GET carries. */
@@ -262,6 +315,7 @@ export class FakeBackend {
       value: await request.text(),
       contentType: request.headers.get('Content-Type'),
     });
+    this.onKvPut?.(key);
     return json(200, { success: true, errors: [], messages: [], result: null });
   }
 
