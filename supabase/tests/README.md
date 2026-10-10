@@ -236,6 +236,31 @@ push then showed what the suite had missed: `anon` still held EXECUTE on both re
 (trap 5 below); the follow-up migration revokes it, and with the default privileges in the
 fixture the first migration alone now fails A7d, as production did.
 
+### `api-key-requests/`
+
+Covers `migrations/20261010000000_api_key_requests.sql`: the `api_key_requests` claim table
+and the two functions that share its primary key — `create_api_key_for_request` (claim, then
+insert the key, in one transaction) and `abandon_api_key_request` (claim or mark abandoned,
+return the key a committed create made). The fixture holds the `api_keys` slice with
+production's types and constraints, the three API roles (`service_role` bypassing RLS) and
+the hosted default table and function privileges. `run.sh` adds two two-session checks after
+`verify.sql`. Port 55441.
+
+| | assertion |
+|---|---|
+| T1 | RLS on, no policies |
+| T2 | `anon` and `authenticated` hold no EXECUTE on either function and no privilege on the table; `service_role` executes both |
+| T3 | create, then abandon: abandon returns the created key |
+| T4 | abandon, then create: create raises `api_key_request_abandoned` and inserts no key |
+| T5 | abandon is idempotent and keeps the first `abandoned_at` |
+| T6 | two same-named creates with distinct request ids both succeed |
+| T7 | a replayed request id raises and mints nothing |
+| T8 | a create failing on a key constraint claims no request (one transaction) |
+| T9 | abandon issued while a create transaction is open waits, then returns that create's key |
+| T10 | create issued while an abandon transaction is open waits, then raises and mints nothing |
+
+Dropping the revokes fails T2a; skipping the claim check in the create fails T4b.
+
 ### `edge-functions/`
 
 Behavioural tests for the Edge Functions, not the migrations — a Node/vitest package, not
