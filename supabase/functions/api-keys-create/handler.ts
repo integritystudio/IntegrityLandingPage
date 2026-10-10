@@ -340,6 +340,7 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
         prefix,
         tier: userTier,
         name,
+        ...(requestId ? { requestId } : {}),
         warning: "API key created but KV sync failed. Key may not work immediately.",
       }, 201);
     }
@@ -353,14 +354,17 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
       .eq("id", keyId)
       .maybeSingle();
     if (recheckError) {
-      // Unknown status: hand the token over rather than orphan a key that is probably live.
       console.error(`api-keys-create: status re-check failed for ${keyId}: ${recheckError.message}`);
+      // A requestId caller abandons and revokes on any non-201, so an unknown status is
+      // handed back as retryable. A direct caller has no such cleanup: give it the token
+      // rather than orphan a key that is probably live.
+      if (requestId) return errorResponse("key status unconfirmed; retry", 503);
     } else if (current?.status === "revoked") {
       await deleteKvRecord(deps.fetch, kvUrl, cfApiToken, keyId);
       return errorResponse("key revoked during creation", 409);
     }
 
-    return jsonResponse({ token, keyId, prefix, tier: userTier, name }, 201);
+    return jsonResponse({ token, keyId, prefix, tier: userTier, name, ...(requestId ? { requestId } : {}) }, 201);
   };
 }
 
