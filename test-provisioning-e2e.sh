@@ -9,7 +9,7 @@ echo "  observability-toolkit repo). sender-worker reaches it via a [[services]]
 echo "  binding (RECEIVER -> api-provisioning-receiver), NOT an HTTP URL."
 echo "  This script starts sender-worker locally and exercises its self-contained"
 echo "  validation/routing surface (paths that are rejected before forwarding)."
-echo "  The full provision_api_key / sign_in forwarding happy-path requires the"
+echo "  The full provision_api_key forwarding happy-path requires the"
 echo "  receiver binding + Auth0/Supabase secrets and is NOT covered here."
 echo
 
@@ -127,12 +127,12 @@ HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test3.json -X POST "${SENDER_URL}/
 echo "Response: $(cat /tmp/test3.json)"
 verify_http "400" "$HTTP_CODE"
 
-test_header "Test 4: sign_in to /send without JWT → 401"
+test_header "Test 4: removed sign_in action to /send → 400"
 HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test4.json -X POST "${SENDER_URL}/send" \
   -H "Content-Type: application/json" \
   -d '{"action":"sign_in","email":"user@example.com"}')
 echo "Response: $(cat /tmp/test4.json)"
-verify_http "401" "$HTTP_CODE"
+verify_http "400" "$HTTP_CODE"
 
 test_header "Test 5: /signup missing email/password → 400"
 HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/test5.json -X POST "${SENDER_URL}/signup" \
@@ -163,7 +163,7 @@ fi
 
 echo
 echo "${YELLOW}Not covered here (require the receiver + Auth0/Supabase):${NC}"
-echo "  - POST /send  {action: provision_api_key | sign_in} happy-path forwarding"
+echo "  - POST /send  {action: provision_api_key} happy-path forwarding"
 echo "  - POST /signup full Auth0 ROPC + Supabase user/org creation"
 echo "  For those, run the sender-worker integration/live suites:"
 echo "    cd workers/sender-worker && npm run test:e2e   # doppler dev config"

@@ -148,15 +148,13 @@ async function handleSend(env: Env, req: Record<string, unknown>, clientIp?: str
 
   const data = parsed.data;
   try {
-    const outbound: Record<string, unknown> = data.action === "sign_in"
-      ? { action: data.action, jwt: data.jwt, email: data.email }
-      : {
-          action: data.action,
-          jwt: data.jwt,
-          name: data.name,
-          email: data.email,
-          org_name: data.org_name,
-        };
+    const outbound: Record<string, unknown> = {
+      action: data.action,
+      jwt: data.jwt,
+      name: data.name,
+      email: data.email,
+      org_name: data.org_name,
+    };
     return await forwardToReceiver(env, outbound, clientIp);
   } catch (err) {
     if (err instanceof TypeError) {

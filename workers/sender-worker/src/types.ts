@@ -53,7 +53,7 @@ export const ERROR_DESCRIPTIONS: Partial<Record<ErrorCode, string>> = {
   [ERROR_CODE.JSON_PARSE_ERROR]:
     "Request body is not valid JSON. Ensure content-type: application/json and a well-formed body.",
   [ERROR_CODE.UNKNOWN_ACTION]:
-    "The action field does not match a supported discriminant. Supported values: provision_api_key, sign_in.",
+    "The action field does not match a supported discriminant. Supported value: provision_api_key.",
   [ERROR_CODE.RECEIVER_ERROR]:
     "Receiver worker returned a non-2xx response that could not be classified further. Check receiver logs.",
   [ERROR_CODE.FORBIDDEN]:
@@ -73,7 +73,7 @@ export const ERROR_DESCRIPTIONS: Partial<Record<ErrorCode, string>> = {
   [ERROR_CODE.RECEIVER_INVALID_EMAIL_DOMAIN]:
     "Receiver rejected the email domain. Likely causes: disposable/blocklisted domain, failed MX lookup, or domain not in the allowlist.",
   [ERROR_CODE.RECEIVER_NOT_IMPLEMENTED]:
-    "Receiver does not implement the requested action. Verify the action field matches a supported value (provision_api_key, sign_in).",
+    "Receiver does not implement the requested action. Verify the action field is provision_api_key.",
 } as const;
 
 export const CORS_ALLOW_METHODS = "GET, POST, OPTIONS";
@@ -130,15 +130,8 @@ export const ProvisionApiKeyRequestSchema = z.object({
   org_name: z.string().min(1).optional(),
 });
 
-export const SignInRequestSchema = z.object({
-  action: z.literal("sign_in"),
-  jwt: z.string().jwt(),
-  email: z.string().email(),
-});
-
 export const SendRequestSchema = z.discriminatedUnion("action", [
   ProvisionApiKeyRequestSchema,
-  SignInRequestSchema,
 ]);
 
 export const CreateCheckoutSessionSchema = z.object({
