@@ -209,6 +209,24 @@ export const FB_PIXEL_ID = '2038045626963282';
 /** Settle time for GTM script injection after consent-triggered reload. */
 export const GTM_INJECT_SETTLE_MS = 5_000;
 
+/**
+ * Same-origin path Cloudflare's Google tag gateway serves gtag and its collect
+ * endpoint from. The edge injects it into every page view, so it never appears
+ * in web/index.html.
+ */
+export const GOOGLE_TAG_GATEWAY_PATH = '/rlr5/';
+
+/** Analytics and ad-measurement hosts; subdomains match too. */
+export const ANALYTICS_HOST_SUFFIXES = [
+  'googletagmanager.com',
+  'google-analytics.com',
+  'analytics.google.com',
+  'doubleclick.net',
+  'cloudflareinsights.com',
+  'facebook.net',
+  'facebook.com',
+] as const;
+
 // ---------------------------------------------------------------------------
 // HTTP status codes
 // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { SITE_URL, SITE_NAME } from './constants';
 
 /**

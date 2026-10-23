@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { waitForFlutter } from './helpers';
 import {
   CLICK_SETTLE_MS,

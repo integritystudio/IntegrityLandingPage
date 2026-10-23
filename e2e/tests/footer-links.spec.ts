@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { waitForFlutter, assertFlutterRendering, navigateAndWaitForFlutter } from './helpers';
 import { FLUTTER_BOOTSTRAP_SCRIPT } from './constants';
 

@@ -78,6 +78,9 @@ dist/
 !functions/package.json
 !functions/vitest.config.ts
 
+# Allow Playwright e2e sources
+!e2e/tests/*.ts
+
 # Allow workers/ CF Workers source
 !workers/**/*.ts
 !workers/**/package.json

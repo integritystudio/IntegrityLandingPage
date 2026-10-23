@@ -1,4 +1,5 @@
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { waitForFlutter, assertFlutterRendering, consentJson } from './helpers';
 import {
   CONSENT_STORAGE_KEY,

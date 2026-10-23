@@ -1,4 +1,5 @@
-import { test, expect, type APIResponse } from '@playwright/test';
+import type { APIResponse } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { IS_LOCAL_DEV, SKIP_REASON_CLOUDFLARE_HEADERS } from './constants';
 
 /**

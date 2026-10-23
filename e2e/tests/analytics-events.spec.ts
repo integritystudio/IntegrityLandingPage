@@ -1,7 +1,9 @@
-import { test, expect, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { waitForFlutter, navigateAndWaitForFlutter, consentJson } from './helpers';
 import {
   CONSENT_STORAGE_KEY,
+  GOOGLE_TAG_GATEWAY_PATH,
   GTM_CONTAINER_ID,
   GTM_INJECT_SETTLE_MS,
   IS_LOCAL_DEV,
@@ -54,6 +56,16 @@ test.describe('Analytics Event Payload Validation (#112)', () => {
       expect(dl.length).toBeGreaterThan(0);
       // First entry should be an object or array (gtm.js default dataLayer push)
       expect(dl[0]).toBeTruthy();
+    });
+
+    test('edge Google tag loads from the path the fixtures block', async ({ page }) => {
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      await waitForFlutter(page);
+
+      const scriptPaths = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('script[src]'), (s) => new URL((s as HTMLScriptElement).src).pathname),
+      );
+      expect(scriptPaths.some((p) => p.startsWith(GOOGLE_TAG_GATEWAY_PATH))).toBe(true);
     });
   });
 
