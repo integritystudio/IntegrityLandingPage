@@ -39,7 +39,7 @@ The body is a discriminated union on `action`:
 }
 ```
 
-A `tier` field is stripped and never forwarded (CR37); the receiver takes the org's plan from the database. `org_name` is optional: when it is missing the receiver derives the team org name from the email's registrable domain, which is more accurate than anything a client can send for subdomain addresses. `provision_api_key` is the only action; `sign_in` was removed once nothing sent it and now gets `400 unknown action`.
+A `tier` field is stripped and never forwarded (CR37); the receiver takes the org's plan from the database. `org_name` is optional: when it is missing the receiver derives the team org name from the email's registrable domain, which is more accurate than anything a client can send for subdomain addresses. `provision_api_key` is the only action; any other, `sign_in` included, gets `400 unknown action`.
 
 The JWT is taken from, in order: a base64-wrapped `x-session-data` header, the body's `jwt` field, then an `Authorization: Bearer` header.
 
