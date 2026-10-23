@@ -60,7 +60,7 @@ npx vitest run                    # Tests
 
 **API Provisioning Worker** (`workers/sender-worker/`)
 - **Sender** (`api-provisioning-sender`): routes `POST /send`, `/create-checkout-session`, `GET /health` (Zod v4). Its ROPC routes `/signup`, `/signin` and `/forgot-password` were deleted by CR49; sign-in is Auth0 Universal Login (CR48).
-  - *Forwarded:* `/send` events (`provision_api_key`, `sign_in`) are HMAC-SHA256-signed and sent to the production receiver `api-provisioning-receiver` via a Cloudflare service binding. The receiver mints `obtk_` API keys; api-gateway's `POST /v1/orgs/:id/api-keys` mints the legacy `int_live_` format, which only api-gateway accepts.
+  - *Forwarded:* `/send` events (`provision_api_key`, the only action) are HMAC-SHA256-signed and sent to the production receiver `api-provisioning-receiver` via a Cloudflare service binding. The receiver mints `obtk_` API keys; api-gateway's `POST /v1/orgs/:id/api-keys` mints the legacy `int_live_` format, which only api-gateway accepts.
 - **Receiver**: the production receiver is `api-provisioning-receiver` in the separate `observability-toolkit` repo (persists to Supabase), reached over the `RECEIVER` service binding.
 
 ```bash

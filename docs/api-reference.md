@@ -216,11 +216,10 @@ The Auth0 ROPC routes `/signup`, `/signin` and `/forgot-password` were deleted b
 
 ### `/send` contract
 
-`SendRequestSchema` is a discriminated union on `action`:
+`SendRequestSchema` is a discriminated union on `action` with one member; any other `action`, including the removed `sign_in`, is `400 unknown action`:
 
 ```jsonc
 { "action": "provision_api_key", "jwt": "<token>", "name": "my-key", "email": "a@b.com", "org_name": "optional" }
-{ "action": "sign_in", "jwt": "<token>", "email": "a@b.com" }
 ```
 
 - **Token delivery** — `x-session-data` (base64, keeps a raw JWT out of WAF pattern matching), else `body.jwt`, else `Authorization: Bearer`.
