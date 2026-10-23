@@ -225,6 +225,25 @@ These issues require **server-side HTTP response header configuration** and cann
 
 ---
 
+### W13: confirm Googlebot is not blocked at the edge on integritystudio.ai
+
+**Priority:** P2 | **Source:** session 2026-10-23, bot-traffic review | **Check by:** 2026-10-28
+
+**Why:** Cloudflare's 2026-09-15 AI-crawler change makes "Block" settings also stop mixed-use crawlers (Googlebot, Bingbot, Applebot), search included; publishers reported Googlebot 403s. This zone still carries the legacy `ai_bots_protection: "block"` alongside the migrated `ai_training: "disallow"`, and Preference Sync was turned on 2026-10-23, which now prepends a Cloudflare-managed block to `/robots.txt` (`Content-Signal: search=yes,ai-train=no,use=reference` plus `Disallow` for ~30 training crawlers). Nothing has shown Googlebot getting through: the Free plan's GraphQL API has no security events (`firewallEventsAdaptiveGroups` is refused), so this can only be read in the dashboard or Search Console.
+
+**Check (each day through the check-by date):**
+1. Cloudflare dashboard → integritystudio.ai → Security → Events, filtered to user agent containing `Googlebot` (then `bingbot`, `Applebot`): expect **zero** block/challenge events. Any hit names the rule (`service`) responsible.
+2. Google Search Console → Settings → Crawl stats: no rise in 403/4xx host-status errors since 2026-10-23, and `robots.txt` fetch status OK.
+3. Search Console → URL Inspection on `https://integritystudio.ai/` → Test live URL: page fetch succeeds and robots.txt allows it.
+
+**If Googlebot is blocked:** set `ai_bots_protection` to `"disabled"` with a single-field `PUT /zones/822492ca06069b369c2a75d3789fb7fa/bot_management` body (echoing the full GET body returns `10400 Bad Request`), re-run step 3, and record what still enforces the training-crawler block.
+
+**Not in scope:** `Baiduspider` and `PetalBot` (Baidu and Huawei search) are disallowed by the managed robots.txt; that is a Cloudflare default, accepted unless those markets matter.
+
+**Status:** Open — waiting on several days of crawl data.
+
+---
+
 ## Code Review 2026-07-26 → 2026-07-27 (CR01–CR35)
 
 Started as the open remainder of the 8-area codebase review; CR11–CR15 were found afterwards while deploying and auditing the workers, CR16 while reading the deployed `obtool-*` scripts to settle CR13, CR22–CR23 as follow-ups to the billing-portal auth change, CR26 while fixing the reported dashboard CORS failure — which turned out to sit on top of two deeper auth defects — CR29 while diagnosing CR11 row #7, where the shared secret was the symptom and the unrotatable legacy key path was the actual defect, CR30 while executing CR11 step 1 against a genuinely empty project, and CR31 while answering the plain question "should `api.integritystudio.ai/*` point at `api-gateway`?" — where the answer was no and the three broken URLs found on the way there were the larger finding. Fixed work lives in [`changelog/1.3/CHANGELOG.md`](changelog/1.3/CHANGELOG.md); the review's method, provenance, and 3 refuted claims are in [`CODE_REVIEW.md`](../CODE_REVIEW.md).
