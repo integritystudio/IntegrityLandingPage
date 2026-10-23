@@ -283,10 +283,10 @@ Flutter Web renders to `<canvas>` via CanvasKit — DOM selectors cannot reach w
 Choose the appropriate file based on the task:
 
 - [token-tree.txt](docs/repomix/token-tree.txt) — file tree with token counts; use for navigation, finding files, estimating scope
-- [docs-compressed.xml](docs/repomix/docs-compressed.xml) — compressed docs, CLAUDE.md, README (~171K tokens on 2026-10-06 — grep it, don't load it); use for broad docs search
-- [repo-compressed.xml](docs/repomix/repo-compressed.xml) — compressed full source (~117K tokens); use for a structural read of the whole repo
+- [docs-compressed.xml](docs/repomix/docs-compressed.xml) — compressed docs, CLAUDE.md, README (grep it, don't load it); use for broad docs search
+- [repo-compressed.xml](docs/repomix/repo-compressed.xml) — compressed full source; use for a structural read of the whole repo
 - [repomix.xml](docs/repomix/repomix.xml) — full lossless source; use only when exact code detail is needed (e.g. line-level edits, debugging)
-- [repomix-docs.xml](docs/repomix/repomix-docs.xml) and [repomix-git-ranked.xml](docs/repomix/repomix-git-ranked.xml) — lossless docs (changelog excluded, ~0.95M tokens) and the whole repo ranked by git change frequency (~1.5M tokens); grep only
+- [repomix-docs.xml](docs/repomix/repomix-docs.xml) and [repomix-git-ranked.xml](docs/repomix/repomix-git-ranked.xml) — lossless docs (changelog excluded) and the whole repo ranked by git change frequency; grep only
 - [gitlog-top20.txt](docs/repomix/gitlog-top20.txt) — git history of the most-changed files
 - [tests-compressed.xml](docs/repomix/tests-compressed.xml) — compressed test suite (Flutter + Workers); use when writing or reviewing tests
 - [repomix-workers.xml](docs/repomix/repomix-workers.xml) — lossless Cloudflare Workers source, wrangler/vitest config, and worker docs (tests excluded); use when changing routes, bindings, schemas, or deploy config
