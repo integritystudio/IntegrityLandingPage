@@ -229,7 +229,7 @@ These issues require **server-side HTTP response header configuration** and cann
 
 **Priority:** P2 | **Source:** session 2026-10-23, bot-traffic review | **Check by:** 2026-10-28
 
-**Why:** Cloudflare's 2026-09-15 AI-crawler change makes "Block" settings also stop mixed-use crawlers (Googlebot, Bingbot, Applebot), search included; publishers reported Googlebot 403s. This zone still carries the legacy `ai_bots_protection: "block"` alongside the migrated `ai_training: "disallow"`, and Preference Sync was turned on 2026-10-23, which now prepends a Cloudflare-managed block to `/robots.txt` (`Content-Signal: search=yes,ai-train=no,use=reference` plus `Disallow` for ~30 training crawlers). Nothing has shown Googlebot getting through: the Free plan's GraphQL API has no security events (`firewallEventsAdaptiveGroups` is refused), so this can only be read in the dashboard or Search Console.
+**Why:** Cloudflare's 2026-09-15 AI-crawler change makes "Block" settings also stop mixed-use crawlers (Googlebot, Bingbot, Applebot), search included; publishers reported Googlebot 403s. This zone still carries the legacy `ai_bots_protection: "block"` alongside the migrated `ai_training: "disallow"`, and Preference Sync was turned on 2026-10-23, which now prepends a Cloudflare-managed block to `/robots.txt` (`Content-Signal: search=yes,ai-train=no,use=reference` plus `Disallow` for ~30 training crawlers). The Free plan's GraphQL API has no security events (`firewallEventsAdaptiveGroups` is refused), but `httpRequestsAdaptiveGroups` does carry `userAgent`, `clientIP` and `edgeResponseStatus` with at least 7 days' retention (zone token `CLOUDFLARE_ZONE_TOKEN_INTEGRITYSTUDIO_AI`), so a block is readable as a 403 without the dashboard. **Filter by IP, not user agent:** scanners on Google Cloud (`34.146.x`, `34.147.x`) send a Googlebot UA and do get 403s; check `clientIP` against [googlebot.json](https://developers.google.com/static/search/apis/ipranges/googlebot.json), [bingbot.json](https://www.bing.com/toolbox/bingbot.json) and Apple's `17.0.0.0/8`. Rows on the `*.fps.goog` tag-gateway host carry Cloudflare's own IP and read as unverified.
 
 **Check (each day through the check-by date):**
 1. Cloudflare dashboard → integritystudio.ai → Security → Events, filtered to user agent containing `Googlebot` (then `bingbot`, `Applebot`): expect **zero** block/challenge events. Any hit names the rule (`service`) responsible.
@@ -241,6 +241,8 @@ These issues require **server-side HTTP response header configuration** and cann
 **Not in scope:** `Baiduspider` and `PetalBot` (Baidu and Huawei search) are disallowed by the managed robots.txt; that is a Cloudflare default, accepted unless those markets matter.
 
 **Status:** Open — waiting on several days of crawl data.
+
+**2026-10-24 reading (GraphQL, 2026-10-17 → 2026-10-24T03Z):** zero 403/429/503 to IP-verified Googlebot, bingbot or Applebot. Verified Googlebot fetched `/robots.txt` with 200 on 2026-10-23 at 09:00, 17:00 and 18:00Z, after Preference Sync went on. Positive control: the block does show up there as a 403 — verified ClaudeBot (`216.73.216.x`) gets 403 on `/sitemap.xml`, and so do Bytespider (`47.128.x`) and `meta-externalagent`. `ai_bots_protection` is still `"block"`. The live `/robots.txt` puts Googlebot under `User-agent: *` → `Allow: /`; only `Google-Extended` and `GoogleOther` are disallowed. Search Console steps 2–3 not yet run.
 
 ---
 
