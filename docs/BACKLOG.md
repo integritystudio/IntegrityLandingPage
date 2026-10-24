@@ -242,7 +242,7 @@ These issues require **server-side HTTP response header configuration** and cann
 
 **Status:** Open — waiting on several days of crawl data.
 
-**2026-10-24 reading (GraphQL, 2026-10-17 → 2026-10-24T03Z):** zero 403/429/503 to IP-verified Googlebot, bingbot or Applebot. Verified Googlebot fetched `/robots.txt` with 200 on 2026-10-23 at 09:00, 17:00 and 18:00Z, after Preference Sync went on. Positive control: the block does show up there as a 403 — verified ClaudeBot (`216.73.216.x`) gets 403 on `/sitemap.xml`, and so do Bytespider (`47.128.x`) and `meta-externalagent`. `ai_bots_protection` is still `"block"`. The live `/robots.txt` puts Googlebot under `User-agent: *` → `Allow: /`; only `Google-Extended` and `GoogleOther` are disallowed. Search Console steps 2–3 not yet run.
+**2026-10-24 reading (GraphQL, 2026-10-17 → 2026-10-24T03Z):** zero 403/429/503 to IP-verified Googlebot, bingbot or Applebot. Verified Googlebot fetched `/robots.txt` with 200 on 2026-10-23 at 09:00, 17:00 and 18:00Z, after Preference Sync went on. Positive control: the block does show up there as a 403 — verified ClaudeBot (`216.73.216.x`) gets 403 on `/sitemap.xml`, and so do Bytespider (`47.128.x`) and `meta-externalagent`. `ai_bots_protection` is still `"block"`. The live `/robots.txt` puts Googlebot under `User-agent: *` → `Allow: /`; only `Google-Extended` and `GoogleOther` are disallowed. Step 3 passed 2026-10-24 (owner): live test of `https://integritystudio.ai/` reports "URL is available to Google". Step 2 (crawl stats) not yet read.
 
 ---
 
