@@ -456,6 +456,16 @@ async function activeSubscriptionPointer(
 }
 
 /**
+ * The one subscription written for a customer: the most recently created that Stripe can
+ * still change, else the most recently created. `subscriptions` holds one row per org,
+ * so writing each in turn would leave whichever Stripe happened to list last.
+ */
+export function subscriptionToReconcile<Sub extends Pick<Stripe.Subscription, 'status' | 'created'>>(subs: readonly Sub[]): Sub {
+  const newestFirst = [...subs].sort((a, b) => b.created - a.created);
+  return newestFirst.find((sub) => !isTerminalSubscriptionStatus(sub.status)) ?? newestFirst[0];
+}
+
+/**
  * The customer's most recently canceled subscription, or null if it never had one.
  * Stripe leaves canceled subscriptions out of the customer list this script pages through.
  */
@@ -499,71 +509,75 @@ export async function processCustomer(
   const { orgId, linked } = resolved;
   const orgFilter = `id=eq.${encodeURIComponent(orgId)}`;
 
-  for (const sub of subs) {
-    const priceId = sub.items.data[0]?.price.id;
-    // A canceled subscription always downgrades to the default plan, as the webhook does.
-    const canceled = sub.status === CANCELED_STATUS;
-    const mappedPlan = canceled ? DEFAULT_PLAN : priceId ? priceToPlan[priceId] : undefined;
-    const tier = mappedPlan ?? DEFAULT_PLAN;
-    if (!mappedPlan) {
-      issues.push({
-        kind: 'unmapped-price',
-        error: `Unmapped Stripe price ${priceId ?? '(none)'} on subscription ${sub.id}: entitlements rebuilt at ${DEFAULT_PLAN}, current_plan left alone`,
-      });
-    }
-
-    const subRecord = {
-      organization_id: orgId,
-      stripe_subscription_id: sub.id,
-      stripe_price_id: priceId ?? null,
-      status: sub.status,
-      current_period_start: new Date((sub.items.data[0]?.current_period_start ?? 0) * 1000).toISOString(),
-      current_period_end: new Date((sub.items.data[0]?.current_period_end ?? 0) * 1000).toISOString(),
-      cancel_at_period_end: sub.cancel_at_period_end,
-      updated_at: now,
-    };
-
-    const subResult = await supabaseUpsert(
-      supabaseUrl, serviceRoleKey,
-      'subscriptions', subRecord,
-      'organization_id', dryRun,
-    );
-
-    if (!subResult.ok) {
-      return { ok: false, kind: 'subscription-upsert', error: `Sub upsert failed for ${sub.id}: ${subResult.error}` };
-    }
-
-    const pointer = await activeSubscriptionPointer(supabaseUrl, serviceRoleKey, orgId, sub.status, dryRun);
-    if ('error' in pointer) {
-      return { ok: false, kind: 'subscription-row-lookup', error: `Subscription row lookup failed for ${sub.id}: ${pointer.error}` };
-    }
-
-    // Plan, billing status and the subscription pointer live on the org, as stripe-webhook
-    // writes them; a new quota_version makes api-gateway re-read the org's limits. An
-    // unmapped price leaves current_plan alone rather than downgrading the org.
-    const orgUpdates = {
-      billing_status: toBillingStatus(sub.status),
-      ...(mappedPlan ? { current_plan: mappedPlan } : {}),
-      active_subscription_id: pointer.id,
-      quota_version: Date.now(),
-      updated_at: now,
-    };
-    const orgUpdateResult = await supabaseUpdate(
-      supabaseUrl, serviceRoleKey,
-      'organizations', orgUpdates,
-      orgFilter, dryRun,
-    );
-
-    if (!orgUpdateResult.ok) {
-      return { ok: false, kind: 'org-update', error: `Org billing update failed for ${customer.id}: ${orgUpdateResult.error}` };
-    }
-
-    if (dryRun) {
-      console.log(`  [dry-run] Would upsert subscription ${sub.id} (tier=${tier}, status=${sub.status})`);
-    }
-
-    targets.push({ orgId, tier });
+  // One row per org: where a customer has several subscriptions, only the newest is
+  // written, as stripe-webhook's latest event overwrites the row.
+  const sub = subscriptionToReconcile(subs);
+  if (subs.length > 1) {
+    console.warn(`  Customer ${customer.id} has ${subs.length} subscriptions; reconciling the newest, ${sub.id}`);
   }
+  const priceId = sub.items.data[0]?.price.id;
+  // A canceled subscription always downgrades to the default plan, as the webhook does.
+  const canceled = sub.status === CANCELED_STATUS;
+  const mappedPlan = canceled ? DEFAULT_PLAN : priceId ? priceToPlan[priceId] : undefined;
+  const tier = mappedPlan ?? DEFAULT_PLAN;
+  if (!mappedPlan) {
+    issues.push({
+      kind: 'unmapped-price',
+      error: `Unmapped Stripe price ${priceId ?? '(none)'} on subscription ${sub.id}: entitlements rebuilt at ${DEFAULT_PLAN}, current_plan left alone`,
+    });
+  }
+
+  const subRecord = {
+    organization_id: orgId,
+    stripe_subscription_id: sub.id,
+    stripe_price_id: priceId ?? null,
+    status: sub.status,
+    current_period_start: new Date((sub.items.data[0]?.current_period_start ?? 0) * 1000).toISOString(),
+    current_period_end: new Date((sub.items.data[0]?.current_period_end ?? 0) * 1000).toISOString(),
+    cancel_at_period_end: sub.cancel_at_period_end,
+    updated_at: now,
+  };
+
+  const subResult = await supabaseUpsert(
+    supabaseUrl, serviceRoleKey,
+    'subscriptions', subRecord,
+    'organization_id', dryRun,
+  );
+
+  if (!subResult.ok) {
+    return { ok: false, kind: 'subscription-upsert', error: `Sub upsert failed for ${sub.id}: ${subResult.error}` };
+  }
+
+  const pointer = await activeSubscriptionPointer(supabaseUrl, serviceRoleKey, orgId, sub.status, dryRun);
+  if ('error' in pointer) {
+    return { ok: false, kind: 'subscription-row-lookup', error: `Subscription row lookup failed for ${sub.id}: ${pointer.error}` };
+  }
+
+  // Plan, billing status and the subscription pointer live on the org, as stripe-webhook
+  // writes them; a new quota_version makes api-gateway re-read the org's limits. An
+  // unmapped price leaves current_plan alone rather than downgrading the org.
+  const orgUpdates = {
+    billing_status: toBillingStatus(sub.status),
+    ...(mappedPlan ? { current_plan: mappedPlan } : {}),
+    active_subscription_id: pointer.id,
+    quota_version: Date.now(),
+    updated_at: now,
+  };
+  const orgUpdateResult = await supabaseUpdate(
+    supabaseUrl, serviceRoleKey,
+    'organizations', orgUpdates,
+    orgFilter, dryRun,
+  );
+
+  if (!orgUpdateResult.ok) {
+    return { ok: false, kind: 'org-update', error: `Org billing update failed for ${customer.id}: ${orgUpdateResult.error}` };
+  }
+
+  if (dryRun) {
+    console.log(`  [dry-run] Would upsert subscription ${sub.id} (tier=${tier}, status=${sub.status})`);
+  }
+
+  targets.push({ orgId, tier });
 
   return { ok: true, linked, targets, issues };
 }

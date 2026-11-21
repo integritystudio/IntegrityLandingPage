@@ -24,6 +24,7 @@ import {
   orgIdFromSubscriptionMetadata,
   processCustomer,
   recordError,
+  subscriptionToReconcile,
   toBillingStatus,
 } from './full-reconciliation.js';
 import {
@@ -360,6 +361,32 @@ describe('isTerminalSubscriptionStatus', () => {
   });
 });
 
+describe('subscriptionToReconcile', () => {
+  const sub = (id: string, status: Stripe.Subscription.Status, created: number) => ({ id, status, created });
+
+  it('picks the most recently created subscription, whatever order Stripe lists them in', () => {
+    const older = sub('sub_old', 'active', 100);
+    const newer = sub('sub_new', 'active', 200);
+
+    expect(subscriptionToReconcile([older, newer])).toBe(newer);
+    expect(subscriptionToReconcile([newer, older])).toBe(newer);
+  });
+
+  it('prefers a live subscription over a newer terminal one', () => {
+    const live = sub('sub_live', 'past_due', 100);
+    const expired = sub('sub_expired', 'incomplete_expired', 200);
+
+    expect(subscriptionToReconcile([expired, live])).toBe(live);
+  });
+
+  it('falls back to the newest when every subscription is terminal', () => {
+    const older = sub('sub_old', 'canceled', 100);
+    const newer = sub('sub_new', 'canceled', 200);
+
+    expect(subscriptionToReconcile([older, newer])).toBe(newer);
+  });
+});
+
 describe('toBillingStatus', () => {
   it.each(STRIPE_SUBSCRIPTION_STATUSES)('stores %s unchanged, as stripe-webhook does', (status) => {
     expect(toBillingStatus(status)).toBe(status);
@@ -557,6 +584,22 @@ describe('processCustomer', () => {
       expect(result).toEqual({ ok: true, linked: false, targets: [], issues: [] });
       expect(writes()).toEqual([]);
     });
+  });
+
+  it('writes only the newest of several subscriptions: one row, one org update, one rebuild', async () => {
+    const SECONDS_APART = 1_000;
+    const older = { ...subscription('active', 'price_unknown'), id: 'sub_old', created: SECONDS_APART };
+    const newer = { ...subscription('trialing', GROWTH_PRICE), id: 'sub_new', created: 2 * SECONDS_APART };
+    const customer = { id: CUSTOMER, subscriptions: { data: [newer, older] } } as unknown as Stripe.Customer;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await processCustomer(supabaseUrl, SERVICE_KEY, customer, PRICE_TO_PLAN, false);
+    warn.mockRestore();
+
+    expect(result).toEqual({ ok: true, linked: false, targets: [{ orgId: ORG_A, tier: 'growth' }], issues: [] });
+    expect(writes().map((request) => request.method)).toEqual(['POST', 'PATCH']);
+    expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({ stripe_subscription_id: 'sub_new', status: 'trialing' });
+    expect(orgPatch()).toMatchObject({ billing_status: 'trialing', current_plan: 'growth' });
   });
 
   it('leaves a customer that never subscribed alone', async () => {
