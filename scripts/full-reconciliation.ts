@@ -24,8 +24,9 @@
  *   SUPABASE_SERVICE_ROLE_KEY — Supabase service-role or secret key
  *
  * Optional:
- *   SENTRY_DSN             — reports each failure and any fatal error to that Sentry
- *                            project (Doppler's SENTRY_DSN is the landing app's)
+ *   SENTRY_OBTOOL_DASHBOARD_DSN — reports each failure and any fatal error to the
+ *                            `integritystudio-ai` Sentry project, the one the provisioning
+ *                            receiver and sender-worker use; Doppler supplies it
  *
  * See: docs/security/DISASTER_RECOVERY_PLAN.md (Scenario E)
  */
@@ -554,11 +555,17 @@ function isLiveStripeKey(key: string | undefined): boolean {
   return key?.includes(STRIPE_LIVE_KEY_MARKER) ?? false;
 }
 
-/** Reports to the project behind SENTRY_DSN (the landing app's). Before env validation, so a bad env is reported too. */
+/**
+ * The `integritystudio-ai` project's DSN. Not SENTRY_DSN: in Doppler that name holds an
+ * unrelated project's DSN, and `doppler run` would send billing errors there.
+ */
+const SENTRY_DSN_ENV = 'SENTRY_OBTOOL_DASHBOARD_DSN';
+
+/** Before env validation, so a bad env is reported too. */
 function initSentry(dryRun: boolean): void {
-  const dsn = process.env.SENTRY_DSN;
+  const dsn = process.env[SENTRY_DSN_ENV];
   if (!dsn || !SentryDsnSchema.safeParse(dsn).success) {
-    console.warn(`[reconciliation] SENTRY_DSN ${dsn ? 'is not a URL' : 'unset'}; errors will not be reported to Sentry`);
+    console.warn(`[reconciliation] ${SENTRY_DSN_ENV} ${dsn ? 'is not a URL' : 'unset'}; errors will not be reported to Sentry`);
     return;
   }
   Sentry.init({
