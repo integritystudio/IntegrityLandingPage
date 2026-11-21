@@ -33,6 +33,7 @@
 import * as Sentry from '@sentry/node';
 import Stripe from 'stripe';
 import { z } from 'zod';
+import { pathToFileURL } from 'node:url';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,7 +47,8 @@ type BillingStatus = 'active' | 'past_due' | 'canceled' | 'inactive';
 
 interface ReconciliationSummary {
   customersProcessed: number;
-  orgsUpserted: number;
+  orgsMatched: number;
+  customersLinked: number;
   subscriptionsUpserted: number;
   orgEntitlementsRebuilt: number;
   errors: string[];
@@ -72,7 +74,11 @@ const SupabaseErrorSchema = z.object({
   code: z.string().optional(),
 });
 
-const OrgRowSchema = z.array(z.object({ id: z.string().uuid() })).min(1);
+const OrgMatchRowsSchema = z.array(z.object({ id: z.string().uuid(), stripe_customer_id: z.string().nullable() }));
+type OrgMatch = z.infer<typeof OrgMatchRowsSchema>[number];
+
+/** Both checkout paths copy the org id here; it outlives the 24h checkout session. */
+const SubscriptionOrgIdSchema = z.string().uuid();
 
 /** Optional: unset leaves errors on stdout only. */
 const SentryDsnSchema = z.string().url().optional();
@@ -247,18 +253,19 @@ async function loadPriceToPlan(supabaseUrl: string, serviceRoleKey: string): Pro
   return priceToPlan;
 }
 
-async function supabaseLookupOrgId(
+/** The org matching `filter`, or null when none does. Both filters used are on unique columns. */
+async function supabaseFindOrg(
   supabaseUrl: string,
   serviceRoleKey: string,
-  stripeCustomerId: string,
-): Promise<{ orgId: string } | { error: string }> {
+  filter: string,
+): Promise<{ org: OrgMatch | null } | { error: string }> {
   const resp = await fetch(
-    `${supabaseUrl}/rest/v1/organizations?stripe_customer_id=eq.${encodeURIComponent(stripeCustomerId)}&select=id`,
+    `${supabaseUrl}/rest/v1/organizations?${filter}&select=id,stripe_customer_id&limit=1`,
     { method: 'GET', headers: supabaseHeaders(serviceRoleKey) },
   );
 
+  const body = await parseJsonSafe(resp);
   if (!resp.ok) {
-    const body = await parseJsonSafe(resp);
     const parseResult = SupabaseErrorSchema.safeParse(body);
     const message = parseResult.success
       ? parseResult.data.message
@@ -266,18 +273,11 @@ async function supabaseLookupOrgId(
     return { error: message };
   }
 
-  const body = await parseJsonSafe(resp);
-  const orgsResult = OrgRowSchema.safeParse(body);
+  const orgsResult = OrgMatchRowsSchema.safeParse(body);
   if (!orgsResult.success) {
-    return { error: `Unexpected org lookup response: ${orgsResult.error.flatten().formErrors[0] ?? JSON.stringify(body)}` };
+    return { error: `Unexpected org lookup response: ${orgsResult.error.issues.map((i) => i.message).join('; ')}` };
   }
-
-  // Zod schema enforces .uuid() so id is non-empty; guard is defence-in-depth.
-  const orgId = orgsResult.data[0].id;
-  if (!orgId) {
-    return { error: `Empty org ID returned for stripe_customer_id: ${stripeCustomerId}` };
-  }
-  return { orgId };
+  return { org: orgsResult.data[0] ?? null };
 }
 
 // ---------------------------------------------------------------------------
@@ -348,9 +348,75 @@ async function provisionEntitlements(
 // Per-customer processing
 // ---------------------------------------------------------------------------
 
+type EntitlementTarget = { orgId: string; tier: PlanKey };
+
 type CustomerProcessResult =
-  | { ok: false; error: string }
-  | { ok: true; subscriptions: Array<{ stripeCustomerId: string; tier: PlanKey }> };
+  | { ok: false; phase: ReconciliationPhase; error: string }
+  | { ok: true; matched: boolean; linked: boolean; targets: EntitlementTarget[] };
+
+/** The one org a customer's subscriptions name in `metadata.org_id`, or why there is none. */
+export function orgIdFromSubscriptionMetadata(
+  subs: ReadonlyArray<Pick<Stripe.Subscription, 'metadata'>>,
+): { orgId: string } | { reason: string } {
+  const named = [...new Set(subs.map((sub) => sub.metadata?.org_id).filter((id): id is string => Boolean(id)))];
+  if (named.length === 0) return { reason: 'no subscription carries metadata.org_id' };
+  if (named.length > 1) return { reason: `subscriptions name ${named.length} different orgs: ${named.join(', ')}` };
+  if (!SubscriptionOrgIdSchema.safeParse(named[0]).success) return { reason: `metadata.org_id is not a UUID: ${named[0]}` };
+  return { orgId: named[0] };
+}
+
+/**
+ * Whether to link a customer to the org its subscription metadata names. Never
+ * overwrites another customer id: that orphans the org's original subscription,
+ * which keeps billing with no org row reaching it (api-gateway refuses the same).
+ */
+export function linkDecision(
+  customerId: string,
+  metadataOrgId: string,
+  org: OrgMatch | null,
+): { link: true; orgId: string } | { link: false; reason: string } {
+  if (!org) return { link: false, reason: `metadata.org_id ${metadataOrgId} matches no org` };
+  if (org.stripe_customer_id && org.stripe_customer_id !== customerId) {
+    return { link: false, reason: `org ${org.id} is already linked to ${org.stripe_customer_id}` };
+  }
+  return { link: true, orgId: org.id };
+}
+
+/**
+ * Find the customer's org, linking it from subscription metadata when stripe-webhook
+ * could not (a signup checkout whose email resolved to no org). Never creates an org.
+ */
+async function resolveCustomerOrg(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  customer: Stripe.Customer,
+  subs: readonly Stripe.Subscription[],
+  now: string,
+  dryRun: boolean,
+): Promise<{ orgId: string; linked: boolean } | { phase: ReconciliationPhase; error: string }> {
+  const byCustomer = await supabaseFindOrg(supabaseUrl, serviceRoleKey, `stripe_customer_id=eq.${encodeURIComponent(customer.id)}`);
+  if ('error' in byCustomer) return { phase: 'customers', error: `Org lookup failed for ${customer.id}: ${byCustomer.error}` };
+  if (byCustomer.org) return { orgId: byCustomer.org.id, linked: false };
+
+  const unlinked = (reason: string) => ({ phase: 'unlinked-customer' as const, error: `Unlinked Stripe customer ${customer.id}: ${reason}` });
+  const fromMetadata = orgIdFromSubscriptionMetadata(subs);
+  if ('reason' in fromMetadata) return unlinked(fromMetadata.reason);
+
+  const byId = await supabaseFindOrg(supabaseUrl, serviceRoleKey, `id=eq.${encodeURIComponent(fromMetadata.orgId)}`);
+  if ('error' in byId) return { phase: 'customers', error: `Org lookup failed for ${fromMetadata.orgId}: ${byId.error}` };
+  const decision = linkDecision(customer.id, fromMetadata.orgId, byId.org);
+  if (!decision.link) return unlinked(decision.reason);
+
+  // The is.null filter keeps a concurrent stripe-webhook link from being overwritten.
+  const linkResult = await supabaseUpdate(
+    supabaseUrl, serviceRoleKey,
+    'organizations', { stripe_customer_id: customer.id, updated_at: now },
+    `id=eq.${encodeURIComponent(decision.orgId)}&stripe_customer_id=is.null`, dryRun,
+  );
+  if (!linkResult.ok) return { phase: 'customers', error: `Linking ${customer.id} to org ${decision.orgId} failed: ${linkResult.error}` };
+  console.log(`  ${dryRun ? '[dry-run] Would link' : 'Linked'} customer ${customer.id} to org ${decision.orgId} from subscription metadata`);
+  return { orgId: decision.orgId, linked: true };
+}
 
 async function processCustomer(
   supabaseUrl: string,
@@ -361,26 +427,6 @@ async function processCustomer(
 ): Promise<CustomerProcessResult> {
   const now = new Date().toISOString();
 
-  const orgRecord = {
-    stripe_customer_id: customer.id,
-    name: customer.name ?? customer.email ?? customer.id,
-    updated_at: now,
-  };
-
-  const orgResult = await supabaseUpsert(
-    supabaseUrl, serviceRoleKey,
-    'organizations', orgRecord,
-    'stripe_customer_id', dryRun,
-  );
-
-  if (!orgResult.ok) {
-    return { ok: false, error: `Org upsert failed for ${customer.id}: ${orgResult.error}` };
-  }
-
-  if (dryRun) {
-    console.log(`  [dry-run] Would upsert org for customer ${customer.id} (${customer.email})`);
-  }
-
   // The Stripe SDK requires a cast to access expanded `subscriptions` — guard
   // the shape at runtime so a SDK update that changes the structure fails fast.
   const expandedSubs = (customer as Stripe.Customer & { subscriptions?: Stripe.ApiList<Stripe.Subscription> }).subscriptions?.data;
@@ -389,22 +435,22 @@ async function processCustomer(
   }
   const subs = expandedSubs ?? [];
 
-  const entitlementTargets: Array<{ stripeCustomerId: string; tier: PlanKey }> = [];
-  if (subs.length === 0) return { ok: true, subscriptions: entitlementTargets };
+  const targets: EntitlementTarget[] = [];
+  // No subscription: nothing billed to reconcile, and no metadata to link from.
+  if (subs.length === 0) return { ok: true, matched: false, linked: false, targets };
 
   // subscriptions has no customer column: it links to the org by id, one row per org.
-  const lookup = await supabaseLookupOrgId(supabaseUrl, serviceRoleKey, customer.id);
-  if ('error' in lookup) {
-    return { ok: false, error: `Org lookup failed for ${customer.id}: ${lookup.error}` };
-  }
-  const orgFilter = `id=eq.${encodeURIComponent(lookup.orgId)}`;
+  const resolved = await resolveCustomerOrg(supabaseUrl, serviceRoleKey, customer, subs, now, dryRun);
+  if ('error' in resolved) return { ok: false, phase: resolved.phase, error: resolved.error };
+  const { orgId, linked } = resolved;
+  const orgFilter = `id=eq.${encodeURIComponent(orgId)}`;
 
   for (const sub of subs) {
     const priceId = sub.items.data[0]?.price.id;
     const tier = mapPriceToTier(priceToPlan, priceId);
 
     const subRecord = {
-      organization_id: lookup.orgId,
+      organization_id: orgId,
       stripe_subscription_id: sub.id,
       stripe_price_id: priceId ?? null,
       status: sub.status,
@@ -421,7 +467,7 @@ async function processCustomer(
     );
 
     if (!subResult.ok) {
-      return { ok: false, error: `Sub upsert failed for ${sub.id}: ${subResult.error}` };
+      return { ok: false, phase: 'customers', error: `Sub upsert failed for ${sub.id}: ${subResult.error}` };
     }
 
     // Plan and billing status live on the org, as stripe-webhook writes them. An
@@ -439,17 +485,17 @@ async function processCustomer(
     );
 
     if (!orgUpdateResult.ok) {
-      return { ok: false, error: `Org billing update failed for ${customer.id}: ${orgUpdateResult.error}` };
+      return { ok: false, phase: 'customers', error: `Org billing update failed for ${customer.id}: ${orgUpdateResult.error}` };
     }
 
     if (dryRun) {
       console.log(`  [dry-run] Would upsert subscription ${sub.id} (tier=${tier}, status=${sub.status})`);
     }
 
-    entitlementTargets.push({ stripeCustomerId: customer.id, tier });
+    targets.push({ orgId, tier });
   }
 
-  return { ok: true, subscriptions: entitlementTargets };
+  return { ok: true, matched: true, linked, targets };
 }
 
 // ---------------------------------------------------------------------------
@@ -460,7 +506,7 @@ const SENTRY_FLUSH_TIMEOUT_MS = 5_000;
 const SENTRY_SCRIPT_TAG = 'full-reconciliation';
 const STRIPE_LIVE_KEY_PATTERN = /^(sk|rk)_live_/;
 
-type ReconciliationPhase = 'customers' | 'entitlements';
+type ReconciliationPhase = 'customers' | 'unlinked-customer' | 'entitlements';
 
 /** Reports to the project behind SENTRY_DSN (the landing app's). Before env validation, so a bad env is reported too. */
 function initSentry(dryRun: boolean): void {
@@ -509,7 +555,8 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
 
   const summary: ReconciliationSummary = {
     customersProcessed: 0,
-    orgsUpserted: 0,
+    orgsMatched: 0,
+    customersLinked: 0,
     subscriptionsUpserted: 0,
     orgEntitlementsRebuilt: 0,
     errors: [],
@@ -517,7 +564,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
 
   console.log(`[reconciliation] Starting full reconciliation${dryRun ? ' (DRY RUN — no changes will be written)' : ''}...`);
 
-  const entitlementsToRebuild: Array<{ stripeCustomerId: string; tier: PlanKey }> = [];
+  const entitlementsToRebuild: EntitlementTarget[] = [];
 
   // Phase 1: page through all Stripe customers; upsert orgs + subscriptions
   let hasMore = true;
@@ -536,13 +583,14 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
       try {
         const result = await processCustomer(supabaseUrl, serviceRoleKey, customer, priceToPlan, dryRun);
         if (!result.ok) {
-          recordError(summary, 'customers', `Error processing customer ${customer.id}: ${result.error}`);
+          recordError(summary, result.phase, `Error processing customer ${customer.id}: ${result.error}`);
           continue;
         }
 
-        summary.orgsUpserted++;
-        summary.subscriptionsUpserted += result.subscriptions.length;
-        entitlementsToRebuild.push(...result.subscriptions);
+        if (result.matched) summary.orgsMatched++;
+        if (result.linked) summary.customersLinked++;
+        summary.subscriptionsUpserted += result.targets.length;
+        entitlementsToRebuild.push(...result.targets);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         recordError(summary, 'customers', `Error processing customer ${customer.id}: ${message}`, err);
@@ -553,28 +601,22 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
     startingAfter = page.data[page.data.length - 1]?.id;
   }
 
-  // Phase 2: rebuild entitlements (requires org UUID lookup by stripe_customer_id)
+  // Phase 2: rebuild entitlements for the orgs phase 1 resolved
   if (entitlementsToRebuild.length > 0) {
     console.log(`[reconciliation] Phase 2: rebuilding entitlements for ${entitlementsToRebuild.length} org(s)...`);
 
-    for (const { stripeCustomerId, tier } of entitlementsToRebuild) {
+    for (const { orgId, tier } of entitlementsToRebuild) {
       try {
-        const lookup = await supabaseLookupOrgId(supabaseUrl, serviceRoleKey, stripeCustomerId);
-        if ('error' in lookup) {
-          recordError(summary, 'entitlements', `Failed to lookup org for ${stripeCustomerId}: ${lookup.error}`);
-          continue;
-        }
-
-        const entResult = await provisionEntitlements(supabaseUrl, serviceRoleKey, lookup.orgId, tier, dryRun);
+        const entResult = await provisionEntitlements(supabaseUrl, serviceRoleKey, orgId, tier, dryRun);
         if (!entResult.ok) {
-          recordError(summary, 'entitlements', `Entitlement rebuild failed for org ${lookup.orgId}: ${entResult.error}`);
+          recordError(summary, 'entitlements', `Entitlement rebuild failed for org ${orgId}: ${entResult.error}`);
           continue;
         }
 
         summary.orgEntitlementsRebuilt++;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        recordError(summary, 'entitlements', `Error rebuilding entitlements for ${stripeCustomerId}: ${message}`, err);
+        recordError(summary, 'entitlements', `Error rebuilding entitlements for org ${orgId}: ${message}`, err);
       }
     }
   }
@@ -586,36 +628,42 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
 // Entry point
 // ---------------------------------------------------------------------------
 
-const dryRun = process.argv.includes('--dry-run');
-initSentry(dryRun);
-
 /** Flush queued Sentry events before exiting; process.exit would drop them. */
 async function exitAfterFlush(code: number): Promise<never> {
   await Sentry.flush(SENTRY_FLUSH_TIMEOUT_MS);
   process.exit(code);
 }
 
-runFullReconciliation(dryRun)
-  .then(async (summary) => {
-    console.log('\n[reconciliation] Complete:');
-    console.log(`  Customers processed:            ${summary.customersProcessed}`);
-    console.log(`  Organizations upserted:         ${summary.orgsUpserted}`);
-    console.log(`  Subscriptions upserted:         ${summary.subscriptionsUpserted}`);
-    console.log(`  Orgs with entitlements rebuilt: ${summary.orgEntitlementsRebuilt}`);
-    if (summary.errors.length > 0) {
-      console.error(`  Errors (${summary.errors.length}):`);
-      for (const err of summary.errors) {
-        console.error(`    - ${err}`);
+function main(): void {
+  const dryRun = process.argv.includes('--dry-run');
+  initSentry(dryRun);
+
+  runFullReconciliation(dryRun)
+    .then(async (summary) => {
+      console.log('\n[reconciliation] Complete:');
+      console.log(`  Customers processed:            ${summary.customersProcessed}`);
+      console.log(`  Organizations matched:          ${summary.orgsMatched}`);
+      console.log(`  Customers linked from metadata: ${summary.customersLinked}`);
+      console.log(`  Subscriptions upserted:         ${summary.subscriptionsUpserted}`);
+      console.log(`  Orgs with entitlements rebuilt: ${summary.orgEntitlementsRebuilt}`);
+      if (summary.errors.length > 0) {
+        console.error(`  Errors (${summary.errors.length}):`);
+        for (const err of summary.errors) {
+          console.error(`    - ${err}`);
+        }
+        await exitAfterFlush(1);
       }
+      await Sentry.flush(SENTRY_FLUSH_TIMEOUT_MS);
+    })
+    .catch(async (err: unknown) => {
+      console.error('[reconciliation] Fatal error:', err);
+      Sentry.withScope((scope) => {
+        scope.setTag('phase', 'fatal');
+        Sentry.captureException(err);
+      });
       await exitAfterFlush(1);
-    }
-    await Sentry.flush(SENTRY_FLUSH_TIMEOUT_MS);
-  })
-  .catch(async (err: unknown) => {
-    console.error('[reconciliation] Fatal error:', err);
-    Sentry.withScope((scope) => {
-      scope.setTag('phase', 'fatal');
-      Sentry.captureException(err);
     });
-    await exitAfterFlush(1);
-  });
+}
+
+// Run only when executed, so tests can import the exported helpers.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

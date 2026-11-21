@@ -350,3 +350,52 @@ describe('EnvSchema error message formatting', () => {
     }
   });
 });
+
+// ─── Linking an unlinked customer from subscription metadata ─────────────
+// These import the script itself; its entry guard keeps main() from running.
+
+import { linkDecision, orgIdFromSubscriptionMetadata } from './full-reconciliation.js';
+
+const ORG_A = '550e8400-e29b-41d4-a716-446655440000';
+const ORG_B = '550e8400-e29b-41d4-a716-446655440001';
+const CUSTOMER = 'cus_new';
+
+describe('orgIdFromSubscriptionMetadata', () => {
+  it('returns the org id every subscription names', () => {
+    const result = orgIdFromSubscriptionMetadata([{ metadata: { org_id: ORG_A } }, { metadata: { org_id: ORG_A } }]);
+    expect(result).toEqual({ orgId: ORG_A });
+  });
+
+  it('ignores subscriptions without the key when another names an org', () => {
+    expect(orgIdFromSubscriptionMetadata([{ metadata: {} }, { metadata: { org_id: ORG_A } }])).toEqual({ orgId: ORG_A });
+  });
+
+  it('refuses when no subscription names an org', () => {
+    expect(orgIdFromSubscriptionMetadata([{ metadata: {} }])).toEqual({ reason: 'no subscription carries metadata.org_id' });
+  });
+
+  it('refuses when subscriptions name different orgs', () => {
+    const result = orgIdFromSubscriptionMetadata([{ metadata: { org_id: ORG_A } }, { metadata: { org_id: ORG_B } }]);
+    expect(result).toEqual({ reason: `subscriptions name 2 different orgs: ${ORG_A}, ${ORG_B}` });
+  });
+
+  it('refuses an org id that is not a UUID, before it reaches a query filter', () => {
+    expect(orgIdFromSubscriptionMetadata([{ metadata: { org_id: 'x&id=neq.y' } }]))
+      .toEqual({ reason: 'metadata.org_id is not a UUID: x&id=neq.y' });
+  });
+});
+
+describe('linkDecision', () => {
+  it('links an org that has no customer yet', () => {
+    expect(linkDecision(CUSTOMER, ORG_A, { id: ORG_A, stripe_customer_id: null })).toEqual({ link: true, orgId: ORG_A });
+  });
+
+  it('refuses when the named org does not exist', () => {
+    expect(linkDecision(CUSTOMER, ORG_A, null)).toEqual({ link: false, reason: `metadata.org_id ${ORG_A} matches no org` });
+  });
+
+  it('never overwrites another customer id', () => {
+    expect(linkDecision(CUSTOMER, ORG_A, { id: ORG_A, stripe_customer_id: 'cus_existing' }))
+      .toEqual({ link: false, reason: `org ${ORG_A} is already linked to cus_existing` });
+  });
+});
