@@ -113,3 +113,6 @@ dist/
 
 # Serena (machine-specific config, cache, memories)
 .serena/
+
+# Repomix config read by scripts/repomix/*.sh
+!scripts/repomix/repomix.config.ts
