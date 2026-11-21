@@ -448,6 +448,10 @@ ACCEPTED = {
     "AE_SQL_API_TOKEN":               "Analytics Engine SQL API is account-scoped",
     "AUTH0_PERSONAL_PASSWORD":        "production smoke-test login, deliberately in both configs (owner decision 2026-08-22)",
     "AUTH0_PERSONAL_TEST_EMAIL":      "production smoke-test login, deliberately in both configs (owner decision 2026-08-22)",
+    "ALWAYS_RUNNING_FAST_API_KEY":    "read by no code in this repo; shared by owner decision 2026-11-21",
+    "OPEN_AI_KEY":                    "read by no code in this repo; shared by owner decision 2026-11-21",
+    "SIMPLEFIN_APP_TOKEN":            "read by no code in this repo; shared by owner decision 2026-11-21",
+    "SIMPLEFIN_TOKEN":                "read by no code in this repo; shared by owner decision 2026-11-21",
 }
 
 # Wrong, fixable, not yet fixed. Each MUST carry a backlog id.
