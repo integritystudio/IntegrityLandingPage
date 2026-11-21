@@ -68,6 +68,28 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
   }
 
   /**
+   * Link a Stripe customer to an org that has none. The `is.null` filter makes this a
+   * no-op for an org that is already linked: overwriting its customer id would orphan
+   * the original subscription, which keeps billing with no org row reaching it.
+   * `linked` is false when no row matched (no such org, or one already linked).
+   */
+  async function linkStripeCustomerIfUnlinked(
+    orgId: string,
+    stripeCustomerId: string,
+  ): Promise<{ ok: true; linked: boolean } | Err> {
+    const result = await sb.update<{ id: string; stripe_customer_id: string | null }>(
+      'organizations',
+      { stripe_customer_id: stripeCustomerId },
+      [
+        { column: 'id', operator: 'eq', value: orgId },
+        { column: 'stripe_customer_id', operator: 'is', value: null },
+      ],
+    );
+    if (!result.ok) return { ok: false, error: result.error };
+    return { ok: true, linked: (result.data?.length ?? 0) > 0 };
+  }
+
+  /**
    * Create or update subscription row for an org.
    *
    * Conflict key: (organization_id)
@@ -356,6 +378,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
 
   return {
     linkStripeCustomer,
+    linkStripeCustomerIfUnlinked,
     upsertSubscription,
     updateOrgBillingStatus,
     findOrgByStripeCustomerId,

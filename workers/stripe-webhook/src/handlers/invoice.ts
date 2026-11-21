@@ -1,26 +1,7 @@
 import type { SupabaseAdmin } from '../supabase';
 import type { BillingStatus, HandlerResult, StripeEvent } from '../../../lib/types';
-import { InvoiceSchema, getInvoiceSubscriptionId } from '../stripe-schemas';
-
-/**
- * Resolves the org ID for a given Stripe customer ID.
- * Returns { ok: false } when no org is found — the caller propagates this as a
- * retryable failure so the event reaches the dead-letter queue rather than being
- * silently claimed. The org may arrive later when checkout.session.completed fires.
- */
-async function resolveOrgId(
-  customerId: string,
-  db: SupabaseAdmin,
-): Promise<{ ok: true; orgId: string } | { ok: false; error: string }> {
-  const findResult = await db.findOrgByStripeCustomerId(customerId);
-  if (!findResult.ok) {
-    return { ok: false, error: `Failed to find org: ${findResult.error}` };
-  }
-  if (!findResult.orgId) {
-    return { ok: false, error: `No org found for Stripe customer ${customerId}` };
-  }
-  return { ok: true, orgId: findResult.orgId };
-}
+import { InvoiceSchema, getInvoiceOrgId, getInvoiceSubscriptionId } from '../stripe-schemas';
+import { resolveOrgId } from './resolve-org';
 
 async function setBillingStatus(
   orgId: string,
@@ -57,7 +38,7 @@ export async function handleInvoicePaid(
     return { ok: false, error: 'Invoice missing subscription' };
   }
 
-  const resolved = await resolveOrgId(invoice.customer, db);
+  const resolved = await resolveOrgId(invoice.customer, db, getInvoiceOrgId(invoice));
   if (!resolved.ok) return resolved;
 
   return setBillingStatus(resolved.orgId, 'active', db);
@@ -77,7 +58,7 @@ export async function handleInvoicePaymentFailed(
   }
   const invoice = parseResult.data;
 
-  const resolved = await resolveOrgId(invoice.customer, db);
+  const resolved = await resolveOrgId(invoice.customer, db, getInvoiceOrgId(invoice));
   if (!resolved.ok) return resolved;
 
   return setBillingStatus(resolved.orgId, 'past_due', db);

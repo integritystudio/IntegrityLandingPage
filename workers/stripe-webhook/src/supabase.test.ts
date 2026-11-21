@@ -187,6 +187,45 @@ describe('isEventProcessed', () => {
 });
 
 // ---------------------------------------------------------------------------
+// linkStripeCustomerIfUnlinked
+// ---------------------------------------------------------------------------
+
+describe('linkStripeCustomerIfUnlinked', () => {
+  let db: ReturnType<typeof createSupabaseAdmin>;
+
+  beforeEach(() => {
+    db = makeAdmin();
+  });
+
+  it('updates only an org with no customer id, and reports the link', async () => {
+    const stub = stubSupabase({
+      [`PATCH ${ORGANIZATIONS_TABLE}`]: updatedRows([{ id: 'org-1', stripe_customer_id: 'cus_123' }]),
+    });
+
+    const result = await db.linkStripeCustomerIfUnlinked('org-1', 'cus_123');
+
+    expect(result).toEqual({ ok: true, linked: true });
+    const patch = stub.find('PATCH', ORGANIZATIONS_TABLE)!;
+    expect(patch.body).toEqual({ stripe_customer_id: 'cus_123' });
+    expect(patch.url.searchParams.getAll('id')).toEqual(['eq.org-1']);
+    expect(patch.url.searchParams.getAll('stripe_customer_id')).toEqual(['is.null']);
+    expect(patch.headers['prefer']).toBe(RETURN_REPRESENTATION);
+  });
+
+  it('reports no link when no row matched (missing org, or one already linked)', async () => {
+    stubSupabase({ [`PATCH ${ORGANIZATIONS_TABLE}`]: updatedRows([]) });
+
+    expect(await db.linkStripeCustomerIfUnlinked('org-1', 'cus_123')).toEqual({ ok: true, linked: false });
+  });
+
+  it('returns { ok: false, error } on DB failure', async () => {
+    stubSupabase({ [`PATCH ${ORGANIZATIONS_TABLE}`]: httpError(500, 'Connection timeout') });
+
+    expect(await db.linkStripeCustomerIfUnlinked('org-1', 'cus_123')).toEqual({ ok: false, error: 'HTTP 500: Connection timeout' });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // linkStripeCustomer
 // ---------------------------------------------------------------------------
 

@@ -21,6 +21,7 @@ const { mockDb, mockHandleCheckout, mockHandleSubscriptionUpdated } = vi.hoisted
     failDeadLetter: vi.fn(),
     abandonDeadLetter: vi.fn(),
     linkStripeCustomer: vi.fn(),
+    linkStripeCustomerIfUnlinked: vi.fn(),
     upsertSubscription: vi.fn(),
     updateOrgBillingStatus: vi.fn(),
     findOrgByStripeCustomerId: vi.fn(),

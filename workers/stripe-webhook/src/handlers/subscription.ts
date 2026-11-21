@@ -2,6 +2,7 @@ import type { SubscriptionPeriod, SupabaseAdmin } from '../supabase';
 import type { HandlerResult, ApiKeyTier, StripeEvent } from '../../../lib/types';
 import { toBillingStatus } from '../../../lib/billing';
 import { SubscriptionSchema, type SubscriptionItem } from '../stripe-schemas';
+import { resolveOrgId } from './resolve-org';
 
 const MS_PER_SECOND = 1_000;
 
@@ -39,14 +40,8 @@ export async function handleSubscriptionUpdated(
   }
   const subscription = parseResult.data;
 
-  const findResult = await db.findOrgByStripeCustomerId(subscription.customer);
-  if (!findResult.ok) {
-    return { ok: false, error: `Failed to find org: ${findResult.error}` };
-  }
-
-  if (!findResult.orgId) {
-    return { ok: false, error: `No org found for Stripe customer ${subscription.customer}` };
-  }
+  const findResult = await resolveOrgId(subscription.customer, db, subscription.metadata?.org_id);
+  if (!findResult.ok) return findResult;
 
   const firstItem = subscription.items?.data?.[0];
   if (firstItem) {
