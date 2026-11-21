@@ -23,9 +23,14 @@
  *   SUPABASE_URL           — Supabase project URL
  *   SUPABASE_SERVICE_ROLE_KEY — Supabase service-role key
  *
+ * Optional:
+ *   SENTRY_DSN             — reports each failure and any fatal error to that Sentry
+ *                            project (Doppler's SENTRY_DSN is the landing app's)
+ *
  * See: docs/security/DISASTER_RECOVERY_PLAN.md (Scenario E)
  */
 
+import * as Sentry from '@sentry/node';
 import Stripe from 'stripe';
 import { z } from 'zod';
 
@@ -68,6 +73,9 @@ const SupabaseErrorSchema = z.object({
 });
 
 const OrgRowSchema = z.array(z.object({ id: z.string().uuid() })).min(1);
+
+/** Optional: unset leaves errors on stdout only. */
+const SentryDsnSchema = z.string().url().optional();
 
 const PlanRowsSchema = z.array(z.object({ key: PlanKeySchema, stripe_price_id: z.string().nullable() }));
 
@@ -445,6 +453,45 @@ async function processCustomer(
 }
 
 // ---------------------------------------------------------------------------
+// Error reporting (Sentry)
+// ---------------------------------------------------------------------------
+
+const SENTRY_FLUSH_TIMEOUT_MS = 5_000;
+const SENTRY_SCRIPT_TAG = 'full-reconciliation';
+const STRIPE_LIVE_KEY_PATTERN = /^(sk|rk)_live_/;
+
+type ReconciliationPhase = 'customers' | 'entitlements';
+
+/** Reports to the project behind SENTRY_DSN (the landing app's). Before env validation, so a bad env is reported too. */
+function initSentry(dryRun: boolean): void {
+  const dsnResult = SentryDsnSchema.safeParse(process.env.SENTRY_DSN || undefined);
+  if (!dsnResult.success) {
+    console.warn('[reconciliation] SENTRY_DSN is not a URL; errors will not be reported to Sentry');
+    return;
+  }
+  if (!dsnResult.data) {
+    console.warn('[reconciliation] SENTRY_DSN unset; errors will not be reported to Sentry');
+    return;
+  }
+  Sentry.init({
+    dsn: dsnResult.data,
+    environment: STRIPE_LIVE_KEY_PATTERN.test(process.env.STRIPE_SECRET_KEY ?? '') ? 'production' : 'test',
+    initialScope: { tags: { script: SENTRY_SCRIPT_TAG, dry_run: String(dryRun) } },
+  });
+}
+
+/** Record a per-customer failure in the summary and report it, grouped by phase. */
+function recordError(summary: ReconciliationSummary, phase: ReconciliationPhase, message: string, cause?: unknown): void {
+  summary.errors.push(message);
+  Sentry.withScope((scope) => {
+    scope.setTag('phase', phase);
+    scope.setFingerprint([SENTRY_SCRIPT_TAG, phase]);
+    scope.setExtra('reconciliation_error', message);
+    Sentry.captureException(cause instanceof Error ? cause : new Error(message));
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Main reconciliation
 // ---------------------------------------------------------------------------
 
@@ -489,7 +536,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
       try {
         const result = await processCustomer(supabaseUrl, serviceRoleKey, customer, priceToPlan, dryRun);
         if (!result.ok) {
-          summary.errors.push(`Error processing customer ${customer.id}: ${result.error}`);
+          recordError(summary, 'customers', `Error processing customer ${customer.id}: ${result.error}`);
           continue;
         }
 
@@ -498,7 +545,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
         entitlementsToRebuild.push(...result.subscriptions);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        summary.errors.push(`Error processing customer ${customer.id}: ${message}`);
+        recordError(summary, 'customers', `Error processing customer ${customer.id}: ${message}`, err);
       }
     }
 
@@ -514,20 +561,20 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
       try {
         const lookup = await supabaseLookupOrgId(supabaseUrl, serviceRoleKey, stripeCustomerId);
         if ('error' in lookup) {
-          summary.errors.push(`Failed to lookup org for ${stripeCustomerId}: ${lookup.error}`);
+          recordError(summary, 'entitlements', `Failed to lookup org for ${stripeCustomerId}: ${lookup.error}`);
           continue;
         }
 
         const entResult = await provisionEntitlements(supabaseUrl, serviceRoleKey, lookup.orgId, tier, dryRun);
         if (!entResult.ok) {
-          summary.errors.push(`Entitlement rebuild failed for org ${lookup.orgId}: ${entResult.error}`);
+          recordError(summary, 'entitlements', `Entitlement rebuild failed for org ${lookup.orgId}: ${entResult.error}`);
           continue;
         }
 
         summary.orgEntitlementsRebuilt++;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        summary.errors.push(`Error rebuilding entitlements for ${stripeCustomerId}: ${message}`);
+        recordError(summary, 'entitlements', `Error rebuilding entitlements for ${stripeCustomerId}: ${message}`, err);
       }
     }
   }
@@ -540,9 +587,16 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
 // ---------------------------------------------------------------------------
 
 const dryRun = process.argv.includes('--dry-run');
+initSentry(dryRun);
+
+/** Flush queued Sentry events before exiting; process.exit would drop them. */
+async function exitAfterFlush(code: number): Promise<never> {
+  await Sentry.flush(SENTRY_FLUSH_TIMEOUT_MS);
+  process.exit(code);
+}
 
 runFullReconciliation(dryRun)
-  .then((summary) => {
+  .then(async (summary) => {
     console.log('\n[reconciliation] Complete:');
     console.log(`  Customers processed:            ${summary.customersProcessed}`);
     console.log(`  Organizations upserted:         ${summary.orgsUpserted}`);
@@ -553,10 +607,15 @@ runFullReconciliation(dryRun)
       for (const err of summary.errors) {
         console.error(`    - ${err}`);
       }
-      process.exit(1);
+      await exitAfterFlush(1);
     }
+    await Sentry.flush(SENTRY_FLUSH_TIMEOUT_MS);
   })
-  .catch((err) => {
+  .catch(async (err: unknown) => {
     console.error('[reconciliation] Fatal error:', err);
-    process.exit(1);
+    Sentry.withScope((scope) => {
+      scope.setTag('phase', 'fatal');
+      Sentry.captureException(err);
+    });
+    await exitAfterFlush(1);
   });
