@@ -45,8 +45,6 @@ abstract final class SentryConfig {
   /// Percentage of transactions to sample for performance monitoring.
   static const tracesSampleRate = 0.2;
 
-  /// Percentage of transactions to profile.
-  static const profilesSampleRate = 0.2;
 }
 
 /// Langtrace configuration for Claude Code subscription-based API key.
@@ -135,8 +133,6 @@ Future<void> _initializeWithSentry() async {
 
       // Performance monitoring
       options.tracesSampleRate = SentryConfig.tracesSampleRate;
-      // ignore: experimental_member_use
-      options.profilesSampleRate = SentryConfig.profilesSampleRate;
       options.enableAutoPerformanceTracing = true;
 
       // Error capture enhancements

@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integrity_studio_ai/services/analytics.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 void main() {
   group('AnalyticsEvent', () {
@@ -722,55 +721,48 @@ void main() {
     });
 
     group('performance', () {
-      test('startTransaction returns span', () {
-        final span = ErrorTrackingService.startTransaction(
-          name: 'test-transaction',
+      test('traceOperation returns the result of the work', () async {
+        final result = await ErrorTrackingService.traceOperation(
+          name: 'test-operation',
           operation: 'test.operation',
+          work: () async => 42,
         );
-        expect(span, isNotNull);
-        span.finish();
+        expect(result, 42);
       });
 
-      test('startTransaction returns ISentrySpan interface', () {
-        final span = ErrorTrackingService.startTransaction(
-          name: 'type-check',
+      test('traceOperation runs the work exactly once', () async {
+        var runs = 0;
+        await ErrorTrackingService.traceOperation(
+          name: 'run-once',
           operation: 'test',
+          work: () async => runs++,
         );
-        expect(span, isA<ISentrySpan>());
-        span.finish();
+        expect(runs, 1);
       });
 
-      test('startTransaction with various operations', () {
-        final operations = [
-          'http.client',
-          'db.query',
-          'ui.render',
-          'file.read',
-          'custom.operation',
-        ];
-        for (final op in operations) {
-          final span = ErrorTrackingService.startTransaction(
-            name: 'test-$op',
-            operation: op,
-          );
-          expect(span, isNotNull);
-          span.finish();
-        }
+      test('traceOperation rethrows what the work throws', () async {
+        final failure = StateError('boom');
+        await expectLater(
+          ErrorTrackingService.traceOperation<void>(
+            name: 'failing',
+            operation: 'test',
+            work: () async => throw failure,
+          ),
+          throwsA(same(failure)),
+        );
       });
 
-      test('multiple concurrent transactions', () {
-        final span1 = ErrorTrackingService.startTransaction(
-          name: 'transaction-1',
-          operation: 'test.1',
+      test('traceOperation calls nest', () async {
+        final result = await ErrorTrackingService.traceOperation(
+          name: 'outer',
+          operation: 'test.outer',
+          work: () => ErrorTrackingService.traceOperation(
+            name: 'inner',
+            operation: 'test.inner',
+            work: () async => 'inner-result',
+          ),
         );
-        final span2 = ErrorTrackingService.startTransaction(
-          name: 'transaction-2',
-          operation: 'test.2',
-        );
-        expect(span1, isNotNull);
-        expect(span2, isNotNull);
-        span1.finish();
-        span2.finish();
+        expect(result, 'inner-result');
       });
     });
 

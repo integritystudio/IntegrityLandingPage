@@ -19,7 +19,7 @@ dependencies:
   lottie: ^3.0.0
 
   # Icons/Images
-  lucide_icons_flutter: ^3.1.17
+  lucide_icons_flutter: ^4.0.3
   flutter_svg: ^2.0.9
   cupertino_icons: ^2.0.0  # bundle CupertinoIcons font referenced transitively (icon tree-shaker)
 
@@ -41,7 +41,7 @@ dependencies:
   go_router: ^18.0.2
 
   # Error Tracking
-  sentry_flutter: ^9.15.0
+  sentry_flutter: ^10.6.0
 
   # Web Interop (for GTM/Analytics)
   web: ^1.0.0

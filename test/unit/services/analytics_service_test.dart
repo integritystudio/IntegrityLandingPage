@@ -578,13 +578,14 @@ void main() {
     });
 
     group('performance monitoring', () {
-      test('startTransaction returns a span', () {
-        final transaction = ErrorTrackingService.startTransaction(
+      test('traceOperation returns what the work returns', () async {
+        final result = await ErrorTrackingService.traceOperation(
           name: 'testOperation',
           operation: 'test',
+          work: () async => 'done',
         );
 
-        expect(transaction, isNotNull);
+        expect(result, 'done');
       });
     });
 
