@@ -11,9 +11,22 @@
  * - Database result contracts
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { z } from 'zod';
-import { EnvSchema, linkDecision, orgIdFromSubscriptionMetadata } from './full-reconciliation.js';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import type Stripe from 'stripe';
+import {
+  EnvSchema,
+  isTerminalSubscriptionStatus,
+  linkDecision,
+  orgIdFromSubscriptionMetadata,
+  processCustomer,
+} from './full-reconciliation.js';
+import {
+  STRIPE_SUBSCRIPTION_STATUSES,
+  isTerminalSubscriptionStatus as webhookIsTerminalSubscriptionStatus,
+} from '../workers/lib/billing.js';
 
 // ─── Schemas (copy from reconciliation script) ────────────────────────────
 
@@ -419,5 +432,105 @@ describe('linkDecision', () => {
   it('never overwrites another customer id', () => {
     expect(linkDecision(CUSTOMER, ORG_A, { id: ORG_A, stripe_customer_id: 'cus_existing' }))
       .toEqual({ link: false, reason: `org ${ORG_A} is already linked to cus_existing` });
+  });
+});
+
+describe('isTerminalSubscriptionStatus', () => {
+  it.each(STRIPE_SUBSCRIPTION_STATUSES)('agrees with stripe-webhook on %s', (status) => {
+    expect(isTerminalSubscriptionStatus(status)).toBe(webhookIsTerminalSubscriptionStatus(status));
+  });
+
+  it('clears the pointer only for canceled and incomplete_expired', () => {
+    expect(STRIPE_SUBSCRIPTION_STATUSES.filter((status) => isTerminalSubscriptionStatus(status)))
+      .toEqual(['incomplete_expired', 'canceled']);
+  });
+});
+
+// ─── processCustomer against a local stand-in for Supabase's REST API ─────
+
+describe('processCustomer', () => {
+  const SUBSCRIPTION_ROW = '550e8400-e29b-41d4-a716-446655440099';
+  const GROWTH_PRICE = 'price_growth';
+  const SERVICE_KEY = 'service-key';
+  const PRICE_TO_PLAN = { [GROWTH_PRICE]: 'growth' } as const;
+
+  type Recorded = { method: string; path: string; body: Record<string, unknown> | null };
+  const requests: Recorded[] = [];
+  let server: Server;
+  let supabaseUrl: string;
+
+  beforeAll(async () => {
+    server = createServer((req, res) => {
+      let raw = '';
+      req.on('data', (chunk) => { raw += chunk; });
+      req.on('end', () => {
+        const path = decodeURIComponent(req.url ?? '');
+        requests.push({ method: req.method ?? '', path, body: raw ? JSON.parse(raw) : null });
+        const rows = req.method !== 'GET' ? null
+          : path.startsWith('/rest/v1/organizations') ? [{ id: ORG_A, stripe_customer_id: CUSTOMER }]
+          : [{ id: SUBSCRIPTION_ROW }];
+        res.setHeader('Content-Type', 'application/json');
+        res.end(rows ? JSON.stringify(rows) : '');
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    supabaseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(() => new Promise<void>((resolve) => { server.close(() => resolve()); }));
+
+  beforeEach(() => {
+    requests.length = 0;
+  });
+
+  const customerWith = (status: Stripe.Subscription.Status, priceId: string) => ({
+    id: CUSTOMER,
+    subscriptions: {
+      data: [{
+        id: 'sub_1',
+        status,
+        metadata: {},
+        cancel_at_period_end: false,
+        items: { data: [{ price: { id: priceId }, current_period_start: 1_700_000_000, current_period_end: 1_702_592_000 }] },
+      }],
+    },
+  }) as unknown as Stripe.Customer;
+
+  const writes = () => requests.filter((request) => request.method !== 'GET');
+  const orgPatch = () => requests.find((request) => request.method === 'PATCH')?.body;
+
+  it('writes the subscription with the table columns, one row per org', async () => {
+    await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('active', GROWTH_PRICE), PRICE_TO_PLAN, false);
+
+    const upsert = requests.find((request) => request.method === 'POST');
+    expect(upsert?.path).toBe('/rest/v1/subscriptions?on_conflict=organization_id');
+    expect(Object.keys(upsert?.body ?? {}).sort()).toEqual([
+      'cancel_at_period_end', 'current_period_end', 'current_period_start', 'organization_id',
+      'status', 'stripe_price_id', 'stripe_subscription_id', 'updated_at',
+    ]);
+    expect(upsert?.body).toMatchObject({ organization_id: ORG_A, stripe_subscription_id: 'sub_1', stripe_price_id: GROWTH_PRICE, status: 'active' });
+  });
+
+  it('points the org at its subscription row, sets the plan and bumps quota_version', async () => {
+    const before = Date.now();
+    const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('active', GROWTH_PRICE), PRICE_TO_PLAN, false);
+
+    expect(result).toEqual({ ok: true, linked: false, targets: [{ orgId: ORG_A, tier: 'growth' }] });
+    expect(orgPatch()).toMatchObject({ billing_status: 'active', current_plan: 'growth', active_subscription_id: SUBSCRIPTION_ROW });
+    expect(orgPatch()?.quota_version).toBeGreaterThanOrEqual(before);
+  });
+
+  it('clears the pointer for a terminal subscription without looking the row up', async () => {
+    await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('canceled', GROWTH_PRICE), PRICE_TO_PLAN, false);
+
+    expect(orgPatch()).toMatchObject({ billing_status: 'canceled', active_subscription_id: null });
+    expect(requests.some((request) => request.method === 'GET' && request.path.startsWith('/rest/v1/subscriptions'))).toBe(false);
+  });
+
+  it('writes nothing in a dry run', async () => {
+    const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('active', GROWTH_PRICE), PRICE_TO_PLAN, true);
+
+    expect(result).toMatchObject({ ok: true, targets: [{ orgId: ORG_A, tier: 'growth' }] });
+    expect(writes()).toEqual([]);
   });
 });

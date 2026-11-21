@@ -92,6 +92,8 @@ const SubscriptionOrgIdSchema = z.string().uuid();
 
 const SentryDsnSchema = z.string().url();
 
+const SubscriptionRowsSchema = z.array(z.object({ id: z.string().uuid() }));
+
 const PlanRowsSchema = z.array(z.object({ key: PlanKeySchema, stripe_price_id: z.string().nullable() }));
 
 // ---------------------------------------------------------------------------
@@ -112,6 +114,15 @@ function mapStripeStatusToBillingStatus(status: Stripe.Subscription.Status): Bil
     default:
       return 'inactive';
   }
+}
+
+/**
+ * Whether Stripe can never move the subscription out of this status, so the org stops
+ * pointing at it. Unpaid, past-due and paused subscriptions are still the org's own.
+ * Mirrors workers/lib/billing.ts, which this script cannot import; the tests pin the two.
+ */
+export function isTerminalSubscriptionStatus(status: string): boolean {
+  return status === 'canceled' || status === 'incomplete_expired';
 }
 
 // ---------------------------------------------------------------------------
@@ -398,7 +409,29 @@ async function resolveCustomerOrg(
   return { orgId: decision.orgId, linked: true };
 }
 
-async function processCustomer(
+/**
+ * The value for `organizations.active_subscription_id`: the org's subscription row, or
+ * null once the subscription is terminal. A dry run has written no row to point at.
+ */
+async function activeSubscriptionPointer(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  orgId: string,
+  status: string,
+  dryRun: boolean,
+): Promise<{ id: string | null } | { error: string }> {
+  if (dryRun || isTerminalSubscriptionStatus(status)) return { id: null };
+
+  const subscriptions = await supabaseSelect(
+    supabaseUrl, serviceRoleKey,
+    `subscriptions?organization_id=eq.${encodeURIComponent(orgId)}&select=id&limit=1`, SubscriptionRowsSchema,
+  );
+  if ('error' in subscriptions) return subscriptions;
+  const row = subscriptions.rows[0];
+  return row ? { id: row.id } : { error: `no subscriptions row for org ${orgId} after its upsert` };
+}
+
+export async function processCustomer(
   supabaseUrl: string,
   serviceRoleKey: string,
   customer: Stripe.Customer,
@@ -451,11 +484,19 @@ async function processCustomer(
       return { ok: false, phase: 'customers', error: `Sub upsert failed for ${sub.id}: ${subResult.error}` };
     }
 
-    // Plan and billing status live on the org, as stripe-webhook writes them. An
+    const pointer = await activeSubscriptionPointer(supabaseUrl, serviceRoleKey, orgId, sub.status, dryRun);
+    if ('error' in pointer) {
+      return { ok: false, phase: 'customers', error: `Subscription row lookup failed for ${sub.id}: ${pointer.error}` };
+    }
+
+    // Plan, billing status and the subscription pointer live on the org, as stripe-webhook
+    // writes them; a new quota_version makes api-gateway re-read the org's limits. An
     // unmapped price leaves current_plan alone rather than downgrading the org.
     const orgUpdates = {
       billing_status: mapStripeStatusToBillingStatus(sub.status),
       ...(mappedPlan ? { current_plan: mappedPlan } : {}),
+      active_subscription_id: pointer.id,
+      quota_version: Date.now(),
       updated_at: now,
     };
     const orgUpdateResult = await supabaseUpdate(
