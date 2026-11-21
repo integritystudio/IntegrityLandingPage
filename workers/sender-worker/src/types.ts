@@ -168,4 +168,8 @@ export interface Env {
   STRIPE_SECRET_KEY?: string;
   STRIPE_PLAN_TO_PRICE_JSON?: string;
   APP_BASE_URL?: string;
+  /** Optional: unset disables Sentry reporting; nothing else changes. */
+  SENTRY_DSN?: string;
+  /** Read by the Sentry SDK itself; set per environment in wrangler.toml. */
+  SENTRY_ENVIRONMENT?: string;
 }

@@ -16,6 +16,7 @@ import {
   type ErrorCode,
   type Env,
 } from "./types.js";
+import * as Sentry from "@sentry/cloudflare";
 import { json } from "../../lib/http/responses.js";
 import { buildCors } from "../../lib/http/cors.js";
 import { errorResponse, resolveOutboundSigningKey, getClientIp } from "./utils.js";
@@ -165,6 +166,28 @@ async function handleSend(env: Env, req: Record<string, unknown>, clientIp?: str
   }
 }
 
+const SENTRY_WORKER_TAG = "sender-worker";
+const UNATTRIBUTED_CHECKOUT_MESSAGE: Record<UnattributedCheckoutReason, string> = {
+  "no-org": "Checkout started for an email that resolves to no organization",
+  "org-lookup-failed": "Checkout started without an organization: the org lookup failed",
+};
+type UnattributedCheckoutReason = "no-org" | "org-lookup-failed";
+
+/**
+ * Report a checkout that stripe-webhook will not be able to link to an org. One Sentry
+ * issue per reason. The address stays out of Sentry: its domain and the time are enough
+ * to find the customer in Stripe.
+ */
+function reportUnattributedCheckout(reason: UnattributedCheckoutReason, email: string, tier: string, cause?: unknown): void {
+  Sentry.withScope((scope) => {
+    scope.setTag("checkout_issue", reason);
+    scope.setTag("tier", tier);
+    scope.setTag("email_domain", email.slice(email.lastIndexOf("@") + 1).toLowerCase());
+    scope.setFingerprint([SENTRY_WORKER_TAG, "checkout", reason]);
+    Sentry.captureException(cause instanceof Error ? cause : new Error(UNATTRIBUTED_CHECKOUT_MESSAGE[reason]));
+  });
+}
+
 async function handleCreateCheckoutSession(env: Env, req: Record<string, unknown>): Promise<Response> {
   if (!env.STRIPE_SECRET_KEY) {
     return errorResponse("Stripe not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
@@ -190,9 +213,11 @@ async function handleCreateCheckoutSession(env: Env, req: Record<string, unknown
     orgId = await supabaseFindOrgIdByEmail(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, email);
     if (!orgId) {
       console.warn("[checkout] no org resolved for", email, "— subscription will not be linked to an organization");
+      reportUnattributedCheckout("no-org", email, tier);
     }
   } catch (err) {
     console.error("[checkout] org lookup failed:", err instanceof Error ? err.message : err);
+    reportUnattributedCheckout("org-lookup-failed", email, tier, err);
   }
 
   let result: Awaited<ReturnType<typeof createStripeCheckoutSession>>;
@@ -272,7 +297,20 @@ function withSecurityHeaders(res: Response): Response {
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
 }
 
-export default {
+/** Attaches the request, body included: /send bodies carry a JWT and an email. */
+const REQUEST_DATA_INTEGRATION = "RequestData";
+
+/**
+ * Errors only, with nothing from the request. Breadcrumbs are off too: the console lines
+ * and the Supabase lookup URLs they would record contain the customer's email.
+ */
+const sentryOptions = (env: Env): Sentry.CloudflareOptions => ({
+  dsn: env.SENTRY_DSN,
+  maxBreadcrumbs: 0,
+  integrations: (defaults) => defaults.filter((integration) => integration.name !== REQUEST_DATA_INTEGRATION),
+});
+
+export default Sentry.withSentry(sentryOptions, {
   async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get("origin");
     const cors = senderCors(origin, env);
@@ -296,4 +334,4 @@ export default {
 
     return withSecurityHeaders(res);
   },
-};
+} satisfies ExportedHandler<Env>);

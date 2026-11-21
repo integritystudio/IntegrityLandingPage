@@ -39,6 +39,11 @@ invocation_logs = true
 [observability.traces]
 enabled = true
 
+# The Sentry SDK reads SENTRY_ENVIRONMENT itself. Reporting stays off until the
+# SENTRY_DSN secret is bound.
+[vars]
+SENTRY_ENVIRONMENT = "production"
+
 # --- dev environment (`npm run deploy`) -------------------------------------
 # Publishes to a separate Worker. Previously `npm run deploy` published straight
 # over `sender-worker`, which is the Worker the released site calls: ci.yml
@@ -132,11 +137,18 @@ enabled = true
 #   ALLOWED_ORIGINS_JSON       — JSON array of allowed CORS origins (optional; defaults to integritystudio.ai and integritystudio.dev, apex and www — workers/lib/http/cors.ts)
 #   STRIPE_SECRET_KEY          — Stripe API key: prd holds an rk_live_ restricted key, dev a sandbox key
 #   STRIPE_PLAN_TO_PRICE_JSON  — JSON map of plan → Stripe price ID, e.g. {"growth":"price_xxx","enterprise":"price_yyy"}
+#   SENTRY_DSN                 — Sentry DSN (optional; unset = no reporting). Reports a checkout
+#                                started for an email with no org, and unhandled exceptions.
+#                                prd binds the `integritystudio-ai` project, the receiver's, from
+#                                Doppler SENTRY_OBTOOL_DASHBOARD_DSN. NOT Doppler's SENTRY_DSN,
+#                                which is the unrelated `tcad-scraper-backend` project.
 #   APP_BASE_URL               — Base URL for Stripe success/cancel redirects (optional; defaults to https://integritystudio.ai)
 
 # Local development: the Flutter app served at localhost:8080 signs in against the dev
 # Workers, so dev (and only dev) allows that origin. An explicit list replaces the
 # production defaults in workers/lib/http/cors.ts; production binds no such var.
-# `vars` is non-inheritable and production defines none, so this block is dev-only.
+# `vars` is non-inheritable, so production's [vars] above does not reach dev and
+# ALLOWED_ORIGINS_JSON stays dev-only.
 [env.dev.vars]
 ALLOWED_ORIGINS_JSON = '["http://localhost:8080"]'
+SENTRY_ENVIRONMENT = "development"

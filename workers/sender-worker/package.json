@@ -24,6 +24,7 @@
     "@rollup/rollup-darwin-arm64": "^4.63.6"
   },
   "dependencies": {
+    "@sentry/cloudflare": "11.11.0",
     "jose": "^6.2.12",
     "zod": "^4.6.5"
   },
