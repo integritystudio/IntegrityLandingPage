@@ -181,6 +181,38 @@ async function supabaseDelete(
   return { ok: true };
 }
 
+async function supabaseUpdate(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  table: string,
+  updates: Record<string, unknown>,
+  filter: string,
+  dryRun: boolean,
+): Promise<DbResult> {
+  if (dryRun) return { ok: true };
+
+  const resp = await fetch(`${supabaseUrl}/rest/v1/${table}?${filter}`, {
+    method: 'PATCH',
+    headers: {
+      ...supabaseHeaders(serviceRoleKey),
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal',
+    },
+    body: JSON.stringify(updates),
+  });
+
+  if (!resp.ok) {
+    const body = await parseJsonSafe(resp);
+    const parseResult = SupabaseErrorSchema.safeParse(body);
+    const message = parseResult.success
+      ? parseResult.data.message
+      : `HTTP ${resp.status}: ${JSON.stringify(body)}`;
+    return { ok: false, error: message };
+  }
+
+  return { ok: true };
+}
+
 async function supabaseLookupOrgId(
   supabaseUrl: string,
   serviceRoleKey: string,
@@ -297,7 +329,6 @@ async function processCustomer(
   const orgRecord = {
     stripe_customer_id: customer.id,
     name: customer.name ?? customer.email ?? customer.id,
-    email: customer.email,
     updated_at: now,
   };
 
@@ -324,18 +355,24 @@ async function processCustomer(
   const subs = expandedSubs ?? [];
 
   const entitlementTargets: Array<{ stripeCustomerId: string; tier: PlanKey }> = [];
+  if (subs.length === 0) return { ok: true, subscriptions: entitlementTargets };
+
+  // subscriptions has no customer column: it links to the org by id, one row per org.
+  const lookup = await supabaseLookupOrgId(supabaseUrl, serviceRoleKey, customer.id);
+  if ('error' in lookup) {
+    return { ok: false, error: `Org lookup failed for ${customer.id}: ${lookup.error}` };
+  }
+  const orgFilter = `id=eq.${encodeURIComponent(lookup.orgId)}`;
 
   for (const sub of subs) {
-    const tier = mapPriceToTier(sub.items.data[0]?.price.id);
-    const billingStatus = mapStripeStatusToBillingStatus(sub.status);
+    const priceId = sub.items.data[0]?.price.id;
+    const tier = mapPriceToTier(priceId);
 
     const subRecord = {
+      organization_id: lookup.orgId,
       stripe_subscription_id: sub.id,
-      stripe_customer_id: customer.id,
-      stripe_price_id: sub.items.data[0]?.price.id ?? '',
+      stripe_price_id: priceId ?? null,
       status: sub.status,
-      tier,
-      billing_status: billingStatus,
       current_period_start: new Date((sub.items.data[0]?.current_period_start ?? 0) * 1000).toISOString(),
       current_period_end: new Date((sub.items.data[0]?.current_period_end ?? 0) * 1000).toISOString(),
       cancel_at_period_end: sub.cancel_at_period_end,
@@ -345,11 +382,29 @@ async function processCustomer(
     const subResult = await supabaseUpsert(
       supabaseUrl, serviceRoleKey,
       'subscriptions', subRecord,
-      'stripe_subscription_id', dryRun,
+      'organization_id', dryRun,
     );
 
     if (!subResult.ok) {
       return { ok: false, error: `Sub upsert failed for ${sub.id}: ${subResult.error}` };
+    }
+
+    // Plan and billing status live on the org, as stripe-webhook writes them. An
+    // unmapped price leaves current_plan alone rather than downgrading the org.
+    const mappedPlan = priceId ? PRICE_TO_PLAN[priceId] : undefined;
+    const orgUpdates = {
+      billing_status: mapStripeStatusToBillingStatus(sub.status),
+      ...(mappedPlan ? { current_plan: mappedPlan } : {}),
+      updated_at: now,
+    };
+    const orgUpdateResult = await supabaseUpdate(
+      supabaseUrl, serviceRoleKey,
+      'organizations', orgUpdates,
+      orgFilter, dryRun,
+    );
+
+    if (!orgUpdateResult.ok) {
+      return { ok: false, error: `Org billing update failed for ${customer.id}: ${orgUpdateResult.error}` };
     }
 
     if (dryRun) {
