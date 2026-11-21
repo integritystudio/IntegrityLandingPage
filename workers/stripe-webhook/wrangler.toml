@@ -33,8 +33,8 @@ preview_urls = false
 # With no priced plan the map is {} and handlers/subscription.ts never writes
 # `current_plan`, so a paid upgrade changes `billing_status` only (BACKLOG.md CR38);
 # `/health` reports `priceToPlanEntries` from the same read.
-# The STRIPE_PRICE_TO_PLAN_JSON secret this replaced is no longer read; unbind it once
-# this version is deployed.
+# The STRIPE_PRICE_TO_PLAN_JSON secret this replaced was unbound from stripe-webhook and
+# stripe-webhook-dev on 2026-11-21; do not re-bind it.
 
 # Reconciliation cron: retries dead letters and detects missed events every 15 minutes
 # Note: Cloudflare API format requires: cron = "schedule"
