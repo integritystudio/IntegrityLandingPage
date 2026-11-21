@@ -443,30 +443,30 @@ class ErrorTrackingService {
   // Performance Monitoring
   // ---------------------------------------------------------------------------
 
-  /// Start a performance transaction.
+  /// Span attribute Sentry reads the operation from.
+  static const _operationAttribute = 'sentry.op';
+
+  /// Run [work] inside a performance span named [name].
   ///
-  /// Returns a transaction that must be finished when the operation completes.
+  /// The span ends when [work] completes, and is marked as failed if it throws.
   ///
   /// ```dart
-  /// final transaction = ErrorTrackingService.startTransaction(
+  /// final profile = await ErrorTrackingService.traceOperation(
   ///   name: 'loadUserProfile',
   ///   operation: 'http.client',
+  ///   work: loadProfile,
   /// );
-  /// try {
-  ///   await loadProfile();
-  ///   transaction.status = const SpanStatus.ok();
-  /// } catch (e) {
-  ///   transaction.status = const SpanStatus.internalError();
-  ///   rethrow;
-  /// } finally {
-  ///   await transaction.finish();
-  /// }
   /// ```
-  static ISentrySpan startTransaction({
+  static Future<T> traceOperation<T>({
     required String name,
     required String operation,
+    required Future<T> Function() work,
   }) {
-    return Sentry.startTransaction(name, operation, bindToScope: true);
+    return Sentry.startSpan(
+      name,
+      (_) => work(),
+      attributes: {_operationAttribute: SentryAttribute.string(operation)},
+    );
   }
 
   // ---------------------------------------------------------------------------
