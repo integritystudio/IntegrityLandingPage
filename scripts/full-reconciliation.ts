@@ -113,6 +113,7 @@ const PlanRowsSchema = z.array(z.object({ key: PlanKeySchema, stripe_price_id: z
 const STRIPE_SUBSCRIPTION_STATUSES: ReadonlySet<string> = new Set([
   'incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused',
 ]);
+const CANCELED_STATUS = 'canceled';
 /** Our own value for "no Stripe subscription exists"; also the safe fallback, since it grants nothing. */
 const NO_SUBSCRIPTION_STATUS = 'inactive';
 
@@ -133,7 +134,7 @@ export function toBillingStatus(stripeStatus: string): string {
  * Mirrors workers/lib/billing.ts, which this script cannot import; the tests pin the two.
  */
 export function isTerminalSubscriptionStatus(status: string): boolean {
-  return status === 'canceled' || status === 'incomplete_expired';
+  return status === CANCELED_STATUS || status === 'incomplete_expired';
 }
 
 // ---------------------------------------------------------------------------
@@ -421,6 +422,17 @@ async function resolveCustomerOrg(
   return { orgId: decision.orgId, linked: true };
 }
 
+/** The org already linked to a customer, without linking one: a cancellation never links. */
+async function findLinkedOrg(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  customerId: string,
+): Promise<{ orgId: string | null; linked: false } | ReconciliationError> {
+  const byCustomer = await supabaseFindOrg(supabaseUrl, serviceRoleKey, `stripe_customer_id=eq.${encodeURIComponent(customerId)}`);
+  if ('error' in byCustomer) return { kind: 'org-lookup', error: `Org lookup failed for ${customerId}: ${byCustomer.error}` };
+  return { orgId: byCustomer.org?.id ?? null, linked: false };
+}
+
 /**
  * The value for `organizations.active_subscription_id`: the org's subscription row, or
  * null once the subscription is terminal. A dry run has written no row to point at.
@@ -443,12 +455,19 @@ async function activeSubscriptionPointer(
   return row ? { id: row.id } : { error: `no subscriptions row for org ${orgId} after its upsert` };
 }
 
+/**
+ * The customer's most recently canceled subscription, or null if it never had one.
+ * Stripe leaves canceled subscriptions out of the customer list this script pages through.
+ */
+export type CanceledSubscriptionLookup = (customerId: string) => Promise<Stripe.Subscription | null>;
+
 export async function processCustomer(
   supabaseUrl: string,
   serviceRoleKey: string,
   customer: Stripe.Customer,
   priceToPlan: PriceToPlan,
   dryRun: boolean,
+  latestCanceledSubscription: CanceledSubscriptionLookup = async () => null,
 ): Promise<CustomerProcessResult> {
   const now = new Date().toISOString();
 
@@ -458,22 +477,33 @@ export async function processCustomer(
   if (expandedSubs !== undefined && !Array.isArray(expandedSubs)) {
     throw new Error(`Unexpected subscriptions shape for customer ${customer.id}: expected array`);
   }
-  const subs = expandedSubs ?? [];
+  const liveSubs = expandedSubs ?? [];
 
   const targets: EntitlementTarget[] = [];
   const issues: ReconciliationError[] = [];
-  // No subscription: nothing billed to reconcile, and no metadata to link from.
+
+  // With no live subscription, the last canceled one decides: stripe-webhook downgrades
+  // the org on customer.subscription.deleted, and a missed event leaves it on a paid plan.
+  const canceledSub = liveSubs.length === 0 ? await latestCanceledSubscription(customer.id) : null;
+  const subs = canceledSub ? [canceledSub] : liveSubs;
+  // Never subscribed: nothing billed to reconcile, and no metadata to link from.
   if (subs.length === 0) return { ok: true, linked: false, targets, issues };
 
   // subscriptions has no customer column: it links to the org by id, one row per org.
-  const resolved = await resolveCustomerOrg(supabaseUrl, serviceRoleKey, customer, subs, now, dryRun);
+  const resolved = canceledSub
+    ? await findLinkedOrg(supabaseUrl, serviceRoleKey, customer.id)
+    : await resolveCustomerOrg(supabaseUrl, serviceRoleKey, customer, subs, now, dryRun);
   if ('error' in resolved) return { ok: false, ...resolved };
+  // A canceled subscription whose customer no org points at has nothing to downgrade.
+  if (resolved.orgId === null) return { ok: true, linked: false, targets, issues };
   const { orgId, linked } = resolved;
   const orgFilter = `id=eq.${encodeURIComponent(orgId)}`;
 
   for (const sub of subs) {
     const priceId = sub.items.data[0]?.price.id;
-    const mappedPlan = priceId ? priceToPlan[priceId] : undefined;
+    // A canceled subscription always downgrades to the default plan, as the webhook does.
+    const canceled = sub.status === CANCELED_STATUS;
+    const mappedPlan = canceled ? DEFAULT_PLAN : priceId ? priceToPlan[priceId] : undefined;
     const tier = mappedPlan ?? DEFAULT_PLAN;
     if (!mappedPlan) {
       issues.push({
@@ -620,6 +650,12 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
 
   console.log(`[reconciliation] Starting full reconciliation${dryRun ? ' (DRY RUN — no changes will be written)' : ''}...`);
 
+  // Stripe lists subscriptions newest first.
+  const latestCanceledSubscription: CanceledSubscriptionLookup = async (customerId) => {
+    const canceled = await stripe.subscriptions.list({ customer: customerId, status: CANCELED_STATUS, limit: 1 });
+    return canceled.data[0] ?? null;
+  };
+
   // One rebuild per org: a later subscription's tier replaces an earlier one's.
   const tierByOrg = new Map<string, PlanKey>();
 
@@ -638,7 +674,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
       summary.customersProcessed++;
 
       try {
-        const result = await processCustomer(supabaseUrl, serviceRoleKey, customer, priceToPlan, dryRun);
+        const result = await processCustomer(supabaseUrl, serviceRoleKey, customer, priceToPlan, dryRun, latestCanceledSubscription);
         if (!result.ok) {
           recordError(summary, 'customers', result.kind, `Error processing customer ${customer.id}: ${result.error}`);
           continue;

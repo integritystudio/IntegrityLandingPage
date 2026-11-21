@@ -433,6 +433,9 @@ describe('processCustomer', () => {
 
   type Recorded = { method: string; path: string; body: Record<string, unknown> | null };
   const requests: Recorded[] = [];
+  const LINKED_ORG = [{ id: ORG_A, stripe_customer_id: CUSTOMER }];
+  /** What the org lookup by customer id returns; [] is a customer no org points at. */
+  let linkedOrgs: typeof LINKED_ORG = LINKED_ORG;
   let server: Server;
   let supabaseUrl: string;
 
@@ -444,7 +447,7 @@ describe('processCustomer', () => {
         const path = decodeURIComponent(req.url ?? '');
         requests.push({ method: req.method ?? '', path, body: raw ? JSON.parse(raw) : null });
         const rows = req.method !== 'GET' ? null
-          : path.startsWith('/rest/v1/organizations') ? [{ id: ORG_A, stripe_customer_id: CUSTOMER }]
+          : path.startsWith('/rest/v1/organizations') ? linkedOrgs
           : [{ id: SUBSCRIPTION_ROW }];
         res.setHeader('Content-Type', 'application/json');
         res.end(rows ? JSON.stringify(rows) : '');
@@ -458,7 +461,19 @@ describe('processCustomer', () => {
 
   beforeEach(() => {
     requests.length = 0;
+    linkedOrgs = LINKED_ORG;
   });
+
+  const subscription = (status: Stripe.Subscription.Status, priceId: string) => ({
+    id: 'sub_1',
+    status,
+    metadata: {},
+    cancel_at_period_end: false,
+    items: { data: [{ price: { id: priceId }, current_period_start: 1_700_000_000, current_period_end: 1_702_592_000 }] },
+  }) as unknown as Stripe.Subscription;
+
+  /** A customer Stripe lists with no subscription: it has none, or only canceled ones. */
+  const customerWithoutLiveSubscription = { id: CUSTOMER, subscriptions: { data: [] } } as unknown as Stripe.Customer;
 
   const customerWith = (status: Stripe.Subscription.Status, priceId: string) => ({
     id: CUSTOMER,
@@ -519,6 +534,45 @@ describe('processCustomer', () => {
       error: 'Unmapped Stripe price price_unknown on subscription sub_1: entitlements rebuilt at starter, current_plan left alone',
     }]);
     expect(orgPatch()).not.toHaveProperty('current_plan');
+  });
+
+  describe('a customer whose only subscription is canceled', () => {
+    const lastCanceled = async () => subscription('canceled', GROWTH_PRICE);
+
+    it('downgrades the org to the default plan, as stripe-webhook does on deletion', async () => {
+      const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWithoutLiveSubscription, PRICE_TO_PLAN, false, lastCanceled);
+
+      expect(result).toEqual({ ok: true, linked: false, targets: [{ orgId: ORG_A, tier: 'starter' }], issues: [] });
+      expect(orgPatch()).toMatchObject({ billing_status: 'canceled', current_plan: 'starter', active_subscription_id: null });
+      expect(orgPatch()?.quota_version).toEqual(expect.any(Number));
+      expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({ stripe_subscription_id: 'sub_1', status: 'canceled' });
+    });
+
+    it('does nothing when no org points at the customer, and never links one', async () => {
+      linkedOrgs = [];
+      const canceledWithOrgMetadata = async () => ({ ...subscription('canceled', GROWTH_PRICE), metadata: { org_id: ORG_B } }) as Stripe.Subscription;
+
+      const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWithoutLiveSubscription, PRICE_TO_PLAN, false, canceledWithOrgMetadata);
+
+      expect(result).toEqual({ ok: true, linked: false, targets: [], issues: [] });
+      expect(writes()).toEqual([]);
+    });
+  });
+
+  it('leaves a customer that never subscribed alone', async () => {
+    const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWithoutLiveSubscription, PRICE_TO_PLAN, false, async () => null);
+
+    expect(result).toEqual({ ok: true, linked: false, targets: [], issues: [] });
+    expect(requests).toEqual([]);
+  });
+
+  it('does not look for a canceled subscription while a live one exists', async () => {
+    const lookup = vi.fn<(customerId: string) => Promise<Stripe.Subscription | null>>(async () => subscription('canceled', GROWTH_PRICE));
+
+    await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('active', GROWTH_PRICE), PRICE_TO_PLAN, false, lookup);
+
+    expect(lookup).not.toHaveBeenCalled();
+    expect(orgPatch()).toMatchObject({ billing_status: 'active', current_plan: 'growth' });
   });
 
   it('writes nothing in a dry run', async () => {
