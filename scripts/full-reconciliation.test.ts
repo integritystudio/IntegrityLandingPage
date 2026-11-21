@@ -40,105 +40,52 @@ const OrgRowSchema = z.array(z.object({ id: z.string().uuid() })).min(1);
 
 // ─── Environment Schema Tests ────────────────────────────────────────────
 
+const VALID_ENV = {
+  STRIPE_SECRET_KEY: 'sk_test_abc123def456',
+  SUPABASE_URL: 'https://proj.supabase.co',
+  SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+};
+
 describe('EnvSchema validation', () => {
-  it('accepts valid test Stripe key', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'sk_test_abc123def456',
-      SUPABASE_URL: 'https://proj.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    });
-    expect(result.success).toBe(true);
-  });
+  it.each(['sk_test_abc123', 'sk_live_production123', 'rk_live_restricted123', 'a-format-not-invented-yet'])(
+    'accepts any non-empty Stripe key (%s)',
+    (key) => {
+      expect(EnvSchema.safeParse({ ...VALID_ENV, STRIPE_SECRET_KEY: key }).success).toBe(true);
+    },
+  );
 
-  it('accepts valid live Stripe key', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'sk_live_production123',
-      SUPABASE_URL: 'https://prod.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    });
-    expect(result.success).toBe(true);
-  });
+  it.each(['eyJhbGciOiJIUzI1NiJ9...', 'sb_secret_abc123', 'a-format-not-invented-yet'])(
+    'accepts any non-empty Supabase key (%s)',
+    (key) => {
+      expect(EnvSchema.safeParse({ ...VALID_ENV, SUPABASE_SERVICE_ROLE_KEY: key }).success).toBe(true);
+    },
+  );
 
-  it.each(['rk_live_restricted123', 'rk_test_restricted123'])('accepts restricted Stripe key %s', (key) => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: key,
-      SUPABASE_URL: 'https://prod.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('accepts a Supabase secret key', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'rk_live_restricted123',
-      SUPABASE_URL: 'https://prod.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_abc123',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects a publishable Supabase key', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'sk_test_abc123',
-      SUPABASE_URL: 'https://proj.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'sb_publishable_abc123',
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects Stripe key with wrong prefix', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'pk_live_publishable_key',
-      SUPABASE_URL: 'https://proj.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    });
+  it.each(['STRIPE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'] as const)('rejects an empty %s', (field) => {
+    const result = EnvSchema.safeParse({ ...VALID_ENV, [field]: '' });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain('sk_ or rk_');
+      expect(result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)).toEqual([`${field}: is required`]);
     }
+  });
+
+  it.each(['STRIPE_SECRET_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const)('rejects a missing %s', (field) => {
+    const { [field]: _omitted, ...rest } = VALID_ENV;
+    const result = EnvSchema.safeParse(rest);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues.map((i) => i.path.join('.'))).toEqual([field]);
   });
 
   it('rejects invalid Supabase URL (not a URL)', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'sk_test_abc123',
-      SUPABASE_URL: 'not-a-url',
-      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    });
-    expect(result.success).toBe(false);
+    expect(EnvSchema.safeParse({ ...VALID_ENV, SUPABASE_URL: 'not-a-url' }).success).toBe(false);
   });
 
-  it('rejects service role key without JWT prefix', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'sk_test_abc123',
-      SUPABASE_URL: 'https://proj.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'not-a-jwt-key',
-    });
+  it('reports every bad field, in the format runFullReconciliation prints', () => {
+    const result = EnvSchema.safeParse({ STRIPE_SECRET_KEY: '', SUPABASE_URL: 'not-a-url', SUPABASE_SERVICE_ROLE_KEY: '' });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain('eyJ');
-    }
-  });
-
-  it('rejects missing STRIPE_SECRET_KEY', () => {
-    const result = EnvSchema.safeParse({
-      SUPABASE_URL: 'https://proj.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('provides per-field error messages', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'wrong',
-      SUPABASE_URL: 'not-a-url',
-      SUPABASE_SERVICE_ROLE_KEY: 'not-jwt',
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const issues = result.error.issues.map((i) => i.path.join('.'));
-      expect(issues).toContain('STRIPE_SECRET_KEY');
-      expect(issues).toContain('SUPABASE_URL');
-      expect(issues).toContain('SUPABASE_SERVICE_ROLE_KEY');
+      const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+      expect(issues).toMatch(/^STRIPE_SECRET_KEY: is required; SUPABASE_URL: .+; SUPABASE_SERVICE_ROLE_KEY: is required$/);
     }
   });
 });
@@ -347,43 +294,6 @@ describe('OrgRowSchema error reporting', () => {
     expect(message).toContain('Unexpected org lookup response');
     // Zod's validation error message is included in formErrors
     expect(message).toContain('expected array');
-  });
-});
-
-// ─── Integration: Multiple Env Var Errors ───────────────────────────────
-
-describe('EnvSchema error message formatting', () => {
-  it('formats multiple field errors clearly', () => {
-    const envResult = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'invalid',
-      SUPABASE_URL: 'not-a-url',
-      SUPABASE_SERVICE_ROLE_KEY: 'no-jwt',
-    });
-
-    if (!envResult.success) {
-      const issues = envResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
-      const combined = issues.join('; ');
-      expect(combined).toContain('STRIPE_SECRET_KEY');
-      expect(combined).toContain('SUPABASE_URL');
-      expect(combined).toContain('SUPABASE_SERVICE_ROLE_KEY');
-      // Verify format matches the reconciliation script
-      expect(combined).toMatch(/\w+: .+; \w+: .+; \w+: .+/);
-    }
-  });
-
-  it('matches exact format used in runFullReconciliation error message', () => {
-    const envResult = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'wrong',
-      SUPABASE_URL: 'invalid-url',
-      SUPABASE_SERVICE_ROLE_KEY: 'no-jwt-prefix',
-    });
-
-    if (!envResult.success) {
-      const issues = envResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
-      const errorMessage = `Invalid environment: ${issues}`;
-      expect(errorMessage).toContain('Invalid environment:');
-      expect(errorMessage).toContain('STRIPE_SECRET_KEY:');
-    }
   });
 });
 

@@ -19,9 +19,9 @@
  *   npx ts-node scripts/full-reconciliation.ts [--dry-run]
  *
  * Required env vars:
- *   STRIPE_SECRET_KEY      — Stripe secret or restricted key (sk_/rk_, then live_/test_)
+ *   STRIPE_SECRET_KEY      — Stripe secret or restricted key
  *   SUPABASE_URL           — Supabase project URL
- *   SUPABASE_SERVICE_ROLE_KEY — Supabase service-role JWT (eyJ...) or secret key (sb_secret_...)
+ *   SUPABASE_SERVICE_ROLE_KEY — Supabase service-role or secret key
  *
  * Optional:
  *   SENTRY_DSN             — reports each failure and any fatal error to that Sentry
@@ -67,16 +67,13 @@ interface DbResult {
 // Zod schemas
 // ---------------------------------------------------------------------------
 
-/** A secret (sk_) or restricted (rk_) key; prd holds a restricted one. */
-const STRIPE_SECRET_KEY_PATTERN = /^(sk|rk)_(?<mode>test|live)_/;
-const STRIPE_LIVE_MODE = 'live';
-/** A legacy JWT service-role key (eyJ) or a Supabase secret key (sb_secret_), which prd holds. */
-const SUPABASE_SERVICE_KEY_PATTERN = /^(eyJ|sb_secret_)/;
+const REQUIRED_MESSAGE = 'is required';
 
+/** Presence only: key formats change (rk_, sb_secret_), and a bad key fails the first request anyway. */
 export const EnvSchema = z.object({
-  STRIPE_SECRET_KEY: z.string().regex(STRIPE_SECRET_KEY_PATTERN, 'must start with sk_ or rk_, then test_ or live_'),
+  STRIPE_SECRET_KEY: z.string().min(1, REQUIRED_MESSAGE),
   SUPABASE_URL: z.string().url(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().regex(SUPABASE_SERVICE_KEY_PATTERN, 'must be a JWT (eyJ) or a secret key (sb_secret_)'),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, REQUIRED_MESSAGE),
 });
 
 const SupabaseErrorSchema = z.object({
@@ -528,8 +525,11 @@ const SENTRY_SCRIPT_TAG = 'full-reconciliation';
 const SENTRY_PHASE_TAG = 'phase';
 const SENTRY_FATAL_PHASE = 'fatal';
 
+/** Stripe marks every live-mode key, of any type, this way. */
+const STRIPE_LIVE_KEY_MARKER = '_live_';
+
 function isLiveStripeKey(key: string | undefined): boolean {
-  return STRIPE_SECRET_KEY_PATTERN.exec(key ?? '')?.groups?.mode === STRIPE_LIVE_MODE;
+  return key?.includes(STRIPE_LIVE_KEY_MARKER) ?? false;
 }
 
 /** Reports to the project behind SENTRY_DSN (the landing app's). Before env validation, so a bad env is reported too. */
