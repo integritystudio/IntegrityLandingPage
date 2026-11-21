@@ -44,7 +44,19 @@ type PlanKey = z.infer<typeof PlanKeySchema>;
 /** Stripe price id → plan key, loaded from the `plans` table at startup. */
 type PriceToPlan = Readonly<Record<string, PlanKey>>;
 type BillingStatus = 'active' | 'past_due' | 'canceled' | 'inactive';
-type ReconciliationPhase = 'customers' | 'unlinked-customer' | 'entitlements';
+type ReconciliationPhase = 'customers' | 'entitlements';
+/** What failed; with the phase, it is the Sentry grouping key. */
+type ErrorKind =
+  | 'org-lookup'
+  | 'unlinked-customer'
+  | 'customer-link'
+  | 'subscription-upsert'
+  | 'subscription-row-lookup'
+  | 'org-update'
+  | 'unmapped-price'
+  | 'entitlement-rebuild'
+  | 'unexpected';
+type ReconciliationError = { kind: ErrorKind; error: string };
 
 /** The plan an unmapped or missing price falls back to. */
 const DEFAULT_PLAN: PlanKey = 'starter';
@@ -339,8 +351,9 @@ async function provisionEntitlements(
 type EntitlementTarget = { orgId: string; tier: PlanKey };
 
 type CustomerProcessResult =
-  | { ok: false; phase: ReconciliationPhase; error: string }
-  | { ok: true; linked: boolean; targets: EntitlementTarget[] };
+  | ({ ok: false } & ReconciliationError)
+  /** `issues` are reported without stopping the customer: its writes still happened. */
+  | { ok: true; linked: boolean; targets: EntitlementTarget[]; issues: ReconciliationError[] };
 
 /** The one org a customer's subscriptions name in `metadata.org_id`, or why there is none. */
 export function orgIdFromSubscriptionMetadata(
@@ -381,17 +394,17 @@ async function resolveCustomerOrg(
   subs: readonly Stripe.Subscription[],
   now: string,
   dryRun: boolean,
-): Promise<{ orgId: string; linked: boolean } | { phase: ReconciliationPhase; error: string }> {
+): Promise<{ orgId: string; linked: boolean } | ReconciliationError> {
   const byCustomer = await supabaseFindOrg(supabaseUrl, serviceRoleKey, `stripe_customer_id=eq.${encodeURIComponent(customer.id)}`);
-  if ('error' in byCustomer) return { phase: 'customers', error: `Org lookup failed for ${customer.id}: ${byCustomer.error}` };
+  if ('error' in byCustomer) return { kind: 'org-lookup', error: `Org lookup failed for ${customer.id}: ${byCustomer.error}` };
   if (byCustomer.org) return { orgId: byCustomer.org.id, linked: false };
 
-  const unlinked = (reason: string) => ({ phase: 'unlinked-customer' as const, error: `Unlinked Stripe customer ${customer.id}: ${reason}` });
+  const unlinked = (reason: string) => ({ kind: 'unlinked-customer' as const, error: `Unlinked Stripe customer ${customer.id}: ${reason}` });
   const fromMetadata = orgIdFromSubscriptionMetadata(subs);
   if ('reason' in fromMetadata) return unlinked(fromMetadata.reason);
 
   const byId = await supabaseFindOrg(supabaseUrl, serviceRoleKey, `id=eq.${encodeURIComponent(fromMetadata.orgId)}`);
-  if ('error' in byId) return { phase: 'customers', error: `Org lookup failed for ${fromMetadata.orgId}: ${byId.error}` };
+  if ('error' in byId) return { kind: 'org-lookup', error: `Org lookup failed for ${fromMetadata.orgId}: ${byId.error}` };
   const decision = linkDecision(customer.id, fromMetadata.orgId, byId.org);
   if (!decision.link) return unlinked(decision.reason);
 
@@ -401,7 +414,7 @@ async function resolveCustomerOrg(
     'organizations', { stripe_customer_id: customer.id, updated_at: now },
     `id=eq.${encodeURIComponent(decision.orgId)}&stripe_customer_id=is.null`, dryRun,
   );
-  if (!linkResult.ok) return { phase: 'customers', error: `Linking ${customer.id} to org ${decision.orgId} failed: ${linkResult.error}` };
+  if (!linkResult.ok) return { kind: 'customer-link', error: `Linking ${customer.id} to org ${decision.orgId} failed: ${linkResult.error}` };
   console.log(`  ${dryRun ? '[dry-run] Would link' : 'Linked'} customer ${customer.id} to org ${decision.orgId} from subscription metadata`);
   return { orgId: decision.orgId, linked: true };
 }
@@ -446,8 +459,9 @@ export async function processCustomer(
   const subs = expandedSubs ?? [];
 
   const targets: EntitlementTarget[] = [];
+  const issues: ReconciliationError[] = [];
   // No subscription: nothing billed to reconcile, and no metadata to link from.
-  if (subs.length === 0) return { ok: true, linked: false, targets };
+  if (subs.length === 0) return { ok: true, linked: false, targets, issues };
 
   // subscriptions has no customer column: it links to the org by id, one row per org.
   const resolved = await resolveCustomerOrg(supabaseUrl, serviceRoleKey, customer, subs, now, dryRun);
@@ -459,6 +473,12 @@ export async function processCustomer(
     const priceId = sub.items.data[0]?.price.id;
     const mappedPlan = priceId ? priceToPlan[priceId] : undefined;
     const tier = mappedPlan ?? DEFAULT_PLAN;
+    if (!mappedPlan) {
+      issues.push({
+        kind: 'unmapped-price',
+        error: `Unmapped Stripe price ${priceId ?? '(none)'} on subscription ${sub.id}: entitlements rebuilt at ${DEFAULT_PLAN}, current_plan left alone`,
+      });
+    }
 
     const subRecord = {
       organization_id: orgId,
@@ -478,12 +498,12 @@ export async function processCustomer(
     );
 
     if (!subResult.ok) {
-      return { ok: false, phase: 'customers', error: `Sub upsert failed for ${sub.id}: ${subResult.error}` };
+      return { ok: false, kind: 'subscription-upsert', error: `Sub upsert failed for ${sub.id}: ${subResult.error}` };
     }
 
     const pointer = await activeSubscriptionPointer(supabaseUrl, serviceRoleKey, orgId, sub.status, dryRun);
     if ('error' in pointer) {
-      return { ok: false, phase: 'customers', error: `Subscription row lookup failed for ${sub.id}: ${pointer.error}` };
+      return { ok: false, kind: 'subscription-row-lookup', error: `Subscription row lookup failed for ${sub.id}: ${pointer.error}` };
     }
 
     // Plan, billing status and the subscription pointer live on the org, as stripe-webhook
@@ -503,7 +523,7 @@ export async function processCustomer(
     );
 
     if (!orgUpdateResult.ok) {
-      return { ok: false, phase: 'customers', error: `Org billing update failed for ${customer.id}: ${orgUpdateResult.error}` };
+      return { ok: false, kind: 'org-update', error: `Org billing update failed for ${customer.id}: ${orgUpdateResult.error}` };
     }
 
     if (dryRun) {
@@ -513,7 +533,7 @@ export async function processCustomer(
     targets.push({ orgId, tier });
   }
 
-  return { ok: true, linked, targets };
+  return { ok: true, linked, targets, issues };
 }
 
 // ---------------------------------------------------------------------------
@@ -523,6 +543,7 @@ export async function processCustomer(
 const SENTRY_FLUSH_TIMEOUT_MS = 5_000;
 const SENTRY_SCRIPT_TAG = 'full-reconciliation';
 const SENTRY_PHASE_TAG = 'phase';
+const SENTRY_KIND_TAG = 'kind';
 const SENTRY_FATAL_PHASE = 'fatal';
 
 /** Stripe marks every live-mode key, of any type, this way. */
@@ -546,12 +567,19 @@ function initSentry(dryRun: boolean): void {
   });
 }
 
-/** Record a per-customer failure in the summary and report it, grouped by phase. */
-function recordError(summary: ReconciliationSummary, phase: ReconciliationPhase, message: string, cause?: unknown): void {
+/** Record a failure in the summary and report it, one Sentry issue per phase and kind. */
+export function recordError(
+  summary: Pick<ReconciliationSummary, 'errors'>,
+  phase: ReconciliationPhase,
+  kind: ErrorKind,
+  message: string,
+  cause?: unknown,
+): void {
   summary.errors.push(message);
   Sentry.withScope((scope) => {
     scope.setTag(SENTRY_PHASE_TAG, phase);
-    scope.setFingerprint([SENTRY_SCRIPT_TAG, phase]);
+    scope.setTag(SENTRY_KIND_TAG, kind);
+    scope.setFingerprint([SENTRY_SCRIPT_TAG, phase, kind]);
     scope.setExtra('reconciliation_error', message);
     Sentry.captureException(cause instanceof Error ? cause : new Error(message));
   });
@@ -604,8 +632,12 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
       try {
         const result = await processCustomer(supabaseUrl, serviceRoleKey, customer, priceToPlan, dryRun);
         if (!result.ok) {
-          recordError(summary, result.phase, `Error processing customer ${customer.id}: ${result.error}`);
+          recordError(summary, 'customers', result.kind, `Error processing customer ${customer.id}: ${result.error}`);
           continue;
+        }
+
+        for (const issue of result.issues) {
+          recordError(summary, 'customers', issue.kind, `Customer ${customer.id}: ${issue.error}`);
         }
 
         if (result.targets.length > 0) summary.orgsMatched++;
@@ -614,7 +646,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
         for (const { orgId, tier } of result.targets) tierByOrg.set(orgId, tier);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        recordError(summary, 'customers', `Error processing customer ${customer.id}: ${message}`, err);
+        recordError(summary, 'customers', 'unexpected', `Error processing customer ${customer.id}: ${message}`, err);
       }
     }
 
@@ -630,14 +662,14 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
       try {
         const entResult = await provisionEntitlements(supabaseUrl, serviceRoleKey, orgId, tier, dryRun);
         if (!entResult.ok) {
-          recordError(summary, 'entitlements', `Entitlement rebuild failed for org ${orgId}: ${entResult.error}`);
+          recordError(summary, 'entitlements', 'entitlement-rebuild', `Entitlement rebuild failed for org ${orgId}: ${entResult.error}`);
           continue;
         }
 
         summary.orgEntitlementsRebuilt++;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        recordError(summary, 'entitlements', `Error rebuilding entitlements for org ${orgId}: ${message}`, err);
+        recordError(summary, 'entitlements', 'unexpected', `Error rebuilding entitlements for org ${orgId}: ${message}`, err);
       }
     }
   }

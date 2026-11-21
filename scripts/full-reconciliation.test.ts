@@ -13,6 +13,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { z } from 'zod';
+import * as Sentry from '@sentry/node';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type Stripe from 'stripe';
@@ -22,6 +23,7 @@ import {
   linkDecision,
   orgIdFromSubscriptionMetadata,
   processCustomer,
+  recordError,
 } from './full-reconciliation.js';
 import {
   STRIPE_SUBSCRIPTION_STATUSES,
@@ -356,6 +358,57 @@ describe('isTerminalSubscriptionStatus', () => {
   });
 });
 
+describe('recordError', () => {
+  // The real SDK with delivery cut off in beforeSend: nothing leaves the process.
+  const events: Sentry.ErrorEvent[] = [];
+  Sentry.init({
+    dsn: 'https://publickey@sentry.invalid/1',
+    beforeSend: (event) => {
+      events.push(event);
+      return null;
+    },
+  });
+
+  beforeEach(() => {
+    events.length = 0;
+  });
+
+  // Event processing is asynchronous; beforeSend has run once the queue drains.
+  const FLUSH_TIMEOUT_MS = 2_000;
+  const delivered = () => Sentry.flush(FLUSH_TIMEOUT_MS);
+
+  it('adds the message to the summary and groups the event by phase and kind', async () => {
+    const summary = { errors: [] as string[] };
+    recordError(summary, 'customers', 'unmapped-price', 'Customer cus_1: Unmapped Stripe price price_x');
+    await delivered();
+
+    expect(summary.errors).toEqual(['Customer cus_1: Unmapped Stripe price price_x']);
+    expect(events).toHaveLength(1);
+    expect(events[0].fingerprint).toEqual(['full-reconciliation', 'customers', 'unmapped-price']);
+    expect(events[0].tags).toMatchObject({ phase: 'customers', kind: 'unmapped-price' });
+  });
+
+  it('keeps two kinds of the same phase in separate Sentry issues', async () => {
+    const summary = { errors: [] as string[] };
+    recordError(summary, 'customers', 'org-lookup', 'lookup failed');
+    recordError(summary, 'customers', 'subscription-upsert', 'upsert failed');
+    await delivered();
+
+    expect(events.map((event) => event.fingerprint)).toEqual([
+      ['full-reconciliation', 'customers', 'org-lookup'],
+      ['full-reconciliation', 'customers', 'subscription-upsert'],
+    ]);
+  });
+
+  it('reports the thrown error itself when one is given', async () => {
+    recordError({ errors: [] }, 'entitlements', 'unexpected', 'wrapped message', new TypeError('fetch failed'));
+    await delivered();
+
+    expect(events[0].exception?.values?.[0]).toMatchObject({ type: 'TypeError', value: 'fetch failed' });
+    expect(events[0].extra).toMatchObject({ reconciliation_error: 'wrapped message' });
+  });
+});
+
 // ─── processCustomer against a local stand-in for Supabase's REST API ─────
 
 describe('processCustomer', () => {
@@ -425,7 +478,7 @@ describe('processCustomer', () => {
     const before = Date.now();
     const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('active', GROWTH_PRICE), PRICE_TO_PLAN, false);
 
-    expect(result).toEqual({ ok: true, linked: false, targets: [{ orgId: ORG_A, tier: 'growth' }] });
+    expect(result).toEqual({ ok: true, linked: false, targets: [{ orgId: ORG_A, tier: 'growth' }], issues: [] });
     expect(orgPatch()).toMatchObject({ billing_status: 'active', current_plan: 'growth', active_subscription_id: SUBSCRIPTION_ROW });
     expect(orgPatch()?.quota_version).toBeGreaterThanOrEqual(before);
   });
@@ -435,6 +488,17 @@ describe('processCustomer', () => {
 
     expect(orgPatch()).toMatchObject({ billing_status: 'canceled', active_subscription_id: null });
     expect(requests.some((request) => request.method === 'GET' && request.path.startsWith('/rest/v1/subscriptions'))).toBe(false);
+  });
+
+  it('reports an unmapped price, leaves current_plan alone and rebuilds at the default plan', async () => {
+    const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('active', 'price_unknown'), PRICE_TO_PLAN, false);
+
+    expect(result).toMatchObject({ ok: true, targets: [{ orgId: ORG_A, tier: 'starter' }] });
+    expect(result.ok && result.issues).toEqual([{
+      kind: 'unmapped-price',
+      error: 'Unmapped Stripe price price_unknown on subscription sub_1: entitlements rebuilt at starter, current_plan left alone',
+    }]);
+    expect(orgPatch()).not.toHaveProperty('current_plan');
   });
 
   it('writes nothing in a dry run', async () => {
