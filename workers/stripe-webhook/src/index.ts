@@ -58,6 +58,9 @@ async function processEvent(
         result = await handleInvoicePaymentFailed(event, db);
         break;
 
+      // A subscription created outside Checkout sends `created` and no `updated`; both
+      // carry the full subscription, so one handler writes the row and the plan.
+      case 'customer.subscription.created':
       case 'customer.subscription.updated':
         // CR38: warn when the map is absent so the silence does not mask a missing binding.
         if (Object.keys(priceToPlan).length === 0) {
@@ -205,6 +208,7 @@ async function runReconciliation(env: Env): Promise<void> {
         case 'invoice.payment_failed':
           result = await handleInvoicePaymentFailed(event, db);
           break;
+        case 'customer.subscription.created':
         case 'customer.subscription.updated':
           if (Object.keys(priceToPlan).length === 0) {
             console.warn(`CR38: STRIPE_PRICE_TO_PLAN_JSON is unset — current_plan will not be updated for dead-letter event ${dl.stripe_event_id}`);

@@ -377,6 +377,21 @@ describe('handleWebhook (fetch handler)', () => {
     );
   });
 
+  it('customer.subscription.created event → handleSubscriptionUpdated called with the price map', async () => {
+    const body = JSON.stringify({ id: 'evt_created', type: 'customer.subscription.created', data: { object: {} } });
+    const request = await makeWebhookRequest(body);
+    const env = { ...MOCK_ENV, STRIPE_PRICE_TO_PLAN_JSON: '{"price_abc":"growth"}' };
+    mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
+    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
+
+    const response = await worker.fetch(request, env, mockCtx.ctx);
+    expect(response.status).toBe(200);
+
+    await mockCtx.flush();
+    expect(mockDb.claimEvent).toHaveBeenCalledWith('evt_created', 'customer.subscription.created');
+    expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), { price_abc: 'growth' });
+  });
+
   it('customer.subscription.deleted event → handleSubscriptionDeleted called, queued:true returned', async () => {
     const body = JSON.stringify({ id: 'evt_del', type: 'customer.subscription.deleted', data: { object: {} } });
     const request = await makeWebhookRequest(body);
@@ -885,6 +900,7 @@ describe('runReconciliation', () => {
 
   it.each<[string, ReturnType<typeof vi.fn>]>([
     ['checkout.session.completed', mockHandleCheckout],
+    ['customer.subscription.created', mockHandleSubscriptionUpdated],
     ['customer.subscription.updated', mockHandleSubscriptionUpdated],
     ['customer.subscription.deleted', mockSubDeleted],
     ['invoice.paid', mockInvPaid],
