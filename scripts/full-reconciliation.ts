@@ -33,7 +33,7 @@ import { z } from 'zod';
 // Types
 // ---------------------------------------------------------------------------
 
-type PlanKey = 'free' | 'growth' | 'enterprise';
+type PlanKey = 'starter' | 'growth' | 'enterprise';
 type BillingStatus = 'active' | 'past_due' | 'canceled' | 'inactive';
 
 interface ReconciliationSummary {
@@ -80,8 +80,8 @@ const PRICE_TO_PLAN: Record<string, PlanKey> = {
 };
 
 function mapPriceToTier(priceId: string | undefined): PlanKey {
-  if (!priceId) return 'free';
-  return PRICE_TO_PLAN[priceId] ?? 'free';
+  if (!priceId) return 'starter';
+  return PRICE_TO_PLAN[priceId] ?? 'starter';
 }
 
 function mapStripeStatusToBillingStatus(status: Stripe.Subscription.Status): BillingStatus {
@@ -220,7 +220,7 @@ async function supabaseLookupOrgId(
 
 /** Default entitlements per plan. Extend when features are added. */
 const PLAN_ENTITLEMENTS: Record<PlanKey, Array<{ feature_key: string; enabled: boolean; hard_limit: number | null; soft_limit: number | null }>> = {
-  free: [
+  starter: [
     { feature_key: 'api_requests', enabled: true, hard_limit: 10_000, soft_limit: 8_000 },
     { feature_key: 'team_members', enabled: true, hard_limit: 3, soft_limit: null },
     { feature_key: 'custom_dashboards', enabled: false, hard_limit: 0, soft_limit: null },
@@ -263,7 +263,7 @@ async function provisionEntitlements(
   );
   if (!deleteResult.ok) return deleteResult;
 
-  const entitlements = PLAN_ENTITLEMENTS[tier] ?? PLAN_ENTITLEMENTS.free;
+  const entitlements = PLAN_ENTITLEMENTS[tier] ?? PLAN_ENTITLEMENTS.starter;
   for (const ent of entitlements) {
     const upsertResult = await supabaseUpsert(
       supabaseUrl, serviceRoleKey,
