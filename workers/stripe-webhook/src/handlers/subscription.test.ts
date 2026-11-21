@@ -7,9 +7,11 @@ import { STRIPE_SUBSCRIPTION_STATUSES } from '../../../lib/billing';
 function makeDb(overrides: Partial<SupabaseAdmin> = {}): SupabaseAdmin {
   return {
     linkStripeCustomer: vi.fn().mockResolvedValue({ ok: true }),
+    linkStripeCustomerIfUnlinked: vi.fn().mockResolvedValue({ ok: true, linked: true }),
     upsertSubscription: vi.fn().mockResolvedValue({ ok: true }),
     updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: true }),
     findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: true, orgId: 'org-1' }),
+    loadPriceToPlan: vi.fn().mockResolvedValue({ ok: true, priceToPlan: {} }),
     isEventProcessed: vi.fn().mockResolvedValue({ ok: true, processed: false }),
     claimEvent: vi.fn().mockResolvedValue({ ok: true, claimed: true }),
     unclaimEvent: vi.fn().mockResolvedValue({ ok: true }),
@@ -101,6 +103,28 @@ describe('handleSubscriptionUpdated', () => {
     if (!result.ok) expect(result.error).toContain('No org found for Stripe customer cus_1');
     expect(db.upsertSubscription).not.toHaveBeenCalled();
     expect(db.updateOrgBillingStatus).not.toHaveBeenCalled();
+  });
+
+  it('links an unlinked customer from metadata.org_id, then writes to that org', async () => {
+    const orgId = '550e8400-e29b-41d4-a716-446655440000';
+    const event = makeSubEvent({ ...VALID_SUBSCRIPTION, metadata: { org_id: orgId } });
+    const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: true, orgId: null }) });
+
+    const result = await handleSubscriptionUpdated(event, db, { price_abc: 'growth' });
+
+    expect(result).toEqual({ ok: true });
+    expect(db.linkStripeCustomerIfUnlinked).toHaveBeenCalledWith(orgId, 'cus_1');
+    expect(db.upsertSubscription).toHaveBeenCalledWith(orgId, 'sub_1', 'price_abc', 'active', undefined);
+    expect(db.updateOrgBillingStatus).toHaveBeenCalledWith(orgId, 'active', 'growth', true);
+  });
+
+  it('does not link a customer that already has an org', async () => {
+    const event = makeSubEvent({ ...VALID_SUBSCRIPTION, metadata: { org_id: '550e8400-e29b-41d4-a716-446655440000' } });
+    const db = makeDb();
+
+    await handleSubscriptionUpdated(event, db, {});
+
+    expect(db.linkStripeCustomerIfUnlinked).not.toHaveBeenCalled();
   });
 
   it('calls upsertSubscription with price and status when items present', async () => {

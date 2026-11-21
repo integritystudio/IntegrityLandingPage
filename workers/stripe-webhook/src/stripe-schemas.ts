@@ -12,11 +12,14 @@ const SubscriptionItemSchema = z.object({
 
 export type SubscriptionItem = z.infer<typeof SubscriptionItemSchema>;
 
+/** Both checkout paths copy the org id into session and subscription metadata. */
+const OrgMetadataSchema = z.object({ org_id: z.string().optional() }).passthrough();
+
 export const CheckoutSessionSchema = z.object({
   customer: z.string().optional(),
   subscription: z.string().optional(),
   client_reference_id: z.string().nullable().optional(),
-  metadata: z.object({ org_id: z.string().optional() }).passthrough().optional(),
+  metadata: OrgMetadataSchema.optional(),
 }).passthrough();
 
 export const SubscriptionSchema = z.object({
@@ -24,6 +27,7 @@ export const SubscriptionSchema = z.object({
   customer: z.string(),
   status: z.string(),
   items: z.object({ data: z.array(SubscriptionItemSchema) }).optional(),
+  metadata: OrgMetadataSchema.nullable().optional(),
 }).passthrough();
 
 // Stripe API 2025-04-30 removed the top-level `invoice.subscription` field and moved
@@ -32,7 +36,11 @@ export const SubscriptionSchema = z.object({
 // flight (a version bump, replayed events, older dead-letter retries) — accept either.
 const InvoiceParentSchema = z.object({
   subscription_details: z
-    .object({ subscription: z.string().nullable().optional() })
+    .object({
+      subscription: z.string().nullable().optional(),
+      // The subscription's metadata as of the invoice.
+      metadata: OrgMetadataSchema.nullable().optional(),
+    })
     .passthrough()
     .nullable()
     .optional(),
@@ -58,4 +66,9 @@ export type Invoice = z.infer<typeof InvoiceSchema>;
  */
 export function getInvoiceSubscriptionId(invoice: Invoice): string | null {
   return invoice.parent?.subscription_details?.subscription ?? invoice.subscription ?? null;
+}
+
+/** The org id the invoice's subscription carries in its metadata, if any. */
+export function getInvoiceOrgId(invoice: Invoice): string | null {
+  return invoice.parent?.subscription_details?.metadata?.org_id ?? null;
 }

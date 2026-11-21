@@ -1,6 +1,7 @@
 import { createSupabaseClient } from '../../lib/supabase';
 import { isTerminalSubscriptionStatus } from '../../lib/billing';
 import type { BillingStatus, ApiKeyTier } from '../../lib/types';
+import { ApiKeyTierSchema } from '../../lib/types/schemas';
 import { DEAD_LETTER_INITIAL_RETRY_DELAY_MS, DEAD_LETTER_MAX_RETRIES } from '../../constants';
 
 /**
@@ -65,6 +66,28 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
       [{ column: 'id', operator: 'eq', value: orgId }],
     );
     return toVoidResult(result);
+  }
+
+  /**
+   * Link a Stripe customer to an org that has none. The `is.null` filter makes this a
+   * no-op for an org that is already linked: overwriting its customer id would orphan
+   * the original subscription, which keeps billing with no org row reaching it.
+   * `linked` is false when no row matched (no such org, or one already linked).
+   */
+  async function linkStripeCustomerIfUnlinked(
+    orgId: string,
+    stripeCustomerId: string,
+  ): Promise<{ ok: true; linked: boolean } | Err> {
+    const result = await sb.update<{ id: string; stripe_customer_id: string | null }>(
+      'organizations',
+      { stripe_customer_id: stripeCustomerId },
+      [
+        { column: 'id', operator: 'eq', value: orgId },
+        { column: 'stripe_customer_id', operator: 'is', value: null },
+      ],
+    );
+    if (!result.ok) return { ok: false, error: result.error };
+    return { ok: true, linked: (result.data?.length ?? 0) > 0 };
   }
 
   /**
@@ -180,6 +203,29 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
       [{ column: 'id', operator: 'eq', value: orgId }],
     );
     return toVoidResult(result);
+  }
+
+  /**
+   * The Stripe price id → plan key map, from the `plans` table. A plan with no price
+   * (billed by contract) has no entry; a key this Worker does not know is skipped.
+   */
+  async function loadPriceToPlan(): Promise<{ ok: true; priceToPlan: Record<string, ApiKeyTier> } | Err> {
+    const result = await sb.query<{ key: string; stripe_price_id: string | null }>('plans', {
+      select: 'key, stripe_price_id',
+    });
+    if (!result.ok) return { ok: false, error: result.error };
+
+    const priceToPlan: Record<string, ApiKeyTier> = {};
+    for (const { key, stripe_price_id: priceId } of result.data) {
+      if (!priceId) continue;
+      const plan = ApiKeyTierSchema.safeParse(key);
+      if (plan.success) {
+        priceToPlan[priceId] = plan.data;
+      } else {
+        console.warn(`plans: unknown plan key "${key}" for price "${priceId}", skipping`);
+      }
+    }
+    return { ok: true, priceToPlan };
   }
 
   /**
@@ -356,9 +402,11 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
 
   return {
     linkStripeCustomer,
+    linkStripeCustomerIfUnlinked,
     upsertSubscription,
     updateOrgBillingStatus,
     findOrgByStripeCustomerId,
+    loadPriceToPlan,
     isEventProcessed,
     claimEvent,
     unclaimEvent,

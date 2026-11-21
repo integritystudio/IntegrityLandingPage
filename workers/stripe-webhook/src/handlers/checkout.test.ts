@@ -6,9 +6,11 @@ import type { SupabaseAdmin } from '../supabase';
 function makeDb(overrides: Partial<SupabaseAdmin> = {}): SupabaseAdmin {
   return {
     linkStripeCustomer: vi.fn().mockResolvedValue({ ok: true }),
+    linkStripeCustomerIfUnlinked: vi.fn().mockResolvedValue({ ok: true, linked: true }),
     upsertSubscription: vi.fn().mockResolvedValue({ ok: true }),
     updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: true }),
     findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: true, orgId: 'org-1' }),
+    loadPriceToPlan: vi.fn().mockResolvedValue({ ok: true, priceToPlan: {} }),
     isEventProcessed: vi.fn().mockResolvedValue({ ok: true, processed: false }),
     claimEvent: vi.fn().mockResolvedValue({ ok: true, claimed: true }),
     unclaimEvent: vi.fn().mockResolvedValue({ ok: true }),

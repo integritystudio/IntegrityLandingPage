@@ -6,9 +6,11 @@ import type { SupabaseAdmin } from '../supabase';
 function makeDb(overrides: Partial<SupabaseAdmin> = {}): SupabaseAdmin {
   return {
     linkStripeCustomer: vi.fn().mockResolvedValue({ ok: true }),
+    linkStripeCustomerIfUnlinked: vi.fn().mockResolvedValue({ ok: true, linked: true }),
     upsertSubscription: vi.fn().mockResolvedValue({ ok: true }),
     updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: true }),
     findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: true, orgId: 'org-1' }),
+    loadPriceToPlan: vi.fn().mockResolvedValue({ ok: true, priceToPlan: {} }),
     isEventProcessed: vi.fn().mockResolvedValue({ ok: true, processed: false }),
     claimEvent: vi.fn().mockResolvedValue({ ok: true, claimed: true }),
     unclaimEvent: vi.fn().mockResolvedValue({ ok: true }),
@@ -106,6 +108,21 @@ describe('handleInvoicePaid', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain('No org found for Stripe customer cus_orphan');
     expect(db.updateOrgBillingStatus).not.toHaveBeenCalled();
+  });
+
+  it('links an unlinked customer from the subscription metadata on the invoice', async () => {
+    const orgId = '550e8400-e29b-41d4-a716-446655440000';
+    const event = makeEvent({
+      customer: 'cus_orphan',
+      parent: { subscription_details: { subscription: 'sub_1', metadata: { org_id: orgId } } },
+    });
+    const db = makeDb({ findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: true, orgId: null }) });
+
+    const result = await handleInvoicePaid(event, db);
+
+    expect(result).toEqual({ ok: true });
+    expect(db.linkStripeCustomerIfUnlinked).toHaveBeenCalledWith(orgId, 'cus_orphan');
+    expect(db.updateOrgBillingStatus).toHaveBeenCalledWith(orgId, 'active', undefined, true);
   });
 
   it('returns { ok: false } when updateOrgBillingStatus fails', async () => {

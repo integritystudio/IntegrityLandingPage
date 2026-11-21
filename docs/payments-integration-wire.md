@@ -30,9 +30,11 @@ Stripe → stripe-webhook worker (POST /webhook)
          │    └─ linkStripeCustomer(org, customerId)
          │    └─ upsertSubscription(org, subscriptionId, priceId=null, 'active')
          │
-         ├─ customer.subscription.updated          ← tier is captured here (needs STRIPE_PRICE_TO_PLAN_JSON bound — CR38)
+         ├─ customer.subscription.created          ← same handler as `updated`; the only subscription event when one is created outside Checkout
+         ├─ customer.subscription.updated          ← tier is captured here (needs a price in `plans` — CR38)
+         │    ├─ org = stripe_customer_id match, else link from subscription.metadata.org_id (only an org with no customer)
          │    ├─ priceId = subscription.items[0].price.id
-         │    ├─ planKey = priceToPlan[priceId]    ← STRIPE_PRICE_TO_PLAN_JSON mapping
+         │    ├─ planKey = priceToPlan[priceId]    ← from the `plans` table
          │    ├─ upsertSubscription(org, subscriptionId, priceId, status)
          │    └─ updateOrgBillingStatus(org, billingStatus, planKey, bumpQuotaVersion=true)
          │
@@ -50,17 +52,15 @@ Failed events are written to a dead-letter table and retried by a reconciliation
 
 ### Price-to-Plan Mapping
 
-Stripe price IDs are opaque strings (e.g., `price_1Abc123`). The env var `STRIPE_PRICE_TO_PLAN_JSON` bridges them to internal tier values:
+Stripe price IDs are opaque strings (e.g., `price_1Abc123`). The Supabase `plans` table bridges them to internal tier values, one row per plan:
 
-```json
-{
-  "price_growth_monthly": "growth",
-  "price_growth_annual": "growth",
-  "price_enterprise_annual": "enterprise"
-}
-```
+| `key` | `stripe_price_id` |
+|---|---|
+| `starter` | `price_...` |
+| `growth` | `price_...` |
+| `enterprise` | `price_...`, or null when billed by contract |
 
-At worker startup, `parsePriceToPlan()` validates each value against `ApiKeyTierSchema`. Invalid entries are dropped with a `console.warn`; a malformed JSON string disables the mapping entirely (returns `{}`). No Stripe price ID maps to `starter` — downgrade is always hardcoded.
+On each `customer.subscription.created` or `customer.subscription.updated` event, `loadPriceToPlan()` (`workers/stripe-webhook/src/supabase.ts`) reads the table and validates each `key` against `ApiKeyTierSchema`. A row with no price or an unknown key is left out, the second with a `console.warn`. A failed read fails the event, so it is dead-lettered and retried rather than handled without a plan. api-gateway's checkout and `scripts/full-reconciliation.ts` read the same table, so the three cannot disagree. Until 2026-11-20 the Worker read a `STRIPE_PRICE_TO_PLAN_JSON` secret instead.
 
 **File**: `workers/stripe-webhook/src/index.ts`
 
@@ -129,7 +129,7 @@ When `quota_version` in the org row increases (bumped by Stripe events), the Dur
 | Tier type | `workers/lib/types/index.ts` (`ApiKeyTier`) |
 | Effective plan | `workers/lib/billing.ts` (`effectivePlan`, `isEntitled`) |
 | Stripe webhook entry | `workers/stripe-webhook/src/index.ts` |
-| Price-to-plan mapping | `workers/stripe-webhook/src/index.ts` (`parsePriceToPlan`) |
+| Price-to-plan mapping | `workers/stripe-webhook/src/supabase.ts` (`loadPriceToPlan`) |
 | Checkout handler | `workers/stripe-webhook/src/handlers/checkout.ts` |
 | Subscription handlers | `workers/stripe-webhook/src/handlers/subscription.ts` |
 | Supabase writes | `workers/stripe-webhook/src/supabase.ts` |

@@ -5,7 +5,7 @@
  * emits `customer.subscription.updated`, Stripe delivers it to the registered
  * test-mode endpoint (`stripe-webhook-dev`), and the Worker writes the org row
  * in the dev Supabase project. CR38 was a no-op in production for months
- * because `STRIPE_PRICE_TO_PLAN_JSON` was unbound and every unit test passed
+ * because the Worker had no price → plan map and every unit test passed
  * regardless — only a run through the deployed Worker can see that.
  *
  * The same run checks UA10: the plan write reaches the org's members, because
@@ -24,9 +24,10 @@
  * Required env (injected by Doppler `dev`):
  *   STRIPE_SECRET_KEY — the sandbox key; a live-mode key is refused.
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY — the dev project; any other is refused.
- * Precondition: `stripe-webhook-dev` has `STRIPE_PRICE_TO_PLAN_JSON` mapping
- * SANDBOX_GROWTH_PRICE_ID to growth (checked first, so a missing binding fails
- * with that message rather than as a plan-sync timeout).
+ * Precondition: the dev project's `plans` table maps SANDBOX_GROWTH_PRICE_ID to growth
+ * (`plans.stripe_price_id` for the growth row), which is where `stripe-webhook-dev`
+ * reads its map. Checked first, so a missing price fails with that message rather
+ * than as a plan-sync timeout.
  *
  * Run via: npm run test:live
  */
@@ -45,7 +46,7 @@ const DEV_SUPABASE_PROJECT_REF = 'tumhmtshahktumhqqamk';
 const TEST_MODE_KEY_PREFIXES = ['sk_test_', 'rk_test_'];
 /** Stripe's reusable test card; attaches without a real payment method. */
 const STRIPE_TEST_PAYMENT_METHOD = 'pm_card_visa';
-/** The sandbox's $79/month growth price, mapped to growth in stripe-webhook-dev's STRIPE_PRICE_TO_PLAN_JSON. */
+/** The sandbox's $79/month growth price, which the dev `plans` table must map to growth. */
 const SANDBOX_GROWTH_PRICE_ID = 'price_1Txye8BWbFuvm1I6S4T7JNBD';
 
 const EXPECTED_PLAN = 'growth';
@@ -238,7 +239,7 @@ describe.skipIf(!HAS_CREDENTIALS)('stripe-webhook live plan sync (CR38)', () => 
 
   it('writes the mapped plan to the org when its subscription is updated', async () => {
     const health = (await (await fetch(DEV_WORKER_HEALTH_URL)).json()) as { priceToPlanEntries?: number };
-    expect(health.priceToPlanEntries, 'stripe-webhook-dev has no STRIPE_PRICE_TO_PLAN_JSON bound').toBeGreaterThan(0);
+    expect(health.priceToPlanEntries, 'the dev plans table has no stripe_price_id for stripe-webhook-dev to map').toBeGreaterThan(0);
 
     // invoice.paid only moves billing_status; current_plan is written by customer.subscription.updated alone.
     await stripePost(`/subscriptions/${subscriptionId}`, { 'metadata[plan_sync_probe]': new Date().toISOString() });

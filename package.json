@@ -1,6 +1,7 @@
 {
   "type": "module",
   "devDependencies": {
+    "@sentry/node": "11.11.0",
     "@supabase/supabase-js": "^2.100.1",
     "@types/node": "^25.5.0",
     "repomix": "^1.13.1",

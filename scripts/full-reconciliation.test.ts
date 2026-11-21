@@ -11,16 +11,30 @@
  * - Database result contracts
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { z } from 'zod';
+import * as Sentry from '@sentry/node';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import type Stripe from 'stripe';
+import {
+  EnvSchema,
+  isTerminalSubscriptionStatus,
+  linkDecision,
+  orgIdFromSubscriptionMetadata,
+  processCustomer,
+  recordError,
+  subscriptionToReconcile,
+  toBillingStatus,
+} from './full-reconciliation.js';
+import {
+  STRIPE_SUBSCRIPTION_STATUSES,
+  isTerminalSubscriptionStatus as webhookIsTerminalSubscriptionStatus,
+  toBillingStatus as webhookToBillingStatus,
+} from '../workers/lib/billing.js';
 
 // ─── Schemas (copy from reconciliation script) ────────────────────────────
 
-const EnvSchema = z.object({
-  STRIPE_SECRET_KEY: z.string().regex(/^sk_(test|live)_/, 'must start with sk_test_ or sk_live_'),
-  SUPABASE_URL: z.string().url(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().regex(/^eyJ/, 'must be a JWT (expected to start with eyJ)'),
-});
 
 const SupabaseErrorSchema = z.object({
   message: z.string(),
@@ -31,78 +45,52 @@ const OrgRowSchema = z.array(z.object({ id: z.string().uuid() })).min(1);
 
 // ─── Environment Schema Tests ────────────────────────────────────────────
 
+const VALID_ENV = {
+  STRIPE_SECRET_KEY: 'sk_test_abc123def456',
+  SUPABASE_URL: 'https://proj.supabase.co',
+  SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+};
+
 describe('EnvSchema validation', () => {
-  it('accepts valid test Stripe key', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'sk_test_abc123def456',
-      SUPABASE_URL: 'https://proj.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    });
-    expect(result.success).toBe(true);
-  });
+  it.each(['sk_test_abc123', 'sk_live_production123', 'rk_live_restricted123', 'a-format-not-invented-yet'])(
+    'accepts any non-empty Stripe key (%s)',
+    (key) => {
+      expect(EnvSchema.safeParse({ ...VALID_ENV, STRIPE_SECRET_KEY: key }).success).toBe(true);
+    },
+  );
 
-  it('accepts valid live Stripe key', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'sk_live_production123',
-      SUPABASE_URL: 'https://prod.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    });
-    expect(result.success).toBe(true);
-  });
+  it.each(['eyJhbGciOiJIUzI1NiJ9...', 'sb_secret_abc123', 'a-format-not-invented-yet'])(
+    'accepts any non-empty Supabase key (%s)',
+    (key) => {
+      expect(EnvSchema.safeParse({ ...VALID_ENV, SUPABASE_SERVICE_ROLE_KEY: key }).success).toBe(true);
+    },
+  );
 
-  it('rejects Stripe key with wrong prefix', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'rk_test_wrong_prefix',
-      SUPABASE_URL: 'https://proj.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    });
+  it.each(['STRIPE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'] as const)('rejects an empty %s', (field) => {
+    const result = EnvSchema.safeParse({ ...VALID_ENV, [field]: '' });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain('sk_test_');
+      expect(result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)).toEqual([`${field}: is required`]);
     }
+  });
+
+  it.each(['STRIPE_SECRET_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const)('rejects a missing %s', (field) => {
+    const { [field]: _omitted, ...rest } = VALID_ENV;
+    const result = EnvSchema.safeParse(rest);
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues.map((i) => i.path.join('.'))).toEqual([field]);
   });
 
   it('rejects invalid Supabase URL (not a URL)', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'sk_test_abc123',
-      SUPABASE_URL: 'not-a-url',
-      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    });
-    expect(result.success).toBe(false);
+    expect(EnvSchema.safeParse({ ...VALID_ENV, SUPABASE_URL: 'not-a-url' }).success).toBe(false);
   });
 
-  it('rejects service role key without JWT prefix', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'sk_test_abc123',
-      SUPABASE_URL: 'https://proj.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'not-a-jwt-key',
-    });
+  it('reports every bad field, in the format runFullReconciliation prints', () => {
+    const result = EnvSchema.safeParse({ STRIPE_SECRET_KEY: '', SUPABASE_URL: 'not-a-url', SUPABASE_SERVICE_ROLE_KEY: '' });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain('eyJ');
-    }
-  });
-
-  it('rejects missing STRIPE_SECRET_KEY', () => {
-    const result = EnvSchema.safeParse({
-      SUPABASE_URL: 'https://proj.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('provides per-field error messages', () => {
-    const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'wrong',
-      SUPABASE_URL: 'not-a-url',
-      SUPABASE_SERVICE_ROLE_KEY: 'not-jwt',
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      const issues = result.error.issues.map((i) => i.path.join('.'));
-      expect(issues).toContain('STRIPE_SECRET_KEY');
-      expect(issues).toContain('SUPABASE_URL');
-      expect(issues).toContain('SUPABASE_SERVICE_ROLE_KEY');
+      const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+      expect(issues).toMatch(/^STRIPE_SECRET_KEY: is required; SUPABASE_URL: .+; SUPABASE_SERVICE_ROLE_KEY: is required$/);
     }
   });
 });
@@ -314,39 +302,326 @@ describe('OrgRowSchema error reporting', () => {
   });
 });
 
-// ─── Integration: Multiple Env Var Errors ───────────────────────────────
+// ─── Linking an unlinked customer from subscription metadata ─────────────
+// These import the script itself; its entry guard keeps main() from running.
 
-describe('EnvSchema error message formatting', () => {
-  it('formats multiple field errors clearly', () => {
-    const envResult = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'invalid',
-      SUPABASE_URL: 'not-a-url',
-      SUPABASE_SERVICE_ROLE_KEY: 'no-jwt',
-    });
 
-    if (!envResult.success) {
-      const issues = envResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
-      const combined = issues.join('; ');
-      expect(combined).toContain('STRIPE_SECRET_KEY');
-      expect(combined).toContain('SUPABASE_URL');
-      expect(combined).toContain('SUPABASE_SERVICE_ROLE_KEY');
-      // Verify format matches the reconciliation script
-      expect(combined).toMatch(/\w+: .+; \w+: .+; \w+: .+/);
-    }
+const ORG_A = '550e8400-e29b-41d4-a716-446655440000';
+const ORG_B = '550e8400-e29b-41d4-a716-446655440001';
+const CUSTOMER = 'cus_new';
+
+describe('orgIdFromSubscriptionMetadata', () => {
+  it('returns the org id every subscription names', () => {
+    const result = orgIdFromSubscriptionMetadata([{ metadata: { org_id: ORG_A } }, { metadata: { org_id: ORG_A } }]);
+    expect(result).toEqual({ orgId: ORG_A });
   });
 
-  it('matches exact format used in runFullReconciliation error message', () => {
-    const envResult = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'wrong',
-      SUPABASE_URL: 'invalid-url',
-      SUPABASE_SERVICE_ROLE_KEY: 'no-jwt-prefix',
+  it('ignores subscriptions without the key when another names an org', () => {
+    expect(orgIdFromSubscriptionMetadata([{ metadata: {} }, { metadata: { org_id: ORG_A } }])).toEqual({ orgId: ORG_A });
+  });
+
+  it('refuses when no subscription names an org', () => {
+    expect(orgIdFromSubscriptionMetadata([{ metadata: {} }])).toEqual({ reason: 'no subscription carries metadata.org_id' });
+  });
+
+  it('refuses when subscriptions name different orgs', () => {
+    const result = orgIdFromSubscriptionMetadata([{ metadata: { org_id: ORG_A } }, { metadata: { org_id: ORG_B } }]);
+    expect(result).toEqual({ reason: `subscriptions name 2 different orgs: ${ORG_A}, ${ORG_B}` });
+  });
+
+  it('refuses an org id that is not a UUID, before it reaches a query filter', () => {
+    expect(orgIdFromSubscriptionMetadata([{ metadata: { org_id: 'x&id=neq.y' } }]))
+      .toEqual({ reason: 'metadata.org_id is not a UUID: x&id=neq.y' });
+  });
+});
+
+describe('linkDecision', () => {
+  it('links an org that has no customer yet', () => {
+    expect(linkDecision(CUSTOMER, ORG_A, { id: ORG_A, stripe_customer_id: null })).toEqual({ link: true, orgId: ORG_A });
+  });
+
+  it('refuses when the named org does not exist', () => {
+    expect(linkDecision(CUSTOMER, ORG_A, null)).toEqual({ link: false, reason: `metadata.org_id ${ORG_A} matches no org` });
+  });
+
+  it('never overwrites another customer id', () => {
+    expect(linkDecision(CUSTOMER, ORG_A, { id: ORG_A, stripe_customer_id: 'cus_existing' }))
+      .toEqual({ link: false, reason: `org ${ORG_A} is already linked to cus_existing` });
+  });
+});
+
+describe('isTerminalSubscriptionStatus', () => {
+  it.each(STRIPE_SUBSCRIPTION_STATUSES)('agrees with stripe-webhook on %s', (status) => {
+    expect(isTerminalSubscriptionStatus(status)).toBe(webhookIsTerminalSubscriptionStatus(status));
+  });
+
+  it('clears the pointer only for canceled and incomplete_expired', () => {
+    expect(STRIPE_SUBSCRIPTION_STATUSES.filter((status) => isTerminalSubscriptionStatus(status)))
+      .toEqual(['incomplete_expired', 'canceled']);
+  });
+});
+
+describe('subscriptionToReconcile', () => {
+  const sub = (id: string, status: Stripe.Subscription.Status, created: number) => ({ id, status, created });
+
+  it('picks the most recently created subscription, whatever order Stripe lists them in', () => {
+    const older = sub('sub_old', 'active', 100);
+    const newer = sub('sub_new', 'active', 200);
+
+    expect(subscriptionToReconcile([older, newer])).toBe(newer);
+    expect(subscriptionToReconcile([newer, older])).toBe(newer);
+  });
+
+  it('prefers a live subscription over a newer terminal one', () => {
+    const live = sub('sub_live', 'past_due', 100);
+    const expired = sub('sub_expired', 'incomplete_expired', 200);
+
+    expect(subscriptionToReconcile([expired, live])).toBe(live);
+  });
+
+  it('falls back to the newest when every subscription is terminal', () => {
+    const older = sub('sub_old', 'canceled', 100);
+    const newer = sub('sub_new', 'canceled', 200);
+
+    expect(subscriptionToReconcile([older, newer])).toBe(newer);
+  });
+});
+
+describe('toBillingStatus', () => {
+  it.each(STRIPE_SUBSCRIPTION_STATUSES)('stores %s unchanged, as stripe-webhook does', (status) => {
+    expect(toBillingStatus(status)).toBe(status);
+    expect(toBillingStatus(status)).toBe(webhookToBillingStatus(status));
+  });
+
+  it('falls back to inactive for a status Stripe has not defined, as stripe-webhook does', () => {
+    expect(toBillingStatus('a_future_status')).toBe('inactive');
+    expect(toBillingStatus('a_future_status')).toBe(webhookToBillingStatus('a_future_status'));
+  });
+});
+
+describe('recordError', () => {
+  // The real SDK with delivery cut off in beforeSend: nothing leaves the process.
+  const events: Sentry.ErrorEvent[] = [];
+  Sentry.init({
+    dsn: 'https://publickey@sentry.invalid/1',
+    beforeSend: (event) => {
+      events.push(event);
+      return null;
+    },
+  });
+
+  beforeEach(() => {
+    events.length = 0;
+  });
+
+  // Event processing is asynchronous; beforeSend has run once the queue drains.
+  const FLUSH_TIMEOUT_MS = 2_000;
+  const delivered = () => Sentry.flush(FLUSH_TIMEOUT_MS);
+
+  it('adds the message to the summary and groups the event by phase and kind', async () => {
+    const summary = { errors: [] as string[] };
+    recordError(summary, 'customers', 'unmapped-price', 'Customer cus_1: Unmapped Stripe price price_x');
+    await delivered();
+
+    expect(summary.errors).toEqual(['Customer cus_1: Unmapped Stripe price price_x']);
+    expect(events).toHaveLength(1);
+    expect(events[0].fingerprint).toEqual(['full-reconciliation', 'customers', 'unmapped-price']);
+    expect(events[0].tags).toMatchObject({ phase: 'customers', kind: 'unmapped-price' });
+  });
+
+  it('keeps two kinds of the same phase in separate Sentry issues', async () => {
+    const summary = { errors: [] as string[] };
+    recordError(summary, 'customers', 'org-lookup', 'lookup failed');
+    recordError(summary, 'customers', 'subscription-upsert', 'upsert failed');
+    await delivered();
+
+    expect(events.map((event) => event.fingerprint)).toEqual([
+      ['full-reconciliation', 'customers', 'org-lookup'],
+      ['full-reconciliation', 'customers', 'subscription-upsert'],
+    ]);
+  });
+
+  it('reports the thrown error itself when one is given', async () => {
+    recordError({ errors: [] }, 'entitlements', 'unexpected', 'wrapped message', new TypeError('fetch failed'));
+    await delivered();
+
+    expect(events[0].exception?.values?.[0]).toMatchObject({ type: 'TypeError', value: 'fetch failed' });
+    expect(events[0].extra).toMatchObject({ reconciliation_error: 'wrapped message' });
+  });
+});
+
+// ─── processCustomer against a local stand-in for Supabase's REST API ─────
+
+describe('processCustomer', () => {
+  const SUBSCRIPTION_ROW = '550e8400-e29b-41d4-a716-446655440099';
+  const GROWTH_PRICE = 'price_growth';
+  const SERVICE_KEY = 'service-key';
+  const PRICE_TO_PLAN = { [GROWTH_PRICE]: 'growth' } as const;
+
+  type Recorded = { method: string; path: string; body: Record<string, unknown> | null };
+  const requests: Recorded[] = [];
+  const LINKED_ORG = [{ id: ORG_A, stripe_customer_id: CUSTOMER }];
+  /** What the org lookup by customer id returns; [] is a customer no org points at. */
+  let linkedOrgs: typeof LINKED_ORG = LINKED_ORG;
+  let server: Server;
+  let supabaseUrl: string;
+
+  beforeAll(async () => {
+    server = createServer((req, res) => {
+      let raw = '';
+      req.on('data', (chunk) => { raw += chunk; });
+      req.on('end', () => {
+        const path = decodeURIComponent(req.url ?? '');
+        requests.push({ method: req.method ?? '', path, body: raw ? JSON.parse(raw) : null });
+        const rows = req.method !== 'GET' ? null
+          : path.startsWith('/rest/v1/organizations') ? linkedOrgs
+          : [{ id: SUBSCRIPTION_ROW }];
+        res.setHeader('Content-Type', 'application/json');
+        res.end(rows ? JSON.stringify(rows) : '');
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    supabaseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  afterAll(() => new Promise<void>((resolve) => { server.close(() => resolve()); }));
+
+  beforeEach(() => {
+    requests.length = 0;
+    linkedOrgs = LINKED_ORG;
+  });
+
+  const subscription = (status: Stripe.Subscription.Status, priceId: string) => ({
+    id: 'sub_1',
+    status,
+    metadata: {},
+    cancel_at_period_end: false,
+    items: { data: [{ price: { id: priceId }, current_period_start: 1_700_000_000, current_period_end: 1_702_592_000 }] },
+  }) as unknown as Stripe.Subscription;
+
+  /** A customer Stripe lists with no subscription: it has none, or only canceled ones. */
+  const customerWithoutLiveSubscription = { id: CUSTOMER, subscriptions: { data: [] } } as unknown as Stripe.Customer;
+
+  const customerWith = (status: Stripe.Subscription.Status, priceId: string) => ({
+    id: CUSTOMER,
+    subscriptions: {
+      data: [{
+        id: 'sub_1',
+        status,
+        metadata: {},
+        cancel_at_period_end: false,
+        items: { data: [{ price: { id: priceId }, current_period_start: 1_700_000_000, current_period_end: 1_702_592_000 }] },
+      }],
+    },
+  }) as unknown as Stripe.Customer;
+
+  const writes = () => requests.filter((request) => request.method !== 'GET');
+  const orgPatch = () => requests.find((request) => request.method === 'PATCH')?.body;
+
+  it('writes the subscription with the table columns, one row per org', async () => {
+    await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('active', GROWTH_PRICE), PRICE_TO_PLAN, false);
+
+    const upsert = requests.find((request) => request.method === 'POST');
+    expect(upsert?.path).toBe('/rest/v1/subscriptions?on_conflict=organization_id');
+    expect(Object.keys(upsert?.body ?? {}).sort()).toEqual([
+      'cancel_at_period_end', 'current_period_end', 'current_period_start', 'organization_id',
+      'status', 'stripe_price_id', 'stripe_subscription_id', 'updated_at',
+    ]);
+    expect(upsert?.body).toMatchObject({ organization_id: ORG_A, stripe_subscription_id: 'sub_1', stripe_price_id: GROWTH_PRICE, status: 'active' });
+  });
+
+  it('points the org at its subscription row, sets the plan and bumps quota_version', async () => {
+    const before = Date.now();
+    const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('active', GROWTH_PRICE), PRICE_TO_PLAN, false);
+
+    expect(result).toEqual({ ok: true, linked: false, targets: [{ orgId: ORG_A, tier: 'growth' }], issues: [] });
+    expect(orgPatch()).toMatchObject({ billing_status: 'active', current_plan: 'growth', active_subscription_id: SUBSCRIPTION_ROW });
+    expect(orgPatch()?.quota_version).toBeGreaterThanOrEqual(before);
+  });
+
+  it('clears the pointer for a terminal subscription without looking the row up', async () => {
+    await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('canceled', GROWTH_PRICE), PRICE_TO_PLAN, false);
+
+    expect(orgPatch()).toMatchObject({ billing_status: 'canceled', active_subscription_id: null });
+    expect(requests.some((request) => request.method === 'GET' && request.path.startsWith('/rest/v1/subscriptions'))).toBe(false);
+  });
+
+  it.each(['trialing', 'unpaid', 'paused'] as const)('writes a %s subscription with that billing status and keeps the pointer', async (status) => {
+    await processCustomer(supabaseUrl, SERVICE_KEY, customerWith(status, GROWTH_PRICE), PRICE_TO_PLAN, false);
+
+    expect(orgPatch()).toMatchObject({ billing_status: status, active_subscription_id: SUBSCRIPTION_ROW });
+  });
+
+  it('reports an unmapped price, leaves current_plan alone and rebuilds at the default plan', async () => {
+    const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('active', 'price_unknown'), PRICE_TO_PLAN, false);
+
+    expect(result).toMatchObject({ ok: true, targets: [{ orgId: ORG_A, tier: 'starter' }] });
+    expect(result.ok && result.issues).toEqual([{
+      kind: 'unmapped-price',
+      error: 'Unmapped Stripe price price_unknown on subscription sub_1: entitlements rebuilt at starter, current_plan left alone',
+    }]);
+    expect(orgPatch()).not.toHaveProperty('current_plan');
+  });
+
+  describe('a customer whose only subscription is canceled', () => {
+    const lastCanceled = async () => subscription('canceled', GROWTH_PRICE);
+
+    it('downgrades the org to the default plan, as stripe-webhook does on deletion', async () => {
+      const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWithoutLiveSubscription, PRICE_TO_PLAN, false, lastCanceled);
+
+      expect(result).toEqual({ ok: true, linked: false, targets: [{ orgId: ORG_A, tier: 'starter' }], issues: [] });
+      expect(orgPatch()).toMatchObject({ billing_status: 'canceled', current_plan: 'starter', active_subscription_id: null });
+      expect(orgPatch()?.quota_version).toEqual(expect.any(Number));
+      expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({ stripe_subscription_id: 'sub_1', status: 'canceled' });
     });
 
-    if (!envResult.success) {
-      const issues = envResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
-      const errorMessage = `Invalid environment: ${issues}`;
-      expect(errorMessage).toContain('Invalid environment:');
-      expect(errorMessage).toContain('STRIPE_SECRET_KEY:');
-    }
+    it('does nothing when no org points at the customer, and never links one', async () => {
+      linkedOrgs = [];
+      const canceledWithOrgMetadata = async () => ({ ...subscription('canceled', GROWTH_PRICE), metadata: { org_id: ORG_B } }) as Stripe.Subscription;
+
+      const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWithoutLiveSubscription, PRICE_TO_PLAN, false, canceledWithOrgMetadata);
+
+      expect(result).toEqual({ ok: true, linked: false, targets: [], issues: [] });
+      expect(writes()).toEqual([]);
+    });
+  });
+
+  it('writes only the newest of several subscriptions: one row, one org update, one rebuild', async () => {
+    const SECONDS_APART = 1_000;
+    const older = { ...subscription('active', 'price_unknown'), id: 'sub_old', created: SECONDS_APART };
+    const newer = { ...subscription('trialing', GROWTH_PRICE), id: 'sub_new', created: 2 * SECONDS_APART };
+    const customer = { id: CUSTOMER, subscriptions: { data: [newer, older] } } as unknown as Stripe.Customer;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await processCustomer(supabaseUrl, SERVICE_KEY, customer, PRICE_TO_PLAN, false);
+    warn.mockRestore();
+
+    expect(result).toEqual({ ok: true, linked: false, targets: [{ orgId: ORG_A, tier: 'growth' }], issues: [] });
+    expect(writes().map((request) => request.method)).toEqual(['POST', 'PATCH']);
+    expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({ stripe_subscription_id: 'sub_new', status: 'trialing' });
+    expect(orgPatch()).toMatchObject({ billing_status: 'trialing', current_plan: 'growth' });
+  });
+
+  it('leaves a customer that never subscribed alone', async () => {
+    const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWithoutLiveSubscription, PRICE_TO_PLAN, false, async () => null);
+
+    expect(result).toEqual({ ok: true, linked: false, targets: [], issues: [] });
+    expect(requests).toEqual([]);
+  });
+
+  it('does not look for a canceled subscription while a live one exists', async () => {
+    const lookup = vi.fn<(customerId: string) => Promise<Stripe.Subscription | null>>(async () => subscription('canceled', GROWTH_PRICE));
+
+    await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('active', GROWTH_PRICE), PRICE_TO_PLAN, false, lookup);
+
+    expect(lookup).not.toHaveBeenCalled();
+    expect(orgPatch()).toMatchObject({ billing_status: 'active', current_plan: 'growth' });
+  });
+
+  it('writes nothing in a dry run', async () => {
+    const result = await processCustomer(supabaseUrl, SERVICE_KEY, customerWith('active', GROWTH_PRICE), PRICE_TO_PLAN, true);
+
+    expect(result).toMatchObject({ ok: true, targets: [{ orgId: ORG_A, tier: 'growth' }] });
+    expect(writes()).toEqual([]);
   });
 });
