@@ -24,10 +24,12 @@ import {
   orgIdFromSubscriptionMetadata,
   processCustomer,
   recordError,
+  toBillingStatus,
 } from './full-reconciliation.js';
 import {
   STRIPE_SUBSCRIPTION_STATUSES,
   isTerminalSubscriptionStatus as webhookIsTerminalSubscriptionStatus,
+  toBillingStatus as webhookToBillingStatus,
 } from '../workers/lib/billing.js';
 
 // ─── Schemas (copy from reconciliation script) ────────────────────────────
@@ -358,6 +360,18 @@ describe('isTerminalSubscriptionStatus', () => {
   });
 });
 
+describe('toBillingStatus', () => {
+  it.each(STRIPE_SUBSCRIPTION_STATUSES)('stores %s unchanged, as stripe-webhook does', (status) => {
+    expect(toBillingStatus(status)).toBe(status);
+    expect(toBillingStatus(status)).toBe(webhookToBillingStatus(status));
+  });
+
+  it('falls back to inactive for a status Stripe has not defined, as stripe-webhook does', () => {
+    expect(toBillingStatus('a_future_status')).toBe('inactive');
+    expect(toBillingStatus('a_future_status')).toBe(webhookToBillingStatus('a_future_status'));
+  });
+});
+
 describe('recordError', () => {
   // The real SDK with delivery cut off in beforeSend: nothing leaves the process.
   const events: Sentry.ErrorEvent[] = [];
@@ -488,6 +502,12 @@ describe('processCustomer', () => {
 
     expect(orgPatch()).toMatchObject({ billing_status: 'canceled', active_subscription_id: null });
     expect(requests.some((request) => request.method === 'GET' && request.path.startsWith('/rest/v1/subscriptions'))).toBe(false);
+  });
+
+  it.each(['trialing', 'unpaid', 'paused'] as const)('writes a %s subscription with that billing status and keeps the pointer', async (status) => {
+    await processCustomer(supabaseUrl, SERVICE_KEY, customerWith(status, GROWTH_PRICE), PRICE_TO_PLAN, false);
+
+    expect(orgPatch()).toMatchObject({ billing_status: status, active_subscription_id: SUBSCRIPTION_ROW });
   });
 
   it('reports an unmapped price, leaves current_plan alone and rebuilds at the default plan', async () => {

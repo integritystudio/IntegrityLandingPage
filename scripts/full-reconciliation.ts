@@ -43,7 +43,6 @@ const PlanKeySchema = z.enum(['starter', 'growth', 'enterprise']);
 type PlanKey = z.infer<typeof PlanKeySchema>;
 /** Stripe price id → plan key, loaded from the `plans` table at startup. */
 type PriceToPlan = Readonly<Record<string, PlanKey>>;
-type BillingStatus = 'active' | 'past_due' | 'canceled' | 'inactive';
 type ReconciliationPhase = 'customers' | 'entitlements';
 /** What failed; with the phase, it is the Sentry grouping key. */
 type ErrorKind =
@@ -106,23 +105,25 @@ const SubscriptionRowsSchema = z.array(z.object({ id: z.string().uuid() }));
 const PlanRowsSchema = z.array(z.object({ key: PlanKeySchema, stripe_price_id: z.string().nullable() }));
 
 // ---------------------------------------------------------------------------
-// Stripe status mapping
+// Stripe statuses
 // ---------------------------------------------------------------------------
 
-function mapStripeStatusToBillingStatus(status: Stripe.Subscription.Status): BillingStatus {
-  switch (status) {
-    case 'active':
-    case 'trialing':
-      return 'active';
-    case 'past_due':
-      return 'past_due';
-    case 'canceled':
-    case 'unpaid':
-    case 'incomplete_expired':
-      return 'canceled';
-    default:
-      return 'inactive';
-  }
+/** Stripe's subscription statuses, which `organizations.billing_status` stores unchanged. */
+const STRIPE_SUBSCRIPTION_STATUSES: ReadonlySet<string> = new Set([
+  'incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused',
+]);
+/** Our own value for "no Stripe subscription exists"; also the safe fallback, since it grants nothing. */
+const NO_SUBSCRIPTION_STATUS = 'inactive';
+
+/**
+ * A Stripe status as our `billing_status`: a pass-through, never a mapping, so a trial or
+ * an unpaid subscription stays what Stripe says it is. Mirrors workers/lib/billing.ts,
+ * which this script cannot import; the tests pin the two.
+ */
+export function toBillingStatus(stripeStatus: string): string {
+  if (STRIPE_SUBSCRIPTION_STATUSES.has(stripeStatus)) return stripeStatus;
+  console.warn(`[reconciliation] Unrecognized Stripe subscription status '${stripeStatus}'; storing '${NO_SUBSCRIPTION_STATUS}'`);
+  return NO_SUBSCRIPTION_STATUS;
 }
 
 /**
@@ -510,7 +511,7 @@ export async function processCustomer(
     // writes them; a new quota_version makes api-gateway re-read the org's limits. An
     // unmapped price leaves current_plan alone rather than downgrading the org.
     const orgUpdates = {
-      billing_status: mapStripeStatusToBillingStatus(sub.status),
+      billing_status: toBillingStatus(sub.status),
       ...(mappedPlan ? { current_plan: mappedPlan } : {}),
       active_subscription_id: pointer.id,
       quota_version: Date.now(),
