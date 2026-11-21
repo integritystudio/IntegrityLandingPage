@@ -13,14 +13,10 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { z } from 'zod';
+import { EnvSchema, linkDecision, orgIdFromSubscriptionMetadata } from './full-reconciliation.js';
 
 // ─── Schemas (copy from reconciliation script) ────────────────────────────
 
-const EnvSchema = z.object({
-  STRIPE_SECRET_KEY: z.string().regex(/^sk_(test|live)_/, 'must start with sk_test_ or sk_live_'),
-  SUPABASE_URL: z.string().url(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().regex(/^eyJ/, 'must be a JWT (expected to start with eyJ)'),
-});
 
 const SupabaseErrorSchema = z.object({
   message: z.string(),
@@ -50,15 +46,42 @@ describe('EnvSchema validation', () => {
     expect(result.success).toBe(true);
   });
 
+  it.each(['rk_live_restricted123', 'rk_test_restricted123'])('accepts restricted Stripe key %s', (key) => {
+    const result = EnvSchema.safeParse({
+      STRIPE_SECRET_KEY: key,
+      SUPABASE_URL: 'https://prod.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a Supabase secret key', () => {
+    const result = EnvSchema.safeParse({
+      STRIPE_SECRET_KEY: 'rk_live_restricted123',
+      SUPABASE_URL: 'https://prod.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_abc123',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a publishable Supabase key', () => {
+    const result = EnvSchema.safeParse({
+      STRIPE_SECRET_KEY: 'sk_test_abc123',
+      SUPABASE_URL: 'https://proj.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'sb_publishable_abc123',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects Stripe key with wrong prefix', () => {
     const result = EnvSchema.safeParse({
-      STRIPE_SECRET_KEY: 'rk_test_wrong_prefix',
+      STRIPE_SECRET_KEY: 'pk_live_publishable_key',
       SUPABASE_URL: 'https://proj.supabase.co',
       SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toContain('sk_test_');
+      expect(result.error.issues[0].message).toContain('sk_ or rk_');
     }
   });
 
@@ -354,7 +377,6 @@ describe('EnvSchema error message formatting', () => {
 // ─── Linking an unlinked customer from subscription metadata ─────────────
 // These import the script itself; its entry guard keeps main() from running.
 
-import { linkDecision, orgIdFromSubscriptionMetadata } from './full-reconciliation.js';
 
 const ORG_A = '550e8400-e29b-41d4-a716-446655440000';
 const ORG_B = '550e8400-e29b-41d4-a716-446655440001';

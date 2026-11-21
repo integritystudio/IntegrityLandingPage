@@ -19,9 +19,9 @@
  *   npx ts-node scripts/full-reconciliation.ts [--dry-run]
  *
  * Required env vars:
- *   STRIPE_SECRET_KEY      — Stripe secret key (sk_live_... or sk_test_...)
+ *   STRIPE_SECRET_KEY      — Stripe secret or restricted key (sk_/rk_, then live_/test_)
  *   SUPABASE_URL           — Supabase project URL
- *   SUPABASE_SERVICE_ROLE_KEY — Supabase service-role key
+ *   SUPABASE_SERVICE_ROLE_KEY — Supabase service-role JWT (eyJ...) or secret key (sb_secret_...)
  *
  * Optional:
  *   SENTRY_DSN             — reports each failure and any fatal error to that Sentry
@@ -63,10 +63,15 @@ interface DbResult {
 // Zod schemas
 // ---------------------------------------------------------------------------
 
-const EnvSchema = z.object({
-  STRIPE_SECRET_KEY: z.string().regex(/^sk_(test|live)_/, 'must start with sk_test_ or sk_live_'),
+/** A secret (sk_) or restricted (rk_) key; prd holds a restricted one. */
+const STRIPE_SECRET_KEY_PATTERN = /^(sk|rk)_(test|live)_/;
+/** A legacy JWT service-role key (eyJ) or a Supabase secret key (sb_secret_), which prd holds. */
+const SUPABASE_SERVICE_KEY_PATTERN = /^(eyJ|sb_secret_)/;
+
+export const EnvSchema = z.object({
+  STRIPE_SECRET_KEY: z.string().regex(STRIPE_SECRET_KEY_PATTERN, 'must start with sk_ or rk_, then test_ or live_'),
   SUPABASE_URL: z.string().url(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().regex(/^eyJ/, 'must be a JWT (expected to start with eyJ)'),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().regex(SUPABASE_SERVICE_KEY_PATTERN, 'must be a JWT (eyJ) or a secret key (sb_secret_)'),
 });
 
 const SupabaseErrorSchema = z.object({
