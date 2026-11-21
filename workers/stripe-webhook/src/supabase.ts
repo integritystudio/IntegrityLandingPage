@@ -1,6 +1,7 @@
 import { createSupabaseClient } from '../../lib/supabase';
 import { isTerminalSubscriptionStatus } from '../../lib/billing';
 import type { BillingStatus, ApiKeyTier } from '../../lib/types';
+import { ApiKeyTierSchema } from '../../lib/types/schemas';
 import { DEAD_LETTER_INITIAL_RETRY_DELAY_MS, DEAD_LETTER_MAX_RETRIES } from '../../constants';
 
 /**
@@ -205,6 +206,29 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
   }
 
   /**
+   * The Stripe price id → plan key map, from the `plans` table. A plan with no price
+   * (billed by contract) has no entry; a key this Worker does not know is skipped.
+   */
+  async function loadPriceToPlan(): Promise<{ ok: true; priceToPlan: Record<string, ApiKeyTier> } | Err> {
+    const result = await sb.query<{ key: string; stripe_price_id: string | null }>('plans', {
+      select: 'key, stripe_price_id',
+    });
+    if (!result.ok) return { ok: false, error: result.error };
+
+    const priceToPlan: Record<string, ApiKeyTier> = {};
+    for (const { key, stripe_price_id: priceId } of result.data) {
+      if (!priceId) continue;
+      const plan = ApiKeyTierSchema.safeParse(key);
+      if (plan.success) {
+        priceToPlan[priceId] = plan.data;
+      } else {
+        console.warn(`plans: unknown plan key "${key}" for price "${priceId}", skipping`);
+      }
+    }
+    return { ok: true, priceToPlan };
+  }
+
+  /**
    * Find organization by Stripe customer ID.
    */
   async function findOrgByStripeCustomerId(
@@ -382,6 +406,7 @@ export function createSupabaseAdmin(supabaseUrl: string, serviceRoleKey: string)
     upsertSubscription,
     updateOrgBillingStatus,
     findOrgByStripeCustomerId,
+    loadPriceToPlan,
     isEventProcessed,
     claimEvent,
     unclaimEvent,

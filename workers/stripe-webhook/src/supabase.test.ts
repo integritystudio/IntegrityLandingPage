@@ -187,6 +187,60 @@ describe('isEventProcessed', () => {
 });
 
 // ---------------------------------------------------------------------------
+// loadPriceToPlan
+// ---------------------------------------------------------------------------
+
+describe('loadPriceToPlan', () => {
+  const PLANS_TABLE = 'plans';
+  let db: ReturnType<typeof createSupabaseAdmin>;
+
+  beforeEach(() => {
+    db = makeAdmin();
+  });
+
+  it('maps each priced plan and selects only the two columns it needs', async () => {
+    const stub = stubSupabase({
+      [`GET ${PLANS_TABLE}`]: okRows([
+        { key: 'starter', stripe_price_id: 'price_starter' },
+        { key: 'growth', stripe_price_id: 'price_growth' },
+        { key: 'enterprise', stripe_price_id: 'price_enterprise' },
+      ]),
+    });
+
+    const result = await db.loadPriceToPlan();
+
+    expect(result).toEqual({
+      ok: true,
+      priceToPlan: { price_starter: 'starter', price_growth: 'growth', price_enterprise: 'enterprise' },
+    });
+    expect(stub.find('GET', PLANS_TABLE)!.url.searchParams.get('select')).toBe('key, stripe_price_id');
+  });
+
+  it('leaves out a plan with no price and a plan key it does not know', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    stubSupabase({
+      [`GET ${PLANS_TABLE}`]: okRows([
+        { key: 'growth', stripe_price_id: 'price_growth' },
+        { key: 'enterprise', stripe_price_id: null },
+        { key: 'platinum', stripe_price_id: 'price_platinum' },
+      ]),
+    });
+
+    const result = await db.loadPriceToPlan();
+
+    expect(result).toEqual({ ok: true, priceToPlan: { price_growth: 'growth' } });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('platinum'));
+    warn.mockRestore();
+  });
+
+  it('returns { ok: false, error } when the table cannot be read', async () => {
+    stubSupabase({ [`GET ${PLANS_TABLE}`]: httpError(500, 'Connection timeout') });
+
+    expect(await db.loadPriceToPlan()).toEqual({ ok: false, error: 'HTTP 500: Connection timeout' });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // linkStripeCustomerIfUnlinked
 // ---------------------------------------------------------------------------
 

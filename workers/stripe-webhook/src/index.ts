@@ -4,43 +4,36 @@ import { createSupabaseAdmin } from './supabase';
 import { handleCheckoutSessionCompleted } from './handlers/checkout';
 import { handleSubscriptionUpdated, handleSubscriptionDeleted } from './handlers/subscription';
 import { handleInvoicePaid, handleInvoicePaymentFailed } from './handlers/invoice';
-import type { StripeEvent, HandlerResult, ApiKeyTier } from '../../lib/types';
-import { ApiKeyTierSchema } from '../../lib/types/schemas';
+import type { StripeEvent, HandlerResult } from '../../lib/types';
 
 export interface Env {
   STRIPE_WEBHOOK_SECRET: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
-  /** JSON object mapping Stripe price IDs to plan keys, e.g. '{"price_123":"growth"}' */
-  STRIPE_PRICE_TO_PLAN_JSON?: string;
 }
 
-function parsePriceToPlan(jsonStr: string | undefined): Record<string, ApiKeyTier> {
-  if (!jsonStr) return {};
-  try {
-    const raw = JSON.parse(jsonStr) as Record<string, unknown>;
-    const result: Record<string, ApiKeyTier> = {};
-    for (const [priceId, plan] of Object.entries(raw)) {
-      const parsed = ApiKeyTierSchema.safeParse(plan);
-      if (parsed.success) {
-        result[priceId] = parsed.data;
-      } else {
-        console.warn(`STRIPE_PRICE_TO_PLAN_JSON: invalid plan value "${String(plan)}" for price "${priceId}", skipping`);
-      }
-    }
-    return result;
-  } catch {
-    console.warn('STRIPE_PRICE_TO_PLAN_JSON is not valid JSON; price-to-plan mapping disabled');
-    return {};
+type SupabaseAdmin = ReturnType<typeof createSupabaseAdmin>;
+
+/**
+ * Handle a subscription created or updated event with the price → plan map read from
+ * the `plans` table, the one api-gateway's checkout prices from. A failed read fails
+ * the event, so it is dead-lettered and retried instead of processed without a plan.
+ */
+async function handleSubscriptionWrite(event: StripeEvent, db: SupabaseAdmin): Promise<HandlerResult> {
+  const plans = await db.loadPriceToPlan();
+  if (!plans.ok) return { ok: false, error: `Failed to load plans: ${plans.error}` };
+  // CR38: with no priced plan, a paid upgrade would change billing_status only.
+  if (Object.keys(plans.priceToPlan).length === 0) {
+    console.warn(`CR38: plans has no stripe_price_id — current_plan will not be updated for event ${event.id}`);
   }
+  return handleSubscriptionUpdated(event, db, plans.priceToPlan);
 }
 
 // processEvent runs inside ctx.waitUntil after the 2xx response has been sent.
 // Stripe does not see any errors thrown here; log and dead-letter as needed.
 async function processEvent(
   event: StripeEvent,
-  db: ReturnType<typeof createSupabaseAdmin>,
-  priceToPlan: Record<string, ApiKeyTier>,
+  db: SupabaseAdmin,
 ): Promise<void> {
   let result: HandlerResult = { ok: true };
 
@@ -62,15 +55,11 @@ async function processEvent(
       // carry the full subscription, so one handler writes the row and the plan.
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
-        // CR38: warn when the map is absent so the silence does not mask a missing binding.
-        if (Object.keys(priceToPlan).length === 0) {
-          console.warn(`CR38: STRIPE_PRICE_TO_PLAN_JSON is unset — current_plan will not be updated for event ${event.id}`);
-        }
-        result = await handleSubscriptionUpdated(event, db, priceToPlan);
+        result = await handleSubscriptionWrite(event, db);
         break;
 
       case 'customer.subscription.deleted':
-        result = await handleSubscriptionDeleted(event, db, priceToPlan);
+        result = await handleSubscriptionDeleted(event, db);
         break;
 
       default:
@@ -135,7 +124,6 @@ async function handleWebhook(request: Request, env: Env, ctx: ExecutionContext):
   }
 
   const db = createSupabaseAdmin(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-  const priceToPlan = parsePriceToPlan(env.STRIPE_PRICE_TO_PLAN_JSON);
 
   // Atomically claim the event via INSERT … ON CONFLICT DO NOTHING.
   // This collapses the previous check-then-act (isEventProcessed + logProcessedEvent)
@@ -153,7 +141,7 @@ async function handleWebhook(request: Request, env: Env, ctx: ExecutionContext):
   // Return 2xx to Stripe immediately, per Stripe's guidance to respond before complex logic.
   // The atomic claim above ensures a Stripe retry sees already_processed rather than
   // double-processing. ctx.waitUntil keeps the Worker alive until processEvent finishes.
-  ctx.waitUntil(processEvent(event, db, priceToPlan));
+  ctx.waitUntil(processEvent(event, db));
   return ok({ ok: true, queued: true });
 }
 
@@ -163,7 +151,6 @@ async function handleWebhook(request: Request, env: Env, ctx: ExecutionContext):
  */
 async function runReconciliation(env: Env): Promise<void> {
   const db = createSupabaseAdmin(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-  const priceToPlan = parsePriceToPlan(env.STRIPE_PRICE_TO_PLAN_JSON);
   const pending = await db.fetchPendingDeadLetters(50);
 
   // Sort by Stripe event creation time (payload.created, Unix seconds) so retries replay
@@ -210,13 +197,10 @@ async function runReconciliation(env: Env): Promise<void> {
           break;
         case 'customer.subscription.created':
         case 'customer.subscription.updated':
-          if (Object.keys(priceToPlan).length === 0) {
-            console.warn(`CR38: STRIPE_PRICE_TO_PLAN_JSON is unset — current_plan will not be updated for dead-letter event ${dl.stripe_event_id}`);
-          }
-          result = await handleSubscriptionUpdated(event, db, priceToPlan);
+          result = await handleSubscriptionWrite(event, db);
           break;
         case 'customer.subscription.deleted':
-          result = await handleSubscriptionDeleted(event, db, priceToPlan);
+          result = await handleSubscriptionDeleted(event, db);
           break;
         default:
           await db.abandonDeadLetter(dl.id);
@@ -256,12 +240,13 @@ export default {
     const { pathname } = new URL(request.url);
 
     if (pathname === '/health' && request.method === 'GET') {
-      const priceToPlan = parsePriceToPlan(env.STRIPE_PRICE_TO_PLAN_JSON);
-      const planMapSize = Object.keys(priceToPlan).length;
-      // CR38: an empty map means subscription events cannot write current_plan.
-      // Report the entry count so a missing binding is visible at /health.
+      // CR38: an empty map means subscription events cannot write current_plan. Read the
+      // table the handlers read, so /health reports what an event would actually get.
+      const plans = await createSupabaseAdmin(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY).loadPriceToPlan();
+      if (!plans.ok) return serverError('Failed to load plans');
+      const planMapSize = Object.keys(plans.priceToPlan).length;
       if (planMapSize === 0) {
-        console.warn('CR38: STRIPE_PRICE_TO_PLAN_JSON is unset or empty — subscription events will not update current_plan');
+        console.warn('CR38: plans has no stripe_price_id — subscription events will not update current_plan');
       }
       return ok({ ok: true, service: 'stripe-webhook', priceToPlanEntries: planMapSize });
     }

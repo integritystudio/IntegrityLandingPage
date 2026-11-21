@@ -11,6 +11,7 @@ function makeDb(overrides: Partial<SupabaseAdmin> = {}): SupabaseAdmin {
     upsertSubscription: vi.fn().mockResolvedValue({ ok: true }),
     updateOrgBillingStatus: vi.fn().mockResolvedValue({ ok: true }),
     findOrgByStripeCustomerId: vi.fn().mockResolvedValue({ ok: true, orgId: 'org-1' }),
+    loadPriceToPlan: vi.fn().mockResolvedValue({ ok: true, priceToPlan: {} }),
     isEventProcessed: vi.fn().mockResolvedValue({ ok: true, processed: false }),
     claimEvent: vi.fn().mockResolvedValue({ ok: true, claimed: true }),
     unclaimEvent: vi.fn().mockResolvedValue({ ok: true }),

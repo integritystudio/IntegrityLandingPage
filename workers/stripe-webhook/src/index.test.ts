@@ -25,6 +25,9 @@ const { mockDb, mockHandleCheckout, mockHandleSubscriptionUpdated } = vi.hoisted
     upsertSubscription: vi.fn(),
     updateOrgBillingStatus: vi.fn(),
     findOrgByStripeCustomerId: vi.fn(),
+    loadPriceToPlan: vi.fn<() => Promise<{ ok: true; priceToPlan: Record<string, string> } | { ok: false; error: string }>>(
+      async () => ({ ok: true, priceToPlan: {} }),
+    ),
   },
   mockHandleCheckout: vi.fn(),
   mockHandleSubscriptionUpdated: vi.fn(),
@@ -252,25 +255,34 @@ describe('handleWebhook (fetch handler)', () => {
     );
   });
 
-  it('health endpoint → 200 with ok:true and priceToPlanEntries count', async () => {
+  it('health endpoint → 200 with ok:true and 0 priceToPlanEntries when plans has no price', async () => {
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mockDb.loadPriceToPlan.mockResolvedValueOnce({ ok: true, priceToPlan: {} });
     const request = new Request('https://example.com/health', { method: 'GET' });
     const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     const json = await response.json<{ ok: boolean; priceToPlanEntries: number }>();
     expect(response.status).toBe(200);
     expect(json.ok).toBe(true);
-    // MOCK_ENV has no STRIPE_PRICE_TO_PLAN_JSON → map is empty (CR38 detection path).
     expect(json.priceToPlanEntries).toBe(0);
+    // CR38 detection path: an empty map is reported and warned about.
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('CR38'));
+    consoleSpy.mockRestore();
   });
 
-  it('health endpoint reports correct priceToPlanEntries when map is bound', async () => {
-    const envWithMap = { ...MOCK_ENV, STRIPE_PRICE_TO_PLAN_JSON: '{"price_abc":"growth","price_xyz":"starter"}' };
+  it('health endpoint reports the number of priced plans read from the table', async () => {
+    mockDb.loadPriceToPlan.mockResolvedValueOnce({ ok: true, priceToPlan: { price_abc: 'growth', price_xyz: 'starter' } });
     const request = new Request('https://example.com/health', { method: 'GET' });
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const response = await worker.fetch(request, envWithMap, mockCtx.ctx);
-    consoleSpy.mockRestore();
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     const json = await response.json<{ ok: boolean; priceToPlanEntries: number }>();
     expect(response.status).toBe(200);
     expect(json.priceToPlanEntries).toBe(2);
+  });
+
+  it('health endpoint → 500 when the plans table cannot be read', async () => {
+    mockDb.loadPriceToPlan.mockResolvedValueOnce({ ok: false, error: 'HTTP 500: timeout' });
+    const request = new Request('https://example.com/health', { method: 'GET' });
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
+    expect(response.status).toBe(500);
   });
 
   it('unknown route → 404', async () => {
@@ -380,11 +392,11 @@ describe('handleWebhook (fetch handler)', () => {
   it('customer.subscription.created event → handleSubscriptionUpdated called with the price map', async () => {
     const body = JSON.stringify({ id: 'evt_created', type: 'customer.subscription.created', data: { object: {} } });
     const request = await makeWebhookRequest(body);
-    const env = { ...MOCK_ENV, STRIPE_PRICE_TO_PLAN_JSON: '{"price_abc":"growth"}' };
+    mockDb.loadPriceToPlan.mockResolvedValueOnce({ ok: true, priceToPlan: { price_abc: 'growth' } });
     mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
     mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
 
-    const response = await worker.fetch(request, env, mockCtx.ctx);
+    const response = await worker.fetch(request, MOCK_ENV, mockCtx.ctx);
     expect(response.status).toBe(200);
 
     await mockCtx.flush();
@@ -444,7 +456,7 @@ describe('handleWebhook (fetch handler)', () => {
   });
 });
 
-describe('parsePriceToPlan (via handleWebhook)', () => {
+describe('price → plan map from the plans table', () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>;
   let mockCtx: ReturnType<typeof makeMockCtx>;
 
@@ -452,6 +464,10 @@ describe('parsePriceToPlan (via handleWebhook)', () => {
     vi.clearAllMocks();
     consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mockCtx = makeMockCtx();
+    mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
+    mockDb.unclaimEvent.mockResolvedValue({ ok: true });
+    mockDb.addDeadLetter.mockResolvedValue({ ok: true });
+    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
   });
 
   afterEach(() => {
@@ -469,67 +485,44 @@ describe('parsePriceToPlan (via handleWebhook)', () => {
     });
   }
 
-  it('valid JSON with valid plan key → priceToPlan map passed to handleSubscriptionUpdated', async () => {
-    const env = { ...MOCK_ENV, STRIPE_PRICE_TO_PLAN_JSON: '{"price_abc":"growth"}' };
-    mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
-    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
-
-    await worker.fetch(await makeSubUpdatedRequest(), env, mockCtx.ctx);
-    await mockCtx.flush();
-
-    expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.any(Object),
-      { price_abc: 'growth' },
-    );
-  });
-
-  it('valid JSON with invalid plan value → entry skipped, warn logged, empty map passed', async () => {
-    const env = { ...MOCK_ENV, STRIPE_PRICE_TO_PLAN_JSON: '{"price_abc":"enterprise","price_xyz":"invalid_plan"}' };
-    mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
-    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
-
-    await worker.fetch(await makeSubUpdatedRequest(), env, mockCtx.ctx);
-    await mockCtx.flush();
-
-    expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.any(Object),
-      { price_abc: 'enterprise' },
-    );
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('invalid_plan'));
-  });
-
-  it('invalid JSON → console.warn logged, empty map passed to handler', async () => {
-    const env = { ...MOCK_ENV, STRIPE_PRICE_TO_PLAN_JSON: 'not-valid-json' };
-    mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
-    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
-
-    await worker.fetch(await makeSubUpdatedRequest(), env, mockCtx.ctx);
-    await mockCtx.flush();
-
-    expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.any(Object),
-      {},
-    );
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('not valid JSON'));
-  });
-
-  it('missing env var → empty map passed to handler and CR38 warn emitted', async () => {
-    // CR38: absence of STRIPE_PRICE_TO_PLAN_JSON must not be silent on subscription events.
-    mockDb.claimEvent.mockResolvedValue({ ok: true, claimed: true });
-    mockHandleSubscriptionUpdated.mockResolvedValue({ ok: true });
+  it('passes the map read from plans to handleSubscriptionUpdated', async () => {
+    mockDb.loadPriceToPlan.mockResolvedValueOnce({ ok: true, priceToPlan: { price_abc: 'growth' } });
 
     await worker.fetch(await makeSubUpdatedRequest(), MOCK_ENV, mockCtx.ctx);
     await mockCtx.flush();
 
-    expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.any(Object),
-      {},
-    );
+    expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), { price_abc: 'growth' });
+    expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('CR38'));
+  });
+
+  it('no priced plan → empty map passed to handler and CR38 warn emitted', async () => {
+    // CR38: a map with no entries must not be silent on subscription events.
+    mockDb.loadPriceToPlan.mockResolvedValueOnce({ ok: true, priceToPlan: {} });
+
+    await worker.fetch(await makeSubUpdatedRequest(), MOCK_ENV, mockCtx.ctx);
+    await mockCtx.flush();
+
+    expect(mockHandleSubscriptionUpdated).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), {});
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('CR38'));
+  });
+
+  it('a failed plans read dead-letters the event instead of handling it without a plan', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockDb.loadPriceToPlan.mockResolvedValueOnce({ ok: false, error: 'HTTP 500: timeout' });
+
+    const response = await worker.fetch(await makeSubUpdatedRequest(), MOCK_ENV, mockCtx.ctx);
+    await mockCtx.flush();
+    errorSpy.mockRestore();
+
+    expect(response.status).toBe(200);
+    expect(mockHandleSubscriptionUpdated).not.toHaveBeenCalled();
+    expect(mockDb.unclaimEvent).toHaveBeenCalledWith('evt_sub');
+    expect(mockDb.addDeadLetter).toHaveBeenCalledWith(
+      'evt_sub',
+      'customer.subscription.updated',
+      expect.any(Object),
+      'Failed to load plans: HTTP 500: timeout',
+    );
   });
 });
 
