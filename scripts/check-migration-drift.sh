@@ -73,7 +73,7 @@ run_query() {
   body=$(printf '%s' "$sql" | jq -Rs '{"query": .}')
 
   local response http_code
-  response=$(curl -sf \
+  response=$(curl -s \
     -w '\n__HTTP_CODE__%{http_code}' \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
@@ -184,8 +184,10 @@ echo "Migrations: $MIGRATIONS_DIR"
 
 EXPECTED_TABLES=$(expected_tables)
 EXPECTED_FUNCTIONS=$(expected_functions)
-LIVE_TABLES=$(live_tables)
-LIVE_FUNCTIONS=$(live_functions)
+# run_query's `exit 2` only leaves the command-substitution subshell, so
+# propagate it here; otherwise an API failure reads as every object MISSING.
+LIVE_TABLES=$(live_tables) || exit 2
+LIVE_FUNCTIONS=$(live_functions) || exit 2
 
 check_objects "Tables" "$EXPECTED_TABLES" "$LIVE_TABLES"
 check_objects "Functions" "$EXPECTED_FUNCTIONS" "$LIVE_FUNCTIONS"
