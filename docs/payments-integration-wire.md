@@ -30,7 +30,9 @@ Stripe → stripe-webhook worker (POST /webhook)
          │    └─ linkStripeCustomer(org, customerId)
          │    └─ upsertSubscription(org, subscriptionId, priceId=null, 'active')
          │
+         ├─ customer.subscription.created          ← same handler as `updated`; the only subscription event when one is created outside Checkout
          ├─ customer.subscription.updated          ← tier is captured here (needs STRIPE_PRICE_TO_PLAN_JSON bound — CR38)
+         │    ├─ org = stripe_customer_id match, else link from subscription.metadata.org_id (only an org with no customer)
          │    ├─ priceId = subscription.items[0].price.id
          │    ├─ planKey = priceToPlan[priceId]    ← STRIPE_PRICE_TO_PLAN_JSON mapping
          │    ├─ upsertSubscription(org, subscriptionId, priceId, status)
