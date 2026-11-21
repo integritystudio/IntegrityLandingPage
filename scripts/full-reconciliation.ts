@@ -33,7 +33,10 @@ import { z } from 'zod';
 // Types
 // ---------------------------------------------------------------------------
 
-type PlanKey = 'starter' | 'growth' | 'enterprise';
+const PlanKeySchema = z.enum(['starter', 'growth', 'enterprise']);
+type PlanKey = z.infer<typeof PlanKeySchema>;
+/** Stripe price id → plan key, loaded from the `plans` table at startup. */
+type PriceToPlan = Readonly<Record<string, PlanKey>>;
 type BillingStatus = 'active' | 'past_due' | 'canceled' | 'inactive';
 
 interface ReconciliationSummary {
@@ -66,22 +69,15 @@ const SupabaseErrorSchema = z.object({
 
 const OrgRowSchema = z.array(z.object({ id: z.string().uuid() })).min(1);
 
+const PlanRowsSchema = z.array(z.object({ key: PlanKeySchema, stripe_price_id: z.string().nullable() }));
+
 // ---------------------------------------------------------------------------
 // Price → plan mapping
 // ---------------------------------------------------------------------------
 
-/** Map Stripe price IDs to internal plan keys. Update when prices change. */
-const PRICE_TO_PLAN: Record<string, PlanKey> = {
-  // Replace with your actual Stripe price IDs
-  price_growth_monthly: 'growth',
-  price_growth_annual: 'growth',
-  price_enterprise_monthly: 'enterprise',
-  price_enterprise_annual: 'enterprise',
-};
-
-function mapPriceToTier(priceId: string | undefined): PlanKey {
+function mapPriceToTier(priceToPlan: PriceToPlan, priceId: string | undefined): PlanKey {
   if (!priceId) return 'starter';
-  return PRICE_TO_PLAN[priceId] ?? 'starter';
+  return priceToPlan[priceId] ?? 'starter';
 }
 
 function mapStripeStatusToBillingStatus(status: Stripe.Subscription.Status): BillingStatus {
@@ -213,6 +209,36 @@ async function supabaseUpdate(
   return { ok: true };
 }
 
+/**
+ * Read the price → plan mapping stripe-webhook bills by. Throws rather than run on
+ * an empty or unreadable table, where every price would fall back to 'starter'.
+ */
+async function loadPriceToPlan(supabaseUrl: string, serviceRoleKey: string): Promise<PriceToPlan> {
+  const resp = await fetch(
+    `${supabaseUrl}/rest/v1/plans?select=key,stripe_price_id`,
+    { method: 'GET', headers: supabaseHeaders(serviceRoleKey) },
+  );
+  const body = await parseJsonSafe(resp);
+  if (!resp.ok) {
+    const parseResult = SupabaseErrorSchema.safeParse(body);
+    throw new Error(`Failed to read plans: ${parseResult.success ? parseResult.data.message : `HTTP ${resp.status}`}`);
+  }
+
+  const rowsResult = PlanRowsSchema.safeParse(body);
+  if (!rowsResult.success) {
+    throw new Error(`Unexpected plans response: ${rowsResult.error.issues.map((i) => i.message).join('; ')}`);
+  }
+
+  const priceToPlan: Record<string, PlanKey> = {};
+  for (const { key, stripe_price_id: priceId } of rowsResult.data) {
+    if (priceId) priceToPlan[priceId] = key;
+  }
+  if (Object.keys(priceToPlan).length === 0) {
+    throw new Error('plans table has no stripe_price_id; refusing to map every price to starter');
+  }
+  return priceToPlan;
+}
+
 async function supabaseLookupOrgId(
   supabaseUrl: string,
   serviceRoleKey: string,
@@ -322,6 +348,7 @@ async function processCustomer(
   supabaseUrl: string,
   serviceRoleKey: string,
   customer: Stripe.Customer,
+  priceToPlan: PriceToPlan,
   dryRun: boolean,
 ): Promise<CustomerProcessResult> {
   const now = new Date().toISOString();
@@ -366,7 +393,7 @@ async function processCustomer(
 
   for (const sub of subs) {
     const priceId = sub.items.data[0]?.price.id;
-    const tier = mapPriceToTier(priceId);
+    const tier = mapPriceToTier(priceToPlan, priceId);
 
     const subRecord = {
       organization_id: lookup.orgId,
@@ -391,7 +418,7 @@ async function processCustomer(
 
     // Plan and billing status live on the org, as stripe-webhook writes them. An
     // unmapped price leaves current_plan alone rather than downgrading the org.
-    const mappedPlan = priceId ? PRICE_TO_PLAN[priceId] : undefined;
+    const mappedPlan = priceId ? priceToPlan[priceId] : undefined;
     const orgUpdates = {
       billing_status: mapStripeStatusToBillingStatus(sub.status),
       ...(mappedPlan ? { current_plan: mappedPlan } : {}),
@@ -431,6 +458,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
   const { STRIPE_SECRET_KEY: stripeKey, SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey } = envResult.data;
 
   const stripe = new Stripe(stripeKey, { apiVersion: '2026-03-25.dahlia' });
+  const priceToPlan = await loadPriceToPlan(supabaseUrl, serviceRoleKey);
 
   const summary: ReconciliationSummary = {
     customersProcessed: 0,
@@ -459,7 +487,7 @@ async function runFullReconciliation(dryRun: boolean): Promise<ReconciliationSum
       summary.customersProcessed++;
 
       try {
-        const result = await processCustomer(supabaseUrl, serviceRoleKey, customer, dryRun);
+        const result = await processCustomer(supabaseUrl, serviceRoleKey, customer, priceToPlan, dryRun);
         if (!result.ok) {
           summary.errors.push(`Error processing customer ${customer.id}: ${result.error}`);
           continue;
