@@ -36,6 +36,9 @@ const TOKEN_BYTES = 32;
 const KEY_PREFIX_CHARS = 8;
 const KV_KEY_PREFIX = "apikey:";
 const HEX_RADIX = 16;
+const KV_DELETE_ATTEMPTS = 2;
+const OLD_KEY_NOT_REVOKED = "New key issued, but the previous key could not be revoked and still works; revoke previousKeyId";
+const OLD_KEY_STILL_AUTHENTICATES = "New key issued and the previous key revoked, but its auth-cache record remains, so it still works; revoke previousKeyId again";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -79,6 +82,16 @@ async function isServiceCredential(fetchFn: typeof fetch, supabaseUrl: string, p
     return res.status === 200;
   } catch {
     return false;
+  }
+}
+
+/** DELETE a KV record; returns why it failed, or null on success. 404 means already gone. */
+async function deleteKvRecord(fetchFn: typeof fetch, url: string, cfApiToken: string): Promise<string | null> {
+  try {
+    const res = await fetchFn(url, { method: "DELETE", headers: { Authorization: `Bearer ${cfApiToken}` } });
+    return res.ok || res.status === 404 ? null : await res.text();
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
   }
 }
 
@@ -178,27 +191,42 @@ export function createApiKeysRotateHandler(deps: HandlerDeps): (req: Request) =>
       // Roll back the new row; the old key is still active.
       console.error(`KV sync failed for new key: ${kvRes ? await kvRes.text() : "network error"}`);
       const { error: rollbackError } = await supabase.from("api_keys").delete().eq("id", newKey.id);
-      if (rollbackError) console.error(`Failed to roll back new key ${newKey.id}: ${rollbackError.message}`);
+      if (rollbackError) {
+        // An active row with no KV record would hold a quota slot for a key nobody holds.
+        // Revoked, it holds none and matches its (absent) KV record.
+        console.error(`Failed to roll back new key ${newKey.id}: ${rollbackError.message}`);
+        const { error: revokeNewError } = await supabase
+          .from("api_keys")
+          .update({ status: "revoked", revoked_at: new Date().toISOString() })
+          .eq("id", newKey.id);
+        if (revokeNewError) console.error(`Failed to revoke unrolled-back key ${newKey.id}, revoke by hand: ${revokeNewError.message}`);
+      }
       return errorResponse("Failed to sync new key to auth cache. Old key is unchanged.", 500);
     }
 
-    // The new key is live. Now revoke the old one.
+    // The new key is live. Now revoke the old one. Its KV record goes only once the row says
+    // revoked: deleting it first would leave a row that says active for a key ingest refuses.
+    // Either failure still hands back the new token, which is live, with a warning naming the
+    // old key; api-keys-revoke on previousKeyId finishes the job.
     const { error: revokeError } = await supabase
       .from("api_keys")
       .update({ status: "revoked", revoked_at: new Date().toISOString() })
       .eq("id", oldKey.id)
       .eq("user_id", userId);
+    let warning: string | undefined;
     if (revokeError) {
       console.error(`Failed to revoke old key ${oldKey.id}: ${revokeError.message}`);
-    }
-
-    // Remove the old KV entry. Best-effort: the row is revoked above.
-    const deleteRes = await deps.fetch(kvUrl(`${KV_KEY_PREFIX}${oldKey.hash}`), {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${cfApiToken}` },
-    }).catch(() => null);
-    if (!deleteRes?.ok) {
-      console.error(`Failed to delete old KV entry for key ${oldKey.id}: ${deleteRes ? await deleteRes.text() : "network error"}`);
+      warning = OLD_KEY_NOT_REVOKED;
+    } else {
+      let deleteFailure: string | null = null;
+      for (let attempt = 0; attempt < KV_DELETE_ATTEMPTS; attempt += 1) {
+        deleteFailure = await deleteKvRecord(deps.fetch, kvUrl(`${KV_KEY_PREFIX}${oldKey.hash}`), cfApiToken);
+        if (deleteFailure === null) break;
+      }
+      if (deleteFailure !== null) {
+        console.error(`Failed to delete old KV entry for key ${oldKey.id}: ${deleteFailure}`);
+        warning = OLD_KEY_STILL_AUTHENTICATES;
+      }
     }
 
     return jsonResponse({
@@ -207,6 +235,7 @@ export function createApiKeysRotateHandler(deps: HandlerDeps): (req: Request) =>
       previousKeyId: oldKey.id,
       prefix,
       tier: oldKey.tier,
+      ...(warning ? { warning } : {}),
     }, 201);
   };
 }

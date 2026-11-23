@@ -88,6 +88,8 @@ const REQUEST_ABANDONED = "api_key_request_abandoned";
 // A failed membership query is an outage, not "no membership": answer 5xx so the
 // receiver can retry rather than read it as a 403 (TS20).
 const MEMBERSHIP_LOOKUP_FAILED = "Database error resolving membership.";
+const KV_PUT_ATTEMPTS = 2;
+const KV_SYNC_FAILED = "API key could not be synced to the auth cache and was not issued; retry";
 
 export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) => Promise<Response> {
   return async (req: Request): Promise<Response> => {
@@ -315,34 +317,26 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
       organizationId,
     });
     const kvUrl = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/storage/kv/namespaces/${kvNamespaceId}/values/${kvKey}`;
-    // TS19: the key row already exists, so a KV failure of either kind (HTTP error or a
-    // thrown network error) must still hand the caller its token, or the row is orphaned.
+    // The row already exists, so a KV failure must not hand back a token ingest would refuse
+    // (no KV record means 401) while the row holds a quota slot. A transient failure gets
+    // one more attempt; after that the row is revoked and the caller told to retry, and a
+    // requestId caller also abandons and revokes on the 503, so a failed revoke here is covered.
     let kvFailure: string | null = null;
-    try {
-      const kvRes = await deps.fetch(kvUrl, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${cfApiToken}`,
-          "Content-Type": "text/plain",
-        },
-        body: kvValue,
-      });
-      if (!kvRes.ok) kvFailure = await kvRes.text();
-    } catch (err) {
-      kvFailure = err instanceof Error ? err.message : String(err);
+    for (let attempt = 0; attempt < KV_PUT_ATTEMPTS; attempt += 1) {
+      kvFailure = await putKvRecord(deps.fetch, kvUrl, cfApiToken, kvValue);
+      if (kvFailure === null) break;
     }
 
     if (kvFailure !== null) {
-      console.error(`KV sync failed: ${kvFailure}`);
-      return jsonResponse({
-        token,
-        keyId,
-        prefix,
-        tier: userTier,
-        name,
-        ...(requestId ? { requestId } : {}),
-        warning: "API key created but KV sync failed. Key may not work immediately.",
-      }, 201);
+      console.error(`api-keys-create: KV sync failed for ${keyId}: ${kvFailure}`);
+      const { error: revokeError } = await supabase
+        .from("api_keys")
+        .update({ status: "revoked", revoked_at: new Date().toISOString() })
+        .eq("id", keyId);
+      if (revokeError) {
+        console.error(`api-keys-create: revoking ${keyId} after the KV failure failed, revoke by hand: ${revokeError.message}`);
+      }
+      return errorResponse(KV_SYNC_FAILED, 503);
     }
 
     // api-keys-revoke deletes the KV record after marking the row revoked. If that ran
@@ -366,6 +360,20 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
 
     return jsonResponse({ token, keyId, prefix, tier: userTier, name, ...(requestId ? { requestId } : {}) }, 201);
   };
+}
+
+/** PUT a KV record; returns why it failed, or null on success. */
+async function putKvRecord(fetchFn: typeof fetch, kvUrl: string, cfApiToken: string, value: string): Promise<string | null> {
+  try {
+    const res = await fetchFn(kvUrl, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${cfApiToken}`, "Content-Type": "text/plain" },
+      body: value,
+    });
+    return res.ok ? null : await res.text();
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
 }
 
 /** DELETE a KV record; 404 means already gone. Failure is logged: the caller has nothing to retry. */

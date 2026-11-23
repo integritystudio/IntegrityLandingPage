@@ -238,14 +238,40 @@ describe('api-keys-rotate: a successful rotation', () => {
     expect(kvValue(OLD_KV_KEY)).toBeUndefined();
   });
 
-  it('still succeeds when the old KV record cannot be deleted, with the old row revoked', async () => {
+  it('issues the new key with a warning when the old KV record cannot be deleted, with the old row revoked', async () => {
     const { post, backend, keyRow, kvValue } = setup();
     backend.fail('kv-delete', { kind: 'http', status: 500, body: { success: false } });
 
     const res = await post(VALID_BODY);
+    const body = await res.json();
 
     expect(res.status).toBe(201);
+    expect(body.token).toEqual(expect.any(String));
+    expect(body.warning).toContain('previousKeyId');
     expect(keyRow(OLD_KEY_ID)?.status).toBe('revoked');
+    expect(kvValue(OLD_KV_KEY)).toBe(OLD_KV_VALUE);
+  });
+
+  it('retries an old-KV delete that fails once, and warns of nothing', async () => {
+    const { post, backend, kvValue } = setup();
+    backend.fail('kv-delete', { kind: 'network' }, 1);
+
+    const body = await (await post(VALID_BODY)).json();
+
+    expect(body.warning).toBeUndefined();
+    expect(kvValue(OLD_KV_KEY)).toBeUndefined();
+  });
+
+  it('keeps the old KV record, and warns, when the old row cannot be revoked', async () => {
+    const { post, backend, keyRow, kvValue } = setup();
+    backend.fail('update:api_keys', { kind: 'http', status: 500, body: { message: 'update failed' } });
+
+    const res = await post(VALID_BODY);
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.warning).toContain('could not be revoked');
+    expect(keyRow(OLD_KEY_ID)?.status).toBe('active');
     expect(kvValue(OLD_KV_KEY)).toBe(OLD_KV_VALUE);
   });
 });
@@ -262,6 +288,20 @@ describe('api-keys-rotate: a failure leaves the old key working', () => {
 
     expect(res.status).toBe(500);
     expect(backend.rows('api_keys')).toHaveLength(1);
+    expect(keyRow(OLD_KEY_ID)?.status).toBe('active');
+    expect(kvValue(OLD_KV_KEY)).toBe(OLD_KV_VALUE);
+  });
+
+  it('revokes the new row when the KV write fails and the rollback delete fails too', async () => {
+    const { post, backend, keyRow, kvValue } = setup();
+    backend.fail('kv', { kind: 'network' });
+    backend.fail('delete:api_keys', { kind: 'http', status: 500, body: { message: 'delete failed' } });
+
+    const res = await post(VALID_BODY);
+
+    expect(res.status).toBe(500);
+    const replacement = backend.rows('api_keys').find((row) => row.id !== OLD_KEY_ID);
+    expect(replacement).toMatchObject({ status: 'revoked' });
     expect(keyRow(OLD_KEY_ID)?.status).toBe('active');
     expect(kvValue(OLD_KV_KEY)).toBe(OLD_KV_VALUE);
   });

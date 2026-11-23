@@ -97,7 +97,6 @@ interface CreatedKey {
   prefix: string;
   tier: string;
   name: string;
-  warning?: string;
 }
 
 const sha256Hex = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -608,32 +607,45 @@ describe('api-keys-create: downstream failures', () => {
     expectNothingMinted(backend);
   });
 
-  it('still returns the token, with a warning, when KV rejects the write', async () => {
+  it.each([
+    ['rejects the write', { kind: 'http', status: 500, body: { success: false, errors: [{ code: 10001 }] } } as const],
+    ['is unreachable', { kind: 'network' } as const],
+  ])('answers 503, issues no token and revokes the row when KV %s on every attempt', async (_label, failure) => {
     const { backend, post } = setup();
-    backend.fail('kv', { kind: 'http', status: 500, body: { success: false, errors: [{ code: 10001 }] } });
+    backend.fail('kv', failure);
 
     const res = await post({ userId: USER_ID });
-    const body = (await res.json()) as CreatedKey;
+    const body = (await res.json()) as Partial<CreatedKey> & { error?: string };
 
-    expect(res.status).toBe(201);
-    expect(body.token).toMatch(TOKEN_PATTERN);
-    expect(body.warning).toBe('API key created but KV sync failed. Key may not work immediately.');
+    expect(res.status).toBe(503);
+    expect(body.token).toBeUndefined();
+    expect(body.error).toContain('retry');
     expect(backend.rows('api_keys')).toHaveLength(1);
+    expect(backend.rows('api_keys')[0]).toMatchObject({ status: 'revoked', revoked_at: expect.any(String) });
+    expect(backend.kv.size).toBe(0);
   });
 
-  // Regression (BACKLOG.md TS19): a network failure used to throw AFTER the api_keys row
-  // was inserted, so the caller got a 500 with no token and the active row was orphaned.
-  it('still returns the token, with a warning, when KV is unreachable', async () => {
+  it('retries a KV write that fails once, then issues the key', async () => {
     const { backend, post } = setup();
-    backend.fail('kv', { kind: 'network' });
+    backend.fail('kv', { kind: 'network' }, 1);
 
     const res = await post({ userId: USER_ID });
     const body = (await res.json()) as CreatedKey;
 
     expect(res.status).toBe(201);
-    expect(body.token).toMatch(TOKEN_PATTERN);
-    expect(body.warning).toBe('API key created but KV sync failed. Key may not work immediately.');
-    expect(backend.rows('api_keys')).toHaveLength(1);
+    expect(kvRecord(backend, body.token)).toMatchObject({ status: 'active', organizationId: GROWTH_ORG });
+    expect(backend.rows('api_keys')[0]).toMatchObject({ status: 'active' });
+  });
+
+  it('still answers 503 when revoking the row after a KV failure also fails', async () => {
+    const { backend, post } = setup();
+    backend.fail('kv', { kind: 'network' });
+    backend.fail('update:api_keys', { kind: 'http', status: 500, body: { message: 'update failed' } });
+
+    const res = await post({ userId: USER_ID });
+
+    expect(res.status).toBe(503);
+    expect(backend.kv.size).toBe(0);
   });
 });
 
