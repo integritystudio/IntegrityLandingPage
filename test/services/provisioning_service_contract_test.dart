@@ -32,7 +32,7 @@ void main() {
 
   group('SendRequestSchema contract', () {
     /// Links to: workers/sender-worker/src/types.ts:82–92
-    test('sends action, name, email, tier without extras when orgName is null', () async {
+    test('sends action, name and email, with no tier or extras, when orgName is null', () async {
       mockDio.mockPostResponse({'ok': true, 'token': 'sk-test123', 'received': {}});
       mockDio.mockGetResponse({'ok': true, 'service': 'api-provisioning-receiver'});
 
@@ -40,7 +40,6 @@ void main() {
         action: 'provision_api_key',
         name: 'alice',
         email: 'alice@example.com',
-        tier: 'starter',
       );
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
 
@@ -54,7 +53,6 @@ void main() {
         'action': 'provision_api_key',
         'name': 'alice',
         'email': 'alice@example.com',
-        'tier': 'starter',
         // org_name defaults to email domain in sender-worker schema, but we don't send it
       });
     });
@@ -67,7 +65,6 @@ void main() {
         action: 'provision_api_key',
         name: 'alice',
         email: 'alice@example.com',
-        tier: 'growth',
         orgName: 'Acme Corp',
       );
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
@@ -82,7 +79,6 @@ void main() {
         'action': 'provision_api_key',
         'name': 'alice',
         'email': 'alice@example.com',
-        'tier': 'growth',
         'org_name': 'Acme Corp',
       });
     });
@@ -104,29 +100,6 @@ void main() {
       // Assert
       expect(result, isA<ProvisioningSuccess>());
       expect(mockDio.lastPostBody?['action'], 'provision_api_key');
-    });
-
-    test('tier accepts all three valid values: starter, growth, enterprise', () async {
-      mockDio.mockPostResponse({'ok': true, 'token': 'sk-test123', 'received': {}});
-      mockDio.mockGetResponse({'ok': true, 'service': 'api-provisioning-receiver'});
-      const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';
-
-      for (final tier in ['starter', 'growth', 'enterprise']) {
-        mockDio.postCallCount = 0;
-        final event = ProvisioningEvent(
-          action: 'provision_api_key',
-          name: 'test',
-          email: 'test@example.com',
-          tier: tier,
-        );
-
-        // Act
-        final result = await ProvisioningService.sendEvent(event, jwt: jwt);
-
-        // Assert
-        expect(result, isA<ProvisioningSuccess>());
-        expect(mockDio.lastPostBody?['tier'], tier);
-      }
     });
 
     test('JWT is sent in x-session-data header as base64', () async {
@@ -181,7 +154,6 @@ void main() {
         'token': _productionToken,
         'keyId': '00000000-0000-4000-8000-000000000001',
         'prefix': _productionToken.substring(_tokenNamespace.length, _tokenNamespace.length + 8),
-        'tier': 'starter',
       });
       mockDio.mockGetResponse({'ok': true, 'service': 'api-provisioning-receiver'});
       const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9';

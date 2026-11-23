@@ -72,7 +72,6 @@ void main() {
             action: 'provision_api_key',
             name: 'Test User',
             email: 'test@example.com',
-            tier: 'starter',
           );
 
           final result = await ProvisioningService.sendEvent(event, jwt: _liveAccessToken);

@@ -35,7 +35,7 @@ void main() {
       expect(json['action'], 'provision_api_key');
       expect(json['name'], 'user-123');
       expect(json['email'], 'user@example.com');
-      expect(json['tier'], 'starter');
+      expect(json.containsKey('tier'), isFalse);
     });
 
     test('toJson matches SendRequestSchema keys exactly', () {
@@ -43,16 +43,14 @@ void main() {
         action: 'provision_api_key',
         name: 'alice',
         email: 'alice@example.com',
-        tier: 'growth',
         orgName: 'Acme Corp',
       );
 
       final json = event.toJson();
 
       // Must contain exactly the keys the worker expects
-      expect(json.keys, unorderedEquals(['action', 'name', 'email', 'tier', 'org_name']));
+      expect(json.keys, unorderedEquals(['action', 'name', 'email', 'org_name']));
       expect(json['org_name'], 'Acme Corp');
-      expect(json['tier'], 'growth');
     });
 
     test('toJson omits org_name when null', () {
@@ -65,18 +63,7 @@ void main() {
       final json = event.toJson();
 
       expect(json.containsKey('org_name'), isFalse);
-      expect(json.keys, unorderedEquals(['action', 'name', 'email', 'tier']));
-    });
-
-    test('defaults tier to starter', () {
-      final event = ProvisioningEvent(
-        action: 'provision_api_key',
-        name: 'carol',
-        email: 'carol@example.com',
-      );
-
-      expect(event.tier, 'starter');
-      expect(event.toJson()['tier'], 'starter');
+      expect(json.keys, unorderedEquals(['action', 'name', 'email']));
     });
   });
 

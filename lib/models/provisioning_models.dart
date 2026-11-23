@@ -12,7 +12,6 @@ abstract class ProvisioningEvent with _$ProvisioningEvent {
     required String action,
     required String name,
     required String email,
-    @Default('starter') String tier,
     String? orgName,
   }) = _ProvisioningEvent;
 
@@ -20,7 +19,6 @@ abstract class ProvisioningEvent with _$ProvisioningEvent {
         'action': action,
         'name': name,
         'email': email,
-        'tier': tier,
         if (orgName != null) 'org_name': orgName,
       };
 }
