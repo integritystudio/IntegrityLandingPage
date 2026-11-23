@@ -344,6 +344,23 @@ void main() {
       expect(Auth0Service.hasSession, isFalse);
     });
 
+    test('keeps the refresh token when Auth0 or its post-login Action fails transiently', () async {
+      final transient = [
+        ({'error': 'access_denied', 'error_description': 'Could not resolve user'}, 403),
+        ({'error': 'server_error'}, 500),
+        ({'error': 'too_many_requests'}, 429),
+      ];
+      for (final (body, status) in transient) {
+        await signIn();
+        now = now.add(const Duration(seconds: _expiresInSeconds));
+        http.stubJson('POST', body, statusCode: status, path: _tokenPath);
+
+        expect(await Auth0Service.currentSession(), isNull, reason: '$status ${body['error']}');
+        expect(browser.stores[BrowserStore.local]!['auth0_refresh_token'], isNotNull,
+            reason: '$status ${body['error']}');
+      }
+    });
+
     test('keeps the refresh token through a network failure', () async {
       await signIn();
       now = now.add(const Duration(seconds: _expiresInSeconds));

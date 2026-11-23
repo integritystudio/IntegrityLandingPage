@@ -94,8 +94,9 @@ class Auth0CallbackResult {
 class Auth0Exception implements Exception {
   final String message;
 
-  /// True when Auth0 answered and refused (a bad code, a revoked refresh token);
-  /// false for a network failure, which says nothing about the stored tokens.
+  /// True when Auth0 refused the grant itself (a bad code, a revoked or reused
+  /// refresh token); false for a network failure, a server error or an Action's
+  /// `access_denied`, none of which says the stored tokens are dead.
   final bool rejected;
 
   const Auth0Exception(this.message, {this.rejected = false});
@@ -125,6 +126,15 @@ abstract final class Auth0Service {
       'This sign-in link is invalid or has already been used. Please sign in again.';
   static const String _errorNetwork =
       'Could not reach the sign-in service. Please check your connection and try again.';
+  /// OAuth error codes that mean the grant is dead, so the stored refresh token
+  /// must be dropped. Anything else (5xx, 429, a post-login Action denying while
+  /// Supabase is unreachable) is worth retrying with the same token.
+  static const Set<String> _grantRejectedErrors = {
+    'invalid_grant',
+    'invalid_client',
+    'unauthorized_client',
+  };
+
   static const String _errorTokenResponse =
       'Sign-in failed. Please try again.';
 
@@ -293,7 +303,7 @@ abstract final class Auth0Service {
     if (response.statusCode != 200) {
       throw Auth0Exception(
         data['error_description'] as String? ?? _errorTokenResponse,
-        rejected: true,
+        rejected: _grantRejectedErrors.contains(data['error']),
       );
     }
 
