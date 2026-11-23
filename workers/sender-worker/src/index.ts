@@ -11,8 +11,6 @@ import {
   RECEIVER_PATHS,
   SERVICE_NAME,
   SendRequestSchema,
-  CreateCheckoutSessionSchema,
-  DEFAULT_APP_BASE_URL,
   type ErrorCode,
   type Env,
 } from "./types.js";
@@ -21,8 +19,6 @@ import { json } from "../../lib/http/responses.js";
 import { buildCors } from "../../lib/http/cors.js";
 import { errorResponse, resolveOutboundSigningKey, getClientIp } from "./utils.js";
 import { signMessage } from "./crypto.js";
-import { supabaseFindOrgIdByEmail } from "./supabase.js";
-import { createStripeCheckoutSession } from "./stripe.js";
 import { VERSION } from "./version.js";
 
 
@@ -166,82 +162,6 @@ async function handleSend(env: Env, req: Record<string, unknown>, clientIp?: str
   }
 }
 
-const SENTRY_WORKER_TAG = "sender-worker";
-const UNATTRIBUTED_CHECKOUT_MESSAGE: Record<UnattributedCheckoutReason, string> = {
-  "no-org": "Checkout started for an email that resolves to no organization",
-  "org-lookup-failed": "Checkout started without an organization: the org lookup failed",
-};
-type UnattributedCheckoutReason = "no-org" | "org-lookup-failed";
-
-/**
- * Report a checkout that stripe-webhook will not be able to link to an org. One Sentry
- * issue per reason. The address stays out of Sentry: its domain and the time are enough
- * to find the customer in Stripe.
- */
-function reportUnattributedCheckout(reason: UnattributedCheckoutReason, email: string, tier: string, cause?: unknown): void {
-  Sentry.withScope((scope) => {
-    scope.setTag("checkout_issue", reason);
-    scope.setTag("tier", tier);
-    scope.setTag("email_domain", email.slice(email.lastIndexOf("@") + 1).toLowerCase());
-    scope.setFingerprint([SENTRY_WORKER_TAG, "checkout", reason]);
-    Sentry.captureException(cause instanceof Error ? cause : new Error(UNATTRIBUTED_CHECKOUT_MESSAGE[reason]));
-  });
-}
-
-async function handleCreateCheckoutSession(env: Env, req: Record<string, unknown>): Promise<Response> {
-  if (!env.STRIPE_SECRET_KEY) {
-    return errorResponse("Stripe not configured", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
-
-  const parsed = CreateCheckoutSessionSchema.safeParse(req);
-  if (!parsed.success) {
-    const field = parsed.error.issues[0].path[0];
-    const code = field === "email" ? ERROR_CODE.INVALID_EMAIL : ERROR_CODE.MISSING_FIELDS;
-    return errorResponse(`invalid ${String(field)}`, code, HTTP_STATUS.BAD_REQUEST);
-  }
-
-  const { email, tier } = parsed.data;
-  const planToPriceJson = env.STRIPE_PLAN_TO_PRICE_JSON ?? "{}";
-  const appBaseUrl = env.APP_BASE_URL ?? DEFAULT_APP_BASE_URL;
-
-  // Attribute the checkout to an org so stripe-webhook can link the Stripe
-  // customer on checkout.session.completed. Best-effort by design: a lookup
-  // failure or an unknown email must not block a sale, so we log and continue
-  // with an unattributed session rather than returning an error.
-  let orgId: string | null = null;
-  try {
-    orgId = await supabaseFindOrgIdByEmail(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, email);
-    if (!orgId) {
-      console.warn("[checkout] no org resolved for", email, "— subscription will not be linked to an organization");
-      reportUnattributedCheckout("no-org", email, tier);
-    }
-  } catch (err) {
-    console.error("[checkout] org lookup failed:", err instanceof Error ? err.message : err);
-    reportUnattributedCheckout("org-lookup-failed", email, tier, err);
-  }
-
-  let result: Awaited<ReturnType<typeof createStripeCheckoutSession>>;
-  try {
-    result = await createStripeCheckoutSession(
-      env.STRIPE_SECRET_KEY,
-      planToPriceJson,
-      appBaseUrl,
-      email,
-      tier,
-      orgId,
-    );
-  } catch (err) {
-    console.error("[checkout] Stripe network error:", err instanceof Error ? err.message : err);
-    return errorResponse("checkout service unavailable", ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
-
-  if (!result.ok) {
-    return errorResponse(result.error, ERROR_CODE.INTERNAL_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
-
-  return json({ checkoutUrl: result.checkoutUrl });
-}
-
 // x-session-data is base64-wrapped to avoid WAF JWT pattern matching on the header value.
 function extractJwt(request: Request, body: Record<string, unknown>): string | undefined {
   const sessionData = request.headers.get("x-session-data");
@@ -279,12 +199,6 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
     if (body instanceof Response) return body;
     body.jwt = extractJwt(request, body);
     return handleSend(env, body, getClientIp(request));
-  }
-
-  if (request.method === HTTP_METHODS.POST && url.pathname === ROUTES.CREATE_CHECKOUT_SESSION) {
-    const body = await parseJsonBody(request);
-    if (body instanceof Response) return body;
-    return handleCreateCheckoutSession(env, body);
   }
 
   return errorResponse("not found", ERROR_CODE.NOT_FOUND, HTTP_STATUS.NOT_FOUND);

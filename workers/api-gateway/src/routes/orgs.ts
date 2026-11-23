@@ -341,16 +341,9 @@ export async function handleBillingPortal(
  * Starts a Stripe Checkout session so an org with no billing account can subscribe.
  * Requires a user session (owner or billing_admin), like the billing portal.
  *
- * This exists as an org-scoped route rather than reusing `sender-worker`'s
- * `POST /create-checkout-session` because that endpoint takes only `{email, tier}` and
- * resolves the organization itself, via `supabaseFindOrgIdByEmail` — which prefers the
- * user's `default_organization_id` and otherwise takes their oldest active membership.
- * For anyone who belongs to more than one org that resolves to the wrong one: the
- * reporter of this bug owns three, and their default org already holds a paid
- * subscription, so upgrading a *different* org through that path would have attached
- * the new Stripe customer to the org that was already paying and left the intended one
- * still showing no billing account. Taking the org id from the authenticated,
- * membership-checked route parameter removes the guess.
+ * The org comes from the authenticated, membership-checked route parameter, never from
+ * the caller's email: an email resolves to the user's default org, which for a member of
+ * several orgs is not necessarily the one being upgraded.
  *
  * The org id must never come from the request body. It is what `stripe-webhook` writes
  * `stripe_customer_id` from on `checkout.session.completed`, so a caller who could name

@@ -74,8 +74,8 @@ export const DEFAULT_CHECKOUT_SEATS = 1;
  * The Stripe price enforces the charge by itself: graduated tiers, a flat fee for the first
  * six users and then a per-user amount. The live Customer Portal allows quantity changes, so
  * a quantity cut below the minimum there still bills the minimum. Checkout opens at this
- * count so the recorded seat quantity matches what is billed. Mirrors `PLAN_MIN_SEATS` in
- * sender-worker `src/types.ts` and the price's first tier; keep all three in step.
+ * count so the recorded seat quantity matches what is billed. Mirrors the price's first
+ * tier; keep the two in step.
  */
 export const PLAN_MIN_SEATS: Partial<Record<ApiKeyTier, number>> = { enterprise: 6 };
 

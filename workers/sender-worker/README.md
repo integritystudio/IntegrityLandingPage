@@ -2,7 +2,7 @@
 
 Cloudflare Worker (`api-provisioning-sender`, deployed as `sender-worker`) that fronts the Flutter app for account provisioning. `POST /send` events are HMAC-SHA256-signed and forwarded to the production receiver `api-provisioning-receiver` over the `RECEIVER` service binding, which is where API keys are minted.
 
-`POST /create-checkout-session` opens a Stripe Checkout session, and `GET /health` reports liveness and the deployed version.
+`GET /health` reports liveness and the deployed version. `POST /create-checkout-session` was removed: it was unauthenticated and resolved the org from a posted email, so a stranger could check out first and fix that org's Stripe customer. Checkout is api-gateway's `POST /v1/orgs/:id/checkout-session`, which checks the Auth0 token and owner/billing_admin membership. The path now returns `404 NOT_FOUND`.
 
 The inline `POST /signup`, `POST /signin` and `POST /forgot-password` routes were removed (CR49); sign-in is Auth0 Universal Login, and those paths now return `404 NOT_FOUND`.
 
@@ -23,7 +23,6 @@ Every schema below lives in `src/types.ts`; the route constants are `ROUTES` in 
 |---|---|---|---|
 | GET | `/health` | — | `{ ok, service, version, timestamp }` |
 | POST | `/send` | `SendRequestSchema` (below) | Signed and forwarded to the receiver |
-| POST | `/create-checkout-session` | `CreateCheckoutSessionSchema`: `{ email, tier }` | Returns `{ checkoutUrl }`. The org is derived server-side from the email — never from the body. Enterprise opens at its 6-seat minimum (`PLAN_MIN_SEATS`) |
 
 ### POST /send
 
@@ -149,8 +148,8 @@ wrangler secret put ALLOWED_ORIGINS_JSON --env dev   # e.g. '["https://staging.e
 **Handling:**
 - OPTIONS preflight returns 204, with `access-control-allow-origin` only when the origin is allowed
 - A request from a disallowed origin returns 403
-- Requests without an `Origin` header (server-to-server, native) pass through unchanged — which is
-  why `/create-checkout-session` must never trust a caller-supplied org id
+- Requests without an `Origin` header (server-to-server, native) pass through unchanged, so the
+  origin gate is no authentication: every route must authenticate on its own
 
 ## References
 

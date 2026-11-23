@@ -3,7 +3,6 @@ import { z } from "zod";
 export const ROUTES = {
   HEALTH: "/health",
   SEND: "/send",
-  CREATE_CHECKOUT_SESSION: "/create-checkout-session",
 } as const;
 
 export const HTTP_METHODS = {
@@ -59,7 +58,7 @@ export const ERROR_DESCRIPTIONS: Partial<Record<ErrorCode, string>> = {
   [ERROR_CODE.FORBIDDEN]:
     "Request origin is not in the allowed origins list. Configure ALLOWED_ORIGINS_JSON on the worker if this origin should be permitted.",
   [ERROR_CODE.NOT_FOUND]:
-    "No route matches the request method and path. Supported routes: GET /health, POST /send, POST /create-checkout-session.",
+    "No route matches the request method and path. Supported routes: GET /health, POST /send.",
   [ERROR_CODE.INTERNAL_ERROR]:
     "Unclassified server error. Check worker logs for the underlying cause (missing env var, upstream timeout, or unhandled exception).",
   [ERROR_CODE.SIGNING_KEY_UNRESOLVED]:
@@ -83,11 +82,6 @@ export const RECEIVER_PATHS = {
   INBOX: "/inbox",
 } as const;
 
-export const SUPABASE_PATHS = {
-  USERS: "/rest/v1/users",
-  ORG_MEMBERSHIPS: "/rest/v1/organization_memberships",
-} as const;
-
 export const HEADER_NAMES = {
   CONTENT_TYPE: "content-type",
   AUTHORIZATION: "authorization",
@@ -103,17 +97,6 @@ export const HEADER_NAMES = {
 export const CONTENT_TYPES = {
   JSON: "application/json; charset=utf-8",
 } as const;
-
-export const ApiKeyTierSchema = z.enum(["starter", "growth", "enterprise"]);
-export type ApiKeyTier = z.infer<typeof ApiKeyTierSchema>;
-
-/** Seats a checkout opens at when the plan sets no minimum. */
-export const DEFAULT_CHECKOUT_SEATS = 1;
-
-// The fewest seats a plan can be bought with: enterprise is $50 per user per month with a
-// 6-user minimum. The Stripe price bills the minimum by itself (graduated tiers); checkout
-// opens here so the seat quantity matches. Mirrors PLAN_MIN_SEATS in workers/lib/billing.ts.
-export const PLAN_MIN_SEATS: Partial<Record<ApiKeyTier, number>> = { enterprise: 6 };
 
 export const ProvisionApiKeyRequestSchema = z.object({
   action: z.literal("provision_api_key"),
@@ -134,15 +117,7 @@ export const SendRequestSchema = z.discriminatedUnion("action", [
   ProvisionApiKeyRequestSchema,
 ]);
 
-export const CreateCheckoutSessionSchema = z.object({
-  email: z.string().email(),
-  tier: ApiKeyTierSchema,
-});
-export type CreateCheckoutSession = z.infer<typeof CreateCheckoutSessionSchema>;
-
 export const SERVICE_NAME = "api-provisioning-sender";
-
-export const DEFAULT_APP_BASE_URL = "https://integritystudio.ai";
 
 export interface Env {
   /**
@@ -165,9 +140,6 @@ export interface Env {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   ALLOWED_ORIGINS_JSON?: string;
-  STRIPE_SECRET_KEY?: string;
-  STRIPE_PLAN_TO_PRICE_JSON?: string;
-  APP_BASE_URL?: string;
   /** Optional: unset disables Sentry reporting; nothing else changes. */
   SENTRY_DSN?: string;
   /** Read by the Sentry SDK itself; set per environment in wrangler.toml. */

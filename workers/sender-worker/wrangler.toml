@@ -55,8 +55,6 @@ SENTRY_ENVIRONMENT = "production"
 # Isolation: RECEIVER binds the DEV receiver `api-provisioning-receiver-dev`
 # (repointed 2026-08-07, BACKLOG.md CR02 item 5 — until then it named the
 # production receiver; see the note on [[env.dev.services]] below).
-# /create-checkout-session does not go through RECEIVER and is isolated by the
-# Supabase and Stripe credentials the Doppler `dev` config supplies.
 [env.dev]
 name = "sender-worker-dev"
 
@@ -135,14 +133,14 @@ enabled = true
 #                                /forgot-password routes were removed); unbound from
 #                                sender-worker and sender-worker-dev 2026-10-07.
 #   ALLOWED_ORIGINS_JSON       — JSON array of allowed CORS origins (optional; defaults to integritystudio.ai and integritystudio.dev, apex and www — workers/lib/http/cors.ts)
-#   STRIPE_SECRET_KEY          — Stripe API key: prd holds an rk_live_ restricted key, dev a sandbox key
-#   STRIPE_PLAN_TO_PRICE_JSON  — JSON map of plan → Stripe price ID, e.g. {"growth":"price_xxx","enterprise":"price_yyy"}
-#   SENTRY_DSN                 — Sentry DSN (optional; unset = no reporting). Reports a checkout
-#                                started for an email with no org, and unhandled exceptions.
+#   STRIPE_SECRET_KEY, STRIPE_PLAN_TO_PRICE_JSON, APP_BASE_URL
+#                              — no longer read (/create-checkout-session removed; checkout is
+#                                api-gateway's org-scoped route); unbind from both Workers.
+#   SENTRY_DSN                 — Sentry DSN (optional; unset = no reporting). Reports unhandled
+#                                exceptions.
 #                                prd binds the `integritystudio-ai` project, the receiver's, from
 #                                Doppler SENTRY_OBTOOL_DASHBOARD_DSN. NOT Doppler's SENTRY_DSN,
 #                                which is the unrelated `tcad-scraper-backend` project.
-#   APP_BASE_URL               — Base URL for Stripe success/cancel redirects (optional; defaults to https://integritystudio.ai)
 
 # Local development: the Flutter app served at localhost:8080 signs in against the dev
 # Workers, so dev (and only dev) allows that origin. An explicit list replaces the
