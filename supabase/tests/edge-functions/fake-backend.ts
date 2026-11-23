@@ -224,6 +224,13 @@ export class FakeBackend {
       if (claim) {
         return json(400, { code: 'P0001', details: null, hint: null, message: 'api_key_request_abandoned' });
       }
+      if (typeof args.p_key_limit === 'number') {
+        const held = this.rows('api_keys').filter((row) =>
+          row.organization_id === args.p_organization_id && (row.status === 'active' || row.status === 'inactive'));
+        if (held.length >= args.p_key_limit) {
+          return json(400, { code: 'P0001', details: null, hint: null, message: 'api_key_quota_exceeded' });
+        }
+      }
       const keyId = `api_keys-${this.nextId++}`;
       this.tables.set('api_keys', [...this.rows('api_keys'), {
         id: keyId,

@@ -743,6 +743,56 @@ describe('api-keys-create: request ids', () => {
     expect(kvRecord(backend, body.token)).toMatchObject({ keyId: body.keyId });
   });
 
+  it('answers 409 quota_exceeded and mints nothing when the org already holds keyLimit keys', async () => {
+    const tables = baseTables();
+    tables.api_keys = [
+      { id: 'held-1', organization_id: GROWTH_ORG, status: 'active', hash: 'h1' },
+      { id: 'held-2', organization_id: GROWTH_ORG, status: 'inactive', hash: 'h2' },
+      { id: 'gone-1', organization_id: GROWTH_ORG, status: 'revoked', hash: 'h3' },
+    ];
+    const { backend, post } = setup({ tables });
+
+    const res = await post({ userId: USER_ID, requestId: REQUEST_ID, keyLimit: 2 });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'API key quota exceeded', code: 'quota_exceeded' });
+    expect(backend.rows('api_keys')).toHaveLength(3);
+    expect(backend.kv.size).toBe(0);
+  });
+
+  it('mints under keyLimit, counting only active and inactive keys', async () => {
+    const tables = baseTables();
+    tables.api_keys = [{ id: 'gone-1', organization_id: GROWTH_ORG, status: 'revoked', hash: 'h3' }];
+    const { post } = setup({ tables });
+
+    const res = await post({ userId: USER_ID, requestId: REQUEST_ID, keyLimit: 1 });
+
+    expect(res.status).toBe(201);
+  });
+
+  it.each([
+    ['a negative number', -1],
+    ['a fraction', 1.5],
+    ['a string', '3'],
+  ])('answers 400 and mints nothing for a keyLimit that is %s', async (_label, keyLimit) => {
+    const { backend, post } = setup();
+
+    const res = await post({ userId: USER_ID, requestId: REQUEST_ID, keyLimit });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'keyLimit must be a non-negative integer' });
+    expectNothingMinted(backend);
+  });
+
+  it('answers 400 to a keyLimit without a requestId, which the direct insert could not enforce', async () => {
+    const { backend, post } = setup();
+
+    const res = await post({ userId: USER_ID, keyLimit: 3 });
+
+    expect(res.status).toBe(400);
+    expectNothingMinted(backend);
+  });
+
   it('echoes the requestId in the 201 so the caller can tell its claim was honoured', async () => {
     const { post } = setup();
 

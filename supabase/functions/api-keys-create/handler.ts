@@ -85,6 +85,9 @@ const DEFAULT_TIER = "starter";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Raised by create_api_key_for_request when abandon_api_key_request claimed the id first.
 const REQUEST_ABANDONED = "api_key_request_abandoned";
+// Raised by create_api_key_for_request when the org already holds keyLimit keys (20261122010000).
+const QUOTA_EXCEEDED = "api_key_quota_exceeded";
+const QUOTA_EXCEEDED_CODE = "quota_exceeded";
 // A failed membership query is an outage, not "no membership": answer 5xx so the
 // receiver can retry rather than read it as a 403 (TS20).
 const MEMBERSHIP_LOOKUP_FAILED = "Database error resolving membership.";
@@ -127,6 +130,10 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
     // the response can abandon the attempt and revoke exactly the key it created.
     let requestId: string | null = null;
     let requestIdInvalid = false;
+    // Optional per-org key limit the receiver decides (its QUOTA_LIMITS); enforced inside the
+    // create transaction so concurrent creates cannot all pass a count taken before them.
+    let keyLimit: number | null = null;
+    let keyLimitInvalid = false;
     try {
       const body = await req.json();
       if (body.name && typeof body.name === "string") {
@@ -140,6 +147,13 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
       }
       if (body.userId && typeof body.userId === "string") {
         bodyUserId = body.userId;
+      }
+      if (body.keyLimit !== undefined) {
+        if (Number.isInteger(body.keyLimit) && body.keyLimit >= 0) {
+          keyLimit = body.keyLimit;
+        } else {
+          keyLimitInvalid = true;
+        }
       }
       if (body.requestId !== undefined) {
         if (typeof body.requestId === "string" && UUID_PATTERN.test(body.requestId)) {
@@ -156,6 +170,12 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
     }
     if (requestIdInvalid) {
       return errorResponse("requestId must be a UUID", 400);
+    }
+    if (keyLimitInvalid) {
+      return errorResponse("keyLimit must be a non-negative integer", 400);
+    }
+    if (keyLimit !== null && !requestId) {
+      return errorResponse("keyLimit requires a requestId", 400);
     }
 
     const supabase = deps.createClient(supabaseUrl, serviceRoleKey, { global: { fetch: deps.fetch } });
@@ -274,10 +294,15 @@ export function createApiKeysCreateHandler(deps: HandlerDeps): (req: Request) =>
         p_hash: hash,
         p_name: name,
         p_tier: userTier,
+        ...(keyLimit !== null ? { p_key_limit: keyLimit } : {}),
       });
       if (rpcError) {
-        if (String(rpcError.message ?? "").includes(REQUEST_ABANDONED)) {
+        const rpcMessage = String(rpcError.message ?? "");
+        if (rpcMessage.includes(REQUEST_ABANDONED)) {
           return errorResponse("request abandoned", 409);
+        }
+        if (rpcMessage.includes(QUOTA_EXCEEDED)) {
+          return jsonResponse({ error: "API key quota exceeded", code: QUOTA_EXCEEDED_CODE }, 409);
         }
         return errorResponse(`Failed to create API key: ${rpcError.message}`, 500);
       }
