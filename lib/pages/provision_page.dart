@@ -64,8 +64,8 @@ class _ProvisionPageState extends State<ProvisionPage> {
       _errorMessage = null;
     });
 
-    // Sent exactly as Auth0 returned it: the receiver compares it byte for byte
-    // with /userinfo, so normalising it here would fail as an email mismatch.
+    // Sent exactly as Auth0 returned it; the receiver compares it with /userinfo
+    // case-insensitively.
     final session = widget.args.session;
     final event = ProvisioningEvent(
       action: 'provision_api_key',

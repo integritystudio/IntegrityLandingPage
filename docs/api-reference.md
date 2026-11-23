@@ -209,11 +209,10 @@ Flutter app ── POST /send (x-session-data: base64 token) ──▶ sender-wo
 |---|---|---|---|
 | GET | `/health` | — | `{ ok, service: "api-provisioning-sender", version, timestamp }` |
 | POST | `/send` | `SendRequestSchema` | receiver's response, passed through |
-| POST | `/create-checkout-session` | `{ email, tier }` | `{ checkoutUrl }` |
 
 The Auth0 ROPC routes `/signup`, `/signin` and `/forgot-password` were deleted by [CR49](changelog/1.4/CHANGELOG.md#cr49) and now answer 404.
 
-`/create-checkout-session` is unauthenticated and resolves the org from the email server-side, which is correct only for a single-org user at sign-up. Authenticated callers with a known org use `POST /v1/orgs/:id/checkout-session` on `api-gateway`, where the org comes from a membership-checked path parameter. Neither route accepts an org id in the body.
+`/create-checkout-session` is removed and answers 404: it was unauthenticated and resolved the org from a posted email. Checkout is `POST /v1/orgs/:id/checkout-session` on `api-gateway`, where the org comes from a membership-checked path parameter, never from the body.
 
 ### `/send` contract
 
@@ -256,7 +255,7 @@ The body is the validated payload re-serialised. The receiver accepts it only if
 2. the signature matches, compared in constant time;
 3. the timestamp is within 5 minutes in the past or 30 seconds in the future;
 4. the signature has not been seen within that window (nonce in KV);
-5. the token is valid at Auth0 `/userinfo` and its email matches the request byte for byte.
+5. the token is valid at Auth0 `/userinfo` and its email matches the request's, compared case-insensitively.
 
 An unknown key id and a forged signature produce the same rejection, so key ids cannot be enumerated.
 
@@ -273,7 +272,6 @@ The sender **fails closed**: if `ACTIVE_KEY_ID` is unset, or `SIGNING_KEYS` is u
 | Method | Target |
 |---|---|
 | `sendEvent` | `POST $SENDER_WORKER_URL/send`; retries 500, 504, timeouts and connection errors twice (1 s, 2 s); reads the key from `token` |
-| `createCheckoutSession` | `POST $SENDER_WORKER_URL/create-checkout-session` |
 | `bootstrap` | `POST $API_GATEWAY_URL/bootstrap` |
 
 Dart request and response shapes are checked against the Workers' Zod schemas by contract tests; see the Testing Strategy in [CLAUDE.md](../CLAUDE.md).

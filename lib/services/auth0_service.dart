@@ -16,8 +16,8 @@ export 'auth0_browser.dart' show Auth0Browser, BrowserStore;
 class Auth0Session {
   final String accessToken;
 
-  /// As Auth0 returns it. The receiver compares it byte for byte with /userinfo,
-  /// so it must not be normalised.
+  /// As Auth0 returns it. The receiver compares it with /userinfo
+  /// case-insensitively.
   final String email;
   final DateTime expiresAt;
 

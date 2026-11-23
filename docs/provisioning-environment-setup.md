@@ -16,8 +16,8 @@ This guide covers HMAC signing-key generation and rotation (`SIGNING_KEYS` + `AC
 
 2. **CLI Tools**
    ```bash
-   npm install -g wrangler          # Cloudflare Workers CLI
-   brew install openssl             # For secret generation
+   brew install doppler openssl     # Doppler CLI (every deploy runs under `doppler run`); openssl for secrets
+   # wrangler is pinned per Worker in its package.json: run it with npx from the Worker's directory
    ```
 
 3. **Repository Access**
@@ -71,6 +71,24 @@ flutter run -d chrome \
 flutter build web \
   --dart-define=SENDER_WORKER_URL=https://sender-worker.alyshia-b38.workers.dev
 ```
+
+---
+
+## Environments
+
+| | Development | Production |
+|---|---|---|
+| Doppler config | `integrity-studio/dev` | `integrity-studio/prd` |
+| Sender Worker | `sender-worker-dev` (`[env.dev]`) | `sender-worker` |
+| Receiver Worker (observability-toolkit) | `api-provisioning-receiver-dev` | `api-provisioning-receiver` |
+| Supabase project | `tumhmtshahktumhqqamk` | `cfrbahzzklwrnmbtqojl` |
+| Auth0 tenant | `dev-njjmghdzm23uy0p7` | `dev-68gg87ow4mg4kzyo` (custom domain `auth.integritystudio.ai`) |
+| Signing key id | `dev1` | `v2` |
+| Deploy (this repo) | `npm run deploy` | `npm run deploy:prd` |
+
+**`npm run deploy` means opposite things in the two repos.** Here it deploys **dev** (`doppler run --config dev -- wrangler deploy --env dev`); in observability-toolkit `npm run deploy` is a bare `wrangler deploy`, which is **production**, and `deploy:dev` is dev. Read the script before running it.
+
+The dev sender's `RECEIVER` binding names the dev receiver, so a dev `SIGNING_KEYS`/`ACTIVE_KEY_ID` pair must match the dev receiver's map. Never copy production's `SIGNING_KEYS` into dev.
 
 ---
 
@@ -276,8 +294,11 @@ Fix: Check NTP sync on origin servers
 **3. CORS Rejection (403 forbidden)**
 ```
 Cause: Flutter app origin not in ALLOWED_ORIGINS_JSON
-Fix: Update sender-worker vars:
-  wrangler deploy --var ALLOWED_ORIGINS_JSON='["https://your-origin"]'
+Fix: set the sender's ALLOWED_ORIGINS_JSON secret in the environment that refused it
+  (a --var on deploy is wiped by the next deploy):
+  cd workers/sender-worker
+  npx wrangler secret put ALLOWED_ORIGINS_JSON --env dev   # dev
+  npx wrangler secret put ALLOWED_ORIGINS_JSON             # production
 ```
 
 **4. Receiver Unreachable (502)**

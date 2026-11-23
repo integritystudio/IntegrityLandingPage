@@ -62,7 +62,7 @@ Auth0 Universal Login (password, reset)  ── post-login Action runs ──
 ```
 
 - **The post-login Action** finds or inserts the `public.users` row by `auth0_id` and adds namespaced `roles`, `permissions` and `app_user_id` claims; it also runs on refresh-token exchanges, which it does not count as logins. Its fail-closed and email re-link guards, and which token carries which claim, are in [TWO_LAYER_AUTH_ARCHITECTURE.md § Layer 1](TWO_LAYER_AUTH_ARCHITECTURE.md#layer-1-human-identity--auth0-universal-login).
-- **The email comes from the ID token's `email` claim**, read without signature verification: the token came straight from Auth0's token endpoint over TLS, and nothing authorises on it. It is kept exactly as Auth0 returned it, because the receiver compares it byte for byte.
+- **The email comes from the ID token's `email` claim**, read without signature verification: the token came straight from Auth0's token endpoint over TLS, and nothing authorises on it. It is kept exactly as Auth0 returned it; the receiver compares it with `/userinfo`'s case-insensitively.
 
 ## Sign-up
 
@@ -91,7 +91,7 @@ Auth0 Universal Login (password, reset)  ── post-login Action runs ──
 |---|---|
 | `api-gateway` | `verifyJwt` (`workers/lib/auth.ts`) against `https://<AUTH0_DOMAIN>/.well-known/jwks.json`, issuer `https://<AUTH0_DOMAIN>/` — or, when `AUTH0_CUSTOM_DOMAIN` is set, either that or `https://<AUTH0_CUSTOM_DOMAIN>/` (the custom domain stamps its own `iss`, same key set; [CR70](BACKLOG.md#cr70)) — audience `AUTH0_AUDIENCE`. All are checked-in `vars`: production's tenant and custom domain at the top level, the dev tenant alone under `[env.dev.vars]`. The `sub` claim is the caller, resolved through `users.auth0_id`. A bearer token that parses as an API key (`obtk_` or `int_live_`) is verified as a key instead. |
 | `sender-worker` `/send` | Reads the token from `x-session-data` (base64), else the body's `jwt`, else `Authorization: Bearer`, and checks only that it is JWT-shaped. The receiver does the real check. |
-| `api-provisioning-receiver` (observability-toolkit) | Checks the token against Auth0's `/userinfo` and compares the email byte for byte. |
+| `api-provisioning-receiver` (observability-toolkit) | Checks the token against Auth0's `/userinfo` and compares the email case-insensitively. |
 | integritystudio.dev (dashboard repo) | Reads Supabase directly with the Auth0 **ID** token through Supabase Third-Party Auth ([CR62](changelog/1.3/CHANGELOG.md#cr62)), which is what the Action's `role` claim is for. |
 
 **`SUPABASE_JWT_SECRET` is deliberately unbound on api-gateway** (CR26) — do not bind it to fix a 401. Why, and the full verification pipeline: [TWO_LAYER_AUTH_ARCHITECTURE.md § Request journey](TWO_LAYER_AUTH_ARCHITECTURE.md#request-journey-through-api-gateway).

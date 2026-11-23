@@ -619,11 +619,9 @@ class DashboardService {
   /// Calls POST /v1/orgs/:orgId/checkout-session to start a Stripe Checkout
   /// session for [plan]. Requires owner or billing_admin role.
   ///
-  /// Deliberately routed through api-gateway rather than the sender-worker's
-  /// `/create-checkout-session`, which takes only an email and resolves the
-  /// organization itself — for a user in more than one org that resolves to their
-  /// default org, not the one whose billing page they are on. Passing [orgId] is
-  /// what keeps the resulting subscription attached to the org being upgraded.
+  /// The org comes from [orgId], a membership-checked path parameter, never from
+  /// the caller's email: for a user in more than one org, an email resolves to the
+  /// default org rather than the one being upgraded.
   static Future<BillingPortalResponse> createCheckoutSession({
     required String orgId,
     required String jwt,
