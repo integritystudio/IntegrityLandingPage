@@ -13,6 +13,7 @@ import '../widgets/common/dashboard_scaffold.dart';
 import '../widgets/common/error_card.dart';
 import 'billing_status_page.dart';
 import 'entitlements_page.dart';
+import 'provision_page.dart';
 import 'quota_status_page.dart';
 import 'usage_summary_page.dart';
 
@@ -208,6 +209,20 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  /// Reopens key provisioning with the stored session. This is the way back for a
+  /// user whose first key was never issued (the create failed, or the tab closed
+  /// before it showed): the callback sends anyone with an org here, not to
+  /// /provision. The receiver reuses the existing org and enforces the key quota.
+  Future<void> _openProvision() async {
+    final session = await Auth0Service.currentSession();
+    if (!mounted) return;
+    if (session == null) {
+      Auth0Service.login();
+      return;
+    }
+    _navigateTo(Routes.provision, ProvisionArgs(session: session));
+  }
+
   Widget _buildOrgSwitcher() {
     return DropdownButton<String>(
       value: _activeOrg?.orgId,
@@ -393,6 +408,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               );
             },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildNavCard(
+            label: 'API key',
+            icon: LucideIcons.keyRound,
+            description: 'Generate a key for sending telemetry',
+            onTap: _openProvision,
           ),
           const SizedBox(height: AppSpacing.md),
           _buildNavCard(

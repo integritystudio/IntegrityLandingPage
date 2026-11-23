@@ -25,9 +25,9 @@ class ProvisionArgs {
 
 /// Provision API key page.
 ///
-/// Reached from the Auth0 callback when the signed-in user has no org yet.
-/// Generating the first key creates their org; the key is shown once, in a
-/// copyable code block.
+/// Reached from the Auth0 callback when the signed-in user has no org yet, and
+/// from the dashboard's API key card. Generating the first key creates their
+/// org; a later one reuses it. The key is shown once, in a copyable code block.
 class ProvisionPage extends StatefulWidget {
   final ProvisionArgs args;
   final VoidCallback? onBack;

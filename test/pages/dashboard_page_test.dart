@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:integrity_studio_ai/config/content/constants.dart';
 import 'package:integrity_studio_ai/pages/dashboard_page.dart';
+import 'package:integrity_studio_ai/pages/provision_page.dart';
 import 'package:integrity_studio_ai/services/auth0_config.dart';
 import 'package:integrity_studio_ai/services/auth0_service.dart';
 import 'package:integrity_studio_ai/services/dashboard_service.dart';
@@ -160,6 +165,63 @@ void main() {
 
       expect(find.text('Join your team'), findsOneWidget);
       expect(find.text('Verify your email address, then try again.'), findsOneWidget);
+    });
+  });
+
+  group('API key card', () {
+    late FakeAuth0Browser browser;
+    ProvisionArgs? provisionArgs;
+
+    setUp(() {
+      provisionArgs = null;
+      browser = FakeAuth0Browser();
+      Auth0Service.setForTesting(browser: browser);
+      DashboardService.setDioForTesting(dioWithMockAdapter(MockHttpAdapter()
+        ..stubJson('GET', {
+          'organizations': [
+            {'id': 'org-1', 'name': 'Org One'},
+          ],
+        }, path: '/v1/orgs')
+        ..stubJson('GET', noTeam, path: '/v1/me/team')));
+    });
+
+    tearDown(() {
+      Auth0Service.resetForTesting();
+      DashboardService.resetDio();
+    });
+
+    Future<void> pumpDashboardRouter(WidgetTester tester) async {
+      await tester.pumpWidget(MaterialApp.router(
+        theme: testTheme,
+        routerConfig: GoRouter(routes: [
+          GoRoute(path: '/', builder: (_, _) => const DashboardPage(args: DashboardArgs(jwt: 'test.jwt'))),
+          GoRoute(
+            path: Routes.provision,
+            builder: (_, state) {
+              provisionArgs = state.extra as ProvisionArgs;
+              return const Text('provision');
+            },
+          ),
+        ]),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('opens provisioning with the stored session, so an org without a key can get one', (tester) async {
+      browser.write(BrowserStore.session, 'auth0_session', jsonEncode(Auth0Session(
+        accessToken: 'stored.jwt',
+        email: 'Owner@Example.com',
+        expiresAt: DateTime.now().add(const Duration(hours: 1)),
+      ).toJson()));
+      await pumpDashboardRouter(tester);
+
+      await tester.ensureVisible(find.text('API key'));
+      await tester.tap(find.text('API key'));
+      await tester.pumpAndSettle();
+
+      expect(provisionArgs?.session.accessToken, 'stored.jwt');
+      expect(provisionArgs?.session.email, 'Owner@Example.com');
+      expect(provisionArgs?.signup, isNull);
     });
   });
 
