@@ -111,7 +111,7 @@ class _ProvisionPageState extends State<ProvisionPage> {
   void _goToCheckout(SignupIntent signup) {
     context.go(
       Routes.checkout,
-      extra: CheckoutArgs(email: widget.args.session.email, tier: signup.tier),
+      extra: CheckoutArgs(jwt: widget.args.session.accessToken, tier: signup.tier),
     );
   }
 

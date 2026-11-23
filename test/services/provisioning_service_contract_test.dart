@@ -311,75 +311,6 @@ void main() {
     });
   });
 
-  group('Checkout response contract', () {
-    /// Links to: workers/sender-worker/src/index.ts:handleCreateCheckoutSession
-    test('{ checkoutUrl: "https://..." } returns CheckoutSuccess', () async {
-      mockDio.mockPostResponse({
-        'checkoutUrl': 'https://checkout.stripe.com/session/123',
-      });
-
-      // Act
-      final result = await ProvisioningService.createCheckoutSession(
-        email: 'test@example.com',
-        tier: 'growth',
-      );
-
-      // Assert
-      expect(result, isA<CheckoutSuccess>());
-      expect(
-        (result as CheckoutSuccess).checkoutUrl,
-        'https://checkout.stripe.com/session/123',
-      );
-    });
-
-    test('missing checkoutUrl on 200 returns CheckoutError', () async {
-      mockDio.mockPostResponse({'status': 'pending'});
-
-      // Act
-      final result = await ProvisioningService.createCheckoutSession(
-        email: 'test@example.com',
-        tier: 'growth',
-      );
-
-      // Assert
-      expect(result, isA<CheckoutError>());
-    });
-
-    test('request body contains email and tier only', () async {
-      mockDio.mockPostResponse({
-        'checkoutUrl': 'https://checkout.stripe.com/session/123',
-      });
-
-      // Act
-      await ProvisioningService.createCheckoutSession(
-        email: 'test@example.com',
-        tier: 'enterprise',
-      );
-
-      // Assert
-      expect(mockDio.lastPostBody, {
-        'email': 'test@example.com',
-        'tier': 'enterprise',
-      });
-    });
-
-    test('non-200 status returns CheckoutError', () async {
-      mockDio.mockPostResponse(
-        {'error': 'Not configured'},
-        statusCode: 500,
-      );
-
-      // Act
-      final result = await ProvisioningService.createCheckoutSession(
-        email: 'test@example.com',
-        tier: 'growth',
-      );
-
-      // Assert
-      expect(result, isA<CheckoutError>());
-    });
-  });
-
   group('Error response contract', () {
     /// Links to: workers/lib/http/responses.ts (errorResponse helper)
     test('all error status codes return { error: string }', () async {
@@ -424,22 +355,6 @@ void main() {
 
       // Assert
       expect(result, isA<ProvisioningError>());
-    });
-
-    test('Dart service reads error as string', () async {
-      mockDio.mockPostResponse(
-        {'error': 'Stripe not configured'},
-        statusCode: 503,
-      );
-
-      // Act
-      final result = await ProvisioningService.createCheckoutSession(
-        email: 'test@example.com',
-        tier: 'growth',
-      );
-
-      // Assert: service parses error string without throwing
-      expect(result, isA<CheckoutError>());
     });
   });
 }

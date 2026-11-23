@@ -78,11 +78,12 @@ abstract class BootstrapUsageSnapshot with _$BootstrapUsageSnapshot {
       _$BootstrapUsageSnapshotFromJson(json);
 }
 
-/// Arguments passed to CheckoutPage.
+/// Arguments passed to CheckoutPage. The access token, never an email, decides
+/// which org pays: the checkout runs through api-gateway's org-scoped route.
 @Freezed(fromJson: false, toJson: false)
 abstract class CheckoutArgs with _$CheckoutArgs {
   const factory CheckoutArgs({
-    required String email,
+    required String jwt,
     required String tier,
   }) = _CheckoutArgs;
 }

@@ -86,36 +86,6 @@ void main() {
       );
     });
 
-    group('createCheckoutSession', () {
-      test(
-        'returns CheckoutSuccess with valid Stripe URL',
-        skip: 'dev worker has Stripe sandbox keys bound, but this creates a real test-mode session; '
-            'run manually with a disposable test email when exercising the checkout flow',
-        () async {
-          final result = await ProvisioningService.createCheckoutSession(
-            email: 'test@example.com',
-            tier: 'growth',
-          );
-
-          expect(result, isA<CheckoutSuccess>());
-          final success = result as CheckoutSuccess;
-          expect(success.checkoutUrl, contains('stripe.com'));
-        },
-      );
-
-      test('gracefully handles missing Stripe configuration', () async {
-        // Dev worker has Stripe sandbox keys bound (2026-08-03), so this will
-        // typically return CheckoutSuccess, not CheckoutError.
-        final result = await ProvisioningService.createCheckoutSession(
-          email: 'test@example.com',
-          tier: 'growth',
-        );
-
-        // Result is either CheckoutSuccess or CheckoutError — both are acceptable here.
-        expect(result, isA<CheckoutResponse>());
-      });
-    });
-
     group('bootstrap', () {
       test(
         'returns BootstrapSuccess with org and entitlements',

@@ -1,12 +1,16 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:integrity_studio_ai/pages/checkout_page.dart';
+import 'package:integrity_studio_ai/services/dashboard_service.dart';
 import 'package:integrity_studio_ai/services/provisioning_service.dart';
 import '../helpers/test_helpers.dart';
 
 import '../helpers/mock_http_adapter.dart';
+
+const _jwt = 'test-jwt';
+const _orgId = 'org-1';
+const _checkoutUrl = 'https://checkout.stripe.com/c/pay/cs_test_1';
 
 /// GoRouter wrapping CheckoutPage for navigation testing.
 GoRouter _makeCheckoutRouter({required CheckoutArgs args}) {
@@ -30,137 +34,113 @@ GoRouter _makeCheckoutRouter({required CheckoutArgs args}) {
   );
 }
 
+/// CheckoutPage contract:
+/// - Resolves the active org from /bootstrap with the session's token, never
+///   from an email, and checks out that org through api-gateway's org-scoped
+///   POST /v1/orgs/:id/checkout-session with the same token.
+/// - A failure at either step goes to /request_failure, or to /request_success
+///   for enterprise, whose org exists either way.
 void main() {
-  setUp(setUpOverflowErrorSuppression);
-  tearDown(tearDownOverflowErrorSuppression);
+  late MockHttpAdapter provisioning;
+  late MockHttpAdapter dashboard;
 
-  group('CheckoutPage', () {
-    group('loading state', () {
-      testWidgets('renders loading indicator while fetching session',
-          (tester) async {
-        setDesktopSize(tester);
+  setUp(() {
+    setUpOverflowErrorSuppression();
+    provisioning = MockHttpAdapter();
+    dashboard = MockHttpAdapter();
+    ProvisioningService.setDioForTesting(dioWithMockAdapter(provisioning));
+    DashboardService.setDioForTesting(dioWithMockAdapter(dashboard));
+    ProvisioningService.retryDelay = (_) async {};
+    DashboardService.retryDelay = (_) async {};
+  });
 
-        // Mock: never resolves — page stays in loading state.
-        final adapter = MockHttpAdapter()..stubNever('POST');
-        ProvisioningService.setDioForTesting(dioWithMockAdapter(adapter));
-        addTearDown(ProvisioningService.resetDio);
+  tearDown(() {
+    ProvisioningService.resetDio();
+    ProvisioningService.resetRetryDelay();
+    DashboardService.resetDio();
+    DashboardService.resetRetryDelay();
+    tearDownOverflowErrorSuppression();
+  });
 
-        final args = CheckoutArgs(email: 'user@example.com', tier: 'growth');
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: CheckoutPage(args: args),
-          ),
-        );
-        await tester.pump();
-        // Flush dio's request-start timer; the stubbed transport then holds
-        // the request open as a pending Future (allowed by the test binding).
-        await tester.pump(const Duration(milliseconds: 1));
+  void stubBootstrap() {
+    provisioning.stubJson(
+      'POST',
+      {
+        'organizations': [
+          {'id': _orgId, 'name': 'Acme', 'role': 'owner', 'plan_key': 'starter', 'billing_status': 'inactive'},
+        ],
+        'active_org_id': _orgId,
+        'entitlements': {'monthly_units': 0},
+        'usage_snapshot': {'month_to_date_units': 0},
+      },
+      path: '/bootstrap',
+    );
+  }
 
-        expect(find.byType(CircularProgressIndicator), findsOneWidget);
-        expect(find.textContaining('Redirecting'), findsOneWidget);
-      });
-    });
+  Future<void> pumpAndSettleRequests(WidgetTester tester, CheckoutArgs args) async {
+    setDesktopSize(tester);
+    await tester.pumpWidget(MaterialApp.router(
+      theme: testTheme,
+      routerConfig: _makeCheckoutRouter(args: args),
+    ));
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
 
-    group('error routing', () {
-      late MockHttpAdapter adapter;
+  testWidgets('renders a loading indicator while the session is created', (tester) async {
+    setDesktopSize(tester);
+    provisioning.stubNever('POST');
 
-      setUp(() {
-        adapter = MockHttpAdapter();
-        ProvisioningService.setDioForTesting(dioWithMockAdapter(adapter));
-        ProvisioningService.retryDelay = (_) async {};
-      });
+    await tester.pumpWidget(MaterialApp(
+      theme: testTheme,
+      home: const CheckoutPage(args: CheckoutArgs(jwt: _jwt, tier: 'growth')),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
 
-      tearDown(() {
-        ProvisioningService.resetDio();
-        ProvisioningService.resetRetryDelay();
-      });
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.textContaining('Redirecting'), findsOneWidget);
+  });
 
-      testWidgets('routes to /request_failure on CheckoutError for growth tier', (tester) async {
-        setDesktopSize(tester);
-        adapter.stubJson('POST', 
-          {'error': 'Stripe not configured'},
-          statusCode: 500,
-        );
+  testWidgets('checks out the bootstrap org through the gateway with the session token', (tester) async {
+    stubBootstrap();
+    dashboard.stubJson('POST', {'url': _checkoutUrl}, path: '/v1/orgs/$_orgId/checkout-session');
 
-        final args = CheckoutArgs(email: 'user@example.com', tier: 'growth');
-        final router = _makeCheckoutRouter(args: args);
+    await pumpAndSettleRequests(tester, const CheckoutArgs(jwt: _jwt, tier: 'Growth'));
 
-        await tester.pumpWidget(MaterialApp.router(
-          theme: testTheme,
-          routerConfig: router,
-        ));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
+    final checkout = dashboard.requestLog.singleWhere((r) => r.path.endsWith('/checkout-session'));
+    expect(checkout.headers['Authorization'], 'Bearer $_jwt');
+    expect(checkout.data, {'plan': 'growth'});
+    expect(find.text('request_failure_page'), findsNothing);
+  });
 
-        expect(find.text('request_failure_page'), findsOneWidget);
-      });
+  testWidgets('routes to /request_failure when the gateway refuses a growth checkout', (tester) async {
+    stubBootstrap();
+    dashboard.stubJson('POST', {'error': 'Forbidden'}, statusCode: 403, path: '/v1/orgs/$_orgId/checkout-session');
 
-      testWidgets('routes to /request_success on CheckoutError for enterprise tier', (tester) async {
-        setDesktopSize(tester);
-        adapter.stubJson('POST', 
-          {'error': 'no Stripe price configured for tier: enterprise'},
-          statusCode: 500,
-        );
+    await pumpAndSettleRequests(tester, const CheckoutArgs(jwt: _jwt, tier: 'growth'));
 
-        final args = CheckoutArgs(email: 'corp@bigco.com', tier: 'enterprise');
-        final router = _makeCheckoutRouter(args: args);
+    expect(find.text('request_failure_page'), findsOneWidget);
+  });
 
-        await tester.pumpWidget(MaterialApp.router(
-          theme: testTheme,
-          routerConfig: router,
-        ));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
+  testWidgets('routes to /request_failure, calling no checkout, when bootstrap fails', (tester) async {
+    provisioning.stubJson('POST', {'error': 'Unauthorized'}, statusCode: 401, path: '/bootstrap');
 
-        expect(find.text('request_success_page'), findsOneWidget);
-        expect(find.text('request_failure_page'), findsNothing);
-      });
-    });
+    await pumpAndSettleRequests(tester, const CheckoutArgs(jwt: _jwt, tier: 'growth'));
 
-    group('args', () {
-      testWidgets('accepts growth tier args', (tester) async {
-        setDesktopSize(tester);
+    expect(find.text('request_failure_page'), findsOneWidget);
+    expect(dashboard.requestLog, isEmpty);
+  });
 
-        final adapter = MockHttpAdapter()..stubNever('POST');
-        ProvisioningService.setDioForTesting(dioWithMockAdapter(adapter));
-        addTearDown(ProvisioningService.resetDio);
+  testWidgets('routes to /request_success when an enterprise checkout fails', (tester) async {
+    stubBootstrap();
+    dashboard.stubJson('POST', {'error': 'Plan enterprise is not available for self-serve checkout'},
+        statusCode: 400, path: '/v1/orgs/$_orgId/checkout-session');
 
-        final args = CheckoutArgs(email: 'buyer@test.com', tier: 'growth');
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: CheckoutPage(args: args),
-          ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 1));
+    await pumpAndSettleRequests(tester, const CheckoutArgs(jwt: _jwt, tier: 'enterprise'));
 
-        expect(find.byType(CheckoutPage), findsOneWidget);
-      });
-
-      testWidgets('accepts enterprise tier args', (tester) async {
-        setDesktopSize(tester);
-
-        final adapter = MockHttpAdapter()..stubNever('POST');
-        ProvisioningService.setDioForTesting(dioWithMockAdapter(adapter));
-        addTearDown(ProvisioningService.resetDio);
-
-        final args =
-            CheckoutArgs(email: 'corp@bigco.com', tier: 'enterprise');
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: testTheme,
-            home: CheckoutPage(args: args),
-          ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 1));
-
-        expect(find.byType(CheckoutPage), findsOneWidget);
-      });
-    });
+    expect(find.text('request_success_page'), findsOneWidget);
+    expect(find.text('request_failure_page'), findsNothing);
   });
 }

@@ -360,7 +360,7 @@ void main() {
       await tester.tap(find.widgetWithText(GradientButton, 'Continue to Checkout'));
       await tester.pumpAndSettle();
 
-      expect(checkoutArgs, const CheckoutArgs(email: 'user@example.com', tier: SignupTiers.growth));
+      expect(checkoutArgs, const CheckoutArgs(jwt: 'test-jwt', tier: SignupTiers.growth));
     });
 
     testWidgets('a starter signup goes to the dashboard, not checkout',

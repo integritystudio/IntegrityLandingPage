@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../config/content/constants.dart';
+import '../services/dashboard_service.dart';
 import '../services/provisioning_service.dart';
 import '../services/url_launcher.dart';
 import '../theme/theme.dart';
@@ -8,9 +9,10 @@ import '../widgets/common/containers.dart';
 
 /// Checkout redirect page.
 ///
-/// Creates a Stripe checkout session via the sender-worker and redirects
-/// the browser to the Stripe-hosted payment page. On error, navigates
-/// to /request_failure.
+/// Resolves the signed-in user's active org through /bootstrap, creates a Stripe
+/// checkout session for it through api-gateway's org-scoped route (owner or
+/// billing_admin only), and redirects the browser to the Stripe-hosted payment
+/// page. On error, navigates to /request_failure.
 class CheckoutPage extends StatefulWidget {
   final CheckoutArgs args;
 
@@ -28,22 +30,33 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _redirectToCheckout() async {
-    final result = await ProvisioningService.createCheckoutSession(
-      email: widget.args.email,
-      tier: widget.args.tier,
+    final bootstrap = await ProvisioningService.bootstrap(jwt: widget.args.jwt);
+    if (!mounted) return;
+    if (bootstrap is! BootstrapSuccess) {
+      _routeAfterFailure();
+      return;
+    }
+    final result = await DashboardService.createCheckoutSession(
+      orgId: bootstrap.activeOrg.id,
+      jwt: widget.args.jwt,
+      plan: widget.args.tier.toLowerCase(),
     );
     if (!mounted) return;
     switch (result) {
-      case CheckoutSuccess():
-        launchUrl(result.checkoutUrl);
-      case CheckoutError():
-        // Enterprise has custom pricing; no Stripe price may be configured yet.
-        // The org is provisioned — route to success so the user isn't stranded.
-        if (widget.args.tier.toLowerCase() == SignupTiers.enterprise) {
-          context.go('/request_success');
-        } else {
-          context.go('/request_failure');
-        }
+      case BillingPortalSuccess():
+        launchUrl(result.url);
+      case BillingPortalError():
+        _routeAfterFailure();
+    }
+  }
+
+  /// Enterprise has custom pricing; no Stripe price may be configured yet. The
+  /// org is provisioned, so route to success and do not strand the user.
+  void _routeAfterFailure() {
+    if (widget.args.tier.toLowerCase() == SignupTiers.enterprise) {
+      context.go('/request_success');
+    } else {
+      context.go('/request_failure');
     }
   }
 
